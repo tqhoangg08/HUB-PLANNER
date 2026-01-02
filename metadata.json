@@ -1,0 +1,5 @@
+{
+  "name": "HUB Grade Planner",
+  "description": "A comprehensive GPA calculator and academic planner inspired by university spreadsheets. Features grade input, GPA conversion (10 to 4 scale), target planning, and AI academic advice.",
+  "requestFramePermissions": []
+}
