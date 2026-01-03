@@ -443,6 +443,10 @@ const App: React.FC = () => {
         )}
       </main>
 
+      <footer className="text-center py-4 text-[10px] text-gray-400/60 font-medium tracking-wide hover:text-gray-400/80 transition-colors">
+        Web designed by tqhoangg
+      </footer>
+
       <GeminiAdvisor data={data} />
       
       {showImportGuide && <ImportGuideModal />}
