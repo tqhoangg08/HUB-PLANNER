@@ -1,4 +1,5 @@
 import { Subject, GradeStatus, Semester } from '../types';
+import { StudentRecord } from './rankingData';
 
 // HUB Specific Grade Scale based on user provided image
 export const getGradeDetails = (score10: number) => {
@@ -176,3 +177,69 @@ export const calculateRequiredGPA = (
         isPossible: requiredGPA <= 4.0 && requiredGPA >= 0
     };
   };
+
+export const calculateForecastRank = (
+    currentUser: { gpa4: number; credits: number; drl: number },
+    historicalData: StudentRecord[]
+) => {
+    // 1. Combine user with history
+    const userWithFlag = { ...currentUser, isUser: true };
+    const combinedData = [...historicalData.map(d => ({ ...d, isUser: false })), userWithFlag];
+
+    // 2. Sort Logic (Strict Priority: GPA4 -> Credits -> DRL)
+    combinedData.sort((a, b) => {
+        if (b.gpa4 !== a.gpa4) return b.gpa4 - a.gpa4;
+        if (b.credits !== a.credits) return b.credits - a.credits;
+        return b.drl - a.drl;
+    });
+
+    // 3. Find User Rank
+    const userIndex = combinedData.findIndex(item => item.isUser);
+    const rank = userIndex + 1;
+    const totalStudents = combinedData.length;
+    const percentile = (rank / totalStudents) * 100;
+
+    // 4. Calculate Gap to Next Rank
+    let gapInfo = null;
+    if (userIndex > 0) {
+        const nextPerson = combinedData[userIndex - 1]; // The person immediately above
+        
+        let type = '';
+        let diff = 0;
+        let message = '';
+
+        if (nextPerson.gpa4 > currentUser.gpa4) {
+            type = 'gpa';
+            diff = nextPerson.gpa4 - currentUser.gpa4;
+            // Rounded to avoid floating point weirdness
+            message = `Cần +${diff.toFixed(2)} GPA`;
+        } else if (nextPerson.credits > currentUser.credits) {
+            type = 'credits';
+            diff = nextPerson.credits - currentUser.credits;
+            message = `Cần +${diff} Tín chỉ`;
+        } else if (nextPerson.drl > currentUser.drl) {
+            type = 'drl';
+            diff = nextPerson.drl - currentUser.drl;
+            message = `Cần +${diff} ĐRL`;
+        } else {
+             // This case theoretically shouldn't happen unless exact tie on all fields but pushed down by stability sort?
+             // Since we just inserted, if identical, user might be below or above depending on browser sort. 
+             // Assume minimal nudge needed.
+             message = "Cần cải thiện chỉ số phụ";
+        }
+
+        gapInfo = {
+            type,
+            diff,
+            message
+        };
+    }
+
+    return {
+        rank,
+        totalStudents,
+        percentile,
+        percentileText: `Top ${percentile.toFixed(1)}%`,
+        gapInfo
+    };
+};
