@@ -321,7 +321,7 @@ const App: React.FC = () => {
              </div>
              <div>
                 <h1 className="text-xl font-bold text-[#003375] tracking-tight uppercase">HUB Planner</h1>
-                <p className="text-[10px] text-gray-500 hidden md:block uppercase tracking-wider font-semibold text-[#990000]">Đại học Ngân hàng TP.HCM</p>
+                <p className="text-[10px] text-gray-500 hidden md:block uppercase tracking-wider font-semibold text-[#990000]">Hỗ trợ sinh viên (Không chính thức từ nhà Trường)</p>
              </div>
           </div>
           
