@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Semester, Subject, GradeStatus } from '../types';
 import { calculateSubjectAverage, getGradeDetails, getSubjectStatus, getDegreeClassification } from '../utils/calculations';
-import { Trash2, Plus, Star, Search, X, Pencil } from 'lucide-react';
+import { Trash2, Plus, Star, Search, X, Pencil, BookOpen } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 interface SemesterTableProps {
@@ -101,13 +101,16 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
   };
 
   // --- Calculate Semester Stats ---
-  let semTotalCredits = 0;
+  let semTotalCredits = 0; // Credits with grades (for GPA calc)
   let semWeightedScore4 = 0;
   let semWeightedScore10 = 0;
   let hasData = false;
+  let totalRegisteredCredits = 0; // Total credits (excluding non-GPA)
 
   semester.subjects.forEach(s => {
       if(!s.isNonGPA && s.credits) {
+        totalRegisteredCredits += s.credits;
+
         const avg10 = calculateSubjectAverage(s);
         if(avg10 !== null) {
             const { scale4 } = getGradeDetails(avg10);
@@ -164,6 +167,13 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
 
         {/* Stats Bar */}
         <div className="flex flex-wrap items-center gap-2 md:gap-6 text-sm">
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+                <span className="text-gray-500 font-medium flex items-center gap-1">
+                    <BookOpen size={14}/> Tổng TC:
+                </span>
+                <span className="font-bold text-gray-800">{totalRegisteredCredits}</span>
+            </div>
+
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
                 <span className="text-gray-500 font-medium">GPA (10):</span>
                 <span className="font-bold text-[#990000]">{hasData ? semGPA10.toFixed(1) : '-'}</span>
