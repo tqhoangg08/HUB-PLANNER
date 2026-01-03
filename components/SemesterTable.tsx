@@ -166,11 +166,11 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
         <div className="flex flex-wrap items-center gap-2 md:gap-6 text-sm">
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
                 <span className="text-gray-500 font-medium">GPA (10):</span>
-                <span className="font-bold text-[#990000]">{hasData ? semGPA10.toFixed(2) : '-'}</span>
+                <span className="font-bold text-[#990000]">{hasData ? semGPA10.toFixed(1) : '-'}</span>
             </div>
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
                 <span className="text-gray-500 font-medium">GPA (4):</span>
-                <span className="font-bold text-[#003375]">{hasData ? semGPA4.toFixed(2) : '-'}</span>
+                <span className="font-bold text-[#003375]">{hasData ? semGPA4.toFixed(1) : '-'}</span>
             </div>
             <div className="flex items-center gap-2 bg-white pl-3 pr-1 py-1 rounded-lg border border-gray-200 shadow-sm">
                 <span className="text-gray-500 font-medium flex items-center gap-1">
