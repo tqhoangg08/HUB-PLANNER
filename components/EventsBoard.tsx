@@ -182,7 +182,7 @@ export const EventsBoard: React.FC = () => {
                 </h3>
                 <button 
                     onClick={() => { playClick(); setShowScoreGuide(false); }} 
-                    className="hover:bg-white/20 p-2 rounded-full transition-colors"
+                    className="hover:bg-white/20 p-2 rounded-full transition-colors active:scale-95"
                 >
                     <X size={20} />
                 </button>
@@ -503,7 +503,7 @@ export const EventsBoard: React.FC = () => {
                     </div>
 
                     {/* Total Row */}
-                    <div className="bg-[#003375] text-white p-4 rounded-xl flex justify-between items-center shadow-md">
+                    <div className="bg-[#003375] text-white p-4 rounded-xl flex justify-between items-center shadow-md animate-slideUp">
                         <span className="font-bold text-lg uppercase tracking-wider">Tổng điểm</span>
                         <span className="font-bold text-2xl">100</span>
                     </div>
@@ -514,7 +514,7 @@ export const EventsBoard: React.FC = () => {
              <div className="p-4 bg-gray-50 rounded-b-xl border-t border-gray-200">
                 <button 
                   onClick={() => { playClick(); setShowScoreGuide(false); }}
-                  className="w-full bg-[#003375] hover:bg-[#002855] text-white font-bold py-3 rounded-xl transition-all"
+                  className="w-full bg-[#003375] hover:bg-[#002855] text-white font-bold py-3 rounded-xl transition-all active:scale-95 shadow-md"
                 >
                   Đã hiểu
                 </button>
@@ -535,11 +535,11 @@ export const EventsBoard: React.FC = () => {
     return (
       <div 
         key={evt.id} 
-        className={`bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col transition-all duration-300 hover:shadow-lg hover:scale-[1.02] group relative overflow-hidden ${isExpired ? 'opacity-90 grayscale-[0.3]' : ''}`}
+        className={`bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group relative overflow-hidden ${isExpired ? 'opacity-90 grayscale-[0.3]' : ''}`}
       >
         {/* Top Type Tag */}
         {evt.type && (
-            <div className={`absolute top-0 right-0 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 ${isExpired ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-[#003375]'}`}>
+            <div className={`absolute top-0 right-0 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 shadow-sm ${isExpired ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-[#003375]'}`}>
                 {evt.type}
             </div>
         )}
@@ -590,7 +590,7 @@ export const EventsBoard: React.FC = () => {
                     playClick();
                     e.stopPropagation();
                 }}
-                className="mt-auto w-full bg-[#003375] hover:bg-[#002855] text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow"
+                className="mt-auto w-full bg-[#003375] hover:bg-[#002855] text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow-md"
             >
                 Tham gia ngay
             </a>
@@ -626,7 +626,7 @@ export const EventsBoard: React.FC = () => {
                 <input
                     type="text"
                     placeholder="Tìm tên, BTC, loại hình..."
-                    className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none w-full md:w-64 transition-shadow"
+                    className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none w-full md:w-64 transition-all hover:border-blue-300"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -635,7 +635,7 @@ export const EventsBoard: React.FC = () => {
             
             <button 
                 onClick={() => { playClick(); setShowScoreGuide(true); }}
-                className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-colors flex items-center gap-2 font-medium"
+                className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all flex items-center gap-2 font-medium active:scale-95 hover:shadow-sm"
                 title="Xem bảng điểm ĐRL"
             >
                 <FileText size={18} />
@@ -644,7 +644,7 @@ export const EventsBoard: React.FC = () => {
 
             <button 
                 onClick={() => { playClick(); fetchEvents(); }}
-                className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-colors"
+                className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95 hover:rotate-180 duration-500"
                 title="Làm mới dữ liệu"
             >
                 <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
@@ -659,10 +659,10 @@ export const EventsBoard: React.FC = () => {
                 key={cat.id}
                 onClick={() => { playClick(); setActiveTab(cat.id); }}
                 className={`
-                    px-4 py-2 rounded-xl whitespace-nowrap transition-all duration-200 border flex flex-col items-center min-w-[100px]
+                    px-4 py-2 rounded-xl whitespace-nowrap transition-all duration-300 border flex flex-col items-center min-w-[100px] active:scale-95
                     ${activeTab === cat.id 
-                        ? 'bg-[#003375] text-white border-[#003375] shadow-md scale-105' 
-                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'}
+                        ? 'bg-[#003375] text-white border-[#003375] shadow-lg scale-105' 
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm'}
                 `}
             >
                 <span className="font-bold text-sm">{cat.label}</span>
@@ -672,12 +672,12 @@ export const EventsBoard: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20">
+        <div className="flex flex-col items-center justify-center py-20 animate-fadeIn">
           <Loader2 size={40} className="text-[#003375] animate-spin mb-4" />
           <p className="text-gray-500">Đang tải dữ liệu...</p>
         </div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center">
+        <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn">
           <p className="font-bold mb-2">Đã xảy ra lỗi</p>
           <p>{error}</p>
           <button 
@@ -690,7 +690,7 @@ export const EventsBoard: React.FC = () => {
       ) : (
         <>
             {filteredEvents.length === 0 ? (
-                <div className="py-16 text-center bg-white rounded-xl border border-dashed border-gray-300">
+                <div className="py-16 text-center bg-white rounded-xl border border-dashed border-gray-300 animate-fadeIn">
                     <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
                         <Filter size={32} />
                     </div>
@@ -706,7 +706,7 @@ export const EventsBoard: React.FC = () => {
                     )}
                 </div>
             ) : (
-                <div className="space-y-12">
+                <div className="space-y-12 animate-fadeIn">
                      {/* Active Events Section */}
                     {activeEvents.length > 0 && (
                         <div>
