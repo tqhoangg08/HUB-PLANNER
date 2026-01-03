@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Semester, Subject, GradeStatus } from '../types';
-import { calculateSubjectAverage, getGradeDetails, getSubjectStatus, getDegreeClassification } from '../utils/calculations';
-import { Trash2, Plus, Star, Search, X, Pencil, BookOpen } from 'lucide-react';
+import { calculateSubjectAverage, getGradeDetails, getSubjectStatus, getDegreeClassification, calculateForecastRank } from '../utils/calculations';
+import { fetchRankingData, AVAILABLE_DATASETS } from '../utils/rankingData';
+import { Trash2, Plus, Star, Search, X, Pencil, BookOpen, Crown, ChevronDown, TrendingUp } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 interface SemesterTableProps {
@@ -55,6 +56,10 @@ const ScoreInput = ({
 
 export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [rankingInfo, setRankingInfo] = useState<{rank: number, total: number, text: string, gapInfo: any} | null>(null);
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
+  const [showRankMenu, setShowRankMenu] = useState(false);
+  const rankMenuRef = useRef<HTMLDivElement>(null);
   
   const handleSubjectChange = (subjectId: string, field: keyof Subject, value: any) => {
     const updatedSubjects = semester.subjects.map(sub => {
@@ -100,6 +105,17 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
     onUpdateSemester({ ...semester, subjects: semester.subjects.filter(s => s.id !== id) });
   };
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (rankMenuRef.current && !rankMenuRef.current.contains(event.target as Node)) {
+            setShowRankMenu(false);
+        }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // --- Calculate Semester Stats ---
   let semTotalCredits = 0; // Credits with grades (for GPA calc)
   let semWeightedScore4 = 0;
@@ -126,10 +142,54 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
   const semGPA10 = semTotalCredits ? (semWeightedScore10 / semTotalCredits) : 0;
   const classification = hasData ? getDegreeClassification(semGPA4) : '---';
 
+  // --- Ranking Logic ---
+  // Auto-detect dataset if none selected
+  useEffect(() => {
+    if (!selectedDatasetId && semester.name) {
+        const lowerName = semester.name.toLowerCase();
+        if (lowerName.includes('học kỳ 1') || lowerName.includes('hk1')) {
+            setSelectedDatasetId('hk1_2425');
+        } else if (lowerName.includes('học kỳ 2') || lowerName.includes('hk2')) {
+            setSelectedDatasetId('hk2_2425');
+        }
+    }
+  }, [semester.name]);
+
+  useEffect(() => {
+    if (hasData) {
+        const fetchRank = async () => {
+            const datasetToFetch = selectedDatasetId || semester.name; // Fallback to name-based detection in fetchRankingData
+            const historicalData = await fetchRankingData(datasetToFetch);
+            
+            if (historicalData) {
+                const userStats = {
+                    gpa4: semGPA4,
+                    credits: totalRegisteredCredits,
+                    drl: semester.trainingScore || 0
+                };
+                const result = calculateForecastRank(userStats, historicalData);
+                setRankingInfo({
+                    rank: result.rank,
+                    total: result.totalStudents,
+                    text: result.percentileText,
+                    gapInfo: result.gapInfo
+                });
+            } else {
+                setRankingInfo(null);
+            }
+        };
+
+        const timer = setTimeout(fetchRank, 500);
+        return () => clearTimeout(timer);
+    } else {
+        setRankingInfo(null);
+    }
+  }, [semester.name, semGPA4, totalRegisteredCredits, semester.trainingScore, hasData, selectedDatasetId]);
+
+
   // Styles for header - Darker academics tones
   let headerColor = "bg-gray-50 border-gray-200";
   if (hasData) {
-      // Use subtle colored backgrounds but dark text
       if (semGPA4 >= 3.6) headerColor = "bg-green-50 border-green-200"; 
       else if (semGPA4 >= 3.2) headerColor = "bg-blue-50 border-blue-200"; 
       else if (semGPA4 >= 2.5) headerColor = "bg-indigo-50 border-indigo-200"; 
@@ -141,6 +201,8 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
   const filteredSubjects = semester.subjects.filter(subject => 
     subject.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  const currentDatasetName = AVAILABLE_DATASETS.find(d => d.id === selectedDatasetId)?.name || "Tự động chọn";
 
   return (
     <div className={`mb-8 bg-white rounded-xl shadow-sm border overflow-hidden transition-all duration-300 hover:scale-[1.01] hover:shadow-lg ${hasData ? 'border-opacity-100' : 'border-gray-200'}`}>
@@ -166,20 +228,73 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
         </div>
 
         {/* Stats Bar */}
-        <div className="flex flex-wrap items-center gap-2 md:gap-6 text-sm">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4 text-sm">
+             {/* Rank Badge Dropdown */}
+             {hasData && (
+                 <div className="relative" ref={rankMenuRef}>
+                    <button 
+                        onClick={() => { playClick(); setShowRankMenu(!showRankMenu); }}
+                        className="flex items-center gap-1 bg-yellow-100 text-yellow-800 px-3 py-1.5 rounded-lg border border-yellow-200 shadow-sm hover:bg-yellow-200 transition-colors"
+                        title="Xếp hạng dự báo"
+                    >
+                        <Crown size={14} className="fill-yellow-500 text-yellow-600"/> 
+                        <span className="font-bold">{rankingInfo ? rankingInfo.text : 'Xếp hạng'}</span>
+                        <ChevronDown size={12} className={`transition-transform ${showRankMenu ? 'rotate-180' : ''}`}/>
+                    </button>
+
+                    {showRankMenu && (
+                        <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden animate-fadeIn">
+                            <div className="bg-gray-50 px-3 py-2 border-b border-gray-100 text-xs text-gray-500 font-semibold uppercase tracking-wider">
+                                So sánh với dữ liệu
+                            </div>
+                            <div className="max-h-40 overflow-y-auto">
+                                {AVAILABLE_DATASETS.map(ds => (
+                                    <button
+                                        key={ds.id}
+                                        onClick={() => { playClick(); setSelectedDatasetId(ds.id); setShowRankMenu(false); }}
+                                        className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 transition-colors flex items-center justify-between ${selectedDatasetId === ds.id ? 'text-[#003375] font-bold bg-blue-50' : 'text-gray-700'}`}
+                                    >
+                                        {ds.name}
+                                        {selectedDatasetId === ds.id && <Crown size={12} />}
+                                    </button>
+                                ))}
+                            </div>
+                            
+                            {/* Detailed Info Section */}
+                            {rankingInfo && (
+                                <div className="bg-[#003375] text-white p-3 text-xs">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span>Hạng dự báo:</span>
+                                        <span className="font-bold text-yellow-300 text-sm">{rankingInfo.rank} <span className="text-white/70 font-normal">/ {rankingInfo.total}</span></span>
+                                    </div>
+                                    {rankingInfo.gapInfo ? (
+                                        <div className="pt-2 border-t border-white/20">
+                                            <p className="flex items-center gap-1 text-orange-200 mb-1">
+                                                <TrendingUp size={12}/> Để lên hạng kế tiếp:
+                                            </p>
+                                            <p className="font-bold">{rankingInfo.gapInfo.message}</p>
+                                        </div>
+                                    ) : (
+                                        <div className="pt-2 border-t border-white/20 text-center text-green-300 font-bold">
+                                            Bạn đang dẫn đầu! 🏆
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                 </div>
+             )}
+
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
                 <span className="text-gray-500 font-medium flex items-center gap-1">
-                    <BookOpen size={14}/> Tổng TC:
+                    <BookOpen size={14}/> TC:
                 </span>
                 <span className="font-bold text-gray-800">{totalRegisteredCredits}</span>
             </div>
 
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                <span className="text-gray-500 font-medium">GPA (10):</span>
-                <span className="font-bold text-[#990000]">{hasData ? semGPA10.toFixed(1) : '-'}</span>
-            </div>
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                <span className="text-gray-500 font-medium">GPA (4):</span>
+                <span className="text-gray-500 font-medium">GPA(4):</span>
                 <span className="font-bold text-[#003375]">{hasData ? semGPA4.toFixed(1) : '-'}</span>
             </div>
             <div className="flex items-center gap-2 bg-white pl-3 pr-1 py-1 rounded-lg border border-gray-200 shadow-sm">
@@ -190,7 +305,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                     type="number" 
                     min="0" max="100"
                     placeholder="0"
-                    className="w-12 text-center font-bold text-gray-800 outline-none border-b border-transparent focus:border-blue-400 focus:bg-gray-50 rounded transition-colors"
+                    className="w-10 text-center font-bold text-gray-800 outline-none border-b border-transparent focus:border-blue-400 focus:bg-gray-50 rounded transition-colors"
                     value={semester.trainingScore ?? ''}
                     onChange={(e) => handleTrainingScoreChange(e.target.value)}
                 />
