@@ -85,7 +85,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
     <>
       <button
         onClick={() => { playClick(); setIsOpen(true); }}
-        className="fixed bottom-6 right-6 bg-[#990000] hover:bg-[#7a0000] text-white p-4 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 z-50 flex items-center gap-2 border-4 border-white active:scale-95 group"
+        className="fixed bottom-6 right-6 bg-[#990000] hover:bg-[#7a0000] text-white p-4 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 z-50 flex items-center gap-2 border-4 border-white active:scale-95 group animate-float hover:animate-none"
       >
         <Sparkles size={24} className="group-hover:animate-pulse" />
         <span className="font-semibold hidden md:inline group-hover:translate-x-1 transition-transform">Cố vấn AI</span>
@@ -107,9 +107,9 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
               </button>
             </div>
 
-            <div className="p-6 flex-1 overflow-y-auto">
+            <div className="p-6 flex-1 overflow-y-auto custom-scrollbar">
               {response ? (
-                <div className="prose prose-sm max-w-none bg-gray-50 p-4 rounded-lg border border-gray-100 text-gray-800 animate-fadeIn">
+                <div className="prose prose-sm max-w-none bg-gray-50 p-4 rounded-lg border border-gray-100 text-gray-800 animate-fadeIn shadow-inner">
                   <div dangerouslySetInnerHTML={{ 
                     __html: response.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') 
                   }} />
