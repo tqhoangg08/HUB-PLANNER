@@ -188,7 +188,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
                     {bestSemester ? (
                         <div>
                             <p className="font-bold text-gray-800">{bestSemester.name}</p>
-                            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">GPA: {bestSemester.gpa.toFixed(2)}</span>
+                            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">GPA: {bestSemester.gpa.toFixed(1)}</span>
                         </div>
                     ) : <p className="text-gray-400 text-sm">Chưa có dữ liệu</p>}
                 </div>
@@ -218,11 +218,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
             <p className="text-sm text-[#003375] font-medium">GPA (Hệ 4)</p>
-            <p className="text-3xl font-bold text-[#003375]">{stats.gpa4.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-[#003375]">{stats.gpa4.toFixed(1)}</p>
           </div>
           <div className="p-4 bg-orange-50 rounded-lg border border-orange-100">
             <p className="text-sm text-[#990000] font-medium">GPA (Hệ 10)</p>
-            <p className="text-3xl font-bold text-[#990000]">{stats.gpa10.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-[#990000]">{stats.gpa10.toFixed(1)}</p>
           </div>
         </div>
 
@@ -302,7 +302,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
                     <div className="flex items-center gap-1 group relative">
                         <input 
                             type="number"
-                            min="0" max="4" step="0.01"
+                            min="0" max="4" step="0.1"
                             value={data.targetGPA}
                             onChange={(e) => onTargetChange(parseFloat(e.target.value) || 0)}
                             className="w-16 text-xl font-bold text-[#003375] text-right bg-transparent border-b border-dashed border-gray-300 hover:border-[#003375] focus:border-[#003375] focus:outline-none transition-colors pr-1 cursor-pointer"
@@ -317,7 +317,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
                             <p className="text-xs text-gray-600 mb-1">Mỗi kỳ tới cần đạt:</p>
                             <div className="flex items-end gap-2 mb-2">
                                 <p className={`text-3xl font-bold ${scoreClass} leading-none`}>
-                                    {Math.max(0, requiredAnalysis.requiredGPA).toFixed(2)} 
+                                    {Math.max(0, requiredAnalysis.requiredGPA).toFixed(1)} 
                                 </p>
                                 <span className={`text-xs font-bold uppercase tracking-wider ${difficultyColor} border px-1 rounded bg-white`}>
                                     {difficultyText}
@@ -435,7 +435,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
                         <div className="flex justify-between items-center mb-1">
                              <span className="font-medium text-gray-700 text-sm">{year.label}</span>
                              <span className={`font-bold ${year.hasData ? 'text-[#003375]' : 'text-gray-400'}`}>
-                                {year.hasData ? year.gpa4.toFixed(2) : '-'}
+                                {year.hasData ? year.gpa4.toFixed(1) : '-'}
                              </span>
                         </div>
                         <div className="flex justify-between items-center text-xs">
