@@ -138,8 +138,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8 animate-fadeIn">
        {/* User Info Card - Expanded */}
        {data.studentName && (
-        <div className="lg:col-span-4 bg-gradient-to-r from-[#003375] to-[#00509d] rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden transition-all duration-300 hover:scale-[1.01] hover:shadow-xl">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full transform translate-x-1/2 -translate-y-1/2"></div>
+        <div className="lg:col-span-4 bg-gradient-to-r from-[#003375] to-[#00509d] rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden transition-all duration-300 hover:scale-[1.01] hover:shadow-xl group">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full transform translate-x-1/2 -translate-y-1/2 group-hover:scale-110 transition-transform duration-700"></div>
             <div className="relative z-10">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
                     <User className="bg-white/20 p-1 rounded-full text-white" size={32} />
@@ -164,8 +164,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
 
        {/* Highlights Row */}
        <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
-                <div className="w-12 h-12 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center">
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <div className="w-12 h-12 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center shadow-inner">
                     <Trophy size={24} />
                 </div>
                 <div>
@@ -173,14 +173,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
                     {highestSubject ? (
                         <div>
                             <p className="font-bold text-gray-800 line-clamp-1" title={highestSubject.name}>{highestSubject.name}</p>
-                            <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">{highestSubject.avg.toFixed(1)} ({highestSubject.letter})</span>
+                            <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">{highestSubject.avg.toFixed(1)} ({highestSubject.letter})</span>
                         </div>
                     ) : <p className="text-gray-400 text-sm">Chưa có dữ liệu</p>}
                 </div>
             </div>
             
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
-                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner">
                     <Zap size={24} />
                 </div>
                 <div>
@@ -188,14 +188,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
                     {bestSemester ? (
                         <div>
                             <p className="font-bold text-gray-800">{bestSemester.name}</p>
-                            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">GPA: {bestSemester.gpa.toFixed(1)}</span>
+                            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">GPA: {bestSemester.gpa.toFixed(1)}</span>
                         </div>
                     ) : <p className="text-gray-400 text-sm">Chưa có dữ liệu</p>}
                 </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
-                <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner">
                     <BookOpen size={24} />
                 </div>
                 <div>
@@ -209,18 +209,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
        </div>
 
       {/* Main Stats Card & Pie Chart */}
-      <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-200 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg flex flex-col">
+      <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-200 transition-all duration-300 hover:scale-[1.01] hover:shadow-xl flex flex-col">
         <h2 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
           <Award className="text-[#990000]" />
           Tổng quan GPA & Phân bố
         </h2>
         
         <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+          <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 transition-colors hover:bg-blue-100/50">
             <p className="text-sm text-[#003375] font-medium">GPA (Hệ 4)</p>
             <p className="text-3xl font-bold text-[#003375]">{stats.gpa4.toFixed(1)}</p>
           </div>
-          <div className="p-4 bg-orange-50 rounded-lg border border-orange-100">
+          <div className="p-4 bg-orange-50 rounded-lg border border-orange-100 transition-colors hover:bg-orange-100/50">
             <p className="text-sm text-[#990000] font-medium">GPA (Hệ 10)</p>
             <p className="text-3xl font-bold text-[#990000]">{stats.gpa10.toFixed(1)}</p>
           </div>
@@ -261,7 +261,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
       {/* Target & Advice */}
       <div className="lg:col-span-2 flex flex-col gap-6">
         {/* Advice Box */}
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 transition-all duration-300 hover:shadow-lg">
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5">
             <h3 className="font-bold text-[#003375] mb-3 flex items-center gap-2">
                 <AlertTriangle className="text-orange-500" size={20}/>
                 Đánh giá & Cảnh báo
@@ -290,7 +290,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
         </div>
 
         {/* Target Box */}
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex-1 relative overflow-hidden transition-all duration-300 hover:shadow-lg">
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 flex-1 relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5">
             <h3 className="font-bold text-[#003375] mb-4 flex items-center gap-2 z-10 relative">
             <Target className="text-[#990000]" size={20}/>
             Dự báo Mục tiêu
@@ -339,7 +339,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
             </div>
              <div className="w-full bg-gray-200 rounded-full h-1.5 mt-auto">
                  <div 
-                    className="bg-[#003375] h-1.5 rounded-full transition-all duration-500" 
+                    className="bg-[#003375] h-1.5 rounded-full transition-all duration-500 ease-out" 
                     style={{ width: `${Math.min(100, (stats.passedCredits / totalCreditsRequired) * 100)}%` }}
                  ></div>
              </div>
@@ -355,7 +355,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
          </h3>
          <div className="space-y-2">
             {validSubjects.slice(0, 3).map((sub, i) => (
-                <div key={i} className="flex justify-between items-center p-2 bg-green-50 rounded border border-green-100">
+                <div key={i} className="flex justify-between items-center p-2 bg-green-50 rounded border border-green-100 hover:bg-green-100 transition-colors">
                     <div>
                         <p className="font-semibold text-gray-800 text-sm line-clamp-1">{sub.name}</p>
                         <p className="text-[10px] text-gray-500">{sub.semName}</p>
@@ -377,7 +377,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
          </h3>
          <div className="space-y-2">
             {[...validSubjects].reverse().slice(0, 3).map((sub, i) => (
-                <div key={i} className="flex justify-between items-center p-2 bg-orange-50 rounded border border-orange-100">
+                <div key={i} className="flex justify-between items-center p-2 bg-orange-50 rounded border border-orange-100 hover:bg-orange-100 transition-colors">
                     <div>
                         <p className="font-semibold text-gray-800 text-sm line-clamp-1">{sub.name}</p>
                         <p className="text-[10px] text-gray-500">{sub.semName}</p>
@@ -431,7 +431,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
             {yearlyStats.map((year) => {
                 const yearClass = year.hasData ? getDegreeClassification(year.gpa4) : '---';
                 return (
-                    <div key={year.yearId} className="flex flex-col p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-blue-200 transition-colors">
+                    <div key={year.yearId} className="flex flex-col p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-blue-200 transition-all hover:bg-blue-50 cursor-default">
                         <div className="flex justify-between items-center mb-1">
                              <span className="font-medium text-gray-700 text-sm">{year.label}</span>
                              <span className={`font-bold ${year.hasData ? 'text-[#003375]' : 'text-gray-400'}`}>
