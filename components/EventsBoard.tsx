@@ -239,7 +239,7 @@ export const EventsBoard: React.FC = () => {
                 }}
                 className="mt-auto w-full bg-[#003375] hover:bg-[#002855] text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow"
             >
-                Đăng ký ngay
+                Tham gia ngay
             </a>
         ) : (
             <button 
