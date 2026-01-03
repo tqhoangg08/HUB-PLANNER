@@ -5,7 +5,8 @@ import { SemesterTable } from './components/SemesterTable';
 import { GeminiAdvisor } from './components/GeminiAdvisor';
 import { Onboarding } from './components/Onboarding';
 import { Handbook } from './components/Handbook';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle } from 'lucide-react';
+import { EventsBoard } from './components/EventsBoard';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { playClick } from './utils/audio';
 
@@ -48,7 +49,7 @@ const App: React.FC = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [showImportGuide, setShowImportGuide] = useState(false);
-  const [activeView, setActiveView] = useState<'dashboard' | 'handbook'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'handbook' | 'events'>('dashboard');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -326,17 +327,24 @@ const App: React.FC = () => {
           
           <div className="flex items-center gap-2 md:gap-4">
              {/* Navigation Tabs */}
-             <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
+             <div className="flex bg-gray-100 rounded-lg p-1 gap-1 overflow-x-auto max-w-[200px] sm:max-w-none no-scrollbar">
                 <button 
                     onClick={() => { playClick(); setActiveView('dashboard'); }}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeView === 'dashboard' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${activeView === 'dashboard' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                     <LayoutDashboard size={16} />
                     <span className="hidden sm:inline">Bảng điểm</span>
                 </button>
                 <button 
+                    onClick={() => { playClick(); setActiveView('events'); }}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${activeView === 'events' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    <Zap size={16} />
+                    <span className="hidden sm:inline">Sự kiện ĐRL</span>
+                </button>
+                <button 
                     onClick={() => { playClick(); setActiveView('handbook'); }}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeView === 'handbook' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${activeView === 'handbook' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                     <Book size={16} />
                     <span className="hidden sm:inline">Cẩm nang</span>
@@ -363,9 +371,9 @@ const App: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {activeView === 'handbook' ? (
-            <Handbook />
-        ) : (
+        {activeView === 'handbook' && <Handbook />}
+        {activeView === 'events' && <EventsBoard />}
+        {activeView === 'dashboard' && (
             <div className="animate-slideInRight">
                 <Dashboard 
                 data={data} 

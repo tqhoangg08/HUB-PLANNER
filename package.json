@@ -14,7 +14,8 @@
     "react-dom": "^19.2.3",
     "react": "^19.2.3",
     "lucide-react": "^0.562.0",
-    "pdfjs-dist": "4.0.379"
+    "pdfjs-dist": "4.0.379",
+    "papaparse": "5.4.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
