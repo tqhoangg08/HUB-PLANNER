@@ -53,8 +53,8 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
         - Chuyên ngành: ${data.specializationName || data.majorName || "N/A"}
         
         Dữ liệu học tập:
-        - GPA (Hệ 4): ${stats.gpa4.toFixed(2)}
-        - GPA (Hệ 10): ${stats.gpa10.toFixed(2)}
+        - GPA (Hệ 4): ${stats.gpa4.toFixed(1)}
+        - GPA (Hệ 10): ${stats.gpa10.toFixed(1)}
         - Tổng tín chỉ tích lũy: ${stats.passedCredits}/${data.totalCreditsRequired || 125}
         - Xếp loại tạm thời: ${degree}
         - Môn rớt (cần học lại): ${failedSubjects.length > 0 ? failedSubjects.join(', ') : 'Không có'}
