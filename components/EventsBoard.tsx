@@ -166,6 +166,97 @@ export const EventsBoard: React.FC = () => {
     return matchesSearch && matchesTab;
   });
 
+  const now = new Date();
+  const activeEvents = filteredEvents.filter(evt => !evt.deadlineDate || evt.deadlineDate >= now);
+  const expiredEvents = filteredEvents.filter(evt => evt.deadlineDate && evt.deadlineDate < now);
+
+  const renderEventCard = (evt: HubEvent) => {
+    const isExpired = evt.deadlineDate ? evt.deadlineDate < new Date() : false;
+    const canRegister = evt.link && !isExpired;
+    
+    // Ensure absolute URL
+    const formattedLink = evt.link && !evt.link.startsWith('http') 
+        ? `https://${evt.link}` 
+        : evt.link;
+
+    return (
+      <div 
+        key={evt.id} 
+        className={`bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col transition-all duration-300 hover:shadow-lg hover:scale-[1.02] group relative overflow-hidden ${isExpired ? 'opacity-90 grayscale-[0.3]' : ''}`}
+      >
+        {/* Top Type Tag */}
+        {evt.type && (
+            <div className={`absolute top-0 right-0 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 ${isExpired ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-[#003375]'}`}>
+                {evt.type}
+            </div>
+        )}
+
+        <div className="flex justify-between items-start mb-3 mt-2">
+            {/* BTC */}
+            <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded border border-gray-200 flex items-center gap-1 line-clamp-1 max-w-[60%]">
+                <Users size={12}/> {evt.organizer}
+            </span>
+            
+            {/* Category & Score */}
+            <div className="flex gap-1 pr-6"> {/* pr-6 to avoid overlap with type tag */}
+                <span className="bg-white text-gray-500 text-xs font-bold px-2 py-1 rounded border border-gray-200 flex items-center justify-center" title={`Mục ${evt.category}`}>
+                    {evt.category}
+                </span>
+                <span className={`text-xs font-bold px-2 py-1 rounded border flex items-center gap-1 ${isExpired ? 'bg-gray-50 text-gray-500 border-gray-100' : 'bg-red-50 text-[#990000] border-red-100'}`}>
+                    <Award size={12}/> {evt.score.includes('+') ? evt.score : `+${evt.score}`}
+                </span>
+            </div>
+        </div>
+
+        <h3 className="font-bold text-gray-800 mb-3 line-clamp-2 group-hover:text-[#003375] transition-colors h-[3.5rem] flex items-center">
+            {evt.name}
+        </h3>
+
+        <div className="space-y-2 text-sm text-gray-600 mb-4 flex-1">
+            <div className="flex items-start gap-2">
+                <Clock size={16} className={`mt-0.5 shrink-0 ${isExpired ? 'text-red-400' : 'text-gray-400'}`} />
+                <div>
+                    <span className={isExpired ? 'text-red-500 font-medium line-through decoration-red-500' : ''}>
+                        {evt.time || 'Chưa cập nhật hạn'}
+                    </span>
+                    {isExpired && <span className="text-red-500 text-xs ml-2 font-bold">(Đã hết hạn)</span>}
+                </div>
+            </div>
+            <div className="flex items-start gap-2">
+                <MapPin size={16} className="text-gray-400 mt-0.5 shrink-0" />
+                <span className="line-clamp-1">{evt.location}</span>
+            </div>
+        </div>
+
+        {canRegister ? (
+            <a 
+                href={formattedLink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                    playClick();
+                    e.stopPropagation();
+                }}
+                className="mt-auto w-full bg-[#003375] hover:bg-[#002855] text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow"
+            >
+                Đăng ký ngay <ExternalLink size={14} />
+            </a>
+        ) : (
+            <button 
+                disabled 
+                className="mt-auto w-full bg-gray-100 text-gray-400 py-2 rounded-lg font-medium text-sm cursor-not-allowed border border-gray-200 flex items-center justify-center gap-2"
+            >
+                {isExpired ? (
+                    <>Đã hết hạn <AlertCircle size={14}/></>
+                ) : (
+                    "Chưa có link"
+                )}
+            </button>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="animate-slideInRight">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -174,7 +265,7 @@ export const EventsBoard: React.FC = () => {
              <Calendar className="text-[#990000]" />
              Sự kiện Điểm Rèn Luyện
            </h2>
-           <p className="text-sm text-gray-500 mt-1">Một vài sự kiện có thể được cập nhật trễ</p>
+           <p className="text-sm text-gray-500 mt-1">Cập nhật các hoạt động ngoại khóa theo 5 mục ĐRL</p>
         </div>
         
         <div className="flex gap-2 w-full md:w-auto">
@@ -220,7 +311,7 @@ export const EventsBoard: React.FC = () => {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 size={40} className="text-[#003375] animate-spin mb-4" />
-          <p className="text-gray-500">Đang tải dữ liệu...</p>
+          <p className="text-gray-500">Đang tải dữ liệu từ Google Sheet...</p>
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center">
@@ -234,112 +325,51 @@ export const EventsBoard: React.FC = () => {
           </button>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredEvents.length > 0 ? (
-            filteredEvents.map((evt) => {
-                const isExpired = evt.deadlineDate ? evt.deadlineDate < new Date() : false;
-                const canRegister = evt.link && !isExpired;
-                
-                // Ensure absolute URL
-                const formattedLink = evt.link && !evt.link.startsWith('http') 
-                    ? `https://${evt.link}` 
-                    : evt.link;
-
-                return (
-                  <div 
-                    key={evt.id} 
-                    className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col transition-all duration-300 hover:shadow-lg hover:scale-[1.02] group relative overflow-hidden"
-                  >
-                    {/* Top Type Tag */}
-                    {evt.type && (
-                        <div className="absolute top-0 right-0 bg-blue-100 text-[#003375] text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10">
-                            {evt.type}
-                        </div>
-                    )}
-
-                    <div className="flex justify-between items-start mb-3 mt-2">
-                        {/* BTC */}
-                        <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded border border-gray-200 flex items-center gap-1 line-clamp-1 max-w-[60%]">
-                            <Users size={12}/> {evt.organizer}
-                        </span>
-                        
-                        {/* Category & Score */}
-                        <div className="flex gap-1 pr-6"> {/* pr-6 to avoid overlap with type tag */}
-                            <span className="bg-white text-gray-500 text-xs font-bold px-2 py-1 rounded border border-gray-200 flex items-center justify-center" title={`Mục ${evt.category}`}>
-                                {evt.category}
-                            </span>
-                            <span className="bg-red-50 text-[#990000] text-xs font-bold px-2 py-1 rounded border border-red-100 flex items-center gap-1">
-                                <Award size={12}/> {evt.score.includes('+') ? evt.score : `+${evt.score}`}
-                            </span>
-                        </div>
+        <>
+            {filteredEvents.length === 0 ? (
+                <div className="py-16 text-center bg-white rounded-xl border border-dashed border-gray-300">
+                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
+                        <Filter size={32} />
                     </div>
-
-                    <h3 className="font-bold text-gray-800 mb-3 line-clamp-2 group-hover:text-[#003375] transition-colors h-[3.5rem] flex items-center">
-                        {evt.name}
-                    </h3>
-
-                    <div className="space-y-2 text-sm text-gray-600 mb-4 flex-1">
-                        <div className="flex items-start gap-2">
-                            <Clock size={16} className={`mt-0.5 shrink-0 ${isExpired ? 'text-red-400' : 'text-gray-400'}`} />
-                            <div>
-                                <span className={isExpired ? 'text-red-500 font-medium line-through decoration-red-500' : ''}>
-                                    {evt.time || 'Chưa cập nhật hạn'}
-                                </span>
-                                {isExpired && <span className="text-red-500 text-xs ml-2 font-bold">(Đã hết hạn)</span>}
-                            </div>
-                        </div>
-                        <div className="flex items-start gap-2">
-                            <MapPin size={16} className="text-gray-400 mt-0.5 shrink-0" />
-                            <span className="line-clamp-1">{evt.location}</span>
-                        </div>
-                    </div>
-
-                    {canRegister ? (
-                        <a 
-                            href={formattedLink} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            onClick={(e) => {
-                                playClick();
-                                e.stopPropagation();
-                            }}
-                            className="mt-auto w-full bg-[#003375] hover:bg-[#002855] text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow"
-                        >
-                            Đăng ký ngay <ExternalLink size={14} />
-                        </a>
-                    ) : (
+                    <p className="text-gray-500 font-medium">Không tìm thấy sự kiện nào.</p>
+                    <p className="text-sm text-gray-400">Thử chọn mục khác hoặc tìm kiếm từ khóa khác.</p>
+                    {activeTab !== 'all' && (
                         <button 
-                            disabled 
-                            className="mt-auto w-full bg-gray-100 text-gray-400 py-2 rounded-lg font-medium text-sm cursor-not-allowed border border-gray-200 flex items-center justify-center gap-2"
+                            onClick={() => setActiveTab('all')}
+                            className="mt-4 text-[#003375] text-sm hover:underline"
                         >
-                            {isExpired ? (
-                                <>Đã hết hạn <AlertCircle size={14}/></>
-                            ) : (
-                                "Chưa có link"
-                            )}
+                            Xem tất cả sự kiện
                         </button>
                     )}
-                  </div>
-                );
-            })
-          ) : (
-            <div className="col-span-full py-16 text-center bg-white rounded-xl border border-dashed border-gray-300">
-                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
-                    <Filter size={32} />
                 </div>
-                <p className="text-gray-500 font-medium">Không tìm thấy sự kiện nào.</p>
-                <p className="text-sm text-gray-400">Thử chọn mục khác hoặc tìm kiếm từ khóa khác.</p>
-                {activeTab !== 'all' && (
-                    <button 
-                        onClick={() => setActiveTab('all')}
-                        className="mt-4 text-[#003375] text-sm hover:underline"
-                    >
-                        Xem tất cả sự kiện
-                    </button>
-                )}
-            </div>
-          )}
-        </div>
+            ) : (
+                <div className="space-y-12">
+                     {/* Active Events Section */}
+                    {activeEvents.length > 0 && (
+                        <div>
+                            <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2 border-l-4 border-[#003375] pl-3">
+                                🔥 Đang diễn ra
+                            </h3>
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {activeEvents.map(evt => renderEventCard(evt))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Expired Events Section */}
+                    {expiredEvents.length > 0 && (
+                        <div className="opacity-80">
+                            <h3 className="text-xl font-bold text-gray-500 mb-4 flex items-center gap-2 border-l-4 border-gray-300 pl-3">
+                                ⏳ Đã kết thúc
+                            </h3>
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {expiredEvents.map(evt => renderEventCard(evt))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </>
       )}
       
       {lastUpdated && (
