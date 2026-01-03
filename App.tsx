@@ -6,7 +6,8 @@ import { GeminiAdvisor } from './components/GeminiAdvisor';
 import { Onboarding } from './components/Onboarding';
 import { Handbook } from './components/Handbook';
 import { EventsBoard } from './components/EventsBoard';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download } from 'lucide-react';
+import { LostFoundBoard } from './components/LostFoundBoard';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
@@ -50,7 +51,7 @@ const App: React.FC = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [showImportGuide, setShowImportGuide] = useState(false);
-  const [activeView, setActiveView] = useState<'dashboard' | 'handbook' | 'events'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'handbook' | 'events' | 'lost-found'>('dashboard');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -219,7 +220,7 @@ const App: React.FC = () => {
                 </h3>
                 <button 
                     onClick={() => { playClick(); setShowImportGuide(false); }} 
-                    className="hover:bg-white/20 p-2 rounded-full transition-colors"
+                    className="hover:bg-white/20 p-2 rounded-full transition-colors active:scale-90"
                 >
                     <X size={20} />
                 </button>
@@ -227,15 +228,15 @@ const App: React.FC = () => {
             
             <div className="p-6 space-y-6">
                 <div className="space-y-4">
-                    <div className="flex gap-4">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-[#003375] font-bold flex items-center justify-center flex-shrink-0">1</div>
+                    <div className="flex gap-4 group">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-[#003375] font-bold flex items-center justify-center flex-shrink-0 group-hover:bg-[#003375] group-hover:text-white transition-colors duration-300">1</div>
                         <div>
                             <p className="font-medium text-gray-900 mb-1">Truy cập Hub Portal</p>
                             <a 
                                 href="https://online.hub.edu.vn" 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="text-[#003375] underline flex items-center gap-1 hover:text-blue-700 text-sm font-semibold"
+                                className="text-[#003375] underline flex items-center gap-1 hover:text-blue-700 text-sm font-semibold hover:translate-x-1 transition-transform"
                                 onClick={playClick}
                             >
                                 https://online.hub.edu.vn <ExternalLink size={14}/>
@@ -243,29 +244,29 @@ const App: React.FC = () => {
                         </div>
                     </div>
                     
-                    <div className="flex gap-4">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-[#003375] font-bold flex items-center justify-center flex-shrink-0">2</div>
+                    <div className="flex gap-4 group">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-[#003375] font-bold flex items-center justify-center flex-shrink-0 group-hover:bg-[#003375] group-hover:text-white transition-colors duration-300">2</div>
                         <div>
                             <p className="font-medium text-gray-900">Đăng nhập tài khoản sinh viên</p>
                         </div>
                     </div>
 
-                    <div className="flex gap-4">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-[#003375] font-bold flex items-center justify-center flex-shrink-0">3</div>
+                    <div className="flex gap-4 group">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-[#003375] font-bold flex items-center justify-center flex-shrink-0 group-hover:bg-[#003375] group-hover:text-white transition-colors duration-300">3</div>
                         <div>
                             <p className="font-medium text-gray-900">Vào mục "Xem điểm"</p>
                         </div>
                     </div>
 
-                    <div className="flex gap-4">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-[#003375] font-bold flex items-center justify-center flex-shrink-0">4</div>
+                    <div className="flex gap-4 group">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-[#003375] font-bold flex items-center justify-center flex-shrink-0 group-hover:bg-[#003375] group-hover:text-white transition-colors duration-300">4</div>
                         <div>
                             <p className="font-medium text-gray-900">Bấm tổ hợp phím <span className="bg-gray-100 px-2 py-0.5 rounded border border-gray-300 font-mono text-sm text-[#990000]">CTRL + P</span></p>
                         </div>
                     </div>
 
-                    <div className="flex gap-4">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-[#003375] font-bold flex items-center justify-center flex-shrink-0">5</div>
+                    <div className="flex gap-4 group">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 text-[#003375] font-bold flex items-center justify-center flex-shrink-0 group-hover:bg-[#003375] group-hover:text-white transition-colors duration-300">5</div>
                         <div>
                             <p className="font-medium text-gray-900">Tại hộp thoại in, chọn "Lưu dưới dạng PDF" (Save as PDF) và bấm Lưu</p>
                         </div>
@@ -284,13 +285,13 @@ const App: React.FC = () => {
                 <div className="pt-4 border-t border-gray-100 flex gap-3">
                     <button 
                         onClick={() => { playClick(); setShowImportGuide(false); }}
-                        className="flex-1 py-3 text-gray-600 font-medium hover:bg-gray-50 rounded-xl transition-colors"
+                        className="flex-1 py-3 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-all active:scale-95"
                     >
                         Để sau
                     </button>
                     <button 
                         onClick={() => { playClick(); fileInputRef.current?.click(); }}
-                        className="flex-1 bg-[#990000] text-white py-3 rounded-xl font-bold hover:bg-[#7a0000] transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl active:scale-95"
+                        className="flex-1 bg-[#990000] text-white py-3 rounded-xl font-bold hover:bg-[#7a0000] hover:shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 transform hover:-translate-y-0.5"
                     >
                         <FileUp size={18}/>
                         Chọn file PDF
@@ -310,47 +311,54 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen pb-24 font-sans text-gray-800 bg-[#f8f9fa] animate-fadeIn">
       {/* Header */}
-      <header className="bg-white border-b-2 border-[#003375] sticky top-0 z-40 shadow-sm">
+      <header className="bg-white/80 backdrop-blur-md border-b-2 border-[#003375] sticky top-0 z-40 shadow-sm transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
           <div className="flex items-center gap-3">
              {/* HUB Logo */}
-             <div className="h-10 w-10 relative flex-shrink-0 group cursor-pointer" onClick={playClick}>
+             <div className="h-10 w-10 relative flex-shrink-0 group cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-95" onClick={playClick}>
                 <img 
                     src="https://upload.wikimedia.org/wikipedia/vi/1/1a/Logo_HUB.png" 
                     alt="HUB Logo" 
-                    className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-110"
+                    className="h-full w-full object-contain drop-shadow-sm"
                     onError={(e) => {
                         e.currentTarget.style.display = 'none';
-                        e.currentTarget.parentElement!.innerHTML = '<div class="h-10 w-10 bg-[#003375] rounded flex items-center justify-center text-white font-bold text-xs">HUB</div>';
+                        e.currentTarget.parentElement!.innerHTML = '<div class="h-10 w-10 bg-[#003375] rounded flex items-center justify-center text-white font-bold text-xs shadow-md">HUB</div>';
                     }}
                 />
              </div>
              <div>
-                <h1 className="text-xl font-bold text-[#003375] tracking-tight uppercase">HUB Planner</h1>
+                <h1 className="text-xl font-bold text-[#003375] tracking-tight uppercase group-hover:text-[#002855] transition-colors">HUB Planner</h1>
                 <p className="text-[10px] text-gray-500 hidden md:block uppercase tracking-wider font-semibold text-[#990000]">Hỗ trợ sinh viên (Không chính thức từ nhà Trường)</p>
              </div>
           </div>
           
           <div className="flex items-center gap-2 md:gap-4">
              {/* Navigation Tabs */}
-             <div className="flex bg-gray-100 rounded-lg p-1 gap-1 overflow-x-auto max-w-[200px] sm:max-w-none no-scrollbar">
+             <div className="flex bg-gray-100 rounded-lg p-1 gap-1 overflow-x-auto max-w-[200px] sm:max-w-none no-scrollbar shadow-inner">
                 <button 
                     onClick={() => { playClick(); setActiveView('dashboard'); }}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${activeView === 'dashboard' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'dashboard' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
                 >
                     <LayoutDashboard size={16} />
                     <span className="hidden sm:inline">Bảng điểm</span>
                 </button>
                 <button 
                     onClick={() => { playClick(); setActiveView('events'); }}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${activeView === 'events' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'events' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
                 >
                     <Zap size={16} />
                     <span className="hidden sm:inline">Sự kiện ĐRL</span>
                 </button>
                 <button 
+                    onClick={() => { playClick(); setActiveView('lost-found'); }}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'lost-found' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
+                >
+                    <Search size={16} />
+                    <span className="hidden sm:inline">Tìm đồ</span>
+                </button>
+                <button 
                     onClick={() => { playClick(); setActiveView('handbook'); }}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${activeView === 'handbook' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'handbook' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
                 >
                     <Book size={16} />
                     <span className="hidden sm:inline">Cẩm nang</span>
@@ -360,7 +368,7 @@ const App: React.FC = () => {
              {/* Simple User Profile Trigger/Reset */}
              <div className="flex items-center gap-2 border-l border-gray-300 pl-4 ml-2">
                 <div className="text-right hidden sm:block">
-                    <p className="text-xs font-bold text-[#003375] uppercase">{data.studentName}</p>
+                    <p className="text-xs font-bold text-[#003375] uppercase line-clamp-1 max-w-[120px]">{data.studentName}</p>
                     <p className="text-[10px] text-gray-500">{data.cohort}</p>
                 </div>
                 <button 
@@ -379,6 +387,7 @@ const App: React.FC = () => {
         
         {activeView === 'handbook' && <Handbook />}
         {activeView === 'events' && <EventsBoard />}
+        {activeView === 'lost-found' && <LostFoundBoard />}
         {activeView === 'dashboard' && (
             <div className="animate-slideInRight">
                 <Dashboard 
@@ -393,7 +402,7 @@ const App: React.FC = () => {
                         {/* Export PDF Button */}
                         <button 
                             onClick={handleExportPDF}
-                            className="bg-white hover:bg-gray-50 text-[#003375] border border-gray-200 px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 active:scale-95 text-sm font-medium hover:shadow-md hover:scale-105"
+                            className="bg-white hover:bg-blue-50 text-[#003375] border border-gray-200 px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 active:scale-95 text-sm font-medium hover:shadow-md hover:-translate-y-0.5"
                         >
                             <Download size={18} />
                             Xuất PDF
@@ -411,7 +420,7 @@ const App: React.FC = () => {
                             <button 
                                 onClick={() => { playClick(); setShowImportGuide(true); }}
                                 disabled={isImporting}
-                                className="bg-[#990000] hover:bg-[#7a0000] text-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 active:scale-95 text-sm font-medium disabled:opacity-70 hover:shadow-lg hover:scale-105"
+                                className="bg-[#990000] hover:bg-[#7a0000] text-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 active:scale-95 text-sm font-medium disabled:opacity-70 hover:shadow-lg hover:-translate-y-0.5"
                             >
                                 {isImporting ? <Loader2 className="animate-spin" size={18}/> : <FileUp size={18} />}
                                 Nhập PDF
@@ -420,7 +429,7 @@ const App: React.FC = () => {
 
                         <button 
                             onClick={addSemester}
-                            className="bg-[#003375] hover:bg-[#002855] text-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 active:scale-95 hover:shadow-md text-sm font-medium hover:scale-105"
+                            className="bg-[#003375] hover:bg-[#002855] text-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 active:scale-95 hover:shadow-md text-sm font-medium hover:-translate-y-0.5"
                         >
                             <Plus size={18} />
                             Thêm học kỳ
@@ -443,11 +452,11 @@ const App: React.FC = () => {
                     <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300 hover:shadow-md transition-shadow">
                         <p className="text-gray-400 mb-4">Chưa có dữ liệu học kỳ nào.</p>
                         <div className="flex justify-center gap-4">
-                            <button onClick={() => { playClick(); setShowImportGuide(true); }} className="text-[#003375] font-medium hover:underline flex items-center gap-1 hover:scale-105 transition-transform">
+                            <button onClick={() => { playClick(); setShowImportGuide(true); }} className="text-[#003375] font-medium hover:underline flex items-center gap-1 hover:scale-105 transition-transform active:scale-95">
                                 <FileUp size={16}/> Nhập từ PDF
                             </button>
                             <span className="text-gray-300">|</span>
-                            <button onClick={addSemester} className="text-[#990000] font-medium hover:underline flex items-center gap-1 hover:scale-105 transition-transform">
+                            <button onClick={addSemester} className="text-[#990000] font-medium hover:underline flex items-center gap-1 hover:scale-105 transition-transform active:scale-95">
                                 <Plus size={16}/> Tạo thủ công
                             </button>
                         </div>
