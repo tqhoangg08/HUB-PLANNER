@@ -46,7 +46,7 @@ const ScoreInput = ({
     <input 
       type="number" 
       min="0" max="10" step="0.1"
-      className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent p-1 text-center font-medium transition-all"
+      className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent p-1 text-center font-medium transition-all hover:border-blue-300"
       placeholder="-"
       value={localValue}
       onChange={handleChange}
@@ -205,7 +205,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
   const currentDatasetName = AVAILABLE_DATASETS.find(d => d.id === selectedDatasetId)?.name || "Tự động chọn";
 
   return (
-    <div className={`mb-8 bg-white rounded-xl shadow-sm border overflow-hidden transition-all duration-300 hover:scale-[1.01] hover:shadow-lg ${hasData ? 'border-opacity-100' : 'border-gray-200'}`}>
+    <div className={`mb-8 bg-white rounded-xl shadow-sm border overflow-hidden transition-all duration-300 hover:scale-[1.01] hover:shadow-xl ${hasData ? 'border-opacity-100' : 'border-gray-200'}`}>
       {/* Header with Stats */}
       <div className={`px-6 py-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-4 ${headerColor}`}>
         <div className="flex items-center gap-4 flex-1">
@@ -234,7 +234,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                  <div className="relative" ref={rankMenuRef}>
                     <button 
                         onClick={() => { playClick(); setShowRankMenu(!showRankMenu); }}
-                        className="flex items-center gap-1 bg-yellow-100 text-yellow-800 px-3 py-1.5 rounded-lg border border-yellow-200 shadow-sm hover:bg-yellow-200 transition-colors"
+                        className="flex items-center gap-1 bg-yellow-100 text-yellow-800 px-3 py-1.5 rounded-lg border border-yellow-200 shadow-sm hover:bg-yellow-200 transition-all active:scale-95 hover:shadow-md"
                         title="Xếp hạng dự báo"
                     >
                         <Crown size={14} className="fill-yellow-500 text-yellow-600"/> 
@@ -286,18 +286,18 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                  </div>
              )}
 
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm transition-transform hover:scale-105">
                 <span className="text-gray-500 font-medium flex items-center gap-1">
                     <BookOpen size={14}/> TC:
                 </span>
                 <span className="font-bold text-gray-800">{totalRegisteredCredits}</span>
             </div>
 
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm transition-transform hover:scale-105">
                 <span className="text-gray-500 font-medium">GPA(4):</span>
                 <span className="font-bold text-[#003375]">{hasData ? semGPA4.toFixed(1) : '-'}</span>
             </div>
-            <div className="flex items-center gap-2 bg-white pl-3 pr-1 py-1 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 bg-white pl-3 pr-1 py-1 rounded-lg border border-gray-200 shadow-sm transition-transform hover:scale-105">
                 <span className="text-gray-500 font-medium flex items-center gap-1">
                     <Star size={14} className="text-yellow-500 fill-yellow-500"/> ĐRL:
                 </span>
@@ -313,7 +313,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
             
              <button 
                 onClick={onRemoveSemester}
-                className="ml-auto md:ml-0 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all p-2 rounded-full active:scale-90"
+                className="ml-auto md:ml-0 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all p-2 rounded-full active:scale-90 hover:shadow-md"
                 title="Xóa học kỳ"
             >
              <Trash2 size={18} />
@@ -329,7 +329,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                 <input
                     type="text"
                     placeholder="Tìm môn học..."
-                    className="w-full pl-9 pr-8 py-1.5 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
+                    className="w-full pl-9 pr-8 py-1.5 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow hover:border-blue-300"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -372,12 +372,12 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                 
                 let statusClass = "text-gray-400";
                 let statusText = "-";
-                let rowClass = "hover:bg-gray-50";
+                let rowClass = "hover:bg-blue-50/30";
 
                 if (status === GradeStatus.FAIL) {
                     statusClass = "bg-red-100 text-[#990000] font-bold";
                     statusText = "Rớt";
-                    rowClass = "bg-red-50 hover:bg-red-100";
+                    rowClass = "bg-red-50/50 hover:bg-red-100/50";
                 } else if (status === GradeStatus.IMPROVE) {
                     statusClass = "bg-yellow-100 text-yellow-700";
                     statusText = "Đạt";
@@ -387,7 +387,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                 }
 
                 return (
-                    <tr key={subject.id} className={`${rowClass} transition-colors duration-150`}>
+                    <tr key={subject.id} className={`${rowClass} transition-colors duration-150 group`}>
                     <td className="px-3 py-2 text-center text-gray-500">{sIdx + 1}</td>
                     
                     {['scoreCC', 'scoreProcess', 'scoreMid', 'scoreFinal'].map((key) => (
@@ -402,7 +402,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                     <td className="px-3 py-2">
                         <input 
                         type="text" 
-                        className="w-full bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none p-1 font-medium text-gray-800 transition-colors"
+                        className="w-full bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375]"
                         value={subject.name}
                         onChange={(e) => handleSubjectChange(subject.id, 'name', e.target.value)}
                         />
@@ -422,7 +422,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                     <td className="px-1 py-2">
                         <input 
                         type="number" 
-                        className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300"
                         value={subject.credits}
                         onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)}
                         />
@@ -441,7 +441,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                     </td>
 
                     <td className="px-3 py-2 text-center">
-                        <span className={`px-2 py-1 rounded text-xs block w-full text-center ${statusClass}`}>
+                        <span className={`px-2 py-1 rounded text-xs block w-full text-center shadow-sm ${statusClass}`}>
                         {statusText}
                         </span>
                     </td>
@@ -449,7 +449,8 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                     <td className="px-2 py-2 text-center">
                         <button 
                             onClick={() => removeSubject(subject.id)}
-                            className="text-gray-300 hover:text-[#990000] transition-transform hover:scale-110 p-1"
+                            className="text-gray-300 hover:text-red-500 transition-all hover:scale-110 p-1 active:scale-90"
+                            title="Xóa môn"
                         >
                             <Trash2 size={16} />
                         </button>
@@ -471,7 +472,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
       <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
         <button 
           onClick={addSubject}
-          className="flex items-center gap-1 text-sm font-medium text-[#003375] hover:text-blue-900 transition-all hover:translate-x-1 p-1"
+          className="flex items-center gap-1 text-sm font-medium text-[#003375] hover:text-blue-700 transition-all hover:translate-x-1 p-1 active:scale-95"
         >
           <Plus size={16} />
           Thêm môn học
