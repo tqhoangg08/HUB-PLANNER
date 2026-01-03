@@ -6,8 +6,9 @@ import { GeminiAdvisor } from './components/GeminiAdvisor';
 import { Onboarding } from './components/Onboarding';
 import { Handbook } from './components/Handbook';
 import { EventsBoard } from './components/EventsBoard';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
+import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
 
 // Default generator if no PDF is used
@@ -110,6 +111,11 @@ const App: React.FC = () => {
           ...onboardingData,
           hasOnboarded: true
       }));
+  };
+
+  const handleExportPDF = () => {
+      playClick();
+      exportTranscriptToPdf(data);
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -384,6 +390,15 @@ const App: React.FC = () => {
                     <h2 className="text-2xl font-bold text-[#003375] border-l-4 border-[#990000] pl-3">Chi tiết bảng điểm</h2>
                     
                     <div className="flex gap-2">
+                        {/* Export PDF Button */}
+                        <button 
+                            onClick={handleExportPDF}
+                            className="bg-white hover:bg-gray-50 text-[#003375] border border-gray-200 px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 active:scale-95 text-sm font-medium hover:shadow-md hover:scale-105"
+                        >
+                            <Download size={18} />
+                            Xuất PDF
+                        </button>
+
                         {/* Import PDF Button */}
                         <div>
                             <input 
