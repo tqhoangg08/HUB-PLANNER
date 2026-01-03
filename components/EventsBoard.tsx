@@ -174,7 +174,7 @@ export const EventsBoard: React.FC = () => {
              <Calendar className="text-[#990000]" />
              Sự kiện Điểm Rèn Luyện
            </h2>
-           <p className="text-sm text-gray-500 mt-1">Cập nhật các hoạt động ngoại khóa theo 5 mục ĐRL</p>
+           <p className="text-sm text-gray-500 mt-1">Một vài sự kiện có thể được cập nhật trễ</p>
         </div>
         
         <div className="flex gap-2 w-full md:w-auto">
@@ -220,7 +220,7 @@ export const EventsBoard: React.FC = () => {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 size={40} className="text-[#003375] animate-spin mb-4" />
-          <p className="text-gray-500">Đang tải dữ liệu từ Google Sheet...</p>
+          <p className="text-gray-500">Đang tải dữ liệu...</p>
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center">
