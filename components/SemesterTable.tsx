@@ -138,8 +138,10 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
       }
   });
 
-  const semGPA4 = semTotalCredits ? (semWeightedScore4 / semTotalCredits) : 0;
-  const semGPA10 = semTotalCredits ? (semWeightedScore10 / semTotalCredits) : 0;
+  // Calculate GPA with Round Half Up to 1 decimal place (3.65 -> 3.7)
+  const semGPA4 = semTotalCredits ? Math.round((semWeightedScore4 / semTotalCredits) * 10) / 10 : 0;
+  const semGPA10 = semTotalCredits ? Math.round((semWeightedScore10 / semTotalCredits) * 10) / 10 : 0;
+  
   const classification = hasData ? getDegreeClassification(semGPA4) : '---';
 
   // --- Ranking Logic ---
@@ -295,12 +297,12 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
 
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm transition-transform hover:scale-105">
                 <span className="text-gray-500 font-medium">GPA(4):</span>
-                <span className="font-bold text-[#003375]">{hasData ? semGPA4.toFixed(2) : '-'}</span>
+                <span className="font-bold text-[#003375]">{hasData ? semGPA4.toFixed(1) : '-'}</span>
             </div>
 
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm transition-transform hover:scale-105">
                 <span className="text-gray-500 font-medium">GPA(10):</span>
-                <span className="font-bold text-[#990000]">{hasData ? semGPA10.toFixed(2) : '-'}</span>
+                <span className="font-bold text-[#990000]">{hasData ? semGPA10.toFixed(1) : '-'}</span>
             </div>
 
             <div className="flex items-center gap-2 bg-white pl-3 pr-1 py-1 rounded-lg border border-gray-200 shadow-sm transition-transform hover:scale-105">
