@@ -525,11 +525,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
                              <div className="flex items-center gap-2">
                                  {year.hasData && (
                                     <span className="text-xs font-bold text-[#990000] bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">
-                                        {year.gpa10.toFixed(2)}
+                                        {year.gpa10.toFixed(1)}
                                     </span>
                                  )}
                                  <span className={`font-bold ${year.hasData ? 'text-[#003375]' : 'text-gray-400'}`}>
-                                    {year.hasData ? year.gpa4.toFixed(2) : '-'}
+                                    {year.hasData ? year.gpa4.toFixed(1) : '-'}
                                  </span>
                              </div>
                         </div>
