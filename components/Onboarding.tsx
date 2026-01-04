@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
 import { UserData } from '../types';
 import { ACADEMIC_PROGRAMS, Program, Major, Specialization } from '../utils/programs';
-import { Check, ChevronRight, User, BookOpen, GraduationCap, ArrowLeft } from 'lucide-react';
+import { Check, ChevronRight, User, BookOpen, GraduationCap, ArrowLeft, Calendar } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 interface OnboardingProps {
   onComplete: (data: Partial<UserData>) => void;
 }
+
+// Define specific cohort options based on program ID
+const COHORT_OPTIONS: Record<string, string[]> = {
+  'standard': ['K38', 'K39', 'K40', 'K41'],
+  'tabp': ['CLCK10', 'CLCK11', 'CLCK12', 'CLCK13'],
+  'special': ['CTDBK1', 'CTDBK2']
+};
 
 export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const [step, setStep] = useState(1);
@@ -20,13 +27,24 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
   const handleNext = () => {
     playClick();
-    if (step === 1 && (!formData.studentName || !formData.cohort)) return;
+    // Step 1: Name validation
+    if (step === 1 && !formData.studentName.trim()) return;
+    
+    // Step 2: Program validation
     if (step === 2 && !formData.program) return;
-    if (step === 3 && !formData.major) return;
-    if (step === 4 && !formData.specialization) return;
+    
+    // Step 3: Cohort validation
+    if (step === 3 && !formData.cohort) return;
 
-    if (step < 4) {
-      if (step === 3 && formData.major && formData.major.specializations.length === 1) {
+    // Step 4: Major validation
+    if (step === 4 && !formData.major) return;
+
+    // Step 5: Specialization validation
+    if (step === 5 && !formData.specialization) return;
+
+    if (step < 5) {
+      // Auto-select specialization if there's only one choice when moving from Major (Step 4) to Step 5
+      if (step === 4 && formData.major && formData.major.specializations.length === 1) {
           const autoSpec = formData.major.specializations[0];
           setFormData(prev => ({...prev, specialization: autoSpec}));
           finishOnboarding(autoSpec);
@@ -55,6 +73,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       setStep(step - 1);
   };
 
+  // Step 1: Input Name
   const renderStep1 = () => (
     <div className="space-y-4">
       <div className="text-center mb-6 pt-4">
@@ -62,32 +81,24 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
             <User className="text-[#003375]" size={32} />
         </div>
         <h2 className="text-2xl font-bold text-[#003375]">Chào bạn!</h2>
-        <p className="text-gray-600">Hãy cho mình biết một chút về bạn nhé.</p>
+        <p className="text-gray-600">Hãy nhập tên để chúng mình tiện xưng hô nhé.</p>
       </div>
 
       <div>
-        <label className="block text-sm font-bold text-gray-900 mb-1">Tên của bạn</label>
+        <label className="block text-sm font-bold text-gray-900 mb-2">Tên của bạn</label>
         <input
           type="text"
-          className="w-full border border-gray-300 rounded-lg p-3 text-gray-900 focus:ring-2 focus:ring-[#003375] outline-none placeholder-gray-400 transition-all focus:border-[#003375]"
+          className="w-full border border-gray-300 rounded-lg p-3 text-gray-900 focus:ring-2 focus:ring-[#003375] outline-none placeholder-gray-400 transition-all focus:border-[#003375] text-lg"
           placeholder="Ví dụ: Nguyễn Văn A"
           value={formData.studentName}
           onChange={e => setFormData({ ...formData, studentName: e.target.value })}
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-bold text-gray-900 mb-1">Khóa (Niên khóa)</label>
-        <input
-          type="text"
-          className="w-full border border-gray-300 rounded-lg p-3 text-gray-900 focus:ring-2 focus:ring-[#003375] outline-none placeholder-gray-400 transition-all focus:border-[#003375]"
-          placeholder="Ví dụ: K38, 2022-2026..."
-          value={formData.cohort}
-          onChange={e => setFormData({ ...formData, cohort: e.target.value })}
+          autoFocus
         />
       </div>
     </div>
   );
 
+  // Step 2: Select Program
   const renderStep2 = () => (
     <div className="space-y-4">
       <div className="text-center mb-6 pt-4">
@@ -101,7 +112,11 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         {ACADEMIC_PROGRAMS.map(prog => (
           <button
             key={prog.id}
-            onClick={() => { playClick(); setFormData({ ...formData, program: prog, major: null, specialization: null }); }}
+            onClick={() => { 
+                playClick(); 
+                // Reset subsequent selections when program changes
+                setFormData({ ...formData, program: prog, cohort: '', major: null, specialization: null }); 
+            }}
             className={`p-4 rounded-xl border-2 text-left transition-all duration-200 active:scale-[0.98] hover:scale-[1.02] hover:shadow-md ${
               formData.program?.id === prog.id
                 ? 'border-[#003375] bg-[#003375]/10 text-[#003375] shadow-sm'
@@ -118,7 +133,44 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     </div>
   );
 
-  const renderStep3 = () => (
+  // Step 3: Select Cohort (Based on Program)
+  const renderStep3 = () => {
+    const options = formData.program ? COHORT_OPTIONS[formData.program.id] || [] : [];
+    
+    return (
+        <div className="space-y-4">
+            <div className="text-center mb-6 pt-4">
+                <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 shadow-sm animate-scaleIn">
+                    <Calendar className="text-[#003375]" size={32} />
+                </div>
+                <h2 className="text-2xl font-bold text-[#003375]">Chọn Khóa</h2>
+                <p className="text-gray-600">Bạn thuộc khóa nào dưới đây?</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+                {options.map(cohort => (
+                    <button
+                        key={cohort}
+                        onClick={() => { playClick(); setFormData({ ...formData, cohort: cohort }); }}
+                        className={`p-4 rounded-xl border-2 text-center transition-all duration-200 active:scale-[0.95] hover:shadow-md ${
+                        formData.cohort === cohort
+                            ? 'border-[#003375] bg-[#003375] text-white shadow-md'
+                            : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50 text-gray-900'
+                        }`}
+                    >
+                        <span className="font-bold text-lg">{cohort}</span>
+                    </button>
+                ))}
+            </div>
+            {options.length === 0 && (
+                <div className="text-center text-red-500">Vui lòng chọn chương trình học trước.</div>
+            )}
+        </div>
+    );
+  };
+
+  // Step 4: Select Major
+  const renderStep4 = () => (
     <div className="space-y-4">
        <div className="text-center mb-6 pt-4">
          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 shadow-sm animate-scaleIn">
@@ -149,7 +201,8 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     </div>
   );
 
-  const renderStep4 = () => (
+  // Step 5: Select Specialization
+  const renderStep5 = () => (
     <div className="space-y-4">
         <div className="text-center mb-6 pt-4">
          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 shadow-sm animate-scaleIn">
@@ -200,7 +253,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-gray-100 rounded-t-2xl overflow-hidden">
           <div 
             className="h-full bg-[#003375] transition-all duration-500 ease-out" 
-            style={{ width: `${(step / 4) * 100}%` }}
+            style={{ width: `${(step / 5) * 100}%` }}
           />
         </div>
 
@@ -210,19 +263,21 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
             {step === 2 && renderStep2()}
             {step === 3 && renderStep3()}
             {step === 4 && renderStep4()}
+            {step === 5 && renderStep5()}
         </div>
 
         <button
             onClick={handleNext}
             disabled={
-                (step === 1 && (!formData.studentName || !formData.cohort)) ||
+                (step === 1 && !formData.studentName.trim()) ||
                 (step === 2 && !formData.program) ||
-                (step === 3 && !formData.major) ||
-                (step === 4 && !formData.specialization)
+                (step === 3 && !formData.cohort) ||
+                (step === 4 && !formData.major) ||
+                (step === 5 && !formData.specialization)
             }
             className="w-full mt-8 bg-[#003375] text-white p-3 rounded-xl font-bold hover:bg-[#002855] transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:scale-[1.01]"
         >
-            {step === 4 || (step === 3 && formData.major?.specializations.length === 1) ? 'Hoàn tất' : 'Tiếp tục'}
+            {step === 5 || (step === 4 && formData.major?.specializations.length === 1) ? 'Hoàn tất' : 'Tiếp tục'}
             <ChevronRight size={20} />
         </button>
 
