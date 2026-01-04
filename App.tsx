@@ -275,11 +275,14 @@ const App: React.FC = () => {
 
                 <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex gap-3 items-start text-sm text-orange-800">
                     <AlertTriangle size={20} className="shrink-0 mt-0.5" />
-                    <p>
-                        <strong>Lưu ý:</strong> Có thể sai sót khi hệ thống nhận diện tên học phần. 
-                        Điểm quá trình sẽ được hệ thống random vì file PDF chỉ hiện điểm trung bình, 
-                        nên nếu nhập bảng điểm vào thì bạn đừng quan tâm điểm quá trình nhé.
-                    </p>
+                    <div className="space-y-2">
+                        <p>
+                            <strong>Lưu ý quan trọng:</strong> Hiện tại tính năng này chỉ hỗ trợ file PDF được xuất từ <strong>máy tính (PC/Laptop)</strong>. File xuất từ điện thoại có thể gặp lỗi định dạng hoặc không nhận diện được dữ liệu.
+                        </p>
+                        <p>
+                            Ngoài ra, điểm quá trình sẽ được hệ thống random (do file PDF chỉ hiện điểm tổng kết) để khớp GPA.
+                        </p>
+                    </div>
                 </div>
 
                 <div className="pt-4 border-t border-gray-100 flex gap-3">
