@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import Papa from 'papaparse';
-import { Search, Calendar, MapPin, Award, ExternalLink, Loader2, RefreshCw, Users, Clock, Filter, Tag, AlertCircle, FileText, X } from 'lucide-react';
+import { Search, Calendar, MapPin, Award, ExternalLink, Loader2, RefreshCw, Users, Clock, Filter, Tag, AlertCircle, FileText, X, PlusCircle, Sparkles, Hourglass } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 const GOOGLE_SHEET_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfOrgITNGNMq-_wu7TEBQshWl7SOi080vX97Z2QKB6LyfQIicz6lZN9m62s2abF8XPQriTdOTBWoi/pub?output=tsv';
+const CONTRIBUTE_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLScFpFT0AUq65i6o8g5BEbCt9Q6Ii-qtdX9I2wZCQo4s-wXiyg/viewform';
 
 interface HubEvent {
   id: string;
@@ -168,8 +169,21 @@ export const EventsBoard: React.FC = () => {
   });
 
   const now = new Date();
-  const activeEvents = filteredEvents.filter(evt => !evt.deadlineDate || evt.deadlineDate >= now);
+
+  // 1. Sự kiện đã kết thúc: Có deadline và deadline < hiện tại
   const expiredEvents = filteredEvents.filter(evt => evt.deadlineDate && evt.deadlineDate < now);
+
+  // 2. Sự kiện sắp diễn ra (Dự kiến): KHÔNG có deadline VÀ KHÔNG có link
+  const upcomingEvents = filteredEvents.filter(evt => !evt.deadlineDate && (!evt.link || evt.link.trim() === ''));
+
+  // 3. Sự kiện đang diễn ra: 
+  // - Hoặc có deadline tương lai
+  // - Hoặc không có deadline nhưng có link (Link mở vô thời hạn)
+  const activeEvents = filteredEvents.filter(evt => {
+      const isExpired = evt.deadlineDate && evt.deadlineDate < now;
+      const isUpcoming = !evt.deadlineDate && (!evt.link || evt.link.trim() === '');
+      return !isExpired && !isUpcoming;
+  });
 
   const ScoreGuideModal = () => (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
@@ -525,6 +539,12 @@ export const EventsBoard: React.FC = () => {
 
   const renderEventCard = (evt: HubEvent) => {
     const isExpired = evt.deadlineDate ? evt.deadlineDate < new Date() : false;
+    // An event is 'active' or 'upcoming' if not expired.
+    // 'Upcoming' status is specifically when no link and no date is set (handled by list filtering)
+    // Here we handle the button state.
+    
+    // Check if "Upcoming" (No link, no date) for button text
+    const isUpcoming = !evt.link && !evt.deadlineDate;
     const canRegister = evt.link && !isExpired;
     
     // Ensure absolute URL
@@ -535,11 +555,11 @@ export const EventsBoard: React.FC = () => {
     return (
       <div 
         key={evt.id} 
-        className={`bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group relative overflow-hidden ${isExpired ? 'opacity-90 grayscale-[0.3]' : ''}`}
+        className={`bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group relative overflow-hidden ${isExpired ? 'opacity-90 grayscale-[0.3]' : ''} ${isUpcoming ? 'border-dashed border-orange-300 bg-orange-50/30' : ''}`}
       >
         {/* Top Type Tag */}
         {evt.type && (
-            <div className={`absolute top-0 right-0 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 shadow-sm ${isExpired ? 'bg-gray-100 text-gray-500' : 'bg-blue-100 text-[#003375]'}`}>
+            <div className={`absolute top-0 right-0 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 shadow-sm ${isExpired ? 'bg-gray-100 text-gray-500' : isUpcoming ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-[#003375]'}`}>
                 {evt.type}
             </div>
         )}
@@ -567,10 +587,10 @@ export const EventsBoard: React.FC = () => {
 
         <div className="space-y-2 text-sm text-gray-600 mb-4 flex-1">
             <div className="flex items-start gap-2">
-                <Clock size={16} className={`mt-0.5 shrink-0 ${isExpired ? 'text-red-400' : 'text-gray-400'}`} />
+                <Clock size={16} className={`mt-0.5 shrink-0 ${isExpired ? 'text-red-400' : isUpcoming ? 'text-orange-400' : 'text-gray-400'}`} />
                 <div>
-                    <span className={isExpired ? 'text-red-500 font-medium line-through decoration-red-500' : ''}>
-                        {evt.time || 'Chưa cập nhật hạn'}
+                    <span className={isExpired ? 'text-red-500 font-medium line-through decoration-red-500' : isUpcoming ? 'text-orange-600 font-medium italic' : ''}>
+                        {isUpcoming ? 'Dự kiến sắp tới' : (evt.time || 'Chưa cập nhật hạn')}
                     </span>
                     {isExpired && <span className="text-red-500 text-xs ml-2 font-bold">(Đã hết hạn)</span>}
                 </div>
@@ -597,10 +617,12 @@ export const EventsBoard: React.FC = () => {
         ) : (
             <button 
                 disabled 
-                className="mt-auto w-full bg-gray-100 text-gray-400 py-2 rounded-lg font-medium text-sm cursor-not-allowed border border-gray-200 flex items-center justify-center gap-2"
+                className={`mt-auto w-full py-2 rounded-lg font-medium text-sm cursor-not-allowed border flex items-center justify-center gap-2 ${isUpcoming ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-gray-100 text-gray-400 border-gray-200'}`}
             >
                 {isExpired ? (
                     <>Đã hết hạn <AlertCircle size={14}/></>
+                ) : isUpcoming ? (
+                    <>Sắp mở đơn <Sparkles size={14}/></>
                 ) : (
                     "Chưa có link"
                 )}
@@ -641,6 +663,18 @@ export const EventsBoard: React.FC = () => {
                 <FileText size={18} />
                 <span className="hidden md:inline">Phiếu đánh giá</span>
             </button>
+            
+            <a 
+                href={CONTRIBUTE_FORM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={playClick}
+                className="px-3 py-2 bg-[#990000] text-white rounded-lg hover:bg-[#7a0000] transition-all flex items-center gap-2 font-bold active:scale-95 hover:shadow-md whitespace-nowrap"
+                title="Đóng góp sự kiện"
+            >
+                <PlusCircle size={18} />
+                <span className="hidden md:inline">Nhập sự kiện</span>
+            </a>
 
             <button 
                 onClick={() => { playClick(); fetchEvents(); }}
@@ -715,6 +749,18 @@ export const EventsBoard: React.FC = () => {
                             </h3>
                             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                 {activeEvents.map(evt => renderEventCard(evt))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Upcoming Events Section (New) */}
+                    {upcomingEvents.length > 0 && (
+                        <div>
+                            <h3 className="text-xl font-bold text-orange-600 mb-4 flex items-center gap-2 border-l-4 border-orange-500 pl-3">
+                                ✨ Sắp diễn ra / Dự kiến
+                            </h3>
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {upcomingEvents.map(evt => renderEventCard(evt))}
                             </div>
                         </div>
                     )}
