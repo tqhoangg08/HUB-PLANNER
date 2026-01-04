@@ -470,6 +470,12 @@ const App: React.FC = () => {
         )}
       </main>
 
+      <div className="max-w-5xl mx-auto px-4 mb-4">
+        <div className="bg-gray-100/50 border border-gray-200 rounded-lg p-3 text-[10px] md:text-xs text-gray-500 text-center leading-relaxed">
+            <span className="font-bold text-gray-600">⚠️ DISCLAIMER:</span> Website do cá nhân sinh viên tại HUB phát triển, quản lý & chịu trách nhiệm trực tiếp. Không có sự tham gia điều hành từ đơn vị chính thống của nhà trường. Mọi thông tin từ Website chỉ mang tính chất tham khảo, trên tinh thần là trang web có các công cụ hỗ trợ người học tại HUB
+        </div>
+      </div>
+
       <footer className="text-center py-4 text-[10px] text-gray-400/60 font-medium tracking-wide hover:text-gray-400/80 transition-colors">
         Web designed by tqhoangg
       </footer>
