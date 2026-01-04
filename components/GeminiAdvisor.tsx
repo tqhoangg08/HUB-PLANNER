@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { MessageSquare, Sparkles, Loader2, X } from 'lucide-react';
 import { UserData, Subject } from '../types';
 import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
@@ -17,11 +16,6 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
 
   const handleAdvice = async () => {
     playClick();
-    if (!process.env.API_KEY) {
-      setResponse("Vui lòng cấu hình API KEY để sử dụng tính năng này.");
-      return;
-    }
-
     setLoading(true);
     setResponse(null);
 
@@ -39,6 +33,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
       const filledTrainingScores = data.semesters
         .map(s => s.trainingScore)
         .filter((s): s is number => s !== null && s !== undefined);
+        
       const avgTrainingScore = filledTrainingScores.length > 0
         ? Math.round(filledTrainingScores.reduce((a, b) => a + b, 0) / filledTrainingScores.length)
         : 0;
@@ -59,23 +54,32 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
         - Xếp loại tạm thời: ${degree}
         - Môn rớt (cần học lại): ${failedSubjects.length > 0 ? failedSubjects.join(', ') : 'Không có'}
         - Điểm rèn luyện: ${avgTrainingScore}
-        - Mục tiêu GPA: ${data.targetGPA}
+        - Mục tiêu GPA: ${data.targetGPA || "Chưa đặt"}
 
         Câu hỏi của sinh viên: "${customPrompt || "Hãy đánh giá kết quả học tập của tôi và đưa ra lời khuyên chi tiết theo chuyên ngành của tôi để đạt mục tiêu."}"
 
         Hãy trả lời ngắn gọn, thân thiện, gọi sinh viên bằng tên. Sử dụng markdown để định dạng. Tập trung vào các môn cần cải thiện hoặc chiến lược học tập phù hợp với chuyên ngành ${data.specializationName || "của sinh viên"}.
       `;
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const result = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: context,
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: context }),
       });
 
-      setResponse(result.text || "Xin lỗi, tôi không thể đưa ra lời khuyên lúc này.");
-    } catch (error) {
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || "Lỗi kết nối server");
+      }
+
+      setResponse(result.reply);
+
+    } catch (error: any) {
       console.error(error);
-      setResponse("Có lỗi xảy ra khi kết nối với Gemini AI.");
+      setResponse("Có lỗi xảy ra: " + (error.message || "Vui lòng thử lại sau."));
     } finally {
       setLoading(false);
     }
