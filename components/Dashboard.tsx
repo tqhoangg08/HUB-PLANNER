@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { UserData, GradeStatus, Semester } from '../types';
 import { 
     calculateCumulativeStats, 
@@ -11,7 +11,7 @@ import {
     calculateRequiredGPA,
     getGradeDetails
 } from '../utils/calculations';
-import { Target, TrendingUp, AlertTriangle, Award, User, BookOpen, Star, BarChart3, Calendar, CheckCircle2, Pencil, Calculator, Trophy, TrendingDown, Zap, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Target, TrendingUp, AlertTriangle, Award, User, BookOpen, Star, BarChart3, Calendar, CheckCircle2, Pencil, Calculator, Trophy, TrendingDown, Zap, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, List, X } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { playClick } from '../utils/audio';
 
@@ -21,6 +21,7 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) => {
+  const [showRankingModal, setShowRankingModal] = useState(false);
   const stats = calculateCumulativeStats(data.semesters);
   const yearlyStats = calculateYearlyStats(data.semesters);
   const classification = getDegreeClassification(stats.gpa4);
@@ -32,8 +33,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
     .filter(s => !s.isNonGPA)
     .map(s => {
         const avg = calculateSubjectAverage(s);
-        const { letter } = avg !== null ? getGradeDetails(avg) : { letter: '?' };
-        return { ...s, avg, letter, semName: s.name };
+        const { letter, scale4 } = avg !== null ? getGradeDetails(avg) : { letter: '?', scale4: 0 };
+        return { ...s, avg, letter, scale4, semName: s.name };
     })
     .filter((s): s is typeof s & { avg: number } => s.avg !== null)
     .sort((a, b) => b.avg - a.avg); // Sort Descending
@@ -134,6 +135,85 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
       }
   }
 
+  const RankingModal = () => (
+    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+        <div className="bg-white rounded-xl w-full max-w-5xl shadow-2xl flex flex-col h-[90vh] animate-scaleIn border border-gray-200">
+            <div className="p-4 border-b bg-[#003375] text-white rounded-t-xl flex justify-between items-center shrink-0">
+                <h3 className="font-bold text-xl flex items-center gap-2">
+                    <Trophy size={24} className="text-yellow-300" />
+                    Bảng xếp hạng môn học
+                </h3>
+                <button 
+                    onClick={() => { playClick(); setShowRankingModal(false); }}
+                    className="hover:bg-white/20 p-2 rounded-full transition-colors active:scale-90"
+                >
+                    <X size={24} />
+                </button>
+            </div>
+            
+            <div className="overflow-auto custom-scrollbar flex-1 p-0">
+                <table className="w-full text-left border-collapse">
+                    <thead className="bg-gray-50 text-sm text-gray-500 uppercase font-semibold sticky top-0 shadow-sm z-10">
+                        <tr>
+                            <th className="p-4 text-center w-16">Hạng</th>
+                            <th className="p-4">Môn học</th>
+                            <th className="p-4 text-center">TC</th>
+                            <th className="p-4 text-center">Điểm (10)</th>
+                            <th className="p-4 text-center">Điểm (4)</th>
+                            <th className="p-4 text-center">Chữ</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 text-base">
+                        {validSubjects.map((sub, idx) => {
+                            let rankColor = "text-gray-500";
+                            let rowBg = "hover:bg-gray-50";
+                            let iconSize = 20;
+                            if (idx === 0) { rankColor = "text-yellow-500"; rowBg = "bg-yellow-50/50 hover:bg-yellow-50"; iconSize = 24; }
+                            else if (idx === 1) { rankColor = "text-gray-400"; rowBg = "bg-gray-50/50 hover:bg-gray-100"; iconSize = 22; }
+                            else if (idx === 2) { rankColor = "text-orange-400"; rowBg = "bg-orange-50/50 hover:bg-orange-50"; iconSize = 22; }
+
+                            return (
+                                <tr key={idx} className={`${rowBg} transition-colors`}>
+                                    <td className="p-4 text-center font-bold">
+                                        {idx < 3 ? <Trophy size={iconSize} className={`${rankColor} mx-auto fill-current`} /> : <span className="text-gray-400">#{idx + 1}</span>}
+                                    </td>
+                                    <td className="p-4">
+                                        <div className="font-bold text-gray-800 text-lg">{sub.name}</div>
+                                        <div className="text-sm text-gray-500">{sub.semName}</div>
+                                    </td>
+                                    <td className="p-4 text-center text-gray-500 font-medium">{sub.credits}</td>
+                                    <td className="p-4 text-center font-bold text-[#990000] text-lg">{sub.avg.toFixed(1)}</td>
+                                    <td className="p-4 text-center font-bold text-[#003375] text-lg">{sub.scale4?.toFixed(1)}</td>
+                                    <td className="p-4 text-center">
+                                        <span className={`text-sm font-bold px-2 py-1 rounded border ${
+                                            sub.letter.startsWith('A') ? 'bg-green-50 text-green-700 border-green-200' :
+                                            sub.letter.startsWith('B') ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                            sub.letter.startsWith('C') ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                                            sub.letter.startsWith('D') ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                                            'bg-red-50 text-red-700 border-red-200'
+                                        }`}>
+                                            {sub.letter}
+                                        </span>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                        {validSubjects.length === 0 && (
+                            <tr>
+                                <td colSpan={6} className="p-10 text-center text-gray-400 italic">Chưa có dữ liệu môn học</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+            
+             <div className="p-4 bg-gray-50 border-t text-sm text-center text-gray-500 shrink-0">
+                Hiển thị {validSubjects.length} môn học đã có điểm tổng kết
+             </div>
+        </div>
+    </div>
+  );
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8 animate-fadeIn">
        {/* User Info Card - Expanded */}
@@ -164,23 +244,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
 
        {/* Highlights Row */}
        <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                <div className="w-12 h-12 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center shadow-inner">
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative group">
+                <div className="w-12 h-12 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center shadow-inner shrink-0">
                     <Trophy size={24} />
                 </div>
-                <div>
-                    <p className="text-sm text-gray-500 font-medium">Môn điểm cao nhất</p>
+                <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                        <p className="text-sm text-gray-500 font-medium">Môn điểm cao nhất</p>
+                        <button 
+                            onClick={() => { playClick(); setShowRankingModal(true); }}
+                            className="text-[10px] font-bold text-[#003375] bg-blue-50 px-2 py-0.5 rounded hover:bg-[#003375] hover:text-white transition-colors flex items-center gap-1 active:scale-95"
+                        >
+                            <List size={10} /> Xem tất cả
+                        </button>
+                    </div>
                     {highestSubject ? (
-                        <div>
+                        <div className="mt-1">
                             <p className="font-bold text-gray-800 line-clamp-1" title={highestSubject.name}>{highestSubject.name}</p>
                             <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">{highestSubject.avg.toFixed(1)} ({highestSubject.letter})</span>
                         </div>
-                    ) : <p className="text-gray-400 text-sm">Chưa có dữ liệu</p>}
+                    ) : <p className="text-gray-400 text-sm mt-1">Chưa có dữ liệu</p>}
                 </div>
             </div>
             
             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner">
+                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner shrink-0">
                     <Zap size={24} />
                 </div>
                 <div>
@@ -195,7 +283,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
             </div>
 
             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner">
+                <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner shrink-0">
                     <BookOpen size={24} />
                 </div>
                 <div>
@@ -434,9 +522,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
                     <div key={year.yearId} className="flex flex-col p-3 bg-gray-50 rounded-lg border border-gray-100 hover:border-blue-200 transition-all hover:bg-blue-50 cursor-default">
                         <div className="flex justify-between items-center mb-1">
                              <span className="font-medium text-gray-700 text-sm">{year.label}</span>
-                             <span className={`font-bold ${year.hasData ? 'text-[#003375]' : 'text-gray-400'}`}>
-                                {year.hasData ? year.gpa4.toFixed(1) : '-'}
-                             </span>
+                             <div className="flex items-center gap-2">
+                                 {year.hasData && (
+                                    <span className="text-xs font-bold text-[#990000] bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">
+                                        {year.gpa10.toFixed(2)}
+                                    </span>
+                                 )}
+                                 <span className={`font-bold ${year.hasData ? 'text-[#003375]' : 'text-gray-400'}`}>
+                                    {year.hasData ? year.gpa4.toFixed(2) : '-'}
+                                 </span>
+                             </div>
                         </div>
                         <div className="flex justify-between items-center text-xs">
                              <span className="text-gray-500">{year.totalCredits} tín chỉ</span>
@@ -448,6 +543,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
             {yearlyStats.length === 0 && <p className="text-center text-gray-400 text-sm py-10">Chưa có dữ liệu.</p>}
         </div>
       </div>
+
+      {showRankingModal && <RankingModal />}
     </div>
   );
 };
