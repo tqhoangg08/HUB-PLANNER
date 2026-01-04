@@ -15,11 +15,8 @@ export interface Program {
   majors: Major[];
 }
 
-export const ACADEMIC_PROGRAMS: Program[] = [
-  {
-    id: 'standard',
-    name: 'Đại học chính quy chuẩn',
-    majors: [
+// Dữ liệu gốc (Giữ nguyên cho các khóa cũ/khác)
+const DEFAULT_STANDARD_MAJORS: Major[] = [
       {
         name: 'Tài chính – Ngân hàng',
         code: '7340201',
@@ -58,7 +55,7 @@ export const ACADEMIC_PROGRAMS: Program[] = [
       {
         name: 'Hệ thống thông tin quản lý',
         code: '7340405',
-        specializations: [{ name: 'Hệ thống thông tin quản lý', credits: 125 }] // "Hệ thống thông tin kinh doanh và chuyển đổi số" shortened for UI or kept full if preferred
+        specializations: [{ name: 'Hệ thống thông tin quản lý', credits: 125 }]
       },
       {
         name: 'Khoa học dữ liệu',
@@ -111,12 +108,9 @@ export const ACADEMIC_PROGRAMS: Program[] = [
         code: '7340122',
         specializations: [{ name: 'Thương mại điện tử', credits: 125 }]
       }
-    ]
-  },
-  {
-    id: 'tabp',
-    name: 'ĐHCQ Tiếng Anh bán phần (TABP)',
-    majors: [
+];
+
+const DEFAULT_TABP_MAJORS: Major[] = [
       {
         name: 'Tài chính – Ngân hàng (TABP)',
         code: '7340201_TABP',
@@ -147,7 +141,102 @@ export const ACADEMIC_PROGRAMS: Program[] = [
         code: '7380107_TABP',
         specializations: [{ name: 'Luật kinh tế (TABP)', credits: 124 }]
       },
-    ]
+];
+
+// Dữ liệu mới cho K38, K39 (Chính quy chuẩn)
+const K38_K39_STANDARD_MAJORS: Major[] = [
+    {
+        name: 'Tài chính – Ngân hàng',
+        code: '7340201',
+        specializations: [
+            { name: 'Tài chính', credits: 124 },
+            { name: 'Ngân hàng', credits: 124 },
+            { name: 'Công nghệ tài chính', credits: 124 },
+            { name: 'Tài chính và quản trị doanh nghiệp', credits: 124 },
+            { name: 'Tài chính định lượng và quản trị rủi ro', credits: 124 },
+        ]
+    },
+    {
+        name: 'Quản trị kinh doanh',
+        code: '7340101',
+        specializations: [
+            { name: 'Quản trị kinh doanh', credits: 125 },
+            { name: 'Digital marketing', credits: 125 },
+            { name: 'Logistics và quản lý chuỗi cung ứng', credits: 125 }
+        ]
+    },
+    {
+        name: 'Hệ thống thông tin quản lý',
+        code: '7340405',
+        specializations: [
+            { name: 'Hệ thống thông tin kinh doanh và chuyển đổi số', credits: 122 },
+            { name: 'Quản trị thương mại điện tử', credits: 122 },
+            { name: 'Khoa học dữ liệu trong kinh doanh', credits: 122 }
+        ]
+    },
+    {
+        name: 'Kế toán',
+        code: '7340301',
+        specializations: [
+            { name: 'Kế toán kiểm toán', credits: 125 }
+        ]
+    },
+    {
+        name: 'Kinh tế quốc tế',
+        code: '7310106',
+        specializations: [
+            { name: 'Kinh tế quốc tế', credits: 122 },
+            { name: 'Kinh doanh quốc tế', credits: 122 },
+            { name: 'Kinh tế và kinh doanh số', credits: 122 }
+        ]
+    },
+    {
+        name: 'Luật kinh tế',
+        code: '7380107',
+        specializations: [
+            { name: 'Luật kinh tế', credits: 122 }
+        ]
+    },
+    {
+        name: 'Ngôn ngữ Anh',
+        code: '7220201',
+        specializations: [
+            { name: 'Tiếng Anh thương mại', credits: 125 },
+            { name: 'Song ngữ Anh - Trung', credits: 125 }
+        ]
+    }
+];
+
+// Dữ liệu mới cho K10, K11 (CLC/TABP)
+const K10_K11_CLC_MAJORS: Major[] = [
+    {
+        name: 'Tài chính – Ngân hàng (CLC)',
+        code: '7340201_CLC',
+        specializations: [{ name: 'Tài chính – Ngân hàng (CLC)', credits: 123 }]
+    },
+    {
+        name: 'Quản trị kinh doanh (CLC)',
+        code: '7340101_CLC',
+        specializations: [{ name: 'Quản trị kinh doanh (CLC)', credits: 123 }]
+    },
+    {
+        name: 'Kế toán (CLC)',
+        code: '7340301_CLC',
+        specializations: [{ name: 'Kế toán (CLC)', credits: 123 }]
+    }
+];
+
+
+export const ACADEMIC_PROGRAMS: Program[] = [
+  {
+    id: 'standard',
+    name: 'Đại học chính quy chuẩn',
+    majors: DEFAULT_STANDARD_MAJORS
+  },
+  {
+    id: 'tabp',
+    name: 'ĐHCQ Tiếng Anh bán phần (TABP/CLC)',
+    majors: DEFAULT_TABP_MAJORS
   },
   {
     id: 'special',
@@ -161,3 +250,29 @@ export const ACADEMIC_PROGRAMS: Program[] = [
     ]
   }
 ];
+
+// Helper function to get majors based on Program AND Cohort
+export const getMajors = (programId: string, cohort: string): Major[] => {
+    const pId = programId;
+    const c = cohort.toUpperCase().trim();
+
+    // 1. Logic cho ĐH Chính quy chuẩn
+    if (pId === 'standard') {
+        if (c === 'K38' || c === 'K39') {
+            return K38_K39_STANDARD_MAJORS;
+        }
+        return DEFAULT_STANDARD_MAJORS;
+    }
+
+    // 2. Logic cho CLC/TABP
+    if (pId === 'tabp') {
+        if (c === 'CLCK10' || c === 'CLCK11') {
+            return K10_K11_CLC_MAJORS;
+        }
+        return DEFAULT_TABP_MAJORS;
+    }
+
+    // Default: Return the majors found in ACADEMIC_PROGRAMS structure
+    const prog = ACADEMIC_PROGRAMS.find(p => p.id === pId);
+    return prog ? prog.majors : [];
+};
