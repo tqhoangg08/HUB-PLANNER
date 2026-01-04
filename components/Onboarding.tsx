@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserData } from '../types';
-import { ACADEMIC_PROGRAMS, Program, Major, Specialization } from '../utils/programs';
+import { ACADEMIC_PROGRAMS, Program, Major, Specialization, getMajors } from '../utils/programs';
 import { Check, ChevronRight, User, BookOpen, GraduationCap, ArrowLeft, Calendar } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
@@ -25,6 +25,11 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
     specialization: null as Specialization | null,
   });
 
+  // Helper to fetch dynamic majors based on current selections
+  const currentMajors = formData.program && formData.cohort 
+    ? getMajors(formData.program.id, formData.cohort) 
+    : [];
+
   const handleNext = () => {
     playClick();
     // Step 1: Name validation
@@ -44,6 +49,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
 
     if (step < 5) {
       // Auto-select specialization if there's only one choice when moving from Major (Step 4) to Step 5
+      // Important: Check against the fresh major data, not potentially stale state
       if (step === 4 && formData.major && formData.major.specializations.length === 1) {
           const autoSpec = formData.major.specializations[0];
           setFormData(prev => ({...prev, specialization: autoSpec}));
@@ -151,7 +157,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                 {options.map(cohort => (
                     <button
                         key={cohort}
-                        onClick={() => { playClick(); setFormData({ ...formData, cohort: cohort }); }}
+                        onClick={() => { playClick(); setFormData({ ...formData, cohort: cohort, major: null, specialization: null }); }}
                         className={`p-4 rounded-xl border-2 text-center transition-all duration-200 active:scale-[0.95] hover:shadow-md ${
                         formData.cohort === cohort
                             ? 'border-[#003375] bg-[#003375] text-white shadow-md'
@@ -181,7 +187,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
       </div>
       
       <div className="h-64 overflow-y-auto pr-2 space-y-2 custom-scrollbar p-1">
-        {formData.program?.majors.map(major => (
+        {currentMajors.map(major => (
           <button
             key={major.code}
             onClick={() => { playClick(); setFormData({ ...formData, major: major, specialization: null }); }}
@@ -197,6 +203,9 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
             </div>
           </button>
         ))}
+        {currentMajors.length === 0 && (
+            <p className="text-center text-gray-500 py-4">Không tìm thấy dữ liệu ngành học cho khóa này.</p>
+        )}
       </div>
     </div>
   );
@@ -277,7 +286,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
             }
             className="w-full mt-8 bg-[#003375] text-white p-3 rounded-xl font-bold hover:bg-[#002855] transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:scale-[1.01]"
         >
-            {step === 5 || (step === 4 && formData.major?.specializations.length === 1) ? 'Hoàn tất' : 'Tiếp tục'}
+            {step === 5 || (step === 4 && formData.major && formData.major.specializations.length === 1) ? 'Hoàn tất' : 'Tiếp tục'}
             <ChevronRight size={20} />
         </button>
 
