@@ -65,9 +65,14 @@ export const calculateSemesterStats = (subjects: Subject[]) => {
     }
   });
 
+  // Calculate averages and explicitly round to 1 decimal place using Math.round
+  // This ensures 3.55 becomes 3.6
+  const gpa10 = totalCredits > 0 ? Math.round((totalScore10 / totalCredits) * 10) / 10 : 0;
+  const gpa4 = totalCredits > 0 ? Math.round((totalScore4 / totalCredits) * 10) / 10 : 0;
+
   return {
-    gpa10: totalCredits > 0 ? Number((totalScore10 / totalCredits).toFixed(1)) : 0,
-    gpa4: totalCredits > 0 ? Number((totalScore4 / totalCredits).toFixed(1)) : 0, // Round to 1 decimal as per image
+    gpa10,
+    gpa4,
     totalCredits,
     passedCredits,
     hasData: totalCredits > 0
@@ -123,12 +128,16 @@ export const calculateYearlyStats = (semesters: Semester[]) => {
 
 // Updated based on image for Credit System (Scale 4)
 export const getDegreeClassification = (gpa4: number) => {
+  // Ensure we classify based on the rounded value
+  // Example: 3.55 -> 3.6 -> Xuất sắc
+  const roundedGPA = Math.round(gpa4 * 10) / 10;
+
   // Check strict ranges from top down
-  if (gpa4 >= 3.6) return "Xuất sắc";
-  if (gpa4 >= 3.2) return "Giỏi"; // 3.2 to < 3.6
-  if (gpa4 >= 2.5) return "Khá"; // 2.5 to < 3.2
-  if (gpa4 >= 2.0) return "Trung bình"; // 2.0 to < 2.5
-  if (gpa4 >= 1.0) return "Yếu"; // 1.0 to < 2.0
+  if (roundedGPA >= 3.6) return "Xuất sắc";
+  if (roundedGPA >= 3.2) return "Giỏi"; // 3.2 to < 3.6
+  if (roundedGPA >= 2.5) return "Khá"; // 2.5 to < 3.2
+  if (roundedGPA >= 2.0) return "Trung bình"; // 2.0 to < 2.5
+  if (roundedGPA >= 1.0) return "Yếu"; // 1.0 to < 2.0
   return "Kém"; // < 1.0
 };
 
