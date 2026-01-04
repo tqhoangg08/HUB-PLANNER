@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Papa from 'papaparse';
-import { Search, MapPin, Calendar, User, Phone, ExternalLink, Loader2, ImageOff, PlusCircle, RefreshCw } from 'lucide-react';
+import { Search, MapPin, Calendar, User, Phone, ExternalLink, Loader2, ImageOff, PlusCircle, RefreshCw, Info } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 const GOOGLE_SHEET_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQhNOxdpNzVKa64MndmleEp9g56r4vK7JXPrtjwW1-OqIiptCZztmadjDi2OewRr3j6dEPcshPR9Wz3/pub?output=tsv';
@@ -153,6 +153,14 @@ export const LostFoundBoard: React.FC = () => {
                 <span className="sm:hidden">Báo đồ</span>
             </a>
         </div>
+      </div>
+
+      {/* Notice Banner */}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-start sm:items-center gap-3 text-sm text-amber-900 animate-fadeIn">
+        <Info className="shrink-0 text-amber-600 mt-0.5 sm:mt-0" size={18} />
+        <p>
+            <strong>Lưu ý:</strong> Web chỉ lưu trữ đồ rơi trong vòng <strong>5-7 ngày</strong> tùy thuộc vào số lượng đồ nhặt được.
+        </p>
       </div>
 
       {/* Content */}
