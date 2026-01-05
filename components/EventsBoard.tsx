@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Papa from 'papaparse';
-import { Search, Calendar, MapPin, Award, ExternalLink, Loader2, RefreshCw, Users, Clock, Filter, Tag, AlertCircle, FileText, X, PlusCircle, Sparkles, Hourglass, GraduationCap, BookOpen, Phone, Send, User } from 'lucide-react';
+import { Search, Calendar, MapPin, Award, ExternalLink, Loader2, RefreshCw, Users, Clock, Filter, Tag, AlertCircle, FileText, X, PlusCircle, Sparkles, Hourglass, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 const GOOGLE_SHEET_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfOrgITNGNMq-_wu7TEBQshWl7SOi080vX97Z2QKB6LyfQIicz6lZN9m62s2abF8XPQriTdOTBWoi/pub?output=tsv';
-const CONTRIBUTE_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLScFpFT0AUq65i6o8g5BEbCt9Q6Ii-qtdX9I2wZCQo4s-wXiyg/viewform';
 
 interface HubEvent {
   id: string;
@@ -59,6 +58,15 @@ export const EventsBoard: React.FC = () => {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [showScoreGuide, setShowScoreGuide] = useState(false);
   const [showRecruitModal, setShowRecruitModal] = useState(false);
+  const [showContributeModal, setShowContributeModal] = useState(false);
+  
+  // Notification State
+  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+      setNotification({ message, type });
+      setTimeout(() => setNotification(null), 4000);
+  };
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -187,6 +195,28 @@ export const EventsBoard: React.FC = () => {
       return !isExpired && !isUpcoming;
   });
 
+  const NotificationToast = () => {
+    if (!notification) return null;
+    
+    return createPortal(
+        <div className={`fixed top-4 right-4 z-[100000] max-w-sm w-full bg-white rounded-xl shadow-2xl border-l-4 p-4 flex items-center gap-3 animate-slideInRight ${notification.type === 'success' ? 'border-green-500' : 'border-red-500'}`}>
+            <div className={`p-2 rounded-full ${notification.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                {notification.type === 'success' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
+            </div>
+            <div className="flex-1">
+                <h4 className={`font-bold ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                    {notification.type === 'success' ? 'Thành công!' : 'Thất bại'}
+                </h4>
+                <p className="text-sm text-gray-600">{notification.message}</p>
+            </div>
+            <button onClick={() => setNotification(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+            </button>
+        </div>,
+        document.body
+    );
+  };
+
   const RecruitFormModal = () => {
       const [formData, setFormData] = useState({
           name: '',
@@ -209,7 +239,7 @@ export const EventsBoard: React.FC = () => {
           playClick();
 
           if (!formData.name.trim() || !formData.contact.trim()) {
-            alert("Vui lòng nhập Họ tên và Thông tin liên hệ!");
+            showToast("Vui lòng nhập Họ tên và Thông tin liên hệ!", 'error');
             return;
           }
 
@@ -232,12 +262,12 @@ export const EventsBoard: React.FC = () => {
                 })
             });
             
-            alert(`Cảm ơn ${formData.name}! Đăng ký của bạn đã được ghi nhận. Chúng mình sẽ liên hệ qua ${formData.contact} trong thời gian sớm nhất.`);
+            showToast(`Cảm ơn ${formData.name}! Đăng ký thành công.`, 'success');
             setFormData({ name: '', cohort: '', major: '', contact: '' });
             setShowRecruitModal(false);
           } catch (err) {
             console.error(err);
-            alert("Có lỗi xảy ra khi gửi thông tin. Vui lòng thử lại sau.");
+            showToast("Có lỗi kết nối. Vui lòng thử lại sau.", 'error');
           } finally {
             setIsSubmitting(false);
           }
@@ -338,11 +368,227 @@ export const EventsBoard: React.FC = () => {
       );
   };
 
-  const ScoreGuideModal = () => (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col animate-scaleIn border border-gray-200">
+  const ContributeEventModal = () => {
+    const [formData, setFormData] = useState({
+        tenSuKien: '',
+        phanLoai: '',
+        muc: '',
+        diem: '',
+        hinhThuc: 'Offline',
+        btc: '',
+        hanThamGia: '',
+        link: ''
+    });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Lock body scroll when modal is open
+    useEffect(() => {
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, []);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        playClick();
+
+        // Validation
+        if (!formData.tenSuKien || !formData.link) {
+            showToast("Vui lòng nhập Tên sự kiện và Link bài viết!", 'error');
+            return;
+        }
+
+        setIsSubmitting(true);
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyMfssEtyn7vQGNN3Gzy0QQivHaMPQUiUnmnP_mS3Lb5T86k8dMZGQSslVPXGGP7nnb/exec';
+
+        try {
+            await fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            });
+
+            showToast("Đã gửi sự kiện thành công! Cảm ơn bạn.", 'success');
+            setFormData({
+                tenSuKien: '',
+                phanLoai: '',
+                muc: '',
+                diem: '',
+                hinhThuc: 'Offline',
+                btc: '',
+                hanThamGia: '',
+                link: ''
+            });
+            setShowContributeModal(false);
+        } catch (err) {
+            console.error(err);
+            showToast("Có lỗi xảy ra khi gửi. Vui lòng thử lại.", 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-gray-200 animate-scaleIn overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="bg-[#990000] p-4 text-white flex justify-between items-center shrink-0">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        <PlusCircle size={20} /> Đóng góp Sự kiện mới
+                    </h3>
+                    <button 
+                        onClick={() => { playClick(); setShowContributeModal(false); }}
+                        className="hover:bg-white/20 p-2 rounded-full transition-colors active:scale-95"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="p-6 overflow-y-auto custom-scrollbar space-y-4">
+                    
+                    {/* Tên sự kiện */}
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
+                        <input 
+                            type="text"
+                            required
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#990000] focus:border-[#990000] outline-none"
+                            placeholder="Nhập tên sự kiện..."
+                            value={formData.tenSuKien}
+                            onChange={e => setFormData({...formData, tenSuKien: e.target.value})}
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* BTC */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Đơn vị tổ chức (BTC)</label>
+                            <div className="relative">
+                                <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                <input 
+                                    type="text"
+                                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#990000] outline-none"
+                                    placeholder="VD: CLB Kỹ năng"
+                                    value={formData.btc}
+                                    onChange={e => setFormData({...formData, btc: e.target.value})}
+                                />
+                            </div>
+                        </div>
+                        {/* Phân loại */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Phân loại</label>
+                            <div className="relative">
+                                <Type className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                <input 
+                                    type="text"
+                                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#990000] outline-none"
+                                    placeholder="VD: Học thuật"
+                                    value={formData.phanLoai}
+                                    onChange={e => setFormData({...formData, phanLoai: e.target.value})}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                         {/* Mục */}
+                         <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Mục ĐRL</label>
+                            <input 
+                                type="text"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#990000] outline-none"
+                                placeholder="VD: III"
+                                value={formData.muc}
+                                onChange={e => setFormData({...formData, muc: e.target.value})}
+                            />
+                        </div>
+                        {/* Điểm */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Điểm số</label>
+                            <input 
+                                type="text"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#990000] outline-none"
+                                placeholder="VD: 5"
+                                value={formData.diem}
+                                onChange={e => setFormData({...formData, diem: e.target.value})}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                         {/* Hình thức */}
+                         <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Hình thức</label>
+                            <select 
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#990000] outline-none bg-white"
+                                value={formData.hinhThuc}
+                                onChange={e => setFormData({...formData, hinhThuc: e.target.value})}
+                            >
+                                <option value="Offline">Offline</option>
+                                <option value="Online">Online</option>
+                                <option value="Hỗn hợp">Hỗn hợp</option>
+                            </select>
+                        </div>
+                        {/* Hạn tham gia */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Hạn tham gia</label>
+                            <input 
+                                type="date"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#990000] outline-none"
+                                value={formData.hanThamGia}
+                                onChange={e => setFormData({...formData, hanThamGia: e.target.value})}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Link */}
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Link bài viết (Facebook/Website) <span className="text-red-500">*</span></label>
+                        <div className="relative">
+                            <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                            <input 
+                                type="text"
+                                required
+                                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#990000] outline-none"
+                                placeholder="https://..."
+                                value={formData.link}
+                                onChange={e => setFormData({...formData, link: e.target.value})}
+                            />
+                        </div>
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        disabled={isSubmitting}
+                        className="w-full bg-[#990000] hover:bg-[#7a0000] text-white font-bold py-3 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        {isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <Send size={20} />}
+                        {isSubmitting ? 'Đang gửi...' : 'Lưu sự kiện'}
+                    </button>
+                </form>
+            </div>
+        </div>,
+        document.body
+    );
+  };
+
+  const ScoreGuideModal = () => {
+    // Lock scroll when mounted
+    useEffect(() => {
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, []);
+
+    return createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-scaleIn border border-gray-200 overflow-hidden">
             {/* Modal Header */}
-            <div className="bg-[#003375] p-4 flex justify-between items-center text-white rounded-t-2xl shrink-0">
+            <div className="bg-[#003375] p-4 flex justify-between items-center text-white shrink-0">
                 <h3 className="font-bold text-lg flex items-center gap-2">
                     <FileText size={20} className="text-yellow-300" /> 
                     Phiếu đánh giá kết quả rèn luyện sinh viên
@@ -678,7 +924,7 @@ export const EventsBoard: React.FC = () => {
                 </div>
             </div>
             
-             <div className="p-4 bg-gray-50 rounded-b-xl border-t border-gray-200">
+             <div className="p-4 bg-gray-50 border-t border-gray-200 shrink-0">
                 <button 
                   onClick={() => { playClick(); setShowScoreGuide(false); }}
                   className="w-full bg-[#003375] hover:bg-[#002855] text-white font-bold py-3 rounded-xl transition-all active:scale-95 shadow-md"
@@ -687,8 +933,10 @@ export const EventsBoard: React.FC = () => {
                 </button>
              </div>
         </div>
-    </div>
-  );
+    </div>,
+    document.body
+    );
+  };
 
   const renderEventCard = (evt: HubEvent) => {
     const isExpired = evt.deadlineDate ? evt.deadlineDate < new Date() : false;
@@ -817,17 +1065,14 @@ export const EventsBoard: React.FC = () => {
                 <span className="hidden md:inline">Phiếu đánh giá</span>
             </button>
             
-            <a 
-                href={CONTRIBUTE_FORM_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={playClick}
+            <button 
+                onClick={() => { playClick(); setShowContributeModal(true); }}
                 className="px-3 py-2 bg-[#990000] text-white rounded-lg hover:bg-[#7a0000] transition-all flex items-center gap-2 font-bold active:scale-95 hover:shadow-md whitespace-nowrap"
                 title="Đóng góp sự kiện"
             >
                 <PlusCircle size={18} />
                 <span className="hidden md:inline">Nhập sự kiện</span>
-            </a>
+            </button>
 
             <button 
                 onClick={() => { playClick(); fetchEvents(); }}
@@ -964,6 +1209,8 @@ export const EventsBoard: React.FC = () => {
 
       {showScoreGuide && <ScoreGuideModal />}
       {showRecruitModal && <RecruitFormModal />}
+      {showContributeModal && <ContributeEventModal />}
+      {notification && <NotificationToast />}
     </div>
   );
 };
