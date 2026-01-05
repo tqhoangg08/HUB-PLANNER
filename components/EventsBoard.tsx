@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Papa from 'papaparse';
-import { Search, Calendar, MapPin, Award, ExternalLink, Loader2, RefreshCw, Users, Clock, Filter, Tag, AlertCircle, FileText, X, PlusCircle, Sparkles, Hourglass } from 'lucide-react';
+import { Search, Calendar, MapPin, Award, ExternalLink, Loader2, RefreshCw, Users, Clock, Filter, Tag, AlertCircle, FileText, X, PlusCircle, Sparkles, Hourglass, GraduationCap, BookOpen, Phone, Send, User } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 const GOOGLE_SHEET_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfOrgITNGNMq-_wu7TEBQshWl7SOi080vX97Z2QKB6LyfQIicz6lZN9m62s2abF8XPQriTdOTBWoi/pub?output=tsv';
@@ -57,6 +58,7 @@ export const EventsBoard: React.FC = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [showScoreGuide, setShowScoreGuide] = useState(false);
+  const [showRecruitModal, setShowRecruitModal] = useState(false);
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -184,6 +186,157 @@ export const EventsBoard: React.FC = () => {
       const isUpcoming = !evt.deadlineDate && (!evt.link || evt.link.trim() === '');
       return !isExpired && !isUpcoming;
   });
+
+  const RecruitFormModal = () => {
+      const [formData, setFormData] = useState({
+          name: '',
+          cohort: '',
+          major: '',
+          contact: ''
+      });
+      const [isSubmitting, setIsSubmitting] = useState(false);
+
+      // Lock body scroll when modal is open
+      useEffect(() => {
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+      }, []);
+
+      const handleSubmit = async (e: React.FormEvent) => {
+          e.preventDefault();
+          playClick();
+
+          if (!formData.name.trim() || !formData.contact.trim()) {
+            alert("Vui lòng nhập Họ tên và Thông tin liên hệ!");
+            return;
+          }
+
+          setIsSubmitting(true);
+          
+          const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwRiiNZHv3rUfBqONmYQ_cxr3NKT32qEt5puiTYmiiAVybFuKVlC5YcUoEM5tomL7jY/exec';
+
+          try {
+            await fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    hoTen: formData.name,
+                    khoa: formData.cohort,
+                    nganh: formData.major,
+                    lienHe: formData.contact
+                })
+            });
+            
+            alert(`Cảm ơn ${formData.name}! Đăng ký của bạn đã được ghi nhận. Chúng mình sẽ liên hệ qua ${formData.contact} trong thời gian sớm nhất.`);
+            setFormData({ name: '', cohort: '', major: '', contact: '' });
+            setShowRecruitModal(false);
+          } catch (err) {
+            console.error(err);
+            alert("Có lỗi xảy ra khi gửi thông tin. Vui lòng thử lại sau.");
+          } finally {
+            setIsSubmitting(false);
+          }
+      };
+
+      return createPortal(
+        <div className="fixed top-0 left-0 w-full h-full z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 animate-scaleIn overflow-hidden relative">
+                <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 p-6 text-white relative">
+                    <button 
+                        onClick={() => { playClick(); setShowRecruitModal(false); }}
+                        className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors active:scale-95"
+                    >
+                        <X size={20} />
+                    </button>
+                    <h3 className="text-2xl font-bold flex items-center gap-2 mb-2">
+                        <Sparkles size={24} className="text-yellow-300" />
+                        Đăng ký CTV
+                    </h3>
+                    <p className="text-violet-100 text-sm">Cùng nhau xây dựng cộng đồng HUB Planner vững mạnh!</p>
+                </div>
+
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Họ và tên</label>
+                        <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                            <input 
+                                type="text"
+                                required
+                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                                placeholder="Nhập họ tên của bạn"
+                                value={formData.name}
+                                onChange={e => setFormData({...formData, name: e.target.value})}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Khóa</label>
+                            <div className="relative">
+                                <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                <input 
+                                    type="text"
+                                    required
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                                    placeholder="VD: K38"
+                                    value={formData.cohort}
+                                    onChange={e => setFormData({...formData, cohort: e.target.value})}
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Ngành học</label>
+                            <div className="relative">
+                                <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                <input 
+                                    type="text"
+                                    required
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                                    placeholder="VD: TCNH"
+                                    value={formData.major}
+                                    onChange={e => setFormData({...formData, major: e.target.value})}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Thông tin liên hệ</label>
+                        <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                            <input 
+                                type="text"
+                                required
+                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none"
+                                placeholder="Link Facebook, Zalo hoặc SĐT..."
+                                value={formData.contact}
+                                onChange={e => setFormData({...formData, contact: e.target.value})}
+                            />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1 italic">Chúng mình sẽ liên hệ với bạn qua kênh này.</p>
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        disabled={isSubmitting}
+                        className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        {isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <Send size={20} />}
+                        {isSubmitting ? 'Đang gửi...' : 'Xác nhận đăng ký'}
+                    </button>
+                </form>
+            </div>
+        </div>,
+        document.body
+      );
+  };
 
   const ScoreGuideModal = () => (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
@@ -686,6 +839,28 @@ export const EventsBoard: React.FC = () => {
         </div>
       </div>
 
+      {/* Recruitment Banner */}
+      <div className="mb-6 bg-gradient-to-r from-violet-600 to-fuchsia-600 p-4 rounded-xl text-white shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4 animate-fadeIn">
+        <div className="flex items-center gap-3">
+            <div className="bg-white/20 p-2.5 rounded-full shrink-0">
+                <Sparkles size={24} className="text-yellow-300 animate-pulse" />
+            </div>
+            <div>
+                <h3 className="font-bold text-lg leading-tight">Tuyển Đồng đội (CTV)</h3>
+                <p className="text-sm text-violet-100 mt-0.5 font-medium">
+                    Cần 5 bạn tình nguyện hỗ trợ tổng hợp sự kiện, quyền lợi là được ghi danh lên web nè hehee.
+                </p>
+            </div>
+        </div>
+        <button
+            onClick={() => { playClick(); setShowRecruitModal(true); }}
+            className="px-5 py-2 bg-white text-violet-700 font-bold rounded-lg shadow-sm hover:bg-gray-50 transition-all active:scale-95 whitespace-nowrap text-sm flex items-center gap-2"
+        >
+            <Users size={16} />
+            Đăng ký ngay
+        </button>
+      </div>
+
       {/* Category Tabs */}
       <div className="flex overflow-x-auto pb-4 gap-2 mb-2 no-scrollbar">
         {CATEGORIES.map(cat => (
@@ -788,6 +963,7 @@ export const EventsBoard: React.FC = () => {
       )}
 
       {showScoreGuide && <ScoreGuideModal />}
+      {showRecruitModal && <RecruitFormModal />}
     </div>
   );
 };
