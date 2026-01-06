@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Search, Phone, Mail, MapPin, Bus, Users, Book, Award, ChevronRight, GraduationCap, Copy, Check } from 'lucide-react';
+import { Search, Phone, Mail, MapPin, Bus, Users, Book, Award, ChevronRight, GraduationCap, Copy, Check, HelpCircle } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
-type TabType = 'contacts' | 'bus' | 'clubs' | 'scholarships' | 'regulations';
+type TabType = 'contacts' | 'bus' | 'clubs' | 'scholarships' | 'regulations' | 'faqs';
 
 export const Handbook: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('contacts');
@@ -38,6 +38,52 @@ export const Handbook: React.FC = () => {
     { id: '53', name: 'Lê Hồng Phong – ĐH Quốc gia', time: '5h00 – 19h30', freq: '7–15 phút', color: 'bg-blue-600' },
     { id: '104', name: 'Bến xe An Sương – ĐH Nông Lâm', time: '4h40 – 19h45', freq: '4–12 phút', color: 'bg-green-600' },
     { id: '168', name: 'ĐH Ngân hàng – Metro Thủ Đức', time: '5h00 – 22h00', freq: '10–12 phút', color: 'bg-orange-500' },
+  ];
+
+  const faqs = [
+    {
+        group: "Nhóm 1: Về Bảo Mật & Tài Khoản",
+        items: [
+            {
+                q: "Web có lưu mật khẩu Portal hay thông tin cá nhân của mình không?",
+                a: "Tuyệt đối không. HUB Planner hoạt động theo cơ chế Client-side, nghĩa là mọi dữ liệu (điểm số, tên, mã SV) chỉ được lưu trực tiếp trên trình duyệt của chính máy bạn (LocalStorage). Web không có máy chủ lưu trữ (Database) nên không thể thu thập thông tin của bạn."
+            },
+            {
+                q: "Tại sao mình tải lại trang hoặc đổi máy thì dữ liệu bị mất?",
+                a: "Vì dữ liệu được lưu trên trình duyệt (như đã nói ở trên) để đảm bảo bảo mật. Nếu bạn dùng tab ẩn danh (Incognito) hoặc xóa cache, dữ liệu sẽ biến mất. Hãy dùng tab thường để dữ liệu được giữ lại cho lần truy cập sau nhé."
+            }
+        ]
+    },
+    {
+        group: "Nhóm 2: Về Tính Năng Học Tập",
+        items: [
+            {
+                q: "Làm sao để nhập điểm tự động từ Portal trường thay vì nhập tay?",
+                a: "Rất đơn giản! Bạn vào Portal -> Xem điểm -> Nhấn Ctrl + P để lưu trang web dưới dạng file PDF. Sau đó quay lại HUB Planner, bấm nút \"Nhập PDF\" màu đỏ và tải file đó lên. Hệ thống sẽ tự tách điểm, tên môn và tín chỉ cho bạn trong 1 giây."
+            },
+            {
+                q: "Công cụ tính điểm GPA hệ 4 hay hệ 10?",
+                a: "Web hỗ trợ tính song song cả hai. Khi bạn nhập điểm thành phần (CC, Giữa kỳ, Cuối kỳ), hệ thống sẽ tự động quy đổi ra điểm tổng kết hệ 10, điểm chữ (A, B, C...) và điểm hệ 4 để bạn tiện theo dõi chuẩn đầu ra."
+            },
+            {
+                q: "Tính năng \"Xếp hạng dự báo\" (Ranking) có chính xác không?",
+                a: "Đây là tính năng tham khảo dựa trên dữ liệu ẩn danh của các khóa trước. Nó giúp bạn biết mức điểm hiện tại của mình đang nằm ở Top bao nhiêu % (ví dụ: Top 10% giỏi nhất khoa) để có động lực phấn đấu săn học bổng."
+            },
+            {
+                q: "AI Cố vấn (Gemini) có thể giúp gì cho mình?",
+                a: "Bạn có thể chat với AI để hỏi về lộ trình học, cách cải thiện điểm các môn khó, hoặc nhờ AI tư vấn xem với GPA hiện tại thì cần nỗ lực bao nhiêu để ra trường đúng hạn."
+            }
+        ]
+    },
+    {
+        group: "Nhóm 3: Tiện ích mở rộng",
+        items: [
+            {
+                q: "Mình bị mất đồ tại trường (Thủ Đức/Quận 1), làm sao để đăng tin?",
+                a: "Bạn vào mục Lost & Found, bấm nút \"Đăng tin tìm đồ\". Hãy mô tả chi tiết (loại đồ, màu sắc, khu vực rơi) để các bạn khác dễ thấy. Nếu có hình ảnh minh họa càng tốt."
+            }
+        ]
+    }
   ];
 
   const filteredContacts = contacts.filter(c => 
@@ -217,6 +263,43 @@ export const Handbook: React.FC = () => {
              </div>
           </div>
         );
+
+      case 'faqs':
+        return (
+            <div className="space-y-6 animate-fadeIn">
+                <div className="bg-gradient-to-r from-[#003375] to-blue-600 p-4 rounded-xl shadow-lg mb-6 text-white flex items-center gap-3">
+                    <div className="bg-white/20 p-2 rounded-full">
+                        <HelpCircle size={24} className="text-yellow-300"/>
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-lg">Câu hỏi thường gặp (FAQs)</h3>
+                        <p className="text-blue-100 text-sm">Giải đáp nhanh các thắc mắc về tính năng và bảo mật.</p>
+                    </div>
+                </div>
+
+                {faqs.map((group, idx) => (
+                    <div key={idx} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div className="bg-gray-50 px-4 py-3 text-[#003375] font-bold text-sm uppercase tracking-wide border-b border-gray-200">
+                            {group.group}
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                            {group.items.map((item, i) => (
+                                <div key={i} className="p-4 hover:bg-blue-50/30 transition-colors">
+                                    <h4 className="font-bold text-gray-800 mb-2 flex gap-2">
+                                        <span className="text-[#990000] font-black shrink-0">Q:</span>
+                                        <span className="text-gray-900">{item.q}</span>
+                                    </h4>
+                                    <p className="text-gray-600 text-sm leading-relaxed ml-6 pl-2 border-l-2 border-blue-100">
+                                        <span className="font-bold text-[#003375] mr-1">A:</span>
+                                        {item.a}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
         
       default: return null;
     }
@@ -261,6 +344,15 @@ export const Handbook: React.FC = () => {
         >
           <GraduationCap size={18} />
           <span className="font-medium">Học bổng & Quy chế</span>
+        </button>
+        <button
+          onClick={() => handleTabChange('faqs')}
+          className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-all duration-200 active:scale-95 ${
+            activeTab === 'faqs' ? 'bg-[#003375] text-white shadow-lg scale-105' : 'bg-white hover:bg-gray-50 text-gray-700 hover:shadow-md'
+          }`}
+        >
+          <HelpCircle size={18} />
+          <span className="font-medium">Câu hỏi thường gặp</span>
         </button>
       </div>
 
