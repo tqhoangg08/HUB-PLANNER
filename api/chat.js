@@ -17,8 +17,7 @@ export default async function handler(req, res) {
 
   try {
     const { message } = req.body;
-    const apiKey = "AIzaSyD-jOo50L3_oL2a837ErCvumkV2r1bg-kM";
-
+const apiKey = process.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
       return res.status(500).json({ error: "Chưa nhập API Key trong Settings Vercel" });
     }
