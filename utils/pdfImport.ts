@@ -155,7 +155,7 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
                             'quốc phòng', 'an ninh',
                             'tiếng anh tăng cường',
                             'kỹ năng',
-                            'đầu vào'
+                            'đầu vào','học phần'
                         ];
 
                         if (s.tin_chi === 0 || s.ket_qua === 'M' || nonGpaKeywords.some(k => nameLower.includes(k))) {
@@ -217,7 +217,7 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
                     'Quốc phòng', 'An ninh',
                     'Tiếng Anh tăng cường',
                     'Kỹ năng',
-                    'đầu vào'
+                    'đầu vào','học phần'
                 ];
 
                 if (nonGpaKeywords.some(kw => name.toLowerCase().includes(kw.toLowerCase()))) {
