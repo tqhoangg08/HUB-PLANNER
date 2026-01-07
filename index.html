@@ -1,50 +1,9 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" class="scroll-smooth">
   <head>
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-RS87LQMBFC"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-RS87LQMBFC');
-</script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hỗ Trợ Sinh Viên HUB - Công cụ Lập kế hoạch & Tính điểm</title>
-    <meta name="description" content="Công cụ miễn phí dành cho sinh viên Đại học Ngân hàng TP.HCM (HUB): Quản lý học tập, tìm đồ thất lạc và cập nhật sự kiện mới nhất." />
-   <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://hotrosinhvienhub.id.vn/" />
-    <meta property="og:title" content="Hỗ Trợ Sinh Viên HUB - Tính Điểm & Lập Kế Hoạch, Tìm Đồ Thất Lạc, Sự Kiện" />
-    <meta property="og:description" content="Công cụ 'cứu cánh' cho sinh viên HUB: Tự động tính GPA, điểm rèn luyện, tìm đồ thất lạc, cập nhật sự kiện mới nhất và quản lý lịch học siêu nhanh. Dùng ngay không cần đăng nhập!" />
-    <meta property="og:image" content="https://hotrosinhvienhub.id.vn/banner.png" />
-
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "HUB Planner",
-  "operatingSystem": "Web Browser",
-  "applicationCategory": "EducationalApplication",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "VND"
-  },
-  "description": "Công cụ tính điểm GPA, điểm rèn luyện và tìm đồ thất lạc miễn phí cho sinh viên Đại học Ngân hàng TP.HCM (HUB).",
-  "aggregateRating": {
-    "@type": "AggregateRating",
-    "ratingValue": "4.8",
-    "ratingCount": "120"
-  }
-}
-</script>
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta property="twitter:domain" content="hotrosinhvienhub.id.vn" />
-    <meta property="twitter:url" content="https://hotrosinhvienhub.id.vn/" />
-    <meta name="twitter:title" content="Hỗ Trợ Sinh Viên HUB - Tính Điểm & Lập Kế Hoạch, Tìm Đồ Thất Lạc, Sự Kiện" />
-    <meta name="twitter:description" content="Công cụ 'cứu cánh' cho sinh viên HUB: Tự động tính GPA, tìm đồ thất lạc, cập nhật sự kiện mới nhất, điểm rèn luyện và quản lý lịch học siêu nhanh." />
-    <meta name="twitter:image" content="https://hotrosinhvienhub.id.vn/banner.png" />
+    <title>HUB Grade Planner</title>
     <script src="https://cdn.tailwindcss.com"></script>
   <script type="importmap">
 {
@@ -59,7 +18,9 @@
     "pdfjs-dist/": "https://esm.sh/pdfjs-dist@4.0.379/",
     "papaparse": "https://esm.sh/papaparse@5.4.1",
     "jspdf": "https://esm.sh/jspdf@2.5.1",
-    "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.2"
+    "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.2",
+    "react-dom": "https://esm.sh/react-dom@^19.2.3",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.3"
   }
 }
 </script>
@@ -71,12 +32,12 @@
   }
   
   @keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
+    from { opacity: 0; transform: translateY(15px); }
     to { opacity: 1; transform: translateY(0); }
   }
 
   @keyframes slideInRight {
-    from { opacity: 0; transform: translateX(20px); }
+    from { opacity: 0; transform: translateX(15px); }
     to { opacity: 1; transform: translateX(0); }
   }
 
@@ -85,20 +46,30 @@
     to { opacity: 1; transform: scale(1); }
   }
 
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-5px); }
+    100% { transform: translateY(0px); }
+  }
+
   .animate-fadeIn {
-    animation: fadeIn 0.5s ease-out forwards;
+    animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   }
 
   .animate-slideUp {
-    animation: slideUp 0.5s ease-out forwards;
+    animation: slideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   }
 
   .animate-slideInRight {
-    animation: slideInRight 0.3s ease-out forwards;
+    animation: slideInRight 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   }
   
   .animate-scaleIn {
-    animation: scaleIn 0.3s ease-out forwards;
+    animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
   }
 
   /* Custom Scrollbar */
@@ -107,21 +78,24 @@
     height: 6px;
   }
   .custom-scrollbar::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
+    background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 4px;
+    background: #cbd5e1;
+    border-radius: 10px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
+    background: #94a3b8;
+  }
+
+  /* Smooth Focus Outlines */
+  *:focus-visible {
+    outline: 2px solid #003375;
+    outline-offset: 2px;
   }
 </style>
-<link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-gray-50">
+  <body class="bg-[#f8f9fa] antialiased">
     <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
-</body>
+  </body>
 </html>
