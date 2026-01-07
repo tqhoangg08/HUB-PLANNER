@@ -11,8 +11,8 @@
   "dependencies": {
     "@google/genai": "^1.34.0",
     "@google/generative-ai": "^0.21.0",
-    "jspdf": "2.5.1",
-    "jspdf-autotable": "3.8.2",
+    "jspdf": "4.0.0",
+    "jspdf-autotable": "5.0.7",
     "lucide-react": "^0.562.0",
     "papaparse": "5.4.1",
     "pdfjs-dist": "4.2.67",
