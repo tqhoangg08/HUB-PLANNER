@@ -14,7 +14,7 @@
     "react-dom": "^19.2.3",
     "react": "^19.2.3",
     "lucide-react": "^0.562.0",
-    "pdfjs-dist": "4.0.379",
+    "pdfjs-dist": "4.2.67",
     "papaparse": "5.4.1",
     "jspdf": "2.5.1",
     "jspdf-autotable": "3.8.2"
