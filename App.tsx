@@ -51,6 +51,7 @@ const App: React.FC = () => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [showImportGuide, setShowImportGuide] = useState(false);
+  const [showImportLoadingToast, setShowImportLoadingToast] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [activeView, setActiveView] = useState<'dashboard' | 'handbook' | 'events' | 'lost-found'>('dashboard');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -126,6 +127,8 @@ const App: React.FC = () => {
 
     setShowImportGuide(false);
     setIsImporting(true);
+    setShowImportLoadingToast(true);
+    
     try {
         const result = await parseHubPdf(file);
         
@@ -208,6 +211,7 @@ const App: React.FC = () => {
         alert("Lỗi khi đọc file PDF.");
     } finally {
         setIsImporting(false);
+        setShowImportLoadingToast(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -606,6 +610,20 @@ const App: React.FC = () => {
 
       <GeminiAdvisor data={data} />
       
+      {showImportLoadingToast && (
+            <div className="fixed bottom-4 right-4 bg-white shadow-xl p-4 rounded-xl border border-blue-200 flex items-start gap-3 z-[100] animate-slideInRight max-w-sm">
+                <Loader2 className="animate-spin text-[#003375] shrink-0 mt-0.5" />
+                <div className="flex-1">
+                     <p className="text-sm font-medium text-[#003375]">
+                        Bạn hãy kiên nhẫn chờ mình một chút nhé, điểm của bạn đang được tải lên, đừng thoát khỏi màn hình nhaaaa
+                     </p>
+                </div>
+                <button onClick={() => setShowImportLoadingToast(false)} className="text-gray-400 hover:text-gray-600">
+                    <X size={16} />
+                </button>
+            </div>
+      )}
+
       {showImportGuide && <ImportGuideModal />}
       {showGuide && <UserGuideModal />}
     </div>
