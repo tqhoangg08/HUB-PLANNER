@@ -3,8 +3,8 @@ import { GoogleGenAI } from "@google/genai";
 import { UserData, Semester, Subject } from '../types';
 
 // Set worker for PDF.js - ensure version matches the main library import
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
-
+// Tự động lấy đúng phiên bản worker khớp với thư viện
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 interface ParsedResult {
     studentInfo: Partial<UserData>;
     semesters: Semester[];
