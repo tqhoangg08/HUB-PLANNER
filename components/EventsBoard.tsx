@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Papa from 'papaparse';
-import { Search, Calendar, MapPin, Award, ExternalLink, Loader2, RefreshCw, Users, Clock, Filter, Tag, AlertCircle, FileText, X, PlusCircle, Sparkles, Hourglass, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2 } from 'lucide-react';
+import { Search, Calendar, MapPin, Award, ExternalLink, Loader2, RefreshCw, Users, Clock, Filter, Tag, AlertCircle, FileText, X, PlusCircle, Sparkles, Hourglass, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, ChevronDown, Building2 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 const GOOGLE_SHEET_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfOrgITNGNMq-_wu7TEBQshWl7SOi080vX97Z2QKB6LyfQIicz6lZN9m62s2abF8XPQriTdOTBWoi/pub?output=tsv';
@@ -17,6 +17,7 @@ interface HubEvent {
   link: string;      // Link tham gia
   organizer: string; // BTC
   type: string;      // Phân loại
+  scope: string;     // Phạm vi (Trong trường/Ngoài trường)
 }
 
 const CATEGORIES = [
@@ -55,6 +56,7 @@ export const EventsBoard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
+  const [activeScope, setActiveScope] = useState('all'); // 'all', 'internal', 'external'
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [showScoreGuide, setShowScoreGuide] = useState(false);
   const [showRecruitModal, setShowRecruitModal] = useState(false);
@@ -129,6 +131,12 @@ export const EventsBoard: React.FC = () => {
             // 8. Phân loại
             const type = row[findKey(['Phân loại', 'Loại hình'])] || '';
 
+            // 9. Phạm vi (Column I) - "Trong trường" / "Ngoài trường"
+            const scopeRaw = row[findKey(['Phạm vi', 'Khu vực', 'Trong/Ngoài', 'Scope'])] || '';
+            let scope = '';
+            if (scopeRaw.toLowerCase().includes('trong')) scope = 'Trong trường';
+            else if (scopeRaw.toLowerCase().includes('ngoài')) scope = 'Ngoài trường';
+
             return {
               id: `evt-${index}`,
               name,
@@ -139,7 +147,8 @@ export const EventsBoard: React.FC = () => {
               deadlineDate,
               link,
               organizer,
-              type
+              type,
+              scope
             };
           });
           
@@ -175,7 +184,12 @@ export const EventsBoard: React.FC = () => {
     // Logic lọc Tab: So sánh chính xác chuỗi category đã parse ('I', 'II', etc.)
     const matchesTab = activeTab === 'all' || evt.category === activeTab;
     
-    return matchesSearch && matchesTab;
+    // Logic lọc Scope:
+    const matchesScope = activeScope === 'all' || 
+                         (activeScope === 'internal' && evt.scope === 'Trong trường') ||
+                         (activeScope === 'external' && evt.scope === 'Ngoài trường');
+    
+    return matchesSearch && matchesTab && matchesScope;
   });
 
   const now = new Date();
@@ -986,6 +1000,15 @@ export const EventsBoard: React.FC = () => {
             {evt.name}
         </h3>
 
+        {/* Scope Tag if available */}
+        {evt.scope && evt.scope !== 'Khác' && (
+             <div className="mb-2">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${evt.scope === 'Trong trường' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-pink-50 text-pink-700 border-pink-100'}`}>
+                    <Building2 size={10} /> {evt.scope}
+                </span>
+             </div>
+        )}
+
         <div className="space-y-2 text-sm text-gray-600 mb-4 flex-1">
             <div className="flex items-start gap-2">
                 <Clock size={16} className={`mt-0.5 shrink-0 ${isExpired ? 'text-red-400' : isUpcoming ? 'text-orange-400' : 'text-gray-400'}`} />
@@ -1044,43 +1067,60 @@ export const EventsBoard: React.FC = () => {
            <p className="text-sm text-gray-500 mt-1">Một số sự kiện có thể được cập nhật trễ</p>
         </div>
         
-        <div className="flex gap-2 w-full md:w-auto">
-            <div className="relative flex-1 md:flex-none">
+        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto items-stretch">
+            <div className="relative flex-1 sm:flex-none">
                 <input
                     type="text"
                     placeholder="Tìm tên, BTC, loại hình..."
-                    className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none w-full md:w-64 transition-all hover:border-blue-300"
+                    className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none w-full md:w-64 transition-all hover:border-blue-300 h-full"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             </div>
             
-            <button 
-                onClick={() => { playClick(); setShowScoreGuide(true); }}
-                className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all flex items-center gap-2 font-medium active:scale-95 hover:shadow-sm"
-                title="Xem bảng điểm ĐRL"
-            >
-                <FileText size={18} />
-                <span className="hidden md:inline">Phiếu đánh giá</span>
-            </button>
-            
-            <button 
-                onClick={() => { playClick(); setShowContributeModal(true); }}
-                className="px-3 py-2 bg-[#990000] text-white rounded-lg hover:bg-[#7a0000] transition-all flex items-center gap-2 font-bold active:scale-95 hover:shadow-md whitespace-nowrap"
-                title="Đóng góp sự kiện"
-            >
-                <PlusCircle size={18} />
-                <span className="hidden md:inline">Nhập sự kiện</span>
-            </button>
+            {/* Scope Filter Dropdown */}
+            <div className="relative">
+                <select 
+                    value={activeScope}
+                    onChange={(e) => { playClick(); setActiveScope(e.target.value); }}
+                    className="appearance-none pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none bg-white text-sm font-medium text-gray-700 h-full w-full sm:w-auto cursor-pointer hover:border-blue-300 transition-colors"
+                >
+                    <option value="all">Tất cả khu vực</option>
+                    <option value="internal">Trong trường</option>
+                    <option value="external">Ngoài trường</option>
+                </select>
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+            </div>
 
-            <button 
-                onClick={() => { playClick(); fetchEvents(); }}
-                className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95 hover:rotate-180 duration-500"
-                title="Làm mới dữ liệu"
-            >
-                <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
-            </button>
+            <div className="flex gap-2">
+                <button 
+                    onClick={() => { playClick(); setShowScoreGuide(true); }}
+                    className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all flex items-center gap-2 font-medium active:scale-95 hover:shadow-sm"
+                    title="Xem bảng điểm ĐRL"
+                >
+                    <FileText size={18} />
+                    <span className="hidden md:inline">Phiếu đánh giá</span>
+                </button>
+                
+                <button 
+                    onClick={() => { playClick(); setShowContributeModal(true); }}
+                    className="px-3 py-2 bg-[#990000] text-white rounded-lg hover:bg-[#7a0000] transition-all flex items-center gap-2 font-bold active:scale-95 hover:shadow-md whitespace-nowrap"
+                    title="Đóng góp sự kiện"
+                >
+                    <PlusCircle size={18} />
+                    <span className="hidden md:inline">Nhập sự kiện</span>
+                </button>
+
+                <button 
+                    onClick={() => { playClick(); fetchEvents(); }}
+                    className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95 hover:rotate-180 duration-500"
+                    title="Làm mới dữ liệu"
+                >
+                    <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
+                </button>
+            </div>
         </div>
       </div>
 
