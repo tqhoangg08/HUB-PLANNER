@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Phone, Mail, MapPin, Bus, Users, Book, Award, ChevronRight, GraduationCap, Copy, Check, HelpCircle } from 'lucide-react';
+import { Search, Phone, Mail, MapPin, Bus, Users, Book, Award, ChevronRight, GraduationCap, Copy, Check, HelpCircle, ExternalLink, Shield } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 type TabType = 'contacts' | 'bus' | 'clubs' | 'scholarships' | 'regulations' | 'faqs';
@@ -28,10 +28,65 @@ export const Handbook: React.FC = () => {
   ];
 
   const clubs = [
-    { type: 'Học thuật', list: ['CLB Ngân hàng Quốc tế (IBC)', 'CLB Anh văn STEP', 'CLB Anh văn BEE', 'CLB NCKH', 'CLB Tài chính (BUSF)', 'CLB Chứng khoán (SC)', 'CLB Kế toán Kiểm toán (FAAC)', 'CLB Pháp lý'] },
-    { type: 'Kỹ năng', list: ['Ban Sự kiện', 'CLB Kỹ năng', 'CLB Mầm sống', 'CLB Hỗ trợ SV Trực tuyến (OSAC)', 'CLB Thể thao trí tuệ', 'Đội Lửa xanh'] },
-    { type: 'Sở thích & Văn thể', list: ['Ban Thông tin (B4T)', 'CLB Bóng chuyền', 'CLB Bóng đá', 'CLB Bóng rổ', 'CLB Cầu lông', 'CLB Guitar', 'CLB Nhiếp ảnh', 'Đội Văn nghệ Xung kích'] },
-    { type: 'Tình nguyện', list: ['Đội Công tác Xã hội', 'Đội Tình nguyện Mầm Xanh', 'CLB Tủ sách tình bạn'] }
+    {
+      type: 'Học thuật',
+      list: [
+        { name: 'CLB Ngân hàng Quốc tế (IBC)', link: 'https://www.facebook.com/CLBIBC', email: 'ibc@hub.edu.vn', manager: 'Đoàn trường' },
+        { name: 'CLB Anh văn STEP', link: 'https://www.facebook.com/stepclubhub', email: 'clb.step@hub.edu.vn', manager: 'Đoàn trường' },
+        { name: 'CLB Anh văn BEE', link: 'https://www.facebook.com/BeeClubHUB', email: 'clb.bee@hub.edu.vn', manager: 'Đoàn trường' },
+        { name: 'CLB SV Nghiên cứu Khoa học (SRC)', link: 'https://www.facebook.com/spyclubhub', email: 'clb.nckh@hub.edu.vn', manager: 'Đoàn trường' },
+        { name: 'Đội Enactus BU', link: 'https://www.facebook.com/EBankingUniversity', email: 'clb.enactus@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'CLB Tài chính (BUSF)', link: 'https://www.facebook.com/BUSFClub', email: 'busf@hub.edu.vn', manager: 'Đoàn khoa TC' },
+        { name: 'CLB Quản trị và Marketing (MMC)', link: 'https://www.facebook.com/HUBMMC', email: 'mmc@hub.edu.vn', manager: 'Đoàn khoa QTKD' },
+        { name: 'CLB Anh ngữ Quốc tế (IEC)', link: 'https://www.facebook.com/iec.hub', email: 'iec@hub.edu.vn', manager: 'Đoàn khoa KTQT' },
+        { name: 'CLB Kinh doanh và KT Quốc tế (IBEC)', link: 'https://www.facebook.com/IBEC.HUB', email: 'ibec.hub@gmail.com', manager: 'Đoàn khoa KTQT' },
+        { name: 'CLB Kết nối nghề nghiệp (Career Link)', link: '', email: 'clb.careerlink@hub.edu.vn', manager: 'Đoàn khoa NH' },
+        { name: 'CLB Nghiên cứu ứng dụng (SARA)', link: '', email: 'sara@hub.edu.vn', manager: 'Đoàn khoa KTKT' },
+        { name: 'CLB Kế toán Kiểm toán (FAAC)', link: 'https://www.facebook.com/hub.faac', email: 'faac.hub@gmail.com', manager: 'Đoàn khoa KTKT' },
+        { name: 'CLB Pháp lý', link: 'https://www.facebook.com/CLBPHAPLYHUB', email: 'clb.phaply@hub.edu.vn', manager: 'Đoàn khoa Luật' },
+        { name: 'CLB Học thuật GIEO', link: '', email: 'gieoclub@hub.edu.vn', manager: 'Đoàn khoa HTTTQL' }
+      ]
+    },
+    {
+      type: 'Kỹ năng',
+      list: [
+        { name: 'Ban Sự kiện', link: 'https://www.facebook.com/bansukienhub', email: 'bansukien@hub.edu.vn', manager: 'Đoàn trường' },
+        { name: 'CLB Mầm sống', link: 'https://www.facebook.com/mamsong.hub', email: 'clb.mamsong@hub.edu.vn', manager: 'Đoàn trường' },
+        { name: 'CLB Kỹ năng', link: 'https://www.facebook.com/clbknbuh', email: 'clb.kynang@hub.edu.vn', manager: 'Đoàn trường' },
+        { name: 'CLB Khởi nghiệp (FIC)', link: 'https://www.facebook.com/ficstart', email: 'fic@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'CLB Youth For Chance (YFC)', link: 'https://www.facebook.com/youthforchance', email: 'clb.youthforchance@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'Đội Lửa xanh (Blue Fire)', link: 'https://www.facebook.com/luaxanhdoi.hub/', email: 'doi.bluefire@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'CLB Hội nhập Quốc tế (IIC)', link: 'https://www.facebook.com/iic.qtkd.hub', email: 'iic.hub@gmail.com', manager: 'Đoàn khoa QTKD' },
+        { name: 'CLB Thể thao trí tuệ (ISTHub)', link: 'https://www.facebook.com/is.hub22', email: 'ISTHub@gmail.com', manager: 'Đoàn hệ CLC' }
+      ]
+    },
+    {
+      type: 'Sở thích & Văn thể',
+      list: [
+        { name: 'Ban Thông tin Truyền thông (B4T)', link: 'https://www.facebook.com/b4t.hub', email: 'ban4t@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'CLB Bóng chuyền', link: 'https://www.facebook.com/HUBvolleyball', email: 'clb.bongchuyen@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'CLB Bóng đá (BUFC)', link: 'https://www.facebook.com/footballclubbuh', email: 'clb.bongda@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'CLB Bóng rổ', link: 'https://www.facebook.com/bankingbasketball', email: 'clb.bongro@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'CLB Cầu lông (BBC)', link: 'https://www.facebook.com/hubbadminton', email: 'clb.caulong@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'CLB Dân Ca & Nhạc Cổ Truyền', link: 'https://www.facebook.com/HUB.DanCa', email: 'clb.danca@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'CLB Guitar', link: 'https://www.facebook.com/guitarclub.hub', email: 'clb.guitar@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'CLB Điện ảnh và Nghệ thuật (3F)', link: 'https://www.facebook.com/3FProductionfilm', email: 'clb.3f@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'Đội Văn nghệ Xung kích (VNXK)', link: 'https://www.facebook.com/vnxuki.hub', email: 'vnxk@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'CLB Vovinam', link: 'https://www.facebook.com/vovinam.hub', email: 'clb.vovinam@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'CLB Nữ sinh (GCBU)', link: 'https://www.facebook.com/clbnusinh', email: 'clb.nusinh@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'CLB Phát thanh (VoBU)', link: 'https://www.facebook.com/ClbPhatthanhDHNH', email: 'clb.phatthanh@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'CLB Cờ Vua (ICC)', link: 'https://www.facebook.com/chessclubbuh', email: 'iic@hub.edu.vn', manager: 'Đoàn khoa KTQT' }
+      ]
+    },
+    {
+      type: 'Tình nguyện',
+      list: [
+        { name: 'CLB Hỗ trợ SV Trực tuyến (OSAC)', link: 'https://www.facebook.com/hotrosinhvientructuyen', email: 'osac@hub.edu.vn', manager: 'Đoàn trường' },
+        { name: 'CLB Tủ sách tình bạn', link: 'https://www.facebook.com/clbtusachtinhban', email: 'clb.tstb@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'Đội Tình nguyện Mầm Xanh', link: 'https://www.facebook.com/mamxanhtinhnguyen', email: 'mamxanhtn@hub.edu.vn', manager: 'Hội SV' },
+        { name: 'Đội Công tác Xã hội', link: 'https://www.facebook.com/HUB.QTKD.CTXH', email: 'ctxh.qtkd@hub.edu.vn', manager: 'Đoàn khoa QTKD' }
+      ]
+    }
   ];
 
   const busRoutes = [
@@ -190,16 +245,41 @@ export const Handbook: React.FC = () => {
                 <div key={idx} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:border-blue-200">
                   <h4 className="font-bold text-[#990000] border-b pb-2 mb-3">{group.type}</h4>
                   <ul className="space-y-2">
-                    {group.list.map((item, i) => (
-                      <li 
-                        key={i} 
-                        className="text-sm text-gray-700 flex items-center gap-2 hover:text-[#003375] cursor-pointer transition-all duration-200 hover:translate-x-1"
-                        onClick={playClick}
-                      >
-                        <ChevronRight size={14} className="text-gray-400" />
-                        {item}
-                      </li>
-                    ))}
+                    {group.list.map((item, i) => {
+                        let badgeColor = "bg-gray-100 text-gray-600";
+                        if (item.manager === 'Đoàn trường') badgeColor = "bg-blue-100 text-blue-800";
+                        else if (item.manager === 'Hội SV') badgeColor = "bg-orange-100 text-orange-800";
+                        else if (item.manager.includes('Đoàn khoa')) badgeColor = "bg-purple-100 text-purple-800";
+
+                        return (
+                          <li key={i} className="group/item border-b border-gray-100 last:border-0 pb-2 mb-2 last:mb-0 last:pb-0">
+                            <div className="flex justify-between items-start">
+                                <span className="text-sm font-semibold text-gray-800 mb-1 block group-hover/item:text-[#003375] transition-colors">{item.name}</span>
+                                {item.link && (
+                                    <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-500" onClick={playClick}>
+                                        <ExternalLink size={14} />
+                                    </a>
+                                )}
+                            </div>
+                            
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border border-transparent ${badgeColor}`}>
+                                    {item.manager}
+                                </span>
+                                {item.email && (
+                                    <button 
+                                        className="text-[11px] text-gray-500 hover:text-[#003375] flex items-center gap-1 hover:bg-gray-50 px-1 rounded transition-colors"
+                                        onClick={() => copyToClipboard(item.email, `club-${idx}-${i}`)}
+                                        title="Sao chép Email"
+                                    >
+                                        <Mail size={10} /> {item.email}
+                                        {copiedId === `club-${idx}-${i}` && <Check size={10} className="text-green-600"/>}
+                                    </button>
+                                )}
+                            </div>
+                          </li>
+                        );
+                    })}
                   </ul>
                 </div>
               ))}
