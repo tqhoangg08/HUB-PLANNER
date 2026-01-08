@@ -59,9 +59,21 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
     const [submitting, setSubmitting] = useState(false);
     const [isDemo, setIsDemo] = useState(false);
     const [toast, setToast] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
+    const [currentUserIdentity, setCurrentUserIdentity] = useState('');
 
-    // Initial Load
+    // Initial Load & Identity Setup
     useEffect(() => {
+        // 1. Setup Identity (Persistent Anonymous Name)
+        const storedName = localStorage.getItem('hub_anonymous_name');
+        if (storedName) {
+            setCurrentUserIdentity(storedName);
+        } else {
+            const newName = generateRandomName();
+            localStorage.setItem('hub_anonymous_name', newName);
+            setCurrentUserIdentity(newName);
+        }
+
+        // 2. Setup Data Source
         if (!supabase) {
             // DEMO MODE SETUP
             setIsDemo(true);
@@ -124,7 +136,8 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
         if (!newComment.trim()) return;
         playClick();
         
-        const randomName = generateRandomName();
+        // Use the persistent identity, or fallback to generation if state is empty for some reason
+        const submitName = currentUserIdentity || generateRandomName();
         setSubmitting(true);
 
         if (!supabase) {
@@ -135,7 +148,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                     post_id: contextId,
                     content: newComment,
                     created_at: new Date().toISOString(),
-                    user_display_name: randomName + ' (Demo)',
+                    user_display_name: submitName + ' (Demo)',
                     is_anonymous: true,
                     isDemo: true
                 };
@@ -155,7 +168,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                     { 
                         post_id: contextId, 
                         content: newComment, 
-                        user_display_name: randomName, 
+                        user_display_name: submitName, 
                         is_anonymous: true 
                     }
                 ])
@@ -254,7 +267,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                             type="text"
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
-                            placeholder={isDemo ? `Bình luận dưới tên "${generateRandomName()}"...` : "Viết bình luận..."}
+                            placeholder={`Bình luận với tên "${currentUserIdentity || '...'}"...`}
                             className="w-full pl-4 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none transition-all text-sm placeholder-gray-400"
                             disabled={submitting}
                         />
