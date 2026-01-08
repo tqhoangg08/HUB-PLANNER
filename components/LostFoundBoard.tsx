@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import Papa from 'papaparse';
-import { Search, MapPin, Calendar, User, Phone, ExternalLink, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone } from 'lucide-react';
+import { Search, MapPin, Calendar, User, Phone, ExternalLink, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, MessageSquare, X } from 'lucide-react';
 import { playClick } from '../utils/audio';
+import { CommentSection } from './CommentSection';
+import { createPortal } from 'react-dom';
 
 // Existing "Found" Items Sheet
 const FOUND_ITEMS_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQhNOxdpNzVKa64MndmleEp9g56r4vK7JXPrtjwW1-OqIiptCZztmadjDi2OewRr3j6dEPcshPR9Wz3/pub?output=tsv';
@@ -38,6 +40,9 @@ export const LostFoundBoard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'found' | 'lost'>('found');
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+  
+  // Modal State
+  const [selectedItem, setSelectedItem] = useState<BoardItem | null>(null);
 
   const fetchItems = async () => {
     setLoading(true);
@@ -120,6 +125,18 @@ export const LostFoundBoard: React.FC = () => {
     fetchItems();
   }, []);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (selectedItem) {
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.style.overflow = 'unset';
+    }
+    return () => {
+        document.body.style.overflow = 'unset';
+    };
+  }, [selectedItem]);
+
   const handleImageError = (id: string) => {
     setImageErrors(prev => ({ ...prev, [id]: true }));
   };
@@ -132,6 +149,106 @@ export const LostFoundBoard: React.FC = () => {
         item.timestamp.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesTab && matchesSearch;
   });
+
+  // Modal Component
+  const ItemDetailModal = () => {
+    if (!selectedItem) return null;
+
+    return createPortal(
+        <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+            {/* Modal Container - Responsive Layout */}
+            <div className="bg-white w-full max-w-6xl h-[90vh] md:h-[85vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative animate-scaleIn">
+                
+                {/* Close Button */}
+                <button 
+                    onClick={() => { playClick(); setSelectedItem(null); }}
+                    className="absolute top-4 right-4 z-50 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors active:scale-90"
+                    title="Đóng"
+                >
+                    <X size={20} />
+                </button>
+
+                {/* LEFT COLUMN: Item Details (35-40%) */}
+                <div className="w-full md:w-[40%] bg-gray-50 flex flex-col border-b md:border-b-0 md:border-r border-gray-200 overflow-y-auto custom-scrollbar shrink-0 h-[40%] md:h-full">
+                    {/* Image Area */}
+                    <div className="w-full bg-black/5 flex items-center justify-center relative min-h-[200px] md:min-h-[300px]">
+                         {selectedItem.imageUrl && !imageErrors[selectedItem.id] ? (
+                            <img 
+                                src={selectedItem.imageUrl} 
+                                alt="Item" 
+                                className="w-full h-full object-contain max-h-[40vh] md:max-h-[50vh]"
+                                onError={() => handleImageError(selectedItem.id)}
+                            />
+                        ) : (
+                            <div className="flex flex-col items-center text-gray-400 py-10">
+                                <ImageOff size={48} className="mb-2 opacity-50" />
+                                <span className="text-sm">Không có ảnh</span>
+                            </div>
+                        )}
+                        {/* Status Badge */}
+                        <div className={`absolute top-4 left-4 text-xs font-bold px-3 py-1.5 rounded-md shadow-sm uppercase tracking-wider ${selectedItem.type === 'found' ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
+                            {selectedItem.type === 'found' ? 'Đồ nhặt được' : 'Đang tìm kiếm'}
+                        </div>
+                    </div>
+
+                    {/* Info Area */}
+                    <div className="p-6 space-y-4">
+                        <div>
+                            <div className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">
+                                {selectedItem.type === 'found' ? 'Địa điểm nhặt' : 'Vật phẩm bị mất'}
+                            </div>
+                            <h3 className={`text-2xl font-bold flex items-start gap-2 leading-tight ${selectedItem.type === 'found' ? 'text-[#003375]' : 'text-[#990000]'}`}>
+                                {selectedItem.type === 'found' ? <MapPin size={24} className="shrink-0 mt-1" /> : <Tag size={24} className="shrink-0 mt-1" />}
+                                {selectedItem.mainInfo}
+                            </h3>
+                            <div className="flex items-center gap-2 text-gray-500 text-sm mt-2">
+                                <Calendar size={14} />
+                                <span>Đăng lúc: {selectedItem.timestamp}</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 pt-4 border-t border-gray-200">
+                             <div className={`flex items-center gap-3 p-3 rounded-xl border ${selectedItem.type === 'found' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'}`}>
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${selectedItem.type === 'found' ? 'bg-blue-200 text-[#003375]' : 'bg-red-200 text-[#990000]'}`}>
+                                    {selectedItem.type === 'found' ? <User size={20} /> : <HelpCircle size={20} />}
+                                </div>
+                                <div>
+                                    <span className="block text-xs text-gray-500 font-bold uppercase">{selectedItem.type === 'found' ? 'Người nhặt' : 'Người mất'}</span>
+                                    <span className="font-bold text-gray-800 text-lg">{selectedItem.personName}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 p-3 rounded-xl border border-green-200 bg-green-50">
+                                <div className="w-10 h-10 rounded-full bg-green-200 text-green-800 flex items-center justify-center">
+                                    <Phone size={20} />
+                                </div>
+                                <div>
+                                    <span className="block text-xs text-gray-500 font-bold uppercase">Thông tin liên hệ</span>
+                                    <span className="font-bold text-green-700 text-lg">{selectedItem.contact}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="text-xs text-gray-400 italic text-center pt-2">
+                            Hãy bình luận bên phải để trao đổi thêm thông tin.
+                        </div>
+                    </div>
+                </div>
+
+                {/* RIGHT COLUMN: Comments (60-65%) */}
+                <div className="w-full md:w-[60%] h-[60%] md:h-full bg-white flex flex-col relative z-0">
+                    <CommentSection 
+                        contextId={selectedItem.id} 
+                        title={selectedItem.type === 'found' ? 'Trao đổi về tin này' : 'Hỏi thăm người mất'}
+                        className="flex flex-col h-full bg-white" // Custom styling to fill height without borders
+                    />
+                </div>
+
+            </div>
+        </div>,
+        document.body
+    );
+  };
 
   return (
     <div className="animate-slideInRight">
@@ -229,7 +346,10 @@ export const LostFoundBoard: React.FC = () => {
                         className={`bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-lg transition-all duration-300 group flex flex-col ${item.type === 'found' ? 'border-gray-200' : 'border-red-100 ring-1 ring-red-50'}`}
                     >
                         {/* Image Section */}
-                        <div className="aspect-video w-full bg-gray-100 relative overflow-hidden">
+                        <div 
+                            className="aspect-video w-full bg-gray-100 relative overflow-hidden cursor-pointer"
+                            onClick={() => { playClick(); setSelectedItem(item); }}
+                        >
                             {item.imageUrl && !imageErrors[item.id] ? (
                                 <img 
                                     src={item.imageUrl} 
@@ -281,6 +401,20 @@ export const LostFoundBoard: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Comment Button Trigger */}
+                        <div className="px-4 pb-4">
+                            <button
+                                onClick={() => {
+                                    playClick();
+                                    setSelectedItem(item);
+                                }}
+                                className="w-full py-2 bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-[#003375] rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-gray-200"
+                            >
+                                <MessageSquare size={16} />
+                                💬 Bình luận / Chi tiết
+                            </button>
+                        </div>
                     </div>
                 ))
             ) : (
@@ -293,6 +427,9 @@ export const LostFoundBoard: React.FC = () => {
             )}
         </div>
       )}
+      
+      {/* Modal for Details & Comments */}
+      <ItemDetailModal />
     </div>
   );
 };
