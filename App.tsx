@@ -597,15 +597,6 @@ const App: React.FC = () => {
 
       <footer className="text-center pb-8 pt-2">
         <p className="text-[10px] text-gray-400 font-medium tracking-wide mb-2 uppercase">Web designed by tqhoangg</p>
-        <div className="flex justify-center items-center gap-3 text-[11px] text-gray-500">
-            <a href="tel:0389342812" className="hover:text-[#003375] transition-colors flex items-center gap-1">
-                Phone: 0389342812
-            </a>
-            <span className="text-gray-300">•</span>
-            <a href="mailto:tqhoangg@gmail.com" className="hover:text-[#003375] transition-colors flex items-center gap-1">
-                Email: tqhoangg@gmail.com
-            </a>
-        </div>
       </footer>
 
       <GeminiAdvisor data={data} />
