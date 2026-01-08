@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabase';
-import { Send, User, MessageCircle, Clock, AlertCircle, Loader2, Sparkles, CheckCircle2, ChevronDown, Edit2, X, Save } from 'lucide-react';
+import { Send, User, MessageCircle, Clock, AlertCircle, Loader2, Sparkles, CheckCircle2, ChevronDown, Edit2, X, Save, History } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 // --- Types ---
@@ -13,6 +13,13 @@ interface Comment {
     user_display_name: string;
     is_anonymous: boolean;
     isDemo?: boolean; 
+}
+
+interface CommentHistory {
+    id: number;
+    comment_id: number | string;
+    old_content: string;
+    archived_at: string;
 }
 
 interface CommentSectionProps {
@@ -77,6 +84,11 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
     const [editingId, setEditingId] = useState<string | number | null>(null);
     const [editContent, setEditContent] = useState('');
     const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+    // Feature State: History
+    const [viewingHistoryId, setViewingHistoryId] = useState<string | number | null>(null);
+    const [historyList, setHistoryList] = useState<CommentHistory[]>([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
 
     // --- 1. Initialization & Identity ---
     useEffect(() => {
@@ -252,6 +264,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
         playClick();
         setEditingId(comment.id);
         setEditContent(comment.content);
+        setViewingHistoryId(null); // Close history if open
     };
 
     const cancelEditing = () => {
@@ -265,6 +278,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
 
         setIsSavingEdit(true);
         const timestamp = new Date().toISOString();
+        
+        // Find current comment to archive
+        const currentComment = comments.find(c => c.id === editingId);
 
         // --- Demo Mode ---
         if (!supabase) {
@@ -276,7 +292,22 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
 
         // --- Real Mode ---
         try {
-            // Cập nhật content và updated_at
+            // 1. Archive Old Content (If comment exists)
+            if (currentComment) {
+                const { error: archiveError } = await supabase
+                    .from('comment_history')
+                    .insert({
+                        comment_id: editingId,
+                        old_content: currentComment.content,
+                        archived_at: timestamp
+                    });
+                
+                if (archiveError) {
+                    console.warn("Lỗi lưu lịch sử (không chặn update):", archiveError);
+                }
+            }
+
+            // 2. Update New Content
             const { error } = await supabase
                 .from('comments')
                 .update({ 
@@ -302,6 +333,47 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
         } finally {
             setIsSavingEdit(false);
             setTimeout(() => setToast(null), 3000);
+        }
+    };
+
+    // --- 6. View Edit History ---
+    const handleToggleHistory = async (commentId: string | number) => {
+        if (viewingHistoryId === commentId) {
+            // Toggle off
+            setViewingHistoryId(null);
+            return;
+        }
+
+        playClick();
+        setViewingHistoryId(commentId);
+        setLoadingHistory(true);
+        setHistoryList([]);
+
+        if (!supabase) {
+            // Demo mock
+            setTimeout(() => {
+                setHistoryList([
+                    { id: 1, comment_id: commentId, old_content: "Nội dung cũ (Demo)...", archived_at: new Date(Date.now() - 3600000).toISOString() }
+                ]);
+                setLoadingHistory(false);
+            }, 500);
+            return;
+        }
+
+        try {
+            const { data, error } = await supabase
+                .from('comment_history')
+                .select('*')
+                .eq('comment_id', commentId)
+                .order('archived_at', { ascending: false });
+
+            if (error) throw error;
+            setHistoryList(data || []);
+        } catch (err) {
+            console.error("Lỗi tải lịch sử:", err);
+            setToast({ msg: 'Lỗi tải lịch sử', type: 'error' });
+        } finally {
+            setLoadingHistory(false);
         }
     };
 
@@ -343,6 +415,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                         {comments.map((comment) => {
                             const isOwner = comment.user_display_name === currentUserIdentity;
                             const isEditing = editingId === comment.id;
+                            const isViewingHistory = viewingHistoryId === comment.id;
                             
                             // Check if edited: updated_at exists AND differs from created_at
                             const isEdited = comment.updated_at && comment.updated_at !== comment.created_at;
@@ -362,12 +435,13 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                                                 <Clock size={8} /> {formatTime(comment.created_at)}
                                             </span>
                                             {isEdited && (
-                                                <span 
-                                                    className="text-[10px] text-gray-400 italic cursor-help border-b border-dotted border-gray-300"
-                                                    title={`Đã chỉnh sửa: ${new Date(comment.updated_at!).toLocaleString('vi-VN')}`}
+                                                <button 
+                                                    onClick={() => handleToggleHistory(comment.id)}
+                                                    className={`text-[10px] italic flex items-center gap-1 px-1 rounded transition-all ${isViewingHistory ? 'text-[#003375] font-bold bg-blue-50' : 'text-gray-400 hover:text-[#003375] hover:bg-gray-100'}`}
+                                                    title="Xem lịch sử chỉnh sửa"
                                                 >
-                                                    (đã chỉnh sửa)
-                                                </span>
+                                                    <History size={10} /> (đã chỉnh sửa)
+                                                </button>
                                             )}
                                         </div>
 
@@ -410,6 +484,38 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                                                     >
                                                         <Edit2 size={12} />
                                                     </button>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* History Dropdown */}
+                                        {isViewingHistory && (
+                                            <div className="mt-2 ml-1 p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs animate-slideUp relative">
+                                                <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-50 border-t border-l border-gray-200 transform rotate-45"></div>
+                                                <h4 className="font-bold text-[#003375] mb-2 flex items-center gap-1">
+                                                    <History size={12} /> Lịch sử chỉnh sửa
+                                                </h4>
+                                                
+                                                {loadingHistory ? (
+                                                    <div className="flex items-center justify-center py-2 text-gray-400">
+                                                        <Loader2 size={16} className="animate-spin mr-2" /> Đang tải...
+                                                    </div>
+                                                ) : historyList.length > 0 ? (
+                                                    <div className="space-y-3 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                                                        {historyList.map((hist) => (
+                                                            <div key={hist.id} className="border-l-2 border-gray-300 pl-2">
+                                                                <p className="text-gray-500 mb-0.5 flex items-center gap-1 text-[10px]">
+                                                                    <Clock size={8} /> 
+                                                                    {new Date(hist.archived_at).toLocaleString('vi-VN')}
+                                                                </p>
+                                                                <p className="text-gray-700 bg-white p-1.5 rounded border border-gray-100 shadow-sm">
+                                                                    {hist.old_content}
+                                                                </p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-gray-400 italic text-center">Không tìm thấy lịch sử.</p>
                                                 )}
                                             </div>
                                         )}
