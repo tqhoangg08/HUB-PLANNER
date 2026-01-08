@@ -434,16 +434,12 @@ const App: React.FC = () => {
       <header className="bg-white/80 backdrop-blur-md border-b-2 border-[#003375] sticky top-0 z-40 shadow-sm transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
           <div className="flex items-center gap-3">
-             {/* HUB Logo */}
-             <div className="h-10 w-10 relative flex-shrink-0 group cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-95" onClick={playClick}>
+             {/* HUB Logo - Updated to local SVG */}
+             <div className="h-12 w-12 relative flex-shrink-0 cursor-pointer transition-transform duration-300 hover:scale-105 active:scale-95" onClick={playClick}>
                 <img 
-                    src="https://upload.wikimedia.org/wikipedia/vi/1/1a/Logo_HUB.png" 
-                    alt="HUB Logo" 
-                    className="h-full w-full object-contain drop-shadow-sm"
-                    onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.parentElement!.innerHTML = '<div class="h-10 w-10 bg-[#003375] rounded flex items-center justify-center text-white font-bold text-xs shadow-md">HUB</div>';
-                    }}
+                    src="/logo.svg" 
+                    alt="HUB Planner Logo" 
+                    className="h-full w-full object-contain"
                 />
              </div>
              <div>
