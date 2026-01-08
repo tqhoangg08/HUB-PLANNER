@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { LogOut, Plus, Edit2, Trash2, Save, X, Loader2, Calendar, MapPin, Lock, User, Key, CheckCircle2, AlertCircle, ArrowLeft, Shield, Mail, Send } from 'lucide-react';
+import { LogOut, Plus, Edit2, Trash2, Save, X, Loader2, Calendar, MapPin, User, Key, CheckCircle2, AlertCircle, ArrowLeft, Shield, Mail, History, Monitor } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 interface AdminEventBoardProps {
@@ -19,6 +19,15 @@ interface EventData {
   link: string;
   location_type: string;
   format: string; // Online/Offline
+}
+
+interface ActivityLog {
+    id: number;
+    created_at: string;
+    user_email: string;
+    action: string;
+    ip_address: string;
+    device_info: string;
 }
 
 const INITIAL_FORM: EventData = {
@@ -55,6 +64,11 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
   // Data State
   const [events, setEvents] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
+  
+  // History Logs State
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   
   // Modal & Form State
   const [showModal, setShowModal] = useState(false);
@@ -102,7 +116,6 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
           if (data) {
               setUserRole(data.role as UserRole);
           } else {
-              // Fallback if no role assigned, treat as least privileged or handle error
               setUserRole('editor'); 
           }
       } catch (err) {
@@ -110,6 +123,33 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
           setUserRole('editor');
       } finally {
           setLoading(false);
+      }
+  };
+
+  // --- Security Logging Function ---
+  const logActivity = async (userEmail: string, action: string) => {
+      if (!supabase) return;
+      try {
+          // 1. Get IP
+          const ipRes = await fetch('https://api.ipify.org?format=json');
+          const ipData = await ipRes.json();
+          const ip = ipData.ip || 'Unknown';
+
+          // 2. Get User Agent
+          const userAgent = navigator.userAgent;
+
+          // 3. Insert Log
+          await supabase.from('activity_logs').insert([
+              {
+                  user_email: userEmail,
+                  action: action,
+                  ip_address: ip,
+                  device_info: userAgent
+              }
+          ]);
+      } catch (e) {
+          console.error("Logging failed:", e);
+          // Don't block login if logging fails
       }
   };
 
@@ -129,8 +169,10 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
     if (error) {
       setAuthError(error.message);
       setAuthLoading(false);
+    } else {
+        // Log success
+        await logActivity(email, 'Đăng nhập thành công (Password)');
     }
-    // Auth state change listener will handle success
   };
 
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -167,8 +209,10 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
       if (error) {
           setAuthError("Mã OTP không đúng hoặc đã hết hạn.");
           setAuthLoading(false);
+      } else {
+          // Log success
+          await logActivity(email, 'Đăng nhập thành công (OTP)');
       }
-      // Auth state change listener will handle success
   };
 
   const handleLogout = async () => {
@@ -183,25 +227,44 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
     setShowOtpInput(false);
   };
 
-  // --- 2. CRUD Logic ---
+  // --- 2. CRUD & History Logic ---
   const fetchEvents = async () => {
     if (!supabase) return;
     setDataLoading(true);
     const { data, error } = await supabase
       .from('events')
       .select('*')
-      .order('deadline', { ascending: false }); // Mới nhất lên đầu
+      .order('deadline', { ascending: false }); 
     
     if (error) console.error(error);
     else setEvents(data || []);
     setDataLoading(false);
   };
 
+  const fetchHistory = async () => {
+      if (!supabase) return;
+      setLoadingHistory(true);
+      const { data, error } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      
+      if (error) console.error(error);
+      else setActivityLogs(data || []);
+      setLoadingHistory(false);
+  };
+
+  const openHistoryModal = () => {
+      playClick();
+      setShowHistoryModal(true);
+      fetchHistory();
+  };
+
   const handleDelete = async (id: number) => {
     if (!supabase) return;
     playClick();
     
-    // Double check role on client side
     if (userRole !== 'admin') {
         alert("Bạn không có quyền xóa sự kiện!");
         return;
@@ -213,6 +276,10 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
     if (error) alert("Lỗi khi xóa: " + error.message);
     else {
       setEvents(prev => prev.filter(e => e.id !== id));
+      // Log delete action
+      if (session?.user?.email) {
+          logActivity(session.user.email, `Xóa sự kiện ID: ${id}`);
+      }
     }
   };
 
@@ -285,6 +352,10 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
     } else {
         setShowModal(false);
         fetchEvents();
+        // Log action
+        if (session?.user?.email) {
+            logActivity(session.user.email, isEditing ? `Cập nhật sự kiện: ${formData.title}` : `Thêm mới sự kiện: ${formData.title}`);
+        }
     }
   };
 
@@ -440,17 +511,28 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                 </div>
             </div>
             <div className="flex gap-3">
+                {/* Security Log Button - Admin Only */}
+                {userRole === 'admin' && (
+                    <button 
+                        onClick={openHistoryModal}
+                        className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 px-3 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all active:scale-95"
+                        title="Lịch sử hoạt động"
+                    >
+                        <History size={18} /> <span className="hidden sm:inline">Lịch sử</span>
+                    </button>
+                )}
+
                 <button 
                     onClick={openAddModal}
                     className="bg-[#003375] hover:bg-[#002855] text-white px-4 py-2 rounded-lg font-bold shadow-sm flex items-center gap-2 transition-all active:scale-95"
                 >
-                    <Plus size={18} /> Thêm sự kiện
+                    <Plus size={18} /> <span className="hidden sm:inline">Thêm sự kiện</span>
                 </button>
                 <button 
                     onClick={handleLogout}
                     className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all active:scale-95"
                 >
-                    <LogOut size={18} /> Đăng xuất
+                    <LogOut size={18} /> <span className="hidden sm:inline">Đăng xuất</span>
                 </button>
             </div>
         </div>
@@ -534,6 +616,7 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {/* ... Form fields (same as before) ... */}
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
                         <input 
@@ -674,6 +757,64 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                 </form>
             </div>
         </div>
+      )}
+
+      {/* History Modal */}
+      {showHistoryModal && (
+          <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col animate-scaleIn">
+                  <div className="bg-[#003375] p-4 flex justify-between items-center text-white shrink-0 rounded-t-xl">
+                      <h3 className="font-bold text-lg flex items-center gap-2">
+                          <History size={20} /> Lịch sử hoạt động
+                      </h3>
+                      <button onClick={() => setShowHistoryModal(false)} className="hover:bg-white/20 p-2 rounded-full transition-colors">
+                          <X size={20}/>
+                      </button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-auto custom-scrollbar p-0">
+                      {loadingHistory ? (
+                          <div className="flex justify-center items-center h-40"><Loader2 className="animate-spin text-[#003375]"/></div>
+                      ) : (
+                          <table className="w-full text-sm text-left">
+                              <thead className="bg-gray-100 text-gray-700 uppercase font-bold text-xs sticky top-0">
+                                  <tr>
+                                      <th className="px-4 py-3">Thời gian</th>
+                                      <th className="px-4 py-3">Email</th>
+                                      <th className="px-4 py-3">Hành động</th>
+                                      <th className="px-4 py-3">IP</th>
+                                      <th className="px-4 py-3">Thiết bị</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                  {activityLogs.map(log => (
+                                      <tr key={log.id} className="hover:bg-gray-50">
+                                          <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                                              {new Date(log.created_at).toLocaleString('vi-VN')}
+                                          </td>
+                                          <td className="px-4 py-3 font-medium">{log.user_email}</td>
+                                          <td className="px-4 py-3">
+                                              <span className={`px-2 py-1 rounded text-xs font-bold ${log.action.includes('Đăng nhập') ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                  {log.action}
+                                              </span>
+                                          </td>
+                                          <td className="px-4 py-3 text-gray-500 font-mono text-xs">{log.ip_address}</td>
+                                          <td className="px-4 py-3 text-gray-500 text-xs max-w-[200px] truncate" title={log.device_info}>
+                                              <div className="flex items-center gap-1">
+                                                  <Monitor size={12}/> {log.device_info}
+                                              </div>
+                                          </td>
+                                      </tr>
+                                  ))}
+                                  {activityLogs.length === 0 && (
+                                      <tr><td colSpan={5} className="text-center py-8 text-gray-400">Chưa có lịch sử nào.</td></tr>
+                                  )}
+                              </tbody>
+                          </table>
+                      )}
+                  </div>
+              </div>
+          </div>
       )}
     </div>
   );
