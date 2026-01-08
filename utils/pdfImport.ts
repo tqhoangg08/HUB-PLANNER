@@ -139,7 +139,7 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
                     subjects = aiSubjects.map((s: any, idx: number) => {
                         let isNonGPA = false;
                         const nameLower = (s.ten_hoc_phan || "").toLowerCase();
-                        const nonGpaKeywords = ['gdtc', 'giáo dục thể chất', 'quốc phòng', 'an ninh', 'tiếng anh tăng cường', 'kỹ năng', 'đầu vào', 'sinh hoạt'];
+                        const nonGpaKeywords = ['gdtc', 'giáo dục thể chất', 'quốc phòng', 'an ninh', 'tiếng anh tăng cường', 'kỹ năng', 'đầu vào', 'sinh hoạt','học phần'];
                         
                         if (s.tin_chi === 0 || s.ket_qua === 'M' || nonGpaKeywords.some(k => nameLower.includes(k))) isNonGPA = true;
                         
