@@ -265,45 +265,38 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
 
         setIsSavingEdit(true);
 
-        // --- Demo Mode ---
-        if (!supabase) {
-            setComments(prev => prev.map(c => c.id === editingId ? { ...c, content: editContent } : c));
-            setIsSavingEdit(false);
-            cancelEditing();
-            return;
-        }
+// ... (Phần Demo Mode giữ nguyên) ...
 
-        // --- Real Mode ---
-        try {
-            // Đơn giản hóa Update: Chỉ update content theo ID
-            // Không kiểm tra user_display_name ở đây nữa vì đã kiểm tra ở UI
-            const { error } = await supabase
-                .from('comments')
-                .update({ 
-                    content: editContent,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', editingId);
+    // --- Real Mode (Code đã sửa) ---
+    try {
+        // SỬA Ở ĐÂY: Chỉ update cột 'content' thôi, xóa dòng 'updated_at' đi
+        const { error } = await supabase
+            .from('comments')
+            .update({ 
+                content: editContent 
+            }) 
+            .eq('id', editingId);
 
-            if (error) throw error;
+        if (error) throw error;
 
-            // Cập nhật State ngay lập tức để giao diện thay đổi
-            setComments(prev => prev.map(c => c.id === editingId ? { 
-                ...c, 
-                content: editContent,
-                updated_at: new Date().toISOString()
-            } : c));
+        // Cập nhật State ngay lập tức
+        setComments(prev => prev.map(c => c.id === editingId ? { 
+            ...c, 
+            content: editContent
+            // (Không cần update updated_at ở đây nữa)
+        } : c));
 
-            setToast({ msg: 'Đã chỉnh sửa!', type: 'success' });
-            cancelEditing();
-        } catch (err) {
-            console.error('Error updating comment:', err);
-            setToast({ msg: 'Không thể lưu sửa đổi.', type: 'error' });
-        } finally {
-            setIsSavingEdit(false);
-            setTimeout(() => setToast(null), 3000);
-        }
-    };
+        setToast({ msg: 'Đã chỉnh sửa!', type: 'success' });
+        cancelEditing();
+    } catch (err: any) { // Thêm : any để tránh lỗi type nếu cần
+        console.error('Error updating comment:', err);
+        // Mẹo: Hiện lỗi cụ thể ra để dễ debug
+        setToast({ msg: 'Lỗi: ' + (err.message || 'Không thể lưu'), type: 'error' });
+    } finally {
+        setIsSavingEdit(false);
+        setTimeout(() => setToast(null), 3000);
+    }
+};
 
     // Style
     const containerClasses = className 
