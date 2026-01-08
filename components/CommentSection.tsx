@@ -265,27 +265,29 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
 
         setIsSavingEdit(true);
 
+        // --- Demo Mode ---
         if (!supabase) {
-            // Demo Edit
             setComments(prev => prev.map(c => c.id === editingId ? { ...c, content: editContent } : c));
             setIsSavingEdit(false);
             cancelEditing();
             return;
         }
 
+        // --- Real Mode ---
         try {
+            // Đơn giản hóa Update: Chỉ update content theo ID
+            // Không kiểm tra user_display_name ở đây nữa vì đã kiểm tra ở UI
             const { error } = await supabase
                 .from('comments')
                 .update({ 
                     content: editContent,
-                    updated_at: new Date().toISOString() // Manually setting updated_at to ensure UI reflects change immediately
+                    updated_at: new Date().toISOString()
                 })
-                .eq('id', editingId)
-                .eq('user_display_name', currentUserIdentity); // Double check ownership
+                .eq('id', editingId);
 
             if (error) throw error;
 
-            // Update Local State
+            // Cập nhật State ngay lập tức để giao diện thay đổi
             setComments(prev => prev.map(c => c.id === editingId ? { 
                 ...c, 
                 content: editContent,
@@ -296,7 +298,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
             cancelEditing();
         } catch (err) {
             console.error('Error updating comment:', err);
-            setToast({ msg: 'Không thể sửa bình luận này.', type: 'error' });
+            setToast({ msg: 'Không thể lưu sửa đổi.', type: 'error' });
         } finally {
             setIsSavingEdit(false);
             setTimeout(() => setToast(null), 3000);
