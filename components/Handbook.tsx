@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Search, Phone, Mail, MapPin, Bus, Users, Book, Award, ChevronRight, GraduationCap, Copy, Check, HelpCircle, ExternalLink, Shield, Headphones, Facebook } from 'lucide-react';
+import { Search, Phone, Mail, MapPin, Bus, Users, Book, Award, ChevronRight, Copy, Check, HelpCircle, ExternalLink, Info, Heart, Facebook, User } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
-type TabType = 'contacts' | 'bus' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'support';
+type TabType = 'contacts' | 'bus' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about';
 
 export const Handbook: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('contacts');
@@ -381,58 +381,148 @@ export const Handbook: React.FC = () => {
             </div>
         );
 
-      case 'support':
+      case 'about':
+        const founder = { 
+            name: 'Trần Quốc Hoàng', 
+            role: 'Founder', 
+            phone: '0389342812', 
+            email: 'tqhoangg@gmail.com', 
+            fb: 'http://facebook.com/tqhoangg.05' 
+        };
+
+        const collaborators = [
+            { name: 'Nguyễn Hoàng Khiêm', role: 'Cộng tác viên', phone: '0932142577', email: 'khiempisces2@gmail.com', fb: 'https://www.facebook.com/nguyen.hoang.khiem.975396' },
+            { name: 'Nguyễn Thị Kiều My', role: 'Cộng tác viên', phone: '0376744258', email: 'nmy56358@gmail.com', fb: 'https://www.facebook.com/n.t.kieu.my.573292' },
+            { name: 'Đang cập nhật...', role: 'Developer', isPlaceholder: true },
+            { name: 'Đang cập nhật...', role: 'Designer', isPlaceholder: true },
+            { name: 'Đang cập nhật...', role: 'Content', isPlaceholder: true },
+        ];
+
         return (
-             <div className="flex flex-col items-center justify-center py-6 animate-fadeIn min-h-[400px]">
-                 <div className="bg-white rounded-2xl shadow-xl border border-gray-100 max-w-sm w-full text-center relative overflow-hidden group hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-                     {/* Decorative Header */}
-                     <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-[#003375] to-blue-600">
-                         <div className="absolute inset-0 bg-white/10 pattern-dots"></div>
-                     </div>
-                     
-                     {/* Avatar */}
-                     <div className="relative mx-auto w-24 h-24 bg-white rounded-full p-1.5 shadow-lg mb-4 -mt-12 top-12 flex items-center justify-center">
-                         <div className="w-full h-full rounded-full bg-blue-50 flex items-center justify-center text-4xl font-bold text-[#003375]">
-                            H
-                         </div>
-                     </div>
+             <div className="animate-fadeIn pb-10">
+                 {/* Hero Section */}
+                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-10 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+                    <div className="flex-1 relative z-10">
+                        <div className="inline-block bg-blue-100 text-[#003375] px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 border border-blue-200">
+                            Về dự án
+                        </div>
+                        <h2 className="text-3xl md:text-4xl font-black text-[#003375] mb-6 uppercase tracking-tight">
+                            Về chúng mình
+                        </h2>
+                        <p className="text-gray-600 leading-relaxed text-base md:text-lg text-justify">
+                            <span className="font-bold text-[#003375]">HUB PLANNER</span> là dự án phi lợi nhuận được phát triển bởi chính sinh viên trường Đại học Ngân hàng TP.HCM. Xuất phát từ nhu cầu thực tế, chúng mình tạo ra HUB PLANNER với sứ mệnh đơn giản hóa đời sống sinh viên, từ quản lý điểm số đến kết nối cộng đồng. Chúng mình luôn nỗ lực hoàn thiện từng ngày để mang lại trải nghiệm tốt nhất cho các bạn.
+                        </p>
+                        <div className="mt-6 flex items-center gap-2 text-[#990000] font-bold text-sm">
+                            <Heart className="fill-current animate-pulse" size={18} />
+                            <span>Made with love for HUB Students</span>
+                        </div>
+                    </div>
+                    {/* PHẦN ĐÃ SỬA: Thay icon Users bằng Logo */}
+                    <div className="shrink-0 relative z-10 flex items-center justify-center bg-white rounded-full w-40 h-40 border-4 border-white shadow-lg p-6">
+                        <img 
+                            src="/logo.svg" 
+                            alt="HUB Planner Logo" 
+                            className="w-full h-full object-contain animate-pulse"
+                        />
+                    </div>
+                 </div>
 
-                     <div className="mt-14 px-6 pb-8">
-                         <h2 className="text-2xl font-bold text-gray-800 mb-1">Trần Quốc Hoàng</h2>
-                         <p className="text-sm font-medium text-blue-600 uppercase tracking-wide mb-6 bg-blue-50 inline-block px-3 py-1 rounded-full">Admin / Developer</p>
+                 {/* Team Section */}
+                 <div className="text-center mb-10">
+                     <h3 className="text-2xl font-black text-gray-800 uppercase tracking-widest relative inline-block pb-2">
+                        Humans of HUB Planner
+                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/2 h-1 bg-[#990000] rounded-full"></div>
+                     </h3>
+                 </div>
 
-                         <div className="space-y-3">
-                             <a href="tel:0389342812" className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all group/item" onClick={playClick}>
-                                <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center group-hover/item:scale-110 transition-transform">
+                 {/* Founder Card */}
+                 <div className="max-w-md mx-auto mb-10 transform hover:-translate-y-2 transition-transform duration-300">
+                     <div className="bg-gradient-to-br from-[#003375] to-[#00509d] rounded-2xl shadow-xl overflow-hidden text-white relative group cursor-default">
+                         <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+                         <div className="p-8 text-center relative z-10">
+                             <div className="w-24 h-24 mx-auto bg-white rounded-full p-1 shadow-lg mb-4 flex items-center justify-center text-[#003375] font-bold text-3xl">
+                                H
+                             </div>
+                             <h4 className="text-2xl font-bold mb-1">{founder.name}</h4>
+                             <p className="text-blue-200 text-sm font-semibold uppercase tracking-widest mb-6 bg-white/10 inline-block px-3 py-1 rounded-full border border-white/20">{founder.role}</p>
+                             
+                             <div className="flex justify-center gap-4 mt-6">
+                                {/* Phone */}
+                                <a href={`tel:${founder.phone}`} className="p-3 bg-white/10 hover:bg-white text-white hover:text-[#003375] rounded-full transition-all active:scale-95 shadow-sm hover:shadow-md backdrop-blur-sm relative group/icon">
                                     <Phone size={20} />
-                                </div>
-                                <div className="text-left">
-                                    <span className="text-xs text-gray-500 block">Điện thoại</span>
-                                    <span className="font-bold text-gray-800">0389.342.812</span>
-                                </div>
-                             </a>
-
-                             <a href="mailto:tqhoangg@gmail.com" className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all group/item" onClick={playClick}>
-                                <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center group-hover/item:scale-110 transition-transform">
+                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-bold text-white bg-black/90 rounded opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                        {founder.phone}
+                                        <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black/90"></span>
+                                    </span>
+                                </a>
+                                {/* Mail */}
+                                <a href={`mailto:${founder.email}`} className="p-3 bg-white/10 hover:bg-white text-white hover:text-[#990000] rounded-full transition-all active:scale-95 shadow-sm hover:shadow-md backdrop-blur-sm relative group/icon">
                                     <Mail size={20} />
-                                </div>
-                                <div className="text-left">
-                                    <span className="text-xs text-gray-500 block">Email</span>
-                                    <span className="font-bold text-gray-800">tqhoangg@gmail.com</span>
-                                </div>
-                             </a>
-
-                             <a href="http://facebook.com/tqhoangg.05" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all group/item" onClick={playClick}>
-                                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center group-hover/item:scale-110 transition-transform">
+                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-bold text-white bg-black/90 rounded opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                        {founder.email}
+                                        <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black/90"></span>
+                                    </span>
+                                </a>
+                                {/* FB */}
+                                <a href={founder.fb} target="_blank" rel="noopener noreferrer" className="p-3 bg-white/10 hover:bg-white text-white hover:text-blue-600 rounded-full transition-all active:scale-95 shadow-sm hover:shadow-md backdrop-blur-sm relative group/icon">
                                     <Facebook size={20} />
-                                </div>
-                                <div className="text-left">
-                                    <span className="text-xs text-gray-500 block">Facebook</span>
-                                    <span className="font-bold text-gray-800">Nhắn tin qua Facebook</span>
-                                </div>
-                             </a>
+                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-bold text-white bg-black/90 rounded opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                        Facebook
+                                        <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black/90"></span>
+                                    </span>
+                                </a>
+                             </div>
                          </div>
                      </div>
+                 </div>
+
+                 {/* Collaborators Grid */}
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                     {collaborators.map((member, idx) => (
+                         <div 
+                           key={idx} 
+                           className={`bg-white rounded-xl shadow-sm border p-6 flex flex-col items-center text-center transition-all duration-300 ${member.isPlaceholder ? 'border-dashed border-gray-300 opacity-60' : 'border-gray-100 hover:shadow-lg hover:-translate-y-1 hover:border-blue-100'}`}
+                         >
+                             <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 ${member.isPlaceholder ? 'bg-gray-100 text-gray-400' : 'bg-blue-50 text-[#003375]'}`}>
+                                 <User size={32} />
+                             </div>
+                             <h5 className={`font-bold text-lg mb-1 ${member.isPlaceholder ? 'text-gray-400' : 'text-gray-800'}`}>{member.name}</h5>
+                             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{member.role}</p>
+                             
+                             {!member.isPlaceholder && (
+                                 <div className="flex gap-4 mt-auto pt-4 border-t border-gray-100 w-full justify-center">
+                                     {member.phone && (
+                                        <a href={`tel:${member.phone}`} className="text-gray-400 hover:text-green-600 transition-colors bg-gray-50 p-2 rounded-full hover:bg-green-50 relative group/icon">
+                                            <Phone size={18} />
+                                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-bold text-white bg-black/80 rounded opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
+                                                {member.phone}
+                                                <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black/80"></span>
+                                            </span>
+                                        </a>
+                                     )}
+                                     {member.email && (
+                                        <a href={`mailto:${member.email}`} className="text-gray-400 hover:text-[#990000] transition-colors bg-gray-50 p-2 rounded-full hover:bg-red-50 relative group/icon">
+                                            <Mail size={18} />
+                                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-bold text-white bg-black/80 rounded opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
+                                                {member.email}
+                                                <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black/80"></span>
+                                            </span>
+                                        </a>
+                                     )}
+                                     {member.fb && (
+                                        <a href={member.fb} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600 transition-colors bg-gray-50 p-2 rounded-full hover:bg-blue-50 relative group/icon">
+                                            <Facebook size={18} />
+                                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-bold text-white bg-black/80 rounded opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
+                                                Facebook
+                                                <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black/80"></span>
+                                            </span>
+                                        </a>
+                                     )}
+                                 </div>
+                             )}
+                         </div>
+                     ))}
                  </div>
              </div>
         );
@@ -495,12 +585,12 @@ export const Handbook: React.FC = () => {
                 </button>
 
                 <button
-                    onClick={() => handleTabChange('support')}
-                    className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 ${activeTab === 'support' ? 'bg-[#003375] text-white shadow-md' : 'text-gray-600 hover:bg-white hover:shadow-sm'}`}
+                    onClick={() => handleTabChange('about')}
+                    className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 ${activeTab === 'about' ? 'bg-[#003375] text-white shadow-md' : 'text-gray-600 hover:bg-white hover:shadow-sm'}`}
                 >
-                    <Headphones size={20} />
-                    <span className="font-bold">Liên hệ & Hỗ trợ</span>
-                     {activeTab === 'support' && <ChevronRight size={16} className="ml-auto opacity-70"/>}
+                    <Info size={20} />
+                    <span className="font-bold">Về chúng mình</span>
+                     {activeTab === 'about' && <ChevronRight size={16} className="ml-auto opacity-70"/>}
                 </button>
             </div>
         </div>
