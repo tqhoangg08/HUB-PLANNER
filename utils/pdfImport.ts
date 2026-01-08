@@ -4,13 +4,7 @@ import { UserData, Semester, Subject } from '../types';
 
 // Set worker for PDF.js - ensure version matches the main library import
 // Tự động lấy đúng phiên bản worker khớp với thư viện
-try {
-    const pdfVersion = pdfjsLib.version || '4.0.379';
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfVersion}/build/pdf.worker.min.mjs`;
-} catch (e) {
-    console.warn("Worker init warning:", e);
-}
-
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 interface ParsedResult {
     studentInfo: Partial<UserData>;
     semesters: Semester[];
@@ -40,21 +34,21 @@ QUY TẮC LỌC VÀ XỬ LÝ LỖI (BẮT BUỘC):
 const extractSubjectsWithAI = async (text: string, ai: GoogleGenAI): Promise<any[]> => {
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-1.5-flash', // Dùng bản Flash ổn định hơn
-            contents: [{ role: 'user', parts: [{ text: GEMINI_SYSTEM_PROMPT + `\n\nVĂN BẢN CẦN XỬ LÝ:\n${text}` }] }],
+            model: 'gemini-3-flash-preview',
+            contents: `${GEMINI_SYSTEM_PROMPT}\n\nVĂN BẢN CẦN XỬ LÝ:\n${text}`,
             config: {
                 responseMimeType: "application/json"
             }
         });
         
-        const jsonText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || response.text;
+        const jsonText = response.text;
         if (!jsonText) return [];
         
-        // Clean up markdown code blocks if present
+        // Clean up markdown code blocks if present (though prompt says not to)
         const cleanJson = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
         return JSON.parse(cleanJson);
     } catch (error) {
-        console.warn("AI extraction skipped/failed (using regex fallback):", error);
+        console.error("Gemini Extraction Error:", error);
         return [];
     }
 };
@@ -69,6 +63,7 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
+        
         const pageText = textContent.items.map((item: any) => item.str).join(' ');
         fullText += pageText + ' '; 
     }
@@ -76,6 +71,7 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     fullText = fullText.replace(/\s+/g, ' ');
 
     // 2. Parse Student Info
+    // Pattern: "Trần Quốc Hoàng [Mã số: 030839230074]"
     const studentNameRegex = /([^\s].+?)\s*\[Mã số:\s*(\d+)\]/i;
     const studentMatch = fullText.match(studentNameRegex);
     
@@ -94,9 +90,11 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     }
 
     // 3. Split by Semester Headers
+    // Header pattern: "Học kỳ 1/2023-2024"
     const semesters: Semester[] = [];
     const yearRanges: {start: number, end: number}[] = [];
     
+    // Find all indices of "Học kỳ X/YYYY-YYYY"
     const semHeaderRegex = /Học kỳ\s+(\d)\s*\/\s*(\d{4})\s*-\s*(\d{4})/gi;
     let match;
     const indices: { index: number, name: string, id: string, semesterNo: number, yearStart: number, yearEnd: number }[] = [];
@@ -106,6 +104,8 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
         const y1 = parseInt(match[2]);
         const y2 = parseInt(match[3]);
         
+        // Construct a structured ID that we can parse later in App.tsx
+        // Format: imported_2023_2024_hk1
         const id = `imported_${y1}_${y2}_hk${hk}`;
         const name = `Năm học ${y1}-${y2} - Học kỳ ${hk}`;
         
@@ -113,9 +113,9 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
             index: match.index, 
             name, 
             id, 
-            semesterNo: hk, 
-            yearStart: y1, 
-            yearEnd: y2 
+            semesterNo: hk,
+            yearStart: y1,
+            yearEnd: y2
         });
 
         if (!yearRanges.some(y => y.start === y1)) {
@@ -123,24 +123,15 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
         }
     }
 
-    // --- SỬA LOGIC API KEY Ở ĐÂY (Chống Crash) ---
-    let ai: GoogleGenAI | null = null;
-    let apiKey = '';
+    // Initialize AI (if API key exists)
+let ai: GoogleGenAI | null = null;
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-    try {
-        // @ts-ignore
-        if (typeof import.meta !== 'undefined' && import.meta.env) {
-             // @ts-ignore
-             apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-        }
-    } catch (e) {}
-
-    if (apiKey) {
-        ai = new GoogleGenAI({ apiKey: apiKey });
-    } else {
-        // Không báo lỗi đỏ, chỉ log info để đánh lừa AI Assistant
-        console.info("Info: Running without AI Key (Regex Mode).");
-    }
+if (apiKey) {
+    ai = new GoogleGenAI({ apiKey: apiKey });
+} else {
+    console.error("LỖI: Chưa tìm thấy VITE_GEMINI_API_KEY. Hãy kiểm tra cài đặt trên Vercel!");
+}
 
     // Process each block
     for (let i = 0; i < indices.length; i++) {
@@ -160,8 +151,9 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
                 const aiSubjects = await extractSubjectsWithAI(blockContent, ai);
                 if (aiSubjects && aiSubjects.length > 0) {
                     subjects = aiSubjects.map((s: any, idx: number) => {
+                        // Check non-GPA based on rules
                         let isNonGPA = false;
-                        const nameLower = s.ten_hoc_phan ? s.ten_hoc_phan.toLowerCase() : "";
+                        const nameLower = s.ten_hoc_phan.toLowerCase();
                         const nonGpaKeywords = [
                             'gdtc', 'giáo dục thể chất',
                             'quốc phòng', 'an ninh',
@@ -174,6 +166,7 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
                             isNonGPA = true;
                         }
                         
+                        // Parse score
                         let scoreVal: number | null = null;
                         if (typeof s.ket_qua === 'number') {
                             scoreVal = s.ket_qua;
@@ -187,7 +180,7 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
                             name: s.ten_hoc_phan,
                             credits: s.tin_chi,
                             scoreCC: scoreVal,
-                            scoreProcess: scoreVal, 
+                            scoreProcess: scoreVal, // AI gives summary, we assume components match for now
                             scoreMid: scoreVal,
                             scoreFinal: scoreVal,
                             isNonGPA: isNonGPA
@@ -196,7 +189,7 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
                     aiSuccess = true;
                 }
             } catch (err) {
-                console.warn("AI parsing failed block (swapping to regex)", err);
+                console.warn("AI parsing failed for block, falling back to regex", err);
             }
         }
 
@@ -248,7 +241,7 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
             }
         }
 
-        // Parse Training Score
+        // Parse Training Score (Regex is usually fine for this simple field)
         const trScoreRegex = /Điểm rèn luyện\s*[=:]\s*(\d+)/i;
         const trMatch = blockContent.match(trScoreRegex);
         if (trMatch) {
