@@ -75,6 +75,11 @@ const App: React.FC = () => {
     }
   }, [data, isLoaded]);
 
+  // Scroll to top when switching views
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeView]);
+
   const addSemester = () => {
     playClick();
     const newSem: Semester = {
