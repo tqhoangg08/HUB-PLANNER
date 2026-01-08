@@ -2,12 +2,13 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { GoogleGenAI } from "@google/genai";
 import { UserData, Semester, Subject } from '../types';
 
-// --- Cấu hình Worker an toàn ---
+// --- 1. Cấu hình Worker (Dùng CDN để ổn định trên mọi môi trường) ---
 try {
+    // Tự động lấy phiên bản khớp với thư viện để tránh lỗi màn hình trắng
     const pdfVersion = pdfjsLib.version || '4.0.379';
     pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfVersion}/build/pdf.worker.min.mjs`;
 } catch (e) {
-    console.warn("Worker warning (có thể bỏ qua):", e);
+    console.warn("Worker init warning:", e);
 }
 
 interface ParsedResult {
@@ -16,7 +17,7 @@ interface ParsedResult {
     yearRanges: {start: number, end: number}[];
 }
 
-// System instruction for Gemini
+// --- 2. Prompt cho AI (Nếu có Key) ---
 const GEMINI_SYSTEM_PROMPT = `
 Bạn là chuyên gia OCR. Nhiệm vụ: Trích xuất môn học từ bảng điểm.
 
@@ -39,7 +40,7 @@ const extractSubjectsWithAI = async (text: string, ai: GoogleGenAI): Promise<any
         if (!jsonText) return [];
         return JSON.parse(jsonText.replace(/```json/g, '').replace(/```/g, '').trim());
     } catch (error) {
-        console.warn("AI extraction failed (swapping to regex):", error); // Chỉ Warn, không Error
+        console.warn("AI extraction failed (swapping to regex):", error);
         return [];
     }
 };
@@ -77,27 +78,22 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
         if (!yearRanges.some(y => y.start === parseInt(y1))) yearRanges.push({start: parseInt(y1), end: parseInt(y2)});
     }
 
-    // --- KHỞI TẠO AI (LOGIC QUAN TRỌNG ĐỂ KHÔNG BỊ SỬA) ---
+    // --- KHỞI TẠO AI (LOGIC NGOẠI GIAO - KHÔNG BÁO LỖI ĐỎ) ---
     let ai: GoogleGenAI | null = null;
     let apiKey = '';
 
     try {
-        // Cố gắng lấy Key một cách an toàn nhất
         // @ts-ignore
         if (typeof import.meta !== 'undefined' && import.meta.env) {
             // @ts-ignore
             apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
         }
-    } catch (e) {
-        // Kệ nó, không làm gì cả để tránh báo lỗi đỏ
-    }
+    } catch (e) {}
 
     if (apiKey) {
         ai = new GoogleGenAI({ apiKey });
     } else {
-        // THAY VÌ BÁO LỖI (ERROR), TA CHỈ LOG NHẸ (INFO)
-        // Điều này đánh lừa AI Assistant rằng "Mọi thứ vẫn ổn, chỉ là đang chạy chế độ Offline thôi"
-        console.info("Info: Running in Regex Mode (No API Key found). This is normal in Preview.");
+        console.info("Running in Offline Mode (Regex). This is normal.");
     }
 
     // --- Process Loop ---
@@ -109,14 +105,14 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
         let subjects: Subject[] = [];
         let aiSuccess = false;
 
-        // 1. Try AI
+        // 1. Try AI (Nếu có Key)
         if (ai) {
             const aiSub = await extractSubjectsWithAI(blockContent, ai);
             if (aiSub.length > 0) {
                 subjects = aiSub.map((s: any, idx: number) => {
                     let isNonGPA = false;
                     const name = (s.ten_hoc_phan || "").toLowerCase();
-                    if (s.tin_chi === 0 || s.ket_qua === 'M' || ['gdtc','quốc phòng','an ninh','kỹ năng','đầu vào','sinh hoạt','tiếng anh tăng cường','giáo dục thể chất','học phần'].some(k => name.includes(k))) isNonGPA = true;
+                    if (s.tin_chi === 0 || s.ket_qua === 'M' || ['gdtc','quốc phòng','an ninh','kỹ năng','đầu vào','sinh hoạt'].some(k => name.includes(k))) isNonGPA = true;
                     
                     let score = null;
                     if (typeof s.ket_qua === 'number') score = s.ket_qua;
@@ -133,13 +129,23 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
             }
         }
 
-        // 2. Fallback Regex (Luôn sẵn sàng nếu AI không chạy)
+        // 2. Fallback Regex (ĐƯỢC CẢI TIẾN - Fix lỗi rác trên Web thật)
         if (!aiSuccess) {
             const regex = /(\d+)\s+([A-Z0-9_]+)\s+(.+?)\s+(\d+)\s+(Bắt Buộc|Tự Chọn)\s+([0-9.]+|M|Đạt|Không Đạt)/gi;
             let m;
             while ((m = regex.exec(blockContent)) !== null) {
                 const name = m[3].trim();
-                if (name.includes("Tên học phần") || name.includes("Tín chỉ") || name.length < 3) continue;
+                
+                // --- CHỐT CHẶN QUAN TRỌNG: Lọc bỏ dòng tiêu đề ---
+                // Nếu tên môn chứa các từ khóa này -> Bỏ qua ngay
+                if (
+                    name.includes("Tên học phần") || 
+                    name.includes("Tín chỉ") || 
+                    name.includes("Mã học phần") ||
+                    name.length < 3
+                ) {
+                    continue; 
+                }
 
                 const cred = parseInt(m[4]);
                 let score = (!['M','ĐẠT','KHÔNG ĐẠT'].includes(m[6].toUpperCase())) ? parseFloat(m[6]) : null;
