@@ -122,7 +122,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
 
     // --- 2. Cooldown Timer ---
     useEffect(() => {
-        let interval: NodeJS.Timeout;
+        let interval: any;
         if (cooldown > 0) {
             interval = setInterval(() => {
                 setCooldown((prev) => prev - 1);
@@ -264,39 +264,46 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
         if (!editingId) return;
 
         setIsSavingEdit(true);
+        const timestamp = new Date().toISOString();
 
-// ... (Phần Demo Mode giữ nguyên) ...
+        // --- Demo Mode ---
+        if (!supabase) {
+            setComments(prev => prev.map(c => c.id === editingId ? { ...c, content: editContent, updated_at: timestamp } : c));
+            setIsSavingEdit(false);
+            cancelEditing();
+            return;
+        }
 
-    // --- Real Mode (Code đã sửa) ---
-    try {
-        // SỬA Ở ĐÂY: Chỉ update cột 'content' thôi, xóa dòng 'updated_at' đi
-        const { error } = await supabase
-            .from('comments')
-            .update({ 
-                content: editContent 
-            }) 
-            .eq('id', editingId);
+        // --- Real Mode ---
+        try {
+            // Cập nhật content và updated_at
+            const { error } = await supabase
+                .from('comments')
+                .update({ 
+                    content: editContent,
+                    updated_at: timestamp
+                })
+                .eq('id', editingId);
 
-        if (error) throw error;
+            if (error) throw error;
 
-        // Cập nhật State ngay lập tức
-        setComments(prev => prev.map(c => c.id === editingId ? { 
-            ...c, 
-            content: editContent
-            // (Không cần update updated_at ở đây nữa)
-        } : c));
+            // Cập nhật State ngay lập tức để giao diện thay đổi
+            setComments(prev => prev.map(c => c.id === editingId ? { 
+                ...c, 
+                content: editContent,
+                updated_at: timestamp
+            } : c));
 
-        setToast({ msg: 'Đã chỉnh sửa!', type: 'success' });
-        cancelEditing();
-    } catch (err: any) { // Thêm : any để tránh lỗi type nếu cần
-        console.error('Error updating comment:', err);
-        // Mẹo: Hiện lỗi cụ thể ra để dễ debug
-        setToast({ msg: 'Lỗi: ' + (err.message || 'Không thể lưu'), type: 'error' });
-    } finally {
-        setIsSavingEdit(false);
-        setTimeout(() => setToast(null), 3000);
-    }
-};
+            setToast({ msg: 'Đã chỉnh sửa!', type: 'success' });
+            cancelEditing();
+        } catch (err) {
+            console.error('Error updating comment:', err);
+            setToast({ msg: 'Không thể lưu sửa đổi.', type: 'error' });
+        } finally {
+            setIsSavingEdit(false);
+            setTimeout(() => setToast(null), 3000);
+        }
+    };
 
     // Style
     const containerClasses = className 
@@ -336,6 +343,8 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                         {comments.map((comment) => {
                             const isOwner = comment.user_display_name === currentUserIdentity;
                             const isEditing = editingId === comment.id;
+                            
+                            // Check if edited: updated_at exists AND differs from created_at
                             const isEdited = comment.updated_at && comment.updated_at !== comment.created_at;
 
                             return (
@@ -353,7 +362,12 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                                                 <Clock size={8} /> {formatTime(comment.created_at)}
                                             </span>
                                             {isEdited && (
-                                                <span className="text-[10px] text-gray-400 italic">(Đã chỉnh sửa)</span>
+                                                <span 
+                                                    className="text-[10px] text-gray-400 italic cursor-help border-b border-dotted border-gray-300"
+                                                    title={`Đã chỉnh sửa: ${new Date(comment.updated_at!).toLocaleString('vi-VN')}`}
+                                                >
+                                                    (đã chỉnh sửa)
+                                                </span>
                                             )}
                                         </div>
 
