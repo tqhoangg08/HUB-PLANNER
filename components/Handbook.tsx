@@ -418,12 +418,12 @@ export const Handbook: React.FC = () => {
                             <span>Made with love for HUB Students</span>
                         </div>
                     </div>
-                    {/* PHẦN ĐÃ SỬA: Thay icon Users bằng Logo */}
-                    <div className="shrink-0 relative z-10 flex items-center justify-center bg-white rounded-full w-40 h-40 border-4 border-white shadow-lg p-6">
+                    {/* PHẦN ĐÃ SỬA: Thay icon Users bằng Logo, tăng kích thước, giảm padding, bỏ nhấp nháy */}
+                    <div className="shrink-0 relative z-10 flex items-center justify-center bg-white rounded-full w-48 h-48 border-4 border-white shadow-lg p-2">
                         <img 
                             src="/logo.svg" 
                             alt="HUB Planner Logo" 
-                            className="w-full h-full object-contain animate-pulse"
+                            className="w-full h-full object-contain"
                         />
                     </div>
                  </div>
