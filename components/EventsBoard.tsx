@@ -100,7 +100,7 @@ export const EventsBoard: React.FC = () => {
       setLoading(false);
     } catch (err) {
       console.error(err);
-      setError('Lỗi kết nối đến cơ sở dữ liệu.');
+      setError('Đang bảo trì để cập nhật hệ thống, vui lòng thử lại sau nhé.');
       setLoading(false);
     }
   };
@@ -472,7 +472,7 @@ export const EventsBoard: React.FC = () => {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 animate-fadeIn"><Loader2 size={40} className="text-[#003375] animate-spin mb-4" /><p className="text-gray-500">Đang tải danh sách sự kiện...</p></div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn"><p className="font-bold mb-2">Đã xảy ra lỗi</p><p>{error}</p></div>
+        <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn"><p className="font-bold mb-2">Đang bảo trì để cập nhật hệ thống, vui lòng thử lại sau nhé</p><p>{error}</p></div>
       ) : (
         <div className="space-y-8 animate-fadeIn">
             {/* Section 1: Closing Today */}
