@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { LogOut, Plus, Edit2, Trash2, Save, X, Loader2, Calendar, MapPin, List, Lock, User, Key, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { LogOut, Plus, Edit2, Trash2, Save, X, Loader2, Calendar, MapPin, Lock, User, Key, CheckCircle2, AlertCircle, ArrowLeft, Shield, Mail, Send } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 interface AdminEventBoardProps {
@@ -33,15 +33,24 @@ const INITIAL_FORM: EventData = {
   format: 'Offline'
 };
 
+type LoginMethod = 'password' | 'otp';
+type UserRole = 'admin' | 'editor' | null;
+
 export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
   const [session, setSession] = useState<any>(null);
+  const [userRole, setUserRole] = useState<UserRole>(null);
   const [loading, setLoading] = useState(true);
   
   // Auth State
+  const [loginMethod, setLoginMethod] = useState<LoginMethod>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
 
   // Data State
   const [events, setEvents] = useState<any[]>([]);
@@ -53,31 +62,61 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
   const [formData, setFormData] = useState<EventData>(INITIAL_FORM);
   const [submitting, setSubmitting] = useState(false);
 
-  // --- 1. Auth Logic ---
+  // --- 1. Auth & Role Logic ---
   useEffect(() => {
     if (!supabase) return;
+    
+    // Check session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setLoading(false);
-      if (session) fetchEvents();
+      if (session) {
+          checkUserRole(session.user.id);
+          fetchEvents();
+      } else {
+          setLoading(false);
+      }
     });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) fetchEvents();
+      if (session) {
+          checkUserRole(session.user.id);
+          fetchEvents();
+      } else {
+          setUserRole(null);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const checkUserRole = async (userId: string) => {
+      if (!supabase) return;
+      try {
+          const { data, error } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('id', userId)
+            .single();
+          
+          if (data) {
+              setUserRole(data.role as UserRole);
+          } else {
+              // Fallback if no role assigned, treat as least privileged or handle error
+              setUserRole('editor'); 
+          }
+      } catch (err) {
+          console.error("Error fetching role:", err);
+          setUserRole('editor');
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  const handleLoginPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) {
-        alert("Chưa cấu hình Supabase!");
-        return;
-    }
+    if (!supabase) { alert("Chưa cấu hình Supabase!"); return; }
+    
     setAuthLoading(true);
     setAuthError(null);
     playClick();
@@ -89,14 +128,59 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
 
     if (error) {
       setAuthError(error.message);
+      setAuthLoading(false);
     }
-    setAuthLoading(false);
+    // Auth state change listener will handle success
+  };
+
+  const handleSendOtp = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!supabase) return;
+      setAuthLoading(true);
+      setAuthError(null);
+      playClick();
+
+      const { error } = await supabase.auth.signInWithOtp({ email });
+
+      if (error) {
+          setAuthError(error.message);
+      } else {
+          setAuthSuccessMsg("Mã OTP đã được gửi vào email của bạn!");
+          setShowOtpInput(true);
+      }
+      setAuthLoading(false);
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!supabase) return;
+      setAuthLoading(true);
+      setAuthError(null);
+      playClick();
+
+      const { error } = await supabase.auth.verifyOtp({
+          email,
+          token: otpCode,
+          type: 'email'
+      });
+
+      if (error) {
+          setAuthError("Mã OTP không đúng hoặc đã hết hạn.");
+          setAuthLoading(false);
+      }
+      // Auth state change listener will handle success
   };
 
   const handleLogout = async () => {
     if (!supabase) return;
     playClick();
     await supabase.auth.signOut();
+    setSession(null);
+    setUserRole(null);
+    setEmail('');
+    setPassword('');
+    setOtpCode('');
+    setShowOtpInput(false);
   };
 
   // --- 2. CRUD Logic ---
@@ -116,6 +200,13 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
   const handleDelete = async (id: number) => {
     if (!supabase) return;
     playClick();
+    
+    // Double check role on client side
+    if (userRole !== 'admin') {
+        alert("Bạn không có quyền xóa sự kiện!");
+        return;
+    }
+
     if (!window.confirm("Bạn có chắc chắn muốn xóa sự kiện này?")) return;
 
     const { error } = await supabase.from('events').delete().eq('id', id);
@@ -134,7 +225,6 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
 
   const openEditModal = (event: any) => {
     playClick();
-    // Convert timestamp to YYYY-MM-DD for input date
     let deadlineStr = '';
     if (event.deadline) {
         deadlineStr = new Date(event.deadline).toISOString().split('T')[0];
@@ -165,8 +255,8 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
     const payload = {
         title: formData.title,
         deadline: formData.deadline,
-        category: formData.category, // Cột category trong DB lưu loại (Minigame...)
-        criteria: formData.criteria, // Cột criteria trong DB lưu Mục (III...)
+        category: formData.category,
+        criteria: formData.criteria,
         points: formData.points,
         organizer: formData.organizer,
         link: formData.link,
@@ -198,9 +288,10 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
     }
   };
 
-  // --- Render Login ---
+  // --- Render Loading ---
   if (loading) return <div className="flex justify-center items-center h-screen bg-gray-50"><Loader2 className="animate-spin text-[#003375]" size={40}/></div>;
 
+  // --- Render Login Screen ---
   if (!session) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-100">
@@ -214,57 +305,109 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-gray-200 animate-scaleIn">
             <div className="bg-[#003375] p-6 text-center">
                 <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-                    <Lock className="text-white" size={32} />
+                    <Shield className="text-white" size={32} />
                 </div>
-                <h2 className="text-2xl font-bold text-white">Admin Portal</h2>
-                <p className="text-blue-200 text-sm mt-1">Đăng nhập để quản lý sự kiện</p>
+                <h2 className="text-2xl font-bold text-white">Cổng Quản Trị</h2>
+                <p className="text-blue-200 text-sm mt-1">Hệ thống quản lý sự kiện HUB</p>
+            </div>
+
+            {/* Login Tabs */}
+            <div className="flex border-b border-gray-100">
+                <button 
+                    onClick={() => { playClick(); setLoginMethod('password'); setAuthError(null); }}
+                    className={`flex-1 py-3 text-sm font-bold transition-colors ${loginMethod === 'password' ? 'text-[#003375] border-b-2 border-[#003375] bg-blue-50/50' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                    Admin (Password)
+                </button>
+                <button 
+                    onClick={() => { playClick(); setLoginMethod('otp'); setAuthError(null); }}
+                    className={`flex-1 py-3 text-sm font-bold transition-colors ${loginMethod === 'otp' ? 'text-[#003375] border-b-2 border-[#003375] bg-blue-50/50' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                    CTV (OTP Email)
+                </button>
             </div>
             
-            <form onSubmit={handleLogin} className="p-8 space-y-6">
+            {/* Login Forms */}
+            <div className="p-8 space-y-6">
                 {authError && (
-                    <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-center gap-2">
-                        <AlertCircle size={16}/> {authError}
+                    <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-center gap-2 border border-red-100">
+                        <AlertCircle size={16} className="shrink-0"/> {authError}
                     </div>
                 )}
-                
-                <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Email</label>
-                    <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
-                        <input 
-                            type="email" 
-                            required 
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none"
-                            placeholder="admin@hub.edu.vn"
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                        />
+                {authSuccessMsg && (
+                    <div className="bg-green-50 text-green-700 p-3 rounded-lg text-sm flex items-center gap-2 border border-green-100">
+                        <CheckCircle2 size={16} className="shrink-0"/> {authSuccessMsg}
                     </div>
-                </div>
+                )}
 
-                <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Mật khẩu</label>
-                    <div className="relative">
-                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
-                        <input 
-                            type="password" 
-                            required 
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none"
-                            placeholder="••••••••"
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                        />
-                    </div>
-                </div>
-
-                <button 
-                    type="submit" 
-                    disabled={authLoading}
-                    className="w-full bg-[#003375] text-white font-bold py-3 rounded-lg hover:bg-[#002855] transition-all active:scale-95 flex items-center justify-center gap-2"
-                >
-                    {authLoading ? <Loader2 className="animate-spin"/> : 'Đăng nhập'}
-                </button>
-            </form>
+                {loginMethod === 'password' ? (
+                    <form onSubmit={handleLoginPassword} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Email Admin</label>
+                            <div className="relative">
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
+                                <input 
+                                    type="email" required 
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none"
+                                    placeholder="admin@hub.edu.vn"
+                                    value={email} onChange={e => setEmail(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Mật khẩu</label>
+                            <div className="relative">
+                                <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
+                                <input 
+                                    type="password" required 
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none"
+                                    placeholder="••••••••"
+                                    value={password} onChange={e => setPassword(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <button type="submit" disabled={authLoading} className="w-full bg-[#003375] text-white font-bold py-3 rounded-lg hover:bg-[#002855] transition-all active:scale-95 flex items-center justify-center gap-2">
+                            {authLoading ? <Loader2 className="animate-spin"/> : 'Đăng nhập'}
+                        </button>
+                    </form>
+                ) : (
+                    <form onSubmit={showOtpInput ? handleVerifyOtp : handleSendOtp} className="space-y-4">
+                        {!showOtpInput ? (
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Email CTV</label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
+                                    <input 
+                                        type="email" required 
+                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none"
+                                        placeholder="ctv@hub.edu.vn"
+                                        value={email} onChange={e => setEmail(e.target.value)}
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">Chúng tôi sẽ gửi mã đăng nhập 6 số qua email này.</p>
+                            </div>
+                        ) : (
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Nhập mã OTP</label>
+                                <div className="relative">
+                                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
+                                    <input 
+                                        type="text" required 
+                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none tracking-widest text-center font-bold text-lg"
+                                        placeholder="123456"
+                                        value={otpCode} onChange={e => setOtpCode(e.target.value)}
+                                        maxLength={6}
+                                    />
+                                </div>
+                                <button type="button" onClick={() => setShowOtpInput(false)} className="text-xs text-[#003375] hover:underline mt-2">Gửi lại mã?</button>
+                            </div>
+                        )}
+                        <button type="submit" disabled={authLoading} className="w-full bg-[#003375] text-white font-bold py-3 rounded-lg hover:bg-[#002855] transition-all active:scale-95 flex items-center justify-center gap-2">
+                            {authLoading ? <Loader2 className="animate-spin"/> : (showOtpInput ? 'Xác thực OTP' : 'Gửi mã đăng nhập')}
+                        </button>
+                    </form>
+                )}
+            </div>
         </div>
       </div>
     );
@@ -285,10 +428,15 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                     <ArrowLeft size={20} />
                 </button>
                 <div>
-                    <h2 className="text-2xl font-bold text-[#003375] flex items-center gap-2">
-                        <CheckCircle2 className="text-green-600"/> Quản lý Sự kiện
-                    </h2>
-                    <p className="text-gray-500 text-sm">Xin chào, {session.user.email}</p>
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-2xl font-bold text-[#003375]">Quản lý Sự kiện</h2>
+                        {userRole === 'admin' ? (
+                            <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full font-bold border border-red-200">Super Admin</span>
+                        ) : (
+                            <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-bold border border-blue-200">Cộng tác viên</span>
+                        )}
+                    </div>
+                    <p className="text-gray-500 text-sm">{session.user.email}</p>
                 </div>
             </div>
             <div className="flex gap-3">
@@ -349,13 +497,17 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                                             >
                                                 <Edit2 size={16}/>
                                             </button>
-                                            <button 
-                                                onClick={() => handleDelete(evt.id)}
-                                                className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors" 
-                                                title="Xóa"
-                                            >
-                                                <Trash2 size={16}/>
-                                            </button>
+                                            
+                                            {/* RBAC: Only Admin can Delete */}
+                                            {userRole === 'admin' && (
+                                                <button 
+                                                    onClick={() => handleDelete(evt.id)}
+                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors" 
+                                                    title="Xóa"
+                                                >
+                                                    <Trash2 size={16}/>
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
