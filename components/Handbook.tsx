@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Search, Phone, Mail, MapPin, Bus, Users, Book, Award, ChevronRight, GraduationCap, Copy, Check, HelpCircle, ExternalLink, Shield } from 'lucide-react';
+import { Search, Phone, Mail, MapPin, Bus, Users, Book, Award, ChevronRight, GraduationCap, Copy, Check, HelpCircle, ExternalLink, Shield, Headphones, Facebook } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
-type TabType = 'contacts' | 'bus' | 'clubs' | 'scholarships' | 'regulations' | 'faqs';
+type TabType = 'contacts' | 'bus' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'support';
 
 export const Handbook: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('contacts');
@@ -380,64 +380,134 @@ export const Handbook: React.FC = () => {
                 ))}
             </div>
         );
-        
-      default: return null;
+
+      case 'support':
+        return (
+             <div className="flex flex-col items-center justify-center py-6 animate-fadeIn min-h-[400px]">
+                 <div className="bg-white rounded-2xl shadow-xl border border-gray-100 max-w-sm w-full text-center relative overflow-hidden group hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+                     {/* Decorative Header */}
+                     <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-[#003375] to-blue-600">
+                         <div className="absolute inset-0 bg-white/10 pattern-dots"></div>
+                     </div>
+                     
+                     {/* Avatar */}
+                     <div className="relative mx-auto w-24 h-24 bg-white rounded-full p-1.5 shadow-lg mb-4 -mt-12 top-12 flex items-center justify-center">
+                         <div className="w-full h-full rounded-full bg-blue-50 flex items-center justify-center text-4xl font-bold text-[#003375]">
+                            H
+                         </div>
+                     </div>
+
+                     <div className="mt-14 px-6 pb-8">
+                         <h2 className="text-2xl font-bold text-gray-800 mb-1">Trần Quốc Hoàng</h2>
+                         <p className="text-sm font-medium text-blue-600 uppercase tracking-wide mb-6 bg-blue-50 inline-block px-3 py-1 rounded-full">Admin / Developer</p>
+
+                         <div className="space-y-3">
+                             <a href="tel:0389342812" className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all group/item" onClick={playClick}>
+                                <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center group-hover/item:scale-110 transition-transform">
+                                    <Phone size={20} />
+                                </div>
+                                <div className="text-left">
+                                    <span className="text-xs text-gray-500 block">Điện thoại</span>
+                                    <span className="font-bold text-gray-800">0389.342.812</span>
+                                </div>
+                             </a>
+
+                             <a href="mailto:tqhoangg@gmail.com" className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all group/item" onClick={playClick}>
+                                <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center group-hover/item:scale-110 transition-transform">
+                                    <Mail size={20} />
+                                </div>
+                                <div className="text-left">
+                                    <span className="text-xs text-gray-500 block">Email</span>
+                                    <span className="font-bold text-gray-800">tqhoangg@gmail.com</span>
+                                </div>
+                             </a>
+
+                             <a href="http://facebook.com/tqhoangg.05" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50 transition-all group/item" onClick={playClick}>
+                                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center group-hover/item:scale-110 transition-transform">
+                                    <Facebook size={20} />
+                                </div>
+                                <div className="text-left">
+                                    <span className="text-xs text-gray-500 block">Facebook</span>
+                                    <span className="font-bold text-gray-800">Nhắn tin qua Facebook</span>
+                                </div>
+                             </a>
+                         </div>
+                     </div>
+                 </div>
+             </div>
+        );
+
+      default:
+        return null;
     }
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-fadeIn">
-      {/* Sidebar Navigation */}
-      <div className="md:col-span-1 space-y-2">
-        <button
-          onClick={() => handleTabChange('contacts')}
-          className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-all duration-200 active:scale-95 ${
-            activeTab === 'contacts' ? 'bg-[#003375] text-white shadow-lg scale-105' : 'bg-white hover:bg-gray-50 text-gray-700 hover:shadow-md'
-          }`}
-        >
-          <Phone size={18} />
-          <span className="font-medium">Danh bạ Khoa/Phòng</span>
-        </button>
-        <button
-          onClick={() => handleTabChange('bus')}
-          className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-all duration-200 active:scale-95 ${
-            activeTab === 'bus' ? 'bg-[#003375] text-white shadow-lg scale-105' : 'bg-white hover:bg-gray-50 text-gray-700 hover:shadow-md'
-          }`}
-        >
-          <Bus size={18} />
-          <span className="font-medium">Xe buýt</span>
-        </button>
-        <button
-          onClick={() => handleTabChange('clubs')}
-          className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-all duration-200 active:scale-95 ${
-            activeTab === 'clubs' ? 'bg-[#003375] text-white shadow-lg scale-105' : 'bg-white hover:bg-gray-50 text-gray-700 hover:shadow-md'
-          }`}
-        >
-          <Users size={18} />
-          <span className="font-medium">CLB & Đội nhóm</span>
-        </button>
-        <button
-          onClick={() => handleTabChange('scholarships')}
-          className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-all duration-200 active:scale-95 ${
-            activeTab === 'scholarships' ? 'bg-[#003375] text-white shadow-lg scale-105' : 'bg-white hover:bg-gray-50 text-gray-700 hover:shadow-md'
-          }`}
-        >
-          <GraduationCap size={18} />
-          <span className="font-medium">Học bổng & Quy chế</span>
-        </button>
-        <button
-          onClick={() => handleTabChange('faqs')}
-          className={`w-full text-left p-3 rounded-xl flex items-center gap-3 transition-all duration-200 active:scale-95 ${
-            activeTab === 'faqs' ? 'bg-[#003375] text-white shadow-lg scale-105' : 'bg-white hover:bg-gray-50 text-gray-700 hover:shadow-md'
-          }`}
-        >
-          <HelpCircle size={18} />
-          <span className="font-medium">Câu hỏi thường gặp</span>
-        </button>
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-slideInRight">
+      {/* Sidebar Menu */}
+      <div className="md:col-span-1">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sticky top-24">
+            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-3 pt-2">Danh mục</h3>
+            <div className="space-y-1">
+                <button
+                    onClick={() => handleTabChange('contacts')}
+                    className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 ${activeTab === 'contacts' ? 'bg-[#003375] text-white shadow-md' : 'text-gray-600 hover:bg-gray-50 hover:shadow-sm'}`}
+                >
+                    <Phone size={20} />
+                    <span className="font-bold">Danh bạ & Khoa</span>
+                    {activeTab === 'contacts' && <ChevronRight size={16} className="ml-auto opacity-70"/>}
+                </button>
+
+                <button
+                    onClick={() => handleTabChange('bus')}
+                    className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 ${activeTab === 'bus' ? 'bg-yellow-500 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50 hover:shadow-sm'}`}
+                >
+                    <Bus size={20} />
+                    <span className="font-bold">Xe buýt</span>
+                    {activeTab === 'bus' && <ChevronRight size={16} className="ml-auto opacity-70"/>}
+                </button>
+
+                <button
+                    onClick={() => handleTabChange('clubs')}
+                    className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 ${activeTab === 'clubs' ? 'bg-[#990000] text-white shadow-md' : 'text-gray-600 hover:bg-gray-50 hover:shadow-sm'}`}
+                >
+                    <Users size={20} />
+                    <span className="font-bold">CLB - Đội - Nhóm</span>
+                    {activeTab === 'clubs' && <ChevronRight size={16} className="ml-auto opacity-70"/>}
+                </button>
+
+                <button
+                    onClick={() => handleTabChange('scholarships')}
+                    className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 ${activeTab === 'scholarships' ? 'bg-green-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50 hover:shadow-sm'}`}
+                >
+                    <Award size={20} />
+                    <span className="font-bold">Học bổng & Quy chế</span>
+                    {activeTab === 'scholarships' && <ChevronRight size={16} className="ml-auto opacity-70"/>}
+                </button>
+
+                <button
+                    onClick={() => handleTabChange('faqs')}
+                    className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 ${activeTab === 'faqs' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50 hover:shadow-sm'}`}
+                >
+                    <HelpCircle size={20} />
+                    <span className="font-bold">FAQs</span>
+                    {activeTab === 'faqs' && <ChevronRight size={16} className="ml-auto opacity-70"/>}
+                </button>
+
+                <button
+                    onClick={() => handleTabChange('support')}
+                    className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 ${activeTab === 'support' ? 'bg-[#003375] text-white shadow-md' : 'text-gray-600 hover:bg-white hover:shadow-sm'}`}
+                >
+                    <Headphones size={20} />
+                    <span className="font-bold">Liên hệ & Hỗ trợ</span>
+                     {activeTab === 'support' && <ChevronRight size={16} className="ml-auto opacity-70"/>}
+                </button>
+            </div>
+        </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="md:col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-gray-200 min-h-[400px]">
+      <div className="md:col-span-3">
         {renderContent()}
       </div>
     </div>
