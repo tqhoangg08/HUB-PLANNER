@@ -7,6 +7,8 @@ import { Onboarding } from './components/Onboarding';
 import { Handbook } from './components/Handbook';
 import { EventsBoard } from './components/EventsBoard';
 import { LostFoundBoard } from './components/LostFoundBoard';
+import { AdminEventBoard } from './components/AdminEventBoard';
+import { RoleSelection } from './components/RoleSelection';
 import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
@@ -47,6 +49,10 @@ const INITIAL_DATA: UserData = {
 };
 
 const App: React.FC = () => {
+  // Role State
+  const [userRole, setUserRole] = useState<'unknown' | 'student' | 'admin'>('unknown');
+
+  // App Data State (For Student Role)
   const [data, setData] = useState<UserData>(INITIAL_DATA);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -422,9 +428,22 @@ const App: React.FC = () => {
     </div>
   );
 
+  // --- ROUTING LOGIC ---
   if (!isLoaded) return null;
 
-  if (!data.hasOnboarded) {
+  // 1. Role Selection Screen
+  if (userRole === 'unknown') {
+      return <RoleSelection onSelect={setUserRole} />;
+  }
+
+  // 2. Admin Flow
+  if (userRole === 'admin') {
+      return <AdminEventBoard onBack={() => setUserRole('unknown')} />;
+  }
+
+  // 3. Student Flow (Existing App Logic)
+  // Check onboarding for student
+  if (userRole === 'student' && !data.hasOnboarded) {
       return <Onboarding onComplete={handleOnboardingComplete} />;
   }
 
@@ -434,12 +453,16 @@ const App: React.FC = () => {
       <header className="bg-white/80 backdrop-blur-md border-b-2 border-[#003375] sticky top-0 z-40 shadow-sm transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
           <div className="flex items-center gap-3">
-             {/* HUB Logo - Updated to local SVG */}
-             <div className="h-12 w-12 relative flex-shrink-0 cursor-pointer transition-transform duration-300 hover:scale-105 active:scale-95" onClick={playClick}>
+             {/* HUB Logo */}
+             <div className="h-10 w-10 relative flex-shrink-0 group cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-95" onClick={playClick}>
                 <img 
-                    src="/logo.svg" 
-                    alt="HUB Planner Logo" 
-                    className="h-full w-full object-contain"
+                    src="https://upload.wikimedia.org/wikipedia/vi/1/1a/Logo_HUB.png" 
+                    alt="HUB Logo" 
+                    className="h-full w-full object-contain drop-shadow-sm"
+                    onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement!.innerHTML = '<div class="h-10 w-10 bg-[#003375] rounded flex items-center justify-center text-white font-bold text-xs shadow-md">HUB</div>';
+                    }}
                 />
              </div>
              <div>
