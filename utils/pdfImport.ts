@@ -4,12 +4,37 @@ import { UserData, Semester, Subject } from '../types';
 
 // Set worker for PDF.js - ensure version matches the main library import
 // Tự động lấy đúng phiên bản worker khớp với thư viện
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+try {
+    const pdfVersion = pdfjsLib.version || '4.0.379';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfVersion}/build/pdf.worker.min.mjs`;
+} catch (e) {
+    console.warn("Failed to initialize PDF worker source:", e);
+}
+
 interface ParsedResult {
     studentInfo: Partial<UserData>;
     semesters: Semester[];
     yearRanges: {start: number, end: number}[]; // Keep track of found years
 }
+
+// Helper safely get API Key
+const getApiKey = () => {
+    try {
+        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+            return process.env.API_KEY;
+        }
+    } catch(e) {}
+    
+    try {
+        // @ts-ignore
+        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
+            // @ts-ignore
+            return import.meta.env.VITE_GEMINI_API_KEY;
+        }
+    } catch(e) {}
+    
+    return '';
+};
 
 // System instruction for Gemini
 const GEMINI_SYSTEM_PROMPT = `
