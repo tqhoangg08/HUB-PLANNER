@@ -1,12 +1,33 @@
 import React, { useState } from 'react';
+import { GoogleGenAI } from "@google/genai";
 import { MessageSquare, Sparkles, Loader2, X } from 'lucide-react';
 import { UserData, Subject } from '../types';
 import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
 import { playClick } from '../utils/audio';
+import DOMPurify from 'dompurify';
 
 interface GeminiAdvisorProps {
   data: UserData;
 }
+
+// Helper to safely get API Key
+const getApiKey = () => {
+    try {
+        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+            return process.env.API_KEY;
+        }
+    } catch(e) {}
+    
+    try {
+        // @ts-ignore
+        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
+            // @ts-ignore
+            return import.meta.env.VITE_GEMINI_API_KEY;
+        }
+    } catch(e) {}
+    
+    return '';
+};
 
 export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,6 +37,13 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
 
   const handleAdvice = async () => {
     playClick();
+    const apiKey = getApiKey();
+    
+    if (!apiKey) {
+      setResponse("Vui lòng cấu hình API KEY (VITE_GEMINI_API_KEY) để sử dụng tính năng này.");
+      return;
+    }
+
     setLoading(true);
     setResponse(null);
 
@@ -33,7 +61,6 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
       const filledTrainingScores = data.semesters
         .map(s => s.trainingScore)
         .filter((s): s is number => s !== null && s !== undefined);
-        
       const avgTrainingScore = filledTrainingScores.length > 0
         ? Math.round(filledTrainingScores.reduce((a, b) => a + b, 0) / filledTrainingScores.length)
         : 0;
@@ -54,32 +81,23 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
         - Xếp loại tạm thời: ${degree}
         - Môn rớt (cần học lại): ${failedSubjects.length > 0 ? failedSubjects.join(', ') : 'Không có'}
         - Điểm rèn luyện: ${avgTrainingScore}
-        - Mục tiêu GPA: ${data.targetGPA || "Chưa đặt"}
+        - Mục tiêu GPA: ${data.targetGPA}
 
         Câu hỏi của sinh viên: "${customPrompt || "Hãy đánh giá kết quả học tập của tôi và đưa ra lời khuyên chi tiết theo chuyên ngành của tôi để đạt mục tiêu."}"
 
         Hãy trả lời ngắn gọn, thân thiện, gọi sinh viên bằng tên. Sử dụng markdown để định dạng. Tập trung vào các môn cần cải thiện hoặc chiến lược học tập phù hợp với chuyên ngành ${data.specializationName || "của sinh viên"}.
       `;
 
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: context }),
+      const ai = new GoogleGenAI({ apiKey: apiKey });
+      const result = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: context,
       });
 
-      const result = await res.json();
-
-      if (!res.ok) {
-        throw new Error(result.error || "Lỗi kết nối server");
-      }
-
-      setResponse(result.reply);
-
-    } catch (error: any) {
+      setResponse(result.text || "Xin lỗi, tôi không thể đưa ra lời khuyên lúc này.");
+    } catch (error) {
       console.error(error);
-      setResponse("Có lỗi xảy ra: " + (error.message || "Vui lòng thử lại sau."));
+      setResponse("Có lỗi xảy ra khi kết nối với Gemini AI.");
     } finally {
       setLoading(false);
     }
@@ -115,7 +133,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
               {response ? (
                 <div className="prose prose-sm max-w-none bg-gray-50 p-4 rounded-lg border border-gray-100 text-gray-800 animate-fadeIn shadow-inner">
                   <div dangerouslySetInnerHTML={{ 
-                    __html: response.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') 
+                    __html: DOMPurify.sanitize(response.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>'))
                   }} />
                 </div>
               ) : (
