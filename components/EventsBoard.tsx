@@ -1,43 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Papa from 'papaparse';
+import { supabase } from '../utils/supabase';
 import { Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, MessageCircle, ChevronDown, Flame, Lock } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
 
-const GOOGLE_SHEET_TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFfOrgITNGNMq-_wu7TEBQshWl7SOi080vX97Z2QKB6LyfQIicz6lZN9m62s2abF8XPQriTdOTBWoi/pub?output=tsv';
-
 interface HubEvent {
   id: string;
-  name: string;      // Tên sự kiện
-  category: string;  // Mục (I, II...)
-  score: string;     // Điểm số
-  location: string;  // Hình thức
-  time: string;      // Hạn tham gia (hiển thị)
-  deadlineDate: Date | null; // Hạn tham gia (để check expired)
-  link: string;      // Link tham gia
-  organizer: string; // BTC
-  type: string;      // Phân loại
-  scope: string;     // Phạm vi (Trong trường/Ngoài trường)
+  name: string;      // Tên sự kiện (DB: title)
+  category: string;  // Mục (I, II...) (DB: criteria)
+  score: string;     // Điểm số (DB: points)
+  location: string;  // Hình thức (DB: format)
+  time: string;      // Hạn tham gia hiển thị (DB: deadline format dd/mm/yyyy)
+  deadlineDate: Date | null; // Object Date để so sánh
+  link: string;      // Link tham gia (DB: link)
+  organizer: string; // BTC (DB: organizer)
+  type: string;      // Phân loại (Minigame...) (DB: category)
+  scope: string;     // Phạm vi (DB: location_type)
 }
 
-const parseVietnameseDate = (dateStr: string): Date | null => {
-    if (!dateStr) return null;
+const formatDateString = (isoDate: string): string => {
+    if (!isoDate) return 'Chưa cập nhật';
     try {
-        const matches = dateStr.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-        if (matches) {
-            const day = parseInt(matches[1], 10);
-            const month = parseInt(matches[2], 10) - 1; 
-            const year = parseInt(matches[3], 10);
-            const date = new Date(year, month, day);
-            // Mặc định set về cuối ngày để tính logic deadline nếu cần
-            // Tuy nhiên logic so sánh mới sẽ normalize về 00:00:00
-            date.setHours(23, 59, 59, 999); 
-            return date;
-        }
-        return null;
+        const date = new Date(isoDate);
+        return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
     } catch (e) {
-        return null;
+        return isoDate;
     }
 };
 
@@ -66,71 +54,53 @@ export const EventsBoard: React.FC = () => {
   const fetchEvents = async () => {
     setLoading(true);
     setError(null);
+
+    // Fallback if Supabase is not configured (Demo Mode)
+    if (!supabase) {
+        setEvents([]);
+        setError("Chưa cấu hình Supabase. Vui lòng kiểm tra biến môi trường.");
+        setLoading(false);
+        return;
+    }
+
     try {
-      const response = await fetch(GOOGLE_SHEET_TSV_URL);
-      if (!response.ok) throw new Error('Không thể tải dữ liệu');
-      const text = await response.text();
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('deadline', { ascending: true }); // Get nearest deadline first
 
-      Papa.parse(text, {
-        header: true,
-        delimiter: '\t',
-        skipEmptyLines: true,
-        complete: (results) => {
-          const parsedEvents: HubEvent[] = results.data.map((row: any, index: number) => {
-            const keys = Object.keys(row);
-            const findKey = (keywords: string[]) => keys.find(k => keywords.some(kw => k.toLowerCase().trim() === kw.toLowerCase()));
-            
-            const name = row[findKey(['Tên sự kiện', 'Tên'])] || 'Sự kiện chưa có tên';
-            let catRaw = row[findKey(['Mục', 'Mục ĐRL'])] || '';
-            let category = 'Khác';
-            const catUpper = catRaw.toString().trim().toUpperCase();
+      if (error) throw error;
 
-            if (/\bIII\b/.test(catUpper) || /\b3\b/.test(catUpper)) category = 'III';
-            else if (/\bII\b/.test(catUpper) || /\b2\b/.test(catUpper)) category = 'II';
-            else if (/\bIV\b/.test(catUpper) || /\b4\b/.test(catUpper)) category = 'IV';
-            else if (/\bV\b/.test(catUpper) || /\b5\b/.test(catUpper)) category = 'V';
-            else if (/\bI\b/.test(catUpper) || /\b1\b/.test(catUpper)) category = 'I';
+      if (data) {
+          const parsedEvents: HubEvent[] = data.map((row: any) => {
+              // Convert ISO Date to Date Object and set to end of day for inclusive comparison
+              let deadlineDate = null;
+              if (row.deadline) {
+                  deadlineDate = new Date(row.deadline);
+                  deadlineDate.setHours(23, 59, 59, 999);
+              }
 
-            const score = row[findKey(['Điểm số', 'Điểm'])] || '0';
-            const location = row[findKey(['Hình thức', 'Địa điểm'])] || 'Online/Offline';
-            const timeRaw = row[findKey(['Hạn tham gia', 'Thời gian', 'Deadline'])] || '';
-            const deadlineDate = parseVietnameseDate(timeRaw);
-            const link = row[findKey(['Link tham gia', 'Link', 'Liên kết'])] || '';
-            const organizer = row[findKey(['BTC', 'Ban tổ chức', 'Đơn vị'])] || 'HUB';
-            const type = row[findKey(['Phân loại', 'Loại hình'])] || '';
-            const scopeRaw = row[findKey(['Phạm vi', 'Khu vực', 'Trong/Ngoài', 'Scope'])] || '';
-            let scope = '';
-            if (scopeRaw.toLowerCase().includes('trong')) scope = 'Trong trường';
-            else if (scopeRaw.toLowerCase().includes('ngoài')) scope = 'Ngoài trường';
-
-            return {
-              id: `evt-${index}`,
-              name,
-              category,
-              score,
-              location,
-              time: timeRaw,
-              deadlineDate,
-              link,
-              organizer,
-              type,
-              scope
-            };
+              return {
+                  id: row.id.toString(),
+                  name: row.title || 'Sự kiện chưa có tên',
+                  category: row.criteria || 'Khác', // DB Criteria -> UI Category (Mục I, II...)
+                  score: row.points?.toString() || '0',
+                  location: row.format || 'Online',
+                  time: formatDateString(row.deadline),
+                  deadlineDate: deadlineDate,
+                  link: row.link || '',
+                  organizer: row.organizer || 'HUB',
+                  type: row.category || '', // DB Category -> UI Type (Minigame, Học thuật...)
+                  scope: row.location_type || 'Trong trường'
+              };
           });
-          
-          const validEvents = parsedEvents.filter(e => e.name !== 'Sự kiện chưa có tên' || e.link !== '');
-          setEvents(validEvents);
-          setLoading(false);
-        },
-        error: (err: any) => {
-          console.error(err);
-          setError('Lỗi phân tích dữ liệu.');
-          setLoading(false);
-        }
-      });
+
+          setEvents(parsedEvents);
+      }
+      setLoading(false);
     } catch (err) {
       console.error(err);
-      setError('Lỗi kết nối đến Google Sheet.');
+      setError('Lỗi kết nối đến cơ sở dữ liệu.');
       setLoading(false);
     }
   };
@@ -144,7 +114,11 @@ export const EventsBoard: React.FC = () => {
     const matchesSearch = evt.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           evt.organizer.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           evt.type.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesTab = activeTab === 'all' || evt.category === activeTab;
+    
+    // UI Category stores "I", "II", "III"...
+    // activeTab stores "I", "II"... or "all"
+    const matchesTab = activeTab === 'all' || evt.category.includes(activeTab);
+    
     const matchesScope = activeScope === 'all' || 
                          (activeScope === 'internal' && evt.scope === 'Trong trường') ||
                          (activeScope === 'external' && evt.scope === 'Ngoài trường');
@@ -161,16 +135,15 @@ export const EventsBoard: React.FC = () => {
 
   filteredEvents.forEach(evt => {
       if (!evt.deadlineDate) {
-          // Nếu không có ngày deadline (VD: Sắp diễn ra, hoặc chưa cập nhật), mặc định cho vào Open
+          // No deadline -> Open
           openEvents.push(evt);
           return;
       }
 
-      const deadline = new Date(evt.deadlineDate);
-      deadline.setHours(0, 0, 0, 0);
-
+      // Normalize deadline for comparison (already set to 23:59:59 in fetch)
+      // Check comparison purely on Date components
       const tTime = today.getTime();
-      const dTime = deadline.getTime();
+      const dTime = new Date(evt.deadlineDate).setHours(0,0,0,0);
 
       if (dTime === tTime) {
           closingTodayEvents.push(evt);
