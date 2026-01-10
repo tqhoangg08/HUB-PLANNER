@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { LogOut, Plus, Edit2, Trash2, Save, X, Loader2, Calendar, MapPin, User, Key, CheckCircle2, AlertCircle, ArrowLeft, Shield, Mail, History, Monitor } from 'lucide-react';
+import { LogOut, Plus, Edit2, Trash2, Save, X, Loader2, Calendar, MapPin, User, Key, AlertCircle, ArrowLeft, Shield, History, Monitor } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 interface AdminEventBoardProps {
@@ -42,7 +42,6 @@ const INITIAL_FORM: EventData = {
   format: 'Offline'
 };
 
-type LoginMethod = 'password' | 'otp';
 type UserRole = 'admin' | 'editor' | null;
 
 export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
@@ -51,15 +50,10 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
   const [loading, setLoading] = useState(true);
   
   // Auth State
-  const [loginMethod, setLoginMethod] = useState<LoginMethod>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [showOtpInput, setShowOtpInput] = useState(false);
-  
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
 
   // Data State
   const [events, setEvents] = useState<any[]>([]);
@@ -116,7 +110,7 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
           if (data) {
               setUserRole(data.role as UserRole);
           } else {
-              setUserRole('editor'); 
+              setUserRole('editor'); // Default fallback
           }
       } catch (err) {
           console.error("Error fetching role:", err);
@@ -149,11 +143,10 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
           ]);
       } catch (e) {
           console.error("Logging failed:", e);
-          // Don't block login if logging fails
       }
   };
 
-  const handleLoginPassword = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabase) { alert("Chưa cấu hình Supabase!"); return; }
     
@@ -171,48 +164,9 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
       setAuthLoading(false);
     } else {
         // Log success
-        await logActivity(email, 'Đăng nhập thành công (Password)');
+        await logActivity(email, 'Đăng nhập thành công');
+        // Loading state will be handled by auth listener
     }
-  };
-
-  const handleSendOtp = async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!supabase) return;
-      setAuthLoading(true);
-      setAuthError(null);
-      playClick();
-
-      const { error } = await supabase.auth.signInWithOtp({ email });
-
-      if (error) {
-          setAuthError(error.message);
-      } else {
-          setAuthSuccessMsg("Mã OTP đã được gửi vào email của bạn!");
-          setShowOtpInput(true);
-      }
-      setAuthLoading(false);
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!supabase) return;
-      setAuthLoading(true);
-      setAuthError(null);
-      playClick();
-
-      const { error } = await supabase.auth.verifyOtp({
-          email,
-          token: otpCode,
-          type: 'email'
-      });
-
-      if (error) {
-          setAuthError("Mã OTP không đúng hoặc đã hết hạn.");
-          setAuthLoading(false);
-      } else {
-          // Log success
-          await logActivity(email, 'Đăng nhập thành công (OTP)');
-      }
   };
 
   const handleLogout = async () => {
@@ -223,8 +177,6 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
     setUserRole(null);
     setEmail('');
     setPassword('');
-    setOtpCode('');
-    setShowOtpInput(false);
   };
 
   // --- 2. CRUD & History Logic ---
@@ -276,7 +228,6 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
     if (error) alert("Lỗi khi xóa: " + error.message);
     else {
       setEvents(prev => prev.filter(e => e.id !== id));
-      // Log delete action
       if (session?.user?.email) {
           logActivity(session.user.email, `Xóa sự kiện ID: ${id}`);
       }
@@ -352,7 +303,6 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
     } else {
         setShowModal(false);
         fetchEvents();
-        // Log action
         if (session?.user?.email) {
             logActivity(session.user.email, isEditing ? `Cập nhật sự kiện: ${formData.title}` : `Thêm mới sự kiện: ${formData.title}`);
         }
@@ -379,105 +329,45 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                     <Shield className="text-white" size={32} />
                 </div>
                 <h2 className="text-2xl font-bold text-white">Cổng Quản Trị</h2>
-                <p className="text-blue-200 text-sm mt-1">Hệ thống quản lý sự kiện HUB</p>
-            </div>
-
-            {/* Login Tabs */}
-            <div className="flex border-b border-gray-100">
-                <button 
-                    onClick={() => { playClick(); setLoginMethod('password'); setAuthError(null); }}
-                    className={`flex-1 py-3 text-sm font-bold transition-colors ${loginMethod === 'password' ? 'text-[#003375] border-b-2 border-[#003375] bg-blue-50/50' : 'text-gray-500 hover:bg-gray-50'}`}
-                >
-                    Admin (Password)
-                </button>
-                <button 
-                    onClick={() => { playClick(); setLoginMethod('otp'); setAuthError(null); }}
-                    className={`flex-1 py-3 text-sm font-bold transition-colors ${loginMethod === 'otp' ? 'text-[#003375] border-b-2 border-[#003375] bg-blue-50/50' : 'text-gray-500 hover:bg-gray-50'}`}
-                >
-                    CTV (OTP Email)
-                </button>
+                <p className="text-blue-200 text-sm mt-1">Đăng nhập hệ thống (Admin & Editor)</p>
             </div>
             
-            {/* Login Forms */}
             <div className="p-8 space-y-6">
                 {authError && (
                     <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-center gap-2 border border-red-100">
                         <AlertCircle size={16} className="shrink-0"/> {authError}
                     </div>
                 )}
-                {authSuccessMsg && (
-                    <div className="bg-green-50 text-green-700 p-3 rounded-lg text-sm flex items-center gap-2 border border-green-100">
-                        <CheckCircle2 size={16} className="shrink-0"/> {authSuccessMsg}
-                    </div>
-                )}
 
-                {loginMethod === 'password' ? (
-                    <form onSubmit={handleLoginPassword} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Email Admin</label>
-                            <div className="relative">
-                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
-                                <input 
-                                    type="email" required 
-                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none"
-                                    placeholder="admin@hub.edu.vn"
-                                    value={email} onChange={e => setEmail(e.target.value)}
-                                />
-                            </div>
+                <form onSubmit={handleLogin} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Email</label>
+                        <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
+                            <input 
+                                type="email" required 
+                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none"
+                                placeholder="name@hub.edu.vn"
+                                value={email} onChange={e => setEmail(e.target.value)}
+                            />
                         </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Mật khẩu</label>
-                            <div className="relative">
-                                <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
-                                <input 
-                                    type="password" required 
-                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none"
-                                    placeholder="••••••••"
-                                    value={password} onChange={e => setPassword(e.target.value)}
-                                />
-                            </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Mật khẩu</label>
+                        <div className="relative">
+                            <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
+                            <input 
+                                type="password" required 
+                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none"
+                                placeholder="••••••••"
+                                value={password} onChange={e => setPassword(e.target.value)}
+                            />
                         </div>
-                        <button type="submit" disabled={authLoading} className="w-full bg-[#003375] text-white font-bold py-3 rounded-lg hover:bg-[#002855] transition-all active:scale-95 flex items-center justify-center gap-2">
-                            {authLoading ? <Loader2 className="animate-spin"/> : 'Đăng nhập'}
-                        </button>
-                    </form>
-                ) : (
-                    <form onSubmit={showOtpInput ? handleVerifyOtp : handleSendOtp} className="space-y-4">
-                        {!showOtpInput ? (
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Email CTV</label>
-                                <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
-                                    <input 
-                                        type="email" required 
-                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none"
-                                        placeholder="ctv@hub.edu.vn"
-                                        value={email} onChange={e => setEmail(e.target.value)}
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-500 mt-2">Chúng tôi sẽ gửi mã đăng nhập 6 số qua email này.</p>
-                            </div>
-                        ) : (
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Nhập mã OTP</label>
-                                <div className="relative">
-                                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
-                                    <input 
-                                        type="text" required 
-                                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none tracking-widest text-center font-bold text-lg"
-                                        placeholder="123456"
-                                        value={otpCode} onChange={e => setOtpCode(e.target.value)}
-                                        maxLength={6}
-                                    />
-                                </div>
-                                <button type="button" onClick={() => setShowOtpInput(false)} className="text-xs text-[#003375] hover:underline mt-2">Gửi lại mã?</button>
-                            </div>
-                        )}
-                        <button type="submit" disabled={authLoading} className="w-full bg-[#003375] text-white font-bold py-3 rounded-lg hover:bg-[#002855] transition-all active:scale-95 flex items-center justify-center gap-2">
-                            {authLoading ? <Loader2 className="animate-spin"/> : (showOtpInput ? 'Xác thực OTP' : 'Gửi mã đăng nhập')}
-                        </button>
-                    </form>
-                )}
+                    </div>
+                    <button type="submit" disabled={authLoading} className="w-full bg-[#003375] text-white font-bold py-3 rounded-lg hover:bg-[#002855] transition-all active:scale-95 flex items-center justify-center gap-2">
+                        {authLoading ? <Loader2 className="animate-spin"/> : 'Đăng nhập'}
+                    </button>
+                </form>
             </div>
         </div>
       </div>
@@ -616,7 +506,6 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {/* ... Form fields (same as before) ... */}
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
                         <input 
