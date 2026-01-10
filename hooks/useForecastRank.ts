@@ -28,20 +28,20 @@ export const useForecastRank = () => {
         try {
             // Note: Supabase doesn't support .distinct() directly on select easily without RPC.
             // We fetch the 'semester' column and deduplicate client-side.
-            // Warning: If table is huge, this should be replaced by an RPC function `get_distinct_semesters`.
+            // Using order helps getting consistent data structure.
             const { data, error } = await supabase
                 .from('benchmark_rankings')
-                .select('semester');
+                .select('semester')
+                .order('semester', { ascending: false });
 
             if (error) throw error;
 
             if (data) {
-                // Deduplicate and sort descending (newest first usually)
-                const unique = Array.from(new Set(data.map((item: any) => item.semester)))
-                    .filter(Boolean)
-                    .sort()
-                    .reverse();
-                setAvailableSemesters(unique as string[]);
+                // Deduplicate using Set to get unique values
+                const uniqueSemesters = [...new Set(data.map((item: any) => item.semester))]
+                    .filter(Boolean); // Ensure no null/undefined values
+                
+                setAvailableSemesters(uniqueSemesters as string[]);
             }
         } catch (err: any) {
             console.error("Error fetching semesters:", err);
