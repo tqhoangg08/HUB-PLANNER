@@ -1,26 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../utils/supabase';
-import { Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, MessageCircle, ChevronDown, Flame, Lock, Circle, Siren } from 'lucide-react';
+import { Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, Save, ToggleLeft, ToggleRight, Settings } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
+import { useUserRole } from '../hooks/useUserRole';
 
+// --- Types ---
 interface HubEvent {
   id: string;
-  name: string;      // Tên sự kiện (DB: title)
-  category: string;  // Mục (I, II...) (DB: criteria)
-  score: string;     // Điểm số (DB: points)
-  location: string;  // Hình thức (DB: format)
-  time: string;      // Hạn tham gia hiển thị (DB: deadline format dd/mm/yyyy)
-  deadlineDate: Date | null; // Object Date để sort và check logic ngày
-  link: string;      // Link tham gia (DB: link)
-  organizer: string; // BTC (DB: organizer)
-  type: string;      // Phân loại (Minigame...) (DB: category)
-  scope: string;     // Phạm vi (DB: location_type)
-  status: string;    // Trạng thái (Sắp diễn ra, Đang diễn ra, Đã kết thúc) (DB: status)
-  is_manually_closed: boolean; // Trạng thái đóng thủ công bởi Admin
+  name: string;      // DB: title
+  category: string;  // DB: criteria
+  score: string;     // DB: points
+  location: string;  // DB: format
+  time: string;      // DB: deadline string
+  deadlineDate: Date | null;
+  link: string;
+  organizer: string;
+  type: string;      // DB: category
+  scope: string;     // DB: location_type
+  status: string;
+  is_manually_closed: boolean;
 }
 
+// --- Helper ---
 const formatDateString = (isoDate: string): string => {
     if (!isoDate) return 'Chưa cập nhật';
     try {
@@ -31,16 +34,134 @@ const formatDateString = (isoDate: string): string => {
     }
 };
 
+// --- Sub-Components (Modals) ---
+
+const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+    if (!isOpen) return null;
+    return createPortal(
+        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-white rounded-xl max-w-lg w-full p-6 animate-scaleIn relative" onClick={e => e.stopPropagation()}>
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2"><FileText /> Hướng dẫn tính điểm rèn luyện</h3>
+                <div className="space-y-3 overflow-y-auto max-h-[60vh] custom-scrollbar pr-2">
+                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                        <h4 className="font-bold text-blue-800">Mục I: Ý thức chính trị (Max 25đ)</h4>
+                        <p className="text-sm text-gray-600">Đi học chính trị, tuân thủ quy định, không vi phạm pháp luật...</p>
+                    </div>
+                    <div className="p-3 bg-green-50 rounded-lg border border-green-100">
+                        <h4 className="font-bold text-green-800">Mục II: Học tập & NCKH (Max 20đ)</h4>
+                        <p className="text-sm text-gray-600">Điểm học tập, tham gia CLB học thuật, NCKH, thi Olympic...</p>
+                    </div>
+                    <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+                        <h4 className="font-bold text-yellow-800">Mục III: Phong trào (Max 20đ)</h4>
+                        <p className="text-sm text-gray-600">Tham gia MHX, hiến máu, văn nghệ, thể thao, tình nguyện...</p>
+                    </div>
+                    <div className="p-3 bg-orange-50 rounded-lg border border-orange-100">
+                        <h4 className="font-bold text-orange-800">Mục IV: Phẩm chất công dân (Max 25đ)</h4>
+                        <p className="text-sm text-gray-600">Quan hệ cộng đồng, giữ gìn an ninh, không vi phạm luật giao thông...</p>
+                    </div>
+                    <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
+                        <h4 className="font-bold text-purple-800">Mục V: Cán bộ lớp (Max 10đ)</h4>
+                        <p className="text-sm text-gray-600">Dành cho BCS lớp, BCH Chi đoàn/Chi hội hoàn thành nhiệm vụ.</p>
+                    </div>
+                </div>
+                <div className="mt-4 text-center">
+                    <a href="https://online.hub.edu.vn" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm font-medium">Xem chi tiết trên Portal</a>
+                </div>
+            </div>
+        </div>, document.body
+    );
+};
+
+const RecruitFormModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+    if (!isOpen) return null;
+    return createPortal(
+        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-white rounded-xl max-w-md w-full p-6 animate-scaleIn relative text-center" onClick={e => e.stopPropagation()}>
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                <div className="w-16 h-16 bg-blue-100 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Users size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-[#003375] mb-2">Trở thành CTV Nhập liệu</h3>
+                <p className="text-gray-600 mb-6 text-sm">
+                    Bạn muốn đóng góp cho cộng đồng sinh viên HUB? Hãy tham gia đội ngũ cập nhật tin tức sự kiện cùng chúng mình nhé!
+                </p>
+                <a href="#" onClick={(e) => { e.preventDefault(); alert("Đang mở form đăng ký..."); }} className="block w-full py-3 bg-[#003375] text-white rounded-xl font-bold hover:bg-[#002855] transition-colors mb-3">
+                    Đăng ký ngay
+                </a>
+                <button onClick={onClose} className="block w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors">
+                    Để sau
+                </button>
+            </div>
+        </div>, document.body
+    );
+};
+
+const ContributeEventModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+    if (!isOpen) return null;
+    return createPortal(
+        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-white rounded-xl max-w-md w-full p-6 animate-scaleIn relative" onClick={e => e.stopPropagation()}>
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20} /></button>
+                <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2"><PlusCircle /> Đóng góp sự kiện</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                    Nếu bạn biết sự kiện nào đang diễn ra mà chưa có trên hệ thống, hãy giúp chúng mình bổ sung nhé!
+                </p>
+                <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); alert("Cảm ơn bạn đã đóng góp! Chúng mình sẽ xem xét."); onClose(); }}>
+                    <input type="text" placeholder="Tên sự kiện" className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-[#003375] outline-none" required />
+                    <input type="text" placeholder="Link bài viết/Form đăng ký" className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-[#003375] outline-none" required />
+                    <textarea placeholder="Ghi chú thêm (Mục, điểm, thời gian...)" className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-[#003375] outline-none" rows={3}></textarea>
+                    <button type="submit" className="w-full py-2 bg-[#003375] text-white rounded-lg font-bold hover:bg-[#002855] transition-colors">Gửi đóng góp</button>
+                </form>
+            </div>
+        </div>, document.body
+    );
+};
+
+const DiscussionModal = ({ event, onClose }: { event: {id: string, name: string} | null; onClose: () => void }) => {
+    if (!event) return null;
+    return createPortal(
+        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-white rounded-xl max-w-2xl w-full h-[80vh] flex flex-col animate-scaleIn relative overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                    <div>
+                        <h3 className="font-bold text-[#003375] line-clamp-1">{event.name}</h3>
+                        <p className="text-xs text-gray-500">Thảo luận & Hỏi đáp</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
+                </div>
+                <div className="flex-1 overflow-hidden relative">
+                     <CommentSection contextId={`event_${event.id}`} title="Bình luận" className="h-full border-0 shadow-none rounded-none"/>
+                </div>
+            </div>
+        </div>, document.body
+    );
+};
+
+
 export const EventsBoard: React.FC = () => {
+  // Roles
+  const { isAdmin, isCTV } = useUserRole();
+  const canManage = isAdmin || isCTV;
+
+  // Data State
   const [events, setEvents] = useState<HubEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Filter State
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [activeScope, setActiveScope] = useState('all');
+  
+  // Modals State
   const [showScoreGuide, setShowScoreGuide] = useState(false);
   const [showRecruitModal, setShowRecruitModal] = useState(false);
   const [showContributeModal, setShowContributeModal] = useState(false);
+  
+  // Management Modal State (Add/Edit)
+  const [showManageModal, setShowManageModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<HubEvent | null>(null);
   
   // Discussion State
   const [discussEvent, setDiscussEvent] = useState<{id: string, name: string} | null>(null);
@@ -59,7 +180,7 @@ export const EventsBoard: React.FC = () => {
 
     if (!supabase) {
         setEvents([]);
-        setError("Chưa cấu hình Supabase. Vui lòng kiểm tra biến môi trường.");
+        setError("Chưa cấu hình Supabase.");
         setLoading(false);
         return;
     }
@@ -77,7 +198,6 @@ export const EventsBoard: React.FC = () => {
               let deadlineDate = null;
               if (row.deadline) {
                   deadlineDate = new Date(row.deadline);
-                  // Set to end of day to avoid timezone issues when comparing just dates
                   deadlineDate.setHours(23, 59, 59, 999);
               }
 
@@ -112,44 +232,78 @@ export const EventsBoard: React.FC = () => {
     fetchEvents();
   }, []);
 
-  // Filter Logic
+  // --- MANAGEMENT ACTIONS ---
+
+  const handleDeleteEvent = async (id: string) => {
+      if (!isAdmin) return; // Strict Check
+      playClick();
+      if (!window.confirm("Bạn có chắc chắn muốn xóa sự kiện này vĩnh viễn?")) return;
+
+      try {
+          const { error } = await supabase!.from('events').delete().eq('id', id);
+          if (error) throw error;
+          showToast("Đã xóa sự kiện thành công", "success");
+          setEvents(prev => prev.filter(e => e.id !== id));
+      } catch (err: any) {
+          showToast("Lỗi khi xóa: " + err.message, "error");
+      }
+  };
+
+  const handleToggleClose = async (event: HubEvent) => {
+      if (!canManage) return;
+      playClick();
+      const newState = !event.is_manually_closed;
+      
+      try {
+          const { error } = await supabase!
+            .from('events')
+            .update({ is_manually_closed: newState })
+            .eq('id', event.id);
+          
+          if (error) throw error;
+          
+          setEvents(prev => prev.map(e => e.id === event.id ? { ...e, is_manually_closed: newState } : e));
+          showToast(newState ? "Đã đóng đơn đăng ký" : "Đã mở lại đơn đăng ký", "success");
+      } catch (err: any) {
+          showToast("Lỗi cập nhật: " + err.message, "error");
+      }
+  };
+
+  const handleOpenEdit = (evt: HubEvent) => {
+      playClick();
+      setEditingEvent(evt);
+      setShowManageModal(true);
+  };
+
+  const handleOpenAdd = () => {
+      playClick();
+      setEditingEvent(null);
+      setShowManageModal(true);
+  };
+
+  // --- RENDERING ---
+
   const filteredEvents = events.filter(evt => {
     const matchesSearch = evt.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           evt.organizer.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           evt.type.toLowerCase().includes(searchTerm.toLowerCase());
-    
     const matchesTab = activeTab === 'all' || evt.category.includes(activeTab);
-    
     const matchesScope = activeScope === 'all' || 
                          (activeScope === 'internal' && evt.scope === 'Trong trường') ||
                          (activeScope === 'external' && evt.scope === 'Ngoài trường');
     return matchesSearch && matchesTab && matchesScope;
   });
 
-  // --- NEW GROUPING LOGIC ---
+  // Grouping Logic
   const today = new Date();
   const isSameDay = (d1: Date | null, d2: Date) => {
       if (!d1) return false;
-      return d1.getDate() === d2.getDate() &&
-             d1.getMonth() === d2.getMonth() &&
-             d1.getFullYear() === d2.getFullYear();
+      return d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
   };
 
-  // 1. Deadline Today: Date matches today AND Not Closed
-  const deadlineTodayEvents = filteredEvents.filter(evt => 
-      evt.status !== 'Đã kết thúc' && 
-      isSameDay(evt.deadlineDate, today)
-  );
-
-  // 2. Active Events: Not Closed AND Not Today (to avoid duplicates)
-  const activeEvents = filteredEvents.filter(evt => 
-      evt.status !== 'Đã kết thúc' && 
-      !isSameDay(evt.deadlineDate, today)
-  );
-
-  // 3. Closed Events: Status is Closed
+  const deadlineTodayEvents = filteredEvents.filter(evt => evt.status !== 'Đã kết thúc' && isSameDay(evt.deadlineDate, today));
+  const activeEvents = filteredEvents.filter(evt => evt.status !== 'Đã kết thúc' && !isSameDay(evt.deadlineDate, today));
   const closedEvents = filteredEvents.filter(evt => evt.status === 'Đã kết thúc');
-
 
   const NotificationToast = () => {
     if (!notification) return null;
@@ -159,229 +313,154 @@ export const EventsBoard: React.FC = () => {
                 {notification.type === 'success' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
             </div>
             <div className="flex-1">
-                <h4 className={`font-bold ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>
-                    {notification.type === 'success' ? 'Thành công!' : 'Thất bại'}
-                </h4>
+                <h4 className={`font-bold ${notification.type === 'success' ? 'text-green-800' : 'text-red-800'}`}>{notification.type === 'success' ? 'Thành công' : 'Lỗi'}</h4>
                 <p className="text-sm text-gray-600">{notification.message}</p>
             </div>
-            <button onClick={() => setNotification(null)} className="text-gray-400 hover:text-gray-600">
-                <X size={18} />
-            </button>
-        </div>,
-        document.body
+            <button onClick={() => setNotification(null)} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>, document.body
     );
   };
 
-  // ... (RecruitFormModal, ContributeEventModal, ScoreGuideModal, DiscussionModal - Keep Existing Code) ...
-  const RecruitFormModal = () => {
-      const [formData, setFormData] = useState({ name: '', cohort: '', major: '', contact: '' });
-      const [isSubmitting, setIsSubmitting] = useState(false);
-
-      useEffect(() => {
-        document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = 'unset'; };
-      }, []);
+  // --- Manage Modal Component ---
+  const ManageEventModal = () => {
+      const [formData, setFormData] = useState({
+          title: editingEvent?.name || '',
+          deadline: editingEvent?.deadlineDate ? editingEvent.deadlineDate.toISOString().split('T')[0] : '',
+          category: editingEvent?.type || 'Hoạt động phong trào',
+          criteria: editingEvent?.category || 'III',
+          points: editingEvent?.score || '5',
+          organizer: editingEvent?.organizer || '',
+          link: editingEvent?.link || '',
+          location_type: editingEvent?.scope || 'Trong trường',
+          format: editingEvent?.location || 'Offline',
+          status: editingEvent?.status || 'Sắp diễn ra',
+          is_manually_closed: editingEvent?.is_manually_closed || false
+      });
+      const [submitting, setSubmitting] = useState(false);
 
       const handleSubmit = async (e: React.FormEvent) => {
           e.preventDefault();
-          playClick();
-          if (!formData.name.trim() || !formData.contact.trim()) {
-            showToast("Vui lòng nhập Họ tên và Thông tin liên hệ!", 'error');
-            return;
-          }
-          setIsSubmitting(true);
-          const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwRiiNZHv3rUfBqONmYQ_cxr3NKT32qEt5puiTYmiiAVybFuKVlC5YcUoEM5tomL7jY/exec';
+          setSubmitting(true);
+          
           try {
-            await fetch(SCRIPT_URL, {
-                method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hoTen: formData.name, khoa: formData.cohort, nganh: formData.major, lienHe: formData.contact })
-            });
-            showToast(`Cảm ơn ${formData.name}! Đăng ký thành công.`, 'success');
-            setFormData({ name: '', cohort: '', major: '', contact: '' });
-            setShowRecruitModal(false);
-          } catch (err) {
-            showToast("Có lỗi kết nối. Vui lòng thử lại sau.", 'error');
-          } finally { setIsSubmitting(false); }
+              const payload = {
+                  title: formData.title,
+                  deadline: formData.deadline,
+                  category: formData.category,
+                  criteria: formData.criteria,
+                  points: formData.points,
+                  organizer: formData.organizer,
+                  link: formData.link,
+                  location_type: formData.location_type,
+                  format: formData.format,
+                  status: formData.status,
+                  is_manually_closed: formData.is_manually_closed
+              };
+
+              if (editingEvent) {
+                  // Update
+                  const { error } = await supabase!.from('events').update(payload).eq('id', editingEvent.id);
+                  if (error) throw error;
+                  showToast("Cập nhật thành công!", "success");
+              } else {
+                  // Insert
+                  const { error } = await supabase!.from('events').insert([payload]);
+                  if (error) throw error;
+                  showToast("Thêm sự kiện thành công!", "success");
+              }
+              fetchEvents();
+              setShowManageModal(false);
+          } catch (err: any) {
+              showToast("Lỗi: " + err.message, "error");
+          } finally {
+              setSubmitting(false);
+          }
       };
 
       return createPortal(
-        <div className="fixed top-0 left-0 w-full h-full z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 animate-scaleIn overflow-hidden relative">
-                <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 p-6 text-white relative">
-                    <button onClick={() => { playClick(); setShowRecruitModal(false); }} className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors active:scale-95"><X size={20} /></button>
-                    <h3 className="text-2xl font-bold flex items-center gap-2 mb-2"><Sparkles size={24} className="text-yellow-300" /> Đăng ký CTV</h3>
-                    <p className="text-violet-100 text-sm">Cùng nhau xây dựng cộng đồng HUB Planner vững mạnh!</p>
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn">
+                <div className="bg-[#003375] p-4 flex justify-between items-center text-white sticky top-0 z-10">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        {editingEvent ? <Edit2 size={20}/> : <PlusCircle size={20}/>}
+                        {editingEvent ? 'Chỉnh sửa Sự kiện' : 'Thêm Sự kiện Mới'}
+                    </h3>
+                    <button onClick={() => setShowManageModal(false)} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
                 </div>
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Họ và tên</label>
-                        <div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} /><input type="text" required className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500" placeholder="Nhập họ tên của bạn" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
+                        <input type="text" required className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div><label className="block text-sm font-bold text-gray-700 mb-1">Khóa</label><div className="relative"><GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} /><input type="text" required className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500" placeholder="VD: K38" value={formData.cohort} onChange={e => setFormData({...formData, cohort: e.target.value})} /></div></div>
-                        <div><label className="block text-sm font-bold text-gray-700 mb-1">Ngành học</label><div className="relative"><BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} /><input type="text" required className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500" placeholder="VD: TCNH" value={formData.major} onChange={e => setFormData({...formData, major: e.target.value})} /></div></div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Deadline</label>
+                            <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Trạng thái</label>
+                            <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+                                <option value="Sắp diễn ra">Sắp diễn ra</option>
+                                <option value="Đang diễn ra">Đang diễn ra</option>
+                                <option value="Đã kết thúc">Đã kết thúc</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    {/* Manual Close Switch */}
+                    <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200">
+                        <span className="font-bold text-gray-700">Đóng đăng ký sớm (Thủ công)</span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" checked={formData.is_manually_closed} onChange={e => setFormData({...formData, is_manually_closed: e.target.checked})} />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                        </label>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="col-span-1">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Mục</label>
+                            <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.criteria} onChange={e => setFormData({...formData, criteria: e.target.value})}>
+                                <option value="I">I</option><option value="II">II</option><option value="III">III</option><option value="IV">IV</option><option value="V">V</option>
+                            </select>
+                        </div>
+                        <div className="col-span-1">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Điểm</label>
+                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.points} onChange={e => setFormData({...formData, points: e.target.value})} />
+                        </div>
+                        <div className="col-span-1">
+                             <label className="block text-sm font-bold text-gray-700 mb-1">Hình thức</label>
+                             <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.format} onChange={e => setFormData({...formData, format: e.target.value})}>
+                                <option value="Offline">Offline</option><option value="Online">Online</option><option value="Hỗn hợp">Hỗn hợp</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">BTC</label>
+                        <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.organizer} onChange={e => setFormData({...formData, organizer: e.target.value})} />
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Thông tin liên hệ</label>
-                        <div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} /><input type="text" required className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-violet-500" placeholder="Link Facebook, Zalo hoặc SĐT..." value={formData.contact} onChange={e => setFormData({...formData, contact: e.target.value})} /></div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Link</label>
+                        <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.link} onChange={e => setFormData({...formData, link: e.target.value})} />
                     </div>
-                    <button type="submit" disabled={isSubmitting} className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 disabled:opacity-70">{isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <Send size={20} />} {isSubmitting ? 'Đang gửi...' : 'Xác nhận đăng ký'}</button>
+
+                    <button type="submit" disabled={submitting} className="w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2">
+                        {submitting ? <Loader2 className="animate-spin"/> : <Save size={18}/>} Lưu thay đổi
+                    </button>
                 </form>
             </div>
         </div>, document.body
-      );
-  };
-
-  const ContributeEventModal = () => {
-    const [formData, setFormData] = useState({ tenSuKien: '', phanLoai: '', muc: '', diem: '', hinhThuc: 'Offline', btc: '', hanThamGia: '', link: '' });
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    useEffect(() => {
-        document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = 'unset'; };
-    }, []);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        playClick();
-        if (!formData.tenSuKien || !formData.link) { showToast("Vui lòng nhập Tên sự kiện và Link bài viết!", 'error'); return; }
-        setIsSubmitting(true);
-        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyMfssEtyn7vQGNN3Gzy0QQivHaMPQUiUnmnP_mS3Lb5T86k8dMZGQSslVPXGGP7nnb/exec';
-        try {
-            await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
-            showToast("Đã gửi sự kiện thành công! Cảm ơn bạn.", 'success');
-            setFormData({ tenSuKien: '', phanLoai: '', muc: '', diem: '', hinhThuc: 'Offline', btc: '', hanThamGia: '', link: '' });
-            setShowContributeModal(false);
-        } catch (err) { showToast("Có lỗi xảy ra khi gửi. Vui lòng thử lại.", 'error'); } finally { setIsSubmitting(false); }
-    };
-
-    return createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-gray-200 animate-scaleIn overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="bg-[#990000] p-4 text-white flex justify-between items-center shrink-0">
-                    <h3 className="font-bold text-lg flex items-center gap-2"><PlusCircle size={20} /> Đóng góp Sự kiện mới</h3>
-                    <button onClick={() => { playClick(); setShowContributeModal(false); }} className="hover:bg-white/20 p-2 rounded-full transition-colors active:scale-95"><X size={20} /></button>
-                </div>
-                <form onSubmit={handleSubmit} className="p-6 overflow-y-auto custom-scrollbar space-y-4">
-                    <div><label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label><input type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#990000]" placeholder="Nhập tên sự kiện..." value={formData.tenSuKien} onChange={e => setFormData({...formData, tenSuKien: e.target.value})} /></div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><label className="block text-sm font-bold text-gray-700 mb-1">Đơn vị tổ chức (BTC)</label><div className="relative"><Users className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /><input type="text" className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#990000]" placeholder="VD: CLB Kỹ năng" value={formData.btc} onChange={e => setFormData({...formData, btc: e.target.value})} /></div></div>
-                        <div><label className="block text-sm font-bold text-gray-700 mb-1">Phân loại</label><div className="relative"><Type className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /><input type="text" className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#990000]" placeholder="VD: Học thuật" value={formData.phanLoai} onChange={e => setFormData({...formData, phanLoai: e.target.value})} /></div></div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                         <div><label className="block text-sm font-bold text-gray-700 mb-1">Mục ĐRL</label><input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#990000]" placeholder="VD: III" value={formData.muc} onChange={e => setFormData({...formData, muc: e.target.value})} /></div>
-                         <div><label className="block text-sm font-bold text-gray-700 mb-1">Điểm số</label><input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#990000]" placeholder="VD: 5" value={formData.diem} onChange={e => setFormData({...formData, diem: e.target.value})} /></div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                         <div><label className="block text-sm font-bold text-gray-700 mb-1">Hình thức</label><select className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#990000] bg-white" value={formData.hinhThuc} onChange={e => setFormData({...formData, hinhThuc: e.target.value})}><option value="Offline">Offline</option><option value="Online">Online</option><option value="Hỗn hợp">Hỗn hợp</option></select></div>
-                         <div><label className="block text-sm font-bold text-gray-700 mb-1">Hạn tham gia</label><input type="date" className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#990000]" value={formData.hanThamGia} onChange={e => setFormData({...formData, hanThamGia: e.target.value})} /></div>
-                    </div>
-                    <div><label className="block text-sm font-bold text-gray-700 mb-1">Link bài viết <span className="text-red-500">*</span></label><div className="relative"><LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /><input type="text" required className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#990000]" placeholder="https://..." value={formData.link} onChange={e => setFormData({...formData, link: e.target.value})} /></div></div>
-                    <button type="submit" disabled={isSubmitting} className="w-full bg-[#990000] hover:bg-[#7a0000] text-white font-bold py-3 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 disabled:opacity-70">{isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <Send size={20} />} {isSubmitting ? 'Đang gửi...' : 'Lưu sự kiện'}</button>
-                </form>
-            </div>
-        </div>, document.body
-    );
-  };
-
-  const ScoreGuideModal = () => {
-    useEffect(() => {
-        document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = 'unset'; };
-    }, []);
-
-    return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-scaleIn border border-gray-200 overflow-hidden">
-            <div className="bg-[#003375] p-4 flex justify-between items-center text-white shrink-0">
-                <h3 className="font-bold text-lg flex items-center gap-2"><FileText size={20} className="text-yellow-300" /> Phiếu đánh giá kết quả rèn luyện sinh viên</h3>
-                <button onClick={() => { playClick(); setShowScoreGuide(false); }} className="hover:bg-white/20 p-2 rounded-full transition-colors active:scale-95"><X size={20} /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar bg-gray-50">
-                {/* ... (Existing score guide content) ... */}
-                <div className="space-y-6">
-                    <div className="grid grid-cols-12 gap-2 bg-gray-200 p-2 rounded-t-lg font-bold text-gray-700 text-sm uppercase sticky top-0 z-10 shadow-sm"><div className="col-span-1 text-center">STT</div><div className="col-span-9">Nội dung đánh giá</div><div className="col-span-2 text-center">Mức điểm</div></div>
-                    
-                    {[
-                        {title: "I. Đánh giá về ý thức học tập", range: "0 → 20", plus: [{t:"+ Xuất sắc",s:"+ 15"},{t:"+ Giỏi",s:"+ 10"},{t:"+ Khá",s:"+ 8"}], minus: [{t:"Bị cảnh báo học vụ",s:"- 5/lần"}]},
-                        {title: "II. Đánh giá về ý thức chấp hành nội quy", range: "0 → 25", plus: [{t:"- Không vi phạm nội quy",s:"+ 20"},{t:"- Tham gia sinh hoạt lớp",s:"+ 5"}], minus: [{t:"- Vi phạm quy định",s:"- 5đ/lần"}]},
-                        {title: "III. Tham gia hoạt động chính trị, xã hội", range: "0 → 20", plus: [{t:"- Thành viên BTC",s:"+ 10đ"},{t:"- Tham gia trực tiếp",s:"+ 5đ"},{t:"- Cổ vũ",s:"+ 3đ"}], minus: [{t:"Vi phạm kỷ luật khi tham gia",s:"- 5đ"}]},
-                        {title: "IV. Ý thức công dân & cộng đồng", range: "0 → 25", plus: [{t:"- Chấp hành nơi cư trú",s:"+ 15"},{t:"- Mùa hè xanh",s:"+ 15"},{t:"- Hiến máu/Tiếp sức mùa thi",s:"+ 10"}], minus: [{t:"Vi phạm nội quy cư trú",s:"- 5đ"}]},
-                        {title: "V. Cán bộ lớp & Thành tích đặc biệt", range: "0 → 10", plus: [{t:"- Cán bộ lớp/Đoàn/Hội",s:"+ 5"},{t:"- Giấy khen cấp trường",s:"+ 10"},{t:"- NCKH/Olympic cấp trường",s:"+ 8"}], minus: []}
-                    ].map((sec, idx) => (
-                         <div key={idx} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="bg-blue-50 px-4 py-3 border-b border-blue-100 flex justify-between items-center"><span className="font-bold text-[#003375]">{sec.title}</span><span className="text-[#003375] font-bold text-sm bg-blue-100 px-2 py-1 rounded">{sec.range}</span></div>
-                            <div className="divide-y divide-gray-100 text-sm text-gray-800">
-                                <div className="p-2 bg-green-50/50 font-semibold text-green-800 italic">Điểm cộng</div>
-                                {sec.plus.map((p, i) => (
-                                    <div key={i} className="grid grid-cols-12 gap-2 p-2 hover:bg-gray-50 pl-8"><div className="col-span-1"></div><div className="col-span-9 text-gray-600">{p.t}</div><div className="col-span-2 text-center font-bold text-[#003375]">{p.s}</div></div>
-                                ))}
-                                {sec.minus.length > 0 && <><div className="p-2 bg-red-50/50 font-semibold text-red-800 italic border-t border-gray-100 mt-2">Điểm trừ</div>
-                                {sec.minus.map((m, i) => (
-                                    <div key={i} className="grid grid-cols-12 gap-2 p-3 hover:bg-red-50/20"><div className="col-span-1 text-center font-medium text-gray-500"></div><div className="col-span-9 text-red-700">{m.t}</div><div className="col-span-2 text-center font-bold text-red-600">{m.s}</div></div>
-                                ))}</>}
-                            </div>
-                         </div>
-                    ))}
-
-                    <div className="bg-[#003375] text-white p-4 rounded-xl flex justify-between items-center shadow-md"><span className="font-bold text-lg uppercase tracking-wider">Tổng điểm</span><span className="font-bold text-2xl">100</span></div>
-                </div>
-            </div>
-             <div className="p-4 bg-gray-50 border-t border-gray-200 shrink-0"><button onClick={() => { playClick(); setShowScoreGuide(false); }} className="w-full bg-[#003375] hover:bg-[#002855] text-white font-bold py-3 rounded-xl transition-all active:scale-95 shadow-md">Đã hiểu</button></div>
-        </div>
-    </div>, document.body
-    );
-  };
-
-  const DiscussionModal = () => {
-      if (!discussEvent) return null;
-
-      useEffect(() => {
-        document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = 'unset'; };
-      }, []);
-
-      return createPortal(
-          <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-              <div className="bg-white w-full max-w-4xl h-[85vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col relative animate-scaleIn">
-                  <div className="bg-white p-4 border-b flex justify-between items-center shrink-0">
-                      <div>
-                          <h3 className="font-bold text-[#003375] text-lg leading-tight line-clamp-1">{discussEvent.name}</h3>
-                          <p className="text-xs text-gray-500">Thảo luận về sự kiện này</p>
-                      </div>
-                      <button 
-                          onClick={() => { playClick(); setDiscussEvent(null); }}
-                          className="hover:bg-gray-100 p-2 rounded-full transition-colors active:scale-90"
-                      >
-                          <X size={20} />
-                      </button>
-                  </div>
-                  <div className="flex-1 overflow-hidden bg-gray-50">
-                       <CommentSection 
-                            contextId={`event_${discussEvent.id}`} 
-                            title={discussEvent.name} 
-                            className="h-full border-none shadow-none flex flex-col"
-                       />
-                  </div>
-              </div>
-          </div>,
-          document.body
       );
   };
 
   const renderEventCard = (evt: HubEvent) => {
-    // Styling based on explicit Status field
+    // Basic Status
     const isStatusClosed = evt.status === 'Đã kết thúc';
     const isActive = evt.status === 'Đang diễn ra';
     const isUpcoming = evt.status === 'Sắp diễn ra';
-    
-    // Check if it's "Deadline Today" for specific styling inside card
     const isDeadlineToday = !isStatusClosed && isSameDay(evt.deadlineDate, today);
 
-    // Hybrid Close Logic:
-    // 1. Status is 'Đã kết thúc'
-    // 2. Deadline passed (current time > deadline date)
-    // 3. Manually closed by Admin
+    // Hybrid Close Logic
     const isOverdue = evt.deadlineDate ? evt.deadlineDate < new Date() : false;
     const isManualClose = evt.is_manually_closed;
     const isLinkClosed = isStatusClosed || isOverdue || isManualClose;
@@ -395,7 +474,7 @@ export const EventsBoard: React.FC = () => {
         ${isUpcoming && !isLinkClosed ? 'border-yellow-300' : ''}
         ${isDeadlineToday && !isLinkClosed ? 'border-red-300 ring-1 ring-red-50' : ''}
       `}>
-        {/* Status Badge - Top Right */}
+        {/* Status Badge */}
         <div className={`absolute top-0 right-0 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 shadow-sm flex items-center gap-1
             ${isLinkClosed ? 'bg-gray-200 text-gray-600' : 
               isDeadlineToday ? 'bg-red-600 text-white' :
@@ -409,10 +488,7 @@ export const EventsBoard: React.FC = () => {
             }
         </div>
 
-        {/* Type Badge - Top Left */}
-        {evt.type && <div className="absolute top-3 left-3 text-[10px] font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-            {evt.type}
-        </div>}
+        {evt.type && <div className="absolute top-3 left-3 text-[10px] font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">{evt.type}</div>}
 
         <div className="flex justify-between items-start mb-3 mt-6">
             <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded border border-gray-200 flex items-center gap-1 line-clamp-1 max-w-[60%]"><Users size={12}/> {evt.organizer}</span>
@@ -423,7 +499,6 @@ export const EventsBoard: React.FC = () => {
         </div>
 
         <h3 className={`font-bold text-gray-800 mb-3 line-clamp-2 transition-colors h-[3.5rem] flex items-center ${!isLinkClosed ? 'group-hover:text-[#003375]' : ''}`}>{evt.name}</h3>
-
         {evt.scope && evt.scope !== 'Khác' && <div className="mb-2"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${evt.scope === 'Trong trường' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-pink-50 text-pink-700 border-pink-100'}`}><Building2 size={10} /> {evt.scope}</span></div>}
 
         <div className="space-y-2 text-sm text-gray-600 mb-4 flex-1">
@@ -449,6 +524,38 @@ export const EventsBoard: React.FC = () => {
                 </button>
             )}
         </div>
+
+        {/* --- IN-PLACE MANAGEMENT TOOLBAR --- */}
+        {canManage && (
+            <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={() => handleOpenEdit(evt)}
+                        className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                        title="Chỉnh sửa"
+                    >
+                        <Edit2 size={16} />
+                    </button>
+                    <button 
+                        onClick={() => handleToggleClose(evt)}
+                        className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${evt.is_manually_closed ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
+                        title={evt.is_manually_closed ? "Mở lại đăng ký" : "Đóng đăng ký ngay"}
+                    >
+                        {evt.is_manually_closed ? <ToggleRight size={16}/> : <ToggleLeft size={16}/>}
+                    </button>
+                </div>
+                
+                {isAdmin && (
+                    <button 
+                        onClick={() => handleDeleteEvent(evt.id)}
+                        className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                        title="Xóa vĩnh viễn (Chỉ Admin)"
+                    >
+                        <Trash2 size={16} />
+                    </button>
+                )}
+            </div>
+        )}
       </div>
     );
   };
@@ -456,7 +563,18 @@ export const EventsBoard: React.FC = () => {
   return (
     <div className="animate-slideInRight">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div><h2 className="text-2xl font-bold text-[#003375] flex items-center gap-2"><Calendar className="text-[#990000]" />Sự kiện Điểm Rèn Luyện</h2><p className="text-sm text-gray-500 mt-1">Một số sự kiện có thể được cập nhật trễ</p></div>
+        <div>
+            <h2 className="text-2xl font-bold text-[#003375] flex items-center gap-2">
+                <Calendar className="text-[#990000]" />Sự kiện Điểm Rèn Luyện
+            </h2>
+            {canManage && (
+                <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-1 border border-blue-100">
+                    <Settings size={10} className="inline mr-1"/>
+                    {isAdmin ? 'Chế độ Admin: Toàn quyền' : 'Chế độ CTV: Sửa/Đóng đơn'}
+                </div>
+            )}
+            {!canManage && <p className="text-sm text-gray-500 mt-1">Một số sự kiện có thể được cập nhật trễ</p>}
+        </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto items-stretch">
             <div className="relative flex-1 sm:flex-none"><input type="text" placeholder="Tìm tên, BTC, loại hình..." className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none w-full md:w-64 transition-all hover:border-blue-300 h-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /></div>
             <div className="relative">
@@ -468,24 +586,37 @@ export const EventsBoard: React.FC = () => {
             <div className="flex gap-2">
                 <button onClick={() => { playClick(); fetchEvents(); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95 hover:rotate-180 duration-500" title="Làm mới"><RefreshCw size={20} className={loading ? "animate-spin" : ""} /></button>
                 <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95" title="Xem bảng điểm"><FileText size={20} /></button>
-                <button onClick={() => { playClick(); setShowContributeModal(true); }} className="px-4 py-2 bg-[#003375] hover:bg-[#002855] text-white rounded-lg shadow-sm flex items-center gap-2 font-bold transition-all active:scale-95 hover:shadow-md whitespace-nowrap justify-center flex-1"><PlusCircle size={18} /> Đóng góp</button>
+                
+                {/* Action Button: Contribute (Student) vs Add (Admin/CTV) */}
+                {canManage ? (
+                    <button onClick={handleOpenAdd} className="px-4 py-2 bg-[#003375] hover:bg-[#002855] text-white rounded-lg shadow-sm flex items-center gap-2 font-bold transition-all active:scale-95 hover:shadow-md whitespace-nowrap justify-center flex-1">
+                        <PlusCircle size={18} /> Thêm mới
+                    </button>
+                ) : (
+                    <button onClick={() => { playClick(); setShowContributeModal(true); }} className="px-4 py-2 bg-[#003375] hover:bg-[#002855] text-white rounded-lg shadow-sm flex items-center gap-2 font-bold transition-all active:scale-95 hover:shadow-md whitespace-nowrap justify-center flex-1">
+                        <PlusCircle size={18} /> Đóng góp
+                    </button>
+                )}
             </div>
         </div>
       </div>
 
+      {/* Tabs */}
       <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-6 overflow-x-auto no-scrollbar">
         {[{id:'all',l:'Tất cả'},{id:'I',l:'Mục I'},{id:'II',l:'Mục II'},{id:'III',l:'Mục III'},{id:'IV',l:'Mục IV'},{id:'V',l:'Mục V'}].map(tab => (
             <button key={tab.id} onClick={() => { playClick(); setActiveTab(tab.id); }} className={`flex-1 min-w-[80px] py-2 rounded-lg text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-blue-50 text-[#003375]' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>{tab.l}</button>
         ))}
       </div>
 
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm">
-        <div className="flex items-center gap-3">
-            <div className="bg-white p-2 rounded-full shadow-sm"><Users className="text-[#003375]" size={20} /></div>
-            <div><h3 className="font-bold text-[#003375] text-sm">Tuyển Cộng tác viên nhập liệu</h3><p className="text-xs text-gray-500">Giúp cộng đồng sinh viên HUB cập nhật sự kiện nhanh nhất</p></div>
+      {!canManage && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm">
+            <div className="flex items-center gap-3">
+                <div className="bg-white p-2 rounded-full shadow-sm"><Users className="text-[#003375]" size={20} /></div>
+                <div><h3 className="font-bold text-[#003375] text-sm">Tuyển Cộng tác viên nhập liệu</h3><p className="text-xs text-gray-500">Giúp cộng đồng sinh viên HUB cập nhật sự kiện nhanh nhất</p></div>
+            </div>
+            <button onClick={() => { playClick(); setShowRecruitModal(true); }} className="bg-white text-[#003375] border border-blue-200 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:shadow-md hover:scale-105 transition-all active:scale-95 whitespace-nowrap">Đăng ký ngay</button>
         </div>
-        <button onClick={() => { playClick(); setShowRecruitModal(true); }} className="bg-white text-[#003375] border border-blue-200 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:shadow-md hover:scale-105 transition-all active:scale-95 whitespace-nowrap">Đăng ký ngay</button>
-      </div>
+      )}
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 animate-fadeIn"><Loader2 size={40} className="text-[#003375] animate-spin mb-4" /><p className="text-gray-500">Đang tải danh sách sự kiện...</p></div>
@@ -493,54 +624,36 @@ export const EventsBoard: React.FC = () => {
         <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn"><p className="font-bold mb-2">Đã xảy ra lỗi</p><p>{error}</p></div>
       ) : (
         <div className="space-y-8 animate-fadeIn">
-            {/* Section 1: Deadline Today (Highest Priority) */}
             {deadlineTodayEvents.length > 0 && (
                 <div className="bg-red-50 rounded-xl border border-red-200 p-4 sm:p-6 animate-pulse-soft">
-                    <h3 className="text-xl font-bold text-red-700 mb-4 flex items-center gap-2">
-                        <Siren className="animate-pulse" /> 🚨 Hạn chốt hôm nay ({deadlineTodayEvents.length})
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {deadlineTodayEvents.map(evt => renderEventCard(evt))}
-                    </div>
+                    <h3 className="text-xl font-bold text-red-700 mb-4 flex items-center gap-2"><Siren className="animate-pulse" /> 🚨 Hạn chốt hôm nay ({deadlineTodayEvents.length})</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{deadlineTodayEvents.map(evt => renderEventCard(evt))}</div>
                 </div>
             )}
-
-            {/* Section 2: Active Events (Open Registration) */}
             {activeEvents.length > 0 && (
                 <div>
-                    <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
-                        <Flame className="text-orange-500 fill-orange-100" /> 🔥 Đang mở đăng ký ({activeEvents.length})
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {activeEvents.map(evt => renderEventCard(evt))}
-                    </div>
+                    <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2"><Flame className="text-orange-500 fill-orange-100" /> 🔥 Đang mở đăng ký ({activeEvents.length})</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{activeEvents.map(evt => renderEventCard(evt))}</div>
                 </div>
             )}
-
-            {/* Section 3: Closed Events */}
             {closedEvents.length > 0 && (
                 <div>
-                     <h3 className="text-xl font-bold text-gray-500 mb-4 flex items-center gap-2">
-                        <Lock className="text-gray-400" /> 🔒 Đã hết hạn ({closedEvents.length})
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80">
-                         {closedEvents.map(evt => renderEventCard(evt))}
-                    </div>
+                     <h3 className="text-xl font-bold text-gray-500 mb-4 flex items-center gap-2"><Lock className="text-gray-400" /> 🔒 Đã hết hạn ({closedEvents.length})</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80">{closedEvents.map(evt => renderEventCard(evt))}</div>
                 </div>
             )}
-
             {filteredEvents.length === 0 && (
                 <div className="col-span-full py-16 text-center bg-white rounded-xl border border-dashed border-gray-300"><div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300"><Calendar size={32} /></div><p className="text-gray-500 font-medium">Không tìm thấy sự kiện phù hợp.</p></div>
             )}
         </div>
       )}
 
-      {/* Render all Modals properly */}
       <NotificationToast />
-      <DiscussionModal />
-      {showRecruitModal && <RecruitFormModal />}
-      {showContributeModal && <ContributeEventModal />}
-      {showScoreGuide && <ScoreGuideModal />}
+      <DiscussionModal event={discussEvent} onClose={() => setDiscussEvent(null)} />
+      {showRecruitModal && <RecruitFormModal isOpen={showRecruitModal} onClose={() => setShowRecruitModal(false)} />}
+      {showContributeModal && <ContributeEventModal isOpen={showContributeModal} onClose={() => setShowContributeModal(false)} />}
+      {showScoreGuide && <ScoreGuideModal isOpen={showScoreGuide} onClose={() => setShowScoreGuide(false)} />}
+      {showManageModal && <ManageEventModal />}
     </div>
   );
 };
