@@ -9,7 +9,7 @@ import { EventsBoard } from './components/EventsBoard';
 import { LostFoundBoard } from './components/LostFoundBoard';
 import { AdminEventBoard } from './components/AdminEventBoard';
 import { RoleSelection } from './components/RoleSelection';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
@@ -49,8 +49,11 @@ const INITIAL_DATA: UserData = {
 };
 
 const App: React.FC = () => {
-  // Role State
-  const [userRole, setUserRole] = useState<'unknown' | 'student' | 'admin'>('unknown');
+  // Role State with Persistence
+  const [userRole, setUserRole] = useState<'unknown' | 'student' | 'admin'>(() => {
+      const savedRole = localStorage.getItem('user_role_preference');
+      return (savedRole === 'student' || savedRole === 'admin') ? savedRole : 'unknown';
+  });
 
   // App Data State (For Student Role)
   const [data, setData] = useState<UserData>(INITIAL_DATA);
@@ -85,6 +88,19 @@ const App: React.FC = () => {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeView]);
+
+  const handleRoleSelect = (role: 'student' | 'admin') => {
+      localStorage.setItem('user_role_preference', role);
+      setUserRole(role);
+  };
+
+  const handleSwitchRole = () => {
+      playClick();
+      if (window.confirm("Bạn muốn quay lại màn hình chọn vai trò?")) {
+          localStorage.removeItem('user_role_preference');
+          setUserRole('unknown');
+      }
+  };
 
   const addSemester = () => {
     playClick();
@@ -326,7 +342,7 @@ const App: React.FC = () => {
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col animate-scaleIn border border-gray-200 overflow-hidden">
             <div className="bg-[#003375] p-4 flex justify-between items-center text-white shrink-0">
                 <h3 className="font-bold text-lg flex items-center gap-2">
-                    <BookOpen size={20} className="text-yellow-300" /> Hướng dẫn sử dụng HUB Grade Planner
+                    <BookOpen size={20} className="text-yellow-300" /> Hướng dẫn sử dụng HUB Planner
                 </h3>
                 <button 
                     onClick={() => { playClick(); setShowGuide(false); }} 
@@ -433,12 +449,12 @@ const App: React.FC = () => {
 
   // 1. Role Selection Screen
   if (userRole === 'unknown') {
-      return <RoleSelection onSelect={setUserRole} />;
+      return <RoleSelection onSelect={handleRoleSelect} />;
   }
 
   // 2. Admin Flow
   if (userRole === 'admin') {
-      return <AdminEventBoard onBack={() => setUserRole('unknown')} />;
+      return <AdminEventBoard onBack={handleSwitchRole} />;
   }
 
   // 3. Student Flow (Existing App Logic)
@@ -504,7 +520,7 @@ const App: React.FC = () => {
                 </button>
              </div>
 
-             {/* Simple User Profile Trigger/Reset */}
+             {/* Simple User Profile Trigger/Reset/Exit */}
              <div className="flex items-center gap-2 border-l border-gray-300 pl-4 ml-2">
                 <div className="text-right hidden sm:block">
                     <p className="text-xs font-bold text-[#003375] uppercase line-clamp-1 max-w-[120px]">{data.studentName}</p>
@@ -523,6 +539,14 @@ const App: React.FC = () => {
                     title="Reset Data"
                 >
                     <RotateCcw size={20} />
+                </button>
+                {/* Logout Button */}
+                <button 
+                    onClick={handleSwitchRole}
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all duration-300 active:scale-90"
+                    title="Thoát / Chọn vai trò"
+                >
+                    <LogOut size={20} />
                 </button>
              </div>
           </div>
