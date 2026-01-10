@@ -5,13 +5,53 @@ interface ForecastRankResult {
     rank: number;
     totalStudents: number;
     topPercent: number;
+    semesterId: string; // To know which semester was used
 }
 
 export const useForecastRank = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<ForecastRankResult | null>(null);
+    
+    // New state for available reference semesters
+    const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
+    const [loadingSemesters, setLoadingSemesters] = useState(false);
 
+    // 1. Fetch distinct semesters available in DB
+    const fetchAvailableSemesters = useCallback(async () => {
+        if (!supabase) return;
+        
+        // If we already have data, don't refetch unnecessarily unless forced
+        if (availableSemesters.length > 0) return;
+
+        setLoadingSemesters(true);
+        try {
+            // Note: Supabase doesn't support .distinct() directly on select easily without RPC.
+            // We fetch the 'semester' column and deduplicate client-side.
+            // Warning: If table is huge, this should be replaced by an RPC function `get_distinct_semesters`.
+            const { data, error } = await supabase
+                .from('benchmark_rankings')
+                .select('semester');
+
+            if (error) throw error;
+
+            if (data) {
+                // Deduplicate and sort descending (newest first usually)
+                const unique = Array.from(new Set(data.map((item: any) => item.semester)))
+                    .filter(Boolean)
+                    .sort()
+                    .reverse();
+                setAvailableSemesters(unique as string[]);
+            }
+        } catch (err: any) {
+            console.error("Error fetching semesters:", err);
+            // Don't set global error here to avoid blocking UI, just log it
+        } finally {
+            setLoadingSemesters(false);
+        }
+    }, [availableSemesters.length]);
+
+    // 2. Calculate Rank
     const fetchRank = useCallback(async (semesterId: string, myGpa: number) => {
         if (!supabase) {
             setError("Chưa kết nối Database.");
@@ -19,7 +59,7 @@ export const useForecastRank = () => {
         }
 
         if (!semesterId) {
-            setError("Không xác định được mã học kỳ.");
+            setError("Chưa chọn kỳ dữ liệu.");
             return;
         }
 
@@ -28,7 +68,7 @@ export const useForecastRank = () => {
         setResult(null);
 
         try {
-            // 1. Get Total Students for this semester
+            // Get Total Students for this specific reference semester
             const { count: total, error: countError } = await supabase
                 .from('benchmark_rankings')
                 .select('*', { count: 'exact', head: true })
@@ -37,13 +77,12 @@ export const useForecastRank = () => {
             if (countError) throw countError;
 
             if (total === 0 || total === null) {
-                setError(`Chưa có dữ liệu xếp hạng cho ${semesterId}`);
+                setError(`Dữ liệu ${semesterId} đang trống.`);
                 setLoading(false);
                 return;
             }
 
-            // 2. Count students with higher GPA
-            // Note: Using 'gt' (Greater Than). If GPA is 4.0, 'gt' 4.0 is 0 people better. Rank = 1.
+            // Count students with higher GPA
             const { count: betterCount, error: rankError } = await supabase
                 .from('benchmark_rankings')
                 .select('*', { count: 'exact', head: true })
@@ -59,7 +98,8 @@ export const useForecastRank = () => {
             setResult({
                 rank: myRank,
                 totalStudents: total,
-                topPercent: topPercent
+                topPercent: topPercent,
+                semesterId: semesterId
             });
 
         } catch (err: any) {
@@ -70,5 +110,19 @@ export const useForecastRank = () => {
         }
     }, []);
 
-    return { fetchRank, result, loading, error };
+    const resetResult = useCallback(() => {
+        setResult(null);
+        setError(null);
+    }, []);
+
+    return { 
+        fetchRank, 
+        result, 
+        loading, 
+        error, 
+        resetResult,
+        fetchAvailableSemesters,
+        availableSemesters,
+        loadingSemesters
+    };
 };
