@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Semester, Subject, GradeStatus } from '../types';
 import { calculateSubjectAverage, getGradeDetails, getSubjectStatus, getDegreeClassification } from '../utils/calculations';
-import { mapSemesterToId } from '../utils/rankingData';
+import { mapIdToDisplay } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
-import { Trash2, Plus, Star, Search, X, Pencil, BookOpen, Crown, ChevronDown, TrendingUp, Loader2, AlertCircle } from 'lucide-react';
+import { Trash2, Plus, Star, Search, X, Pencil, BookOpen, Crown, TrendingUp, Loader2, AlertCircle, ChevronRight, BarChart2, ChevronLeft } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 interface SemesterTableProps {
@@ -60,7 +60,17 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
   const [searchTerm, setSearchTerm] = useState('');
   
   // New Ranking Hook
-  const { fetchRank, result: rankingResult, loading: rankingLoading, error: rankingError } = useForecastRank();
+  const { 
+      fetchRank, 
+      result: rankingResult, 
+      loading: rankingLoading, 
+      error: rankingError,
+      resetResult,
+      fetchAvailableSemesters,
+      availableSemesters,
+      loadingSemesters
+  } = useForecastRank();
+
   const [showRankMenu, setShowRankMenu] = useState(false);
   const rankMenuRef = useRef<HTMLDivElement>(null);
   
@@ -147,18 +157,21 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
   
   const classification = hasData ? getDegreeClassification(semGPA4) : '---';
 
-  // --- NEW Ranking Logic ---
-  const handleCheckRank = () => {
+  // --- NEW Ranking UI Logic ---
+  const handleOpenRankMenu = () => {
       playClick();
       setShowRankMenu(true);
-      const semId = mapSemesterToId(semester.name);
-      
-      if (!semId) {
-          // Keep showing menu but with error handled by hook state or local UI
-          return;
-      }
-      
-      fetchRank(semId, semGPA4);
+      fetchAvailableSemesters(); // Fetch list when opening
+  };
+
+  const handleSelectReferenceSemester = (refId: string) => {
+      playClick();
+      fetchRank(refId, semGPA4);
+  };
+
+  const handleBackToSelection = () => {
+      playClick();
+      resetResult();
   };
 
   // Styles for header - Darker academics tones
@@ -175,9 +188,6 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
   const filteredSubjects = semester.subjects.filter(subject => 
     subject.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
-  // Resolve mapped ID for display purpose
-  const mappedId = mapSemesterToId(semester.name);
 
   return (
     <div className={`mb-8 bg-white rounded-xl shadow-sm border overflow-hidden transition-all duration-300 hover:scale-[1.01] hover:shadow-xl ${hasData ? 'border-opacity-100' : 'border-gray-200'}`}>
@@ -208,57 +218,86 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
              {hasData && (
                  <div className="relative" ref={rankMenuRef}>
                     <button 
-                        onClick={handleCheckRank}
-                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg border shadow-sm transition-all active:scale-95 hover:shadow-md ${rankingResult ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                        onClick={handleOpenRankMenu}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg border shadow-sm transition-all active:scale-95 hover:shadow-md ${showRankMenu ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
                         title="Xếp hạng dự báo"
                     >
                         <Crown size={14} className={rankingResult ? "fill-yellow-500 text-yellow-600" : "text-gray-400"}/> 
-                        <span className="font-bold">
-                            {rankingResult ? `Top ${rankingResult.topPercent.toFixed(1)}%` : 'Xếp hạng'}
+                        <span className="font-bold text-[#003375]">
+                            Xếp hạng 👑
                         </span>
                     </button>
 
                     {showRankMenu && (
-                        <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden animate-fadeIn">
-                            <div className="bg-gray-50 px-3 py-2 border-b border-gray-100 text-xs text-gray-500 font-semibold uppercase tracking-wider flex justify-between items-center">
-                                <span>Xếp hạng dự báo</span>
-                                <button onClick={() => setShowRankMenu(false)}><X size={12}/></button>
+                        <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-[60] overflow-hidden animate-fadeIn origin-top-right">
+                            <div className="bg-[#003375] px-4 py-3 text-white flex justify-between items-center shrink-0">
+                                <h4 className="font-bold text-sm flex items-center gap-2">
+                                    <BarChart2 size={16}/> Xếp Hạng Dự Báo
+                                </h4>
+                                <button onClick={() => setShowRankMenu(false)} className="hover:bg-white/20 p-1 rounded-full transition-colors"><X size={14}/></button>
                             </div>
                             
-                            <div className="p-4">
-                                {mappedId ? (
-                                    <>
-                                        <div className="text-xs text-gray-500 mb-3 text-center">
-                                            Dữ liệu so sánh: <span className="font-bold text-[#003375]">{mappedId}</span>
+                            <div className="p-0">
+                                {/* STATE 1: LOADING OR RESULT */}
+                                {rankingLoading ? (
+                                    <div className="flex flex-col items-center justify-center py-8 text-[#003375]">
+                                        <Loader2 size={32} className="animate-spin mb-2"/>
+                                        <span className="text-xs font-medium">Đang tính toán thứ hạng...</span>
+                                    </div>
+                                ) : rankingResult ? (
+                                    <div className="p-4 bg-gradient-to-b from-blue-50 to-white">
+                                        <button onClick={handleBackToSelection} className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#003375] mb-3 transition-colors">
+                                            <ChevronLeft size={14}/> Chọn kỳ khác
+                                        </button>
+                                        
+                                        <div className="text-center space-y-4">
+                                            <p className="text-xs text-gray-500 uppercase tracking-wide">So sánh với: <span className="font-bold text-[#003375]">{mapIdToDisplay(rankingResult.semesterId)}</span></p>
+                                            
+                                            <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+                                                <p className="text-sm text-gray-500 mb-1">Xếp hạng của bạn</p>
+                                                <p className="text-3xl font-black text-yellow-600 drop-shadow-sm">#{rankingResult.rank} <span className="text-sm font-medium text-gray-400">/ {rankingResult.totalStudents}</span></p>
+                                            </div>
+                                            
+                                            <div className="bg-[#003375] text-white p-4 rounded-xl shadow-inner relative overflow-hidden">
+                                                <div className="absolute -right-4 -top-4 w-20 h-20 bg-white opacity-10 rounded-full"></div>
+                                                <p className="text-xs opacity-80 uppercase mb-1">Top Percentile</p>
+                                                <p className="text-2xl font-bold flex items-center justify-center gap-2">
+                                                    <TrendingUp size={20}/> Top {rankingResult.topPercent.toFixed(1)}%
+                                                </p>
+                                            </div>
                                         </div>
-
-                                        {rankingLoading ? (
-                                            <div className="flex flex-col items-center justify-center py-4 text-[#003375]">
-                                                <Loader2 size={24} className="animate-spin mb-2"/>
-                                                <span className="text-xs font-medium">Đang tính toán...</span>
-                                            </div>
-                                        ) : rankingError ? (
-                                            <div className="text-red-600 text-xs text-center flex flex-col items-center gap-1 bg-red-50 p-2 rounded">
-                                                <AlertCircle size={16}/> {rankingError}
-                                            </div>
-                                        ) : rankingResult ? (
-                                            <div className="text-center space-y-3">
-                                                <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100">
-                                                    <p className="text-xs text-gray-500 uppercase">Thứ hạng của bạn</p>
-                                                    <p className="text-2xl font-black text-yellow-600">#{rankingResult.rank} <span className="text-sm font-medium text-gray-400">/ {rankingResult.totalStudents}</span></p>
-                                                </div>
-                                                <div className="bg-[#003375] text-white p-3 rounded-lg shadow-inner">
-                                                    <p className="text-xs opacity-80 uppercase">Top Percentile</p>
-                                                    <p className="text-xl font-bold flex items-center justify-center gap-1">
-                                                        <TrendingUp size={16}/> Top {rankingResult.topPercent.toFixed(1)}%
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ) : null}
-                                    </>
+                                    </div>
                                 ) : (
-                                    <div className="text-center text-gray-500 text-xs py-2">
-                                        Không nhận diện được học kỳ.<br/>Hãy đặt tên dạng: <strong>"Năm 2024-2025 - Học kỳ 1"</strong>
+                                    // STATE 2: SELECTION LIST
+                                    <div className="flex flex-col max-h-[300px]">
+                                        <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 italic">
+                                            Chọn nguồn dữ liệu (Kỳ học cũ) để so sánh với GPA hiện tại của bạn ({semGPA4.toFixed(1)}).
+                                        </div>
+                                        <div className="overflow-y-auto custom-scrollbar p-2 space-y-1">
+                                            {loadingSemesters ? (
+                                                <div className="py-4 text-center text-xs text-gray-400">Đang tải danh sách kỳ...</div>
+                                            ) : availableSemesters.length > 0 ? (
+                                                availableSemesters.map((semId) => (
+                                                    <button 
+                                                        key={semId}
+                                                        onClick={() => handleSelectReferenceSemester(semId)}
+                                                        className="w-full text-left px-3 py-2.5 hover:bg-blue-50 hover:text-[#003375] rounded-lg transition-all text-sm font-medium text-gray-700 flex justify-between items-center group"
+                                                    >
+                                                        <span>Dữ liệu {mapIdToDisplay(semId)}</span>
+                                                        <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400"/>
+                                                    </button>
+                                                ))
+                                            ) : (
+                                                <div className="py-6 text-center">
+                                                    <p className="text-xs text-gray-400 mb-2">Chưa có dữ liệu xếp hạng nào.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {rankingError && (
+                                            <div className="p-2 bg-red-50 text-red-600 text-xs text-center border-t border-red-100 flex items-center justify-center gap-1">
+                                                <AlertCircle size={12}/> {rankingError}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
