@@ -378,7 +378,11 @@ export const EventsBoard: React.FC = () => {
     }
 
     try {
-      let query = supabase.from('events').select('*').order('deadline', { ascending: true });
+      // Updated query to filter out soft-deleted events
+      let query = supabase.from('events')
+        .select('*')
+        .eq('is_deleted', false)
+        .order('deadline', { ascending: true });
       
       // If NOT Admin/CTV, only show accepted/published events
       if (!canManage) {
@@ -434,10 +438,17 @@ export const EventsBoard: React.FC = () => {
   const handleDeleteEvent = async (id: string) => {
       if (!isAdmin) return; // Strict Check
       playClick();
-      if (!window.confirm("Bạn có chắc chắn muốn xóa sự kiện này vĩnh viễn?")) return;
+      // Changed message to imply soft delete if needed, but user said 'Soft Delete', not necessarily change text significantly.
+      // But "vĩnh viễn" (permanently) is now technically wrong. Let's adjust slightly.
+      if (!window.confirm("Bạn có chắc chắn muốn xóa sự kiện này?")) return;
 
       try {
-          const { error } = await supabase!.from('events').delete().eq('id', id);
+          // Soft delete: Update is_deleted to true
+          const { error } = await supabase!
+            .from('events')
+            .update({ is_deleted: true })
+            .eq('id', id);
+
           if (error) throw error;
           showToast("Đã xóa sự kiện thành công", "success");
           setEvents(prev => prev.filter(e => e.id !== id));
@@ -773,7 +784,7 @@ export const EventsBoard: React.FC = () => {
                     <button 
                         onClick={() => handleDeleteEvent(evt.id)}
                         className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                        title="Xóa vĩnh viễn (Chỉ Admin)"
+                        title="Xóa (Soft Delete)"
                     >
                         <Trash2 size={16} />
                     </button>
