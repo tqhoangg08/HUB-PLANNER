@@ -93,6 +93,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onBack }) => {
                     </form>
                 </div>
             </div>
+
+            <div className="mt-8 text-center px-4 max-w-md animate-fadeIn delay-100">
+                 <p className="text-[10px] text-gray-500 italic leading-relaxed">
+                    Lưu ý: Đây là dự án hỗ trợ sinh viên được phát triển bởi nhóm sinh viên, <strong>KHÔNG PHẢI</strong> là website chính thức của Trường Đại học Ngân hàng TP.HCM (HUB).
+                </p>
+            </div>
         </div>
     );
 };
