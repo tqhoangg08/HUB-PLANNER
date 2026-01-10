@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../utils/supabase';
-import { Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, Save, ToggleLeft, ToggleRight, Settings } from 'lucide-react';
+import { Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, Save, ToggleLeft, ToggleRight, Settings, Tag } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
 import { useUserRole } from '../hooks/useUserRole';
@@ -18,6 +18,7 @@ interface HubEvent {
   link: string;
   organizer: string;
   type: string;      // DB: category
+  classification: string; // DB: classification (New)
   scope: string;     // DB: location_type
   status: string;
   is_manually_closed: boolean;
@@ -380,10 +381,6 @@ export const EventsBoard: React.FC = () => {
       let query = supabase.from('events').select('*').order('deadline', { ascending: true });
       
       // If NOT Admin/CTV, only show accepted/published events
-      // Assuming existing logic: If status column exists and we have 'pending', filter it out for students
-      // Or if the table only has 'active' events. 
-      // Based on previous code, the filter wasn't explicit here but usually implied. 
-      // Let's explicitly filter out 'pending' for non-admins to be safe.
       if (!canManage) {
           query = query.neq('status', 'pending');
       }
@@ -411,6 +408,7 @@ export const EventsBoard: React.FC = () => {
                   link: row.link || '',
                   organizer: row.organizer || 'HUB',
                   type: row.category || '', 
+                  classification: row.classification || '', // New field mapping
                   scope: row.location_type || 'Trong trường',
                   status: row.status || 'Sắp diễn ra',
                   is_manually_closed: row.is_manually_closed || false
@@ -485,7 +483,8 @@ export const EventsBoard: React.FC = () => {
   const filteredEvents = events.filter(evt => {
     const matchesSearch = evt.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           evt.organizer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          evt.type.toLowerCase().includes(searchTerm.toLowerCase());
+                          evt.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          evt.classification.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTab = activeTab === 'all' || evt.category.includes(activeTab);
     const matchesScope = activeScope === 'all' || 
                          (activeScope === 'internal' && evt.scope === 'Trong trường') ||
@@ -527,6 +526,7 @@ export const EventsBoard: React.FC = () => {
           title: editingEvent?.name || '',
           deadline: editingEvent?.deadlineDate ? editingEvent.deadlineDate.toISOString().split('T')[0] : '',
           category: editingEvent?.type || 'Hoạt động phong trào',
+          classification: editingEvent?.classification || '', // New field state
           criteria: editingEvent?.category || 'III',
           points: editingEvent?.score || '5',
           organizer: editingEvent?.organizer || '',
@@ -547,6 +547,7 @@ export const EventsBoard: React.FC = () => {
                   title: formData.title,
                   deadline: formData.deadline,
                   category: formData.category,
+                  classification: formData.classification, // Include in payload
                   criteria: formData.criteria,
                   points: formData.points,
                   organizer: formData.organizer,
@@ -635,6 +636,18 @@ export const EventsBoard: React.FC = () => {
                             </select>
                         </div>
                     </div>
+
+                    {/* Classification Field */}
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Phân loại (Text)</label>
+                        <input 
+                            type="text" 
+                            className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" 
+                            placeholder="VD: Minigame, Workshop, Talkshow..."
+                            value={formData.classification} 
+                            onChange={e => setFormData({...formData, classification: e.target.value})} 
+                        />
+                    </div>
                     
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">BTC</label>
@@ -694,7 +707,12 @@ export const EventsBoard: React.FC = () => {
             }
         </div>
 
-        {evt.type && <div className="absolute top-3 left-3 text-[10px] font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">{evt.type}</div>}
+        {/* Classification Badge (if present) or Category Type (Fallback) */}
+        {(evt.classification || evt.type) && (
+            <div className="absolute top-3 left-3 text-[10px] font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100 flex items-center gap-1">
+                {evt.classification || evt.type}
+            </div>
+        )}
 
         <div className="flex justify-between items-start mb-3 mt-6">
             <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded border border-gray-200 flex items-center gap-1 line-clamp-1 max-w-[60%]"><Users size={12}/> {evt.organizer}</span>
