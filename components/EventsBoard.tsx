@@ -18,6 +18,7 @@ interface HubEvent {
   type: string;      // Phân loại (Minigame...) (DB: category)
   scope: string;     // Phạm vi (DB: location_type)
   status: string;    // Trạng thái (Sắp diễn ra, Đang diễn ra, Đã kết thúc) (DB: status)
+  is_manually_closed: boolean; // Trạng thái đóng thủ công bởi Admin
 }
 
 const formatDateString = (isoDate: string): string => {
@@ -92,7 +93,8 @@ export const EventsBoard: React.FC = () => {
                   organizer: row.organizer || 'HUB',
                   type: row.category || '', 
                   scope: row.location_type || 'Trong trường',
-                  status: row.status || 'Sắp diễn ra'
+                  status: row.status || 'Sắp diễn ra',
+                  is_manually_closed: row.is_manually_closed || false
               };
           });
 
@@ -369,31 +371,42 @@ export const EventsBoard: React.FC = () => {
 
   const renderEventCard = (evt: HubEvent) => {
     // Styling based on explicit Status field
-    const isClosed = evt.status === 'Đã kết thúc';
+    const isStatusClosed = evt.status === 'Đã kết thúc';
     const isActive = evt.status === 'Đang diễn ra';
     const isUpcoming = evt.status === 'Sắp diễn ra';
     
-    // Check if it's "Deadline Today" for specific styling inside card (optional, but good for consistency)
-    const isDeadlineToday = !isClosed && isSameDay(evt.deadlineDate, today);
+    // Check if it's "Deadline Today" for specific styling inside card
+    const isDeadlineToday = !isStatusClosed && isSameDay(evt.deadlineDate, today);
+
+    // Hybrid Close Logic:
+    // 1. Status is 'Đã kết thúc'
+    // 2. Deadline passed (current time > deadline date)
+    // 3. Manually closed by Admin
+    const isOverdue = evt.deadlineDate ? evt.deadlineDate < new Date() : false;
+    const isManualClose = evt.is_manually_closed;
+    const isLinkClosed = isStatusClosed || isOverdue || isManualClose;
 
     const formattedLink = evt.link && !evt.link.startsWith('http') ? `https://${evt.link}` : evt.link;
 
     return (
       <div key={evt.id} className={`bg-white rounded-xl shadow-sm border p-5 flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group relative overflow-hidden 
-        ${isClosed ? 'border-gray-200 opacity-70 grayscale-[0.8] hover:opacity-100 hover:grayscale-0' : ''} 
-        ${isActive ? 'border-green-300 ring-1 ring-green-50' : ''}
-        ${isUpcoming ? 'border-yellow-300' : ''}
-        ${isDeadlineToday ? 'border-red-300 ring-1 ring-red-50' : ''}
+        ${isLinkClosed ? 'border-gray-200 opacity-80' : ''} 
+        ${isActive && !isLinkClosed ? 'border-green-300 ring-1 ring-green-50' : ''}
+        ${isUpcoming && !isLinkClosed ? 'border-yellow-300' : ''}
+        ${isDeadlineToday && !isLinkClosed ? 'border-red-300 ring-1 ring-red-50' : ''}
       `}>
         {/* Status Badge - Top Right */}
         <div className={`absolute top-0 right-0 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 shadow-sm flex items-center gap-1
-            ${isClosed ? 'bg-gray-200 text-gray-600' : 
+            ${isLinkClosed ? 'bg-gray-200 text-gray-600' : 
               isDeadlineToday ? 'bg-red-600 text-white' :
               isActive ? 'bg-green-100 text-green-700' : 
               'bg-yellow-100 text-yellow-700'}`}>
-            {isDeadlineToday && <Siren size={10} className="animate-pulse" />}
-            {!isDeadlineToday && <Circle size={6} fill="currentColor" />} 
-            {isDeadlineToday ? 'Hạn chốt hôm nay' : evt.status}
+            {isDeadlineToday && !isLinkClosed && <Siren size={10} className="animate-pulse" />}
+            {!isDeadlineToday && !isLinkClosed && <Circle size={6} fill="currentColor" />} 
+            {isLinkClosed 
+                ? (isManualClose ? 'Đã đóng đơn sớm' : 'Đã kết thúc')
+                : (isDeadlineToday ? 'Hạn chốt hôm nay' : evt.status)
+            }
         </div>
 
         {/* Type Badge - Top Left */}
@@ -405,19 +418,19 @@ export const EventsBoard: React.FC = () => {
             <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded border border-gray-200 flex items-center gap-1 line-clamp-1 max-w-[60%]"><Users size={12}/> {evt.organizer}</span>
             <div className="flex gap-1">
                 <span className="bg-white text-gray-500 text-xs font-bold px-2 py-1 rounded border border-gray-200 flex items-center justify-center" title={`Mục ${evt.category}`}>{evt.category}</span>
-                <span className={`text-xs font-bold px-2 py-1 rounded border flex items-center gap-1 ${isClosed ? 'bg-gray-50 text-gray-500 border-gray-100' : 'bg-red-50 text-[#990000] border-red-100'}`}><Award size={12}/> {evt.score.includes('+') ? evt.score : `+${evt.score}`}</span>
+                <span className={`text-xs font-bold px-2 py-1 rounded border flex items-center gap-1 ${isLinkClosed ? 'bg-gray-50 text-gray-500 border-gray-100' : 'bg-red-50 text-[#990000] border-red-100'}`}><Award size={12}/> {evt.score.includes('+') ? evt.score : `+${evt.score}`}</span>
             </div>
         </div>
 
-        <h3 className={`font-bold text-gray-800 mb-3 line-clamp-2 transition-colors h-[3.5rem] flex items-center ${!isClosed ? 'group-hover:text-[#003375]' : ''}`}>{evt.name}</h3>
+        <h3 className={`font-bold text-gray-800 mb-3 line-clamp-2 transition-colors h-[3.5rem] flex items-center ${!isLinkClosed ? 'group-hover:text-[#003375]' : ''}`}>{evt.name}</h3>
 
         {evt.scope && evt.scope !== 'Khác' && <div className="mb-2"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${evt.scope === 'Trong trường' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-pink-50 text-pink-700 border-pink-100'}`}><Building2 size={10} /> {evt.scope}</span></div>}
 
         <div className="space-y-2 text-sm text-gray-600 mb-4 flex-1">
             <div className="flex items-start gap-2">
-                <Clock size={16} className={`mt-0.5 shrink-0 ${isClosed ? 'text-gray-400' : isDeadlineToday ? 'text-red-500 animate-pulse' : 'text-blue-500'}`} />
+                <Clock size={16} className={`mt-0.5 shrink-0 ${isLinkClosed ? 'text-gray-400' : isDeadlineToday ? 'text-red-500 animate-pulse' : 'text-blue-500'}`} />
                 <div>
-                    <span className={`font-medium ${isDeadlineToday ? 'text-red-600' : 'text-gray-700'}`}>
+                    <span className={`font-medium ${isDeadlineToday && !isLinkClosed ? 'text-red-600' : 'text-gray-700'}`}>
                         {evt.time || 'Chưa cập nhật hạn'}
                     </span>
                 </div>
@@ -427,11 +440,12 @@ export const EventsBoard: React.FC = () => {
 
         <div className="mt-auto flex gap-2">
              <button onClick={() => { playClick(); setDiscussEvent({ id: evt.id, name: evt.name }); }} className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 hover:text-[#003375] py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow-md" title="Thảo luận"><MessageCircle size={18} /><span className="hidden sm:inline">Thảo luận</span></button>
-            {evt.link && !isClosed ? (
+            
+            {evt.link && !isLinkClosed ? (
                 <a href={formattedLink} target="_blank" rel="noopener noreferrer" onClick={(e) => { playClick(); e.stopPropagation(); }} className={`flex-[2] text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow-md ${isDeadlineToday ? 'bg-red-600 hover:bg-red-700' : 'bg-[#003375] hover:bg-[#002855]'}`}>Tham gia ngay</a>
             ) : (
-                <button disabled className={`flex-[2] py-2 rounded-lg font-medium text-sm cursor-not-allowed border flex items-center justify-center gap-2 ${isClosed ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-orange-50 text-orange-600 border-orange-200'}`}>
-                    {isClosed ? <>Đã chốt sổ <Lock size={14}/></> : "Chưa có link"}
+                <button disabled className={`flex-[2] py-2 rounded-lg font-medium text-sm cursor-not-allowed border flex items-center justify-center gap-2 ${isLinkClosed ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-orange-50 text-orange-600 border-orange-200'}`}>
+                    {isLinkClosed ? <>Đã đóng đơn <Lock size={14}/></> : "Chưa có link"}
                 </button>
             )}
         </div>
