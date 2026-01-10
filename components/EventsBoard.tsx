@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../utils/supabase';
-import { Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, MessageCircle, ChevronDown, Flame, Lock } from 'lucide-react';
+import { Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, MessageCircle, ChevronDown, Flame, Lock, Circle } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
 
@@ -12,11 +12,12 @@ interface HubEvent {
   score: string;     // Điểm số (DB: points)
   location: string;  // Hình thức (DB: format)
   time: string;      // Hạn tham gia hiển thị (DB: deadline format dd/mm/yyyy)
-  deadlineDate: Date | null; // Object Date để so sánh
+  deadlineDate: Date | null; // Object Date để sort (không dùng để group)
   link: string;      // Link tham gia (DB: link)
   organizer: string; // BTC (DB: organizer)
   type: string;      // Phân loại (Minigame...) (DB: category)
   scope: string;     // Phạm vi (DB: location_type)
+  status: string;    // Trạng thái (Sắp diễn ra, Đang diễn ra, Đã kết thúc) (DB: status)
 }
 
 const formatDateString = (isoDate: string): string => {
@@ -55,7 +56,6 @@ export const EventsBoard: React.FC = () => {
     setLoading(true);
     setError(null);
 
-    // Fallback if Supabase is not configured (Demo Mode)
     if (!supabase) {
         setEvents([]);
         setError("Chưa cấu hình Supabase. Vui lòng kiểm tra biến môi trường.");
@@ -67,13 +67,12 @@ export const EventsBoard: React.FC = () => {
       const { data, error } = await supabase
         .from('events')
         .select('*')
-        .order('deadline', { ascending: true }); // Get nearest deadline first
+        .order('deadline', { ascending: true }); 
 
       if (error) throw error;
 
       if (data) {
           const parsedEvents: HubEvent[] = data.map((row: any) => {
-              // Convert ISO Date to Date Object and set to end of day for inclusive comparison
               let deadlineDate = null;
               if (row.deadline) {
                   deadlineDate = new Date(row.deadline);
@@ -83,15 +82,16 @@ export const EventsBoard: React.FC = () => {
               return {
                   id: row.id.toString(),
                   name: row.title || 'Sự kiện chưa có tên',
-                  category: row.criteria || 'Khác', // DB Criteria -> UI Category (Mục I, II...)
+                  category: row.criteria || 'Khác', 
                   score: row.points?.toString() || '0',
                   location: row.format || 'Online',
                   time: formatDateString(row.deadline),
                   deadlineDate: deadlineDate,
                   link: row.link || '',
                   organizer: row.organizer || 'HUB',
-                  type: row.category || '', // DB Category -> UI Type (Minigame, Học thuật...)
-                  scope: row.location_type || 'Trong trường'
+                  type: row.category || '', 
+                  scope: row.location_type || 'Trong trường',
+                  status: row.status || 'Sắp diễn ra'
               };
           });
 
@@ -100,7 +100,7 @@ export const EventsBoard: React.FC = () => {
       setLoading(false);
     } catch (err) {
       console.error(err);
-      setError('Đang bảo trì để cập nhật hệ thống, vui lòng thử lại sau nhé.');
+      setError('Lỗi kết nối đến cơ sở dữ liệu.');
       setLoading(false);
     }
   };
@@ -115,8 +115,6 @@ export const EventsBoard: React.FC = () => {
                           evt.organizer.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           evt.type.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // UI Category stores "I", "II", "III"...
-    // activeTab stores "I", "II"... or "all"
     const matchesTab = activeTab === 'all' || evt.category.includes(activeTab);
     
     const matchesScope = activeScope === 'all' || 
@@ -125,42 +123,9 @@ export const EventsBoard: React.FC = () => {
     return matchesSearch && matchesTab && matchesScope;
   });
 
-  // Group Logic
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const closingTodayEvents: HubEvent[] = [];
-  const openEvents: HubEvent[] = [];
-  const expiredEvents: HubEvent[] = [];
-
-  filteredEvents.forEach(evt => {
-      if (!evt.deadlineDate) {
-          // No deadline -> Open
-          openEvents.push(evt);
-          return;
-      }
-
-      // Normalize deadline for comparison (already set to 23:59:59 in fetch)
-      // Check comparison purely on Date components
-      const tTime = today.getTime();
-      const dTime = new Date(evt.deadlineDate).setHours(0,0,0,0);
-
-      if (dTime === tTime) {
-          closingTodayEvents.push(evt);
-      } else if (dTime > tTime) {
-          openEvents.push(evt);
-      } else {
-          expiredEvents.push(evt);
-      }
-  });
-
-  // Sort Open events by deadline (sooner first)
-  openEvents.sort((a, b) => {
-      if (!a.deadlineDate) return 1;
-      if (!b.deadlineDate) return -1;
-      return a.deadlineDate.getTime() - b.deadlineDate.getTime();
-  });
-
+  // Group Logic based on Status (Not Date)
+  const activeEvents = filteredEvents.filter(evt => evt.status !== 'Đã kết thúc');
+  const closedEvents = filteredEvents.filter(evt => evt.status === 'Đã kết thúc');
 
   const NotificationToast = () => {
     if (!notification) return null;
@@ -183,6 +148,7 @@ export const EventsBoard: React.FC = () => {
     );
   };
 
+  // ... (RecruitFormModal, ContributeEventModal, ScoreGuideModal, DiscussionModal - Keep Existing Code) ...
   const RecruitFormModal = () => {
       const [formData, setFormData] = useState({ name: '', cohort: '', major: '', contact: '' });
       const [isSubmitting, setIsSubmitting] = useState(false);
@@ -308,6 +274,7 @@ export const EventsBoard: React.FC = () => {
                 <button onClick={() => { playClick(); setShowScoreGuide(false); }} className="hover:bg-white/20 p-2 rounded-full transition-colors active:scale-95"><X size={20} /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar bg-gray-50">
+                {/* ... (Existing score guide content) ... */}
                 <div className="space-y-6">
                     <div className="grid grid-cols-12 gap-2 bg-gray-200 p-2 rounded-t-lg font-bold text-gray-700 text-sm uppercase sticky top-0 z-10 shadow-sm"><div className="col-span-1 text-center">STT</div><div className="col-span-9">Nội dung đánh giá</div><div className="col-span-2 text-center">Mức điểm</div></div>
                     
@@ -378,44 +345,52 @@ export const EventsBoard: React.FC = () => {
       );
   };
 
-  const renderEventCard = (evt: HubEvent, status: 'today' | 'open' | 'expired') => {
-    // Determine visuals based on status passed from parent
-    const isExpired = status === 'expired';
-    const isUrgent = status === 'today';
+  const renderEventCard = (evt: HubEvent) => {
+    // Styling based on explicit Status field
+    const isClosed = evt.status === 'Đã kết thúc';
+    const isActive = evt.status === 'Đang diễn ra';
+    const isUpcoming = evt.status === 'Sắp diễn ra';
     
     const formattedLink = evt.link && !evt.link.startsWith('http') ? `https://${evt.link}` : evt.link;
 
     return (
       <div key={evt.id} className={`bg-white rounded-xl shadow-sm border p-5 flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group relative overflow-hidden 
-        ${isExpired ? 'border-gray-200 opacity-70 grayscale-[0.8] hover:opacity-100 hover:grayscale-0' : ''} 
-        ${isUrgent ? 'border-red-300 ring-1 ring-red-100' : 'border-gray-200'}
-        ${status === 'open' && !evt.deadlineDate ? 'border-orange-200 border-dashed bg-orange-50/20' : ''}
+        ${isClosed ? 'border-gray-200 opacity-70 grayscale-[0.8] hover:opacity-100 hover:grayscale-0' : ''} 
+        ${isActive ? 'border-green-300 ring-1 ring-green-50' : ''}
+        ${isUpcoming ? 'border-yellow-300' : ''}
       `}>
-        {evt.type && <div className={`absolute top-0 right-0 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 shadow-sm 
-            ${isExpired ? 'bg-gray-100 text-gray-500' : isUrgent ? 'bg-red-500 text-white' : 'bg-blue-100 text-[#003375]'}`}>
+        {/* Status Badge - Top Right */}
+        <div className={`absolute top-0 right-0 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 shadow-sm flex items-center gap-1
+            ${isClosed ? 'bg-gray-200 text-gray-600' : 
+              isActive ? 'bg-green-100 text-green-700' : 
+              'bg-yellow-100 text-yellow-700'}`}>
+            <Circle size={6} fill="currentColor" /> {evt.status}
+        </div>
+
+        {/* Type Badge - Top Left */}
+        {evt.type && <div className="absolute top-3 left-3 text-[10px] font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
             {evt.type}
         </div>}
 
-        <div className="flex justify-between items-start mb-3 mt-2">
+        <div className="flex justify-between items-start mb-3 mt-6">
             <span className="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded border border-gray-200 flex items-center gap-1 line-clamp-1 max-w-[60%]"><Users size={12}/> {evt.organizer}</span>
-            <div className="flex gap-1 pr-6">
+            <div className="flex gap-1">
                 <span className="bg-white text-gray-500 text-xs font-bold px-2 py-1 rounded border border-gray-200 flex items-center justify-center" title={`Mục ${evt.category}`}>{evt.category}</span>
-                <span className={`text-xs font-bold px-2 py-1 rounded border flex items-center gap-1 ${isExpired ? 'bg-gray-50 text-gray-500 border-gray-100' : 'bg-red-50 text-[#990000] border-red-100'}`}><Award size={12}/> {evt.score.includes('+') ? evt.score : `+${evt.score}`}</span>
+                <span className={`text-xs font-bold px-2 py-1 rounded border flex items-center gap-1 ${isClosed ? 'bg-gray-50 text-gray-500 border-gray-100' : 'bg-red-50 text-[#990000] border-red-100'}`}><Award size={12}/> {evt.score.includes('+') ? evt.score : `+${evt.score}`}</span>
             </div>
         </div>
 
-        <h3 className={`font-bold text-gray-800 mb-3 line-clamp-2 transition-colors h-[3.5rem] flex items-center ${!isExpired ? 'group-hover:text-[#003375]' : ''}`}>{evt.name}</h3>
+        <h3 className={`font-bold text-gray-800 mb-3 line-clamp-2 transition-colors h-[3.5rem] flex items-center ${!isClosed ? 'group-hover:text-[#003375]' : ''}`}>{evt.name}</h3>
 
         {evt.scope && evt.scope !== 'Khác' && <div className="mb-2"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${evt.scope === 'Trong trường' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-pink-50 text-pink-700 border-pink-100'}`}><Building2 size={10} /> {evt.scope}</span></div>}
 
         <div className="space-y-2 text-sm text-gray-600 mb-4 flex-1">
             <div className="flex items-start gap-2">
-                <Clock size={16} className={`mt-0.5 shrink-0 ${isExpired ? 'text-gray-400' : isUrgent ? 'text-red-500' : 'text-blue-500'}`} />
+                <Clock size={16} className={`mt-0.5 shrink-0 ${isClosed ? 'text-gray-400' : 'text-blue-500'}`} />
                 <div>
-                    <span className={`${isExpired ? 'line-through text-gray-400' : isUrgent ? 'text-red-600 font-bold animate-pulse' : 'text-gray-700'}`}>
+                    <span className="text-gray-700">
                         {evt.time || 'Chưa cập nhật hạn'}
                     </span>
-                    {isUrgent && <span className="block text-[10px] text-red-500 font-bold uppercase tracking-wider">Hạn chót hôm nay!</span>}
                 </div>
             </div>
             <div className="flex items-start gap-2"><MapPin size={16} className="text-gray-400 mt-0.5 shrink-0" /><span className="line-clamp-1">{evt.location}</span></div>
@@ -423,11 +398,11 @@ export const EventsBoard: React.FC = () => {
 
         <div className="mt-auto flex gap-2">
              <button onClick={() => { playClick(); setDiscussEvent({ id: evt.id, name: evt.name }); }} className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 hover:text-[#003375] py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow-md" title="Thảo luận"><MessageCircle size={18} /><span className="hidden sm:inline">Thảo luận</span></button>
-            {evt.link && !isExpired ? (
-                <a href={formattedLink} target="_blank" rel="noopener noreferrer" onClick={(e) => { playClick(); e.stopPropagation(); }} className={`flex-[2] text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow-md ${isUrgent ? 'bg-red-600 hover:bg-red-700' : 'bg-[#003375] hover:bg-[#002855]'}`}>Tham gia ngay</a>
+            {evt.link && !isClosed ? (
+                <a href={formattedLink} target="_blank" rel="noopener noreferrer" onClick={(e) => { playClick(); e.stopPropagation(); }} className="flex-[2] text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow-md bg-[#003375] hover:bg-[#002855]">Tham gia ngay</a>
             ) : (
-                <button disabled className={`flex-[2] py-2 rounded-lg font-medium text-sm cursor-not-allowed border flex items-center justify-center gap-2 ${isExpired ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-orange-50 text-orange-600 border-orange-200'}`}>
-                    {isExpired ? <>Đã chốt sổ <Lock size={14}/></> : "Chưa có link"}
+                <button disabled className={`flex-[2] py-2 rounded-lg font-medium text-sm cursor-not-allowed border flex items-center justify-center gap-2 ${isClosed ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-orange-50 text-orange-600 border-orange-200'}`}>
+                    {isClosed ? <>Đã chốt sổ <Lock size={14}/></> : "Chưa có link"}
                 </button>
             )}
         </div>
@@ -472,41 +447,29 @@ export const EventsBoard: React.FC = () => {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 animate-fadeIn"><Loader2 size={40} className="text-[#003375] animate-spin mb-4" /><p className="text-gray-500">Đang tải danh sách sự kiện...</p></div>
       ) : error ? (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn"><p className="font-bold mb-2">Đang bảo trì để cập nhật hệ thống, vui lòng thử lại sau nhé</p><p>{error}</p></div>
+        <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn"><p className="font-bold mb-2">Đã xảy ra lỗi</p><p>{error}</p></div>
       ) : (
         <div className="space-y-8 animate-fadeIn">
-            {/* Section 1: Closing Today */}
-            {closingTodayEvents.length > 0 && (
-                <div>
-                    <h3 className="text-xl font-bold text-red-600 mb-4 flex items-center gap-2 animate-pulse">
-                        <AlertCircle className="fill-red-100" /> 🚨 Hạn chót hôm nay ({closingTodayEvents.length})
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {closingTodayEvents.map(evt => renderEventCard(evt, 'today'))}
-                    </div>
-                </div>
-            )}
-
-            {/* Section 2: Open */}
-            {openEvents.length > 0 && (
+            {/* Section 1: Active Events */}
+            {activeEvents.length > 0 && (
                 <div>
                     <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
-                        <Flame className="text-orange-500 fill-orange-100" /> 🔥 Đang mở đăng ký ({openEvents.length})
+                        <Flame className="text-orange-500 fill-orange-100" /> 🔥 Đang mở đăng ký ({activeEvents.length})
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {openEvents.map(evt => renderEventCard(evt, 'open'))}
+                        {activeEvents.map(evt => renderEventCard(evt))}
                     </div>
                 </div>
             )}
 
-            {/* Section 3: Expired */}
-            {expiredEvents.length > 0 && (
+            {/* Section 2: Closed Events */}
+            {closedEvents.length > 0 && (
                 <div>
                      <h3 className="text-xl font-bold text-gray-500 mb-4 flex items-center gap-2">
-                        <Lock className="text-gray-400" /> 🔒 Đã hết hạn ({expiredEvents.length})
+                        <Lock className="text-gray-400" /> 🔒 Đã hết hạn ({closedEvents.length})
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80">
-                         {expiredEvents.map(evt => renderEventCard(evt, 'expired'))}
+                         {closedEvents.map(evt => renderEventCard(evt))}
                     </div>
                 </div>
             )}
