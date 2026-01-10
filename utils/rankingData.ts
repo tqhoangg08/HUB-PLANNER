@@ -1,97 +1,37 @@
-import Papa from 'papaparse';
 
-export interface StudentRecord {
-  gpa4: number;
-  credits: number;
-  drl: number;
-}
+// --- UTILITIES FOR RANKING & ID MAPPING ---
 
-export interface RankingDataset {
-    id: string;
-    name: string;
-    url: string;
-}
+/**
+ * Maps a display name (e.g., "Năm học 2024-2025 - Học kỳ 1") 
+ * to a Database Semester ID (e.g., "HK1_2024_2025").
+ */
+export const mapSemesterToId = (name: string): string | null => {
+    if (!name) return null;
+    
+    const normalized = name.trim().toLowerCase();
 
-export const AVAILABLE_DATASETS: RankingDataset[] = [
-    { 
-        id: 'hk2_2425', 
-        name: 'HK2 2024-2025', 
-        url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTb91w3JSJm6yvm8gYd6FbvYRK_taabZhEoxlJHBW1Dyt5EIyBxf3ZQZdwdIqc0JQ/pub?output=tsv' 
-    },
-    { 
-        id: 'hk1_2425', 
-        name: 'HK1 2024-2025', 
-        url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS-EZ6FLjTI5HpIoeRSguBwVMxI3PYRA3TuHgnKYMJmvvX35VgmFjTYbXXfrDNpjiR45tf7qE0iFZo7/pub?output=tsv' 
-    },
-    { 
-        id: 'hk2_2324', 
-        name: 'HK2 2023-2024', 
-        url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQTzwrflTUq35OOyF68BG3IVzsRuy4siAGqCw2HvRNQeElRlCEUR0iA_JRYQpC79w/pub?output=tsv' 
+    // Regex to match "2024-2025" and "Học kỳ 1" / "HK1" / "HK 1"
+    // Captures: Group 1 = Year1, Group 2 = Year2, Group 3 = Semester Number
+    const match = normalized.match(/(\d{4})[-_](\d{4}).*(?:học kỳ|hk)\s*(\d)/i);
+
+    if (match) {
+        const y1 = match[1];
+        const y2 = match[2];
+        const hk = match[3];
+        return `HK${hk}_${y1}_${y2}`;
     }
-];
 
-// Simple cache to prevent re-fetching
-const cache: Record<string, StudentRecord[]> = {};
-
-export const fetchRankingData = async (datasetIdOrName: string): Promise<StudentRecord[] | null> => {
-  let selectedDataset = AVAILABLE_DATASETS.find(d => d.id === datasetIdOrName);
-  
-  // If not found by ID, try Context Matching (Auto-detect)
-  if (!selectedDataset) {
-      const lowerName = datasetIdOrName.toLowerCase();
-      if (lowerName.includes('học kỳ 1') || lowerName.includes('hk1') || lowerName.includes('hk 1')) {
-          selectedDataset = AVAILABLE_DATASETS.find(d => d.id === 'hk1_2425');
-      } else if (lowerName.includes('học kỳ 2') || lowerName.includes('hk2') || lowerName.includes('hk 2')) {
-          selectedDataset = AVAILABLE_DATASETS.find(d => d.id === 'hk2_2425'); // Default to latest HK2
-      }
-  }
-
-  // Fallback default if still null
-  if (!selectedDataset) {
-      selectedDataset = AVAILABLE_DATASETS[0];
-  }
-
-  const url = selectedDataset.url;
-  if (cache[url]) return cache[url];
-
-  try {
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const text = await response.text();
-
-    return new Promise((resolve) => {
-      Papa.parse(text, {
-        header: true,
-        delimiter: '\t',
-        skipEmptyLines: true,
-        complete: (results) => {
-          const data: StudentRecord[] = results.data.map((row: any) => {
-            // Flexible key matching
-            const gpaKey = Object.keys(row).find(k => k.includes('thang 4')) || '';
-            const creditsKey = Object.keys(row).find(k => k.includes('TC')) || '';
-            const drlKey = Object.keys(row).find(k => k.includes('RL')) || '';
-
-            // Handle Vietnamese float format
-            const parseNum = (val: string) => {
-                if(!val) return 0;
-                return parseFloat(val.toString().replace(',', '.'));
-            }
-
-            return {
-              gpa4: parseNum(row[gpaKey]),
-              credits: parseInt(row[creditsKey]) || 0,
-              drl: parseInt(row[drlKey]) || 0
-            };
-          });
-          
-          cache[url] = data;
-          resolve(data);
-        },
-        error: () => resolve(null)
-      });
-    });
-  } catch (error) {
-    console.error("Failed to fetch ranking data", error);
     return null;
-  }
+};
+
+/**
+ * Returns a user-friendly name for the DB ID
+ * e.g., "HK1_2024_2025" -> "Học kỳ 1, Năm học 2024-2025"
+ */
+export const mapIdToDisplay = (id: string): string => {
+    const parts = id.split('_'); // [HK1, 2024, 2025]
+    if (parts.length === 3) {
+        return `Học kỳ ${parts[0].replace('HK', '')}, Năm học ${parts[1]}-${parts[2]}`;
+    }
+    return id;
 };
