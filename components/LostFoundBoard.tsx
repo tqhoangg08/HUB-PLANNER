@@ -154,20 +154,16 @@ export const LostFoundBoard: React.FC = () => {
                   imageUrl = publicUrl;
               }
 
-              // 2. Insert Record
-              // KHÔNG gửi status (để DB tự default 'pending')
-              // KHÔNG dùng .select() để tránh lỗi Policy nếu user không được quyền xem tin chưa duyệt
-              const { error: insertError } = await supabase
-                  .from('lost_found_items')
-                  .insert([{
-                      type: submitType,
-                      title: formData.title,
-                      description: formData.description,
-                      location: formData.location,
-                      contact_info: formData.contact_info,
-                      user_name: formData.user_name || 'Ẩn danh', // Default if empty
-                      image_url: imageUrl
-                  }]);
+              // 2. Insert Record via RPC (to avoid RLS issues on insert)
+              const { error: insertError } = await supabase.rpc('submit_lost_found_item', {
+                  p_title: formData.title,
+                  p_description: formData.description,
+                  p_location: formData.location,
+                  p_contact_info: formData.contact_info,
+                  p_user_name: formData.user_name || 'Ẩn danh',
+                  p_image_url: imageUrl,
+                  p_type: submitType
+              });
 
               if (insertError) throw insertError;
 
