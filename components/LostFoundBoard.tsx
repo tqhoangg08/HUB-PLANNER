@@ -51,7 +51,7 @@ export const LostFoundBoard: React.FC = () => {
       const { data, error } = await supabase
         .from('lost_found_items')
         .select('*')
-        // .eq('status', 'approved') // Đã bỏ bộ lọc theo yêu cầu
+        // .eq('status', 'approved') // Đã bỏ bộ lọc duyệt tin
         .order('created_at', { ascending: false });
 
       if (error) throw error;
