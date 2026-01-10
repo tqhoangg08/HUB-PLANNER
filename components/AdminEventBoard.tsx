@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { LogOut, Plus, Edit2, Trash2, Save, X, Loader2, Calendar, MapPin, User, Key, AlertCircle, ArrowLeft, Shield, History, Monitor, CheckCircle2, Circle, Search as SearchIcon } from 'lucide-react';
+import { LogOut, Plus, Edit2, Trash2, Save, X, Loader2, Calendar, MapPin, User, Key, AlertCircle, ArrowLeft, Shield, History, Monitor, CheckCircle2, Circle, Search as SearchIcon, ToggleLeft, ToggleRight } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { AdminLostFoundBoard } from './AdminLostFoundBoard';
 
@@ -21,6 +21,7 @@ interface EventData {
   location_type: string;
   format: string; // Online/Offline
   status: string; // 'Sắp diễn ra' | 'Đang diễn ra' | 'Đã kết thúc'
+  is_manually_closed: boolean; // New field for manual closing
 }
 
 interface ActivityLog {
@@ -42,7 +43,8 @@ const INITIAL_FORM: EventData = {
   link: '',
   location_type: 'Trong trường',
   format: 'Offline',
-  status: 'Sắp diễn ra'
+  status: 'Sắp diễn ra',
+  is_manually_closed: false
 };
 
 type UserRole = 'admin' | 'editor' | null;
@@ -237,7 +239,8 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
       link: event.link || '',
       location_type: event.location_type || 'Trong trường',
       format: event.format || 'Offline',
-      status: event.status || 'Sắp diễn ra'
+      status: event.status || 'Sắp diễn ra',
+      is_manually_closed: event.is_manually_closed || false
     });
     setIsEditing(true);
     setShowModal(true);
@@ -259,7 +262,8 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
         link: formData.link,
         location_type: formData.location_type,
         format: formData.format,
-        status: formData.status
+        status: formData.status,
+        is_manually_closed: formData.is_manually_closed
     };
 
     let error;
@@ -475,6 +479,9 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                                         if (evt.status === 'Sắp diễn ra') statusColor = 'bg-yellow-100 text-yellow-800 border-yellow-200';
                                         else if (evt.status === 'Đang diễn ra') statusColor = 'bg-green-100 text-green-800 border-green-200';
                                         
+                                        // Check manual close
+                                        const isManuallyClosed = evt.is_manually_closed;
+
                                         return (
                                         <tr key={evt.id} className="hover:bg-blue-50/30 transition-colors">
                                             <td className="px-6 py-4 font-medium text-gray-900">
@@ -485,9 +492,16 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`text-xs font-bold px-2 py-1 rounded-full border flex w-fit items-center gap-1 ${statusColor}`}>
-                                                    <Circle size={8} fill="currentColor" /> {evt.status || 'Sắp diễn ra'}
-                                                </span>
+                                                <div className="flex flex-col gap-1 items-start">
+                                                    <span className={`text-xs font-bold px-2 py-1 rounded-full border flex w-fit items-center gap-1 ${statusColor}`}>
+                                                        <Circle size={8} fill="currentColor" /> {evt.status || 'Sắp diễn ra'}
+                                                    </span>
+                                                    {isManuallyClosed && (
+                                                        <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full border border-red-200 font-bold">
+                                                            Đã đóng link thủ công
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-gray-600">
                                                 {evt.deadline ? new Date(evt.deadline).toLocaleDateString('vi-VN') : '-'}
@@ -577,6 +591,25 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                                 />
                             </div>
                         </div>
+                    </div>
+
+                    {/* Manual Closing Toggle */}
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex justify-between items-center">
+                        <div>
+                            <label className="font-bold text-gray-700 block mb-0.5">Đóng đăng ký sớm (Thủ công)</label>
+                            <p className="text-xs text-gray-500">
+                                Bật tùy chọn này để khóa nút "Tham gia" ngay lập tức, bất kể hạn deadline.
+                            </p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                className="sr-only peer"
+                                checked={formData.is_manually_closed}
+                                onChange={e => setFormData({...formData, is_manually_closed: e.target.checked})}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                        </label>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
