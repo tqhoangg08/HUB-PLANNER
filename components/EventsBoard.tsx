@@ -97,22 +97,213 @@ const RecruitFormModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     );
 };
 
-const ContributeEventModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
+    const [formData, setFormData] = useState({
+        title: '',
+        deadline: '',
+        category: 'Hoạt động phong trào',
+        criteria: 'III',
+        points: '5',
+        organizer: '',
+        link: '',
+        format: 'Offline',
+        description: '' // Ghi chú thêm
+    });
+    const [submitting, setSubmitting] = useState(false);
+
     if (!isOpen) return null;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        // Basic validation
+        if (!formData.title.trim()) {
+            onShowToast("Vui lòng nhập tên sự kiện!", "error");
+            return;
+        }
+
+        if (!supabase) {
+            onShowToast("Lỗi kết nối Server.", "error");
+            return;
+        }
+
+        setSubmitting(true);
+        playClick();
+
+        try {
+            // Prepare payload matching DB schema
+            const payload = {
+                title: formData.title,
+                deadline: formData.deadline || null,
+                category: formData.category, // Loại hình (Minigame, Workshop...)
+                criteria: formData.criteria, // Mục I, II...
+                points: formData.points,
+                organizer: formData.organizer,
+                link: formData.link,
+                format: formData.format,
+                // Map description to a DB field if exists, or assume standard structure
+                // Assuming 'description' column exists or we fit it into title/notes
+                description: formData.description, 
+                location_type: 'Trong trường', // Default
+                status: 'pending', // IMPORTANT: Hardcode pending
+                is_manually_closed: false // IMPORTANT: Hardcode false
+            };
+
+            const { error } = await supabase
+                .from('events')
+                .insert([payload]);
+
+            if (error) throw error;
+
+            onShowToast("Đóng góp của bạn đã được gửi và đang chờ Admin duyệt. Cảm ơn bạn!", "success");
+            onClose();
+        } catch (err: any) {
+            console.error(err);
+            onShowToast("Lỗi gửi đóng góp: " + err.message, "error");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     return createPortal(
-        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white rounded-xl max-w-md w-full p-6 animate-scaleIn relative" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20} /></button>
-                <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2"><PlusCircle /> Đóng góp sự kiện</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                    Nếu bạn biết sự kiện nào đang diễn ra mà chưa có trên hệ thống, hãy giúp chúng mình bổ sung nhé!
-                </p>
-                <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); alert("Cảm ơn bạn đã đóng góp! Chúng mình sẽ xem xét."); onClose(); }}>
-                    <input type="text" placeholder="Tên sự kiện" className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-[#003375] outline-none" required />
-                    <input type="text" placeholder="Link bài viết/Form đăng ký" className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-[#003375] outline-none" required />
-                    <textarea placeholder="Ghi chú thêm (Mục, điểm, thời gian...)" className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-[#003375] outline-none" rows={3}></textarea>
-                    <button type="submit" className="w-full py-2 bg-[#003375] text-white rounded-lg font-bold hover:bg-[#002855] transition-colors">Gửi đóng góp</button>
-                </form>
+        <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+            <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn relative flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="bg-[#003375] p-4 flex justify-between items-center text-white sticky top-0 z-10 shrink-0">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        <PlusCircle size={20}/> Đóng góp Sự kiện mới
+                    </h3>
+                    <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
+                </div>
+
+                <div className="p-6">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-blue-800">
+                        <Sparkles className="shrink-0 mt-0.5" size={18}/>
+                        <p>Cảm ơn bạn đã chia sẻ! Thông tin sẽ được Admin kiểm duyệt trước khi hiển thị công khai để đảm bảo tính chính xác.</p>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
+                            <input 
+                                type="text" 
+                                required 
+                                className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all"
+                                placeholder="VD: Cuộc thi Tiếng Anh Star Awards..."
+                                value={formData.title} 
+                                onChange={e => setFormData({...formData, title: e.target.value})} 
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Thời gian / Deadline</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]"
+                                    value={formData.deadline} 
+                                    onChange={e => setFormData({...formData, deadline: e.target.value})} 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Phân loại</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]"
+                                    placeholder="VD: Hội thảo, Minigame..."
+                                    value={formData.category} 
+                                    onChange={e => setFormData({...formData, category: e.target.value})} 
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="col-span-1">
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Mục ĐRL</label>
+                                <select 
+                                    className="w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
+                                    value={formData.criteria} 
+                                    onChange={e => setFormData({...formData, criteria: e.target.value})}
+                                >
+                                    <option value="I">Mục I</option>
+                                    <option value="II">Mục II</option>
+                                    <option value="III">Mục III</option>
+                                    <option value="IV">Mục IV</option>
+                                    <option value="V">Mục V</option>
+                                </select>
+                            </div>
+                            <div className="col-span-1">
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Điểm cộng</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] text-center font-bold text-[#990000]"
+                                    value={formData.points} 
+                                    onChange={e => setFormData({...formData, points: e.target.value})} 
+                                />
+                            </div>
+                            <div className="col-span-1">
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Hình thức</label>
+                                <select 
+                                    className="w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
+                                    value={formData.format} 
+                                    onChange={e => setFormData({...formData, format: e.target.value})}
+                                >
+                                    <option value="Offline">Offline</option>
+                                    <option value="Online">Online</option>
+                                    <option value="Hỗn hợp">Hỗn hợp</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Đơn vị tổ chức (BTC)</label>
+                                <div className="relative">
+                                    <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
+                                    <input 
+                                        type="text" 
+                                        className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#003375]"
+                                        placeholder="VD: Đoàn trường, CLB..."
+                                        value={formData.organizer} 
+                                        onChange={e => setFormData({...formData, organizer: e.target.value})} 
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Link tham gia</label>
+                                <div className="relative">
+                                    <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
+                                    <input 
+                                        type="text" 
+                                        className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#003375]"
+                                        placeholder="https://..."
+                                        value={formData.link} 
+                                        onChange={e => setFormData({...formData, link: e.target.value})} 
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Ghi chú thêm</label>
+                            <textarea 
+                                rows={3}
+                                className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] resize-none"
+                                placeholder="Thông tin chi tiết khác (nếu có)..."
+                                value={formData.description}
+                                onChange={e => setFormData({...formData, description: e.target.value})}
+                            ></textarea>
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            disabled={submitting} 
+                            className="w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md"
+                        >
+                            {submitting ? <Loader2 className="animate-spin"/> : <Send size={18}/>} 
+                            {submitting ? 'Đang gửi...' : 'Gửi đóng góp'}
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>, document.body
     );
@@ -186,10 +377,18 @@ export const EventsBoard: React.FC = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .order('deadline', { ascending: true }); 
+      let query = supabase.from('events').select('*').order('deadline', { ascending: true });
+      
+      // If NOT Admin/CTV, only show accepted/published events
+      // Assuming existing logic: If status column exists and we have 'pending', filter it out for students
+      // Or if the table only has 'active' events. 
+      // Based on previous code, the filter wasn't explicit here but usually implied. 
+      // Let's explicitly filter out 'pending' for non-admins to be safe.
+      if (!canManage) {
+          query = query.neq('status', 'pending');
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -230,7 +429,7 @@ export const EventsBoard: React.FC = () => {
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [canManage]); // Refetch if role changes
 
   // --- MANAGEMENT ACTIONS ---
 
@@ -301,6 +500,7 @@ export const EventsBoard: React.FC = () => {
       return d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
   };
 
+  // Logic: For admins, also show pending. For students, filter them out (already done in fetch but double check here if needed)
   const deadlineTodayEvents = filteredEvents.filter(evt => evt.status !== 'Đã kết thúc' && isSameDay(evt.deadlineDate, today));
   const activeEvents = filteredEvents.filter(evt => evt.status !== 'Đã kết thúc' && !isSameDay(evt.deadlineDate, today));
   const closedEvents = filteredEvents.filter(evt => evt.status === 'Đã kết thúc');
@@ -400,6 +600,7 @@ export const EventsBoard: React.FC = () => {
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Trạng thái</label>
                             <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+                                <option value="pending">Chờ duyệt (Pending)</option>
                                 <option value="Sắp diễn ra">Sắp diễn ra</option>
                                 <option value="Đang diễn ra">Đang diễn ra</option>
                                 <option value="Đã kết thúc">Đã kết thúc</option>
@@ -455,10 +656,11 @@ export const EventsBoard: React.FC = () => {
 
   const renderEventCard = (evt: HubEvent) => {
     // Basic Status
+    const isPending = evt.status === 'pending';
     const isStatusClosed = evt.status === 'Đã kết thúc';
     const isActive = evt.status === 'Đang diễn ra';
     const isUpcoming = evt.status === 'Sắp diễn ra';
-    const isDeadlineToday = !isStatusClosed && isSameDay(evt.deadlineDate, today);
+    const isDeadlineToday = !isStatusClosed && !isPending && isSameDay(evt.deadlineDate, today);
 
     // Hybrid Close Logic
     const isOverdue = evt.deadlineDate ? evt.deadlineDate < new Date() : false;
@@ -473,6 +675,7 @@ export const EventsBoard: React.FC = () => {
         ${isActive && !isLinkClosed ? 'border-green-300 ring-1 ring-green-50' : ''}
         ${isUpcoming && !isLinkClosed ? 'border-yellow-300' : ''}
         ${isDeadlineToday && !isLinkClosed ? 'border-red-300 ring-1 ring-red-50' : ''}
+        ${isPending ? 'border-yellow-400 ring-2 ring-yellow-100' : ''}
       `}>
         {/* Status Badge */}
         <div className={`absolute top-0 right-0 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 shadow-sm flex items-center gap-1
@@ -481,10 +684,13 @@ export const EventsBoard: React.FC = () => {
               isActive ? 'bg-green-100 text-green-700' : 
               'bg-yellow-100 text-yellow-700'}`}>
             {isDeadlineToday && !isLinkClosed && <Siren size={10} className="animate-pulse" />}
-            {!isDeadlineToday && !isLinkClosed && <Circle size={6} fill="currentColor" />} 
-            {isLinkClosed 
-                ? (isManualClose ? 'Đã đóng đơn sớm' : 'Đã kết thúc')
-                : (isDeadlineToday ? 'Hạn chốt hôm nay' : evt.status)
+            {!isDeadlineToday && !isLinkClosed && !isPending && <Circle size={6} fill="currentColor" />} 
+            {isPending 
+                ? 'Đang chờ duyệt'
+                : (isLinkClosed 
+                    ? (isManualClose ? 'Đã đóng đơn sớm' : 'Đã kết thúc')
+                    : (isDeadlineToday ? 'Hạn chốt hôm nay' : evt.status)
+                  )
             }
         </div>
 
@@ -651,7 +857,7 @@ export const EventsBoard: React.FC = () => {
       <NotificationToast />
       <DiscussionModal event={discussEvent} onClose={() => setDiscussEvent(null)} />
       {showRecruitModal && <RecruitFormModal isOpen={showRecruitModal} onClose={() => setShowRecruitModal(false)} />}
-      {showContributeModal && <ContributeEventModal isOpen={showContributeModal} onClose={() => setShowContributeModal(false)} />}
+      {showContributeModal && <ContributeEventModal isOpen={showContributeModal} onClose={() => setShowContributeModal(false)} onShowToast={showToast} />}
       {showScoreGuide && <ScoreGuideModal isOpen={showScoreGuide} onClose={() => setShowScoreGuide(false)} />}
       {showManageModal && <ManageEventModal />}
     </div>
