@@ -9,7 +9,8 @@ import { EventsBoard } from './components/EventsBoard';
 import { LostFoundBoard } from './components/LostFoundBoard';
 import { RoleSelection } from './components/RoleSelection';
 import { LoginScreen } from './components/LoginScreen';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield } from 'lucide-react';
+import { ActivityLogModal } from './components/ActivityLogModal';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
@@ -68,6 +69,7 @@ const App: React.FC = () => {
   const [showImportGuide, setShowImportGuide] = useState(false);
   const [showImportLoadingToast, setShowImportLoadingToast] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showActivityLog, setShowActivityLog] = useState(false);
   const [activeView, setActiveView] = useState<'dashboard' | 'handbook' | 'events' | 'lost-found'>('dashboard');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -501,13 +503,25 @@ const App: React.FC = () => {
 
                 {/* Logout / Switch Role */}
                 {userRolePref === 'admin' ? (
-                    <button 
-                        onClick={handleLogout}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all duration-300 active:scale-90"
-                        title="Đăng xuất"
-                    >
-                        <LogOut size={20} />
-                    </button>
+                    <>
+                        {isAdmin && (
+                            <button 
+                                onClick={() => { playClick(); setShowActivityLog(true); }}
+                                className="p-2 text-gray-400 hover:text-[#003375] hover:bg-blue-50 rounded-full transition-all duration-300 active:scale-90 relative group"
+                                title="Lịch sử hoạt động"
+                            >
+                                <Clock size={20} />
+                                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-ping opacity-0 group-hover:opacity-100"></span>
+                            </button>
+                        )}
+                        <button 
+                            onClick={handleLogout}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all duration-300 active:scale-90"
+                            title="Đăng xuất"
+                        >
+                            <LogOut size={20} />
+                        </button>
+                    </>
                 ) : (
                     <button 
                         onClick={handleSwitchRole}
@@ -629,6 +643,7 @@ const App: React.FC = () => {
 
       {showImportGuide && <ImportGuideModal />}
       {showGuide && <UserGuideModal />}
+      {showActivityLog && <ActivityLogModal onClose={() => setShowActivityLog(false)} />}
     </div>
   );
 };
