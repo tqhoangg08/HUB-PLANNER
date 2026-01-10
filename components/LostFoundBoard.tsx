@@ -51,7 +51,7 @@ export const LostFoundBoard: React.FC = () => {
       const { data, error } = await supabase
         .from('lost_found_items')
         .select('*')
-        // .eq('status', 'approved') // Đã bỏ bộ lọc duyệt tin
+        .eq('status', 'approved') // Chỉ lấy tin đã duyệt
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -89,7 +89,7 @@ export const LostFoundBoard: React.FC = () => {
 
   const showToast = (msg: string, type: 'success' | 'error') => {
       setNotification({ msg, type });
-      setTimeout(() => setNotification(null), 3000);
+      setTimeout(() => setNotification(null), 5000);
   };
 
   // --- SUBMIT MODAL COMPONENT ---
@@ -154,23 +154,29 @@ export const LostFoundBoard: React.FC = () => {
                   imageUrl = publicUrl;
               }
 
-              // 2. Insert Record via RPC
-              const { error: insertError } = await supabase.rpc('submit_lost_found_item', {
-                  p_title: formData.title,
-                  p_description: formData.description,
-                  p_location: formData.location,
-                  p_contact_info: formData.contact_info,
-                  p_user_name: formData.user_name || 'Ẩn danh',
-                  p_image_url: imageUrl,
-                  p_type: submitType
-              });
+              // 2. Insert Record (NO .select() to avoid RLS policy error on pending items)
+              const { error: insertError } = await supabase
+                  .from('lost_found_items')
+                  .insert([
+                      {
+                          title: formData.title,
+                          description: formData.description,
+                          location: formData.location,
+                          contact_info: formData.contact_info,
+                          user_name: formData.user_name || 'Ẩn danh',
+                          image_url: imageUrl,
+                          type: submitType,
+                          status: 'pending' // Explicitly set pending (or rely on DB default)
+                      }
+                  ]);
 
               if (insertError) throw insertError;
 
               // 3. Success
-              showToast("Đăng tin thành công!", 'success');
+              showToast("Đăng tin thành công! Tin của bạn đang chờ kiểm duyệt và sẽ hiển thị sớm.", 'success');
               setShowSubmitModal(false);
-              fetchItems(); // Reload list immediately
+              // Note: We DO NOT call fetchItems() here because the item is pending approval 
+              // and won't show up in the approved list anyway.
 
           } catch (err: any) {
               console.error(err);
