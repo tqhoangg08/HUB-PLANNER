@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { LogOut, Plus, Edit2, Trash2, Save, X, Loader2, Calendar, MapPin, User, Key, AlertCircle, ArrowLeft, Shield, History, Monitor, CheckCircle2, Circle } from 'lucide-react';
+import { LogOut, Plus, Edit2, Trash2, Save, X, Loader2, Calendar, MapPin, User, Key, AlertCircle, ArrowLeft, Shield, History, Monitor, CheckCircle2, Circle, Search as SearchIcon } from 'lucide-react';
 import { playClick } from '../utils/audio';
+import { AdminLostFoundBoard } from './AdminLostFoundBoard';
 
 interface AdminEventBoardProps {
     onBack: () => void;
@@ -12,7 +13,7 @@ interface EventData {
   id?: number;
   title: string;
   deadline: string; // YYYY-MM-DD
-  category: string; // Phân loại (Minigame, Cổ vũ...) - Giờ là Text
+  category: string; // Phân loại (Minigame, Cổ vũ...)
   criteria: string; // Mục (I, II...)
   points: string;
   organizer: string;
@@ -50,6 +51,7 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
   const [session, setSession] = useState<any>(null);
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [loading, setLoading] = useState(true);
+  const [activeView, setActiveView] = useState<'events' | 'lostfound'>('events'); // --- NEW: View Switching ---
   
   // Auth State
   const [email, setEmail] = useState('');
@@ -57,7 +59,7 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Data State
+  // Data State (Events)
   const [events, setEvents] = useState<any[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
   
@@ -66,7 +68,7 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   
-  // Modal & Form State
+  // Modal & Form State (Events)
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<EventData>(INITIAL_FORM);
@@ -126,15 +128,11 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
   const logActivity = async (userEmail: string, action: string) => {
       if (!supabase) return;
       try {
-          // 1. Get IP
           const ipRes = await fetch('https://api.ipify.org?format=json');
           const ipData = await ipRes.json();
           const ip = ipData.ip || 'Unknown';
-
-          // 2. Get User Agent
           const userAgent = navigator.userAgent;
 
-          // 3. Insert Log
           await supabase.from('activity_logs').insert([
               {
                   user_email: userEmail,
@@ -165,9 +163,7 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
       setAuthError(error.message);
       setAuthLoading(false);
     } else {
-        // Log success
         await logActivity(email, 'Đăng nhập thành công');
-        // Loading state will be handled by auth listener
     }
   };
 
@@ -181,38 +177,18 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
     setPassword('');
   };
 
-  // --- 2. CRUD & History Logic ---
+  // --- 2. Event CRUD Logic ---
   const fetchEvents = async () => {
     if (!supabase) return;
     setDataLoading(true);
     const { data, error } = await supabase
       .from('events')
       .select('*')
-      .order('created_at', { ascending: false }); // Mới tạo lên đầu để dễ quản lý
+      .order('created_at', { ascending: false }); 
     
     if (error) console.error(error);
     else setEvents(data || []);
     setDataLoading(false);
-  };
-
-  const fetchHistory = async () => {
-      if (!supabase) return;
-      setLoadingHistory(true);
-      const { data, error } = await supabase
-        .from('activity_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      
-      if (error) console.error(error);
-      else setActivityLogs(data || []);
-      setLoadingHistory(false);
-  };
-
-  const openHistoryModal = () => {
-      playClick();
-      setShowHistoryModal(true);
-      fetchHistory();
   };
 
   const handleDelete = async (id: number) => {
@@ -313,6 +289,27 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
     }
   };
 
+  // --- History Logic ---
+  const fetchHistory = async () => {
+      if (!supabase) return;
+      setLoadingHistory(true);
+      const { data, error } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      
+      if (error) console.error(error);
+      else setActivityLogs(data || []);
+      setLoadingHistory(false);
+  };
+
+  const openHistoryModal = () => {
+      playClick();
+      setShowHistoryModal(true);
+      fetchHistory();
+  };
+
   // --- Render Loading ---
   if (loading) return <div className="flex justify-center items-center h-screen bg-gray-50"><Loader2 className="animate-spin text-[#003375]" size={40}/></div>;
 
@@ -382,126 +379,151 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
   return (
     <div className="animate-fadeIn min-h-screen bg-gray-50 pb-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Dashboard Header */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-4">
-                <button 
-                    onClick={onBack}
-                    className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors text-gray-600"
-                    title="Quay lại trang chính"
-                >
-                    <ArrowLeft size={20} />
-                </button>
-                <div>
-                    <div className="flex items-center gap-2">
-                        <h2 className="text-2xl font-bold text-[#003375]">Quản lý Sự kiện</h2>
-                        {userRole === 'admin' ? (
-                            <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full font-bold border border-red-200">Super Admin</span>
-                        ) : (
-                            <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-bold border border-blue-200">Cộng tác viên</span>
-                        )}
+        
+        {/* Top Header */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+                <div className="flex items-center gap-4">
+                    <button 
+                        onClick={onBack}
+                        className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors text-gray-600"
+                        title="Quay lại trang chính"
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-2xl font-bold text-[#003375]">Hệ thống Quản trị</h2>
+                            {userRole === 'admin' ? (
+                                <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full font-bold border border-red-200">Super Admin</span>
+                            ) : (
+                                <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-bold border border-blue-200">Cộng tác viên</span>
+                            )}
+                        </div>
+                        <p className="text-gray-500 text-sm">{session.user.email}</p>
                     </div>
-                    <p className="text-gray-500 text-sm">{session.user.email}</p>
+                </div>
+                <div className="flex gap-3">
+                    {userRole === 'admin' && (
+                        <button 
+                            onClick={openHistoryModal}
+                            className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 px-3 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all active:scale-95"
+                        >
+                            <History size={18} /> <span className="hidden sm:inline">Lịch sử</span>
+                        </button>
+                    )}
+                    <button 
+                        onClick={handleLogout}
+                        className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all active:scale-95"
+                    >
+                        <LogOut size={18} /> <span className="hidden sm:inline">Đăng xuất</span>
+                    </button>
                 </div>
             </div>
-            <div className="flex gap-3">
-                {/* Security Log Button - Admin Only */}
-                {userRole === 'admin' && (
+
+            {/* Navigation Tabs */}
+            <div className="flex gap-2 border-b border-gray-100">
+                <button
+                    onClick={() => { playClick(); setActiveView('events'); }}
+                    className={`px-6 py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeView === 'events' ? 'border-[#003375] text-[#003375]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                    <Calendar size={18}/> Quản lý Sự kiện
+                </button>
+                <button
+                    onClick={() => { playClick(); setActiveView('lostfound'); }}
+                    className={`px-6 py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeView === 'lostfound' ? 'border-[#990000] text-[#990000]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                    <SearchIcon size={18}/> Quản lý Tìm đồ
+                </button>
+            </div>
+        </div>
+
+        {/* Dynamic Content */}
+        {activeView === 'lostfound' ? (
+            <AdminLostFoundBoard userRole={userRole} />
+        ) : (
+            <>
+                <div className="flex justify-end mb-4">
                     <button 
-                        onClick={openHistoryModal}
-                        className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 px-3 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all active:scale-95"
-                        title="Lịch sử hoạt động"
+                        onClick={openAddModal}
+                        className="bg-[#003375] hover:bg-[#002855] text-white px-4 py-2 rounded-lg font-bold shadow-sm flex items-center gap-2 transition-all active:scale-95"
                     >
-                        <History size={18} /> <span className="hidden sm:inline">Lịch sử</span>
+                        <Plus size={18} /> Thêm sự kiện
                     </button>
-                )}
+                </div>
 
-                <button 
-                    onClick={openAddModal}
-                    className="bg-[#003375] hover:bg-[#002855] text-white px-4 py-2 rounded-lg font-bold shadow-sm flex items-center gap-2 transition-all active:scale-95"
-                >
-                    <Plus size={18} /> <span className="hidden sm:inline">Thêm sự kiện</span>
-                </button>
-                <button 
-                    onClick={handleLogout}
-                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-all active:scale-95"
-                >
-                    <LogOut size={18} /> <span className="hidden sm:inline">Đăng xuất</span>
-                </button>
-            </div>
-        </div>
-
-        {/* Events Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-700 uppercase font-bold text-xs">
-                        <tr>
-                            <th className="px-6 py-3">Tên sự kiện</th>
-                            <th className="px-6 py-3">Trạng thái</th>
-                            <th className="px-6 py-3">Hạn</th>
-                            <th className="px-6 py-3">BTC</th>
-                            <th className="px-6 py-3 text-center">Hành động</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {dataLoading ? (
-                            <tr><td colSpan={5} className="text-center py-8"><Loader2 className="animate-spin mx-auto text-[#003375]"/></td></tr>
-                        ) : events.length === 0 ? (
-                            <tr><td colSpan={5} className="text-center py-8 text-gray-500">Chưa có sự kiện nào.</td></tr>
-                        ) : (
-                            events.map((evt) => {
-                                let statusColor = 'bg-gray-100 text-gray-600 border-gray-200';
-                                if (evt.status === 'Sắp diễn ra') statusColor = 'bg-yellow-100 text-yellow-800 border-yellow-200';
-                                else if (evt.status === 'Đang diễn ra') statusColor = 'bg-green-100 text-green-800 border-green-200';
-                                
-                                return (
-                                <tr key={evt.id} className="hover:bg-blue-50/30 transition-colors">
-                                    <td className="px-6 py-4 font-medium text-gray-900">
-                                        <div className="line-clamp-2">{evt.title}</div>
-                                        <div className="flex gap-2 mt-1">
-                                            <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded border border-gray-200">{evt.category}</span>
-                                            <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100 font-bold">+{evt.points} điểm</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`text-xs font-bold px-2 py-1 rounded-full border flex w-fit items-center gap-1 ${statusColor}`}>
-                                            <Circle size={8} fill="currentColor" /> {evt.status || 'Sắp diễn ra'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                                        {evt.deadline ? new Date(evt.deadline).toLocaleDateString('vi-VN') : '-'}
-                                    </td>
-                                    <td className="px-6 py-4 text-gray-600">{evt.organizer}</td>
-                                    <td className="px-6 py-4 text-center">
-                                        <div className="flex justify-center gap-2">
-                                            <button 
-                                                onClick={() => openEditModal(evt)}
-                                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors" 
-                                                title="Sửa"
-                                            >
-                                                <Edit2 size={16}/>
-                                            </button>
-                                            
-                                            {/* RBAC: Only Admin can Delete */}
-                                            {userRole === 'admin' && (
-                                                <button 
-                                                    onClick={() => handleDelete(evt.id)}
-                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors" 
-                                                    title="Xóa"
-                                                >
-                                                    <Trash2 size={16}/>
-                                                </button>
-                                            )}
-                                        </div>
-                                    </td>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-gray-50 text-gray-700 uppercase font-bold text-xs">
+                                <tr>
+                                    <th className="px-6 py-3">Tên sự kiện</th>
+                                    <th className="px-6 py-3">Trạng thái</th>
+                                    <th className="px-6 py-3">Hạn</th>
+                                    <th className="px-6 py-3">BTC</th>
+                                    <th className="px-6 py-3 text-center">Hành động</th>
                                 </tr>
-                            )})
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {dataLoading ? (
+                                    <tr><td colSpan={5} className="text-center py-8"><Loader2 className="animate-spin mx-auto text-[#003375]"/></td></tr>
+                                ) : events.length === 0 ? (
+                                    <tr><td colSpan={5} className="text-center py-8 text-gray-500">Chưa có sự kiện nào.</td></tr>
+                                ) : (
+                                    events.map((evt) => {
+                                        let statusColor = 'bg-gray-100 text-gray-600 border-gray-200';
+                                        if (evt.status === 'Sắp diễn ra') statusColor = 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                                        else if (evt.status === 'Đang diễn ra') statusColor = 'bg-green-100 text-green-800 border-green-200';
+                                        
+                                        return (
+                                        <tr key={evt.id} className="hover:bg-blue-50/30 transition-colors">
+                                            <td className="px-6 py-4 font-medium text-gray-900">
+                                                <div className="line-clamp-2">{evt.title}</div>
+                                                <div className="flex gap-2 mt-1">
+                                                    <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded border border-gray-200">{evt.category}</span>
+                                                    <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100 font-bold">+{evt.points} điểm</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`text-xs font-bold px-2 py-1 rounded-full border flex w-fit items-center gap-1 ${statusColor}`}>
+                                                    <Circle size={8} fill="currentColor" /> {evt.status || 'Sắp diễn ra'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                                                {evt.deadline ? new Date(evt.deadline).toLocaleDateString('vi-VN') : '-'}
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-600">{evt.organizer}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <div className="flex justify-center gap-2">
+                                                    <button 
+                                                        onClick={() => openEditModal(evt)}
+                                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors" 
+                                                        title="Sửa"
+                                                    >
+                                                        <Edit2 size={16}/>
+                                                    </button>
+                                                    
+                                                    {/* RBAC: Only Admin can Delete */}
+                                                    {userRole === 'admin' && (
+                                                        <button 
+                                                            onClick={() => handleDelete(evt.id)}
+                                                            className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors" 
+                                                            title="Xóa"
+                                                        >
+                                                            <Trash2 size={16}/>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )})
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </>
+        )}
       </div>
 
       {/* Modal Form */}
