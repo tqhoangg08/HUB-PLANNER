@@ -7,13 +7,14 @@ import { Onboarding } from './components/Onboarding';
 import { Handbook } from './components/Handbook';
 import { EventsBoard } from './components/EventsBoard';
 import { LostFoundBoard } from './components/LostFoundBoard';
-import { AdminEventBoard } from './components/AdminEventBoard';
 import { RoleSelection } from './components/RoleSelection';
+import { LoginScreen } from './components/LoginScreen';
 import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
+import { supabase } from './utils/supabase';
 
 // Default generator if no PDF is used
 const generateStandardCurriculum = (): Semester[] => {
@@ -50,17 +51,15 @@ const INITIAL_DATA: UserData = {
 };
 
 const App: React.FC = () => {
-  // Global Role Hook (checks Supabase session)
-  const { role: authenticatedRole, isAdmin } = useUserRole();
+  // Global Role Hook
+  const { isAdmin, isCTV, session, loading: loadingRole } = useUserRole();
+  const canManage = isAdmin || isCTV;
 
   // Local Preference Role (User selected in RoleSelection)
   const [userRolePref, setUserRolePref] = useState<'unknown' | 'student' | 'admin'>(() => {
       const savedRole = localStorage.getItem('user_role_preference');
       return (savedRole === 'student' || savedRole === 'admin') ? savedRole : 'unknown';
   });
-
-  // Admin View State (Dashboard vs Main App)
-  const [adminDashboardMode, setAdminDashboardMode] = useState(true);
 
   // App Data State (For Student Role)
   const [data, setData] = useState<UserData>(INITIAL_DATA);
@@ -99,9 +98,6 @@ const App: React.FC = () => {
   const handleRoleSelect = (role: 'student' | 'admin') => {
       localStorage.setItem('user_role_preference', role);
       setUserRolePref(role);
-      if (role === 'admin') {
-          setAdminDashboardMode(true);
-      }
   };
 
   const handleSwitchRole = () => {
@@ -109,6 +105,17 @@ const App: React.FC = () => {
       if (window.confirm("Bạn muốn quay lại màn hình chọn vai trò?")) {
           localStorage.removeItem('user_role_preference');
           setUserRolePref('unknown');
+          if (session) {
+              supabase?.auth.signOut();
+          }
+      }
+  };
+
+  const handleLogout = async () => {
+      playClick();
+      if (window.confirm("Đăng xuất khỏi tài khoản quản trị?")) {
+          await supabase?.auth.signOut();
+          // Stay on admin role pref but show login screen
       }
   };
 
@@ -376,18 +383,19 @@ const App: React.FC = () => {
       return <RoleSelection onSelect={handleRoleSelect} />;
   }
 
-  // 2. Admin Flow (Dashboard View)
-  if (userRolePref === 'admin' && adminDashboardMode) {
-      return (
-        <AdminEventBoard 
-            onBack={handleSwitchRole} 
-            onGoToApp={() => { playClick(); setAdminDashboardMode(false); }} 
-        />
-      );
+  // 2. Admin Flow (Login Check)
+  if (userRolePref === 'admin') {
+      if (loadingRole) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#003375]" size={40}/></div>;
+      
+      // If not logged in, show Login Screen
+      if (!session) {
+          return <LoginScreen onBack={handleSwitchRole} />;
+      }
+      
+      // If logged in, proceed to Main App (In-place Management Mode)
   }
 
-  // 3. Student Flow OR Admin In-App View
-  // Check onboarding for student only (Admin skips onboarding if just viewing app)
+  // 3. Student Flow - Check onboarding
   if (userRolePref === 'student' && !data.hasOnboarded) {
       return <Onboarding onComplete={handleOnboardingComplete} />;
   }
@@ -417,16 +425,6 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2 md:gap-4">
-             {/* Admin Quick Action */}
-             {userRolePref === 'admin' && (
-                 <button
-                    onClick={() => { playClick(); setAdminDashboardMode(true); }}
-                    className="bg-[#003375] text-white px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 hover:bg-[#002855] shadow-sm transition-all active:scale-95"
-                 >
-                     <Shield size={14} /> Về Dashboard
-                 </button>
-             )}
-
              {/* Navigation Tabs */}
              <div className="flex bg-gray-100 rounded-lg p-1 gap-1 overflow-x-auto max-w-[200px] sm:max-w-none no-scrollbar shadow-inner">
                 <button 
@@ -459,16 +457,30 @@ const App: React.FC = () => {
                 </button>
              </div>
 
-             {/* Simple User Profile Trigger/Reset/Exit */}
+             {/* User Info / Controls */}
              <div className="flex items-center gap-2 border-l border-gray-300 pl-4 ml-2">
                 <div className="text-right hidden sm:block">
-                    <p className="text-xs font-bold text-[#003375] uppercase line-clamp-1 max-w-[120px]">
-                        {userRolePref === 'admin' ? 'Admin' : data.studentName}
-                    </p>
-                    <p className="text-[10px] text-gray-500">
-                        {userRolePref === 'admin' ? 'System' : data.cohort}
-                    </p>
+                    {canManage ? (
+                        <>
+                            <p className="text-xs font-bold text-[#003375] uppercase line-clamp-1 max-w-[120px]">
+                                {isAdmin ? 'Admin' : 'CTV'}
+                            </p>
+                            <p className="text-[10px] text-gray-500 truncate max-w-[120px]">
+                                {session?.user.email}
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <p className="text-xs font-bold text-[#003375] uppercase line-clamp-1 max-w-[120px]">
+                                {data.studentName || 'Sinh viên'}
+                            </p>
+                            <p className="text-[10px] text-gray-500">
+                                {data.cohort}
+                            </p>
+                        </>
+                    )}
                 </div>
+                
                 <button 
                     onClick={() => { playClick(); setShowGuide(true); }}
                     className="p-2 text-gray-400 hover:text-[#003375] hover:bg-blue-50 rounded-full transition-all duration-300 active:scale-90"
@@ -476,7 +488,8 @@ const App: React.FC = () => {
                 >
                     <HelpCircle size={20} />
                 </button>
-                {userRolePref === 'student' && (
+                
+                {userRolePref === 'student' ? (
                     <button 
                         onClick={resetData} 
                         className="p-2 text-gray-400 hover:text-[#990000] hover:bg-red-50 rounded-full transition-all duration-300 transform hover:rotate-180 active:scale-90" 
@@ -484,15 +497,26 @@ const App: React.FC = () => {
                     >
                         <RotateCcw size={20} />
                     </button>
+                ) : null}
+
+                {/* Logout / Switch Role */}
+                {userRolePref === 'admin' ? (
+                    <button 
+                        onClick={handleLogout}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all duration-300 active:scale-90"
+                        title="Đăng xuất"
+                    >
+                        <LogOut size={20} />
+                    </button>
+                ) : (
+                    <button 
+                        onClick={handleSwitchRole}
+                        className="p-2 text-gray-400 hover:text-[#003375] hover:bg-blue-50 rounded-full transition-all duration-300 active:scale-90"
+                        title="Chọn vai trò"
+                    >
+                        <Shield size={20} />
+                    </button>
                 )}
-                {/* Logout Button */}
-                <button 
-                    onClick={handleSwitchRole}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all duration-300 active:scale-90"
-                    title="Thoát / Chọn vai trò"
-                >
-                    <LogOut size={20} />
-                </button>
              </div>
           </div>
         </div>
