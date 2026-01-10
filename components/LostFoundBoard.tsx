@@ -51,7 +51,7 @@ export const LostFoundBoard: React.FC = () => {
       const { data, error } = await supabase
         .from('lost_found_items')
         .select('*')
-        .eq('status', 'approved') // Chỉ lấy tin đã duyệt
+        // .eq('status', 'approved') // Đã bỏ bộ lọc theo yêu cầu
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -89,7 +89,7 @@ export const LostFoundBoard: React.FC = () => {
 
   const showToast = (msg: string, type: 'success' | 'error') => {
       setNotification({ msg, type });
-      setTimeout(() => setNotification(null), 5000);
+      setTimeout(() => setNotification(null), 3000);
   };
 
   // --- SUBMIT MODAL COMPONENT ---
@@ -154,7 +154,7 @@ export const LostFoundBoard: React.FC = () => {
                   imageUrl = publicUrl;
               }
 
-              // 2. Insert Record via RPC (to avoid RLS issues on insert)
+              // 2. Insert Record via RPC
               const { error: insertError } = await supabase.rpc('submit_lost_found_item', {
                   p_title: formData.title,
                   p_description: formData.description,
@@ -168,9 +168,9 @@ export const LostFoundBoard: React.FC = () => {
               if (insertError) throw insertError;
 
               // 3. Success
-              showToast("Đăng tin thành công! Tin của bạn đang được kiểm duyệt và sẽ hiển thị sau 2-4h.", 'success');
+              showToast("Đăng tin thành công!", 'success');
               setShowSubmitModal(false);
-              fetchItems(); // Reload list to ensure clean state (new item won't show yet)
+              fetchItems(); // Reload list immediately
 
           } catch (err: any) {
               console.error(err);
