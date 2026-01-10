@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Semester, Subject, GradeStatus } from '../types';
-import { calculateSubjectAverage, getGradeDetails, getSubjectStatus, getDegreeClassification, calculateForecastRank } from '../utils/calculations';
-import { fetchRankingData, AVAILABLE_DATASETS } from '../utils/rankingData';
-import { Trash2, Plus, Star, Search, X, Pencil, BookOpen, Crown, ChevronDown, TrendingUp } from 'lucide-react';
+import { calculateSubjectAverage, getGradeDetails, getSubjectStatus, getDegreeClassification } from '../utils/calculations';
+import { mapSemesterToId } from '../utils/rankingData';
+import { useForecastRank } from '../hooks/useForecastRank';
+import { Trash2, Plus, Star, Search, X, Pencil, BookOpen, Crown, ChevronDown, TrendingUp, Loader2, AlertCircle } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 interface SemesterTableProps {
@@ -56,8 +58,9 @@ const ScoreInput = ({
 
 export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [rankingInfo, setRankingInfo] = useState<{rank: number, total: number, text: string, gapInfo: any} | null>(null);
-  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
+  
+  // New Ranking Hook
+  const { fetchRank, result: rankingResult, loading: rankingLoading, error: rankingError } = useForecastRank();
   const [showRankMenu, setShowRankMenu] = useState(false);
   const rankMenuRef = useRef<HTMLDivElement>(null);
   
@@ -144,50 +147,19 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
   
   const classification = hasData ? getDegreeClassification(semGPA4) : '---';
 
-  // --- Ranking Logic ---
-  // Auto-detect dataset if none selected
-  useEffect(() => {
-    if (!selectedDatasetId && semester.name) {
-        const lowerName = semester.name.toLowerCase();
-        if (lowerName.includes('học kỳ 1') || lowerName.includes('hk1')) {
-            setSelectedDatasetId('hk1_2425');
-        } else if (lowerName.includes('học kỳ 2') || lowerName.includes('hk2')) {
-            setSelectedDatasetId('hk2_2425');
-        }
-    }
-  }, [semester.name]);
-
-  useEffect(() => {
-    if (hasData) {
-        const fetchRank = async () => {
-            const datasetToFetch = selectedDatasetId || semester.name; // Fallback to name-based detection in fetchRankingData
-            const historicalData = await fetchRankingData(datasetToFetch);
-            
-            if (historicalData) {
-                const userStats = {
-                    gpa4: semGPA4,
-                    credits: totalRegisteredCredits,
-                    drl: semester.trainingScore || 0
-                };
-                const result = calculateForecastRank(userStats, historicalData);
-                setRankingInfo({
-                    rank: result.rank,
-                    total: result.totalStudents,
-                    text: result.percentileText,
-                    gapInfo: result.gapInfo
-                });
-            } else {
-                setRankingInfo(null);
-            }
-        };
-
-        const timer = setTimeout(fetchRank, 500);
-        return () => clearTimeout(timer);
-    } else {
-        setRankingInfo(null);
-    }
-  }, [semester.name, semGPA4, totalRegisteredCredits, semester.trainingScore, hasData, selectedDatasetId]);
-
+  // --- NEW Ranking Logic ---
+  const handleCheckRank = () => {
+      playClick();
+      setShowRankMenu(true);
+      const semId = mapSemesterToId(semester.name);
+      
+      if (!semId) {
+          // Keep showing menu but with error handled by hook state or local UI
+          return;
+      }
+      
+      fetchRank(semId, semGPA4);
+  };
 
   // Styles for header - Darker academics tones
   let headerColor = "bg-gray-50 border-gray-200";
@@ -204,7 +176,8 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
     subject.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
-  const currentDatasetName = AVAILABLE_DATASETS.find(d => d.id === selectedDatasetId)?.name || "Tự động chọn";
+  // Resolve mapped ID for display purpose
+  const mappedId = mapSemesterToId(semester.name);
 
   return (
     <div className={`mb-8 bg-white rounded-xl shadow-sm border overflow-hidden transition-all duration-300 hover:scale-[1.01] hover:shadow-xl ${hasData ? 'border-opacity-100' : 'border-gray-200'}`}>
@@ -235,54 +208,60 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
              {hasData && (
                  <div className="relative" ref={rankMenuRef}>
                     <button 
-                        onClick={() => { playClick(); setShowRankMenu(!showRankMenu); }}
-                        className="flex items-center gap-1 bg-yellow-100 text-yellow-800 px-3 py-1.5 rounded-lg border border-yellow-200 shadow-sm hover:bg-yellow-200 transition-all active:scale-95 hover:shadow-md"
+                        onClick={handleCheckRank}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg border shadow-sm transition-all active:scale-95 hover:shadow-md ${rankingResult ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
                         title="Xếp hạng dự báo"
                     >
-                        <Crown size={14} className="fill-yellow-500 text-yellow-600"/> 
-                        <span className="font-bold">{rankingInfo ? rankingInfo.text : 'Xếp hạng'}</span>
-                        <ChevronDown size={12} className={`transition-transform ${showRankMenu ? 'rotate-180' : ''}`}/>
+                        <Crown size={14} className={rankingResult ? "fill-yellow-500 text-yellow-600" : "text-gray-400"}/> 
+                        <span className="font-bold">
+                            {rankingResult ? `Top ${rankingResult.topPercent.toFixed(1)}%` : 'Xếp hạng'}
+                        </span>
                     </button>
 
                     {showRankMenu && (
-                        <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden animate-fadeIn">
-                            <div className="bg-gray-50 px-3 py-2 border-b border-gray-100 text-xs text-gray-500 font-semibold uppercase tracking-wider">
-                                So sánh với dữ liệu
-                            </div>
-                            <div className="max-h-40 overflow-y-auto">
-                                {AVAILABLE_DATASETS.map(ds => (
-                                    <button
-                                        key={ds.id}
-                                        onClick={() => { playClick(); setSelectedDatasetId(ds.id); setShowRankMenu(false); }}
-                                        className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 transition-colors flex items-center justify-between ${selectedDatasetId === ds.id ? 'text-[#003375] font-bold bg-blue-50' : 'text-gray-700'}`}
-                                    >
-                                        {ds.name}
-                                        {selectedDatasetId === ds.id && <Crown size={12} />}
-                                    </button>
-                                ))}
+                        <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden animate-fadeIn">
+                            <div className="bg-gray-50 px-3 py-2 border-b border-gray-100 text-xs text-gray-500 font-semibold uppercase tracking-wider flex justify-between items-center">
+                                <span>Xếp hạng dự báo</span>
+                                <button onClick={() => setShowRankMenu(false)}><X size={12}/></button>
                             </div>
                             
-                            {/* Detailed Info Section */}
-                            {rankingInfo && (
-                                <div className="bg-[#003375] text-white p-3 text-xs">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span>Hạng dự báo:</span>
-                                        <span className="font-bold text-yellow-300 text-sm">{rankingInfo.rank} <span className="text-white/70 font-normal">/ {rankingInfo.total}</span></span>
+                            <div className="p-4">
+                                {mappedId ? (
+                                    <>
+                                        <div className="text-xs text-gray-500 mb-3 text-center">
+                                            Dữ liệu so sánh: <span className="font-bold text-[#003375]">{mappedId}</span>
+                                        </div>
+
+                                        {rankingLoading ? (
+                                            <div className="flex flex-col items-center justify-center py-4 text-[#003375]">
+                                                <Loader2 size={24} className="animate-spin mb-2"/>
+                                                <span className="text-xs font-medium">Đang tính toán...</span>
+                                            </div>
+                                        ) : rankingError ? (
+                                            <div className="text-red-600 text-xs text-center flex flex-col items-center gap-1 bg-red-50 p-2 rounded">
+                                                <AlertCircle size={16}/> {rankingError}
+                                            </div>
+                                        ) : rankingResult ? (
+                                            <div className="text-center space-y-3">
+                                                <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+                                                    <p className="text-xs text-gray-500 uppercase">Thứ hạng của bạn</p>
+                                                    <p className="text-2xl font-black text-yellow-600">#{rankingResult.rank} <span className="text-sm font-medium text-gray-400">/ {rankingResult.totalStudents}</span></p>
+                                                </div>
+                                                <div className="bg-[#003375] text-white p-3 rounded-lg shadow-inner">
+                                                    <p className="text-xs opacity-80 uppercase">Top Percentile</p>
+                                                    <p className="text-xl font-bold flex items-center justify-center gap-1">
+                                                        <TrendingUp size={16}/> Top {rankingResult.topPercent.toFixed(1)}%
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ) : null}
+                                    </>
+                                ) : (
+                                    <div className="text-center text-gray-500 text-xs py-2">
+                                        Không nhận diện được học kỳ.<br/>Hãy đặt tên dạng: <strong>"Năm 2024-2025 - Học kỳ 1"</strong>
                                     </div>
-                                    {rankingInfo.gapInfo ? (
-                                        <div className="pt-2 border-t border-white/20">
-                                            <p className="flex items-center gap-1 text-orange-200 mb-1">
-                                                <TrendingUp size={12}/> Để lên hạng kế tiếp:
-                                            </p>
-                                            <p className="font-bold">{rankingInfo.gapInfo.message}</p>
-                                        </div>
-                                    ) : (
-                                        <div className="pt-2 border-t border-white/20 text-center text-green-300 font-bold">
-                                            Bạn đang dẫn đầu! 🏆
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     )}
                  </div>
