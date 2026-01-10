@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
+import { Session } from '@supabase/supabase-js';
 
 export type UserRole = 'admin' | 'editor' | 'student';
 
@@ -10,6 +11,7 @@ interface UserRoleState {
     isStudent: boolean;
     loading: boolean;
     userEmail: string | null;
+    session: Session | null;
 }
 
 export const useUserRole = () => {
@@ -19,7 +21,8 @@ export const useUserRole = () => {
         isCTV: false,
         isStudent: true,
         loading: true,
-        userEmail: null
+        userEmail: null,
+        session: null
     });
 
     useEffect(() => {
@@ -32,7 +35,15 @@ export const useUserRole = () => {
             const { data: { session } } = await supabase.auth.getSession();
             
             if (!session) {
-                setState(prev => ({ ...prev, loading: false }));
+                setState({
+                    role: 'student',
+                    isAdmin: false,
+                    isCTV: false,
+                    isStudent: true,
+                    loading: false,
+                    userEmail: null,
+                    session: null
+                });
                 return;
             }
 
@@ -47,9 +58,6 @@ export const useUserRole = () => {
                 let role: UserRole = 'student';
                 if (data && !error) {
                     role = data.role as UserRole;
-                } else {
-                    // Fallback or explicit check if 'editor' logic is hardcoded differently
-                    // For now assume user_roles table is the source of truth
                 }
 
                 setState({
@@ -58,7 +66,8 @@ export const useUserRole = () => {
                     isCTV: role === 'editor',
                     isStudent: role !== 'admin' && role !== 'editor',
                     loading: false,
-                    userEmail: session.user.email || null
+                    userEmail: session.user.email || null,
+                    session: session
                 });
 
             } catch (err) {
@@ -78,7 +87,8 @@ export const useUserRole = () => {
                     isCTV: false,
                     isStudent: true,
                     loading: false,
-                    userEmail: null
+                    userEmail: null,
+                    session: null
                  });
              } else if (_event === 'SIGNED_IN' || _event === 'TOKEN_REFRESHED') {
                  checkRole();
