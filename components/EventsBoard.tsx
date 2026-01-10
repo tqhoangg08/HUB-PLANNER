@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../utils/supabase';
-import { Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, MessageCircle, ChevronDown, Flame, Lock, Circle } from 'lucide-react';
+import { Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, MessageCircle, ChevronDown, Flame, Lock, Circle, Siren } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
 
@@ -12,7 +12,7 @@ interface HubEvent {
   score: string;     // Điểm số (DB: points)
   location: string;  // Hình thức (DB: format)
   time: string;      // Hạn tham gia hiển thị (DB: deadline format dd/mm/yyyy)
-  deadlineDate: Date | null; // Object Date để sort (không dùng để group)
+  deadlineDate: Date | null; // Object Date để sort và check logic ngày
   link: string;      // Link tham gia (DB: link)
   organizer: string; // BTC (DB: organizer)
   type: string;      // Phân loại (Minigame...) (DB: category)
@@ -76,6 +76,7 @@ export const EventsBoard: React.FC = () => {
               let deadlineDate = null;
               if (row.deadline) {
                   deadlineDate = new Date(row.deadline);
+                  // Set to end of day to avoid timezone issues when comparing just dates
                   deadlineDate.setHours(23, 59, 59, 999);
               }
 
@@ -123,9 +124,30 @@ export const EventsBoard: React.FC = () => {
     return matchesSearch && matchesTab && matchesScope;
   });
 
-  // Group Logic based on Status (Not Date)
-  const activeEvents = filteredEvents.filter(evt => evt.status !== 'Đã kết thúc');
+  // --- NEW GROUPING LOGIC ---
+  const today = new Date();
+  const isSameDay = (d1: Date | null, d2: Date) => {
+      if (!d1) return false;
+      return d1.getDate() === d2.getDate() &&
+             d1.getMonth() === d2.getMonth() &&
+             d1.getFullYear() === d2.getFullYear();
+  };
+
+  // 1. Deadline Today: Date matches today AND Not Closed
+  const deadlineTodayEvents = filteredEvents.filter(evt => 
+      evt.status !== 'Đã kết thúc' && 
+      isSameDay(evt.deadlineDate, today)
+  );
+
+  // 2. Active Events: Not Closed AND Not Today (to avoid duplicates)
+  const activeEvents = filteredEvents.filter(evt => 
+      evt.status !== 'Đã kết thúc' && 
+      !isSameDay(evt.deadlineDate, today)
+  );
+
+  // 3. Closed Events: Status is Closed
   const closedEvents = filteredEvents.filter(evt => evt.status === 'Đã kết thúc');
+
 
   const NotificationToast = () => {
     if (!notification) return null;
@@ -351,6 +373,9 @@ export const EventsBoard: React.FC = () => {
     const isActive = evt.status === 'Đang diễn ra';
     const isUpcoming = evt.status === 'Sắp diễn ra';
     
+    // Check if it's "Deadline Today" for specific styling inside card (optional, but good for consistency)
+    const isDeadlineToday = !isClosed && isSameDay(evt.deadlineDate, today);
+
     const formattedLink = evt.link && !evt.link.startsWith('http') ? `https://${evt.link}` : evt.link;
 
     return (
@@ -358,13 +383,17 @@ export const EventsBoard: React.FC = () => {
         ${isClosed ? 'border-gray-200 opacity-70 grayscale-[0.8] hover:opacity-100 hover:grayscale-0' : ''} 
         ${isActive ? 'border-green-300 ring-1 ring-green-50' : ''}
         ${isUpcoming ? 'border-yellow-300' : ''}
+        ${isDeadlineToday ? 'border-red-300 ring-1 ring-red-50' : ''}
       `}>
         {/* Status Badge - Top Right */}
         <div className={`absolute top-0 right-0 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 shadow-sm flex items-center gap-1
             ${isClosed ? 'bg-gray-200 text-gray-600' : 
+              isDeadlineToday ? 'bg-red-600 text-white' :
               isActive ? 'bg-green-100 text-green-700' : 
               'bg-yellow-100 text-yellow-700'}`}>
-            <Circle size={6} fill="currentColor" /> {evt.status}
+            {isDeadlineToday && <Siren size={10} className="animate-pulse" />}
+            {!isDeadlineToday && <Circle size={6} fill="currentColor" />} 
+            {isDeadlineToday ? 'Hạn chốt hôm nay' : evt.status}
         </div>
 
         {/* Type Badge - Top Left */}
@@ -386,9 +415,9 @@ export const EventsBoard: React.FC = () => {
 
         <div className="space-y-2 text-sm text-gray-600 mb-4 flex-1">
             <div className="flex items-start gap-2">
-                <Clock size={16} className={`mt-0.5 shrink-0 ${isClosed ? 'text-gray-400' : 'text-blue-500'}`} />
+                <Clock size={16} className={`mt-0.5 shrink-0 ${isClosed ? 'text-gray-400' : isDeadlineToday ? 'text-red-500 animate-pulse' : 'text-blue-500'}`} />
                 <div>
-                    <span className="text-gray-700">
+                    <span className={`font-medium ${isDeadlineToday ? 'text-red-600' : 'text-gray-700'}`}>
                         {evt.time || 'Chưa cập nhật hạn'}
                     </span>
                 </div>
@@ -399,7 +428,7 @@ export const EventsBoard: React.FC = () => {
         <div className="mt-auto flex gap-2">
              <button onClick={() => { playClick(); setDiscussEvent({ id: evt.id, name: evt.name }); }} className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 hover:text-[#003375] py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow-md" title="Thảo luận"><MessageCircle size={18} /><span className="hidden sm:inline">Thảo luận</span></button>
             {evt.link && !isClosed ? (
-                <a href={formattedLink} target="_blank" rel="noopener noreferrer" onClick={(e) => { playClick(); e.stopPropagation(); }} className="flex-[2] text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow-md bg-[#003375] hover:bg-[#002855]">Tham gia ngay</a>
+                <a href={formattedLink} target="_blank" rel="noopener noreferrer" onClick={(e) => { playClick(); e.stopPropagation(); }} className={`flex-[2] text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow-md ${isDeadlineToday ? 'bg-red-600 hover:bg-red-700' : 'bg-[#003375] hover:bg-[#002855]'}`}>Tham gia ngay</a>
             ) : (
                 <button disabled className={`flex-[2] py-2 rounded-lg font-medium text-sm cursor-not-allowed border flex items-center justify-center gap-2 ${isClosed ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-orange-50 text-orange-600 border-orange-200'}`}>
                     {isClosed ? <>Đã chốt sổ <Lock size={14}/></> : "Chưa có link"}
@@ -450,7 +479,19 @@ export const EventsBoard: React.FC = () => {
         <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn"><p className="font-bold mb-2">Đã xảy ra lỗi</p><p>{error}</p></div>
       ) : (
         <div className="space-y-8 animate-fadeIn">
-            {/* Section 1: Active Events */}
+            {/* Section 1: Deadline Today (Highest Priority) */}
+            {deadlineTodayEvents.length > 0 && (
+                <div className="bg-red-50 rounded-xl border border-red-200 p-4 sm:p-6 animate-pulse-soft">
+                    <h3 className="text-xl font-bold text-red-700 mb-4 flex items-center gap-2">
+                        <Siren className="animate-pulse" /> 🚨 Hạn chốt hôm nay ({deadlineTodayEvents.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {deadlineTodayEvents.map(evt => renderEventCard(evt))}
+                    </div>
+                </div>
+            )}
+
+            {/* Section 2: Active Events (Open Registration) */}
             {activeEvents.length > 0 && (
                 <div>
                     <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
@@ -462,7 +503,7 @@ export const EventsBoard: React.FC = () => {
                 </div>
             )}
 
-            {/* Section 2: Closed Events */}
+            {/* Section 3: Closed Events */}
             {closedEvents.length > 0 && (
                 <div>
                      <h3 className="text-xl font-bold text-gray-500 mb-4 flex items-center gap-2">
