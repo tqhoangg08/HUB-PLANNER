@@ -16,7 +16,7 @@ interface LostFoundItem {
   contact_info: string;   // SĐT/FB
   user_name: string;      // Tên người đăng
   image_url: string | null;
-  status: 'OPEN' | 'CLOSED';
+  status: 'pending' | 'approved' | 'OPEN' | 'CLOSED';
 }
 
 export const LostFoundBoard: React.FC = () => {
@@ -51,6 +51,7 @@ export const LostFoundBoard: React.FC = () => {
       const { data, error } = await supabase
         .from('lost_found_items')
         .select('*')
+        .eq('status', 'approved') // Chỉ lấy tin đã duyệt
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -163,16 +164,16 @@ export const LostFoundBoard: React.FC = () => {
                       location: formData.location,
                       contact_info: formData.contact_info,
                       user_name: formData.user_name || 'Ẩn danh', // Default if empty
-                      image_url: imageUrl,
-                      status: 'OPEN'
+                      image_url: imageUrl
+                      // status: để DB tự set default là 'pending'
                   }]);
 
               if (insertError) throw insertError;
 
               // 3. Success
-              showToast("Đăng tin thành công!", 'success');
+              showToast("Đăng tin thành công! Tin sẽ hiện sau khi được duyệt.", 'success');
               setShowSubmitModal(false);
-              fetchItems(); // Reload list
+              // fetchItems(); // Không cần fetch lại ngay vì tin pending chưa hiện
 
           } catch (err: any) {
               console.error(err);
