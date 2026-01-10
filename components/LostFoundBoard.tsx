@@ -89,7 +89,7 @@ export const LostFoundBoard: React.FC = () => {
 
   const showToast = (msg: string, type: 'success' | 'error') => {
       setNotification({ msg, type });
-      setTimeout(() => setNotification(null), 3000);
+      setTimeout(() => setNotification(null), 5000);
   };
 
   // --- SUBMIT MODAL COMPONENT ---
@@ -155,6 +155,8 @@ export const LostFoundBoard: React.FC = () => {
               }
 
               // 2. Insert Record
+              // KHÔNG gửi status (để DB tự default 'pending')
+              // KHÔNG dùng .select() để tránh lỗi Policy nếu user không được quyền xem tin chưa duyệt
               const { error: insertError } = await supabase
                   .from('lost_found_items')
                   .insert([{
@@ -165,15 +167,14 @@ export const LostFoundBoard: React.FC = () => {
                       contact_info: formData.contact_info,
                       user_name: formData.user_name || 'Ẩn danh', // Default if empty
                       image_url: imageUrl
-                      // status: để DB tự set default là 'pending'
                   }]);
 
               if (insertError) throw insertError;
 
               // 3. Success
-              showToast("Đăng tin thành công! Tin sẽ hiện sau khi được duyệt.", 'success');
+              showToast("Đăng tin thành công! Tin của bạn đang được kiểm duyệt và sẽ hiển thị sau 2-4h.", 'success');
               setShowSubmitModal(false);
-              // fetchItems(); // Không cần fetch lại ngay vì tin pending chưa hiện
+              fetchItems(); // Reload list to ensure clean state (new item won't show yet)
 
           } catch (err: any) {
               console.error(err);
