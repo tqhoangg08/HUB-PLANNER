@@ -17,7 +17,7 @@ export const useForecastRank = () => {
     const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
     const [loadingSemesters, setLoadingSemesters] = useState(false);
 
-    // 1. Fetch distinct semesters available in DB
+    // 1. Fetch distinct semesters available in DB using RPC
     const fetchAvailableSemesters = useCallback(async () => {
         if (!supabase) return;
         
@@ -26,22 +26,21 @@ export const useForecastRank = () => {
 
         setLoadingSemesters(true);
         try {
-            // Note: Supabase doesn't support .distinct() directly on select easily without RPC.
-            // We fetch the 'semester' column and deduplicate client-side.
-            // Using order helps getting consistent data structure.
-            const { data, error } = await supabase
-                .from('benchmark_rankings')
-                .select('semester')
-                .order('semester', { ascending: false });
+            // Use RPC 'get_semesters' to fetch distinct values efficiently
+            // This avoids the 1000-row limit of standard .select()
+            const { data, error } = await supabase.rpc('get_semesters');
 
             if (error) throw error;
 
             if (data) {
-                // Deduplicate using Set to get unique values
-                const uniqueSemesters = [...new Set(data.map((item: any) => item.semester))]
-                    .filter(Boolean); // Ensure no null/undefined values
+                // Data structure is expected to be [{ semester: 'HK1...' }, ...]
+                const uniqueSemesters = data
+                    .map((item: any) => item.semester)
+                    .filter(Boolean)
+                    .sort()
+                    .reverse(); // Sort descending (Newest first)
                 
-                setAvailableSemesters(uniqueSemesters as string[]);
+                setAvailableSemesters(uniqueSemesters);
             }
         } catch (err: any) {
             console.error("Error fetching semesters:", err);
