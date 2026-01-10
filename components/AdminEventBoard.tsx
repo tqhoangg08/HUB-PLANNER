@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { LogOut, Plus, Edit2, Trash2, Save, X, Loader2, Calendar, MapPin, User, Key, AlertCircle, ArrowLeft, Shield, History, Monitor, CheckCircle2, Circle, Search as SearchIcon, ToggleLeft, ToggleRight } from 'lucide-react';
+import { LogOut, Plus, Edit2, Trash2, Save, X, Loader2, Calendar, MapPin, User, Key, AlertCircle, ArrowLeft, Shield, History, Monitor, CheckCircle2, Circle, Search as SearchIcon, ToggleLeft, ToggleRight, ExternalLink } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { AdminLostFoundBoard } from './AdminLostFoundBoard';
 
 interface AdminEventBoardProps {
     onBack: () => void;
+    onGoToApp?: () => void; // New prop
 }
 
 // --- Types ---
@@ -49,11 +50,11 @@ const INITIAL_FORM: EventData = {
 
 type UserRole = 'admin' | 'editor' | null;
 
-export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
+export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack, onGoToApp }) => {
   const [session, setSession] = useState<any>(null);
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [loading, setLoading] = useState(true);
-  const [activeView, setActiveView] = useState<'events' | 'lostfound'>('events'); // --- NEW: View Switching ---
+  const [activeView, setActiveView] = useState<'events' | 'lostfound'>('events'); 
   
   // Auth State
   const [email, setEmail] = useState('');
@@ -407,7 +408,15 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                         <p className="text-gray-500 text-sm">{session.user.email}</p>
                     </div>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3 justify-end">
+                    {onGoToApp && (
+                        <button 
+                            onClick={onGoToApp}
+                            className="bg-[#003375] hover:bg-[#002855] text-white px-4 py-2 rounded-lg font-bold shadow-sm flex items-center gap-2 transition-all active:scale-95"
+                        >
+                            <ExternalLink size={18} /> Vào trang chính
+                        </button>
+                    )}
                     {userRole === 'admin' && (
                         <button 
                             onClick={openHistoryModal}
@@ -612,6 +621,7 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                         </label>
                     </div>
 
+                    {/* ... Rest of fields ... */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                          <div className="col-span-2">
                             <label className="block text-sm font-bold text-gray-700 mb-1">Phân loại (Tự nhập)</label>
