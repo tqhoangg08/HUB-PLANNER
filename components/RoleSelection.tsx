@@ -71,7 +71,7 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
             Quản trị viên
           </h2>
           <p className="text-gray-500 mb-6 text-center md:text-left">
-            Dành cho Ban Cán Sự, Đoàn Hội để đăng tải sự kiện ĐRL và quản lý hệ thống. Cần tài khoản.
+            Dành cho Cộng tác viên và quản lý hệ thống. Cần tài khoản.
           </p>
           
           <div className="mt-auto flex items-center gap-2 text-[#990000] font-bold group-hover:translate-x-2 transition-transform">
@@ -82,7 +82,7 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
       </div>
 
       <div className="mt-12 text-sm text-gray-400 font-medium">
-        © 2024 HUB Planner - Hỗ trợ sinh viên HUB
+        © 2026 HUB Planner - Hỗ trợ sinh viên HUB
       </div>
     </div>
   );
