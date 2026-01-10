@@ -299,7 +299,11 @@ export const LostFoundBoard: React.FC = () => {
     if (!supabase) { setItems([]); setError("Chưa cấu hình Supabase."); setLoading(false); return; }
 
     try {
-      let query = supabase.from('lost_found_items').select('*').order('created_at', { ascending: false });
+      // Updated query to filter out soft-deleted items
+      let query = supabase.from('lost_found_items')
+        .select('*')
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false });
       
       // RBAC: Students only see approved items. Admin/CTV see all (including pending)
       if (isStudent) {
@@ -345,9 +349,14 @@ export const LostFoundBoard: React.FC = () => {
   const handleDelete = async (id: number) => {
       if (!isAdmin) return;
       playClick();
-      if (!window.confirm("Xóa vĩnh viễn tin này?")) return;
+      if (!window.confirm("Xóa tin này?")) return;
       
-      const { error } = await supabase!.from('lost_found_items').delete().eq('id', id);
+      // Soft delete: Update is_deleted to true
+      const { error } = await supabase!
+        .from('lost_found_items')
+        .update({ is_deleted: true })
+        .eq('id', id);
+
       if (error) showToast("Lỗi xóa: " + error.message, 'error');
       else {
           showToast("Đã xóa tin", 'success');
