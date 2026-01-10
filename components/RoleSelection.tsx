@@ -81,8 +81,13 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
 
       </div>
 
-      <div className="mt-12 text-sm text-gray-400 font-medium">
-        © 2026 HUB Planner - Hỗ trợ sinh viên HUB
+      <div className="mt-16 text-center space-y-3 max-w-2xl px-4 animate-fadeIn delay-200">
+        <p className="text-sm text-gray-400 font-medium">
+          © 2024 HUB Planner - Hỗ trợ sinh viên HUB
+        </p>
+        <div className="text-[11px] text-gray-500 bg-white/60 border border-gray-200 rounded-lg p-3 shadow-sm backdrop-blur-sm">
+            <span className="font-bold text-[#990000]">Lưu ý:</span> Đây là dự án hỗ trợ sinh viên được phát triển bởi nhóm sinh viên, <strong>KHÔNG PHẢI</strong> là website chính thức của Trường Đại học Ngân hàng TP.HCM (HUB).
+        </div>
       </div>
     </div>
   );
