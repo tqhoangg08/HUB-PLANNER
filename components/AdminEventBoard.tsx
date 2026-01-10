@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { LogOut, Plus, Edit2, Trash2, Save, X, Loader2, Calendar, MapPin, User, Key, AlertCircle, ArrowLeft, Shield, History, Monitor } from 'lucide-react';
+import { LogOut, Plus, Edit2, Trash2, Save, X, Loader2, Calendar, MapPin, User, Key, AlertCircle, ArrowLeft, Shield, History, Monitor, CheckCircle2, Circle } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 interface AdminEventBoardProps {
@@ -12,13 +12,14 @@ interface EventData {
   id?: number;
   title: string;
   deadline: string; // YYYY-MM-DD
-  category: string; // Phân loại (Minigame...)
+  category: string; // Phân loại (Minigame, Cổ vũ...) - Giờ là Text
   criteria: string; // Mục (I, II...)
   points: string;
   organizer: string;
   link: string;
   location_type: string;
   format: string; // Online/Offline
+  status: string; // 'Sắp diễn ra' | 'Đang diễn ra' | 'Đã kết thúc'
 }
 
 interface ActivityLog {
@@ -39,7 +40,8 @@ const INITIAL_FORM: EventData = {
   organizer: '',
   link: '',
   location_type: 'Trong trường',
-  format: 'Offline'
+  format: 'Offline',
+  status: 'Sắp diễn ra'
 };
 
 type UserRole = 'admin' | 'editor' | null;
@@ -186,7 +188,7 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
     const { data, error } = await supabase
       .from('events')
       .select('*')
-      .order('deadline', { ascending: false }); 
+      .order('created_at', { ascending: false }); // Mới tạo lên đầu để dễ quản lý
     
     if (error) console.error(error);
     else setEvents(data || []);
@@ -258,7 +260,8 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
       organizer: event.organizer || '',
       link: event.link || '',
       location_type: event.location_type || 'Trong trường',
-      format: event.format || 'Offline'
+      format: event.format || 'Offline',
+      status: event.status || 'Sắp diễn ra'
     });
     setIsEditing(true);
     setShowModal(true);
@@ -279,7 +282,8 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
         organizer: formData.organizer,
         link: formData.link,
         location_type: formData.location_type,
-        format: formData.format
+        format: formData.format,
+        status: formData.status
     };
 
     let error;
@@ -434,9 +438,9 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                     <thead className="bg-gray-50 text-gray-700 uppercase font-bold text-xs">
                         <tr>
                             <th className="px-6 py-3">Tên sự kiện</th>
+                            <th className="px-6 py-3">Trạng thái</th>
                             <th className="px-6 py-3">Hạn</th>
                             <th className="px-6 py-3">BTC</th>
-                            <th className="px-6 py-3">Điểm</th>
                             <th className="px-6 py-3 text-center">Hành động</th>
                         </tr>
                     </thead>
@@ -446,20 +450,29 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                         ) : events.length === 0 ? (
                             <tr><td colSpan={5} className="text-center py-8 text-gray-500">Chưa có sự kiện nào.</td></tr>
                         ) : (
-                            events.map((evt) => (
+                            events.map((evt) => {
+                                let statusColor = 'bg-gray-100 text-gray-600 border-gray-200';
+                                if (evt.status === 'Sắp diễn ra') statusColor = 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                                else if (evt.status === 'Đang diễn ra') statusColor = 'bg-green-100 text-green-800 border-green-200';
+                                
+                                return (
                                 <tr key={evt.id} className="hover:bg-blue-50/30 transition-colors">
                                     <td className="px-6 py-4 font-medium text-gray-900">
                                         <div className="line-clamp-2">{evt.title}</div>
                                         <div className="flex gap-2 mt-1">
                                             <span className="text-[10px] bg-gray-100 px-2 py-0.5 rounded border border-gray-200">{evt.category}</span>
-                                            <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100">{evt.location_type}</span>
+                                            <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100 font-bold">+{evt.points} điểm</span>
                                         </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className={`text-xs font-bold px-2 py-1 rounded-full border flex w-fit items-center gap-1 ${statusColor}`}>
+                                            <Circle size={8} fill="currentColor" /> {evt.status || 'Sắp diễn ra'}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-gray-600">
                                         {evt.deadline ? new Date(evt.deadline).toLocaleDateString('vi-VN') : '-'}
                                     </td>
                                     <td className="px-6 py-4 text-gray-600">{evt.organizer}</td>
-                                    <td className="px-6 py-4 font-bold text-[#990000]">{evt.points}</td>
                                     <td className="px-6 py-4 text-center">
                                         <div className="flex justify-center gap-2">
                                             <button 
@@ -483,7 +496,7 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                                         </div>
                                     </td>
                                 </tr>
-                            ))
+                            )})
                         )}
                     </tbody>
                 </table>
@@ -519,16 +532,16 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Đơn vị tổ chức</label>
-                            <div className="relative">
-                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
-                                <input 
-                                    type="text" 
-                                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none"
-                                    value={formData.organizer}
-                                    onChange={e => setFormData({...formData, organizer: e.target.value})}
-                                />
-                            </div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Trạng thái</label>
+                            <select 
+                                className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-[#003375] outline-none bg-white"
+                                value={formData.status}
+                                onChange={e => setFormData({...formData, status: e.target.value})}
+                            >
+                                <option value="Sắp diễn ra">Sắp diễn ra</option>
+                                <option value="Đang diễn ra">Đang diễn ra</option>
+                                <option value="Đã kết thúc">Đã kết thúc</option>
+                            </select>
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Hạn tham gia</label>
@@ -546,19 +559,14 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                          <div className="col-span-2">
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Phân loại</label>
-                            <select 
-                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none bg-white"
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Phân loại (Tự nhập)</label>
+                            <input 
+                                type="text"
+                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none"
                                 value={formData.category}
                                 onChange={e => setFormData({...formData, category: e.target.value})}
-                            >
-                                <option value="Hoạt động phong trào">Hoạt động phong trào</option>
-                                <option value="Học thuật">Học thuật</option>
-                                <option value="Minigame">Minigame</option>
-                                <option value="Cổ vũ">Cổ vũ</option>
-                                <option value="Tình nguyện">Tình nguyện</option>
-                                <option value="Khác">Khác</option>
-                            </select>
+                                placeholder="VD: Minigame, Cổ vũ..."
+                            />
                          </div>
                          <div className="col-span-1">
                             <label className="block text-sm font-bold text-gray-700 mb-1">Mục</label>
@@ -587,18 +595,15 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Khu vực</label>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Đơn vị tổ chức</label>
                             <div className="relative">
-                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
-                                <select 
-                                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none bg-white"
-                                    value={formData.location_type}
-                                    onChange={e => setFormData({...formData, location_type: e.target.value})}
-                                >
-                                    <option value="Trong trường">Trong trường</option>
-                                    <option value="Ngoài trường">Ngoài trường</option>
-                                    <option value="Khác">Khác</option>
-                                </select>
+                                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
+                                <input 
+                                    type="text" 
+                                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none"
+                                    value={formData.organizer}
+                                    onChange={e => setFormData({...formData, organizer: e.target.value})}
+                                />
                             </div>
                         </div>
                         <div>
@@ -615,15 +620,32 @@ export const AdminEventBoard: React.FC<AdminEventBoardProps> = ({ onBack }) => {
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Link tham gia</label>
-                        <input 
-                            type="text" 
-                            className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-[#003375] outline-none"
-                            value={formData.link}
-                            onChange={e => setFormData({...formData, link: e.target.value})}
-                            placeholder="https://facebook.com/..."
-                        />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Khu vực</label>
+                            <div className="relative">
+                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
+                                <select 
+                                    className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none bg-white"
+                                    value={formData.location_type}
+                                    onChange={e => setFormData({...formData, location_type: e.target.value})}
+                                >
+                                    <option value="Trong trường">Trong trường</option>
+                                    <option value="Ngoài trường">Ngoài trường</option>
+                                    <option value="Khác">Khác</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Link tham gia</label>
+                            <input 
+                                type="text" 
+                                className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-[#003375] outline-none"
+                                value={formData.link}
+                                onChange={e => setFormData({...formData, link: e.target.value})}
+                                placeholder="https://..."
+                            />
+                        </div>
                     </div>
 
                     <div className="pt-4 flex gap-3">
