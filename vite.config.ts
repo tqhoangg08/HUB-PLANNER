@@ -10,9 +10,10 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
       },
       plugins: [react()],
-        build: {
+     build: {
       target: "esnext",
-    sourcemap: false,
+      sourcemap: false, // <--- Dòng này tắt file .map
+      minify: 'esbuild', // Nén code thành 1 cục dính chùm khó đọc
     },
       resolve: {
         alias: {
