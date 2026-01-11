@@ -233,7 +233,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange }) =>
        <div className="lg:col-span-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 shadow-sm">
            <AlertTriangle className="text-amber-600 shrink-0 mt-1" size={20} />
            <div className="text-sm text-amber-800 leading-relaxed">
-               <span className="font-bold">Lưu ý bảo mật:</span> Hệ thống tự động lưu điểm trên trình duyệt này. Nếu bạn đang dùng thiết bị công cộng (quán net, thư viện, của bạn bè...), vui lòng nhớ bấm nút <span className="font-bold">Xóa dữ liệu</span> (Reset) trước khi rời đi để bảo mật thông tin.
+               <span className="font-bold">Lưu ý bảo mật:</span> Điểm số của bạn chỉ được lưu cục bộ trên thiết bị của bạn đang sử dụng (Local Storage). Hệ thống KHÔNG gửi hay lưu trữ thông tin này về máy chủ, nên Admin/CTV hoàn toàn không xem được. Nếu bạn đang dùng thiết bị công cộng (quán net, thư viện, của bạn bè...), vui lòng nhớ bấm nút <span className="font-bold">Xóa dữ liệu</span> (Reset) ở góc phải màn hình trước khi rời đi để bảo mật thông tin.
            </div>
        </div>
 
