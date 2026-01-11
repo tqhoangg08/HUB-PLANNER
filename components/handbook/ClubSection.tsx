@@ -7,10 +7,10 @@ import { playClick } from '../../utils/audio';
 interface Club {
     id: number;
     name: string;
-    type: string; // 'Học thuật', 'Kỹ năng', ...
-    link: string;
+    category: string; // Mapped from 'type'
+    facebook_link: string; // Mapped from 'link'
     email: string;
-    manager: string;
+    affiliation: string; // Mapped from 'manager'
     logo_url?: string;
 }
 
@@ -40,7 +40,7 @@ export const ClubSection: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         if (!supabase) {
-            setClubs([{ id: 1, name: 'CLB Guitar (Demo)', type: 'Sở thích & Văn thể', link: '', email: 'guitar@hub.edu.vn', manager: 'Hội SV' }]);
+            setClubs([{ id: 1, name: 'CLB Guitar (Demo)', category: 'Sở thích & Văn thể', facebook_link: '', email: 'guitar@hub.edu.vn', affiliation: 'Hội SV' }]);
             setLoading(false);
             return;
         }
@@ -49,7 +49,7 @@ export const ClubSection: React.FC = () => {
             .from('clubs')
             .select('*')
             .eq('is_deleted', false)
-            .order('type', { ascending: true })
+            .order('category', { ascending: true })
             .order('name', { ascending: true });
         
         if (!error && data) setClubs(data);
@@ -58,7 +58,7 @@ export const ClubSection: React.FC = () => {
 
     // --- Grouping Logic ---
     const groupedClubs = clubs.reduce((acc, club) => {
-        const type = club.type || 'Khác';
+        const type = club.category || 'Khác';
         if (!acc[type]) acc[type] = [];
         acc[type].push(club);
         return acc;
@@ -137,7 +137,7 @@ export const ClubSection: React.FC = () => {
             {canManage && (
                 <div className="flex justify-end mb-4">
                     <button 
-                        onClick={() => { setEditingItem(null); setFormData({ type: 'Học thuật' }); setPreviewUrl(null); setIsModalOpen(true); playClick(); }}
+                        onClick={() => { setEditingItem(null); setFormData({ category: 'Học thuật' }); setPreviewUrl(null); setIsModalOpen(true); playClick(); }}
                         className="bg-[#003375] text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-[#002855] transition-all shadow-sm"
                     >
                         <Plus size={18} /> Thêm CLB
@@ -162,9 +162,9 @@ export const ClubSection: React.FC = () => {
                             <ul className="space-y-2">
                                 {list.map((item) => {
                                     let badgeColor = "bg-gray-100 text-gray-600";
-                                    if (item.manager === 'Đoàn trường') badgeColor = "bg-blue-100 text-blue-800";
-                                    else if (item.manager === 'Hội SV') badgeColor = "bg-orange-100 text-orange-800";
-                                    else if (item.manager?.includes('Đoàn khoa')) badgeColor = "bg-purple-100 text-purple-800";
+                                    if (item.affiliation === 'Đoàn trường') badgeColor = "bg-blue-100 text-blue-800";
+                                    else if (item.affiliation === 'Hội SV') badgeColor = "bg-orange-100 text-orange-800";
+                                    else if (item.affiliation?.includes('Đoàn khoa')) badgeColor = "bg-purple-100 text-purple-800";
 
                                     return (
                                         <li key={item.id} className="group/item border-b border-gray-100 last:border-0 pb-2 mb-2 last:mb-0 last:pb-0">
@@ -175,8 +175,8 @@ export const ClubSection: React.FC = () => {
                                                 </div>
                                                 
                                                 <div className="flex gap-2">
-                                                    {item.link && (
-                                                        <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-500" onClick={playClick}>
+                                                    {item.facebook_link && (
+                                                        <a href={item.facebook_link} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-500" onClick={playClick}>
                                                             <ExternalLink size={14} />
                                                         </a>
                                                     )}
@@ -191,7 +191,7 @@ export const ClubSection: React.FC = () => {
                                             
                                             <div className="flex flex-wrap items-center gap-2 mt-1 ml-8">
                                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border border-transparent ${badgeColor}`}>
-                                                    {item.manager}
+                                                    {item.affiliation}
                                                 </span>
                                                 {item.email && (
                                                     <button 
@@ -244,7 +244,7 @@ export const ClubSection: React.FC = () => {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Phân loại</label>
-                                    <select className="w-full border rounded-lg p-2 bg-white" value={formData.type || 'Học thuật'} onChange={e => setFormData({...formData, type: e.target.value})}>
+                                    <select className="w-full border rounded-lg p-2 bg-white" value={formData.category || 'Học thuật'} onChange={e => setFormData({...formData, category: e.target.value})}>
                                         <option value="Học thuật">Học thuật</option>
                                         <option value="Kỹ năng">Kỹ năng</option>
                                         <option value="Sở thích & Văn thể">Sở thích & Văn thể</option>
@@ -253,7 +253,7 @@ export const ClubSection: React.FC = () => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Đơn vị quản lý</label>
-                                    <input type="text" placeholder="VD: Hội SV" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#003375] outline-none" value={formData.manager || ''} onChange={e => setFormData({...formData, manager: e.target.value})} />
+                                    <input type="text" placeholder="VD: Hội SV" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#003375] outline-none" value={formData.affiliation || ''} onChange={e => setFormData({...formData, affiliation: e.target.value})} />
                                 </div>
                             </div>
 
@@ -263,7 +263,7 @@ export const ClubSection: React.FC = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Link Fanpage (Facebook)</label>
-                                <input type="text" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#003375] outline-none" value={formData.link || ''} onChange={e => setFormData({...formData, link: e.target.value})} />
+                                <input type="text" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#003375] outline-none" value={formData.facebook_link || ''} onChange={e => setFormData({...formData, facebook_link: e.target.value})} />
                             </div>
 
                             <button type="submit" disabled={isSubmitting} className="w-full bg-[#003375] text-white font-bold py-3 rounded-xl hover:bg-[#002855] transition-all flex items-center justify-center gap-2 mt-2">
