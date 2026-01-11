@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { supabase } from '../utils/supabase';
-import { Database, Loader2, CheckCircle, AlertCircle, Play } from 'lucide-react';
+import { Database, Loader2, AlertCircle, Play, CheckCircle2 } from 'lucide-react';
 
 export const MigrateTool: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
 
-    // --- HARDCODED DATA (Copied from Handbook.tsx) ---
+    // --- HARDCODED DATA SOURCE ---
     const contacts = [
         { name: 'Phòng Đào tạo', email: 'phongdaotao@hub.edu.vn', phone: '028.38.212.430', loc: '56 Hoàng Diệu 2 & 36 Tôn Thất Đạm' },
         { name: 'Phòng Công tác Sinh viên (TT SV&QHDN)', email: 'trungtamsvvaqhdn@hub.edu.vn', phone: '028.38.971.636', loc: '56 Hoàng Diệu 2' },
@@ -140,87 +140,93 @@ export const MigrateTool: React.FC = () => {
 
     const addLog = (msg: string) => setLogs(prev => [...prev, msg]);
 
-    const handleMigrate = async () => {
+    const handleSync = async () => {
         if (!supabase) {
             addLog("⚠️ Lỗi: Chưa kết nối Supabase!");
             return;
         }
-        if (!confirm("Bắt đầu đồng bộ? (Dữ liệu cũ sẽ được giữ nguyên, chỉ thêm mới)")) return;
+        if (!confirm("Bắt đầu đồng bộ? (Dữ liệu sẽ được Insert vào Supabase)")) return;
 
         setLoading(true);
         setLogs([]);
         addLog("🚀 Bắt đầu quá trình đồng bộ...");
 
         try {
-            // 1. Departments
-            addLog("📂 Đang xử lý Departments...");
+            // 1. Departments (Contacts)
+            addLog("📂 Đang xử lý bảng 'departments'...");
             const deptPayload = contacts.map(c => ({
                 name: c.name,
                 email: c.email,
                 phone: c.phone,
-                address: c.loc,
-                category: c.name.startsWith('Khoa') ? 'Khoa' : 'PhongBan',
+                address: c.loc, // MAP: loc -> address
+                category: c.name.startsWith('Khoa') ? 'khoa' : 'phong_ban', // MAP: logic category
                 is_deleted: false
             }));
+            
             const { error: errDept } = await supabase.from('departments').insert(deptPayload);
             if (errDept) throw new Error(`Lỗi Departments: ${errDept.message}`);
-            addLog(`✅ Đã thêm ${deptPayload.length} đơn vị vào bảng 'departments'.`);
+            addLog(`✅ Đã thêm ${deptPayload.length} records vào 'departments'.`);
 
             // 2. Bus Routes
-            addLog("🚌 Đang xử lý Bus Routes...");
+            addLog("🚌 Đang xử lý bảng 'bus_routes'...");
             const busPayload = busRoutes.map(b => ({
-                route_number: b.id,
-                route_name: b.name,
-                operating_hours: b.time,
-                frequency: b.freq,
+                route_number: b.id, // MAP: id -> route_number
+                route_name: b.name, // MAP: name -> route_name
+                operating_hours: b.time, // MAP: time -> operating_hours
+                frequency: b.freq, // MAP: freq -> frequency
                 color: b.color,
                 is_deleted: false
             }));
+
             const { error: errBus } = await supabase.from('bus_routes').insert(busPayload);
             if (errBus) throw new Error(`Lỗi Bus: ${errBus.message}`);
-            addLog(`✅ Đã thêm ${busPayload.length} tuyến xe buýt vào bảng 'bus_routes'.`);
+            addLog(`✅ Đã thêm ${busPayload.length} records vào 'bus_routes'.`);
 
-            // 3. Clubs
-            addLog("users Đang xử lý Clubs...");
+            // 3. Clubs (Nested -> Flatten)
+            addLog("👥 Đang xử lý bảng 'clubs'...");
             let clubPayload: any[] = [];
             clubs.forEach(group => {
                 group.list.forEach(item => {
                     clubPayload.push({
                         name: item.name,
-                        type: group.type, // Map 'type' from group to 'type' column
-                        link: item.link,
+                        category: group.type, // MAP: group.type -> category
+                        facebook_link: item.link, // MAP: item.link -> facebook_link
                         email: item.email,
-                        manager: item.manager,
+                        affiliation: item.manager, // MAP: item.manager -> affiliation
                         is_deleted: false
                     });
                 });
             });
+
             const { error: errClub } = await supabase.from('clubs').insert(clubPayload);
             if (errClub) throw new Error(`Lỗi Clubs: ${errClub.message}`);
-            addLog(`✅ Đã thêm ${clubPayload.length} CLB vào bảng 'clubs'.`);
+            addLog(`✅ Đã thêm ${clubPayload.length} records vào 'clubs'.`);
 
-            // 4. FAQs
-            addLog("❓ Đang xử lý FAQs...");
+            // 4. FAQs (Nested -> Flatten)
+            addLog("❓ Đang xử lý bảng 'faqs'...");
             let faqPayload: any[] = [];
             faqs.forEach(group => {
                 group.items.forEach(item => {
                     faqPayload.push({
-                        group_name: group.group, // Map 'group' to 'group_name'
-                        question: item.q,
-                        answer: item.a,
+                        category: group.group, // MAP: group.group -> category
+                        question: item.q, // MAP: item.q -> question
+                        answer: item.a, // MAP: item.a -> answer
                         is_deleted: false
                     });
                 });
             });
+
             const { error: errFaq } = await supabase.from('faqs').insert(faqPayload);
             if (errFaq) throw new Error(`Lỗi FAQs: ${errFaq.message}`);
-            addLog(`✅ Đã thêm ${faqPayload.length} câu hỏi vào bảng 'faqs'.`);
+            addLog(`✅ Đã thêm ${faqPayload.length} records vào 'faqs'.`);
 
             addLog("🎉 HOÀN TẤT ĐỒNG BỘ DỮ LIỆU!");
+            alert("Thành công! Đã đồng bộ dữ liệu lên Supabase.");
 
         } catch (err: any) {
             console.error(err);
             addLog(`❌ Lỗi nghiêm trọng: ${err.message}`);
+            alert(`Lỗi: ${err.message}`);
         } finally {
             setLoading(false);
         }
@@ -232,32 +238,32 @@ export const MigrateTool: React.FC = () => {
                 <Database size={24}/> Công cụ Migrate Dữ liệu
             </h2>
             
-            <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-6 text-sm text-yellow-800 flex gap-2">
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6 text-sm text-blue-800 flex gap-2">
                 <AlertCircle className="shrink-0 mt-0.5" size={16}/>
                 <div>
-                    <p className="font-bold">Lưu ý quan trọng:</p>
+                    <p className="font-bold">Hướng dẫn:</p>
                     <ul className="list-disc pl-4 mt-1 space-y-1">
-                        <li>Công cụ này sẽ Insert dữ liệu vào Supabase.</li>
-                        <li>Nếu chạy nhiều lần, dữ liệu sẽ bị trùng lặp (Duplicate).</li>
-                        <li>Chỉ dành cho Admin/Developer.</li>
+                        <li>Công cụ này sẽ lấy dữ liệu cứng (Contacts, Bus, Clubs, FAQs) và đẩy lên Supabase.</li>
+                        <li>Dữ liệu sẽ được Insert mới (không ghi đè). Nếu chạy nhiều lần sẽ bị trùng lặp.</li>
+                        <li>Chỉ dùng cho Admin khi khởi tạo Database.</li>
                     </ul>
                 </div>
             </div>
 
             <button 
-                onClick={handleMigrate}
+                onClick={handleSync}
                 disabled={loading}
                 className="w-full bg-[#990000] hover:bg-[#7a0000] text-white font-bold py-3 rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
             >
                 {loading ? <Loader2 className="animate-spin" size={20}/> : <Play size={20}/>}
-                {loading ? 'Đang đồng bộ...' : '⚡ ĐỒNG BỘ DATA LÊN SUPABASE'}
+                {loading ? 'Đang xử lý...' : '⚡ ĐỒNG BỘ DỮ LIỆU'}
             </button>
 
             <div className="mt-6 bg-gray-900 text-green-400 font-mono text-xs p-4 rounded-lg h-64 overflow-y-auto shadow-inner border border-gray-700">
                 {logs.length === 0 ? (
                     <span className="text-gray-500 italic">Logs sẽ hiện ở đây...</span>
                 ) : (
-                    logs.map((log, i) => <div key={i} className="mb-1">{log}</div>)
+                    logs.map((log, i) => <div key={i} className="mb-1 border-b border-gray-800 pb-1 last:border-0">{log}</div>)
                 )}
             </div>
         </div>
