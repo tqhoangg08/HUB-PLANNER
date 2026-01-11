@@ -4,6 +4,7 @@ import { supabase } from '../utils/supabase';
 import { Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, Save, ToggleLeft, ToggleRight, Settings, Tag } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
+import { CTVRegistrationForm } from './CTVRegistrationForm';
 import { useUserRole } from '../hooks/useUserRole';
 
 // --- Types ---
@@ -78,21 +79,20 @@ const RecruitFormModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     if (!isOpen) return null;
     return createPortal(
         <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white rounded-xl max-w-md w-full p-6 animate-scaleIn relative text-center" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-xl max-w-md w-full p-6 animate-scaleIn relative" onClick={e => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20} /></button>
-                <div className="w-16 h-16 bg-blue-100 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Users size={32} />
+                <div className="text-center mb-4">
+                    <div className="w-16 h-16 bg-blue-100 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Users size={32} />
+                    </div>
+                    <h3 className="text-xl font-bold text-[#003375]">Đăng ký CTV Nhập liệu</h3>
+                    <p className="text-gray-500 text-sm mt-1">
+                        Tham gia đội ngũ Admin để đóng góp cho cộng đồng sinh viên HUB.
+                    </p>
                 </div>
-                <h3 className="text-xl font-bold text-[#003375] mb-2">Trở thành CTV Nhập liệu</h3>
-                <p className="text-gray-600 mb-6 text-sm">
-                    Bạn muốn đóng góp cho cộng đồng sinh viên HUB? Hãy tham gia đội ngũ cập nhật tin tức sự kiện cùng chúng mình nhé!
-                </p>
-                <a href="#" onClick={(e) => { e.preventDefault(); alert("Đang mở form đăng ký..."); }} className="block w-full py-3 bg-[#003375] text-white rounded-xl font-bold hover:bg-[#002855] transition-colors mb-3">
-                    Đăng ký ngay
-                </a>
-                <button onClick={onClose} className="block w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors">
-                    Để sau
-                </button>
+                
+                <CTVRegistrationForm onClose={onClose} />
+                
             </div>
         </div>, document.body
     );
