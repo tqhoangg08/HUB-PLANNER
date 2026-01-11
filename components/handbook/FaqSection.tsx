@@ -6,7 +6,7 @@ import { playClick } from '../../utils/audio';
 
 interface FAQ {
     id: number;
-    group_name: string;
+    category: string; // Mapped from 'group_name'
     question: string;
     answer: string;
 }
@@ -32,7 +32,7 @@ export const FaqSection: React.FC = () => {
         setLoading(true);
         if (!supabase) {
             setFaqs([
-                { id: 1, group_name: 'Nhóm 1: Demo', question: 'Câu hỏi mẫu?', answer: 'Trả lời mẫu.' }
+                { id: 1, category: 'Nhóm 1: Demo', question: 'Câu hỏi mẫu?', answer: 'Trả lời mẫu.' }
             ]);
             setLoading(false);
             return;
@@ -42,7 +42,7 @@ export const FaqSection: React.FC = () => {
             .from('faqs')
             .select('*')
             .eq('is_deleted', false)
-            .order('group_name')
+            .order('category')
             .order('id');
         
         if (!error && data) setFaqs(data);
@@ -51,8 +51,8 @@ export const FaqSection: React.FC = () => {
 
     // Grouping
     const groupedFaqs = faqs.reduce((acc, faq) => {
-        if (!acc[faq.group_name]) acc[faq.group_name] = [];
-        acc[faq.group_name].push(faq);
+        if (!acc[faq.category]) acc[faq.category] = [];
+        acc[faq.category].push(faq);
         return acc;
     }, {} as Record<string, FAQ[]>);
 
@@ -105,7 +105,7 @@ export const FaqSection: React.FC = () => {
                 </div>
                 {canManage && (
                     <button 
-                        onClick={() => { setEditingItem(null); setFormData({ group_name: 'Chung' }); setIsModalOpen(true); playClick(); }}
+                        onClick={() => { setEditingItem(null); setFormData({ category: 'Chung' }); setIsModalOpen(true); playClick(); }}
                         className="bg-white text-[#003375] px-3 py-2 rounded-lg font-bold flex items-center gap-1 hover:bg-gray-100 active:scale-95 shadow-sm text-sm"
                     >
                         <Plus size={16} /> Thêm câu hỏi
@@ -155,7 +155,7 @@ export const FaqSection: React.FC = () => {
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Nhóm câu hỏi</label>
-                                <input type="text" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#003375] outline-none" placeholder="VD: Về học bổng" value={formData.group_name || ''} onChange={e => setFormData({...formData, group_name: e.target.value})} />
+                                <input type="text" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#003375] outline-none" placeholder="VD: Về học bổng" value={formData.category || ''} onChange={e => setFormData({...formData, category: e.target.value})} />
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Câu hỏi</label>
