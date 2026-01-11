@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
       plugins: [react()],
         build: {
       target: "esnext",
+    sourcemap: false,
     },
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
