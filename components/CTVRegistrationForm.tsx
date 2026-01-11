@@ -38,14 +38,7 @@ export const CTVRegistrationForm: React.FC<CTVRegistrationFormProps> = ({ onSucc
                 return;
             }
 
-            // 1. Get Current User
-            const { data: { user }, error: authError } = await supabase.auth.getUser();
-            
-            if (authError || !user) {
-                throw new Error("Bạn cần đăng nhập để thực hiện đăng ký.");
-            }
-
-            // 2. Insert Data
+            // Insert Data (Guest Mode - No user_id required)
             const { error: insertError } = await supabase
                 .from('ctv_requests')
                 .insert([
@@ -54,20 +47,20 @@ export const CTVRegistrationForm: React.FC<CTVRegistrationFormProps> = ({ onSucc
                         student_batch: formData.student_batch,
                         major: formData.major,
                         contact_info: formData.contact_info,
-                        user_id: user.id,
-                        status: 'pending'
+                        status: 'pending' // Default status
+                        // user_id is omitted as requested
                     }
                 ]);
 
             if (insertError) {
                 // Handle duplicate request or other DB errors
                 if (insertError.code === '23505') { // Unique violation
-                    throw new Error("Bạn đã gửi yêu cầu rồi. Vui lòng chờ phản hồi nhé!");
+                    throw new Error("Thông tin liên hệ này đã được gửi trước đó.");
                 }
                 throw insertError;
             }
 
-            // 3. Success
+            // Success
             setSuccess(true);
             if (onSuccess) onSuccess();
 
@@ -156,7 +149,7 @@ export const CTVRegistrationForm: React.FC<CTVRegistrationFormProps> = ({ onSucc
                             required
                             value={formData.major}
                             onChange={handleChange}
-                            placeholder="VD: BIT"
+                            placeholder="VD: KTQT"
                             className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none transition-all placeholder-gray-400"
                         />
                     </div>
