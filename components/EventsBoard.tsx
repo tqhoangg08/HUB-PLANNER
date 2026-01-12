@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../utils/supabase';
-import { Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, Save, ToggleLeft, ToggleRight, Settings, Tag } from 'lucide-react';
+import { Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, Save, ToggleLeft, ToggleRight, Settings, Tag, RotateCcw } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
-import { CTVRegistrationForm } from './CTVRegistrationForm';
 import { useUserRole } from '../hooks/useUserRole';
 
 // --- Types ---
@@ -79,24 +78,27 @@ const RecruitFormModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
     if (!isOpen) return null;
     return createPortal(
         <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white rounded-xl max-w-md w-full p-6 animate-scaleIn relative" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-xl max-w-md w-full p-6 animate-scaleIn relative text-center" onClick={e => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20} /></button>
-                <div className="text-center mb-4">
-                    <div className="w-16 h-16 bg-blue-100 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-3">
-                        <Users size={32} />
-                    </div>
-                    <h3 className="text-xl font-bold text-[#003375]">Đăng ký CTV Nhập liệu</h3>
-                    <p className="text-gray-500 text-sm mt-1">
-                        Tham gia đội ngũ Admin để đóng góp cho cộng đồng sinh viên HUB.
-                    </p>
+                <div className="w-16 h-16 bg-blue-100 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Users size={32} />
                 </div>
-                
-                <CTVRegistrationForm onClose={onClose} />
-                
+                <h3 className="text-xl font-bold text-[#003375] mb-2">Trở thành CTV Nhập liệu</h3>
+                <p className="text-gray-600 mb-6 text-sm">
+                    Bạn muốn đóng góp cho cộng đồng sinh viên HUB? Hãy tham gia đội ngũ cập nhật tin tức sự kiện cùng chúng mình nhé!
+                </p>
+                <a href="#" onClick={(e) => { e.preventDefault(); alert("Đang mở form đăng ký..."); }} className="block w-full py-3 bg-[#003375] text-white rounded-xl font-bold hover:bg-[#002855] transition-colors mb-3">
+                    Đăng ký ngay
+                </a>
+                <button onClick={onClose} className="block w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors">
+                    Để sau
+                </button>
             </div>
         </div>, document.body
     );
 };
+
+const DRAFT_KEY = 'event_form_draft';
 
 const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
     const [formData, setFormData] = useState({
@@ -111,6 +113,54 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         description: '' // Ghi chú thêm
     });
     const [submitting, setSubmitting] = useState(false);
+    const [isDraftLoaded, setIsDraftLoaded] = useState(false);
+
+    // --- Auto-Restore Draft ---
+    useEffect(() => {
+        if (isOpen) {
+            const savedDraft = localStorage.getItem(DRAFT_KEY);
+            if (savedDraft) {
+                try {
+                    const parsed = JSON.parse(savedDraft);
+                    setFormData(parsed);
+                    setIsDraftLoaded(true);
+                    // Ẩn thông báo "Đã khôi phục" sau 3s
+                    setTimeout(() => setIsDraftLoaded(false), 3000);
+                } catch (e) {
+                    console.error("Failed to restore draft", e);
+                }
+            }
+        }
+    }, [isOpen]);
+
+    // --- Auto-Save Draft ---
+    useEffect(() => {
+        if (isOpen) {
+            const timeoutId = setTimeout(() => {
+                localStorage.setItem(DRAFT_KEY, JSON.stringify(formData));
+            }, 500); // Debounce 500ms
+            return () => clearTimeout(timeoutId);
+        }
+    }, [formData, isOpen]);
+
+    const handleClearDraft = () => {
+        if (window.confirm("Bạn có chắc muốn xóa toàn bộ nội dung nháp và nhập lại từ đầu?")) {
+            playClick();
+            const resetData = {
+                title: '',
+                deadline: '',
+                category: 'Hoạt động phong trào',
+                criteria: 'III',
+                points: '5',
+                organizer: '',
+                link: '',
+                format: 'Offline',
+                description: ''
+            };
+            setFormData(resetData);
+            localStorage.removeItem(DRAFT_KEY);
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -157,6 +207,20 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             if (error) throw error;
 
             onShowToast("Đóng góp của bạn đã được gửi và đang chờ Admin duyệt. Cảm ơn bạn!", "success");
+            
+            // Clean up draft
+            localStorage.removeItem(DRAFT_KEY);
+            setFormData({
+                title: '',
+                deadline: '',
+                category: 'Hoạt động phong trào',
+                criteria: 'III',
+                points: '5',
+                organizer: '',
+                link: '',
+                format: 'Offline',
+                description: ''
+            });
             onClose();
         } catch (err: any) {
             console.error(err);
@@ -173,13 +237,23 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                     <h3 className="font-bold text-lg flex items-center gap-2">
                         <PlusCircle size={20}/> Đóng góp Sự kiện mới
                     </h3>
-                    <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
+                    <div className="flex items-center gap-2">
+                        {isDraftLoaded && <span className="text-xs bg-white/20 px-2 py-1 rounded animate-pulse">Đã khôi phục nháp</span>}
+                        <button 
+                            onClick={handleClearDraft} 
+                            className="hover:bg-white/20 p-2 rounded-full transition-colors text-white/80 hover:text-white"
+                            title="Xóa bản nháp / Làm mới"
+                        >
+                            <RotateCcw size={18} />
+                        </button>
+                        <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
+                    </div>
                 </div>
 
                 <div className="p-6">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-blue-800">
                         <Sparkles className="shrink-0 mt-0.5" size={18}/>
-                        <p>Cảm ơn bạn đã chia sẻ! Thông tin sẽ được Admin kiểm duyệt trước khi hiển thị công khai để đảm bảo tính chính xác.</p>
+                        <p>Dữ liệu đang nhập sẽ tự động được lưu. Bạn có thể quay lại sau mà không mất nội dung.</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
