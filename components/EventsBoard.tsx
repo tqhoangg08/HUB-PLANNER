@@ -110,6 +110,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         organizer: '',
         link: '',
         format: 'Offline',
+        location_type: 'Trong trường', // Default
         description: '' // Ghi chú thêm
     });
     const [submitting, setSubmitting] = useState(false);
@@ -155,6 +156,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 organizer: '',
                 link: '',
                 format: 'Offline',
+                location_type: 'Trong trường',
                 description: ''
             };
             setFormData(resetData);
@@ -195,7 +197,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 // Map description to a DB field if exists, or assume standard structure
                 // Assuming 'description' column exists or we fit it into title/notes
                 description: formData.description, 
-                location_type: 'Trong trường', // Default
+                location_type: formData.location_type,
                 status: 'pending', // IMPORTANT: Hardcode pending
                 is_manually_closed: false // IMPORTANT: Hardcode false
             };
@@ -219,6 +221,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 organizer: '',
                 link: '',
                 format: 'Offline',
+                location_type: 'Trong trường',
                 description: ''
             });
             onClose();
@@ -291,7 +294,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="col-span-1">
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Mục ĐRL</label>
                                 <select 
@@ -314,6 +317,17 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                     value={formData.points} 
                                     onChange={e => setFormData({...formData, points: e.target.value})} 
                                 />
+                            </div>
+                            <div className="col-span-1">
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Khu vực</label>
+                                <select 
+                                    className="w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
+                                    value={formData.location_type} 
+                                    onChange={e => setFormData({...formData, location_type: e.target.value})}
+                                >
+                                    <option value="Trong trường">Trong trường</option>
+                                    <option value="Ngoài trường">Ngoài trường</option>
+                                </select>
                             </div>
                             <div className="col-span-1">
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Hình thức</label>
@@ -767,7 +781,7 @@ export const EventsBoard: React.FC = () => {
                         </label>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="col-span-1">
                             <label className="block text-sm font-bold text-gray-700 mb-1">Mục</label>
                             <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.criteria} onChange={e => setFormData({...formData, criteria: e.target.value})}>
@@ -777,6 +791,13 @@ export const EventsBoard: React.FC = () => {
                         <div className="col-span-1">
                             <label className="block text-sm font-bold text-gray-700 mb-1">Điểm</label>
                             <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.points} onChange={e => setFormData({...formData, points: e.target.value})} />
+                        </div>
+                        <div className="col-span-1">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Khu vực</label>
+                            <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.location_type} onChange={e => setFormData({...formData, location_type: e.target.value})}>
+                                <option value="Trong trường">Trong trường</option>
+                                <option value="Ngoài trường">Ngoài trường</option>
+                            </select>
                         </div>
                         <div className="col-span-1">
                              <label className="block text-sm font-bold text-gray-700 mb-1">Hình thức</label>
