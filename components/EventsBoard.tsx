@@ -605,13 +605,15 @@ export const EventsBoard: React.FC = () => {
     );
   };
 
-  // --- Manage Modal Component ---
+  // --- Manage Modal Component with Auto-Save ---
+  const ADMIN_DRAFT_KEY = 'admin_event_draft';
+
   const ManageEventModal = () => {
       const [formData, setFormData] = useState({
           title: editingEvent?.name || '',
           deadline: editingEvent?.deadlineDate ? editingEvent.deadlineDate.toISOString().split('T')[0] : '',
           category: editingEvent?.type || 'Hoạt động phong trào',
-          classification: editingEvent?.classification || '', // New field state
+          classification: editingEvent?.classification || '',
           criteria: editingEvent?.category || 'III',
           points: editingEvent?.score || '5',
           organizer: editingEvent?.organizer || '',
@@ -622,17 +624,57 @@ export const EventsBoard: React.FC = () => {
           is_manually_closed: editingEvent?.is_manually_closed || false
       });
       const [submitting, setSubmitting] = useState(false);
+      const [isDraftLoaded, setIsDraftLoaded] = useState(false);
+
+      // 1. Auto-Restore Draft (Only for Create Mode)
+      useEffect(() => {
+          if (!editingEvent) {
+              const saved = localStorage.getItem(ADMIN_DRAFT_KEY);
+              if (saved) {
+                  try {
+                      setFormData(JSON.parse(saved));
+                      setIsDraftLoaded(true);
+                      setTimeout(() => setIsDraftLoaded(false), 3000);
+                  } catch (e) {
+                      console.error("Draft parse error", e);
+                  }
+              }
+          }
+      }, []);
+
+      // 2. Auto-Save Draft (Only for Create Mode)
+      useEffect(() => {
+          if (!editingEvent) {
+              const timeout = setTimeout(() => {
+                  localStorage.setItem(ADMIN_DRAFT_KEY, JSON.stringify(formData));
+              }, 500); // Debounce
+              return () => clearTimeout(timeout);
+          }
+      }, [formData, editingEvent]);
+
+      const handleReset = () => {
+          if (confirm("Bạn có chắc muốn xóa bản nháp và nhập lại từ đầu?")) {
+              playClick();
+              localStorage.removeItem(ADMIN_DRAFT_KEY);
+              setFormData({
+                  title: '', deadline: '', category: 'Hoạt động phong trào', classification: '',
+                  criteria: 'III', points: '5', organizer: '', link: '', location_type: 'Trong trường',
+                  format: 'Offline', status: 'Sắp diễn ra', is_manually_closed: false
+              });
+          }
+      };
 
       const handleSubmit = async (e: React.FormEvent) => {
           e.preventDefault();
           setSubmitting(true);
+          playClick();
           
           try {
               const payload = {
                   title: formData.title,
                   deadline: formData.deadline,
                   category: formData.category,
-                  classification: formData.classification, // Include in payload
+                  classification: formData.classification,
                   criteria: formData.criteria,
                   points: formData.points,
                   organizer: formData.organizer,
@@ -652,6 +694,8 @@ export const EventsBoard: React.FC = () => {
                   // Insert
                   const { error } = await supabase!.from('events').insert([payload]);
                   if (error) throw error;
+                  // Cleanup Draft on Success
+                  localStorage.removeItem(ADMIN_DRAFT_KEY);
                   showToast("Thêm sự kiện thành công!", "success");
               }
               fetchEvents();
@@ -671,9 +715,29 @@ export const EventsBoard: React.FC = () => {
                         {editingEvent ? <Edit2 size={20}/> : <PlusCircle size={20}/>}
                         {editingEvent ? 'Chỉnh sửa Sự kiện' : 'Thêm Sự kiện Mới'}
                     </h3>
-                    <button onClick={() => setShowManageModal(false)} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
+                    
+                    <div className="flex items-center gap-2">
+                        {isDraftLoaded && <span className="text-xs bg-white/20 px-2 py-1 rounded animate-pulse">Đã khôi phục nháp</span>}
+                        {!editingEvent && (
+                            <button 
+                                onClick={handleReset} 
+                                className="hover:bg-white/20 p-2 rounded-full transition-colors text-white/80 hover:text-white"
+                                title="Xóa nháp / Làm mới"
+                            >
+                                <RotateCcw size={18} />
+                            </button>
+                        )}
+                        <button onClick={() => setShowManageModal(false)} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
+                    </div>
                 </div>
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {!editingEvent && (
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-800 flex items-center gap-2">
+                            <Sparkles size={16} className="shrink-0"/>
+                            Dữ liệu đang nhập sẽ tự động được lưu nháp.
+                        </div>
+                    )}
+
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
                         <input type="text" required className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
