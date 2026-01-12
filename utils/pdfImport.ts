@@ -1,14 +1,14 @@
 import * as pdfjsLib from 'pdfjs-dist';
-import { GoogleGenAI } from "@google/genai";
 import { UserData, Semester, Subject } from '../types';
 
-// Set worker for PDF.js - ensure version matches the main library import
-// Tự động lấy đúng phiên bản worker khớp với thư viện
+// Set worker for PDF.js
+// @ts-ignore
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+
 interface ParsedResult {
     studentInfo: Partial<UserData>;
     semesters: Semester[];
-    yearRanges: {start: number, end: number}[]; // Keep track of found years
+    yearRanges: {start: number, end: number}[];
 }
 
 // System instruction for Gemini
@@ -31,24 +31,34 @@ QUY TẮC LỌC VÀ XỬ LÝ LỖI (BẮT BUỘC):
 4. Các môn bắt đầu bằng chữ "Kỹ năng", "GDTC", "Học phần", "Tiếng anh tăng cường" thường không tính vào GPA nhưng vẫn cần trích xuất chính xác.
 `;
 
-const extractSubjectsWithAI = async (text: string, ai: GoogleGenAI): Promise<any[]> => {
+// --- SỬA ĐỔI: GỌI VỀ SERVER VERCEL THAY VÌ DÙNG SDK ---
+const extractSubjectsWithAI = async (text: string): Promise<any[]> => {
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: `${GEMINI_SYSTEM_PROMPT}\n\nVĂN BẢN CẦN XỬ LÝ:\n${text}`,
-            config: {
-                responseMimeType: "application/json"
-            }
+        const fullPrompt = `${GEMINI_SYSTEM_PROMPT}\n\nVĂN BẢN CẦN XỬ LÝ:\n${text}`;
+
+        // Gọi về API của chính mình (đã tạo ở bước trước)
+        const response = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ message: fullPrompt }),
         });
-        
-        const jsonText = response.text;
+
+        if (!response.ok) {
+            throw new Error('Server API Error');
+        }
+
+        const data = await response.json();
+        const jsonText = data.result; // Lấy text trả về từ server
+
         if (!jsonText) return [];
         
-        // Clean up markdown code blocks if present (though prompt says not to)
+        // Clean up markdown code blocks if present
         const cleanJson = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
         return JSON.parse(cleanJson);
     } catch (error) {
-        console.error("Gemini Extraction Error:", error);
+        console.error("AI Extraction Error (via Proxy):", error);
         return [];
     }
 };
@@ -71,7 +81,6 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     fullText = fullText.replace(/\s+/g, ' ');
 
     // 2. Parse Student Info
-    // Pattern: "Trần Quốc Hoàng [Mã số: 030839230074]"
     const studentNameRegex = /([^\s].+?)\s*\[Mã số:\s*(\d+)\]/i;
     const studentMatch = fullText.match(studentNameRegex);
     
@@ -82,7 +91,6 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
         studentInfo.studentName = rawName;
     }
 
-    // Pattern: "Chương trình đào tạo: Kinh doanh quốc tế"
     const programRegex = /Chương trình đào tạo:\s*(.+?)\s+(?:Kết quả:|Năm học:)/i;
     const programMatch = fullText.match(programRegex);
     if (programMatch) {
@@ -90,11 +98,9 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     }
 
     // 3. Split by Semester Headers
-    // Header pattern: "Học kỳ 1/2023-2024"
     const semesters: Semester[] = [];
     const yearRanges: {start: number, end: number}[] = [];
     
-    // Find all indices of "Học kỳ X/YYYY-YYYY"
     const semHeaderRegex = /Học kỳ\s+(\d)\s*\/\s*(\d{4})\s*-\s*(\d{4})/gi;
     let match;
     const indices: { index: number, name: string, id: string, semesterNo: number, yearStart: number, yearEnd: number }[] = [];
@@ -104,8 +110,6 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
         const y1 = parseInt(match[2]);
         const y2 = parseInt(match[3]);
         
-        // Construct a structured ID that we can parse later in App.tsx
-        // Format: imported_2023_2024_hk1
         const id = `imported_${y1}_${y2}_hk${hk}`;
         const name = `Năm học ${y1}-${y2} - Học kỳ ${hk}`;
         
@@ -123,15 +127,8 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
         }
     }
 
-    // Initialize AI (if API key exists)
-let ai: GoogleGenAI | null = null;
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-if (apiKey) {
-    ai = new GoogleGenAI({ apiKey: apiKey });
-} else {
-    console.error("LỖI: Chưa tìm thấy VITE_GEMINI_API_KEY. Hãy kiểm tra cài đặt trên Vercel!");
-}
+    // --- SỬA ĐỔI: KHÔNG CẦN KHỞI TẠO AI SDK NỮA ---
+    // (Vì chúng ta dùng fetch gọi server, server sẽ tự lo việc kết nối Gemini)
 
     // Process each block
     for (let i = 0; i < indices.length; i++) {
@@ -143,57 +140,55 @@ if (apiKey) {
         let subjects: Subject[] = [];
         let trainingScore: number | null = null;
 
-        // --- STRATEGY: Try AI first, Fallback to Regex ---
         let aiSuccess = false;
 
-        if (ai) {
-            try {
-                const aiSubjects = await extractSubjectsWithAI(blockContent, ai);
-                if (aiSubjects && aiSubjects.length > 0) {
-                    subjects = aiSubjects.map((s: any, idx: number) => {
-                        // Check non-GPA based on rules
-                        let isNonGPA = false;
-                        const nameLower = s.ten_hoc_phan.toLowerCase();
-                        const nonGpaKeywords = [
-                            'gdtc', 'giáo dục thể chất',
-                            'quốc phòng', 'an ninh',
-                            'tiếng anh tăng cường',
-                            'kỹ năng',
-                            'đầu vào','học phần'
-                        ];
+        // --- STRATEGY: Try AI (via Proxy) first ---
+        try {
+            // Gọi hàm mới dùng fetch
+            const aiSubjects = await extractSubjectsWithAI(blockContent);
+            
+            if (aiSubjects && aiSubjects.length > 0) {
+                subjects = aiSubjects.map((s: any, idx: number) => {
+                    let isNonGPA = false;
+                    const nameLower = s.ten_hoc_phan.toLowerCase();
+                    const nonGpaKeywords = [
+                        'gdtc', 'giáo dục thể chất',
+                        'quốc phòng', 'an ninh',
+                        'tiếng anh tăng cường',
+                        'kỹ năng',
+                        'đầu vào','học phần'
+                    ];
 
-                        if (s.tin_chi === 0 || s.ket_qua === 'M' || nonGpaKeywords.some(k => nameLower.includes(k))) {
-                            isNonGPA = true;
-                        }
-                        
-                        // Parse score
-                        let scoreVal: number | null = null;
-                        if (typeof s.ket_qua === 'number') {
-                            scoreVal = s.ket_qua;
-                        } else if (typeof s.ket_qua === 'string') {
-                            const parsed = parseFloat(s.ket_qua);
-                            if (!isNaN(parsed)) scoreVal = parsed;
-                        }
+                    if (s.tin_chi === 0 || s.ket_qua === 'M' || nonGpaKeywords.some(k => nameLower.includes(k))) {
+                        isNonGPA = true;
+                    }
+                    
+                    let scoreVal: number | null = null;
+                    if (typeof s.ket_qua === 'number') {
+                        scoreVal = s.ket_qua;
+                    } else if (typeof s.ket_qua === 'string') {
+                        const parsed = parseFloat(s.ket_qua);
+                        if (!isNaN(parsed)) scoreVal = parsed;
+                    }
 
-                        return {
-                            id: `ai_${current.id}_${idx}`,
-                            name: s.ten_hoc_phan,
-                            credits: s.tin_chi,
-                            scoreCC: scoreVal,
-                            scoreProcess: scoreVal, // AI gives summary, we assume components match for now
-                            scoreMid: scoreVal,
-                            scoreFinal: scoreVal,
-                            isNonGPA: isNonGPA
-                        };
-                    });
-                    aiSuccess = true;
-                }
-            } catch (err) {
-                console.warn("AI parsing failed for block, falling back to regex", err);
+                    return {
+                        id: `ai_${current.id}_${idx}`,
+                        name: s.ten_hoc_phan,
+                        credits: s.tin_chi,
+                        scoreCC: scoreVal,
+                        scoreProcess: scoreVal,
+                        scoreMid: scoreVal,
+                        scoreFinal: scoreVal,
+                        isNonGPA: isNonGPA
+                    };
+                });
+                aiSuccess = true;
             }
+        } catch (err) {
+            console.warn("AI parsing failed for block, falling back to regex", err);
         }
 
-        // Fallback: Regex Parsing (if AI missing or failed)
+        // Fallback: Regex Parsing (giữ nguyên logic cũ)
         if (!aiSuccess) {
             const subjectRegex = /(\d+)\s+([A-Z0-9_]+)\s+(.+?)\s+(\d+)\s+(Bắt Buộc|Tự Chọn)\s+([0-9.]+|M)/gi;
             let subMatch;
@@ -241,7 +236,7 @@ if (apiKey) {
             }
         }
 
-        // Parse Training Score (Regex is usually fine for this simple field)
+        // Parse Training Score
         const trScoreRegex = /Điểm rèn luyện\s*[=:]\s*(\d+)/i;
         const trMatch = blockContent.match(trScoreRegex);
         if (trMatch) {
