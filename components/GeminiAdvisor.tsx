@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { MessageSquare, Sparkles, Loader2, X } from 'lucide-react';
 import { UserData, Subject } from '../types';
 import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
@@ -10,98 +9,86 @@ interface GeminiAdvisorProps {
   data: UserData;
 }
 
-// Helper to safely get API Key
-const getApiKey = () => {
-    try {
-        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-            return process.env.API_KEY;
-        }
-    } catch(e) {}
-    
-    try {
-        // @ts-ignore
-        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
-            // @ts-ignore
-            return import.meta.env.VITE_GEMINI_API_KEY;
-        }
-    } catch(e) {}
-    
-    return '';
-};
-
 export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<string | null>(null);
   const [customPrompt, setCustomPrompt] = useState("");
 
-  const handleAdvice = async () => {
-    playClick();
-    const apiKey = getApiKey();
-    
-    if (!apiKey) {
-      setResponse("Vui lòng cấu hình API KEY (VITE_GEMINI_API_KEY) để sử dụng tính năng này.");
-      return;
-    }
+const handleAdvice = async () => {
+    playClick();
+    // KHÔNG CẦN LẤY API KEY Ở ĐÂY NỮA
 
-    setLoading(true);
-    setResponse(null);
+    setLoading(true);
+    setResponse(null);
 
-    try {
-      const stats = calculateCumulativeStats(data.semesters);
-      const degree = getDegreeClassification(stats.gpa4);
-      
-      const failedSubjects = data.semesters.flatMap(sem => sem.subjects)
-        .filter(s => {
-            const avg = calculateSubjectAverage(s);
-            return avg !== null && avg < 4.0 && !s.isNonGPA;
-        })
-        .map(s => s.name);
+    try {
+      // --- 1. GIỮ NGUYÊN PHẦN TÍNH TOÁN DỮ LIỆU ---
+      const stats = calculateCumulativeStats(data.semesters);
+      const degree = getDegreeClassification(stats.gpa4);
+      
+      const failedSubjects = data.semesters.flatMap(sem => sem.subjects)
+        .filter(s => {
+            const avg = calculateSubjectAverage(s);
+            return avg !== null && avg < 4.0 && !s.isNonGPA;
+        })
+        .map(s => s.name);
 
-      const filledTrainingScores = data.semesters
-        .map(s => s.trainingScore)
-        .filter((s): s is number => s !== null && s !== undefined);
-      const avgTrainingScore = filledTrainingScores.length > 0
-        ? Math.round(filledTrainingScores.reduce((a, b) => a + b, 0) / filledTrainingScores.length)
-        : 0;
+      const filledTrainingScores = data.semesters
+        .map(s => s.trainingScore)
+        .filter((s): s is number => s !== null && s !== undefined);
+      const avgTrainingScore = filledTrainingScores.length > 0
+        ? Math.round(filledTrainingScores.reduce((a, b) => a + b, 0) / filledTrainingScores.length)
+        : 0;
 
-      const context = `
-        Bạn là một Cố vấn Học tập ảo tại trường Đại học Ngân hàng TP.HCM (HUB).
-        
-        Thông tin sinh viên:
-        - Tên: ${data.studentName || "Sinh viên"}
-        - Khóa: ${data.cohort || "N/A"}
-        - Chương trình: ${data.programName || "N/A"}
-        - Chuyên ngành: ${data.specializationName || data.majorName || "N/A"}
-        
-        Dữ liệu học tập:
-        - GPA (Hệ 4): ${stats.gpa4.toFixed(1)}
-        - GPA (Hệ 10): ${stats.gpa10.toFixed(1)}
-        - Tổng tín chỉ tích lũy: ${stats.passedCredits}/${data.totalCreditsRequired || 125}
-        - Xếp loại tạm thời: ${degree}
-        - Môn rớt (cần học lại): ${failedSubjects.length > 0 ? failedSubjects.join(', ') : 'Không có'}
-        - Điểm rèn luyện: ${avgTrainingScore}
-        - Mục tiêu GPA: ${data.targetGPA}
+      // --- 2. TẠO CONTEXT (NỘI DUNG CÂU HỎI) ---
+      const context = `
+        Bạn là một Cố vấn Học tập ảo tại trường Đại học Ngân hàng TP.HCM (HUB).
+        
+        Thông tin sinh viên:
+        - Tên: ${data.studentName || "Sinh viên"}
+        - Khóa: ${data.cohort || "N/A"}
+        - Chương trình: ${data.programName || "N/A"}
+        - Chuyên ngành: ${data.specializationName || data.majorName || "N/A"}
+        
+        Dữ liệu học tập:
+        - GPA (Hệ 4): ${stats.gpa4.toFixed(1)}
+        - GPA (Hệ 10): ${stats.gpa10.toFixed(1)}
+        - Tổng tín chỉ tích lũy: ${stats.passedCredits}/${data.totalCreditsRequired || 125}
+        - Xếp loại tạm thời: ${degree}
+        - Môn rớt (cần học lại): ${failedSubjects.length > 0 ? failedSubjects.join(', ') : 'Không có'}
+        - Điểm rèn luyện: ${avgTrainingScore}
+        - Mục tiêu GPA: ${data.targetGPA}
 
-        Câu hỏi của sinh viên: "${customPrompt || "Hãy đánh giá kết quả học tập của tôi và đưa ra lời khuyên chi tiết theo chuyên ngành của tôi để đạt mục tiêu."}"
+        Câu hỏi của sinh viên: "${customPrompt || "Hãy đánh giá kết quả học tập của tôi và đưa ra lời khuyên chi tiết theo chuyên ngành của tôi để đạt mục tiêu."}"
 
-        Hãy trả lời ngắn gọn, thân thiện, gọi sinh viên bằng tên. Sử dụng markdown để định dạng. Tập trung vào các môn cần cải thiện hoặc chiến lược học tập phù hợp với chuyên ngành ${data.specializationName || "của sinh viên"}.
-      `;
+        Hãy trả lời ngắn gọn, thân thiện, gọi sinh viên bằng tên. Sử dụng markdown để định dạng. Tập trung vào các môn cần cải thiện hoặc chiến lược học tập phù hợp với chuyên ngành ${data.specializationName || "của sinh viên"}.
+      `;
 
-      const ai = new GoogleGenAI({ apiKey: apiKey });
-      const result = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: context,
+      // --- 3. THAY ĐỔI QUAN TRỌNG: GỌI VỀ SERVER VERCEL ---
+      // Thay vì gọi new GoogleGenAI()..., ta dùng fetch gọi về API mình vừa tạo
+      const apiResponse = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: context }), // Gửi toàn bộ nội dung prompt lên server
       });
 
-      setResponse(result.text || "Xin lỗi, tôi không thể đưa ra lời khuyên lúc này.");
-    } catch (error) {
-      console.error(error);
-      setResponse("Có lỗi xảy ra khi kết nối với Gemini AI.");
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (!apiResponse.ok) {
+        throw new Error(`Server error: ${apiResponse.status}`);
+      }
+
+      const resultData = await apiResponse.json();
+      setResponse(resultData.result || "Xin lỗi, tôi không thể đưa ra lời khuyên lúc này.");
+
+    } catch (error) {
+      console.error(error);
+      setResponse("Có lỗi xảy ra khi kết nối với máy chủ AI (Vercel).");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <>
