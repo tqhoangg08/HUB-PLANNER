@@ -418,7 +418,27 @@ const DiscussionModal = ({ event, onClose }: { event: {id: string, name: string}
     );
 };
 
+// --- Helper: Ghi Log ---
+const logActivity = async (action: 'INSERT' | 'UPDATE' | 'DELETE' | 'SOFT_DELETE', recordId: string, oldData: any, newData: any) => {
+    try {
+        const { data: { user } } = await supabase!.auth.getUser();
+        if (!user) return;
 
+        await supabase!.from('activity_logs').insert([{
+            action: action === 'SOFT_DELETE' ? 'DELETE' : action, // Map về enum trong DB
+            table_name: 'events',
+            record_id: recordId,
+            user_email: user.email,
+            details: {
+                old: oldData,
+                new: newData,
+                note: action === 'SOFT_DELETE' ? 'Xóa mềm (Thùng rác)' : ''
+            }
+        }]);
+    } catch (e) {
+        console.error("Ghi log thất bại:", e); // Không chặn flow chính nếu log lỗi
+    }
+};
 export const EventsBoard: React.FC = () => {
   // Roles
   const { isAdmin, isCTV } = useUserRole();
@@ -545,7 +565,7 @@ export const EventsBoard: React.FC = () => {
       }
   };
 
-  const handleToggleClose = async (event: HubEvent) => {
+const handleToggleClose = async (event: HubEvent) => {
       if (!canManage) return;
       playClick();
       const newState = !event.is_manually_closed;
@@ -558,6 +578,9 @@ export const EventsBoard: React.FC = () => {
           
           if (error) throw error;
           
+          // 👉 GHI LOG TẠI ĐÂY
+          await logActivity('UPDATE', event.id, { is_manually_closed: !newState }, { is_manually_closed: newState });
+
           setEvents(prev => prev.map(e => e.id === event.id ? { ...e, is_manually_closed: newState } : e));
           showToast(newState ? "Đã đóng đơn đăng ký" : "Đã mở lại đơn đăng ký", "success");
       } catch (err: any) {
@@ -678,15 +701,16 @@ export const EventsBoard: React.FC = () => {
           }
       };
 
-      const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
           e.preventDefault();
           setSubmitting(true);
           playClick();
           
           try {
+              // 1. Chuẩn bị dữ liệu gửi lên Supabase
               const payload = {
                   title: formData.title,
-                  deadline: formData.deadline,
+                  deadline: formData.deadline || null,
                   category: formData.category,
                   classification: formData.classification,
                   criteria: formData.criteria,
@@ -700,21 +724,45 @@ export const EventsBoard: React.FC = () => {
               };
 
               if (editingEvent) {
-                  // Update
-                  const { error } = await supabase!.from('events').update(payload).eq('id', editingEvent.id);
+                  // --- TRƯỜNG HỢP 1: CẬP NHẬT (UPDATE) ---
+                  const { error } = await supabase!
+                      .from('events')
+                      .update(payload)
+                      .eq('id', editingEvent.id);
+                  
                   if (error) throw error;
-                  showToast("Cập nhật thành công!", "success");
+
+                  // 👉 GHI LOG: UPDATE
+                  // (Lưu lại thông tin cũ và mới để so sánh)
+                  await logActivity('UPDATE', editingEvent.id, editingEvent, payload);
+
+                  showToast("Cập nhật sự kiện thành công!", "success");
               } else {
-                  // Insert
-                  const { error } = await supabase!.from('events').insert([payload]);
+                  // --- TRƯỜNG HỢP 2: THÊM MỚI (INSERT) ---
+                  const { data, error } = await supabase!
+                      .from('events')
+                      .insert([payload])
+                      .select(); // Quan trọng: Phải .select() để lấy về ID vừa tạo
+                  
                   if (error) throw error;
-                  // Cleanup Draft on Success
+                  
+                  // 👉 GHI LOG: INSERT
+                  // (data[0] là bản ghi vừa được tạo ra)
+                  if (data && data.length > 0) {
+                      await logActivity('INSERT', data[0].id, {}, payload);
+                  }
+
+                  // Xóa bản nháp sau khi thêm thành công
                   localStorage.removeItem(ADMIN_DRAFT_KEY);
-                  showToast("Thêm sự kiện thành công!", "success");
+                  showToast("Thêm sự kiện mới thành công!", "success");
               }
+              
+              // 3. Tải lại danh sách và đóng form
               fetchEvents();
               setShowManageModal(false);
+
           } catch (err: any) {
+              console.error(err);
               showToast("Lỗi: " + err.message, "error");
           } finally {
               setSubmitting(false);
