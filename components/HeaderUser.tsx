@@ -76,7 +76,7 @@ export const HeaderUser: React.FC<HeaderUserProps> = ({ session }) => {
                 <LogIn size={14} />
             </div>
         )}
-        <span className="hidden sm:inline">Đăng nhập bằng Email trường</span>
+        <span className="hidden sm:inline">Đăng nhập</span>
         <span className="sm:hidden">Đăng nhập</span>
       </button>
     );
