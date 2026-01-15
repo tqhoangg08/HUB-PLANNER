@@ -39,35 +39,183 @@ const formatDateString = (isoDate: string): string => {
 
 const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
     if (!isOpen) return null;
+
+    const sections = [
+        {
+            id: 'I',
+            title: 'Đánh giá về ý thức học tập',
+            range: '0 → 20',
+            color: 'blue',
+            content: [
+                { type: 'header', text: 'Điểm cộng' },
+                { text: '- Kết quả học tập', points: '' },
+                { text: '+ Xuất sắc', points: '+ 15' },
+                { text: '+ Giỏi', points: '+ 10' },
+                { text: '+ Khá', points: '+ 8' },
+                { text: '+ Trung bình khá', points: '+ 6' },
+                { text: '+ Trung bình', points: '+ 5' },
+                { text: '- Tham gia các cuộc thi học thuật/ hội thảo/ khởi nghiệp (lấy điểm cao nhất)', points: '' },
+                { text: '+ Cấp tỉnh (thành) trở lên', points: '+ 10' },
+                { text: '+ Cấp Trường', points: '+ 5' },
+                { text: '+ Cấp Khoa', points: '+ 4' },
+                { text: '- Có đề tài NCKH', points: '' },
+                { text: '+ Cấp tỉnh (thành) trở lên', points: '15' },
+                { text: '+ Cấp Trường', points: '10' },
+                { text: '+ Cấp Khoa', points: '8' },
+                { text: '- Là thành viên của một (hoặc nhiều) CLB học thuật trong hoặc ngoài Trường', points: '+ 5' },
+                { text: '- Đạt giải hội thi Olympic hoặc các cuộc thi học thuật (cấp tỉnh, thành trở lên)', points: '+ 20' },
+                { text: '- Tham dự (cổ vũ) các cuộc thi học thuật, hội thảo, chuyên đề, tọa đàm', points: '+ 3' },
+                { type: 'header', text: 'Điểm trừ', isNegative: true },
+                { text: 'Bị cảnh báo học vụ và các vi phạm khác liên quan học tập và NCKH.', points: '- 5/lần' },
+            ]
+        },
+        {
+            id: 'II',
+            title: 'Đánh giá về ý thức chấp hành nội quy, quy chế, quy định tại Trường',
+            range: '0 → 25',
+            color: 'green',
+            content: [
+                { type: 'header', text: 'Điểm cộng' },
+                { text: '- Không vi phạm nội quy, quy chế trong Trường', points: '+ 20' },
+                { text: '- Tham gia sinh hoạt lớp đầy đủ (02 buổi/học kỳ theo lịch Trường quy định)', points: '+ 5' },
+                { text: '- Hoàn thành các buổi sinh hoạt tập trung của Trường (phổ biến nội quy, quy chế,...)', points: '+ 5đ/lần' },
+                { type: 'header', text: 'Điểm trừ', isNegative: true },
+                { text: '- Các vi phạm quy định, quy chế của Trường bị lập biên bản.', points: '- 5đ/lần' },
+                { text: '- Không tham gia sinh hoạt lớp', points: '- 3/lần' },
+            ]
+        },
+        {
+            id: 'III',
+            title: 'Đánh giá về ý thức tham gia các hoạt động chính trị, xã hội, văn hóa, văn nghệ, thể thao...',
+            range: '0 → 20',
+            color: 'yellow',
+            content: [
+                { type: 'header', text: 'Điểm cộng' },
+                { text: '- Tham gia hoạt động chính trị, văn hóa, văn nghệ, thể thao', points: '' },
+                { text: '+ Là thành viên Ban tổ chức', points: '+ 10đ/hoạt động' },
+                { text: '+ Là thành viên tham gia trực tiếp:', points: '' },
+                { text: '  • Cấp lớp, khoa, trường, địa phương', points: '+ 5đ/hoạt động' },
+                { text: '  • Cấp tỉnh (thành) trở lên', points: '+ 10đ/hoạt động' },
+                { text: '+ Cổ vũ', points: '+ 3đ/hoạt động' },
+                { text: '- Tham gia công trình thanh niên từ cấp chi đoàn trở lên', points: '+ 5đ/hoạt động' },
+                { text: '- Tham gia công tác phòng chống tội phạm và các tệ nạn xã hội', points: '+ 5đ/hoạt động' },
+                { text: '- Tham gia các hoạt động khác', points: '+ 3đ/hoạt động' },
+                { type: 'header', text: 'Điểm trừ', isNegative: true },
+                { text: 'Trong quá trình tham gia, vi phạm kỷ luật, bị lập biên bản', points: '- 5đ/lần' },
+            ]
+        },
+        {
+            id: 'IV',
+            title: 'Đánh giá về ý thức công dân trong quan hệ cộng đồng',
+            range: '0 → 25',
+            color: 'orange',
+            content: [
+                { type: 'header', text: 'Điểm cộng' },
+                { text: '- Chấp hành quy định tại nơi cư trú', points: '+ 15' },
+                { text: '- Được khen thưởng tại nơi cư trú', points: '+ 5' },
+                { text: '- Tham gia công tác xã hội, nhân đạo, từ thiện, tình nguyện; phòng chống tệ nạn xã hội...', points: '' },
+                { text: '+ Mùa hè xanh', points: '+ 15' },
+                { text: '+ Xuân tình nguyện (hoặc tiếp sức mùa thi, hiến máu nhân đạo)', points: '+ 10đ/hoạt động' },
+                { text: '+ Thành viên của một hoặc nhiều CLB khác (ngoài CLB học thuật ở mục I và CLB VH-NT-TT ở mục III)', points: '+ 5' },
+                { text: '+ Cộng tác viên của Đoàn TN, Hội SV và các đơn vị trong Trường', points: '+ 4' },
+                { text: '+ Tham gia các hoạt động khác', points: '+ 4đ/hoạt động' },
+                { type: 'header', text: 'Điểm trừ', isNegative: true },
+                { text: 'Vi phạm nội quy nơi cư trú hoặc vi phạm khi tham gia hoạt động (bị lập biên bản)', points: '- 5đ/vi phạm' },
+            ]
+        },
+        {
+            id: 'V',
+            title: 'Đánh giá về ý thức và kết quả khi tham gia công tác cán bộ lớp, đoàn thể... hoặc thành tích đặc biệt',
+            range: '0 → 10',
+            color: 'purple',
+            content: [
+                { text: '- Tham gia Ban cán sự lớp, BCH Đoàn TN, Hội SV, Ban chủ nhiệm các CLB, Đội, Nhóm và hoàn thành nhiệm vụ', points: '+ 5' },
+                { text: '- Đạt thành tích đặc biệt xuất sắc trong công tác Đoàn và phong trào sinh viên (có giấy khen cấp tỉnh/thành trở lên)', points: '+ 10' },
+                { text: '- Đạt giải NCKH, cuộc thi Olympic hoặc các cuộc thi tương đương khác (lấy cao nhất)', points: '' },
+                { text: '+ Cấp Khoa', points: '+ 6' },
+                { text: '+ Cấp Trường', points: '+ 8' },
+                { text: '+ Cấp tỉnh (thành) trở lên', points: '+ 10' },
+                { text: '- Các danh hiệu của SV (có quyết định công nhận hoặc giấy chứng nhận)', points: '' },
+                { text: '+ Cấp Khoa và tương đương', points: '+ 6' },
+                { text: '+ Cấp Trường và tương đương trở lên', points: '+ 10' },
+            ]
+        }
+    ];
+
     return createPortal(
         <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white rounded-xl max-w-lg w-full p-6 animate-scaleIn relative" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20} /></button>
-                <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2"><FileText /> Hướng dẫn tính điểm rèn luyện</h3>
-                <div className="space-y-3 overflow-y-auto max-h-[60vh] custom-scrollbar pr-2">
-                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                        <h4 className="font-bold text-blue-800">Mục I: Ý thức chính trị (Max 25đ)</h4>
-                        <p className="text-sm text-gray-600">Đi học chính trị, tuân thủ quy định, không vi phạm pháp luật...</p>
-                    </div>
-                    <div className="p-3 bg-green-50 rounded-lg border border-green-100">
-                        <h4 className="font-bold text-green-800">Mục II: Học tập & NCKH (Max 20đ)</h4>
-                        <p className="text-sm text-gray-600">Điểm học tập, tham gia CLB học thuật, NCKH, thi Olympic...</p>
-                    </div>
-                    <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-                        <h4 className="font-bold text-yellow-800">Mục III: Phong trào (Max 20đ)</h4>
-                        <p className="text-sm text-gray-600">Tham gia MHX, hiến máu, văn nghệ, thể thao, tình nguyện...</p>
-                    </div>
-                    <div className="p-3 bg-orange-50 rounded-lg border border-orange-100">
-                        <h4 className="font-bold text-orange-800">Mục IV: Phẩm chất công dân (Max 25đ)</h4>
-                        <p className="text-sm text-gray-600">Quan hệ cộng đồng, giữ gìn an ninh, không vi phạm luật giao thông...</p>
-                    </div>
-                    <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
-                        <h4 className="font-bold text-purple-800">Mục V: Cán bộ lớp (Max 10đ)</h4>
-                        <p className="text-sm text-gray-600">Dành cho BCS lớp, BCH Chi đoàn/Chi hội hoàn thành nhiệm vụ.</p>
-                    </div>
+            <div className="bg-white rounded-xl max-w-4xl w-full h-[90vh] flex flex-col animate-scaleIn relative overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div className="p-4 border-b flex justify-between items-center bg-[#003375] text-white shrink-0">
+                    <h3 className="text-xl font-bold flex items-center gap-2"><FileText /> Phụ lục Đánh giá Kết quả Rèn luyện</h3>
+                    <button onClick={onClose} className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-full transition-colors"><X size={24} /></button>
                 </div>
-                <div className="mt-4 text-center">
-                    <a href="https://online.hub.edu.vn" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm font-medium">Xem chi tiết trên Portal</a>
+                
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-gray-50">
+                    <div className="space-y-8">
+                        {sections.map((section) => (
+                            <div key={section.id} className={`bg-white rounded-xl border-l-4 shadow-sm overflow-hidden ${
+                                section.color === 'blue' ? 'border-blue-500' :
+                                section.color === 'green' ? 'border-green-500' :
+                                section.color === 'yellow' ? 'border-yellow-500' :
+                                section.color === 'orange' ? 'border-orange-500' :
+                                'border-purple-500'
+                            }`}>
+                                <div className={`px-5 py-4 border-b flex justify-between items-center ${
+                                    section.color === 'blue' ? 'bg-blue-50 text-blue-900' :
+                                    section.color === 'green' ? 'bg-green-50 text-green-900' :
+                                    section.color === 'yellow' ? 'bg-yellow-50 text-yellow-900' :
+                                    section.color === 'orange' ? 'bg-orange-50 text-orange-900' :
+                                    'bg-purple-50 text-purple-900'
+                                }`}>
+                                    <h4 className="font-bold text-lg flex items-center gap-2">
+                                        <span className="w-8 h-8 rounded-full bg-white/50 flex items-center justify-center text-sm border border-current">{section.id}</span>
+                                        {section.title}
+                                    </h4>
+                                    <span className="font-bold bg-white px-3 py-1.5 rounded-lg text-sm shadow-sm border border-current opacity-90 whitespace-nowrap">{section.range}</span>
+                                </div>
+                                <div className="p-0">
+                                    <table className="w-full text-sm">
+                                        <tbody>
+                                            {section.content.map((row, idx) => {
+                                                if (row.type === 'header') {
+                                                    return (
+                                                        <tr key={idx} className={`${row.isNegative ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'} font-bold`}>
+                                                            <td colSpan={2} className="px-5 py-3 uppercase text-xs tracking-wider border-b border-gray-100">{row.text}</td>
+                                                        </tr>
+                                                    )
+                                                }
+                                                return (
+                                                    <tr key={idx} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                                                        <td className="px-5 py-3 text-gray-800 leading-relaxed">{row.text}</td>
+                                                        <td className="px-5 py-3 text-right font-bold whitespace-nowrap w-28 align-top">
+                                                            {row.points && (
+                                                                <span className={`px-2 py-1 rounded ${
+                                                                    row.points.includes('-') 
+                                                                    ? 'text-red-700 bg-red-50' 
+                                                                    : 'text-[#003375] bg-blue-50'
+                                                                }`}>
+                                                                    {row.points}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    
+                    <div className="mt-8 flex justify-end sticky bottom-0 pointer-events-none">
+                        <div className="bg-[#003375] text-white px-8 py-4 rounded-xl font-bold text-xl shadow-2xl flex items-center gap-6 pointer-events-auto border-4 border-white/20 transform hover:scale-105 transition-transform">
+                            <span>TỔNG ĐIỂM TỐI ĐA</span>
+                            <span className="bg-white text-[#003375] px-4 py-1.5 rounded-lg shadow-inner">100</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>, document.body
@@ -418,27 +566,7 @@ const DiscussionModal = ({ event, onClose }: { event: {id: string, name: string}
     );
 };
 
-// --- Helper: Ghi Log ---
-const logActivity = async (action: 'INSERT' | 'UPDATE' | 'DELETE' | 'SOFT_DELETE', recordId: string, oldData: any, newData: any) => {
-    try {
-        const { data: { user } } = await supabase!.auth.getUser();
-        if (!user) return;
 
-        await supabase!.from('activity_logs').insert([{
-            action: action === 'SOFT_DELETE' ? 'DELETE' : action, // Map về enum trong DB
-            table_name: 'events',
-            record_id: recordId,
-            user_email: user.email,
-            details: {
-                old: oldData,
-                new: newData,
-                note: action === 'SOFT_DELETE' ? 'Xóa mềm (Thùng rác)' : ''
-            }
-        }]);
-    } catch (e) {
-        console.error("Ghi log thất bại:", e); // Không chặn flow chính nếu log lỗi
-    }
-};
 export const EventsBoard: React.FC = () => {
   // Roles
   const { isAdmin, isCTV } = useUserRole();
@@ -565,7 +693,7 @@ export const EventsBoard: React.FC = () => {
       }
   };
 
-const handleToggleClose = async (event: HubEvent) => {
+  const handleToggleClose = async (event: HubEvent) => {
       if (!canManage) return;
       playClick();
       const newState = !event.is_manually_closed;
@@ -578,9 +706,6 @@ const handleToggleClose = async (event: HubEvent) => {
           
           if (error) throw error;
           
-          // 👉 GHI LOG TẠI ĐÂY
-          await logActivity('UPDATE', event.id, { is_manually_closed: !newState }, { is_manually_closed: newState });
-
           setEvents(prev => prev.map(e => e.id === event.id ? { ...e, is_manually_closed: newState } : e));
           showToast(newState ? "Đã đóng đơn đăng ký" : "Đã mở lại đơn đăng ký", "success");
       } catch (err: any) {
@@ -701,16 +826,15 @@ const handleToggleClose = async (event: HubEvent) => {
           }
       };
 
-const handleSubmit = async (e: React.FormEvent) => {
+      const handleSubmit = async (e: React.FormEvent) => {
           e.preventDefault();
           setSubmitting(true);
           playClick();
           
           try {
-              // 1. Chuẩn bị dữ liệu gửi lên Supabase
               const payload = {
                   title: formData.title,
-                  deadline: formData.deadline || null,
+                  deadline: formData.deadline,
                   category: formData.category,
                   classification: formData.classification,
                   criteria: formData.criteria,
@@ -724,45 +848,21 @@ const handleSubmit = async (e: React.FormEvent) => {
               };
 
               if (editingEvent) {
-                  // --- TRƯỜNG HỢP 1: CẬP NHẬT (UPDATE) ---
-                  const { error } = await supabase!
-                      .from('events')
-                      .update(payload)
-                      .eq('id', editingEvent.id);
-                  
+                  // Update
+                  const { error } = await supabase!.from('events').update(payload).eq('id', editingEvent.id);
                   if (error) throw error;
-
-                  // 👉 GHI LOG: UPDATE
-                  // (Lưu lại thông tin cũ và mới để so sánh)
-                  await logActivity('UPDATE', editingEvent.id, editingEvent, payload);
-
-                  showToast("Cập nhật sự kiện thành công!", "success");
+                  showToast("Cập nhật thành công!", "success");
               } else {
-                  // --- TRƯỜNG HỢP 2: THÊM MỚI (INSERT) ---
-                  const { data, error } = await supabase!
-                      .from('events')
-                      .insert([payload])
-                      .select(); // Quan trọng: Phải .select() để lấy về ID vừa tạo
-                  
+                  // Insert
+                  const { error } = await supabase!.from('events').insert([payload]);
                   if (error) throw error;
-                  
-                  // 👉 GHI LOG: INSERT
-                  // (data[0] là bản ghi vừa được tạo ra)
-                  if (data && data.length > 0) {
-                      await logActivity('INSERT', data[0].id, {}, payload);
-                  }
-
-                  // Xóa bản nháp sau khi thêm thành công
+                  // Cleanup Draft on Success
                   localStorage.removeItem(ADMIN_DRAFT_KEY);
-                  showToast("Thêm sự kiện mới thành công!", "success");
+                  showToast("Thêm sự kiện thành công!", "success");
               }
-              
-              // 3. Tải lại danh sách và đóng form
               fetchEvents();
               setShowManageModal(false);
-
           } catch (err: any) {
-              console.error(err);
               showToast("Lỗi: " + err.message, "error");
           } finally {
               setSubmitting(false);
