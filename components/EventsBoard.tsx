@@ -745,17 +745,29 @@ export const EventsBoard: React.FC = () => {
     return matchesSearch && matchesTab && matchesScope;
   });
 
-  // Grouping Logic
-  const today = new Date();
+  // --- NEW CLASSIFICATION LOGIC ---
+  const now = new Date();
+  
   const isSameDay = (d1: Date | null, d2: Date) => {
       if (!d1) return false;
       return d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
   };
 
-  // Logic: For admins, also show pending. For students, filter them out (already done in fetch but double check here if needed)
-  const deadlineTodayEvents = filteredEvents.filter(evt => evt.status !== 'Đã kết thúc' && isSameDay(evt.deadlineDate, today));
-  const activeEvents = filteredEvents.filter(evt => evt.status !== 'Đã kết thúc' && !isSameDay(evt.deadlineDate, today));
-  const closedEvents = filteredEvents.filter(evt => evt.status === 'Đã kết thúc');
+  // 1. Opening Events
+  // Condition: (Not Expired) AND (Status not Closed) AND (Not Manually Closed)
+  const openingEvents = filteredEvents.filter(evt => {
+      const isNotExpired = evt.deadlineDate ? evt.deadlineDate >= now : true;
+      const isOpenStatus = !evt.is_manually_closed && evt.status !== 'Đã kết thúc';
+      return isNotExpired && isOpenStatus;
+  });
+
+  // 2. Expired Events
+  // Condition: (Expired) OR (Manually Closed) OR (Status Closed)
+  const expiredEvents = filteredEvents.filter(evt => {
+      const isExpiredTime = evt.deadlineDate ? evt.deadlineDate < now : false;
+      const isClosedStatus = evt.is_manually_closed || evt.status === 'Đã kết thúc';
+      return isExpiredTime || isClosedStatus;
+  });
 
   const NotificationToast = () => {
     if (!notification) return null;
@@ -1108,6 +1120,8 @@ export const EventsBoard: React.FC = () => {
     );
   };
 
+  const today = new Date();
+
   return (
     <div className="animate-slideInRight">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -1135,7 +1149,6 @@ export const EventsBoard: React.FC = () => {
                 <button onClick={() => { playClick(); fetchEvents(); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95 hover:rotate-180 duration-500" title="Làm mới"><RefreshCw size={20} className={loading ? "animate-spin" : ""} /></button>
                 <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95" title="Xem bảng điểm"><FileText size={20} /></button>
                 
-                {/* Action Button: Contribute (Student) vs Add (Admin/CTV) */}
                 {canManage ? (
                     <button onClick={handleOpenAdd} className="px-4 py-2 bg-[#003375] hover:bg-[#002855] text-white rounded-lg shadow-sm flex items-center gap-2 font-bold transition-all active:scale-95 hover:shadow-md whitespace-nowrap justify-center flex-1">
                         <PlusCircle size={18} /> Thêm mới
@@ -1172,24 +1185,32 @@ export const EventsBoard: React.FC = () => {
         <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn"><p className="font-bold mb-2">Đã xảy ra lỗi</p><p>{error}</p></div>
       ) : (
         <div className="space-y-8 animate-fadeIn">
-            {deadlineTodayEvents.length > 0 && (
-                <div className="bg-red-50 rounded-xl border border-red-200 p-4 sm:p-6 animate-pulse-soft">
-                    <h3 className="text-xl font-bold text-red-700 mb-4 flex items-center gap-2"><Siren className="animate-pulse" /> 🚨 Hạn chốt hôm nay ({deadlineTodayEvents.length})</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{deadlineTodayEvents.map(evt => renderEventCard(evt))}</div>
-                </div>
-            )}
-            {activeEvents.length > 0 && (
+            {/* --- MỤC: ĐANG MỞ ĐĂNG KÝ --- */}
+            {openingEvents.length > 0 && (
                 <div>
-                    <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2"><Flame className="text-orange-500 fill-orange-100" /> 🔥 Đang mở đăng ký ({activeEvents.length})</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{activeEvents.map(evt => renderEventCard(evt))}</div>
+                    <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
+                        <Flame className="text-orange-500 fill-orange-100" /> 
+                        Đang mở đăng ký ({openingEvents.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {openingEvents.map(evt => renderEventCard(evt))}
+                    </div>
                 </div>
             )}
-            {closedEvents.length > 0 && (
+
+            {/* --- MỤC: ĐÃ HẾT HẠN --- */}
+            {expiredEvents.length > 0 && (
                 <div>
-                     <h3 className="text-xl font-bold text-gray-500 mb-4 flex items-center gap-2"><Lock className="text-gray-400" /> 🔒 Đã hết hạn ({closedEvents.length})</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80">{closedEvents.map(evt => renderEventCard(evt))}</div>
+                     <h3 className="text-xl font-bold text-gray-500 mb-4 flex items-center gap-2">
+                        <Lock className="text-gray-400" /> 
+                        Đã hết hạn ({expiredEvents.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80">
+                        {expiredEvents.map(evt => renderEventCard(evt))}
+                    </div>
                 </div>
             )}
+
             {filteredEvents.length === 0 && (
                 <div className="col-span-full py-16 text-center bg-white rounded-xl border border-dashed border-gray-300"><div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300"><Calendar size={32} /></div><p className="text-gray-500 font-medium">Không tìm thấy sự kiện phù hợp.</p></div>
             )}
