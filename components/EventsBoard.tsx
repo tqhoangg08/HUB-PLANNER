@@ -54,7 +54,7 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
                 { text: '+ Khá', points: '+ 8' },
                 { text: '+ Trung bình khá', points: '+ 6' },
                 { text: '+ Trung bình', points: '+ 5' },
-                { text: '- Tham gia các cuộc thi học thuật/ hội thảo/ khởi nghiệp (lấy điểm cao nhất)', points: '' },
+                { text: '- Tham gia các cuộc thi học thuật/ tham gia Hội thảo khoa học, chuyên đề, tọa đàm/ tham gia cuộc thi sáng tạo khởi nghiệp (lấy điểm ở cấp cao nhất)', points: '' },
                 { text: '+ Cấp tỉnh (thành) trở lên', points: '+ 10' },
                 { text: '+ Cấp Trường', points: '+ 5' },
                 { text: '+ Cấp Khoa', points: '+ 4' },
@@ -86,16 +86,16 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
         },
         {
             id: 'III',
-            title: 'Đánh giá về ý thức tham gia các hoạt động chính trị, xã hội, văn hóa, văn nghệ, thể thao...',
+            title: 'Đánh giá về ý thức tham gia các hoạt động chính trị, xã hội, văn hóa, văn nghệ, thể thao, phòng chống tội phạm và các tệ nạn xã hội',
             range: '0 → 20',
             color: 'yellow',
             content: [
                 { type: 'header', text: 'Điểm cộng' },
                 { text: '- Tham gia hoạt động chính trị, văn hóa, văn nghệ, thể thao', points: '' },
                 { text: '+ Là thành viên Ban tổ chức', points: '+ 10đ/hoạt động' },
-                { text: '+ Là thành viên tham gia trực tiếp:', points: '' },
-                { text: '  • Cấp lớp, khoa, trường, địa phương', points: '+ 5đ/hoạt động' },
-                { text: '  • Cấp tỉnh (thành) trở lên', points: '+ 10đ/hoạt động' },
+                { text: '+ Là thành viên tham gia trực tiếp', points: '' },
+                { text: '  Cấp lớp, khoa, trường, địa phương', points: '+ 5đ/hoạt động', isSubItem: true },
+                { text: '  Cấp tỉnh (thành) trở lên', points: '+ 10đ/hoạt động', isSubItem: true },
                 { text: '+ Cổ vũ', points: '+ 3đ/hoạt động' },
                 { text: '- Tham gia công trình thanh niên từ cấp chi đoàn trở lên', points: '+ 5đ/hoạt động' },
                 { text: '- Tham gia công tác phòng chống tội phạm và các tệ nạn xã hội', points: '+ 5đ/hoạt động' },
@@ -113,25 +113,25 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
                 { type: 'header', text: 'Điểm cộng' },
                 { text: '- Chấp hành quy định tại nơi cư trú', points: '+ 15' },
                 { text: '- Được khen thưởng tại nơi cư trú', points: '+ 5' },
-                { text: '- Tham gia công tác xã hội, nhân đạo, từ thiện, tình nguyện; phòng chống tệ nạn xã hội...', points: '' },
+                { text: '- Tham gia công tác xã hội, nhân đạo, từ thiện, tình nguyện; phòng chống tệ nạn xã hội và hoạt động kết nối cộng đồng khác', points: '' },
                 { text: '+ Mùa hè xanh', points: '+ 15' },
                 { text: '+ Xuân tình nguyện (hoặc tiếp sức mùa thi, hiến máu nhân đạo)', points: '+ 10đ/hoạt động' },
-                { text: '+ Thành viên của một hoặc nhiều CLB khác (ngoài CLB học thuật ở mục I và CLB VH-NT-TT ở mục III)', points: '+ 5' },
+                { text: '+ Thành viên của một hoặc nhiều CLB khác (ngoài CLB học thuật ở mục I và CLB văn hóa - nghệ thuật - thể thao ở mục III)', points: '+ 5' },
                 { text: '+ Cộng tác viên của Đoàn TN, Hội SV và các đơn vị trong Trường', points: '+ 4' },
                 { text: '+ Tham gia các hoạt động khác', points: '+ 4đ/hoạt động' },
                 { type: 'header', text: 'Điểm trừ', isNegative: true },
-                { text: 'Vi phạm nội quy nơi cư trú hoặc vi phạm khi tham gia hoạt động (bị lập biên bản)', points: '- 5đ/vi phạm' },
+                { text: 'Vi phạm nội quy, quy định nơi cư trú (nội quy KTX hoặc quy định của địa phương) và các vi phạm trong quá trình tham gia các hoạt động thuộc mục IV và bị lập biên bản', points: '- 5đ/vi phạm' },
             ]
         },
         {
             id: 'V',
-            title: 'Đánh giá về ý thức và kết quả khi tham gia công tác cán bộ lớp, đoàn thể... hoặc thành tích đặc biệt',
+            title: 'Đánh giá về ý thức và kết quả khi tham gia công tác cán bộ lớp, các đoàn thể, tổ chức khác trong Trường, hoặc đạt được thành tích đặc biệt trong học tập, rèn luyện',
             range: '0 → 10',
             color: 'purple',
             content: [
                 { text: '- Tham gia Ban cán sự lớp, BCH Đoàn TN, Hội SV, Ban chủ nhiệm các CLB, Đội, Nhóm và hoàn thành nhiệm vụ', points: '+ 5' },
-                { text: '- Đạt thành tích đặc biệt xuất sắc trong công tác Đoàn và phong trào sinh viên (có giấy khen cấp tỉnh/thành trở lên)', points: '+ 10' },
-                { text: '- Đạt giải NCKH, cuộc thi Olympic hoặc các cuộc thi tương đương khác (lấy cao nhất)', points: '' },
+                { text: '- Đạt thành tích đặc biệt xuất sắc trong công tác Đoàn và phong trào sinh viên (có giấy khen, bằng khen từ cấp tỉnh/ thành trở lên)', points: '+ 10' },
+                { text: '- Đạt giải NCKH, cuộc thi Olympic hoặc các cuộc thi tương đương khác, cuộc thi sáng tạo khởi nghiệp (lấy thành tích ở cấp cao nhất)', points: '' },
                 { text: '+ Cấp Khoa', points: '+ 6' },
                 { text: '+ Cấp Trường', points: '+ 8' },
                 { text: '+ Cấp tỉnh (thành) trở lên', points: '+ 10' },
@@ -178,7 +178,7 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
                                 <div className="p-0">
                                     <table className="w-full text-sm">
                                         <tbody>
-                                            {section.content.map((row, idx) => {
+                                            {section.content.map((row: any, idx: number) => {
                                                 if (row.type === 'header') {
                                                     return (
                                                         <tr key={idx} className={`${row.isNegative ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'} font-bold`}>
@@ -188,7 +188,9 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
                                                 }
                                                 return (
                                                     <tr key={idx} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                                                        <td className="px-5 py-3 text-gray-800 leading-relaxed">{row.text}</td>
+                                                        <td className={`px-5 py-3 text-gray-800 leading-relaxed ${row.isSubItem ? 'pl-10 text-gray-600' : ''}`}>
+                                                            {row.text}
+                                                        </td>
                                                         <td className="px-5 py-3 text-right font-bold whitespace-nowrap w-28 align-top">
                                                             {row.points && (
                                                                 <span className={`px-2 py-1 rounded ${
@@ -210,10 +212,10 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
                         ))}
                     </div>
                     
-                    <div className="mt-8 flex justify-end sticky bottom-0 pointer-events-none">
-                        <div className="bg-[#003375] text-white px-5 py-3 rounded-xl font-bold text-xl shadow-2xl flex items-center gap-3 pointer-events-auto border-2 border-white/20 transform hover:scale-105 transition-transform">
-                            <span>TỔNG ĐIỂM TỐI ĐA</span>
-                            <span className="bg-white text-[#003375] px-3 py-1 rounded-lg shadow-inner">100</span>
+                    <div className="mt-6 flex justify-end sticky bottom-0 pointer-events-none">
+                        <div className="bg-[#003375] text-white px-5 py-2.5 rounded-xl font-bold text-base shadow-xl flex items-center gap-3 pointer-events-auto border-2 border-white/20 transform hover:scale-105 transition-transform backdrop-blur-md">
+                            <span className="font-bold text-sm uppercase tracking-wide">TỔNG ĐIỂM TỐI ĐA</span>
+                            <span className="bg-white text-[#003375] px-2.5 py-0.5 rounded-lg shadow-inner">100</span>
                         </div>
                     </div>
                 </div>
@@ -732,7 +734,11 @@ export const EventsBoard: React.FC = () => {
                           evt.organizer.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           evt.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           evt.classification.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesTab = activeTab === 'all' || evt.category.includes(activeTab);
+    
+    // Exact match for category (Mục I, II, III...) to avoid Roman numeral substring issues
+    // Example: "I" shouldn't match "II" or "III"
+    const matchesTab = activeTab === 'all' || evt.category === activeTab; 
+
     const matchesScope = activeScope === 'all' || 
                          (activeScope === 'internal' && evt.scope === 'Trong trường') ||
                          (activeScope === 'external' && evt.scope === 'Ngoài trường');
