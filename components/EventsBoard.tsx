@@ -211,9 +211,9 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
                     </div>
                     
                     <div className="mt-8 flex justify-end sticky bottom-0 pointer-events-none">
-                        <div className="bg-[#003375] text-white px-8 py-4 rounded-xl font-bold text-xl shadow-2xl flex items-center gap-6 pointer-events-auto border-4 border-white/20 transform hover:scale-105 transition-transform">
+                        <div className="bg-[#003375] text-white px-5 py-3 rounded-xl font-bold text-xl shadow-2xl flex items-center gap-3 pointer-events-auto border-2 border-white/20 transform hover:scale-105 transition-transform">
                             <span>TỔNG ĐIỂM TỐI ĐA</span>
-                            <span className="bg-white text-[#003375] px-4 py-1.5 rounded-lg shadow-inner">100</span>
+                            <span className="bg-white text-[#003375] px-3 py-1 rounded-lg shadow-inner">100</span>
                         </div>
                     </div>
                 </div>
