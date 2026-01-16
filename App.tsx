@@ -18,7 +18,7 @@ import { useUserRole } from './hooks/useUserRole';
 import { supabase } from './utils/supabase';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
-const STUDENT_PROFILE_TABLE = 'student_profiles';
+const STUDENT_PROFILE_TABLE = 'profiles';
 
 // Default generator if no PDF is used
 const generateStandardCurriculum = (): Semester[] => {
@@ -88,6 +88,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     let isActive = true;
+    setIsLoaded(false);
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+    }
 
     const loadData = async () => {
       if (userRolePref === 'school' && session?.user?.id && supabase) {
@@ -106,6 +110,23 @@ const App: React.FC = () => {
         if (profileData?.data) {
           setData({ ...INITIAL_DATA, ...profileData.data });
           localStorage.setItem(storageKey, JSON.stringify(profileData.data));
+          setIsLoaded(true);
+          return;
+        }
+
+        if (!error) {
+          const saved = localStorage.getItem(storageKey);
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              setData({ ...INITIAL_DATA, ...parsed });
+            } catch (e) {
+              console.error("Failed to load data", e);
+              setData(INITIAL_DATA);
+            }
+          } else {
+            setData(INITIAL_DATA);
+          }
           setIsLoaded(true);
           return;
         }
