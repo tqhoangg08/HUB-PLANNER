@@ -301,7 +301,7 @@ const App: React.FC = () => {
     finally { setIsImporting(false); setShowImportLoadingToast(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
-  const ImportGuideModal = () => (
+const ImportGuideModal = () => (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-scaleIn border border-gray-200">
             <div className="bg-[#003375] p-4 flex justify-between items-center text-white">
@@ -309,8 +309,11 @@ const App: React.FC = () => {
                 <button onClick={() => { playClick(); setShowImportGuide(false); }} className="hover:bg-white/20 p-2 rounded-full"><X size={20} /></button>
             </div>
             <div className="p-6 space-y-6">
-                 {/* Giữ nguyên nội dung hướng dẫn của bạn */}
-                 <div className="text-gray-600 text-sm">Truy cập Portal -> Xem điểm -> Ctrl + P -> Lưu dưới dạng PDF</div>
+                 {/* ĐÃ SỬA LỖI MŨI TÊN Ở DÒNG DƯỚI */}
+                 <div className="text-gray-600 text-sm font-medium">
+                    Truy cập Portal &rarr; Xem điểm &rarr; Ctrl + P &rarr; Lưu dưới dạng PDF
+                 </div>
+                 
                 <div className="pt-4 border-t border-gray-100 flex gap-3">
                     <button onClick={() => { playClick(); setShowImportGuide(false); }} className="flex-1 py-3 text-gray-600 font-medium hover:bg-gray-100 rounded-xl">Để sau</button>
                     <button onClick={() => { playClick(); fileInputRef.current?.click(); }} className="flex-1 bg-[#990000] text-white py-3 rounded-xl font-bold hover:bg-[#7a0000] flex items-center justify-center gap-2"><FileUp size={18}/> Chọn file PDF</button>
