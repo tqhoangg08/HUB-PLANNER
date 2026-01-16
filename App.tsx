@@ -73,6 +73,14 @@ const App: React.FC = () => {
   const [showImportLoadingToast, setShowImportLoadingToast] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showActivityLog, setShowActivityLog] = useState(false);
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [profileFullName, setProfileFullName] = useState('');
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
+  const [draftFullName, setDraftFullName] = useState('');
+  const [draftAvatarUrl, setDraftAvatarUrl] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'dashboard' | 'handbook' | 'events' | 'lost-found'>('dashboard');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -97,7 +105,7 @@ const App: React.FC = () => {
       if (userRolePref === 'school' && session?.user?.id && supabase) {
         const { data: profileData, error } = await supabase
           .from(STUDENT_PROFILE_TABLE)
-          .select('data')
+          .select('data, full_name, avatar_url')
           .eq('id', session.user.id)
           .maybeSingle();
 
@@ -105,6 +113,11 @@ const App: React.FC = () => {
 
         if (error) {
           console.error('Failed to load profile data:', error);
+        }
+
+        if (profileData?.full_name || profileData?.avatar_url) {
+          setProfileFullName(profileData?.full_name ?? '');
+          setProfileAvatarUrl(profileData?.avatar_url ?? '');
         }
 
         if (profileData?.data) {
@@ -115,6 +128,8 @@ const App: React.FC = () => {
         }
 
         if (!error) {
+          setProfileFullName(profileData?.full_name ?? '');
+          setProfileAvatarUrl(profileData?.avatar_url ?? '');
           const saved = localStorage.getItem(storageKey);
           if (saved) {
             try {
@@ -130,6 +145,11 @@ const App: React.FC = () => {
           setIsLoaded(true);
           return;
         }
+      }
+
+      if (userRolePref !== 'school') {
+        setProfileFullName('');
+        setProfileAvatarUrl('');
       }
 
       const saved = localStorage.getItem(storageKey);
@@ -191,6 +211,14 @@ const App: React.FC = () => {
     };
   }, [data, isLoaded, session?.user?.id, userRolePref]);
 
+  useEffect(() => {
+    if (showAccountSettings) {
+      setDraftFullName(profileFullName);
+      setDraftAvatarUrl(profileAvatarUrl);
+      setProfileError(null);
+    }
+  }, [showAccountSettings, profileFullName, profileAvatarUrl]);
+
   // Scroll to top when switching views
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -240,6 +268,45 @@ const App: React.FC = () => {
           // Stay on school role pref but show login screen
       }
   };
+
+  const handleSaveProfile = async () => {
+    if (!session?.user?.id || !supabase) return;
+    setProfileSaving(true);
+    setProfileError(null);
+
+    const { error } = await supabase
+      .from(STUDENT_PROFILE_TABLE)
+      .update({
+        full_name: draftFullName.trim(),
+        avatar_url: draftAvatarUrl.trim(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', session.user.id);
+
+    if (error) {
+      setProfileError('Không thể lưu thông tin. Vui lòng thử lại.');
+      setProfileSaving(false);
+      return;
+    }
+
+    setProfileFullName(draftFullName.trim());
+    setProfileAvatarUrl(draftAvatarUrl.trim());
+    setProfileSaving(false);
+    setShowAccountSettings(false);
+  };
+
+  const displayName = useMemo(() => {
+    if (profileFullName.trim()) return profileFullName.trim();
+    return session?.user?.email ?? 'HUB User';
+  }, [profileFullName, session?.user?.email]);
+
+  const avatarSeed = useMemo(() => {
+    if (displayName.trim()) return displayName.trim()[0].toUpperCase();
+    return 'H';
+  }, [displayName]);
+
+  const avatarColors = ['#1f2937', '#2563eb', '#16a34a', '#f97316', '#a855f7'];
+  const isColorAvatar = profileAvatarUrl?.startsWith('#');
 
   const addSemester = () => {
     playClick();
@@ -503,6 +570,109 @@ const App: React.FC = () => {
     </div>
   );
 
+  const AccountSettingsModal = () => (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 animate-scaleIn">
+            <div className="bg-[#003375] p-4 text-white flex items-center justify-between">
+                <h3 className="font-bold text-lg">Cài đặt tài khoản</h3>
+                <button
+                    onClick={() => setShowAccountSettings(false)}
+                    className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                >
+                    <X size={18} />
+                </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+                {profileError && (
+                    <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100">
+                        {profileError}
+                    </div>
+                )}
+
+                <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Tên hiển thị</label>
+                    <input
+                        type="text"
+                        value={draftFullName}
+                        onChange={(e) => setDraftFullName(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none transition-all"
+                        placeholder="Nhập tên hiển thị"
+                    />
+                </div>
+
+                <div className="space-y-3">
+                    <label className="text-sm font-bold text-gray-700">Chọn màu avatar</label>
+                    <div className="flex gap-2">
+                        {avatarColors.map((color) => (
+                            <button
+                                key={color}
+                                type="button"
+                                onClick={() => setDraftAvatarUrl(color)}
+                                className={`h-10 w-10 rounded-full border-2 transition-all ${draftAvatarUrl === color ? 'border-[#003375] ring-2 ring-[#003375]/20' : 'border-transparent'}`}
+                                style={{ backgroundColor: color }}
+                                title={`Màu ${color}`}
+                            />
+                        ))}
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-700">Hoặc nhập link ảnh</label>
+                    <input
+                        type="url"
+                        value={draftAvatarUrl}
+                        onChange={(e) => setDraftAvatarUrl(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none transition-all"
+                        placeholder="https://..."
+                    />
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <span className="text-sm text-gray-500">Xem trước:</span>
+                    {draftAvatarUrl ? (
+                        draftAvatarUrl.startsWith('#') ? (
+                            <span
+                                className="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                                style={{ backgroundColor: draftAvatarUrl }}
+                            >
+                                {avatarSeed}
+                            </span>
+                        ) : (
+                            <img
+                                src={draftAvatarUrl}
+                                alt="Avatar preview"
+                                className="h-10 w-10 rounded-full object-cover border border-gray-200"
+                            />
+                        )
+                    ) : (
+                        <span className="h-10 w-10 rounded-full bg-[#003375] text-white flex items-center justify-center text-sm font-bold">
+                            {avatarSeed}
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+                <button
+                    onClick={() => setShowAccountSettings(false)}
+                    className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
+                >
+                    Hủy
+                </button>
+                <button
+                    onClick={handleSaveProfile}
+                    disabled={profileSaving}
+                    className="px-4 py-2 rounded-lg bg-[#003375] text-white font-bold hover:bg-[#002855] transition flex items-center gap-2"
+                >
+                    {profileSaving ? <Loader2 className="animate-spin" size={16} /> : null}
+                    Lưu
+                </button>
+            </div>
+        </div>
+    </div>
+  );
+
   // --- ROUTING LOGIC ---
   if (!isLoaded) return null;
 
@@ -611,7 +781,7 @@ const App: React.FC = () => {
                             {userRolePref === 'school' && session?.user?.email ? (
                                 <>
                                     <p className="text-xs font-bold text-[#003375] uppercase line-clamp-1 max-w-[140px]">
-                                        {session.user.email}
+                                        {displayName}
                                     </p>
                                     <p className="text-[10px] text-gray-500">
                                         Tài khoản HUB
@@ -671,22 +841,69 @@ const App: React.FC = () => {
                         </button>
                     </>
                 ) : userRolePref === 'school' ? (
-                    <>
-                        <button 
-                            onClick={handleSchoolLogout}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all duration-300 active:scale-90"
-                            title="Đăng xuất"
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsUserMenuOpen(prev => !prev)}
+                            className="flex items-center gap-2 px-2 py-1 rounded-full border border-gray-200 hover:border-[#003375] hover:shadow-sm transition-all"
+                            title="Tài khoản HUB"
                         >
-                            <LogOut size={20} />
+                            {profileAvatarUrl ? (
+                                isColorAvatar ? (
+                                    <span
+                                        className="h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                                        style={{ backgroundColor: profileAvatarUrl }}
+                                    >
+                                        {avatarSeed}
+                                    </span>
+                                ) : (
+                                    <img
+                                        src={profileAvatarUrl}
+                                        alt="Avatar"
+                                        className="h-8 w-8 rounded-full object-cover border border-gray-200"
+                                    />
+                                )
+                            ) : (
+                                <span className="h-8 w-8 rounded-full bg-[#003375] text-white flex items-center justify-center text-sm font-bold">
+                                    {avatarSeed}
+                                </span>
+                            )}
+                            <span className="hidden sm:block text-sm font-semibold text-gray-700 max-w-[140px] truncate">
+                                {displayName}
+                            </span>
                         </button>
-                        <button 
-                            onClick={handleSwitchRole}
-                            className="p-2 text-gray-400 hover:text-[#003375] hover:bg-blue-50 rounded-full transition-all duration-300 active:scale-90"
-                            title="Chọn vai trò"
-                        >
-                            <Shield size={20} />
-                        </button>
-                    </>
+
+                        {isUserMenuOpen && (
+                            <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-50">
+                                <button
+                                    onClick={() => {
+                                        setShowAccountSettings(true);
+                                        setIsUserMenuOpen(false);
+                                    }}
+                                    className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors"
+                                >
+                                    Cài đặt tài khoản
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setIsUserMenuOpen(false);
+                                        resetData();
+                                    }}
+                                    className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors"
+                                >
+                                    Xóa dữ liệu (Reset)
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setIsUserMenuOpen(false);
+                                        handleSchoolLogout();
+                                    }}
+                                    className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                >
+                                    Đăng xuất
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 ) : (
                     <button 
                         onClick={handleSwitchRole}
@@ -809,6 +1026,7 @@ const App: React.FC = () => {
       {showImportGuide && <ImportGuideModal />}
       {showGuide && <UserGuideModal />}
       {showActivityLog && <ActivityLogModal onClose={() => setShowActivityLog(false)} />}
+      {showAccountSettings && <AccountSettingsModal />}
     </div>
   );
 };
