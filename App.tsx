@@ -991,6 +991,7 @@ const App: React.FC = () => {
                 <Dashboard 
                 data={data} 
                 onTargetChange={(newTarget) => setData(prev => ({...prev, targetGPA: newTarget}))}
+                showSecurityNotice={!session}
                 />
 
                 <div className="flex flex-col sm:flex-row justify-between items-end mb-4 gap-4">
