@@ -76,110 +76,150 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- AUTH & DATA SYNC LOGIC ---
+  // Render ngay từ localStorage để reload nhanh, rồi sync cloud ở nền.
+  // Tránh trường hợp cloud rỗng/cũ đè local khiến phải onboard lại.
+  const LOCAL_UPDATED_AT_KEY = `${STORAGE_KEY}__updated_at`;
+
+  const readLocalData = () => {
+    const str = localStorage.getItem(STORAGE_KEY);
+    if (!str) return null;
+    try {
+      return JSON.parse(str);
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
     if (!supabase) {
-        loadLocalData();
-        return;
+      loadLocalData();
+      return;
     }
 
-    // Auth State Listener
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
-            setUserRolePref('student'); // Force student role on login
-            localStorage.setItem('user_role_preference', 'student');
-            
-            // 1. Enforce Domain Check
-            const email = session.user.email;
-            if (!email?.endsWith('@st.buh.edu.vn') && !isAdmin) { // Admin exemption allowed if configured elsewhere, but strictly for students
-                // Check if user is actually an admin/editor in DB before kicking
-                const { data: roleData } = await supabase.from('user_roles').select('role').eq('id', session.user.id).single();
-                if (!roleData || (roleData.role !== 'admin' && roleData.role !== 'editor')) {
-                     await supabase.auth.signOut();
-                     alert('Vui lòng sử dụng Email Sinh viên (@st.buh.edu.vn) để đăng nhập!');
-                     return;
-                }
-            }
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, sess) => {
+      // 1) Signed out => reset
+      if (event === 'SIGNED_OUT') {
+        resetData(false);
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(LOCAL_UPDATED_AT_KEY);
+        setIsLoaded(true);
+        return;
+      }
 
-setIsSyncing(true);
+      // 2) Render ngay từ local (để khỏi màn trắng / load lâu)
+      const localRaw = readLocalData();
+      const mergedLocalData = localRaw ? { ...INITIAL_DATA, ...localRaw } : INITIAL_DATA;
+      setData(mergedLocalData);
+      setIsLoaded(true);
 
-// Nếu Supabase bị treo / request không trả về, sau 12s tự thoát để app không xoay vòng mãi
-const hardTimeout = window.setTimeout(() => {
-  console.warn("Sync timeout -> fallback local");
-  setIsSyncing(false);
-  setIsLoaded(true);
-}, 12000);
+      // Không có session thì thôi
+      if (!(sess && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION'))) return;
 
-try {
-  const studentCode = email?.split('@')[0] || '';
+      setIsSyncing(true);
 
-const localDataString = localStorage.getItem(STORAGE_KEY);
-const localData = localDataString ? JSON.parse(localDataString) : INITIAL_DATA;
+      try {
+        const email = sess.user.email;
+        if (!email) return;
 
-const hasLocalData =
-  localData.hasOnboarded ||
-  (localData.semesters && localData.semesters.some((s: Semester) => s.subjects.length > 0));
+        // ép role preference student
+        setUserRolePref('student');
+        localStorage.setItem('user_role_preference', 'student');
 
-// ✅ 1) Luôn pull cloud trước
-const { data: profileData, error } = await supabase
-  .from("profiles")
-  .select("saved_data, student_name")
-  .eq("id", session.user.id)
-  .single();
+        // check domain + fallback admin role (giữ logic cũ)
+        if (!email.endsWith('@st.buh.edu.vn') && !isAdmin) {
+          const { data: roleData } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('id', sess.user.id)
+            .single();
 
-if (profileData?.saved_data) {
-  // ✅ Cloud có data → dùng cloud (nhanh hơn, đúng hơn)
-  setData(profileData.saved_data);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(profileData.saved_data));
-  console.log("Loaded data from cloud");
-} else {
-  // ✅ Cloud trống → dùng local
-  setData(localData);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(localData));
-
-  // ✅ chỉ push nếu local có data thật
-  if (hasLocalData) {
-    await supabase
-      .from("profiles")
-      .update({
-        saved_data: localData,
-        student_name: localData.studentName || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", session.user.id);
-
-    console.log("Uploaded local data to cloud (only once)");
-  }
-}
-} catch (err) {
-  console.error("Sync Error:", err);
-  loadLocalData();
-} finally {
-  window.clearTimeout(hardTimeout);
-  setIsSyncing(false);
-  setIsLoaded(true);
-}
-
-
-        } else if (event === 'SIGNED_OUT') {
-            // Clear sensitive data on logout
-            resetData(false); // Reset state to initial
-            localStorage.removeItem(STORAGE_KEY);
-            setIsLoaded(true);
-        } else {
-            // INITIAL_SESSION có thể trả về session nhưng không rơi vào SIGNED_IN,
-            // nếu không setIsLoaded(true) thì app sẽ bị trắng (return null).
-            if (!session) {
-                 if (!isLoaded) loadLocalData();
-            } else {
-                 setIsLoaded(true);
-            }
+          if (roleData?.role !== 'admin') {
+            await supabase.auth.signOut();
+            return;
+          }
         }
+
+        const studentCode = email.split('@')[0];
+
+        // “local có dữ liệu thật sự” = đã onboard / có tên / có điểm/đánh giá
+        const localData = localRaw;
+        const hasLocalData =
+          !!localData &&
+          (localData.hasOnboarded === true ||
+            (localData.studentName && String(localData.studentName).trim() !== '') ||
+            (localData.semesters || []).some((sem: any) =>
+              (sem.subjects || []).some(
+                (sub: any) =>
+                  sub.score !== null ||
+                  sub.trainingScore !== null ||
+                  (sub.status && sub.status !== 'planned') ||
+                  (sub.note && String(sub.note).trim() !== '')
+              )
+            ));
+
+        const localUpdatedAt = localStorage.getItem(LOCAL_UPDATED_AT_KEY);
+
+        // đảm bảo profile có row
+        await supabase
+          .from('profiles')
+          .upsert(
+            {
+              id: sess.user.id,
+              email,
+              full_name: sess.user.user_metadata?.full_name || null,
+              avatar_url: sess.user.user_metadata?.avatar_url || null,
+              student_code: studentCode,
+            },
+            { onConflict: 'id' }
+          );
+
+        // lấy cloud data
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('saved_data, updated_at')
+          .eq('id', sess.user.id)
+          .single();
+
+        const cloudHasData = !!profileData?.saved_data;
+        const cloudUpdatedAt = profileData?.updated_at || null;
+
+        const cloudNewerThanLocal =
+          !!cloudUpdatedAt &&
+          !!localUpdatedAt &&
+          new Date(cloudUpdatedAt).getTime() > new Date(localUpdatedAt).getTime();
+
+        // RULE:
+        // - Nếu local trống => pull cloud
+        // - Nếu cloud mới hơn => pull cloud
+        // - Nếu cloud trống hoặc local mới hơn => push local
+        if (cloudHasData && (!hasLocalData || cloudNewerThanLocal)) {
+          setData(profileData!.saved_data);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(profileData!.saved_data));
+          localStorage.setItem(
+            LOCAL_UPDATED_AT_KEY,
+            cloudUpdatedAt || new Date().toISOString()
+          );
+        } else if (hasLocalData && (!cloudHasData || !cloudNewerThanLocal)) {
+          await supabase
+            .from('profiles')
+            .update({
+              saved_data: mergedLocalData,
+              updated_at: localUpdatedAt || new Date().toISOString(),
+            })
+            .eq('id', sess.user.id);
+        }
+      } catch (e) {
+        console.error('Auth sync error:', e);
+      } finally {
+        setIsSyncing(false);
+      }
     });
 
     return () => {
-        authListener.subscription.unsubscribe();
+      authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [isAdmin]);
+
 
   const loadLocalData = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -197,7 +237,9 @@ if (profileData?.saved_data) {
   // Auto-save to LocalStorage AND Cloud (Debounced)
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+const nowIso = new Date().toISOString();
+localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+localStorage.setItem(`${STORAGE_KEY}__updated_at`, nowIso);
       
       // Auto-save to Cloud if logged in (Debounce 2s)
       if (session && supabase) {
