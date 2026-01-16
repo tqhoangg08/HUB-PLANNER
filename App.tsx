@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { UserData, Semester, STORAGE_KEY } from './types';
 import { Dashboard } from './components/Dashboard';
 import { SemesterTable } from './components/SemesterTable';
@@ -16,6 +16,8 @@ import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { supabase } from './utils/supabase';
+
+const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 
 // Default generator if no PDF is used
 const generateStandardCurriculum = (): Semester[] => {
@@ -57,9 +59,9 @@ const App: React.FC = () => {
   const canManage = isAdmin || isCTV;
 
   // Local Preference Role (User selected in RoleSelection)
-  const [userRolePref, setUserRolePref] = useState<'unknown' | 'student' | 'admin'>(() => {
+  const [userRolePref, setUserRolePref] = useState<'unknown' | 'student' | 'admin' | 'school'>(() => {
       const savedRole = localStorage.getItem('user_role_preference');
-      return (savedRole === 'student' || savedRole === 'admin') ? savedRole : 'unknown';
+      return (savedRole === 'student' || savedRole === 'admin' || savedRole === 'school') ? savedRole : 'unknown';
   });
 
   // App Data State (For Student Role)
@@ -73,31 +75,55 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<'dashboard' | 'handbook' | 'events' | 'lost-found'>('dashboard');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const storageKey = useMemo(() => {
+    if (userRolePref === 'school' && session?.user?.id) {
+      return `${STORAGE_KEY}:${session.user.id}`;
+    }
+
+    return STORAGE_KEY;
+  }, [session?.user?.id, userRolePref]);
+
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(storageKey);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         setData({ ...INITIAL_DATA, ...parsed });
       } catch (e) {
         console.error("Failed to load data", e);
+        setData(INITIAL_DATA);
       }
+    } else {
+      setData(INITIAL_DATA);
     }
     setIsLoaded(true);
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(storageKey, JSON.stringify(data));
     }
-  }, [data, isLoaded]);
+  }, [data, isLoaded, storageKey]);
 
   // Scroll to top when switching views
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeView]);
 
-  const handleRoleSelect = (role: 'student' | 'admin') => {
+  useEffect(() => {
+    const ensureSchoolDomain = async () => {
+        if (userRolePref !== 'school' || !session?.user?.email) return;
+        const emailDomain = session.user.email.split('@')[1];
+        if (emailDomain !== SCHOOL_DOMAIN) {
+            await supabase?.auth.signOut();
+            alert(`Vui lòng dùng tài khoản @${SCHOOL_DOMAIN} để đăng nhập.`);
+        }
+    };
+
+    ensureSchoolDomain();
+  }, [session, userRolePref]);
+
+  const handleRoleSelect = (role: 'student' | 'admin' | 'school') => {
       localStorage.setItem('user_role_preference', role);
       setUserRolePref(role);
   };
@@ -118,6 +144,14 @@ const App: React.FC = () => {
       if (window.confirm("Đăng xuất khỏi tài khoản quản trị?")) {
           await supabase?.auth.signOut();
           // Stay on admin role pref but show login screen
+      }
+  };
+
+  const handleSchoolLogout = async () => {
+      playClick();
+      if (window.confirm("Đăng xuất khỏi tài khoản HUB?")) {
+          await supabase?.auth.signOut();
+          // Stay on school role pref but show login screen
       }
   };
 
@@ -150,7 +184,7 @@ const App: React.FC = () => {
       playClick();
       if (window.confirm("Thao tác này sẽ xóa toàn bộ dữ liệu. Bạn có chắc không?")) {
         setData(INITIAL_DATA);
-        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(storageKey);
       }
   };
 
@@ -391,14 +425,23 @@ const App: React.FC = () => {
       
       // If not logged in, show Login Screen
       if (!session) {
-          return <LoginScreen onBack={handleSwitchRole} />;
+          return <LoginScreen onBack={handleSwitchRole} mode="admin" />;
       }
       
       // If logged in, proceed to Main App (In-place Management Mode)
   }
 
-  // 3. Student Flow - Check onboarding
-  if (userRolePref === 'student' && !data.hasOnboarded) {
+  // 3. School Account Flow (Google) - Login Check
+  if (userRolePref === 'school') {
+      if (loadingRole) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#003375]" size={40}/></div>;
+
+      if (!session) {
+          return <LoginScreen onBack={handleSwitchRole} mode="school" />;
+      }
+  }
+
+  // 4. Student Flow - Check onboarding
+  if ((userRolePref === 'student' || userRolePref === 'school') && !data.hasOnboarded) {
       return <Onboarding onComplete={handleOnboardingComplete} />;
   }
 
@@ -473,12 +516,25 @@ const App: React.FC = () => {
                         </>
                     ) : (
                         <>
-                            <p className="text-xs font-bold text-[#003375] uppercase line-clamp-1 max-w-[120px]">
-                                {data.studentName || 'Sinh viên'}
-                            </p>
-                            <p className="text-[10px] text-gray-500">
-                                {data.cohort}
-                            </p>
+                            {userRolePref === 'school' && session?.user?.email ? (
+                                <>
+                                    <p className="text-xs font-bold text-[#003375] uppercase line-clamp-1 max-w-[140px]">
+                                        {session.user.email}
+                                    </p>
+                                    <p className="text-[10px] text-gray-500">
+                                        Tài khoản HUB
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-xs font-bold text-[#003375] uppercase line-clamp-1 max-w-[120px]">
+                                        {data.studentName || 'Sinh viên'}
+                                    </p>
+                                    <p className="text-[10px] text-gray-500">
+                                        {data.cohort}
+                                    </p>
+                                </>
+                            )}
                         </>
                     )}
                 </div>
@@ -491,7 +547,7 @@ const App: React.FC = () => {
                     <HelpCircle size={20} />
                 </button>
                 
-                {userRolePref === 'student' ? (
+                {(userRolePref === 'student' || userRolePref === 'school') ? (
                     <button 
                         onClick={resetData} 
                         className="p-2 text-gray-400 hover:text-[#990000] hover:bg-red-50 rounded-full transition-all duration-300 transform hover:rotate-180 active:scale-90" 
@@ -520,6 +576,23 @@ const App: React.FC = () => {
                             title="Đăng xuất"
                         >
                             <LogOut size={20} />
+                        </button>
+                    </>
+                ) : userRolePref === 'school' ? (
+                    <>
+                        <button 
+                            onClick={handleSchoolLogout}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all duration-300 active:scale-90"
+                            title="Đăng xuất"
+                        >
+                            <LogOut size={20} />
+                        </button>
+                        <button 
+                            onClick={handleSwitchRole}
+                            className="p-2 text-gray-400 hover:text-[#003375] hover:bg-blue-50 rounded-full transition-all duration-300 active:scale-90"
+                            title="Chọn vai trò"
+                        >
+                            <Shield size={20} />
                         </button>
                     </>
                 ) : (
