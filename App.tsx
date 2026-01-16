@@ -98,7 +98,7 @@ const App: React.FC = () => {
         const { data: profileData, error } = await supabase
           .from(STUDENT_PROFILE_TABLE)
           .select('data')
-          .eq('user_id', session.user.id)
+          .eq('id', session.user.id)
           .maybeSingle();
 
         if (!isActive) return;
@@ -170,14 +170,14 @@ const App: React.FC = () => {
 
     saveTimeoutRef.current = window.setTimeout(async () => {
       const payload = {
-        user_id: session.user.id,
+        id: session.user.id,
         data,
         updated_at: new Date().toISOString(),
       };
 
       const { error } = await supabase
         .from(STUDENT_PROFILE_TABLE)
-        .upsert(payload, { onConflict: 'user_id' });
+        .upsert(payload, { onConflict: 'id' });
 
       if (error) {
         console.error('Failed to save profile data:', error);
@@ -275,7 +275,7 @@ const App: React.FC = () => {
           supabase
             .from(STUDENT_PROFILE_TABLE)
             .delete()
-            .eq('user_id', session.user.id);
+            .eq('id', session.user.id);
         }
       }
   };
