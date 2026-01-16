@@ -79,6 +79,8 @@ const App: React.FC = () => {
   const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
   const [draftFullName, setDraftFullName] = useState('');
   const [draftAvatarUrl, setDraftAvatarUrl] = useState('');
+  const [draftAvatarFile, setDraftAvatarFile] = useState<File | null>(null);
+  const [draftAvatarPreview, setDraftAvatarPreview] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'dashboard' | 'handbook' | 'events' | 'lost-found'>('dashboard');
@@ -215,9 +217,19 @@ const App: React.FC = () => {
     if (showAccountSettings) {
       setDraftFullName(profileFullName);
       setDraftAvatarUrl(profileAvatarUrl);
+      setDraftAvatarFile(null);
+      setDraftAvatarPreview('');
       setProfileError(null);
     }
   }, [showAccountSettings, profileFullName, profileAvatarUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (draftAvatarPreview) {
+        URL.revokeObjectURL(draftAvatarPreview);
+      }
+    };
+  }, [draftAvatarPreview]);
 
   // Scroll to top when switching views
   useEffect(() => {
@@ -279,11 +291,32 @@ const App: React.FC = () => {
     setProfileSaving(true);
     setProfileError(null);
 
+    let avatarUrlToSave = draftAvatarUrl.trim();
+
+    if (draftAvatarFile) {
+      const fileExt = draftAvatarFile.name.split('.').pop() || 'png';
+      const filePath = `${session.user.id}/${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, draftAvatarFile, { upsert: true });
+
+      if (uploadError) {
+        setProfileError('Không thể tải ảnh lên. Vui lòng thử lại.');
+        setProfileSaving(false);
+        return;
+      }
+
+      const { data: publicData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+      avatarUrlToSave = publicData.publicUrl;
+    }
+
     const { error } = await supabase
       .from(STUDENT_PROFILE_TABLE)
       .update({
         full_name: draftFullName.trim(),
-        avatar_url: draftAvatarUrl.trim(),
+        avatar_url: avatarUrlToSave,
         updated_at: new Date().toISOString(),
       })
       .eq('id', session.user.id);
@@ -295,7 +328,12 @@ const App: React.FC = () => {
     }
 
     setProfileFullName(draftFullName.trim());
-    setProfileAvatarUrl(draftAvatarUrl.trim());
+    setProfileAvatarUrl(avatarUrlToSave);
+    setDraftAvatarFile(null);
+    if (draftAvatarPreview) {
+      URL.revokeObjectURL(draftAvatarPreview);
+      setDraftAvatarPreview('');
+    }
     setProfileSaving(false);
     setShowAccountSettings(false);
   };
@@ -312,6 +350,7 @@ const App: React.FC = () => {
 
   const avatarColors = ['#1f2937', '#2563eb', '#16a34a', '#f97316', '#a855f7'];
   const isColorAvatar = profileAvatarUrl?.startsWith('#');
+  const studentId = session?.user?.email?.split('@')[0] ?? '';
 
   const addSemester = () => {
     playClick();
@@ -613,7 +652,14 @@ const App: React.FC = () => {
                             <button
                                 key={color}
                                 type="button"
-                                onClick={() => setDraftAvatarUrl(color)}
+                                onClick={() => {
+                                    if (draftAvatarPreview) {
+                                        URL.revokeObjectURL(draftAvatarPreview);
+                                        setDraftAvatarPreview('');
+                                    }
+                                    setDraftAvatarFile(null);
+                                    setDraftAvatarUrl(color);
+                                }}
                                 className={`h-10 w-10 rounded-full border-2 transition-all ${draftAvatarUrl === color ? 'border-[#003375] ring-2 ring-[#003375]/20' : 'border-transparent'}`}
                                 style={{ backgroundColor: color }}
                                 title={`Màu ${color}`}
@@ -623,19 +669,34 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Hoặc nhập link ảnh</label>
+                    <label className="text-sm font-bold text-gray-700">Tải ảnh đại diện</label>
                     <input
-                        type="url"
-                        value={draftAvatarUrl}
-                        onChange={(e) => setDraftAvatarUrl(e.target.value)}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (draftAvatarPreview) {
+                                URL.revokeObjectURL(draftAvatarPreview);
+                            }
+                            const previewUrl = URL.createObjectURL(file);
+                            setDraftAvatarFile(file);
+                            setDraftAvatarPreview(previewUrl);
+                            setDraftAvatarUrl('');
+                        }}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none transition-all"
-                        placeholder="https://..."
                     />
                 </div>
 
                 <div className="flex items-center gap-3">
                     <span className="text-sm text-gray-500">Xem trước:</span>
-                    {draftAvatarUrl ? (
+                    {draftAvatarPreview ? (
+                        <img
+                            src={draftAvatarPreview}
+                            alt="Avatar preview"
+                            className="h-10 w-10 rounded-full object-cover border border-gray-200"
+                        />
+                    ) : draftAvatarUrl ? (
                         draftAvatarUrl.startsWith('#') ? (
                             <span
                                 className="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
@@ -789,7 +850,7 @@ const App: React.FC = () => {
                                         {displayName}
                                     </p>
                                     <p className="text-[10px] text-gray-500">
-                                        Tài khoản HUB
+                                        {studentId}
                                     </p>
                                 </>
                             ) : (
@@ -872,9 +933,6 @@ const App: React.FC = () => {
                                     {avatarSeed}
                                 </span>
                             )}
-                            <span className="hidden sm:block text-sm font-semibold text-gray-700 max-w-[140px] truncate">
-                                {displayName}
-                            </span>
                         </button>
 
                         {isUserMenuOpen && (
