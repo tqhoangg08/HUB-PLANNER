@@ -10,7 +10,7 @@ import { LostFoundBoard } from './components/LostFoundBoard';
 import { RoleSelection } from './components/RoleSelection';
 import { LoginScreen } from './components/LoginScreen';
 import { ActivityLogModal } from './components/ActivityLogModal';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock, User as UserIcon } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
@@ -71,26 +71,142 @@ const App: React.FC = () => {
   const [showGuide, setShowGuide] = useState(false);
   const [showActivityLog, setShowActivityLog] = useState(false);
   const [activeView, setActiveView] = useState<'dashboard' | 'handbook' | 'events' | 'lost-found'>('dashboard');
+  const [isSyncing, setIsSyncing] = useState(false); // For showing cloud sync status
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // --- AUTH & DATA SYNC LOGIC ---
   useEffect(() => {
+    if (!supabase) {
+        loadLocalData();
+        return;
+    }
+
+    // Auth State Listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+            setUserRolePref('student'); // Force student role on login
+            localStorage.setItem('user_role_preference', 'student');
+            
+            // 1. Enforce Domain Check
+            const email = session.user.email;
+            if (!email?.endsWith('@st.buh.edu.vn') && !isAdmin) { // Admin exemption allowed if configured elsewhere, but strictly for students
+                // Check if user is actually an admin/editor in DB before kicking
+                const { data: roleData } = await supabase.from('user_roles').select('role').eq('id', session.user.id).single();
+                if (!roleData || (roleData.role !== 'admin' && roleData.role !== 'editor')) {
+                     await supabase.auth.signOut();
+                     alert('Vui lòng sử dụng Email Sinh viên (@st.buh.edu.vn) để đăng nhập!');
+                     return;
+                }
+            }
+
+            setIsSyncing(true);
+            try {
+                // 2. Extract Info & Sync to Cloud (Upsert Profile)
+                const studentCode = email?.split('@')[0] || '';
+                const localDataString = localStorage.getItem(STORAGE_KEY);
+                const localData = localDataString ? JSON.parse(localDataString) : null;
+
+                // Sync Strategy:
+                // If local data exists and has semesters, we prioritize saving it to cloud to prevent data loss.
+                // If local data is empty/default, we fetch from cloud to restore previous session.
+                
+                const hasLocalData = localData && localData.semesters.some((s: Semester) => s.subjects.length > 0);
+
+                if (hasLocalData) {
+                    // PUSH: Local -> Cloud
+                    await supabase.from('profiles').upsert({
+                        id: session.user.id,
+                        email: email,
+                        full_name: session.user.user_metadata.full_name || localData.studentName,
+                        avatar_url: session.user.user_metadata.avatar_url,
+                        student_code: studentCode,
+                        saved_data: localData // Save current work
+                    });
+                    console.log("Synced Local Data to Cloud");
+                    setData(localData);
+                } else {
+                    // PULL: Cloud -> Local (First login on new device or cleared cache)
+                    // First upsert basic info to ensure profile exists
+                    await supabase.from('profiles').upsert({
+                         id: session.user.id,
+                         email: email,
+                         full_name: session.user.user_metadata.full_name,
+                         avatar_url: session.user.user_metadata.avatar_url,
+                         student_code: studentCode,
+                    }, { onConflict: 'id', ignoreDuplicates: false }); // ignoreDups=false updates profile info
+
+                    const { data: profileData, error } = await supabase
+                        .from('profiles')
+                        .select('saved_data')
+                        .eq('id', session.user.id)
+                        .single();
+
+                    if (profileData?.saved_data) {
+                        console.log("Restored Data from Cloud");
+                        setData(profileData.saved_data);
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(profileData.saved_data));
+                    } else {
+                         loadLocalData(); // Fallback
+                    }
+                }
+            } catch (err) {
+                console.error("Sync Error:", err);
+                loadLocalData();
+            } finally {
+                setIsSyncing(false);
+                setIsLoaded(true);
+            }
+
+        } else if (event === 'SIGNED_OUT') {
+            // Clear sensitive data on logout
+            resetData(false); // Reset state to initial
+            localStorage.removeItem(STORAGE_KEY);
+            setIsLoaded(true);
+        } else {
+            // Initial load if not signed in
+            if (!session && !isLoaded) {
+                 loadLocalData();
+            }
+        }
+    });
+
+    return () => {
+        authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const loadLocalData = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         setData({ ...INITIAL_DATA, ...parsed });
       } catch (e) {
-        console.error("Failed to load data", e);
+        console.error("Failed to load local data", e);
       }
     }
     setIsLoaded(true);
-  }, []);
+  };
 
+  // Auto-save to LocalStorage AND Cloud (Debounced)
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      
+      // Auto-save to Cloud if logged in (Debounce 2s)
+      if (session && supabase) {
+          const timeoutId = setTimeout(async () => {
+              await supabase.from('profiles').update({
+                  saved_data: data,
+                  updated_at: new Date().toISOString()
+              }).eq('id', session.user.id);
+              console.log("Auto-saved to Cloud");
+          }, 2000);
+          return () => clearTimeout(timeoutId);
+      }
     }
-  }, [data, isLoaded]);
+  }, [data, isLoaded, session]);
 
   // Scroll to top when switching views
   useEffect(() => {
@@ -115,9 +231,9 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
       playClick();
-      if (window.confirm("Đăng xuất khỏi tài khoản quản trị?")) {
+      if (window.confirm("Bạn có chắc muốn đăng xuất? Dữ liệu trên máy này sẽ được xóa để bảo mật.")) {
           await supabase?.auth.signOut();
-          // Stay on admin role pref but show login screen
+          // handleSwitchRole called via auth listener SIGNED_OUT
       }
   };
 
@@ -146,11 +262,15 @@ const App: React.FC = () => {
     }
   };
 
-  const resetData = () => {
-      playClick();
-      if (window.confirm("Thao tác này sẽ xóa toàn bộ dữ liệu. Bạn có chắc không?")) {
+  const resetData = (confirm = true) => {
+      if (confirm) playClick();
+      if (!confirm || window.confirm("Thao tác này sẽ xóa toàn bộ dữ liệu. Bạn có chắc không?")) {
         setData(INITIAL_DATA);
         localStorage.removeItem(STORAGE_KEY);
+        if (session && supabase && confirm) {
+             // Also clear cloud data if user explicitly resets
+             supabase.from('profiles').update({ saved_data: INITIAL_DATA }).eq('id', session.user.id);
+        }
       }
   };
 
@@ -378,7 +498,7 @@ const App: React.FC = () => {
   );
 
   // --- ROUTING LOGIC ---
-  if (!isLoaded) return null;
+  if (!isLoaded && !session) return null;
 
   // 1. Role Selection Screen
   if (userRolePref === 'unknown') {
@@ -462,26 +582,44 @@ const App: React.FC = () => {
              {/* User Info / Controls */}
              <div className="flex items-center gap-2 border-l border-gray-300 pl-4 ml-2">
                 <div className="text-right hidden sm:block">
-                    {canManage ? (
+                    {session ? (
+                         <>
+                            <p className="text-xs font-bold text-[#003375] uppercase line-clamp-1 max-w-[120px]">
+                                {session.user.user_metadata.full_name || data.studentName}
+                            </p>
+                            <p className="text-[10px] text-gray-500 truncate max-w-[120px]">
+                                {session.user.email?.split('@')[0]}
+                            </p>
+                        </>
+                    ) : canManage ? (
                         <>
                             <p className="text-xs font-bold text-[#003375] uppercase line-clamp-1 max-w-[120px]">
                                 {isAdmin ? 'Admin' : 'CTV'}
                             </p>
                             <p className="text-[10px] text-gray-500 truncate max-w-[120px]">
-                                {session?.user.email}
+                                {session?.user?.email}
                             </p>
                         </>
                     ) : (
                         <>
                             <p className="text-xs font-bold text-[#003375] uppercase line-clamp-1 max-w-[120px]">
-                                {data.studentName || 'Sinh viên'}
+                                {data.studentName || 'Khách'}
                             </p>
-                            <p className="text-[10px] text-gray-500">
-                                {data.cohort}
+                            <p className="text-[10px] text-gray-500 italic">
+                                Chưa đăng nhập
                             </p>
                         </>
                     )}
                 </div>
+
+                {/* Avatar for Logged In User */}
+                {session?.user.user_metadata.avatar_url && (
+                    <img 
+                        src={session.user.user_metadata.avatar_url} 
+                        alt="Avatar" 
+                        className="w-8 h-8 rounded-full border border-gray-200 hidden sm:block"
+                    />
+                )}
                 
                 <button 
                     onClick={() => { playClick(); setShowGuide(true); }}
@@ -493,7 +631,7 @@ const App: React.FC = () => {
                 
                 {userRolePref === 'student' ? (
                     <button 
-                        onClick={resetData} 
+                        onClick={() => resetData(true)} 
                         className="p-2 text-gray-400 hover:text-[#990000] hover:bg-red-50 rounded-full transition-all duration-300 transform hover:rotate-180 active:scale-90" 
                         title="Reset Data"
                     >
@@ -502,7 +640,7 @@ const App: React.FC = () => {
                 ) : null}
 
                 {/* Logout / Switch Role */}
-                {userRolePref === 'admin' ? (
+                {(session || userRolePref === 'admin') ? (
                     <>
                         {isAdmin && (
                             <button 
@@ -526,7 +664,7 @@ const App: React.FC = () => {
                     <button 
                         onClick={handleSwitchRole}
                         className="p-2 text-gray-400 hover:text-[#003375] hover:bg-blue-50 rounded-full transition-all duration-300 active:scale-90"
-                        title="Chọn vai trò"
+                        title="Đăng nhập / Chọn vai trò"
                     >
                         <Shield size={20} />
                     </button>
@@ -542,7 +680,14 @@ const App: React.FC = () => {
         {activeView === 'events' && <EventsBoard />}
         {activeView === 'lost-found' && <LostFoundBoard />}
         {activeView === 'dashboard' && (
-            <div className="animate-slideInRight">
+            <div className="animate-slideInRight relative">
+                {isSyncing && (
+                    <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center rounded-xl">
+                        <Loader2 size={48} className="animate-spin text-[#003375] mb-2"/>
+                        <p className="font-bold text-[#003375]">Đang đồng bộ dữ liệu với Cloud...</p>
+                    </div>
+                )}
+
                 <Dashboard 
                 data={data} 
                 onTargetChange={(newTarget) => setData(prev => ({...prev, targetGPA: newTarget}))}
