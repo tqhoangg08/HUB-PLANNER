@@ -4,68 +4,31 @@ import { UserData, Semester, Subject } from '../types';
 
 // Set worker for PDF.js - ensure version matches the main library import
 // Tự động lấy đúng phiên bản worker khớp với thư viện
-try {
-    const pdfVersion = pdfjsLib.version || '4.0.379';
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfVersion}/build/pdf.worker.min.mjs`;
-} catch (e) {
-    console.warn("Failed to initialize PDF worker source:", e);
-}
-
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 interface ParsedResult {
     studentInfo: Partial<UserData>;
     semesters: Semester[];
     yearRanges: {start: number, end: number}[]; // Keep track of found years
 }
 
-// Helper safely get API Key
-const getApiKey = () => {
-    try {
-        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-            return process.env.API_KEY;
-        }
-    } catch(e) {}
-    
-    try {
-        // @ts-ignore
-        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
-            // @ts-ignore
-            return import.meta.env.VITE_GEMINI_API_KEY;
-        }
-    } catch(e) {}
-    
-    return '';
-};
-
 // System instruction for Gemini
 const GEMINI_SYSTEM_PROMPT = `
-Bạn là một chuyên gia trích xuất dữ liệu từ văn bản và hình ảnh (OCR). Nhiệm vụ của bạn là đọc bảng điểm từ file đính kèm và trích xuất dữ liệu sạch.
+Bạn là một chuyên gia trích xuất dữ liệu từ văn bản và hình ảnh (OCR). Nhiệm vụ của bạn là đọc bảng điểm từ văn bản được cung cấp và trích xuất dữ liệu sạch.
 
 YÊU CẦU VỀ DỮ LIỆU ĐẦU RA:
-Định dạng: Chỉ trả về duy nhất một mảng JSON (JSON Array). Không thêm markdown (json), không thêm lời dẫn hay giải thích.
-Cấu trúc mỗi phần tử (Object) trong mảng chỉ bao gồm 3 trường sau:
-"ten_hoc_phan": (String) Tên đầy đủ của môn học.
-"tin_chi": (Number) Số tín chỉ.
-"ket_qua": (String/Number) Điểm tổng kết hoặc kết quả xếp loại (ví dụ: 8.5, "Đạt", "M").
+1. Định dạng: Chỉ trả về duy nhất một mảng JSON (JSON Array). Không thêm markdown (json), không thêm lời dẫn hay giải thích.
+2. Cấu trúc mỗi phần tử (Object) trong mảng chỉ bao gồm 3 trường sau:
+   - "ten_hoc_phan": (String) Tên đầy đủ của môn học.
+   - "tin_chi": (Number) Số tín chỉ.
+   - "ket_qua": (String/Number) Điểm tổng kết hoặc kết quả xếp loại (ví dụ: 8.5, "Đạt", "M").
 
 QUY TẮC LỌC VÀ XỬ LÝ LỖI (BẮT BUỘC):
-BỎ QUA HOÀN TOÀN các cột sau: Mã học phần (như ITC301, ACC705...), các nút chức năng (Chi tiết, Xóa), và các ô checkbox.
-BỎ QUA DÒNG TIÊU ĐỀ: Không trích xuất các dòng chứa chữ "Mã học phần", "Tên học phần", "Tín chỉ", "Học kỳ".
-
-XỬ LÝ DÍNH CHỮ:
-Nếu tên môn học bị dính với mã học phần (ví dụ: "ACC705 Kế toán tài chính"), hãy tự động cắt bỏ mã, chỉ giữ lại "Kế toán tài chính".
-Nếu tên môn học bị ngắt xuống dòng, hãy nối chúng lại thành một chuỗi hoàn chỉnh.
-Các môn bắt đầu bằng chữ "Kỹ năng", "GDTC", "Học phần", "Tiếng anh tăng cường" không tính vào gpa.
-
-VÍ DỤ MONG MUỐN:
-Input: "1 ITC301 Chuẩn công nghệ thông tin đầu vào 0 Bắt buộc M Chi tiết"
-Output:
-[
-  {
-    "ten_hoc_phan": "Chuẩn công nghệ thông tin đầu vào",
-    "tin_chi": 0,
-    "ket_qua": "M"
-  }
-]
+1. BỎ QUA HOÀN TOÀN các cột sau: Mã học phần (như ITC301, ACC705...), các nút chức năng (Chi tiết, Xóa), và các ô checkbox.
+2. BỎ QUA DÒNG TIÊU ĐỀ: Không trích xuất các dòng chứa chữ "Mã học phần", "Tên học phần", "Tín chỉ", "Học kỳ".
+3. XỬ LÝ DÍNH CHỮ:
+   - Nếu tên môn học bị dính với mã học phần (ví dụ: "ACC705 Kế toán tài chính"), hãy tự động cắt bỏ mã, chỉ giữ lại "Kế toán tài chính".
+   - Nếu tên môn học bị ngắt xuống dòng, hãy nối chúng lại thành một chuỗi hoàn chỉnh.
+4. Các môn bắt đầu bằng chữ "Kỹ năng", "GDTC", "Học phần", "Tiếng anh tăng cường" thường không tính vào GPA nhưng vẫn cần trích xuất chính xác.
 `;
 
 const extractSubjectsWithAI = async (text: string, ai: GoogleGenAI): Promise<any[]> => {
@@ -161,14 +124,14 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     }
 
     // Initialize AI (if API key exists)
-    let ai: GoogleGenAI | null = null;
-    const apiKey = getApiKey();
+let ai: GoogleGenAI | null = null;
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-    if (apiKey) {
-        ai = new GoogleGenAI({ apiKey: apiKey });
-    } else {
-        console.warn("Lưu ý: Chưa tìm thấy API Key. Tính năng trích xuất AI sẽ bị tắt.");
-    }
+if (apiKey) {
+    ai = new GoogleGenAI({ apiKey: apiKey });
+} else {
+    console.error("LỖI: Chưa tìm thấy VITE_GEMINI_API_KEY. Hãy kiểm tra cài đặt trên Vercel!");
+}
 
     // Process each block
     for (let i = 0; i < indices.length; i++) {
