@@ -37,7 +37,7 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
           {/* Primary Login */}
           <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 text-center space-y-4">
                 <h2 className="text-xl font-bold text-[#003375]">Dành cho Sinh viên</h2>
-                <p className="text-sm text-gray-500">Đăng nhập để đồng bộ điểm số và dữ liệu cá nhân</p>
+                <p className="text-sm text-gray-500">Đăng nhập để đồng bộ dữ liệu cá nhân</p>
                 <GoogleLoginButton className="w-full text-base bg-blue-50 border-blue-100 hover:bg-blue-100 text-[#003375]" />
                 
                 <div className="relative py-2">
@@ -54,7 +54,7 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
                     className="w-full py-3 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 font-bold hover:border-[#003375] hover:text-[#003375] hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
                 >
                     <User size={18} />
-                    Dùng thử (Khách)
+                    Ẩn danh (Lưu cục bộ)
                 </button>
           </div>
 
