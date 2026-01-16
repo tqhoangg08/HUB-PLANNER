@@ -176,16 +176,15 @@ const App: React.FC = () => {
         // lấy cloud data
 // đọc local trước để biết có cần kéo saved_data không
 const localDataString = localStorage.getItem(STORAGE_KEY);
+
 let localData: any = null;
 try {
   localData = localDataString ? JSON.parse(localDataString) : null;
-} catch {
+} catch (e) {
   localData = null;
 }
-const hasLocalData = !!localData?.hasOnboarded;
 
-// chỉ bật spinner khi THIẾU local (tức là cần lấy cloud)
-if (!hasLocalData) setIsSyncing(true);
+const hasLocalData = !!localData?.hasOnboarded;
 
 try {
   // Nếu local có tên thì sync tên lên profiles (nhẹ)
@@ -227,12 +226,10 @@ try {
   setNeedsOnboarding(!finalName);
 
   setIsLoaded(true);
-} catch (e) {
-  console.error("restore error:", e);
-  loadLocalData();
-  setIsLoaded(true);
+} catch (err) {
+  console.error(err);
 } finally {
-  setIsSyncing(false); // ✅ bắt buộc để không bị “đồng bộ mãi”
+  setIsSyncing(false);
 }
     });
 
