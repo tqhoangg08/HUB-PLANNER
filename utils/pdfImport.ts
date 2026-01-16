@@ -58,28 +58,17 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     
     let fullText = '';
-    let fullTextWithLines = '';
     
     // 1. Extract text from all pages
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
         
-        let pageText = '';
-        for (const item of textContent.items as any[]) {
-            pageText += item.str;
-            if (item.hasEOL) {
-                pageText += '\n';
-            } else {
-                pageText += ' ';
-            }
-        }
-        fullTextWithLines += pageText + '\n';
-        fullText += pageText + ' ';
+        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+        fullText += pageText + ' '; 
     }
 
     fullText = fullText.replace(/\s+/g, ' ');
-    const textForRegex = fullTextWithLines;
 
     // 2. Parse Student Info
     // Pattern: "Trần Quốc Hoàng [Mã số: 030839230074]"
@@ -104,22 +93,13 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     // Header pattern: "Học kỳ 1/2023-2024"
     const semesters: Semester[] = [];
     const yearRanges: {start: number, end: number}[] = [];
-    const skipKeywords = [
-        'Mã học phần',
-        'Tên học phần',
-        'STT',
-        'Học kỳ',
-        'Trung bình chung',
-        'Điểm rèn luyện',
-        'STC Đậu'
-    ];
     
     // Find all indices of "Học kỳ X/YYYY-YYYY"
     const semHeaderRegex = /Học kỳ\s+(\d)\s*\/\s*(\d{4})\s*-\s*(\d{4})/gi;
     let match;
     const indices: { index: number, name: string, id: string, semesterNo: number, yearStart: number, yearEnd: number }[] = [];
     
-    while ((match = semHeaderRegex.exec(textForRegex)) !== null) {
+    while ((match = semHeaderRegex.exec(fullText)) !== null) {
         const hk = parseInt(match[1]);
         const y1 = parseInt(match[2]);
         const y2 = parseInt(match[3]);
@@ -157,8 +137,8 @@ if (apiKey) {
     for (let i = 0; i < indices.length; i++) {
         const current = indices[i];
         const next = indices[i + 1];
-        const end = next ? next.index : textForRegex.length;
-        const blockContent = textForRegex.substring(current.index, end);
+        const end = next ? next.index : fullText.length;
+        const blockContent = fullText.substring(current.index, end);
 
         let subjects: Subject[] = [];
         let trainingScore: number | null = null;
@@ -215,33 +195,14 @@ if (apiKey) {
 
         // Fallback: Regex Parsing (if AI missing or failed)
         if (!aiSuccess) {
-            const lines = blockContent.split(/\r?\n/);
-            const rowRegex = /^\s*(\d+)\s+([A-Z0-9_]+)\s+(.+?)\s+(\d+)\s+.*?\s([0-9.]+|M)\s*$/;
-
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed) continue;
-                if (skipKeywords.some(keyword => trimmed.includes(keyword))) {
-                    continue;
-                }
-                if (!/^\d+/.test(trimmed)) {
-                    continue;
-                }
-
-                console.log('Raw Line:', trimmed);
-                const match = trimmed.match(rowRegex);
-                if (!match) continue;
-
-                const code = match[2];
-                let name = match[3].trim();
-                const credits = parseInt(match[4], 10);
-                const rawScore = match[5];
-
-                const parsedData = { code, name, credits, rawScore };
-                console.log('Parsed Data:', parsedData);
-
-                if (!name || Number.isNaN(credits)) continue;
-
+            const subjectRegex = /(\d+)\s+([A-Z0-9_]+)\s+(.+?)\s+(\d+)\s+(Bắt Buộc|Tự Chọn)\s+([0-9.]+|M)/gi;
+            let subMatch;
+            while ((subMatch = subjectRegex.exec(blockContent)) !== null) {
+                const code = subMatch[2];
+                let name = subMatch[3].trim();
+                const credits = parseInt(subMatch[4]);
+                const rawScore = subMatch[6];
+                
                 let scoreVal: number | null = null;
                 let isNonGPA = false;
 
