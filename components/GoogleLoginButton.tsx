@@ -7,7 +7,7 @@ interface GoogleLoginButtonProps {
     text?: string;
 }
 
-export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ className = "", text = "Đăng nhập bằng Email Sinh viên" }) => {
+export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ className = "", text = "Đăng nhập" }) => {
     const [loading, setLoading] = useState(false);
 
     // Khi deploy (Vercel/production), luôn redirect về domain chính thức để tránh bị quay về localhost
