@@ -114,47 +114,44 @@ try {
   const localDataString = localStorage.getItem(STORAGE_KEY);
   const localData = localDataString ? JSON.parse(localDataString) : null;
 
-  const hasLocalData = localData && localData.semesters?.some((s: Semester) => s.subjects.length > 0);
+const localDataString = localStorage.getItem(STORAGE_KEY);
+const localData = localDataString ? JSON.parse(localDataString) : INITIAL_DATA;
 
+const hasLocalData =
+  localData.hasOnboarded ||
+  (localData.semesters && localData.semesters.some((s: Semester) => s.subjects.length > 0));
+
+// ✅ 1) Luôn pull cloud trước
+const { data: profileData, error } = await supabase
+  .from("profiles")
+  .select("saved_data, student_name")
+  .eq("id", session.user.id)
+  .single();
+
+if (profileData?.saved_data) {
+  // ✅ Cloud có data → dùng cloud (nhanh hơn, đúng hơn)
+  setData(profileData.saved_data);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(profileData.saved_data));
+  console.log("Loaded data from cloud");
+} else {
+  // ✅ Cloud trống → dùng local
+  setData(localData);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(localData));
+
+  // ✅ chỉ push nếu local có data thật
   if (hasLocalData) {
-    const { error: upsertErr } = await supabase.from('profiles').upsert({
-      id: session.user.id,
-      email,
-      full_name: session.user.user_metadata.full_name || localData.studentName,
-      avatar_url: session.user.user_metadata.avatar_url,
-      student_code: studentCode,
-      saved_data: localData
-    });
+    await supabase
+      .from("profiles")
+      .update({
+        saved_data: localData,
+        student_name: localData.studentName || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", session.user.id);
 
-    if (upsertErr) throw upsertErr;
-
-    setData(localData);
-  } else {
-    const { error: upsertErr } = await supabase.from('profiles').upsert({
-      id: session.user.id,
-      email,
-      full_name: session.user.user_metadata.full_name,
-      avatar_url: session.user.user_metadata.avatar_url,
-      student_code: studentCode
-    }, { onConflict: 'id', ignoreDuplicates: false });
-
-    if (upsertErr) throw upsertErr;
-
-    const { data: profileData, error: fetchErr } = await supabase
-      .from('profiles')
-      .select('saved_data')
-      .eq('id', session.user.id)
-      .single();
-
-    if (fetchErr) throw fetchErr;
-
-    if (profileData?.saved_data) {
-      setData(profileData.saved_data);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(profileData.saved_data));
-    } else {
-      loadLocalData();
-    }
+    console.log("Uploaded local data to cloud (only once)");
   }
+}
 } catch (err) {
   console.error("Sync Error:", err);
   loadLocalData();
@@ -284,13 +281,40 @@ try {
       }
   };
 
-  const handleOnboardingComplete = (onboardingData: Partial<UserData>) => {
-      setData(prev => ({
-          ...prev,
-          ...onboardingData,
-          hasOnboarded: true
-      }));
+const handleOnboardingComplete = (onboardingData: Partial<UserData>) => {
+  // ✅ Tạo dữ liệu mới
+  const nextData: UserData = {
+    ...data,
+    ...onboardingData,
+    hasOnboarded: true,
   };
+
+  // ✅ Update state
+  setData(nextData);
+
+  // ✅ Lưu localStorage NGAY LẬP TỨC (quan trọng)
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+  } catch (e) {
+    console.warn("Failed to save onboarding data to localStorage", e);
+  }
+
+  // ✅ Lưu Supabase NGAY LẬP TỨC để reload không mất
+  if (session) {
+    supabase
+      .from("profiles")
+      .update({
+        student_name: (nextData.studentName || "").trim() || null,
+        saved_data: nextData,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", session.user.id)
+      .then(({ error }) => {
+        if (error) console.warn("Failed to persist onboarding to cloud:", error);
+      });
+  }
+};
+
 
   const handleExportPDF = () => {
       playClick();
