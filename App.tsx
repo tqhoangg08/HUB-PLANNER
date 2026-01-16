@@ -500,8 +500,14 @@ const App: React.FC = () => {
     </div>
   );
 
-  // --- ROUTING LOGIC ---
-  if (!isLoaded && !session) return null;
+// --- ROUTING LOGIC ---
+if (!isLoaded) {
+  return (
+    <div className="h-screen flex items-center justify-center">
+      <Loader2 className="animate-spin text-[#003375]" size={40} />
+    </div>
+  );
+}
 
   // 1. Role Selection Screen
   if (userRolePref === 'unknown') {
