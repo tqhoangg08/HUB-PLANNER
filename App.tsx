@@ -269,6 +269,11 @@ const App: React.FC = () => {
       }
   };
 
+  const handleMenuLogout = async () => {
+    setIsUserMenuOpen(false);
+    await handleSchoolLogout();
+  };
+
   const handleSaveProfile = async () => {
     if (!session?.user?.id || !supabase) return;
     setProfileSaving(true);
@@ -875,6 +880,7 @@ const App: React.FC = () => {
                         {isUserMenuOpen && (
                             <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-50">
                                 <button
+                                    type="button"
                                     onClick={() => {
                                         setShowAccountSettings(true);
                                         setIsUserMenuOpen(false);
@@ -884,6 +890,7 @@ const App: React.FC = () => {
                                     Cài đặt tài khoản
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={() => {
                                         setIsUserMenuOpen(false);
                                         resetData();
@@ -893,10 +900,8 @@ const App: React.FC = () => {
                                     Xóa dữ liệu (Reset)
                                 </button>
                                 <button
-                                    onClick={() => {
-                                        setIsUserMenuOpen(false);
-                                        handleSchoolLogout();
-                                    }}
+                                    type="button"
+                                    onClick={handleMenuLogout}
                                     className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
                                 >
                                     Đăng xuất
