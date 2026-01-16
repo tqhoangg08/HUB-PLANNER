@@ -174,45 +174,66 @@ const App: React.FC = () => {
           );
 
         // lấy cloud data
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('saved_data, updated_at')
-          .eq('id', sess.user.id)
-          .single();
+// đọc local trước để biết có cần kéo saved_data không
+const localDataString = localStorage.getItem(STORAGE_KEY);
+let localData: any = null;
+try {
+  localData = localDataString ? JSON.parse(localDataString) : null;
+} catch {
+  localData = null;
+}
+const hasLocalData = !!localData?.hasOnboarded;
 
-        const cloudHasData = !!profileData?.saved_data;
-        const cloudUpdatedAt = profileData?.updated_at || null;
+// chỉ bật spinner khi THIẾU local (tức là cần lấy cloud)
+if (!hasLocalData) setIsSyncing(true);
 
-        const cloudNewerThanLocal =
-          !!cloudUpdatedAt &&
-          !!localUpdatedAt &&
-          new Date(cloudUpdatedAt).getTime() > new Date(localUpdatedAt).getTime();
+try {
+  // Nếu local có tên thì sync tên lên profiles (nhẹ)
+  if (localData?.studentName) {
+    await supabase.from("profiles").update({
+      full_name: localData.studentName,
+      updated_at: new Date().toISOString(),
+    }).eq("id", session.user.id);
+  }
 
-        // RULE:
-        // - Nếu local trống => pull cloud
-        // - Nếu cloud mới hơn => pull cloud
-        // - Nếu cloud trống hoặc local mới hơn => push local
-        if (cloudHasData && (!hasLocalData || cloudNewerThanLocal)) {
-          setData(profileData!.saved_data);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(profileData!.saved_data));
-          localStorage.setItem(
-            LOCAL_UPDATED_AT_KEY,
-            cloudUpdatedAt || new Date().toISOString()
-          );
-        } else if (hasLocalData && (!cloudHasData || !cloudNewerThanLocal)) {
-          await supabase
-            .from('profiles')
-            .update({
-              saved_data: mergedLocalData,
-              updated_at: localUpdatedAt || new Date().toISOString(),
-            })
-            .eq('id', sess.user.id);
-        }
-      } catch (e) {
-        console.error('Auth sync error:', e);
-      } finally {
-        setIsSyncing(false);
-      }
+  // ✅ query nhẹ khi đã có local
+  const selectCols = hasLocalData ? "full_name" : "saved_data, full_name";
+
+  const { data: profileData, error } = await supabase
+    .from("profiles")
+    .select(selectCols)
+    .eq("id", session.user.id)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  // nếu local trống thì mới hydrate từ cloud
+  if (!hasLocalData) {
+    if ((profileData as any)?.saved_data) {
+      setData({ ...INITIAL_DATA, ...(profileData as any).saved_data });
+    } else {
+      loadLocalData();
+    }
+  } else {
+    // đã có local thì dùng local luôn cho nhanh
+    loadLocalData();
+  }
+
+  const cloudName = (profileData as any)?.full_name;
+  const finalName = cloudName || localData?.studentName || "";
+  setUserName(finalName);
+
+  // Nếu cả cloud và local đều chưa có tên -> mới bắt nhập
+  setNeedsOnboarding(!finalName);
+
+  setIsLoaded(true);
+} catch (e) {
+  console.error("restore error:", e);
+  loadLocalData();
+  setIsLoaded(true);
+} finally {
+  setIsSyncing(false); // ✅ bắt buộc để không bị “đồng bộ mãi”
+}
     });
 
     return () => {
@@ -235,25 +256,33 @@ const App: React.FC = () => {
   };
 
   // Auto-save to LocalStorage AND Cloud (Debounced)
-  useEffect(() => {
-    if (isLoaded) {
-const nowIso = new Date().toISOString();
-localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-localStorage.setItem(`${STORAGE_KEY}__updated_at`, nowIso);
-      
-      // Auto-save to Cloud if logged in (Debounce 2s)
-      if (session && supabase) {
-          const timeoutId = setTimeout(async () => {
-              await supabase.from('profiles').update({
-                  saved_data: data,
-                  updated_at: new Date().toISOString()
-              }).eq('id', session.user.id);
-              console.log("Auto-saved to Cloud");
-          }, 2000);
-          return () => clearTimeout(timeoutId);
-      }
+useEffect(() => {
+  if (!isLoaded) return;
+
+  // local save luôn
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+
+  if (!session || !supabase) return;
+
+  const t = setTimeout(async () => {
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          saved_data: data,
+          full_name: data.studentName || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", session.user.id);
+
+      if (error) console.warn("Cloud save error:", error);
+    } catch (e) {
+      console.warn("Cloud save exception:", e);
     }
-  }, [data, isLoaded, session]);
+  }, 800);
+
+  return () => clearTimeout(t);
+}, [data, isLoaded, session?.user.id]);
 
   // Scroll to top when switching views
   useEffect(() => {
