@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { UserData, Semester, STORAGE_KEY } from './types';
 import { Dashboard } from './components/Dashboard';
 import { SemesterTable } from './components/SemesterTable';
@@ -75,24 +75,35 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<'dashboard' | 'handbook' | 'events' | 'lost-found'>('dashboard');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const storageKey = useMemo(() => {
+    if (userRolePref === 'school' && session?.user?.id) {
+      return `${STORAGE_KEY}:${session.user.id}`;
+    }
+
+    return STORAGE_KEY;
+  }, [session?.user?.id, userRolePref]);
+
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(storageKey);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         setData({ ...INITIAL_DATA, ...parsed });
       } catch (e) {
         console.error("Failed to load data", e);
+        setData(INITIAL_DATA);
       }
+    } else {
+      setData(INITIAL_DATA);
     }
     setIsLoaded(true);
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(storageKey, JSON.stringify(data));
     }
-  }, [data, isLoaded]);
+  }, [data, isLoaded, storageKey]);
 
   // Scroll to top when switching views
   useEffect(() => {
@@ -173,7 +184,7 @@ const App: React.FC = () => {
       playClick();
       if (window.confirm("Thao tác này sẽ xóa toàn bộ dữ liệu. Bạn có chắc không?")) {
         setData(INITIAL_DATA);
-        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(storageKey);
       }
   };
 
