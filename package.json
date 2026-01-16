@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+"build": "vite build && find dist -name \"*.map\" -type f -delete"
     "preview": "vite preview"
   },
   "dependencies": {
