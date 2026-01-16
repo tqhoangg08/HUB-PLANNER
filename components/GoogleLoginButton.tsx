@@ -10,6 +10,11 @@ interface GoogleLoginButtonProps {
 export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ className = "", text = "Đăng nhập bằng Email Sinh viên" }) => {
     const [loading, setLoading] = useState(false);
 
+    // Khi deploy (Vercel/production), luôn redirect về domain chính thức để tránh bị quay về localhost
+    // (Supabase sẽ fallback về Site URL nếu redirectTo không hợp lệ / không được allow-list).
+    const PROD_REDIRECT_URL = 'https://hotrosinhvienhub.id.vn';
+    const redirectTo = import.meta.env.PROD ? PROD_REDIRECT_URL : window.location.origin;
+
     const handleLogin = async () => {
         if (!supabase) {
             alert("Chưa cấu hình Supabase!");
@@ -25,7 +30,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ className 
                         access_type: 'offline',
                         prompt: 'consent',
                     },
-                    redirectTo: window.location.origin
+                    redirectTo
                 },
             });
             if (error) throw error;

@@ -84,7 +84,7 @@ const App: React.FC = () => {
 
     // Auth State Listener
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
             setUserRolePref('student'); // Force student role on login
             localStorage.setItem('user_role_preference', 'student');
             
@@ -164,9 +164,12 @@ const App: React.FC = () => {
             localStorage.removeItem(STORAGE_KEY);
             setIsLoaded(true);
         } else {
-            // Initial load if not signed in
-            if (!session && !isLoaded) {
-                 loadLocalData();
+            // INITIAL_SESSION có thể trả về session nhưng không rơi vào SIGNED_IN,
+            // nếu không setIsLoaded(true) thì app sẽ bị trắng (return null).
+            if (!session) {
+                 if (!isLoaded) loadLocalData();
+            } else {
+                 setIsLoaded(true);
             }
         }
     });
