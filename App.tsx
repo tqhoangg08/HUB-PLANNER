@@ -18,6 +18,7 @@ import { useUserRole } from './hooks/useUserRole';
 import { supabase } from './utils/supabase';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
+const STUDENT_PROFILE_TABLE = 'student_profiles';
 
 // Default generator if no PDF is used
 const generateStandardCurriculum = (): Semester[] => {
@@ -83,27 +84,91 @@ const App: React.FC = () => {
     return STORAGE_KEY;
   }, [session?.user?.id, userRolePref]);
 
+  const saveTimeoutRef = useRef<number | null>(null);
+
   useEffect(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setData({ ...INITIAL_DATA, ...parsed });
-      } catch (e) {
-        console.error("Failed to load data", e);
+    let isActive = true;
+
+    const loadData = async () => {
+      if (userRolePref === 'school' && session?.user?.id && supabase) {
+        const { data: profileData, error } = await supabase
+          .from(STUDENT_PROFILE_TABLE)
+          .select('data')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (!isActive) return;
+
+        if (error) {
+          console.error('Failed to load profile data:', error);
+        }
+
+        if (profileData?.data) {
+          setData({ ...INITIAL_DATA, ...profileData.data });
+          localStorage.setItem(storageKey, JSON.stringify(profileData.data));
+          setIsLoaded(true);
+          return;
+        }
+      }
+
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setData({ ...INITIAL_DATA, ...parsed });
+        } catch (e) {
+          console.error("Failed to load data", e);
+          setData(INITIAL_DATA);
+        }
+      } else {
         setData(INITIAL_DATA);
       }
-    } else {
-      setData(INITIAL_DATA);
-    }
-    setIsLoaded(true);
-  }, [storageKey]);
+      setIsLoaded(true);
+    };
+
+    loadData();
+
+    return () => {
+      isActive = false;
+    };
+  }, [storageKey, session?.user?.id, userRolePref]);
 
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem(storageKey, JSON.stringify(data));
     }
   }, [data, isLoaded, storageKey]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (userRolePref !== 'school' || !session?.user?.id || !supabase) return;
+
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = window.setTimeout(async () => {
+      const payload = {
+        user_id: session.user.id,
+        data,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from(STUDENT_PROFILE_TABLE)
+        .upsert(payload, { onConflict: 'user_id' });
+
+      if (error) {
+        console.error('Failed to save profile data:', error);
+      }
+    }, 600);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        window.clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [data, isLoaded, session?.user?.id, userRolePref]);
 
   // Scroll to top when switching views
   useEffect(() => {
@@ -185,6 +250,12 @@ const App: React.FC = () => {
       if (window.confirm("Thao tác này sẽ xóa toàn bộ dữ liệu. Bạn có chắc không?")) {
         setData(INITIAL_DATA);
         localStorage.removeItem(storageKey);
+        if (userRolePref === 'school' && session?.user?.id && supabase) {
+          supabase
+            .from(STUDENT_PROFILE_TABLE)
+            .delete()
+            .eq('user_id', session.user.id);
+        }
       }
   };
 
