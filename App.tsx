@@ -100,63 +100,70 @@ const App: React.FC = () => {
                 }
             }
 
-            setIsSyncing(true);
-            try {
-                // 2. Extract Info & Sync to Cloud (Upsert Profile)
-                const studentCode = email?.split('@')[0] || '';
-                const localDataString = localStorage.getItem(STORAGE_KEY);
-                const localData = localDataString ? JSON.parse(localDataString) : null;
+setIsSyncing(true);
 
-                // Sync Strategy:
-                // If local data exists and has semesters, we prioritize saving it to cloud to prevent data loss.
-                // If local data is empty/default, we fetch from cloud to restore previous session.
-                
-                const hasLocalData = localData && localData.semesters.some((s: Semester) => s.subjects.length > 0);
+// Nếu Supabase bị treo / request không trả về, sau 12s tự thoát để app không xoay vòng mãi
+const hardTimeout = window.setTimeout(() => {
+  console.warn("Sync timeout -> fallback local");
+  setIsSyncing(false);
+  setIsLoaded(true);
+}, 12000);
 
-                if (hasLocalData) {
-                    // PUSH: Local -> Cloud
-                    await supabase.from('profiles').upsert({
-                        id: session.user.id,
-                        email: email,
-                        full_name: session.user.user_metadata.full_name || localData.studentName,
-                        avatar_url: session.user.user_metadata.avatar_url,
-                        student_code: studentCode,
-                        saved_data: localData // Save current work
-                    });
-                    console.log("Synced Local Data to Cloud");
-                    setData(localData);
-                } else {
-                    // PULL: Cloud -> Local (First login on new device or cleared cache)
-                    // First upsert basic info to ensure profile exists
-                    await supabase.from('profiles').upsert({
-                         id: session.user.id,
-                         email: email,
-                         full_name: session.user.user_metadata.full_name,
-                         avatar_url: session.user.user_metadata.avatar_url,
-                         student_code: studentCode,
-                    }, { onConflict: 'id', ignoreDuplicates: false }); // ignoreDups=false updates profile info
+try {
+  const studentCode = email?.split('@')[0] || '';
+  const localDataString = localStorage.getItem(STORAGE_KEY);
+  const localData = localDataString ? JSON.parse(localDataString) : null;
 
-                    const { data: profileData, error } = await supabase
-                        .from('profiles')
-                        .select('saved_data')
-                        .eq('id', session.user.id)
-                        .single();
+  const hasLocalData = localData && localData.semesters?.some((s: Semester) => s.subjects.length > 0);
 
-                    if (profileData?.saved_data) {
-                        console.log("Restored Data from Cloud");
-                        setData(profileData.saved_data);
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(profileData.saved_data));
-                    } else {
-                         loadLocalData(); // Fallback
-                    }
-                }
-            } catch (err) {
-                console.error("Sync Error:", err);
-                loadLocalData();
-            } finally {
-                setIsSyncing(false);
-                setIsLoaded(true);
-            }
+  if (hasLocalData) {
+    const { error: upsertErr } = await supabase.from('profiles').upsert({
+      id: session.user.id,
+      email,
+      full_name: session.user.user_metadata.full_name || localData.studentName,
+      avatar_url: session.user.user_metadata.avatar_url,
+      student_code: studentCode,
+      saved_data: localData
+    });
+
+    if (upsertErr) throw upsertErr;
+
+    setData(localData);
+  } else {
+    const { error: upsertErr } = await supabase.from('profiles').upsert({
+      id: session.user.id,
+      email,
+      full_name: session.user.user_metadata.full_name,
+      avatar_url: session.user.user_metadata.avatar_url,
+      student_code: studentCode
+    }, { onConflict: 'id', ignoreDuplicates: false });
+
+    if (upsertErr) throw upsertErr;
+
+    const { data: profileData, error: fetchErr } = await supabase
+      .from('profiles')
+      .select('saved_data')
+      .eq('id', session.user.id)
+      .single();
+
+    if (fetchErr) throw fetchErr;
+
+    if (profileData?.saved_data) {
+      setData(profileData.saved_data);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(profileData.saved_data));
+    } else {
+      loadLocalData();
+    }
+  }
+} catch (err) {
+  console.error("Sync Error:", err);
+  loadLocalData();
+} finally {
+  window.clearTimeout(hardTimeout);
+  setIsSyncing(false);
+  setIsLoaded(true);
+}
+
 
         } else if (event === 'SIGNED_OUT') {
             // Clear sensitive data on logout
