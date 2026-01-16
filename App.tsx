@@ -76,8 +76,6 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- AUTH & DATA SYNC LOGIC ---
-  // Render ngay từ localStorage để reload nhanh, rồi sync cloud ở nền.
-  // Tránh trường hợp cloud rỗng/cũ đè local khiến phải onboard lại.
   const LOCAL_UPDATED_AT_KEY = `${STORAGE_KEY}__updated_at`;
 
   const readLocalData = () => {
@@ -88,6 +86,14 @@ const App: React.FC = () => {
     } catch {
       return null;
     }
+  };
+
+  const loadLocalData = () => {
+    const saved = readLocalData();
+    if (saved) {
+        setData({ ...INITIAL_DATA, ...saved });
+    }
+    setIsLoaded(true);
   };
 
   useEffect(() => {
@@ -109,8 +115,12 @@ const App: React.FC = () => {
       // 2) Render ngay từ local (để khỏi màn trắng / load lâu)
       const localRaw = readLocalData();
       const mergedLocalData = localRaw ? { ...INITIAL_DATA, ...localRaw } : INITIAL_DATA;
-      setData(mergedLocalData);
-      setIsLoaded(true);
+      
+      // Nếu chưa có data mới từ cloud thì dùng tạm local
+      if (!isLoaded) {
+          setData(mergedLocalData);
+          setIsLoaded(true);
+      }
 
       // Không có session thì thôi
       if (!(sess && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION'))) return;
@@ -121,11 +131,13 @@ const App: React.FC = () => {
         const email = sess.user.email;
         if (!email) return;
 
-        // ép role preference student
-        setUserRolePref('student');
-        localStorage.setItem('user_role_preference', 'student');
+        // Chỉ set student nếu chưa phải admin
+        if (!isAdmin) {
+             setUserRolePref('student');
+             localStorage.setItem('user_role_preference', 'student');
+        }
 
-        // check domain + fallback admin role (giữ logic cũ)
+        // check domain + fallback admin role
         if (!email.endsWith('@st.buh.edu.vn') && !isAdmin) {
           const { data: roleData } = await supabase
             .from('user_roles')
@@ -135,151 +147,94 @@ const App: React.FC = () => {
 
           if (roleData?.role !== 'admin') {
             await supabase.auth.signOut();
+            alert("Vui lòng sử dụng email sinh viên (@st.buh.edu.vn)");
             return;
           }
         }
 
         const studentCode = email.split('@')[0];
 
-        // “local có dữ liệu thật sự” = đã onboard / có tên / có điểm/đánh giá
-        const localData = localRaw;
-        const hasLocalData =
-          !!localData &&
-          (localData.hasOnboarded === true ||
-            (localData.studentName && String(localData.studentName).trim() !== '') ||
-            (localData.semesters || []).some((sem: any) =>
-              (sem.subjects || []).some(
-                (sub: any) =>
-                  sub.score !== null ||
-                  sub.trainingScore !== null ||
-                  (sub.status && sub.status !== 'planned') ||
-                  (sub.note && String(sub.note).trim() !== '')
-              )
-            ));
+        // Lấy dữ liệu từ Cloud về
+        const { data: cloudProfile } = await supabase
+            .from('profiles')
+            .select('saved_data, full_name')
+            .eq('id', sess.user.id)
+            .maybeSingle();
 
-        const localUpdatedAt = localStorage.getItem(LOCAL_UPDATED_AT_KEY);
+        // LOGIC QUYẾT ĐỊNH DÙNG DATA NÀO:
+        // 1. Nếu Cloud có dữ liệu -> Ưu tiên dùng Cloud (đồng bộ xuống máy)
+        if (cloudProfile?.saved_data && (cloudProfile.saved_data as any).hasOnboarded) {
+            const cloudData = cloudProfile.saved_data as UserData;
+            setData(cloudData);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData)); // Cache lại vào local
+        } 
+        // 2. Nếu Cloud trống nhưng Local có dữ liệu -> Đẩy Local lên Cloud (Lần đầu sync)
+        else if (localRaw && localRaw.hasOnboarded) {
+             await supabase.from('profiles').upsert({
+                 id: sess.user.id,
+                 email: email,
+                 full_name: sess.user.user_metadata?.full_name || localRaw.studentName,
+                 avatar_url: sess.user.user_metadata?.avatar_url,
+                 student_code: studentCode,
+                 saved_data: localRaw,
+                 updated_at: new Date().toISOString()
+             });
+             // Vẫn giữ hiển thị local
+             setData(mergedLocalData);
+        }
+        // 3. Cả 2 đều trống -> Giữ nguyên state (để hiện màn hình Onboarding)
+        else {
+            // Đảm bảo tạo row trong profile để lần sau sync
+            await supabase.from('profiles').upsert({
+                id: sess.user.id,
+                email: email,
+                student_code: studentCode,
+                full_name: sess.user.user_metadata?.full_name,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+        }
 
-        // đảm bảo profile có row
-        await supabase
-          .from('profiles')
-          .upsert(
-            {
-              id: sess.user.id,
-              email,
-              full_name: sess.user.user_metadata?.full_name || null,
-              avatar_url: sess.user.user_metadata?.avatar_url || null,
-              student_code: studentCode,
-            },
-            { onConflict: 'id' }
-          );
-
-        // lấy cloud data
-// đọc local trước để biết có cần kéo saved_data không
-const localDataString = localStorage.getItem(STORAGE_KEY);
-
-let localData: any = null;
-try {
-  localData = localDataString ? JSON.parse(localDataString) : null;
-} catch (e) {
-  localData = null;
-}
-
-const hasLocalData = !!localData?.hasOnboarded;
-
-try {
-  // Nếu local có tên thì sync tên lên profiles (nhẹ)
-  if (localData?.studentName) {
-    await supabase.from("profiles").update({
-      full_name: localData.studentName,
-      updated_at: new Date().toISOString(),
-    }).eq("id", session.user.id);
-  }
-
-  // ✅ query nhẹ khi đã có local
-  const selectCols = hasLocalData ? "full_name" : "saved_data, full_name";
-
-  const { data: profileData, error } = await supabase
-    .from("profiles")
-    .select(selectCols)
-    .eq("id", session.user.id)
-    .maybeSingle();
-
-  if (error) throw error;
-
-  // nếu local trống thì mới hydrate từ cloud
-  if (!hasLocalData) {
-    if ((profileData as any)?.saved_data) {
-      setData({ ...INITIAL_DATA, ...(profileData as any).saved_data });
-    } else {
-      loadLocalData();
-    }
-  } else {
-    // đã có local thì dùng local luôn cho nhanh
-    loadLocalData();
-  }
-
-  const cloudName = (profileData as any)?.full_name;
-  const finalName = cloudName || localData?.studentName || "";
-  setUserName(finalName);
-
-  // Nếu cả cloud và local đều chưa có tên -> mới bắt nhập
-  setNeedsOnboarding(!finalName);
-
-  setIsLoaded(true);
-} catch (err) {
-  console.error(err);
-} finally {
-  setIsSyncing(false);
-}
+      } catch (err) {
+        console.error("Sync error:", err);
+      } finally {
+        setIsSyncing(false);
+      }
     });
 
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [isAdmin]);
+  }, [isAdmin]); // Bỏ bớt dependency thừa để tránh re-run loop
 
-
-  const loadLocalData = () => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setData({ ...INITIAL_DATA, ...parsed });
-      } catch (e) {
-        console.error("Failed to load local data", e);
-      }
-    }
-    setIsLoaded(true);
-  };
 
   // Auto-save to LocalStorage AND Cloud (Debounced)
-useEffect(() => {
-  if (!isLoaded) return;
+  useEffect(() => {
+    if (!isLoaded) return;
 
-  // local save luôn
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    // local save luôn
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 
-  if (!session || !supabase) return;
+    if (!session || !supabase) return;
 
-  const t = setTimeout(async () => {
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          saved_data: data,
-          full_name: data.studentName || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", session.user.id);
+    const t = setTimeout(async () => {
+      try {
+        const { error } = await supabase
+          .from("profiles")
+          .update({
+            saved_data: data,
+            full_name: data.studentName || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", session.user.id);
 
-      if (error) console.warn("Cloud save error:", error);
-    } catch (e) {
-      console.warn("Cloud save exception:", e);
-    }
-  }, 800);
+        if (error) console.warn("Cloud save error:", error);
+      } catch (e) {
+        console.warn("Cloud save exception:", e);
+      }
+    }, 800);
 
-  return () => clearTimeout(t);
-}, [data, isLoaded, session?.user.id]);
+    return () => clearTimeout(t);
+  }, [data, isLoaded, session?.user.id]);
 
   // Scroll to top when switching views
   useEffect(() => {
@@ -347,39 +302,39 @@ useEffect(() => {
       }
   };
 
-const handleOnboardingComplete = (onboardingData: Partial<UserData>) => {
-  // ✅ Tạo dữ liệu mới
-  const nextData: UserData = {
-    ...data,
-    ...onboardingData,
-    hasOnboarded: true,
+  const handleOnboardingComplete = (onboardingData: Partial<UserData>) => {
+    // ✅ Tạo dữ liệu mới
+    const nextData: UserData = {
+      ...data,
+      ...onboardingData,
+      hasOnboarded: true,
+    };
+
+    // ✅ Update state
+    setData(nextData);
+
+    // ✅ Lưu localStorage NGAY LẬP TỨC (quan trọng)
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+    } catch (e) {
+      console.warn("Failed to save onboarding data to localStorage", e);
+    }
+
+    // ✅ Lưu Supabase NGAY LẬP TỨC để reload không mất
+    if (session) {
+      supabase
+        .from("profiles")
+        .update({
+          full_name: (nextData.studentName || "").trim() || null, // Sửa tên cột cho khớp
+          saved_data: nextData,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", session.user.id)
+        .then(({ error }) => {
+          if (error) console.warn("Failed to persist onboarding to cloud:", error);
+        });
+    }
   };
-
-  // ✅ Update state
-  setData(nextData);
-
-  // ✅ Lưu localStorage NGAY LẬP TỨC (quan trọng)
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
-  } catch (e) {
-    console.warn("Failed to save onboarding data to localStorage", e);
-  }
-
-  // ✅ Lưu Supabase NGAY LẬP TỨC để reload không mất
-  if (session) {
-    supabase
-      .from("profiles")
-      .update({
-        student_name: (nextData.studentName || "").trim() || null,
-        saved_data: nextData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", session.user.id)
-      .then(({ error }) => {
-        if (error) console.warn("Failed to persist onboarding to cloud:", error);
-      });
-  }
-};
 
 
   const handleExportPDF = () => {
@@ -689,7 +644,7 @@ if (!isLoaded) {
              <div className="flex items-center gap-2 border-l border-gray-300 pl-4 ml-2">
                 <div className="text-right hidden sm:block">
                     {session ? (
-                         <>
+                          <>
                             <p className="text-xs font-bold text-[#003375] uppercase line-clamp-1 max-w-[120px]">
                                 {session.user.user_metadata.full_name || data.studentName}
                             </p>
