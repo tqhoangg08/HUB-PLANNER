@@ -93,15 +93,6 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     // Header pattern: "Học kỳ 1/2023-2024"
     const semesters: Semester[] = [];
     const yearRanges: {start: number, end: number}[] = [];
-    const skipKeywords = [
-        'Mã học phần',
-        'Tên học phần',
-        'STT',
-        'Học kỳ',
-        'Trung bình chung',
-        'Điểm rèn luyện',
-        'STC Đậu'
-    ];
     
     // Find all indices of "Học kỳ X/YYYY-YYYY"
     const semHeaderRegex = /Học kỳ\s+(\d)\s*\/\s*(\d{4})\s*-\s*(\d{4})/gi;
@@ -204,46 +195,13 @@ if (apiKey) {
 
         // Fallback: Regex Parsing (if AI missing or failed)
         if (!aiSuccess) {
-            const rowMatcher = /\b\d+\s+[A-Z0-9_]+\b/g;
-            const rowMatches = [...blockContent.matchAll(rowMatcher)];
-
-            for (let idx = 0; idx < rowMatches.length; idx++) {
-                const start = rowMatches[idx].index ?? 0;
-                const end = rowMatches[idx + 1]?.index ?? blockContent.length;
-                const rowText = blockContent.substring(start, end).trim();
-
-                if (skipKeywords.some(keyword => rowText.includes(keyword))) {
-                    continue;
-                }
-
-                const tokens = rowText.split(/\s+/);
-                if (tokens.length < 4) continue;
-
-                const code = tokens[1];
-                let creditsIndex = -1;
-                for (let t = 2; t < tokens.length; t++) {
-                    if (/^\d+$/.test(tokens[t])) {
-                        creditsIndex = t;
-                        break;
-                    }
-                }
-
-                if (creditsIndex === -1) continue;
-
-                let name = tokens.slice(2, creditsIndex).join(' ').trim();
-                const credits = parseInt(tokens[creditsIndex], 10);
-
-                if (!name || Number.isNaN(credits)) continue;
-
-                let rawScore = '';
-                for (let t = tokens.length - 1; t > creditsIndex; t--) {
-                    if (/^M$/.test(tokens[t]) || /^\d+(\.\d+)?$/.test(tokens[t])) {
-                        rawScore = tokens[t];
-                        break;
-                    }
-                }
-
-                if (!rawScore) continue;
+            const subjectRegex = /(\d+)\s+([A-Z0-9_]+)\s+(.+?)\s+(\d+)\s+(Bắt Buộc|Tự Chọn)\s+([0-9.]+|M)/gi;
+            let subMatch;
+            while ((subMatch = subjectRegex.exec(blockContent)) !== null) {
+                const code = subMatch[2];
+                let name = subMatch[3].trim();
+                const credits = parseInt(subMatch[4]);
+                const rawScore = subMatch[6];
                 
                 let scoreVal: number | null = null;
                 let isNonGPA = false;
