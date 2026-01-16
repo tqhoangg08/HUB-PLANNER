@@ -111,8 +111,6 @@ const hardTimeout = window.setTimeout(() => {
 
 try {
   const studentCode = email?.split('@')[0] || '';
-  const localDataString = localStorage.getItem(STORAGE_KEY);
-  const localData = localDataString ? JSON.parse(localDataString) : null;
 
 const localDataString = localStorage.getItem(STORAGE_KEY);
 const localData = localDataString ? JSON.parse(localDataString) : INITIAL_DATA;
