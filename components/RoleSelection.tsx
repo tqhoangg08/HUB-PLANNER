@@ -57,10 +57,10 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
           </div>
           
           <h2 className="text-2xl font-bold text-gray-800 mb-2 group-hover:text-[#003375]">
-            Tôi là Sinh viên
+            Ẩn danh
           </h2>
           <p className="text-gray-500 mb-6 text-center md:text-left">
-            Truy cập bảng điểm, tính GPA, xem sự kiện rèn luyện và tìm đồ thất lạc. Không cần đăng nhập.
+            Truy cập bảng điểm, tính GPA, xem sự kiện rèn luyện và tìm đồ thất lạc. Không cần đăng nhập. Không lưu dữ liệu.
           </p>
           
           <div className="mt-auto flex items-center gap-2 text-[#003375] font-bold group-hover:translate-x-2 transition-transform">
