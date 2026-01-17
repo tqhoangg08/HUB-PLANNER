@@ -777,7 +777,7 @@ const App: React.FC = () => {
     <div className="min-h-screen pb-24 font-sans text-gray-800 bg-[#f8f9fa] animate-fadeIn">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b-2 border-[#003375] sticky top-0 z-40 shadow-sm transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-0 min-h-[64px] flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <div className="flex items-center gap-3">
              {/* HUB Logo */}
              <div className="h-10 w-10 relative flex-shrink-0 group cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-95" onClick={playClick}>
@@ -797,9 +797,9 @@ const App: React.FC = () => {
              </div>
           </div>
           
-          <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-4 w-full sm:w-auto">
              {/* Navigation Tabs */}
-             <div className="flex bg-gray-100 rounded-lg p-1 gap-1 overflow-x-auto max-w-[200px] sm:max-w-none no-scrollbar shadow-inner">
+             <div className="flex bg-gray-100 rounded-lg p-1 gap-1 overflow-x-auto w-full sm:w-auto max-w-full no-scrollbar shadow-inner">
                 <button 
                     onClick={() => { playClick(); setActiveView('dashboard'); }}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'dashboard' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
@@ -831,7 +831,7 @@ const App: React.FC = () => {
              </div>
 
              {/* User Info / Controls */}
-             <div className="flex items-center gap-2 border-l border-gray-300 pl-4 ml-2">
+             <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start sm:border-l sm:border-gray-300 sm:pl-4 sm:ml-2">
                 <div className="text-right hidden sm:block">
                     {canManage ? (
                         <>
