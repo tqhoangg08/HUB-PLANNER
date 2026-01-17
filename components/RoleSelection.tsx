@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { GraduationCap, ShieldCheck, ArrowRight, Mail } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
@@ -111,6 +112,11 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
         <div className="text-[11px] text-gray-500 bg-white/60 border border-gray-200 rounded-lg p-3 shadow-sm backdrop-blur-sm">
             <span className="font-bold text-[#990000]">Lưu ý:</span> Đây là dự án hỗ trợ sinh viên được phát triển bởi nhóm sinh viên, <strong>KHÔNG PHẢI</strong> là website chính thức của Trường Đại học Ngân hàng TP.HCM (HUB).
         </div>
+        <footer className="mt-8 text-center text-xs text-gray-500">
+          <Link to="/privacy" className="hover:underline">Chính sách bảo mật</Link>
+          <span className="mx-2">|</span>
+          <Link to="/terms" className="hover:underline">Điều khoản sử dụng</Link>
+        </footer>
       </div>
     </div>
   );
