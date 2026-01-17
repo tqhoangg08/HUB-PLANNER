@@ -22,9 +22,6 @@ import { Route, Routes } from 'react-router-dom';
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
 
-const SCHOOL_DOMAIN = 'st.buh.edu.vn';
-const STUDENT_PROFILE_TABLE = 'profiles';
-
 // Default generator if no PDF is used
 const generateStandardCurriculum = (): Semester[] => {
     const semesters: Semester[] = [];
