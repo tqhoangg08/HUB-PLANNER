@@ -799,33 +799,37 @@ const App: React.FC = () => {
           
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-4 w-full sm:w-auto">
              {/* Navigation Tabs */}
-             <div className="flex bg-gray-100 rounded-lg p-1 gap-1 overflow-x-auto w-full sm:w-auto max-w-full no-scrollbar shadow-inner sm:justify-start justify-center">
+             <div className="flex bg-gray-100 rounded-lg p-2 gap-2 overflow-x-auto w-full sm:w-auto max-w-full no-scrollbar shadow-inner sm:justify-start justify-between px-6 sm:px-2">
                 <button 
                     onClick={() => { playClick(); setActiveView('dashboard'); }}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'dashboard' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
+                    className={`px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'dashboard' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
                 >
-                    <LayoutDashboard size={16} />
+                    <LayoutDashboard size={20} className="sm:hidden" />
+                    <LayoutDashboard size={16} className="hidden sm:inline" />
                     <span className="hidden sm:inline">Bảng điểm</span>
                 </button>
                 <button 
                     onClick={() => { playClick(); setActiveView('events'); }}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'events' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
+                    className={`px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'events' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
                 >
-                    <Zap size={16} />
+                    <Zap size={20} className="sm:hidden" />
+                    <Zap size={16} className="hidden sm:inline" />
                     <span className="hidden sm:inline">Sự kiện ĐRL</span>
                 </button>
                 <button 
                     onClick={() => { playClick(); setActiveView('lost-found'); }}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'lost-found' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
+                    className={`px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'lost-found' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
                 >
-                    <Search size={16} />
+                    <Search size={20} className="sm:hidden" />
+                    <Search size={16} className="hidden sm:inline" />
                     <span className="hidden sm:inline">Tìm đồ</span>
                 </button>
                 <button 
                     onClick={() => { playClick(); setActiveView('handbook'); }}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'handbook' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
+                    className={`px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'handbook' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
                 >
-                    <Book size={16} />
+                    <Book size={20} className="sm:hidden" />
+                    <Book size={16} className="hidden sm:inline" />
                     <span className="hidden sm:inline">Cẩm nang</span>
                 </button>
              </div>
