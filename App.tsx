@@ -743,40 +743,41 @@ const App: React.FC = () => {
   );
 
   // --- ROUTING LOGIC ---
-  if (!isLoaded) return null;
+  const renderProtectedApp = () => {
+    if (!isLoaded) return null;
 
-  // 1. Role Selection Screen
-  if (userRolePref === 'unknown') {
-      return <RoleSelection onSelect={handleRoleSelect} />;
-  }
+    // 1. Role Selection Screen
+    if (userRolePref === 'unknown') {
+        return <RoleSelection onSelect={handleRoleSelect} />;
+    }
 
-  // 2. Admin Flow (Login Check)
-  if (userRolePref === 'admin') {
-      if (loadingRole) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#003375]" size={40}/></div>;
-      
-      // If not logged in, show Login Screen
-      if (!session) {
-          return <LoginScreen onBack={handleSwitchRole} mode="admin" />;
-      }
-      
-      // If logged in, proceed to Main App (In-place Management Mode)
-  }
+    // 2. Admin Flow (Login Check)
+    if (userRolePref === 'admin') {
+        if (loadingRole) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#003375]" size={40}/></div>;
+        
+        // If not logged in, show Login Screen
+        if (!session) {
+            return <LoginScreen onBack={handleSwitchRole} mode="admin" />;
+        }
+        
+        // If logged in, proceed to Main App (In-place Management Mode)
+    }
 
-  // 3. School Account Flow (Google) - Login Check
-  if (userRolePref === 'school') {
-      if (loadingRole) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#003375]" size={40}/></div>;
+    // 3. School Account Flow (Google) - Login Check
+    if (userRolePref === 'school') {
+        if (loadingRole) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#003375]" size={40}/></div>;
 
-      if (!session) {
-          return <LoginScreen onBack={handleSwitchRole} mode="school" />;
-      }
-  }
+        if (!session) {
+            return <LoginScreen onBack={handleSwitchRole} mode="school" />;
+        }
+    }
 
-  // 4. Student Flow - Check onboarding
-  if ((userRolePref === 'student' || userRolePref === 'school') && !data.hasOnboarded) {
-      return <Onboarding onComplete={handleOnboardingComplete} />;
-  }
+    // 4. Student Flow - Check onboarding
+    if ((userRolePref === 'student' || userRolePref === 'school') && !data.hasOnboarded) {
+        return <Onboarding onComplete={handleOnboardingComplete} />;
+    }
 
-  const appContent = (
+    return (
     <div className="min-h-screen pb-24 font-sans text-gray-800 bg-[#f8f9fa] animate-fadeIn">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b-2 border-[#003375] sticky top-0 z-40 shadow-sm transition-all duration-300">
@@ -1100,12 +1101,16 @@ const App: React.FC = () => {
       {showAccountSettings && <AccountSettingsModal />}
     </div>
   );
+  };
 
   return (
     <Routes>
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfUse />} />
-      <Route path="*" element={appContent} />
+      <Route
+        path="*"
+        element={session ? renderProtectedApp() : <LoginScreen onBack={handleSwitchRole} mode="school" />}
+      />
     </Routes>
   );
 };

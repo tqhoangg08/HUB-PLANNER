@@ -45,9 +45,9 @@ export const TermsOfUse: React.FC = () => {
               diện cho Trường Đại học Ngân hàng TP.HCM (HUB).
             </li>
             <li>
-              <strong>Độ chính xác của dữ liệu:</strong> Tất cả các tính năng tính toán điểm số (GPA, ĐRL), 
-              sự kiện, cẩm nang,... trên ứng dụng chỉ mang tính chất tham khảo. Mặc dù chúng tôi nỗ lực tối 
-              đa để đảm bảo thuật toán chính xác, nhưng kết quả có thể sai lệch so với hệ thống đào tạo
+              <strong>Độ chính xác của dữ liệu:</strong> Các tính năng tính toán điểm số (GPA, ĐRL)
+              trên ứng dụng chỉ mang tính chất tham khảo. Mặc dù chúng tôi nỗ lực tối đa để đảm
+              bảo thuật toán chính xác, nhưng kết quả có thể sai lệch so với hệ thống đào tạo
               chính thức do các thay đổi về quy chế. Sinh viên có trách nhiệm đối chiếu lại với
               Portal đào tạo của nhà trường trước khi đưa ra các quyết định quan trọng.
             </li>
