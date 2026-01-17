@@ -799,7 +799,7 @@ const App: React.FC = () => {
           
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-4 w-full sm:w-auto">
              {/* Navigation Tabs */}
-             <div className="flex bg-gray-100 rounded-lg p-1 gap-1 overflow-x-auto w-full sm:w-auto max-w-full no-scrollbar shadow-inner">
+             <div className="flex bg-gray-100 rounded-lg p-1 gap-1 overflow-x-auto w-full sm:w-auto max-w-full no-scrollbar shadow-inner sm:justify-start justify-center">
                 <button 
                     onClick={() => { playClick(); setActiveView('dashboard'); }}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'dashboard' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
