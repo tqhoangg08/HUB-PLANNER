@@ -18,7 +18,7 @@ import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { supabase } from './utils/supabase';
-import { Navigate, Route, Routes, useSearchParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
@@ -61,6 +61,7 @@ const App: React.FC = () => {
   // Global Role Hook
   const { isAdmin, isCTV, session, loading: loadingRole } = useUserRole();
   const canManage = isAdmin || isCTV;
+  const navigate = useNavigate();
 
   // Local Preference Role (User selected in RoleSelection)
   const [userRolePref, setUserRolePref] = useState<'unknown' | 'student' | 'admin' | 'school'>(() => {
@@ -269,14 +270,23 @@ const App: React.FC = () => {
           if (session) {
               supabase?.auth.signOut();
           }
+          navigate('/');
       }
   };
 
   const handleLogout = async () => {
+      const isGuest = userRolePref === 'student' && !session;
+      if (isGuest) {
+          localStorage.removeItem('user_role_preference');
+          setUserRolePref('unknown');
+          navigate('/');
+          return;
+      }
       playClick();
       if (window.confirm("Đăng xuất khỏi tài khoản quản trị?")) {
           await supabase?.auth.signOut();
           // Stay on admin role pref but show login screen
+          navigate('/');
       }
   };
 
@@ -285,6 +295,7 @@ const App: React.FC = () => {
       if (window.confirm("Đăng xuất khỏi tài khoản HUB?")) {
           await supabase?.auth.signOut();
           // Stay on school role pref but show login screen
+          navigate('/');
       }
   };
 
@@ -981,9 +992,9 @@ const App: React.FC = () => {
                     </div>
                 ) : (
                     <button 
-                        onClick={handleSwitchRole}
+                        onClick={handleLogout}
                         className="p-2 text-gray-400 hover:text-[#003375] hover:bg-blue-50 rounded-full transition-all duration-300 active:scale-90"
-                        title="Chọn vai trò"
+                        title="Thoát"
                     >
                         <Shield size={20} />
                     </button>
