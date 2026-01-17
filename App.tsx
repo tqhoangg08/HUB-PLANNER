@@ -875,7 +875,7 @@ const App: React.FC = () => {
                     <HelpCircle size={20} />
                 </button>
                 
-                {userRolePref === 'student' ? (
+                {(userRolePref === 'student' || userRolePref === 'school') ? (
                     <button 
                         onClick={resetData} 
                         className="p-2 text-gray-400 hover:text-[#990000] hover:bg-red-50 rounded-full transition-all duration-300 transform hover:rotate-180 active:scale-90" 
