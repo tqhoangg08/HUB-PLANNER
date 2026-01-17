@@ -1,12 +1,24 @@
 import React from 'react';
-import { GraduationCap, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { GraduationCap, ShieldCheck, ArrowRight, Mail } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 interface RoleSelectionProps {
-  onSelect: (role: 'student' | 'admin') => void;
+  onSelect: (role: 'student' | 'admin' | 'school') => void;
 }
 
 export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
+  const navigate = useNavigate();
+
+  const handleSelect = (role: 'student' | 'admin' | 'school') => {
+    onSelect(role);
+    if (role === 'student') {
+      navigate('/');
+    } else {
+      navigate('/login');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f8f9fa] to-[#e9ecef] flex flex-col items-center justify-center p-4 animate-fadeIn">
       
@@ -31,11 +43,11 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
       </div>
 
       {/* Cards Container */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl animate-scaleIn delay-100">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl animate-scaleIn delay-100">
         
         {/* Student Card */}
         <button
-          onClick={() => { playClick(); onSelect('student'); }}
+          onClick={() => { playClick(); handleSelect('student'); }}
           className="group relative bg-white rounded-2xl p-8 shadow-md border-2 border-transparent hover:border-[#003375] hover:shadow-2xl transition-all duration-300 text-left flex flex-col items-center md:items-start"
         >
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-[#003375] rounded-t-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -56,9 +68,32 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
           </div>
         </button>
 
+        {/* School Google Card */}
+        <button
+          onClick={() => { playClick(); handleSelect('school'); }}
+          className="group relative bg-white rounded-2xl p-8 shadow-md border-2 border-transparent hover:border-[#0f172a] hover:shadow-2xl transition-all duration-300 text-left flex flex-col items-center md:items-start"
+        >
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-slate-400 to-[#0f172a] rounded-t-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          
+          <div className="w-20 h-20 bg-slate-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-[#0f172a] transition-colors duration-300">
+            <Mail size={40} className="text-[#0f172a] group-hover:text-white transition-colors" />
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-800 mb-2 group-hover:text-[#0f172a]">
+            Tài khoản HUB
+          </h2>
+          <p className="text-gray-500 mb-6 text-center md:text-left">
+            Đăng nhập bằng tài khoản trường (@st.buh.edu.vn) để sử dụng đầy đủ tính năng.
+          </p>
+          
+          <div className="mt-auto flex items-center gap-2 text-[#0f172a] font-bold group-hover:translate-x-2 transition-transform">
+            Đăng nhập <ArrowRight size={20} />
+          </div>
+        </button>
+
         {/* Admin Card */}
         <button
-          onClick={() => { playClick(); onSelect('admin'); }}
+          onClick={() => { playClick(); handleSelect('admin'); }}
           className="group relative bg-white rounded-2xl p-8 shadow-md border-2 border-transparent hover:border-[#990000] hover:shadow-2xl transition-all duration-300 text-left flex flex-col items-center md:items-start"
         >
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-400 to-[#990000] rounded-t-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -88,6 +123,11 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
         <div className="text-[11px] text-gray-500 bg-white/60 border border-gray-200 rounded-lg p-3 shadow-sm backdrop-blur-sm">
             <span className="font-bold text-[#990000]">Lưu ý:</span> Đây là dự án hỗ trợ sinh viên được phát triển bởi nhóm sinh viên, <strong>KHÔNG PHẢI</strong> là website chính thức của Trường Đại học Ngân hàng TP.HCM (HUB).
         </div>
+        <footer className="mt-8 text-center text-xs text-gray-500">
+          <Link to="/privacy" className="hover:underline">Chính sách bảo mật</Link>
+          <span className="mx-2">|</span>
+          <Link to="/terms" className="hover:underline">Điều khoản sử dụng</Link>
+        </footer>
       </div>
     </div>
   );
