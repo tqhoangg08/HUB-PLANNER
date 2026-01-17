@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { GraduationCap, ShieldCheck, ArrowRight, Mail } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
@@ -8,6 +8,17 @@ interface RoleSelectionProps {
 }
 
 export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
+  const navigate = useNavigate();
+
+  const handleSelect = (role: 'student' | 'admin' | 'school') => {
+    onSelect(role);
+    if (role === 'student') {
+      navigate('/');
+    } else {
+      navigate('/login');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f8f9fa] to-[#e9ecef] flex flex-col items-center justify-center p-4 animate-fadeIn">
       
@@ -36,7 +47,7 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
         
         {/* Student Card */}
         <button
-          onClick={() => { playClick(); onSelect('student'); }}
+          onClick={() => { playClick(); handleSelect('student'); }}
           className="group relative bg-white rounded-2xl p-8 shadow-md border-2 border-transparent hover:border-[#003375] hover:shadow-2xl transition-all duration-300 text-left flex flex-col items-center md:items-start"
         >
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-[#003375] rounded-t-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -59,7 +70,7 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
 
         {/* School Google Card */}
         <button
-          onClick={() => { playClick(); onSelect('school'); }}
+          onClick={() => { playClick(); handleSelect('school'); }}
           className="group relative bg-white rounded-2xl p-8 shadow-md border-2 border-transparent hover:border-[#0f172a] hover:shadow-2xl transition-all duration-300 text-left flex flex-col items-center md:items-start"
         >
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-slate-400 to-[#0f172a] rounded-t-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -82,7 +93,7 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
 
         {/* Admin Card */}
         <button
-          onClick={() => { playClick(); onSelect('admin'); }}
+          onClick={() => { playClick(); handleSelect('admin'); }}
           className="group relative bg-white rounded-2xl p-8 shadow-md border-2 border-transparent hover:border-[#990000] hover:shadow-2xl transition-all duration-300 text-left flex flex-col items-center md:items-start"
         >
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-400 to-[#990000] rounded-t-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
