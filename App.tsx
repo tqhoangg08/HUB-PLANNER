@@ -18,7 +18,7 @@ import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { supabase } from './utils/supabase';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
@@ -1103,14 +1103,15 @@ const App: React.FC = () => {
   );
   };
 
+  const loginMode = userRolePref === 'admin' ? 'admin' : 'school';
+
   return (
     <Routes>
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfUse />} />
-      <Route
-        path="*"
-        element={session ? renderProtectedApp() : <LoginScreen onBack={handleSwitchRole} mode="school" />}
-      />
+      <Route path="/login" element={<LoginScreen onBack={handleSwitchRole} mode={loginMode} />} />
+      <Route path="/" element={session ? renderProtectedApp() : <RoleSelection onSelect={handleRoleSelect} />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };
