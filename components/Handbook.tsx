@@ -394,9 +394,9 @@ export const Handbook: React.FC = () => {
         const collaborators = [
             { name: 'Nguyễn Hoàng Khiêm', role: 'Cộng tác viên', phone: '0932142577', email: 'khiempisces2@gmail.com', fb: 'https://www.facebook.com/nguyen.hoang.khiem.975396' },
             { name: 'Nguyễn Thị Kiều My', role: 'Cộng tác viên', phone: '0376744258', email: 'nmy56358@gmail.com', fb: 'https://www.facebook.com/n.t.kieu.my.573292' },
-            { name: 'Đang cập nhật...', role: 'Developer', isPlaceholder: true },
-            { name: 'Đang cập nhật...', role: 'Designer', isPlaceholder: true },
-            { name: 'Đang cập nhật...', role: 'Content', isPlaceholder: true },
+            { name: 'Đoàn Trâm', role: 'Cộng tác viên', phone: '0968719370', email: 'doantram0728@gmail.com', fb: 'https://www.facebook.com/oantram.668591' },
+            { name: 'Đang cập nhật...', role: 'Đang cập nhật', isPlaceholder: true },
+            { name: 'Đang cập nhật...', role: 'Đang cập nhật', isPlaceholder: true },
         ];
 
         return (
