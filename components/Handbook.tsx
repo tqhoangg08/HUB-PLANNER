@@ -102,11 +102,11 @@ export const Handbook: React.FC = () => {
         items: [
             {
                 q: "Web có lưu mật khẩu Portal hay thông tin cá nhân của mình không?",
-                a: "Tuyệt đối không. HUB Planner hoạt động theo cơ chế Client-side, nghĩa là mọi dữ liệu (điểm số, tên, mã SV) chỉ được lưu trực tiếp trên trình duyệt của chính máy bạn (LocalStorage). Web không có máy chủ lưu trữ (Database) nên không thể thu thập thông tin của bạn."
+                a: "Về Mật khẩu Portal (Quan trọng): Tuyệt đối KHÔNG. Web không bao giờ lưu mật khẩu Portal của bạn. Việc đăng nhập Portal chỉ diễn ra cục bộ trên trình duyệt của bạn để lấy bảng điểm. Về Dữ liệu Điểm & Thông tin cá nhân: Nếu bạn là Khách (Chưa đăng nhập): Dữ liệu chỉ được lưu trên trình duyệt của chính máy bạn đang dùng (Local Storage). Server không biết bạn là ai. Nếu bạn Đăng nhập: Tên, MSSV và Bảng điểm sẽ được mã hóa và lưu an toàn trên cơ sở dữ liệu (Database) của hệ thống. Điều này giúp bạn không bị mất dữ liệu khi đổi máy."
             },
             {
                 q: "Tại sao mình tải lại trang hoặc đổi máy thì dữ liệu bị mất?",
-                a: "Vì dữ liệu được lưu trên trình duyệt (như đã nói ở trên) để đảm bảo bảo mật. Nếu bạn dùng tab ẩn danh (Incognito) hoặc xóa cache, dữ liệu sẽ biến mất. Hãy dùng tab thường để dữ liệu được giữ lại cho lần truy cập sau nhé."
+                a: "Vì dữ liệu được lưu trên trình duyệt (như đã nói ở trên) để đảm bảo bảo mật. Nếu bạn dùng tab ẩn danh (Incognito) hoặc xóa cache, dữ liệu sẽ biến mất. Hãy dùng tab thường để dữ liệu được giữ lại cho lần truy cập sau nhé trên thiết bị của bạn hoặc đăng nhập để hệ thống đồng bộ dữ liệu của bạn lên đám mây, giúp bạn truy cập bảng điểm từ bất cứ đâu (điện thoại, laptop) mà không cần nhập lại từ đầu."
             }
         ]
     },
@@ -394,9 +394,9 @@ export const Handbook: React.FC = () => {
         const collaborators = [
             { name: 'Nguyễn Hoàng Khiêm', role: 'Cộng tác viên', phone: '0932142577', email: 'khiempisces2@gmail.com', fb: 'https://www.facebook.com/nguyen.hoang.khiem.975396' },
             { name: 'Nguyễn Thị Kiều My', role: 'Cộng tác viên', phone: '0376744258', email: 'nmy56358@gmail.com', fb: 'https://www.facebook.com/n.t.kieu.my.573292' },
-            { name: 'Đang cập nhật...', role: 'Developer', isPlaceholder: true },
-            { name: 'Đang cập nhật...', role: 'Designer', isPlaceholder: true },
-            { name: 'Đang cập nhật...', role: 'Content', isPlaceholder: true },
+            { name: 'Đoàn Trâm', role: 'Cộng tác viên', phone: '0968719370', email: 'doantram0728@gmail.com', fb: 'https://www.facebook.com/oantram.668591' },
+            { name: 'Đang cập nhật...', role: 'Đang cập nhật', isPlaceholder: true },
+            { name: 'Đang cập nhật...', role: 'Đang cập nhật', isPlaceholder: true },
         ];
 
         return (
