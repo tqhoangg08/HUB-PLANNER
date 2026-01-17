@@ -10,12 +10,17 @@ import { LostFoundBoard } from './components/LostFoundBoard';
 import { RoleSelection } from './components/RoleSelection';
 import { LoginScreen } from './components/LoginScreen';
 import { ActivityLogModal } from './components/ActivityLogModal';
+import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { supabase } from './utils/supabase';
+import { Route, Routes } from 'react-router-dom';
+
+const SCHOOL_DOMAIN = 'st.buh.edu.vn';
+const STUDENT_PROFILE_TABLE = 'profiles';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
@@ -773,7 +778,7 @@ const App: React.FC = () => {
       return <Onboarding onComplete={handleOnboardingComplete} />;
   }
 
-  return (
+  const appContent = (
     <div className="min-h-screen pb-24 font-sans text-gray-800 bg-[#f8f9fa] animate-fadeIn">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b-2 border-[#003375] sticky top-0 z-40 shadow-sm transition-all duration-300">
@@ -1096,6 +1101,13 @@ const App: React.FC = () => {
       {showActivityLog && <ActivityLogModal onClose={() => setShowActivityLog(false)} />}
       {showAccountSettings && <AccountSettingsModal />}
     </div>
+  );
+
+  return (
+    <Routes>
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="*" element={appContent} />
+    </Routes>
   );
 };
 
