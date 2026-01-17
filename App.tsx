@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { UserData, Semester, STORAGE_KEY } from './types';
 import { Dashboard } from './components/Dashboard';
 import { SemesterTable } from './components/SemesterTable';
@@ -18,7 +18,7 @@ import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { supabase } from './utils/supabase';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useSearchParams } from 'react-router-dom';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
@@ -252,9 +252,13 @@ const App: React.FC = () => {
     ensureSchoolDomain();
   }, [session, userRolePref]);
 
-  const handleRoleSelect = (role: 'student' | 'admin' | 'school') => {
+  const setRolePreference = useCallback((role: 'student' | 'admin' | 'school') => {
       localStorage.setItem('user_role_preference', role);
       setUserRolePref(role);
+  }, []);
+
+  const handleRoleSelect = (role: 'student' | 'admin' | 'school') => {
+      setRolePreference(role);
   };
 
   const handleSwitchRole = () => {
@@ -747,7 +751,7 @@ const App: React.FC = () => {
     if (!isLoaded) return null;
 
     // 1. Role Selection Screen
-    if (userRolePref === 'unknown') {
+    if (userRolePref === 'unknown' && !session) {
         return <RoleSelection onSelect={handleRoleSelect} />;
     }
 
@@ -757,7 +761,7 @@ const App: React.FC = () => {
         
         // If not logged in, show Login Screen
         if (!session) {
-            return <LoginScreen onBack={handleSwitchRole} mode="admin" />;
+            return <LoginScreen />;
         }
         
         // If logged in, proceed to Main App (In-place Management Mode)
@@ -768,7 +772,7 @@ const App: React.FC = () => {
         if (loadingRole) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#003375]" size={40}/></div>;
 
         if (!session) {
-            return <LoginScreen onBack={handleSwitchRole} mode="school" />;
+            return <LoginScreen />;
         }
     }
 
@@ -1103,13 +1107,47 @@ const App: React.FC = () => {
   );
   };
 
-  const loginMode = userRolePref === 'admin' ? 'admin' : 'school';
+  const LoginRoute: React.FC = () => {
+    const [searchParams] = useSearchParams();
+    const role = searchParams.get('role');
+
+    useEffect(() => {
+      if (role === 'admin') {
+        setRolePreference('admin');
+      }
+
+      if (role === 'student') {
+        setRolePreference('school');
+      }
+    }, [role, setRolePreference]);
+
+    return <LoginScreen />;
+  };
+
+  const GuestRoute: React.FC = () => {
+    useEffect(() => {
+      if (userRolePref !== 'student') {
+        setRolePreference('student');
+      }
+    }, [userRolePref, setRolePreference]);
+
+    if (userRolePref !== 'student') {
+      return (
+        <div className="h-screen flex items-center justify-center">
+          <Loader2 className="animate-spin text-[#003375]" size={40} />
+        </div>
+      );
+    }
+
+    return renderProtectedApp();
+  };
 
   return (
     <Routes>
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfUse />} />
-      <Route path="/login" element={<LoginScreen onBack={handleSwitchRole} mode={loginMode} />} />
+      <Route path="/login" element={<LoginRoute />} />
+      <Route path="/guest" element={<GuestRoute />} />
       <Route path="/" element={session ? renderProtectedApp() : <RoleSelection onSelect={handleRoleSelect} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
