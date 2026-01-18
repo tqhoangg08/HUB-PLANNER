@@ -28,6 +28,28 @@ interface LikeState {
     liked: boolean;
 }
 
+interface CommentItemProps {
+    comment: Comment;
+    allComments: Comment[];
+    depth: number;
+    currentUserId: string | null;
+    likes: Record<string, LikeState>;
+    editingId: string | number | null;
+    editContent: string;
+    savingEdit: boolean;
+    activeReplyId: string | number | null;
+    replyDrafts: Record<string, string>;
+    currentIdentityLabel: string;
+    onToggleLike: (commentId: string | number) => void;
+    onToggleReply: (commentId: string | number) => void;
+    onReplyChange: (commentId: string | number, value: string) => void;
+    onSubmitReply: (commentId: string | number) => void;
+    onStartEdit: (comment: Comment) => void;
+    onCancelEdit: () => void;
+    onSaveEdit: (comment: Comment) => void;
+    onEditChange: (value: string) => void;
+}
+
 const PAGE_SIZE = 20;
 
 const ADJECTIVES = [
@@ -72,11 +94,169 @@ const getDeviceId = () => {
     return uuid;
 };
 
+const CommentItem: React.FC<CommentItemProps> = ({
+    comment,
+    allComments,
+    depth,
+    currentUserId,
+    likes,
+    editingId,
+    editContent,
+    savingEdit,
+    activeReplyId,
+    replyDrafts,
+    currentIdentityLabel,
+    onToggleLike,
+    onToggleReply,
+    onReplyChange,
+    onSubmitReply,
+    onStartEdit,
+    onCancelEdit,
+    onSaveEdit,
+    onEditChange
+}) => {
+    const childComments = allComments.filter((item) => String(item.parent_id ?? '') === String(comment.id));
+    const likeState = likes[String(comment.id)] || { count: 0, liked: false };
+    const isEditing = editingId === comment.id;
+    const displayName = comment.user_display_name || 'Người dùng';
+    const isOwner = Boolean(currentUserId && comment.user_id === currentUserId);
+    const replyDraft = replyDrafts[String(comment.id)] || '';
+
+    return (
+        <div className={`flex gap-3 ${depth > 0 ? 'pl-6 border-l border-gray-200' : ''}`}>
+            <div className={`w-9 h-9 rounded-full border flex items-center justify-center font-bold text-sm shrink-0 shadow-sm ${comment.is_anonymous ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-[#003375] text-white border-[#003375]'}`}>
+                {getAvatarInitial(displayName)}
+            </div>
+
+            <div className="flex-1">
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <span className="font-bold text-gray-800">{displayName}</span>
+                    {comment.is_anonymous && <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Ẩn danh</span>}
+                    <span className="flex items-center gap-1 text-[10px]"><Clock size={10} /> {formatTime(comment.created_at)}</span>
+                </div>
+
+                {isEditing ? (
+                    <div className="mt-2">
+                        <textarea
+                            value={editContent}
+                            onChange={(e) => onEditChange(e.target.value)}
+                            className="w-full border border-gray-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-[#003375] outline-none"
+                            rows={2}
+                        />
+                        <div className="mt-2 flex items-center gap-2 justify-end">
+                            <button
+                                type="button"
+                                onClick={onCancelEdit}
+                                className="text-xs font-medium text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                            >
+                                <X size={12} /> Hủy
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onSaveEdit(comment)}
+                                disabled={savingEdit}
+                                className="text-xs font-bold text-white bg-[#003375] hover:bg-[#002855] px-2 py-1 rounded flex items-center gap-1"
+                            >
+                                {savingEdit ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Lưu
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="mt-1 bg-white border border-gray-100 rounded-xl rounded-tl-none p-3 text-sm text-gray-700 shadow-sm">
+                        {comment.content}
+                    </div>
+                )}
+
+                <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+                    <button
+                        type="button"
+                        onClick={() => onToggleLike(comment.id)}
+                        className={`flex items-center gap-1 transition ${likeState.liked ? 'text-red-500' : 'hover:text-red-500'}`}
+                    >
+                        <Heart size={14} className={likeState.liked ? 'fill-red-500' : ''} />
+                        {likeState.count}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onToggleReply(comment.id)}
+                        className="hover:text-[#003375]"
+                    >
+                        Trả lời
+                    </button>
+                    {isOwner && !isEditing && (
+                        <button
+                            type="button"
+                            onClick={() => onStartEdit(comment)}
+                            className="hover:text-[#003375] flex items-center gap-1"
+                        >
+                            <Edit2 size={12} /> Sửa
+                        </button>
+                    )}
+                </div>
+
+                {activeReplyId === comment.id && (
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            onSubmitReply(comment.id);
+                        }}
+                        className="mt-3 flex items-center gap-2"
+                    >
+                        <input
+                            type="text"
+                            value={replyDraft}
+                            onChange={(e) => onReplyChange(comment.id, e.target.value)}
+                            placeholder={`Trả lời với tên "${currentIdentityLabel}"...`}
+                            className="flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-xs outline-none focus:ring-2 focus:ring-[#003375]"
+                        />
+                        <button
+                            type="submit"
+                            disabled={!replyDraft.trim()}
+                            className="p-2 rounded-full bg-[#003375] text-white hover:bg-[#002855] transition disabled:opacity-50"
+                        >
+                            <Send size={14} />
+                        </button>
+                    </form>
+                )}
+
+                {childComments.length > 0 && (
+                    <div className="mt-4 space-y-4">
+                        {childComments.map((child) => (
+                            <CommentItem
+                                key={child.id}
+                                comment={child}
+                                allComments={allComments}
+                                depth={depth + 1}
+                                currentUserId={currentUserId}
+                                likes={likes}
+                                editingId={editingId}
+                                editContent={editContent}
+                                savingEdit={savingEdit}
+                                activeReplyId={activeReplyId}
+                                replyDrafts={replyDrafts}
+                                currentIdentityLabel={currentIdentityLabel}
+                                onToggleLike={onToggleLike}
+                                onToggleReply={onToggleReply}
+                                onReplyChange={onReplyChange}
+                                onSubmitReply={onSubmitReply}
+                                onStartEdit={onStartEdit}
+                                onCancelEdit={onCancelEdit}
+                                onSaveEdit={onSaveEdit}
+                                onEditChange={onEditChange}
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title = 'Bình luận', className = '' }) => {
     const { session } = useUserRole();
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
-    const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+    const [replyDraftsState, setReplyDraftsState] = useState<Record<string, string>>({});
     const [activeReplyId, setActiveReplyId] = useState<string | number | null>(null);
     const [likes, setLikes] = useState<Record<string, LikeState>>({});
     const [loading, setLoading] = useState(false);
@@ -106,12 +286,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
         ? className
         : 'bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full';
 
-    const rootComments = useMemo(() => comments.filter((comment) => !comment.parent_id), [comments]);
-
-    const getReplies = (parentId: string | number | null) => {
-        const parentKey = String(parentId ?? '');
-        return comments.filter((comment) => String(comment.parent_id ?? '') === parentKey);
-    };
+    const rootComments = useMemo(() => comments.filter((comment) => !comment.parent_id || comment.parent_id === 'null'), [comments]);
 
     const canToggleIdentity = Boolean(session?.user) && lockedIdentity === null;
 
@@ -336,7 +511,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
 
     const handleSubmit = async (e: React.FormEvent, parentId: string | number | null = null) => {
         e.preventDefault();
-        const content = parentId ? replyDrafts[String(parentId)] : newComment;
+        const content = parentId ? replyDraftsState[String(parentId)] : newComment;
         if (!content?.trim()) return;
 
         playClick();
@@ -357,7 +532,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
 
         setComments((prev) => [...prev, optimisticComment]);
         if (parentId) {
-            setReplyDrafts((prev) => ({ ...prev, [String(parentId)]: '' }));
+            setReplyDraftsState((prev) => ({ ...prev, [String(parentId)]: '' }));
             setActiveReplyId(null);
         } else {
             setNewComment('');
@@ -505,118 +680,18 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
         }
     };
 
-    const renderComments = (items: Comment[], depth = 0) => {
-        if (items.length === 0) return null;
+    const handleReplyChange = (commentId: string | number, value: string) => {
+        setReplyDraftsState((prev) => ({ ...prev, [String(commentId)]: value }));
+    };
 
-        return (
-            <div className={depth > 0 ? 'space-y-4 pl-6 border-l border-gray-200' : 'space-y-4'}>
-                {items.map((comment) => {
-                    const likeState = likes[String(comment.id)] || { count: 0, liked: false };
-                    const isAnonymous = comment.is_anonymous;
-                    const displayName = comment.user_display_name;
-                    const isOwner = session?.user?.id === comment.user_id;
-                    const isEditing = editingId === comment.id;
-                    const replies = getReplies(comment.id);
+    const handleSubmitReply = (commentId: string | number) => {
+        const content = replyDraftsState[String(commentId)] || '';
+        if (!content.trim()) return;
+        handleSubmit({ preventDefault: () => {} } as React.FormEvent, commentId);
+    };
 
-                    return (
-                        <div key={comment.id} className="flex gap-3">
-                            <div className={`w-9 h-9 rounded-full border flex items-center justify-center font-bold text-sm shrink-0 shadow-sm ${isAnonymous ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-[#003375] text-white border-[#003375]'}`}>
-                                {getAvatarInitial(displayName)}
-                            </div>
-
-                            <div className="flex-1">
-                                <div className="flex items-center gap-2 text-xs text-gray-500">
-                                    <span className="font-bold text-gray-800">{displayName}</span>
-                                    {isAnonymous && <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Ẩn danh</span>}
-                                    <span className="flex items-center gap-1 text-[10px]"><Clock size={10} /> {formatTime(comment.created_at)}</span>
-                                </div>
-
-                                {isEditing ? (
-                                    <div className="mt-2">
-                                        <textarea
-                                            value={editContent}
-                                            onChange={(e) => setEditContent(e.target.value)}
-                                            className="w-full border border-gray-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-[#003375] outline-none"
-                                            rows={2}
-                                        />
-                                        <div className="mt-2 flex items-center gap-2 justify-end">
-                                            <button
-                                                type="button"
-                                                onClick={cancelEditing}
-                                                className="text-xs font-medium text-gray-500 hover:text-gray-700 flex items-center gap-1"
-                                            >
-                                                <X size={12} /> Hủy
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => saveEdit(comment)}
-                                                disabled={savingEdit}
-                                                className="text-xs font-bold text-white bg-[#003375] hover:bg-[#002855] px-2 py-1 rounded flex items-center gap-1"
-                                            >
-                                                {savingEdit ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Lưu
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="mt-1 bg-white border border-gray-100 rounded-xl rounded-tl-none p-3 text-sm text-gray-700 shadow-sm">
-                                        {comment.content}
-                                    </div>
-                                )}
-
-                                <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
-                                    <button
-                                        type="button"
-                                        onClick={() => handleToggleLike(comment.id)}
-                                        className={`flex items-center gap-1 transition ${likeState.liked ? 'text-red-500' : 'hover:text-red-500'}`}
-                                    >
-                                        <Heart size={14} className={likeState.liked ? 'fill-red-500' : ''} />
-                                        {likeState.count}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setActiveReplyId(activeReplyId === comment.id ? null : comment.id)}
-                                        className="hover:text-[#003375]"
-                                    >
-                                        Trả lời
-                                    </button>
-                                    {isOwner && !isEditing && (
-                                        <button
-                                            type="button"
-                                            onClick={() => startEditing(comment)}
-                                            className="hover:text-[#003375] flex items-center gap-1"
-                                        >
-                                            <Edit2 size={12} /> Sửa
-                                        </button>
-                                    )}
-                                </div>
-
-                                {activeReplyId === comment.id && (
-                                    <form onSubmit={(e) => handleSubmit(e, comment.id)} className="mt-3 flex items-center gap-2">
-                                        <input
-                                            type="text"
-                                            value={replyDrafts[String(comment.id)] || ''}
-                                            onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [String(comment.id)]: e.target.value }))}
-                                            placeholder={`Trả lời với tên "${currentIdentityLabel}"...`}
-                                            className="flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-xs outline-none focus:ring-2 focus:ring-[#003375]"
-                                            disabled={submitting}
-                                        />
-                                        <button
-                                            type="submit"
-                                            disabled={submitting || !(replyDrafts[String(comment.id)] || '').trim()}
-                                            className="p-2 rounded-full bg-[#003375] text-white hover:bg-[#002855] transition disabled:opacity-50"
-                                        >
-                                            <Send size={14} />
-                                        </button>
-                                    </form>
-                                )}
-
-                                {replies.length > 0 && renderComments(replies, depth + 1)}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        );
+    const handleToggleReply = (commentId: string | number) => {
+        setActiveReplyId(activeReplyId === commentId ? null : commentId);
     };
 
     return (
@@ -674,8 +749,31 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                         </div>
                     ))
                 ) : comments.length > 0 ? (
-                    <>
-                        {renderComments(rootComments, 0)}
+                    <div className="space-y-4">
+                        {rootComments.map((root) => (
+                            <CommentItem
+                                key={root.id}
+                                comment={root}
+                                allComments={comments}
+                                depth={0}
+                                currentUserId={session?.user?.id ?? null}
+                                likes={likes}
+                                editingId={editingId}
+                                editContent={editContent}
+                                savingEdit={savingEdit}
+                                activeReplyId={activeReplyId}
+                                replyDrafts={replyDraftsState}
+                                currentIdentityLabel={currentIdentityLabel}
+                                onToggleLike={handleToggleLike}
+                                onToggleReply={handleToggleReply}
+                                onReplyChange={handleReplyChange}
+                                onSubmitReply={handleSubmitReply}
+                                onStartEdit={startEditing}
+                                onCancelEdit={cancelEditing}
+                                onSaveEdit={saveEdit}
+                                onEditChange={setEditContent}
+                            />
+                        ))}
                         {hasMore && (
                             <button
                                 onClick={handleLoadMore}
@@ -685,7 +783,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                                 {loadingMore ? <Loader2 size={14} className="animate-spin" /> : 'Xem thêm bình luận cũ'}
                             </button>
                         )}
-                    </>
+                    </div>
                 ) : (
                     <div className="text-center py-8 text-gray-400">
                         <MessageCircle size={32} className="mx-auto mb-2 opacity-20" />
