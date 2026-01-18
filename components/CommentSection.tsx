@@ -106,17 +106,12 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
         ? className
         : 'bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full';
 
-    const rootComments = useMemo(() => {
-        const map = new Map<string | number | null, Comment[]>();
-        comments.forEach((comment) => {
-            const key = comment.parent_id ?? null;
-            if (!map.has(key)) {
-                map.set(key, []);
-            }
-            map.get(key)!.push(comment);
-        });
-        return map;
-    }, [comments]);
+    const rootComments = useMemo(() => comments.filter((comment) => !comment.parent_id), [comments]);
+
+    const getReplies = (parentId: string | number | null) => {
+        const parentKey = String(parentId ?? '');
+        return comments.filter((comment) => String(comment.parent_id ?? '') === parentKey);
+    };
 
     const canToggleIdentity = Boolean(session?.user) && lockedIdentity === null;
 
@@ -313,9 +308,10 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
     useEffect(() => {
         if (!supabase) return;
         const commentIds = comments.map((comment) => comment.id);
-        fetchLikes(commentIds);
+        const numericCommentIds = commentIds.filter((id) => typeof id === 'number');
+        fetchLikes(numericCommentIds);
         if (session?.user && lockedIdentity === null) {
-            checkIdentityLock(commentIds);
+            checkIdentityLock(numericCommentIds);
         }
     }, [comments, session?.user, lockedIdentity]);
 
@@ -509,8 +505,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
         }
     };
 
-    const renderComments = (parentId: string | number | null = null, depth = 0) => {
-        const items = rootComments.get(parentId) || [];
+    const renderComments = (items: Comment[], depth = 0) => {
         if (items.length === 0) return null;
 
         return (
@@ -521,6 +516,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                     const displayName = comment.user_display_name;
                     const isOwner = session?.user?.id === comment.user_id;
                     const isEditing = editingId === comment.id;
+                    const replies = getReplies(comment.id);
 
                     return (
                         <div key={comment.id} className="flex gap-3">
@@ -614,7 +610,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                                     </form>
                                 )}
 
-                                {renderComments(comment.id, depth + 1)}
+                                {replies.length > 0 && renderComments(replies, depth + 1)}
                             </div>
                         </div>
                     );
@@ -679,7 +675,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                     ))
                 ) : comments.length > 0 ? (
                     <>
-                        {renderComments(null, 0)}
+                        {renderComments(rootComments, 0)}
                         {hasMore && (
                             <button
                                 onClick={handleLoadMore}
