@@ -225,24 +225,156 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
 };
 
 const RecruitFormModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+    const { session } = useUserRole();
+    const [formData, setFormData] = useState({
+        fullName: '',
+        studentBatch: '',
+        major: '',
+        contactInfo: ''
+    });
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
+
     if (!isOpen) return null;
+
+    const handleChange = (field: keyof typeof formData) => (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData(prev => ({ ...prev, [field]: e.target.value }));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!supabase) {
+            setError('Chưa cấu hình Supabase.');
+            return;
+        }
+
+        setSubmitting(true);
+        setError(null);
+
+        const payload = {
+            full_name: formData.fullName.trim(),
+            student_batch: formData.studentBatch.trim(),
+            major: formData.major.trim(),
+            contact_info: formData.contactInfo.trim(),
+            user_id: session?.user?.id ?? null,
+            status: 'pending'
+        };
+
+        try {
+            const { error: insertError } = await supabase
+                .from('ctv_requests')
+                .insert(payload);
+
+            if (insertError) {
+                throw insertError;
+            }
+
+            setSuccess(true);
+            setTimeout(() => {
+                onClose();
+                setSuccess(false);
+                setFormData({
+                    fullName: '',
+                    studentBatch: '',
+                    major: '',
+                    contactInfo: ''
+                });
+            }, 800);
+        } catch (err: any) {
+            setError(err.message || 'Không thể gửi đăng ký. Vui lòng thử lại.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     return createPortal(
         <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white rounded-xl max-w-md w-full p-6 animate-scaleIn relative text-center" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 animate-scaleIn relative" onClick={e => e.stopPropagation()}>
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20} /></button>
                 <div className="w-16 h-16 bg-blue-100 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-4">
                     <Users size={32} />
                 </div>
-                <h3 className="text-xl font-bold text-[#003375] mb-2">Trở thành CTV Nhập liệu</h3>
-                <p className="text-gray-600 mb-6 text-sm">
+                <h3 className="text-xl font-bold text-[#003375] mb-2 text-center">Trở thành CTV Nhập liệu</h3>
+                <p className="text-gray-600 mb-6 text-sm text-center">
                     Bạn muốn đóng góp cho cộng đồng sinh viên HUB? Hãy tham gia đội ngũ cập nhật tin tức sự kiện cùng chúng mình nhé!
                 </p>
-                <a href="#" onClick={(e) => { e.preventDefault(); alert("Đang mở form đăng ký..."); }} className="block w-full py-3 bg-[#003375] text-white rounded-xl font-bold hover:bg-[#002855] transition-colors mb-3">
-                    Đăng ký ngay
-                </a>
-                <button onClick={onClose} className="block w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors">
-                    Để sau
-                </button>
+
+                {error && (
+                    <div className="mb-4 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
+                        {error}
+                    </div>
+                )}
+
+                {success ? (
+                    <div className="rounded-xl border border-green-100 bg-green-50 px-4 py-6 text-center text-green-700">
+                        <p className="font-bold">Đăng ký thành công!</p>
+                        <p className="text-sm mt-1">Cảm ơn bạn đã đăng ký. Chúng mình sẽ liên hệ sớm nhất.</p>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Họ và tên</label>
+                            <input
+                                type="text"
+                                required
+                                value={formData.fullName}
+                                onChange={handleChange('fullName')}
+                                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375]"
+                                placeholder="Nguyễn Văn A"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Khóa</label>
+                            <input
+                                type="text"
+                                required
+                                value={formData.studentBatch}
+                                onChange={handleChange('studentBatch')}
+                                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375]"
+                                placeholder="K40"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Chuyên ngành</label>
+                            <input
+                                type="text"
+                                required
+                                value={formData.major}
+                                onChange={handleChange('major')}
+                                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375]"
+                                placeholder="Kinh doanh quốc tế"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">SĐT / Zalo</label>
+                            <input
+                                type="text"
+                                required
+                                value={formData.contactInfo}
+                                onChange={handleChange('contactInfo')}
+                                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375]"
+                                placeholder="0909 000 000"
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={submitting}
+                            className="w-full py-3 bg-[#003375] text-white rounded-xl font-bold hover:bg-[#002855] transition-colors flex items-center justify-center gap-2"
+                        >
+                            {submitting ? <Loader2 className="animate-spin" size={18} /> : null}
+                            {submitting ? 'Đang gửi...' : 'Gửi đăng ký'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+                        >
+                            Để sau
+                        </button>
+                    </form>
+                )}
             </div>
         </div>, document.body
     );
