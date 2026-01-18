@@ -395,17 +395,35 @@ const App: React.FC = () => {
     }
   };
 
-  const resetData = () => {
+  const resetData = async () => {
       playClick();
-      if (window.confirm("Thao tác này sẽ xóa toàn bộ dữ liệu. Bạn có chắc không?")) {
+      if (!window.confirm("Cảnh báo: Hành động này sẽ xóa toàn bộ dữ liệu điểm số và đăng xuất. Bạn có chắc không?")) {
+        return;
+      }
+
+      try {
         setData(INITIAL_DATA);
-        localStorage.removeItem(storageKey);
+        localStorage.clear();
+
         if (userRolePref === 'school' && session?.user?.id && supabase) {
-          supabase
+          await supabase
             .from(STUDENT_PROFILE_TABLE)
             .delete()
             .eq('id', session.user.id);
         }
+
+        if (supabase) {
+          const { error } = await supabase.auth.signOut();
+          if (error) {
+            console.log("Lỗi đăng xuất:", error);
+          }
+        }
+      } catch (error) {
+        console.error("Lỗi khi reset:", error);
+      } finally {
+        localStorage.removeItem('user_role_preference');
+        setUserRolePref('unknown');
+        navigate('/');
       }
   };
 
