@@ -14,6 +14,8 @@ interface Comment {
     parent_id: number | string | null;
     user_display_name: string;
     is_anonymous: boolean;
+    like_count?: number;
+    replies?: Comment[];
     isDemo?: boolean;
 }
 
@@ -518,16 +520,21 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
         setSubmitting(true);
 
         const displayName = buildDisplayName();
-        const safeDisplayName = displayName || (isAnonymousSelected ? 'Koala Ẩn Danh' : 'Người dùng');
+        const isAnonymous = isAnonymousSelected || !session?.user;
+        const safeDisplayName = isAnonymous
+            ? (displayName || 'Koala Ẩn Danh')
+            : (publicDisplayName || 'Sinh viên');
         const optimisticComment: Comment = {
             id: `temp-${Date.now()}`,
-            post_id: contextId,
             content,
-            created_at: new Date().toISOString(),
+            post_id: contextId,
+            parent_id: parentId ?? null,
+            user_id: session?.user?.id ?? null,
             user_display_name: safeDisplayName,
-            is_anonymous: isAnonymousSelected || !session?.user,
-            parent_id: parentId,
-            user_id: session?.user?.id ?? null
+            is_anonymous: isAnonymous,
+            created_at: new Date().toISOString(),
+            like_count: 0,
+            replies: []
         };
 
         setComments((prev) => [...prev, optimisticComment]);
@@ -549,7 +556,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                 p_content: content,
                 p_post_id: contextId,
                 p_parent_id: parentId ?? null,
-                p_is_anonymous: isAnonymousSelected || !session?.user,
+                p_is_anonymous: isAnonymous,
                 p_device_ip: getDeviceId(),
                 p_display_name: safeDisplayName
             });
