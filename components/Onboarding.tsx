@@ -114,7 +114,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         <h2 className="text-2xl font-bold text-[#003375]">Chương trình học</h2>
         <p className="text-gray-600">Bạn đang theo học hệ đào tạo nào?</p>
       </div>
-      <div className="grid gap-3">
+      <div className="max-h-[60vh] overflow-y-auto pr-2 grid gap-3 custom-scrollbar">
         {ACADEMIC_PROGRAMS.map(prog => (
           <button
             key={prog.id}
@@ -186,7 +186,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         <p className="text-gray-600">Chọn ngành học của bạn trong danh sách.</p>
       </div>
       
-      <div className="h-64 overflow-y-auto pr-2 space-y-2 custom-scrollbar p-1">
+      <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-2 custom-scrollbar p-1">
         {currentMajors.map(major => (
           <button
             key={major.code}
@@ -220,7 +220,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         <h2 className="text-2xl font-bold text-[#003375]">Chuyên ngành</h2>
         <p className="text-gray-600">Xác nhận chuyên ngành chính xác của bạn.</p>
       </div>
-      <div className="grid gap-3">
+      <div className="max-h-[60vh] overflow-y-auto pr-2 grid gap-3 custom-scrollbar">
         {formData.major?.specializations.map((spec, idx) => (
           <button
             key={idx}
