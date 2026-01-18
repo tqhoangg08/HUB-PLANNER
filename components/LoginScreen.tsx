@@ -1,23 +1,23 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { User, Key, ArrowLeft, Loader2, Shield, AlertCircle } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
-interface LoginScreenProps {
-    onBack: () => void;
-    mode?: 'admin' | 'school';
-}
-
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onBack, mode = 'admin' }) => {
+export const LoginScreen: React.FC = () => {
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const role = searchParams.get('role');
+    const isAdmin = role === 'admin';
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const titleContent = useMemo(() => {
-        if (mode === 'school') {
+        if (!isAdmin) {
             return {
                 title: 'Đăng nhập tài khoản HUB',
                 subtitle: `Chỉ chấp nhận tài khoản @${SCHOOL_DOMAIN}`,
@@ -28,12 +28,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onBack, mode = 'admin'
             title: 'Cổng Quản Trị',
             subtitle: 'Đăng nhập để quản lý Sự kiện & Tìm đồ',
         };
-    }, [mode]);
+    }, [isAdmin]);
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleAdminLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!supabase) { 
-            setError("Chưa cấu hình kết nối Database."); 
+            const message = "Chưa cấu hình kết nối Database.";
+            setError(message); 
+            alert(message);
             return; 
         }
         
@@ -48,9 +50,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onBack, mode = 'admin'
 
         if (error) {
             setError(error.message);
-            setLoading(false);
-        } else {
-            // Success - App.tsx will detect session change via useUserRole hook
+            alert(error.message);
+        }
+
+        setLoading(false);
+
+        if (!error) {
+            navigate('/');
         }
     };
 
@@ -84,7 +90,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onBack, mode = 'admin'
     return (
         <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-100">
             <button 
-                onClick={() => { playClick(); onBack(); }}
+                onClick={() => { playClick(); navigate('/'); }}
                 className="absolute top-6 left-6 flex items-center gap-2 text-gray-500 hover:text-[#003375] font-bold transition-colors z-10"
             >
                 <ArrowLeft size={20} /> Quay lại
@@ -106,8 +112,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onBack, mode = 'admin'
                         </div>
                     )}
 
-                    {mode === 'admin' ? (
-                        <form onSubmit={handleLogin} className="space-y-4">
+                    {isAdmin ? (
+                        <form onSubmit={handleAdminLogin} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Email</label>
                                 <div className="relative">
