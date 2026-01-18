@@ -59,6 +59,10 @@ const formatTime = (isoString: string) => {
     return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 };
 
+const getAvatarInitial = (name?: string | null) => {
+    return (name || 'A').charAt(0).toUpperCase();
+};
+
 const getDeviceId = () => {
     const key = 'spam_device_id';
     const stored = localStorage.getItem(key);
@@ -343,12 +347,13 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
         setSubmitting(true);
 
         const displayName = buildDisplayName();
+        const safeDisplayName = displayName || (isAnonymousSelected ? 'Koala Ẩn Danh' : 'Người dùng');
         const optimisticComment: Comment = {
             id: `temp-${Date.now()}`,
             post_id: contextId,
             content,
             created_at: new Date().toISOString(),
-            user_display_name: displayName,
+            user_display_name: safeDisplayName,
             is_anonymous: isAnonymousSelected || !session?.user,
             parent_id: parentId,
             user_id: session?.user?.id ?? null
@@ -375,7 +380,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                 p_parent_id: parentId ?? null,
                 p_is_anonymous: isAnonymousSelected || !session?.user,
                 p_device_ip: getDeviceId(),
-                p_display_name: displayName
+                p_display_name: safeDisplayName
             });
 
             if (error) {
@@ -385,7 +390,11 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
             }
 
             if (data) {
-                setComments((prev) => prev.map((comment) => (comment.id === optimisticComment.id ? data : comment)));
+                const safeData = {
+                    ...data,
+                    user_display_name: data.user_display_name || safeDisplayName
+                };
+                setComments((prev) => prev.map((comment) => (comment.id === optimisticComment.id ? safeData : comment)));
                 lockIdentityAfterInteraction();
                 setToastMessage('Đã gửi bình luận thành công!', 'success');
             }
@@ -516,7 +525,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                     return (
                         <div key={comment.id} className="flex gap-3">
                             <div className={`w-9 h-9 rounded-full border flex items-center justify-center font-bold text-sm shrink-0 shadow-sm ${isAnonymous ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-[#003375] text-white border-[#003375]'}`}>
-                                {displayName.charAt(0).toUpperCase()}
+                                {getAvatarInitial(displayName)}
                             </div>
 
                             <div className="flex-1">
