@@ -374,7 +374,8 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                 p_post_id: contextId,
                 p_parent_id: parentId ?? null,
                 p_is_anonymous: isAnonymousSelected || !session?.user,
-                p_device_ip: getDeviceId()
+                p_device_ip: getDeviceId(),
+                p_display_name: displayName
             });
 
             if (error) {
