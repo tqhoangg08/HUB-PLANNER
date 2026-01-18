@@ -513,8 +513,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
 
     const handleSubmit = async (e: React.FormEvent, parentId: string | number | null = null) => {
         e.preventDefault();
-        const content = parentId ? replyDraftsState[String(parentId)] : newComment;
-        if (!content?.trim()) return;
+        const contentValue = parentId ? replyDraftsState[String(parentId)] : newComment;
+        const trimmedContent = contentValue?.trim();
+        if (!trimmedContent) return;
 
         playClick();
         setSubmitting(true);
@@ -526,7 +527,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
             : (publicDisplayName || 'Sinh viên');
         const optimisticComment: Comment = {
             id: `temp-${Date.now()}`,
-            content,
+            content: trimmedContent,
             post_id: contextId,
             parent_id: parentId ?? null,
             user_id: session?.user?.id ?? null,
@@ -553,7 +554,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
 
         try {
             const { data, error } = await supabase.rpc('submit_secure_comment', {
-                p_content: content,
+                p_content: trimmedContent,
                 p_post_id: contextId,
                 p_parent_id: parentId ?? null,
                 p_is_anonymous: isAnonymous,
