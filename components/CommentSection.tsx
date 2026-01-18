@@ -1,25 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../utils/supabase';
-import { Send, User, MessageCircle, Clock, AlertCircle, Loader2, Sparkles, CheckCircle2, ChevronDown, Edit2, X, Save, History } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Heart, Loader2, MessageCircle, Send, Sparkles } from 'lucide-react';
 import { playClick } from '../utils/audio';
+import { useUserRole } from '../hooks/useUserRole';
 
-// --- Types ---
 interface Comment {
     id: number | string;
     post_id: string;
     content: string;
     created_at: string;
-    updated_at?: string; // Optional, for edit history check
+    user_id: string | null;
+    parent_id: number | string | null;
     user_display_name: string;
     is_anonymous: boolean;
-    isDemo?: boolean; 
-}
-
-interface CommentHistory {
-    id: number;
-    comment_id: number | string;
-    old_content: string;
-    archived_at: string;
+    isDemo?: boolean;
 }
 
 interface CommentSectionProps {
@@ -28,19 +22,21 @@ interface CommentSectionProps {
     className?: string;
 }
 
-// --- Constants ---
-const PAGE_SIZE = 5;
-const COOLDOWN_TIME = 10; // seconds
+interface LikeState {
+    count: number;
+    liked: boolean;
+}
 
-// --- Random Name Logic ---
+const PAGE_SIZE = 20;
+
 const ADJECTIVES = [
-    'Vui Vẻ', 'Tò Mò', 'Nhanh Nhẹn', 'Thông Thái', 'Dũng Cảm', 
-    'Hài Hước', 'Thân Thiện', 'Sáng Tạo', 'May Mắn', 'Bí Ẩn', 
+    'Vui Vẻ', 'Tò Mò', 'Nhanh Nhẹn', 'Thông Thái', 'Dũng Cảm',
+    'Hài Hước', 'Thân Thiện', 'Sáng Tạo', 'May Mắn', 'Bí Ẩn',
     'Ngây Ngô', 'Chăm Chỉ', 'Đáng Yêu', 'Ngủ Gật', 'Tinh Nghịch'
 ];
 const ANIMALS = [
-    'Mèo Mướp', 'Gấu Trúc', 'Thỏ Trắng', 'Sóc Nâu', 'Cáo Đỏ', 
-    'Cánh Cụt', 'Hổ Con', 'Sư Tử', 'Cá Heo', 'Vịt Bầu', 
+    'Mèo Mướp', 'Gấu Trúc', 'Thỏ Trắng', 'Sóc Nâu', 'Cáo Đỏ',
+    'Cánh Cụt', 'Hổ Con', 'Sư Tử', 'Cá Heo', 'Vịt Bầu',
     'Cún Con', 'Hamster', 'Cú Mèo', 'Koala', 'Gấu Bắc Cực'
 ];
 
@@ -50,7 +46,6 @@ const generateRandomName = () => {
     return `${animal} ${adj}`;
 };
 
-// --- Time Formatter ---
 const formatTime = (isoString: string) => {
     if (!isoString) return '';
     const date = new Date(isoString);
@@ -63,90 +58,90 @@ const formatTime = (isoString: string) => {
     return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 };
 
-export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title = "Bình luận", className = "" }) => {
-    // Data State
+export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title = 'Bình luận', className = '' }) => {
+    const { session } = useUserRole();
     const [comments, setComments] = useState<Comment[]>([]);
-    const [currentUserIdentity, setCurrentUserIdentity] = useState('');
-    
-    // UI State
     const [newComment, setNewComment] = useState('');
+    const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+    const [activeReplyId, setActiveReplyId] = useState<string | number | null>(null);
+    const [likes, setLikes] = useState<Record<string, LikeState>>({});
     const [loading, setLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [isDemo, setIsDemo] = useState(false);
-    const [toast, setToast] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
+    const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
     const [hasMore, setHasMore] = useState(true);
+    const [isDemo, setIsDemo] = useState(false);
 
-    // Feature State: Cooldown
-    const [cooldown, setCooldown] = useState(0);
+    const [anonymousName, setAnonymousName] = useState('');
+    const [isAnonymousSelected, setIsAnonymousSelected] = useState(true);
+    const [lockedIdentity, setLockedIdentity] = useState<boolean | null>(null);
+    const [identityMessage, setIdentityMessage] = useState('');
 
-    // Feature State: Editing
-    const [editingId, setEditingId] = useState<string | number | null>(null);
-    const [editContent, setEditContent] = useState('');
-    const [isSavingEdit, setIsSavingEdit] = useState(false);
+    const publicDisplayName = useMemo(() => {
+        if (!session?.user) return '';
+        return session.user.user_metadata?.full_name
+            || session.user.email?.split('@')[0]
+            || 'Sinh viên';
+    }, [session?.user]);
 
-    // Feature State: History
-    const [viewingHistoryId, setViewingHistoryId] = useState<string | number | null>(null);
-    const [historyList, setHistoryList] = useState<CommentHistory[]>([]);
-    const [loadingHistory, setLoadingHistory] = useState(false);
+    const containerClasses = className
+        ? className
+        : 'bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full';
 
-    // --- 1. Initialization & Identity ---
-    useEffect(() => {
-        // Setup Identity
+    const rootComments = useMemo(() => {
+        const map = new Map<string | number | null, Comment[]>();
+        comments.forEach((comment) => {
+            const key = comment.parent_id ?? null;
+            if (!map.has(key)) {
+                map.set(key, []);
+            }
+            map.get(key)!.push(comment);
+        });
+        return map;
+    }, [comments]);
+
+    const canToggleIdentity = Boolean(session?.user) && lockedIdentity === null;
+
+    const currentIdentityLabel = useMemo(() => {
+        if (isAnonymousSelected || !session?.user) {
+            return anonymousName || 'Ẩn danh';
+        }
+        return publicDisplayName || 'Sinh viên';
+    }, [anonymousName, isAnonymousSelected, publicDisplayName, session?.user]);
+
+    const setToastMessage = (msg: string, type: 'success' | 'error') => {
+        setToast({ msg, type });
+        setTimeout(() => setToast(null), 3000);
+    };
+
+    const ensureAnonymousName = () => {
         const storedName = localStorage.getItem('hub_anonymous_name');
         if (storedName) {
-            setCurrentUserIdentity(storedName);
-        } else {
-            const newName = generateRandomName();
-            localStorage.setItem('hub_anonymous_name', newName);
-            setCurrentUserIdentity(newName);
+            setAnonymousName(storedName);
+            return storedName;
         }
+        const newName = generateRandomName();
+        localStorage.setItem('hub_anonymous_name', newName);
+        setAnonymousName(newName);
+        return newName;
+    };
 
-        // Check Demo or Real
-        if (!supabase) {
-            setIsDemo(true);
-            setComments([
-                { 
-                    id: 'demo-1', 
-                    post_id: contextId, 
-                    content: 'Giao diện web đẹp quá, mong sớm có full tính năng!', 
-                    created_at: new Date().toISOString(), 
-                    user_display_name: 'Mèo Máy Thông Thái', 
-                    is_anonymous: true,
-                    isDemo: true 
-                },
-                { 
-                    id: 'demo-2', 
-                    post_id: contextId, 
-                    content: 'Có ai tìm thấy thẻ sinh viên của mình không ạ?', 
-                    created_at: new Date(Date.now() - 3600000).toISOString(), 
-                    user_display_name: 'Thỏ Trắng Ngây Ngô', 
-                    is_anonymous: true,
-                    isDemo: true 
-                }
-            ]);
-            setHasMore(false); // Demo has fixed data
-        } else {
-            // Initial Fetch
-            fetchComments(0);
-        }
-    }, [contextId]);
-
-    // --- 2. Cooldown Timer ---
     useEffect(() => {
-        let interval: any;
-        if (cooldown > 0) {
-            interval = setInterval(() => {
-                setCooldown((prev) => prev - 1);
-            }, 1000);
-        }
-        return () => clearInterval(interval);
-    }, [cooldown]);
+        ensureAnonymousName();
+    }, []);
 
-    // --- 3. Fetch Data (Pagination) ---
+    useEffect(() => {
+        setLockedIdentity(null);
+        setIdentityMessage('');
+        if (!session?.user) {
+            setIsAnonymousSelected(true);
+            setLockedIdentity(true);
+            setIdentityMessage('Bạn đang tương tác ẩn danh trong bài viết này.');
+        }
+    }, [contextId, session?.user]);
+
     const fetchComments = async (offset: number) => {
         if (!supabase) return;
-        
         if (offset === 0) setLoading(true);
         else setLoadingMore(true);
 
@@ -155,7 +150,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                 .from('comments')
                 .select('*')
                 .eq('post_id', contextId)
-                .order('created_at', { ascending: false })
+                .order('created_at', { ascending: true })
                 .range(offset, offset + PAGE_SIZE - 1);
 
             if (error) throw error;
@@ -168,12 +163,11 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                 }
 
                 if (offset === 0) {
-                    setComments(data);
+                    setComments(data as Comment[]);
                 } else {
-                    // Filter duplicates just in case realtime updates happened
-                    setComments(prev => {
-                        const existingIds = new Set(prev.map(c => c.id));
-                        const newUnique = data.filter(c => !existingIds.has(c.id));
+                    setComments((prev) => {
+                        const existingIds = new Set(prev.map((c) => c.id));
+                        const newUnique = (data as Comment[]).filter((c) => !existingIds.has(c.id));
                         return [...prev, ...newUnique];
                     });
                 }
@@ -186,205 +180,343 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
         }
     };
 
+    const fetchLikes = async (commentIds: (string | number)[]) => {
+        if (!supabase || commentIds.length === 0) return;
+        try {
+            const { data, error } = await supabase
+                .from('comment_likes')
+                .select('comment_id, user_id, is_anonymous')
+                .in('comment_id', commentIds);
+
+            if (error) throw error;
+
+            const likeMap: Record<string, LikeState> = {};
+            commentIds.forEach((id) => {
+                likeMap[String(id)] = { count: 0, liked: false };
+            });
+
+            (data || []).forEach((like: { comment_id: string | number; user_id: string | null }) => {
+                const key = String(like.comment_id);
+                if (!likeMap[key]) {
+                    likeMap[key] = { count: 0, liked: false };
+                }
+                likeMap[key].count += 1;
+                if (session?.user?.id && like.user_id === session.user.id) {
+                    likeMap[key].liked = true;
+                }
+            });
+
+            setLikes(likeMap);
+        } catch (err) {
+            console.error('Error fetching likes:', err);
+        }
+    };
+
+    const checkIdentityLock = async (commentIds: (string | number)[]) => {
+        if (!supabase || !session?.user) return;
+
+        try {
+            const { data: commentHistory, error: commentError } = await supabase
+                .from('comments')
+                .select('is_anonymous')
+                .eq('post_id', contextId)
+                .eq('user_id', session.user.id)
+                .order('created_at', { ascending: true })
+                .limit(1);
+
+            if (commentError) throw commentError;
+
+            if (commentHistory && commentHistory.length > 0) {
+                const locked = commentHistory[0].is_anonymous;
+                const anonLabel = anonymousName || ensureAnonymousName();
+                setLockedIdentity(locked);
+                setIsAnonymousSelected(locked);
+                setIdentityMessage(`Bạn đang tương tác dưới tên ${locked ? anonLabel : publicDisplayName} trong bài viết này.`);
+                return;
+            }
+
+            if (commentIds.length === 0) return;
+
+            const { data: likeHistory, error: likeError } = await supabase
+                .from('comment_likes')
+                .select('is_anonymous')
+                .eq('user_id', session.user.id)
+                .in('comment_id', commentIds)
+                .limit(1);
+
+            if (likeError) throw likeError;
+
+            if (likeHistory && likeHistory.length > 0) {
+                const locked = likeHistory[0].is_anonymous;
+                const anonLabel = anonymousName || ensureAnonymousName();
+                setLockedIdentity(locked);
+                setIsAnonymousSelected(locked);
+                setIdentityMessage(`Bạn đang tương tác dưới tên ${locked ? anonLabel : publicDisplayName} trong bài viết này.`);
+            }
+        } catch (err) {
+            console.error('Error checking identity lock:', err);
+        }
+    };
+
+    useEffect(() => {
+        if (!supabase) {
+            setIsDemo(true);
+            setComments([
+                {
+                    id: 'demo-1',
+                    post_id: contextId,
+                    content: 'Giao diện web đẹp quá, mong sớm có full tính năng!',
+                    created_at: new Date().toISOString(),
+                    user_display_name: 'Mèo Máy Thông Thái',
+                    is_anonymous: true,
+                    parent_id: null,
+                    user_id: null,
+                    isDemo: true
+                },
+                {
+                    id: 'demo-2',
+                    post_id: contextId,
+                    content: 'Có ai tìm thấy thẻ sinh viên của mình không ạ?',
+                    created_at: new Date(Date.now() - 3600000).toISOString(),
+                    user_display_name: 'Thỏ Trắng Ngây Ngô',
+                    is_anonymous: true,
+                    parent_id: null,
+                    user_id: null,
+                    isDemo: true
+                }
+            ]);
+            setHasMore(false);
+            return;
+        }
+
+        fetchComments(0);
+    }, [contextId]);
+
+    useEffect(() => {
+        if (!supabase) return;
+        const commentIds = comments.map((comment) => comment.id);
+        fetchLikes(commentIds);
+        if (session?.user && lockedIdentity === null) {
+            checkIdentityLock(commentIds);
+        }
+    }, [comments, session?.user, lockedIdentity]);
+
     const handleLoadMore = () => {
         playClick();
         fetchComments(comments.length);
     };
 
-    // --- 4. Submit New Comment ---
-    const handleSubmit = async (e: React.FormEvent) => {
+    const lockIdentityAfterInteraction = () => {
+        if (!session?.user || lockedIdentity !== null) return;
+        const anonLabel = anonymousName || ensureAnonymousName();
+        setLockedIdentity(isAnonymousSelected);
+        setIdentityMessage(`Bạn đang tương tác dưới tên ${isAnonymousSelected ? anonLabel : publicDisplayName} trong bài viết này.`);
+    };
+
+    const buildDisplayName = () => {
+        if (isAnonymousSelected || !session?.user) {
+            return ensureAnonymousName();
+        }
+        return publicDisplayName || 'Sinh viên';
+    };
+
+    const handleSubmit = async (e: React.FormEvent, parentId: string | number | null = null) => {
         e.preventDefault();
-        
-        // Validation & Checks
-        if (!newComment.trim()) return;
-        if (cooldown > 0) return; // Prevent spam
+        const content = parentId ? replyDrafts[String(parentId)] : newComment;
+        if (!content?.trim()) return;
 
         playClick();
-        const submitName = currentUserIdentity || generateRandomName();
         setSubmitting(true);
 
+        const displayName = buildDisplayName();
+        const optimisticComment: Comment = {
+            id: `temp-${Date.now()}`,
+            post_id: contextId,
+            content,
+            created_at: new Date().toISOString(),
+            user_display_name: displayName,
+            is_anonymous: isAnonymousSelected || !session?.user,
+            parent_id: parentId,
+            user_id: session?.user?.id ?? null
+        };
+
+        setComments((prev) => [...prev, optimisticComment]);
+        if (parentId) {
+            setReplyDrafts((prev) => ({ ...prev, [String(parentId)]: '' }));
+            setActiveReplyId(null);
+        } else {
+            setNewComment('');
+        }
+
         if (!supabase) {
-            // Demo Mode
-            setTimeout(() => {
-                const demoComment: Comment = {
-                    id: Date.now(),
-                    post_id: contextId,
-                    content: newComment,
-                    created_at: new Date().toISOString(),
-                    user_display_name: submitName + ' (Demo)',
-                    is_anonymous: true,
-                    isDemo: true
-                };
-                setComments([demoComment, ...comments]);
-                setNewComment('');
-                setSubmitting(false);
-                activateCooldown();
-                alert("Đang chạy Demo: Comment đã hiện lên danh sách (nhưng chưa lưu vào database).");
-            }, 600);
+            setSubmitting(false);
+            setToastMessage('Demo: Bình luận đã được thêm.', 'success');
             return;
         }
 
-        // Real Mode
         try {
             const { data, error } = await supabase
                 .from('comments')
                 .insert([
-                    { 
-                        post_id: contextId, 
-                        content: newComment, 
-                        user_display_name: submitName, 
-                        is_anonymous: true 
+                    {
+                        post_id: contextId,
+                        content,
+                        user_display_name: displayName,
+                        is_anonymous: isAnonymousSelected || !session?.user,
+                        parent_id: parentId,
+                        user_id: session?.user?.id ?? null
                     }
                 ])
                 .select();
 
             if (error) throw error;
 
-            if (data) {
-                setComments([data[0], ...comments]);
-                setNewComment('');
-                setToast({ msg: 'Đã gửi bình luận thành công!', type: 'success' });
-                activateCooldown(); // Start Anti-Spam Timer
+            if (data && data.length > 0) {
+                setComments((prev) => prev.map((comment) => (comment.id === optimisticComment.id ? data[0] : comment)));
+                lockIdentityAfterInteraction();
+                setToastMessage('Đã gửi bình luận thành công!', 'success');
             }
         } catch (err) {
             console.error('Error adding comment:', err);
-            setToast({ msg: 'Gửi thất bại. Vui lòng thử lại.', type: 'error' });
+            setComments((prev) => prev.filter((comment) => comment.id !== optimisticComment.id));
+            setToastMessage('Gửi thất bại. Vui lòng thử lại.', 'error');
         } finally {
             setSubmitting(false);
-            setTimeout(() => setToast(null), 3000);
         }
     };
 
-    const activateCooldown = () => {
-        setCooldown(COOLDOWN_TIME);
-    };
-
-    // --- 5. Edit Comment ---
-    const startEditing = (comment: Comment) => {
-        playClick();
-        setEditingId(comment.id);
-        setEditContent(comment.content);
-        setViewingHistoryId(null); // Close history if open
-    };
-
-    const cancelEditing = () => {
-        setEditingId(null);
-        setEditContent('');
-    };
-
-    const saveEdit = async () => {
-        if (!editContent.trim()) return;
-        if (!editingId) return;
-
-        setIsSavingEdit(true);
-        const timestamp = new Date().toISOString();
-        
-        // Find current comment to archive
-        const currentComment = comments.find(c => c.id === editingId);
-
-        // --- Demo Mode ---
-        if (!supabase) {
-            setComments(prev => prev.map(c => c.id === editingId ? { ...c, content: editContent, updated_at: timestamp } : c));
-            setIsSavingEdit(false);
-            cancelEditing();
+    const handleToggleLike = async (commentId: string | number) => {
+        if (!session?.user) {
+            setToastMessage('Vui lòng đăng nhập để thả tim.', 'error');
             return;
         }
 
-        // --- Real Mode ---
+        playClick();
+        const key = String(commentId);
+        const current = likes[key] || { count: 0, liked: false };
+        const nextLiked = !current.liked;
+
+        setLikes((prev) => ({
+            ...prev,
+            [key]: {
+                count: prev[key] ? prev[key].count + (nextLiked ? 1 : -1) : (nextLiked ? 1 : 0),
+                liked: nextLiked
+            }
+        }));
+
+        if (!supabase) {
+            lockIdentityAfterInteraction();
+            return;
+        }
+
         try {
-            // 1. Archive Old Content (If comment exists)
-            if (currentComment) {
-                const { error: archiveError } = await supabase
-                    .from('comment_history')
+            if (nextLiked) {
+                const { error } = await supabase
+                    .from('comment_likes')
                     .insert({
-                        comment_id: editingId,
-                        old_content: currentComment.content,
-                        archived_at: timestamp
+                        comment_id: commentId,
+                        user_id: session.user.id,
+                        is_anonymous: isAnonymousSelected
                     });
-                
-                if (archiveError) {
-                    console.warn("Lỗi lưu lịch sử (không chặn update):", archiveError);
-                }
+
+                if (error) throw error;
+            } else {
+                const { error } = await supabase
+                    .from('comment_likes')
+                    .delete()
+                    .eq('comment_id', commentId)
+                    .eq('user_id', session.user.id);
+
+                if (error) throw error;
             }
 
-            // 2. Update New Content
-            const { error } = await supabase
-                .from('comments')
-                .update({ 
-                    content: editContent,
-                    updated_at: timestamp
-                })
-                .eq('id', editingId);
-
-            if (error) throw error;
-
-            // Cập nhật State ngay lập tức để giao diện thay đổi
-            setComments(prev => prev.map(c => c.id === editingId ? { 
-                ...c, 
-                content: editContent,
-                updated_at: timestamp
-            } : c));
-
-            setToast({ msg: 'Đã chỉnh sửa!', type: 'success' });
-            cancelEditing();
+            lockIdentityAfterInteraction();
         } catch (err) {
-            console.error('Error updating comment:', err);
-            setToast({ msg: 'Không thể lưu sửa đổi.', type: 'error' });
-        } finally {
-            setIsSavingEdit(false);
-            setTimeout(() => setToast(null), 3000);
+            console.error('Error updating like:', err);
+            setLikes((prev) => ({
+                ...prev,
+                [key]: current
+            }));
+            setToastMessage('Không thể cập nhật lượt thích.', 'error');
         }
     };
 
-    // --- 6. View Edit History ---
-    const handleToggleHistory = async (commentId: string | number) => {
-        if (viewingHistoryId === commentId) {
-            // Toggle off
-            setViewingHistoryId(null);
-            return;
-        }
+    const renderComments = (parentId: string | number | null = null, depth = 0) => {
+        const items = rootComments.get(parentId) || [];
+        if (items.length === 0) return null;
 
-        playClick();
-        setViewingHistoryId(commentId);
-        setLoadingHistory(true);
-        setHistoryList([]);
+        return (
+            <div className={depth > 0 ? 'space-y-4 pl-6 border-l border-gray-200' : 'space-y-4'}>
+                {items.map((comment) => {
+                    const likeState = likes[String(comment.id)] || { count: 0, liked: false };
+                    const isAnonymous = comment.is_anonymous;
+                    const displayName = isAnonymous ? comment.user_display_name : comment.user_display_name;
+                    return (
+                        <div key={comment.id} className="flex gap-3">
+                            <div className={`w-9 h-9 rounded-full border flex items-center justify-center font-bold text-sm shrink-0 shadow-sm ${isAnonymous ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-[#003375] text-white border-[#003375]'}`}>
+                                {displayName.charAt(0).toUpperCase()}
+                            </div>
 
-        if (!supabase) {
-            // Demo mock
-            setTimeout(() => {
-                setHistoryList([
-                    { id: 1, comment_id: commentId, old_content: "Nội dung cũ (Demo)...", archived_at: new Date(Date.now() - 3600000).toISOString() }
-                ]);
-                setLoadingHistory(false);
-            }, 500);
-            return;
-        }
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                    <span className="font-bold text-gray-800">{displayName}</span>
+                                    {isAnonymous && <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Ẩn danh</span>}
+                                    <span className="flex items-center gap-1 text-[10px]"><Clock size={10} /> {formatTime(comment.created_at)}</span>
+                                </div>
 
-        try {
-            const { data, error } = await supabase
-                .from('comment_history')
-                .select('*')
-                .eq('comment_id', commentId)
-                .order('archived_at', { ascending: false });
+                                <div className="mt-1 bg-white border border-gray-100 rounded-xl rounded-tl-none p-3 text-sm text-gray-700 shadow-sm">
+                                    {comment.content}
+                                </div>
 
-            if (error) throw error;
-            setHistoryList(data || []);
-        } catch (err) {
-            console.error("Lỗi tải lịch sử:", err);
-            setToast({ msg: 'Lỗi tải lịch sử', type: 'error' });
-        } finally {
-            setLoadingHistory(false);
-        }
+                                <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleToggleLike(comment.id)}
+                                        className={`flex items-center gap-1 transition ${likeState.liked ? 'text-red-500' : 'hover:text-red-500'}`}
+                                    >
+                                        <Heart size={14} className={likeState.liked ? 'fill-red-500' : ''} />
+                                        {likeState.count}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveReplyId(activeReplyId === comment.id ? null : comment.id)}
+                                        className="hover:text-[#003375]"
+                                    >
+                                        Trả lời
+                                    </button>
+                                </div>
+
+                                {activeReplyId === comment.id && (
+                                    <form onSubmit={(e) => handleSubmit(e, comment.id)} className="mt-3 flex items-center gap-2">
+                                        <input
+                                            type="text"
+                                            value={replyDrafts[String(comment.id)] || ''}
+                                            onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [String(comment.id)]: e.target.value }))}
+                                            placeholder={`Trả lời với tên "${currentIdentityLabel}"...`}
+                                            className="flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-xs outline-none focus:ring-2 focus:ring-[#003375]"
+                                            disabled={submitting}
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={submitting || !(replyDrafts[String(comment.id)] || '').trim()}
+                                            className="p-2 rounded-full bg-[#003375] text-white hover:bg-[#002855] transition disabled:opacity-50"
+                                        >
+                                            <Send size={14} />
+                                        </button>
+                                    </form>
+                                )}
+
+                                {renderComments(comment.id, depth + 1)}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
     };
-
-    // Style
-    const containerClasses = className 
-        ? className 
-        : "bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full";
 
     return (
         <div className={containerClasses}>
-            {/* Header */}
             <div className="p-3 border-b bg-gray-50 flex justify-between items-center shrink-0">
                 <h3 className="font-bold text-[#003375] flex items-center gap-2 text-sm">
                     <MessageCircle size={18} />
@@ -397,11 +529,38 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                 )}
             </div>
 
-            {/* Comments List */}
+            <div className="p-4 border-b bg-white">
+                <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-full px-3 py-2">
+                        <span className={`text-xs font-bold ${isAnonymousSelected ? 'text-[#003375]' : 'text-gray-400'}`}>🎭 Ẩn danh</span>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (!canToggleIdentity) return;
+                                setIsAnonymousSelected((prev) => !prev);
+                            }}
+                            className={`w-12 h-6 rounded-full relative transition ${canToggleIdentity ? (isAnonymousSelected ? 'bg-[#003375]' : 'bg-gray-300') : 'bg-gray-300'}`}
+                            disabled={!canToggleIdentity}
+                            aria-label="Chuyển danh tính"
+                        >
+                            <span
+                                className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition ${isAnonymousSelected ? 'left-1' : 'left-6'}`}
+                            />
+                        </button>
+                        <span className={`text-xs font-bold ${!isAnonymousSelected ? 'text-[#003375]' : 'text-gray-400'}`}>🎓 Tên Sinh Viên</span>
+                    </div>
+                    {identityMessage && (
+                        <p className="text-[11px] text-gray-500">{identityMessage}</p>
+                    )}
+                    {!identityMessage && !session?.user && (
+                        <p className="text-[11px] text-gray-500">Bạn đang tương tác ẩn danh vì chưa đăng nhập.</p>
+                    )}
+                </div>
+            </div>
+
             <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-gray-50/50">
                 {loading ? (
-                    // Skeleton Loading
-                    [1, 2, 3].map(i => (
+                    [1, 2, 3].map((i) => (
                         <div key={i} className="flex gap-3 animate-pulse">
                             <div className="w-8 h-8 bg-gray-200 rounded-full shrink-0"></div>
                             <div className="flex-1 space-y-2">
@@ -412,181 +571,58 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                     ))
                 ) : comments.length > 0 ? (
                     <>
-                        {comments.map((comment) => {
-                            const isOwner = comment.user_display_name === currentUserIdentity;
-                            const isEditing = editingId === comment.id;
-                            const isViewingHistory = viewingHistoryId === comment.id;
-                            
-                            // Check if edited: updated_at exists AND differs from created_at
-                            const isEdited = comment.updated_at && comment.updated_at !== comment.created_at;
-
-                            return (
-                                <div key={comment.id} className="flex gap-3 animate-fadeIn group">
-                                    <div className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-sm shrink-0 shadow-sm ${isOwner ? 'bg-[#003375] text-white border-[#003375]' : 'bg-gradient-to-br from-blue-100 to-indigo-100 border-blue-200 text-[#003375]'}`}>
-                                        {comment.user_display_name.charAt(0).toUpperCase()}
-                                    </div>
-                                    
-                                    <div className="flex-1 max-w-[85%]">
-                                        <div className="flex items-baseline gap-2 mb-1">
-                                            <span className={`font-bold text-xs ${isOwner ? 'text-[#003375]' : 'text-gray-800'}`}>
-                                                {comment.user_display_name} {isOwner && '(Bạn)'}
-                                            </span>
-                                            <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
-                                                <Clock size={8} /> {formatTime(comment.created_at)}
-                                            </span>
-                                            {isEdited && (
-                                                <button 
-                                                    onClick={() => handleToggleHistory(comment.id)}
-                                                    className={`text-[10px] italic flex items-center gap-1 px-1 rounded transition-all ${isViewingHistory ? 'text-[#003375] font-bold bg-blue-50' : 'text-gray-400 hover:text-[#003375] hover:bg-gray-100'}`}
-                                                    title="Xem lịch sử chỉnh sửa"
-                                                >
-                                                    <History size={10} /> (đã chỉnh sửa)
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        {isEditing ? (
-                                            <div className="animate-fadeIn">
-                                                <textarea
-                                                    value={editContent}
-                                                    onChange={(e) => setEditContent(e.target.value)}
-                                                    className="w-full p-2 text-sm border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-100 outline-none resize-none"
-                                                    rows={2}
-                                                />
-                                                <div className="flex justify-end gap-2 mt-2">
-                                                    <button 
-                                                        onClick={cancelEditing}
-                                                        className="px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 rounded flex items-center gap-1"
-                                                    >
-                                                        <X size={12}/> Hủy
-                                                    </button>
-                                                    <button 
-                                                        onClick={saveEdit}
-                                                        disabled={isSavingEdit || !editContent.trim()}
-                                                        className="px-2 py-1 text-xs font-bold text-white bg-[#003375] hover:bg-[#002855] rounded flex items-center gap-1 disabled:opacity-50"
-                                                    >
-                                                        {isSavingEdit ? <Loader2 size={12} className="animate-spin"/> : <Save size={12}/>} Lưu
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="relative group/bubble">
-                                                <div className={`p-2.5 rounded-2xl rounded-tl-none text-sm leading-relaxed shadow-sm border ${isOwner ? 'bg-blue-50 border-blue-100 text-gray-800' : 'bg-white border-gray-100 text-gray-700'}`}>
-                                                    {comment.content}
-                                                </div>
-                                                
-                                                {/* Edit Button (Only visible for owner on hover) */}
-                                                {isOwner && (
-                                                    <button 
-                                                        onClick={() => startEditing(comment)}
-                                                        className="absolute -right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover/bubble:opacity-100 transition-opacity p-1 text-gray-400 hover:text-[#003375]"
-                                                        title="Sửa bình luận"
-                                                    >
-                                                        <Edit2 size={12} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* History Dropdown */}
-                                        {isViewingHistory && (
-                                            <div className="mt-2 ml-1 p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs animate-slideUp relative">
-                                                <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-50 border-t border-l border-gray-200 transform rotate-45"></div>
-                                                <h4 className="font-bold text-[#003375] mb-2 flex items-center gap-1">
-                                                    <History size={12} /> Lịch sử chỉnh sửa
-                                                </h4>
-                                                
-                                                {loadingHistory ? (
-                                                    <div className="flex items-center justify-center py-2 text-gray-400">
-                                                        <Loader2 size={16} className="animate-spin mr-2" /> Đang tải...
-                                                    </div>
-                                                ) : historyList.length > 0 ? (
-                                                    <div className="space-y-3 max-h-40 overflow-y-auto custom-scrollbar pr-1">
-                                                        {historyList.map((hist) => (
-                                                            <div key={hist.id} className="border-l-2 border-gray-300 pl-2">
-                                                                <p className="text-gray-500 mb-0.5 flex items-center gap-1 text-[10px]">
-                                                                    <Clock size={8} /> 
-                                                                    {new Date(hist.archived_at).toLocaleString('vi-VN')}
-                                                                </p>
-                                                                <p className="text-gray-700 bg-white p-1.5 rounded border border-gray-100 shadow-sm">
-                                                                    {hist.old_content}
-                                                                </p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-gray-400 italic text-center">Không tìm thấy lịch sử.</p>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-
-                        {/* Load More Button */}
+                        {renderComments(null, 0)}
                         {hasMore && (
                             <button
                                 onClick={handleLoadMore}
                                 disabled={loadingMore}
                                 className="w-full py-2 text-xs font-bold text-gray-500 hover:text-[#003375] hover:bg-gray-100 rounded-lg transition-all flex items-center justify-center gap-2"
                             >
-                                {loadingMore ? <Loader2 size={14} className="animate-spin" /> : <ChevronDown size={14} />}
-                                Xem thêm bình luận cũ
+                                {loadingMore ? <Loader2 size={14} className="animate-spin" /> : 'Xem thêm bình luận cũ'}
                             </button>
                         )}
                     </>
                 ) : (
                     <div className="text-center py-8 text-gray-400">
                         <MessageCircle size={32} className="mx-auto mb-2 opacity-20" />
-                        <p className="text-sm">Chưa có bình luận nào.<br/>Hãy là người đầu tiên!</p>
+                        <p className="text-sm">Chưa có bình luận nào.<br />Hãy là người đầu tiên!</p>
                     </div>
                 )}
             </div>
 
-            {/* Input Area */}
             <div className="p-3 bg-white border-t border-gray-100 relative shrink-0 z-10">
                 {toast && (
                     <div className={`absolute -top-12 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full shadow-lg text-xs font-bold flex items-center gap-2 animate-slideUp ${toast.type === 'success' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
-                        {toast.type === 'success' ? <CheckCircle2 size={14}/> : <AlertCircle size={14}/>}
+                        {toast.type === 'success' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
                         {toast.msg}
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="flex items-center gap-2">
+                <form onSubmit={(e) => handleSubmit(e, null)} className="flex items-center gap-2">
                     <div className="relative flex-1">
                         <input
                             type="text"
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && cooldown > 0) {
-                                    e.preventDefault();
-                                }
-                            }}
-                            placeholder={cooldown > 0 ? `Vui lòng chờ ${cooldown}s...` : `Bình luận với tên "${currentUserIdentity || '...'}"...`}
-                            className={`w-full pl-4 pr-4 py-2.5 border rounded-full outline-none transition-all text-sm ${cooldown > 0 ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'bg-gray-50 border-gray-200 focus:ring-2 focus:ring-[#003375] focus:border-[#003375] placeholder-gray-400'}`}
-                            disabled={submitting || cooldown > 0}
+                            placeholder={`Bình luận với tên "${currentIdentityLabel}"...`}
+                            className="w-full pl-4 pr-4 py-2.5 border rounded-full outline-none transition-all text-sm bg-gray-50 border-gray-200 focus:ring-2 focus:ring-[#003375] focus:border-[#003375] placeholder-gray-400"
+                            disabled={submitting}
                         />
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                           {submitting && <Loader2 size={16} className="animate-spin text-[#003375]" />}
+                            {submitting && <Loader2 size={16} className="animate-spin text-[#003375]" />}
                         </div>
                     </div>
                     <button
                         type="submit"
-                        disabled={!newComment.trim() || submitting || cooldown > 0}
-                        className={`p-2.5 rounded-full transition-all shadow-sm flex items-center gap-1 ${cooldown > 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-[#003375] text-white hover:bg-[#002855] hover:shadow-md active:scale-95'}`}
+                        disabled={!newComment.trim() || submitting}
+                        className="p-2.5 rounded-full transition-all shadow-sm flex items-center gap-1 bg-[#003375] text-white hover:bg-[#002855] hover:shadow-md active:scale-95 disabled:opacity-50"
                     >
-                        {cooldown > 0 ? (
-                            <span className="text-[10px] font-bold w-6 text-center">{cooldown}</span>
-                        ) : (
-                            <Send size={18} />
-                        )}
+                        <Send size={18} />
                     </button>
                 </form>
                 <div className="text-center mt-2">
                     <p className="text-[10px] text-gray-400 flex items-center justify-center gap-1">
-                        <Sparkles size={10} /> Danh tính của bạn được ẩn danh hoàn toàn
+                        <Sparkles size={10} /> Danh tính của bạn {isAnonymousSelected || !session?.user ? 'đang ẩn danh' : 'đang công khai'} trong bài viết này.
                     </p>
                 </div>
             </div>
