@@ -186,7 +186,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
         <p className="text-gray-600">Chọn ngành học của bạn trong danh sách.</p>
       </div>
       
-      <div className="h-64 overflow-y-auto pr-2 space-y-2 custom-scrollbar p-1">
+      <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-2 custom-scrollbar p-1">
         {currentMajors.map(major => (
           <button
             key={major.code}
