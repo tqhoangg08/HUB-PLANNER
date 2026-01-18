@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../utils/supabase';
-import { AlertCircle, CheckCircle2, Clock, Heart, Loader2, MessageCircle, Send, Sparkles } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Edit2, Heart, Loader2, MessageCircle, Save, Send, Sparkles, X } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { useUserRole } from '../hooks/useUserRole';
 
@@ -9,6 +9,7 @@ interface Comment {
     post_id: string;
     content: string;
     created_at: string;
+    updated_at?: string | null;
     user_id: string | null;
     parent_id: number | string | null;
     user_display_name: string;
@@ -58,6 +59,15 @@ const formatTime = (isoString: string) => {
     return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 };
 
+const getDeviceId = () => {
+    const key = 'spam_device_id';
+    const stored = localStorage.getItem(key);
+    if (stored) return stored;
+    const uuid = crypto.randomUUID();
+    localStorage.setItem(key, uuid);
+    return uuid;
+};
+
 export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title = 'Bình luận', className = '' }) => {
     const { session } = useUserRole();
     const [comments, setComments] = useState<Comment[]>([]);
@@ -76,6 +86,10 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
     const [isAnonymousSelected, setIsAnonymousSelected] = useState(true);
     const [lockedIdentity, setLockedIdentity] = useState<boolean | null>(null);
     const [identityMessage, setIdentityMessage] = useState('');
+
+    const [editingId, setEditingId] = useState<string | number | null>(null);
+    const [editContent, setEditContent] = useState('');
+    const [savingEdit, setSavingEdit] = useState(false);
 
     const publicDisplayName = useMemo(() => {
         if (!session?.user) return '';
@@ -355,33 +369,77 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
         }
 
         try {
-            const { data, error } = await supabase
-                .from('comments')
-                .insert([
-                    {
-                        post_id: contextId,
-                        content,
-                        user_display_name: displayName,
-                        is_anonymous: isAnonymousSelected || !session?.user,
-                        parent_id: parentId,
-                        user_id: session?.user?.id ?? null
-                    }
-                ])
-                .select();
+            const { data, error } = await supabase.rpc('submit_secure_comment', {
+                p_content: content,
+                p_post_id: contextId,
+                p_parent_id: parentId ?? null,
+                p_is_anonymous: isAnonymousSelected || !session?.user,
+                p_device_ip: getDeviceId()
+            });
 
-            if (error) throw error;
+            if (error) {
+                setToastMessage(error.message, 'error');
+                alert(error.message);
+                throw error;
+            }
 
-            if (data && data.length > 0) {
-                setComments((prev) => prev.map((comment) => (comment.id === optimisticComment.id ? data[0] : comment)));
+            if (data) {
+                setComments((prev) => prev.map((comment) => (comment.id === optimisticComment.id ? data : comment)));
                 lockIdentityAfterInteraction();
                 setToastMessage('Đã gửi bình luận thành công!', 'success');
             }
         } catch (err) {
             console.error('Error adding comment:', err);
             setComments((prev) => prev.filter((comment) => comment.id !== optimisticComment.id));
-            setToastMessage('Gửi thất bại. Vui lòng thử lại.', 'error');
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const startEditing = (comment: Comment) => {
+        if (session?.user?.id !== comment.user_id) return;
+        playClick();
+        setEditingId(comment.id);
+        setEditContent(comment.content);
+    };
+
+    const cancelEditing = () => {
+        setEditingId(null);
+        setEditContent('');
+    };
+
+    const saveEdit = async (comment: Comment) => {
+        if (!session?.user?.id || session.user.id !== comment.user_id) {
+            setToastMessage('Bạn không có quyền sửa bình luận này.', 'error');
+            return;
+        }
+
+        if (!editContent.trim()) return;
+        setSavingEdit(true);
+
+        if (!supabase) {
+            setComments((prev) => prev.map((item) => item.id === comment.id ? { ...item, content: editContent } : item));
+            setSavingEdit(false);
+            cancelEditing();
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('comments')
+                .update({ content: editContent, updated_at: new Date().toISOString() })
+                .eq('id', comment.id);
+
+            if (error) throw error;
+
+            setComments((prev) => prev.map((item) => item.id === comment.id ? { ...item, content: editContent } : item));
+            setToastMessage('Đã lưu chỉnh sửa.', 'success');
+            cancelEditing();
+        } catch (err) {
+            console.error('Error updating comment:', err);
+            setToastMessage('Không thể lưu chỉnh sửa.', 'error');
+        } finally {
+            setSavingEdit(false);
         }
     };
 
@@ -450,7 +508,10 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                 {items.map((comment) => {
                     const likeState = likes[String(comment.id)] || { count: 0, liked: false };
                     const isAnonymous = comment.is_anonymous;
-                    const displayName = isAnonymous ? comment.user_display_name : comment.user_display_name;
+                    const displayName = comment.user_display_name;
+                    const isOwner = session?.user?.id === comment.user_id;
+                    const isEditing = editingId === comment.id;
+
                     return (
                         <div key={comment.id} className="flex gap-3">
                             <div className={`w-9 h-9 rounded-full border flex items-center justify-center font-bold text-sm shrink-0 shadow-sm ${isAnonymous ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-[#003375] text-white border-[#003375]'}`}>
@@ -464,9 +525,37 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                                     <span className="flex items-center gap-1 text-[10px]"><Clock size={10} /> {formatTime(comment.created_at)}</span>
                                 </div>
 
-                                <div className="mt-1 bg-white border border-gray-100 rounded-xl rounded-tl-none p-3 text-sm text-gray-700 shadow-sm">
-                                    {comment.content}
-                                </div>
+                                {isEditing ? (
+                                    <div className="mt-2">
+                                        <textarea
+                                            value={editContent}
+                                            onChange={(e) => setEditContent(e.target.value)}
+                                            className="w-full border border-gray-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-[#003375] outline-none"
+                                            rows={2}
+                                        />
+                                        <div className="mt-2 flex items-center gap-2 justify-end">
+                                            <button
+                                                type="button"
+                                                onClick={cancelEditing}
+                                                className="text-xs font-medium text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                                            >
+                                                <X size={12} /> Hủy
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => saveEdit(comment)}
+                                                disabled={savingEdit}
+                                                className="text-xs font-bold text-white bg-[#003375] hover:bg-[#002855] px-2 py-1 rounded flex items-center gap-1"
+                                            >
+                                                {savingEdit ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Lưu
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="mt-1 bg-white border border-gray-100 rounded-xl rounded-tl-none p-3 text-sm text-gray-700 shadow-sm">
+                                        {comment.content}
+                                    </div>
+                                )}
 
                                 <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
                                     <button
@@ -484,6 +573,15 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
                                     >
                                         Trả lời
                                     </button>
+                                    {isOwner && !isEditing && (
+                                        <button
+                                            type="button"
+                                            onClick={() => startEditing(comment)}
+                                            className="hover:text-[#003375] flex items-center gap-1"
+                                        >
+                                            <Edit2 size={12} /> Sửa
+                                        </button>
+                                    )}
                                 </div>
 
                                 {activeReplyId === comment.id && (
