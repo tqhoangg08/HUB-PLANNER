@@ -819,7 +819,7 @@ const App: React.FC = () => {
              {/* HUB Logo */}
              <div className="h-10 w-10 relative flex-shrink-0 group cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-95" onClick={playClick}>
                 <img 
-                    src="https://upload.wikimedia.org/wikipedia/vi/1/1a/Logo_HUB.png" 
+                    src="logo.png" 
                     alt="HUB Logo" 
                     className="h-full w-full object-contain drop-shadow-sm"
                     onError={(e) => {
