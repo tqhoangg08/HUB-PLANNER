@@ -18,7 +18,7 @@ import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { supabase } from './utils/supabase';
-import { Navigate, Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
@@ -1110,6 +1110,11 @@ const App: React.FC = () => {
       {/* Footer and other Modals */}
       <footer className="text-center pb-8 pt-2">
         <p className="text-[10px] text-gray-400 font-medium tracking-wide mb-2 uppercase">Web designed by tqhoangg</p>
+        <div className="text-xs text-gray-500">
+            <Link to="/privacy" className="hover:underline">Chính sách bảo mật</Link>
+            <span className="mx-2">|</span>
+            <Link to="/terms" className="hover:underline">Điều khoản sử dụng</Link>
+        </div>
       </footer>
 
       <GeminiAdvisor data={data} />
