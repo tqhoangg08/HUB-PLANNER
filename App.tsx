@@ -12,13 +12,13 @@ import { LoginScreen } from './components/LoginScreen';
 import { ActivityLogModal } from './components/ActivityLogModal';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfUse } from './components/TermsOfUse';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock, Facebook, Phone, Mail } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { supabase } from './utils/supabase';
-import { Navigate, Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
@@ -811,9 +811,9 @@ const App: React.FC = () => {
     }
 
     return (
-    <div className="min-h-screen pb-24 font-sans text-gray-800 bg-[#f8f9fa] animate-fadeIn">
+    <div className="min-h-screen pb-12 font-sans text-gray-800 bg-[#f8f9fa] animate-fadeIn">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b-2 border-[#003375] sticky top-0 z-40 shadow-sm transition-all duration-300">
+      <header className="bg-white/80 backdrop-blur-md border-b-2 border-[#003375] fixed top-0 left-0 w-full z-50 shadow-sm transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-0 min-h-[64px] flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <div className="flex items-center gap-3">
              {/* HUB Logo */}
@@ -1022,7 +1022,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-[calc(12rem+env(safe-area-inset-top))] sm:pt-24">
         
         {activeView === 'handbook' && <Handbook />}
         {activeView === 'events' && <EventsBoard />}
@@ -1108,9 +1108,49 @@ const App: React.FC = () => {
       </main>
 
       {/* Footer and other Modals */}
-      <footer className="text-center pb-8 pt-2">
+      <footer className="text-center pb-4 pt-2">
         <p className="text-[10px] text-gray-400 font-medium tracking-wide mb-2 uppercase">Web designed by tqhoangg</p>
+        <div className="text-xs text-gray-500">
+            <Link to="/privacy" className="hover:underline">Chính sách bảo mật</Link>
+            <span className="mx-2">|</span>
+            <Link to="/terms" className="hover:underline">Điều khoản sử dụng</Link>
+        </div>
       </footer>
+
+      <div className="fixed bottom-4 left-4 z-40 flex items-center gap-3">
+        <a
+            href="https://www.facebook.com/hubplannerr"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="h-11 w-11 rounded-full bg-[#1877F2] text-white flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+            aria-label="Facebook HUB Planner"
+        >
+            <Facebook size={18} />
+        </a>
+        <a
+            href="https://zalo.me/0389342812"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="h-11 w-11 rounded-full bg-[#0a68ff] text-white flex items-center justify-center shadow-md hover:shadow-lg transition-shadow text-[11px] font-bold"
+            aria-label="Zalo HUB Planner"
+        >
+            Zalo
+        </a>
+        <a
+            href="tel:0389342812"
+            className="h-11 w-11 rounded-full bg-[#003375] text-white flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+            aria-label="Gọi điện thoại"
+        >
+            <Phone size={18} />
+        </a>
+        <a
+            href="mailto:contact@hotrosinhvienhub.id.vn"
+            className="h-11 w-11 rounded-full bg-[#990000] text-white flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
+            aria-label="Gửi email"
+        >
+            <Mail size={18} />
+        </a>
+      </div>
 
       <GeminiAdvisor data={data} />
       

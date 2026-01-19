@@ -569,9 +569,12 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ contextId, title
             }
 
             if (data) {
+                const resolvedData = Array.isArray(data) ? data[0] : data;
                 const safeData = {
-                    ...data,
-                    user_display_name: data.user_display_name || safeDisplayName
+                    ...optimisticComment,
+                    ...(resolvedData || {}),
+                    user_display_name: resolvedData?.user_display_name || safeDisplayName,
+                    content: resolvedData?.content || optimisticComment.content
                 };
                 setComments((prev) => prev.map((comment) => (comment.id === optimisticComment.id ? safeData : comment)));
                 lockIdentityAfterInteraction();
