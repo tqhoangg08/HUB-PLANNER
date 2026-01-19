@@ -824,7 +824,7 @@ const App: React.FC = () => {
                     className="h-full w-full object-contain drop-shadow-sm"
                     onError={(e) => {
                         e.currentTarget.style.display = 'none';
-                        e.currentTarget.parentElement!.innerHTML = '<div class="h-12 w-12 bg-[#003375] rounded flex items-center justify-center text-white font-bold text-xs shadow-md">HUB</div>';
+                        e.currentTarget.parentElement!.innerHTML = '<div class="h-10 w-10 bg-[#003375] rounded flex items-center justify-center text-white font-bold text-xs shadow-md">HUB</div>';
                     }}
                 />
              </div>
