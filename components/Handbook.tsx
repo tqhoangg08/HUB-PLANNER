@@ -422,7 +422,7 @@ export const Handbook: React.FC = () => {
                     {/* PHẦN ĐÃ SỬA: Xóa border/bg trắng, tăng kích thước lên w-64 h-64 */}
                     <div className="shrink-0 relative z-10 flex items-center justify-center w-64 h-64">
                         <img 
-                            src="/logo.svg" 
+                            src="/logo.png" 
                             alt="HUB Planner Logo" 
                             className="w-full h-full object-contain"
                         />
