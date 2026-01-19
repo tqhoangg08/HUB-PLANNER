@@ -387,7 +387,7 @@ export const Handbook: React.FC = () => {
             name: 'Trần Quốc Hoàng', 
             role: 'Founder', 
             phone: '0389342812', 
-            email: 'tqhoangg@gmail.com', 
+            email: 'contact@hotrosinhvienhub.id.vn', 
             fb: 'http://facebook.com/tqhoangg.05' 
         };
 

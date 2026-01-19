@@ -18,7 +18,7 @@ import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { supabase } from './utils/supabase';
-import { Navigate, Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
@@ -813,7 +813,7 @@ const App: React.FC = () => {
     return (
     <div className="min-h-screen pb-24 font-sans text-gray-800 bg-[#f8f9fa] animate-fadeIn">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b-2 border-[#003375] sticky top-0 z-40 shadow-sm transition-all duration-300">
+      <header className="bg-white/80 backdrop-blur-md border-b-2 border-[#003375] fixed top-0 left-0 w-full z-50 shadow-sm transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-0 min-h-[64px] flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
           <div className="flex items-center gap-3">
              {/* HUB Logo */}
@@ -1022,7 +1022,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-28 sm:pt-24">
         
         {activeView === 'handbook' && <Handbook />}
         {activeView === 'events' && <EventsBoard />}
@@ -1110,6 +1110,11 @@ const App: React.FC = () => {
       {/* Footer and other Modals */}
       <footer className="text-center pb-8 pt-2">
         <p className="text-[10px] text-gray-400 font-medium tracking-wide mb-2 uppercase">Web designed by tqhoangg</p>
+        <div className="text-xs text-gray-500">
+            <Link to="/privacy" className="hover:underline">Chính sách bảo mật</Link>
+            <span className="mx-2">|</span>
+            <Link to="/terms" className="hover:underline">Điều khoản sử dụng</Link>
+        </div>
       </footer>
 
       <GeminiAdvisor data={data} />
