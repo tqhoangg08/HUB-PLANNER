@@ -1022,7 +1022,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-28 sm:pt-24">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-[calc(9rem+env(safe-area-inset-top))] sm:pt-24">
         
         {activeView === 'handbook' && <Handbook />}
         {activeView === 'events' && <EventsBoard />}
