@@ -15,6 +15,7 @@ import {
 import { Target, TrendingUp, AlertTriangle, Award, User, BookOpen, Star, BarChart3, Calendar, CheckCircle2, Pencil, Calculator, Trophy, TrendingDown, Zap, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, List, X } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { playClick } from '../utils/audio';
+import { AdsBanner } from './AdsBanner';
 
 interface DashboardProps {
   data: UserData;
@@ -230,6 +231,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8 animate-fadeIn">
+       <AdsBanner />
        {/* Security Warning */}
        {showSecurityNotice && (
             <div className="lg:col-span-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 shadow-sm">
