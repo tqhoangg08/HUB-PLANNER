@@ -4,7 +4,7 @@ import { Semester, Subject, GradeStatus } from '../types';
 import { calculateSubjectAverage, getGradeDetails, getSubjectStatus, getDegreeClassification } from '../utils/calculations';
 import { mapIdToDisplay } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
-import { Trash2, Plus, Star, Search, X, Pencil, BookOpen, Crown, TrendingUp, Loader2, AlertCircle, ChevronRight, BarChart2, ChevronLeft } from 'lucide-react';
+import { Trash2, Plus, Star, Search, X, Pencil, BookOpen, Crown, TrendingUp, Loader2, AlertCircle, ChevronRight, BarChart2, ChevronLeft, Award } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 interface SemesterTableProps {
@@ -161,6 +161,31 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
   const semGPA10 = semTotalCredits ? Math.round((semWeightedScore10 / semTotalCredits) * 10) / 10 : 0;
   
   const classification = hasData ? getDegreeClassification(semGPA4) : '---';
+  const scholarshipStatus = (() => {
+    const drl = semester.trainingScore ?? 0;
+    const credits = totalRegisteredCredits;
+    const gpa = semGPA4;
+
+    const meetsRequirements = credits >= 15 && gpa >= 3.2 && drl >= 80;
+    if (!meetsRequirements) {
+      return {
+        label: 'Không đạt',
+        className: 'bg-gray-100 text-gray-500 border-gray-200'
+      };
+    }
+
+    if (gpa >= 3.6 && drl >= 90) {
+      return {
+        label: '🏆 HB Xuất sắc',
+        className: 'bg-yellow-50 text-yellow-700 border-yellow-200'
+      };
+    }
+
+    return {
+      label: '💰 HB Giỏi',
+      className: 'bg-green-50 text-green-700 border-green-200'
+    };
+  })();
 
   // --- NEW Ranking UI Logic ---
   const handleOpenRankMenu = () => {
@@ -358,6 +383,11 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                     value={semester.trainingScore ?? ''}
                     onChange={(e) => handleTrainingScoreChange(e.target.value)}
                 />
+            </div>
+
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-sm text-sm font-bold ${scholarshipStatus.className}`}>
+                <Award size={14} />
+                <span>{scholarshipStatus.label}</span>
             </div>
             
              <button 
