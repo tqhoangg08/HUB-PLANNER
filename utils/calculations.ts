@@ -156,6 +156,30 @@ export const analyzeTrend = (semesters: Semester[]) => {
     return "➡️ Phong độ ổn định. Hãy cố gắng bứt phá!";
 };
 
+export const getScholarshipStatus = (gpa: number, drl: number, credits: number) => {
+  if (credits < 15 || gpa < 3.2 || drl < 80) {
+    return {
+      type: 'none',
+      label: 'Chưa đủ điều kiện',
+      color: 'text-gray-500'
+    };
+  }
+
+  if (gpa >= 3.6 && drl >= 90) {
+    return {
+      type: 'excellent',
+      label: 'Học bổng Xuất sắc',
+      color: 'text-yellow-600'
+    };
+  }
+
+  return {
+    type: 'good',
+    label: 'Học bổng Giỏi',
+    color: 'text-green-600'
+  };
+};
+
 export const calculateRequiredGPA = (
     currentGPA4: number,
     passedCredits: number,

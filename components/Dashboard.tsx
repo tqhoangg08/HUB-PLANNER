@@ -10,7 +10,8 @@ import {
     calculateSemesterStats,
     analyzeTrend,
     calculateRequiredGPA,
-    getGradeDetails
+    getGradeDetails,
+    getScholarshipStatus
 } from '../utils/calculations';
 import { Target, TrendingUp, AlertTriangle, Award, User, BookOpen, Star, BarChart3, Calendar, CheckCircle2, Pencil, Calculator, Trophy, TrendingDown, Zap, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, List, X } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
@@ -105,7 +106,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
   }).length;
   
   const totalCreditsRequired = data.totalCreditsRequired || 125; 
-  const isScholarshipEligible = stats.gpa4 >= 3.2 && averageTrainingScore >= 80 && failedCount === 0;
+  const scholarshipStatus = getScholarshipStatus(stats.gpa4, averageTrainingScore, stats.passedCredits);
+  const scholarshipReason = scholarshipStatus.type === 'none'
+    ? stats.passedCredits < 15
+      ? 'Thiếu tín chỉ'
+      : stats.gpa4 < 3.2
+        ? 'GPA thấp'
+        : averageTrainingScore < 80
+          ? 'ĐRL thấp'
+          : 'Chưa đủ điều kiện'
+    : '';
 
   const requiredAnalysis = calculateRequiredGPA(
       stats.gpa4, 
@@ -395,11 +405,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
             </div>
             )}
 
-            <div className={`p-3 rounded-md text-sm border ${isScholarshipEligible ? 'bg-yellow-50 text-yellow-800 border-yellow-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>
-                <div className="font-semibold mb-1 flex items-center gap-1"><TrendingUp size={14}/> Xét học bổng:</div>
-                {isScholarshipEligible 
-                ? "Đủ điều kiện!" 
-                : "Chưa đủ điều kiện (Cần GPA ≥ 3.2, ĐRL ≥ 80, Không rớt)."}
+            <div className="p-3 rounded-md text-sm border bg-white">
+                <div className="font-semibold mb-1 flex items-center gap-1">
+                  <Award size={14} className="text-[#990000]" /> Dự báo học bổng:
+                </div>
+                <div className={`font-semibold ${scholarshipStatus.color}`}>
+                  {scholarshipStatus.label}
+                </div>
+                {scholarshipStatus.type === 'none' && (
+                  <div className="text-xs text-gray-500 mt-1">Lý do: {scholarshipReason}</div>
+                )}
             </div>
         </div>
 
