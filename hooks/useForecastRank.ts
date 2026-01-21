@@ -81,28 +81,33 @@ export const useForecastRank = () => {
                 return;
             }
 
-            // Count students with higher GPA, or same GPA with higher credits,
-            // or same GPA/credits with higher training score.
+            const normalizedGpa = Number.isFinite(myGpa) ? myGpa : 0;
             const normalizedCredits = Number.isFinite(myCredits) ? myCredits : 0;
             const normalizedTrainingScore = Number.isFinite(myTrainingScore) ? myTrainingScore : 0;
-            const { count: betterCount, error: rankError } = await supabase
-                .from('benchmark_rankings')
-                .select('*', { count: 'exact', head: true })
-                .eq('semester', semesterId)
-                .or([
-                    `gpa.gt.${myGpa}`,
-                    `and(gpa.eq.${myGpa},credits.gt.${normalizedCredits})`,
-                    `and(gpa.eq.${myGpa},credits.eq.${normalizedCredits},training_score.gt.${normalizedTrainingScore})`
-                ].join(','));
+
+            const { data: rankData, error: rankError } = await supabase.rpc('get_smart_rank', {
+                p_semester: semesterId,
+                p_gpa: normalizedGpa,
+                p_credits: normalizedCredits,
+                p_drl: normalizedTrainingScore
+            });
 
             if (rankError) throw rankError;
 
-            const betterStudents = betterCount || 0;
-            const myRank = betterStudents + 1;
-            const topPercent = (myRank / total) * 100;
+            const resolvedRank = typeof rankData === 'number'
+                ? rankData
+                : Array.isArray(rankData)
+                    ? rankData[0]?.rank
+                    : (rankData as { rank?: number } | null)?.rank;
+
+            if (!resolvedRank) {
+                throw new Error('Invalid rank response');
+            }
+
+            const topPercent = (resolvedRank / total) * 100;
 
             setResult({
-                rank: myRank,
+                rank: resolvedRank,
                 totalStudents: total,
                 topPercent: topPercent,
                 semesterId: semesterId
