@@ -51,7 +51,7 @@ export const useForecastRank = () => {
     }, [availableSemesters.length]);
 
     // 2. Calculate Rank
-    const fetchRank = useCallback(async (semesterId: string, myGpa: number) => {
+    const fetchRank = useCallback(async (semesterId: string, myGpa: number, myCredits: number, myTrainingScore: number) => {
         if (!supabase) {
             setError("Chưa kết nối Database.");
             return;
@@ -81,12 +81,19 @@ export const useForecastRank = () => {
                 return;
             }
 
-            // Count students with higher GPA
+            // Count students with higher GPA, or same GPA with higher credits,
+            // or same GPA/credits with higher training score.
+            const normalizedCredits = Number.isFinite(myCredits) ? myCredits : 0;
+            const normalizedTrainingScore = Number.isFinite(myTrainingScore) ? myTrainingScore : 0;
             const { count: betterCount, error: rankError } = await supabase
                 .from('benchmark_rankings')
                 .select('*', { count: 'exact', head: true })
                 .eq('semester', semesterId)
-                .gt('gpa', myGpa);
+                .or([
+                    `gpa.gt.${myGpa}`,
+                    `and(gpa.eq.${myGpa},credits.gt.${normalizedCredits})`,
+                    `and(gpa.eq.${myGpa},credits.eq.${normalizedCredits},training_score.gt.${normalizedTrainingScore})`
+                ].join(','));
 
             if (rankError) throw rankError;
 
