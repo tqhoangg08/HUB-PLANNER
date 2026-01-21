@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Facebook, Heart, X } from 'lucide-react';
 
+let hasSeenBanner = false;
+
 export const AdsBanner: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isVisible, setIsVisible] = useState(!hasSeenBanner);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (!isVisible) {
       return undefined;
     }
 
@@ -16,9 +18,14 @@ export const AdsBanner: React.FC = () => {
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [isOpen]);
+  }, [isVisible]);
 
-  if (!isOpen) {
+  const handleClose = () => {
+    hasSeenBanner = true;
+    setIsVisible(false);
+  };
+
+  if (!isVisible) {
     return null;
   }
 
@@ -27,7 +34,7 @@ export const AdsBanner: React.FC = () => {
       <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden animate-scaleIn">
         <button
           type="button"
-          onClick={() => setIsOpen(false)}
+          onClick={handleClose}
           className="absolute right-4 top-4 rounded-full bg-white/90 p-2 text-gray-500 shadow-md transition hover:text-gray-700 hover:bg-white"
           aria-label="Đóng banner quảng cáo"
         >
