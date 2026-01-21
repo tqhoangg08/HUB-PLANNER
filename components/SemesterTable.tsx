@@ -169,7 +169,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
     const meetsRequirements = credits >= 15 && gpa >= 3.2 && drl >= 80;
     if (!meetsRequirements) {
       return {
-        label: 'Chưa đủ ĐK',
+        label: 'Không đạt',
         className: 'bg-gray-100 text-gray-500 border-gray-200'
       };
     }
