@@ -166,7 +166,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
 
   const handleSelectReferenceSemester = (refId: string) => {
       playClick();
-      fetchRank(refId, semGPA4);
+      fetchRank(refId, semGPA4, totalRegisteredCredits, semester.trainingScore ?? 0);
   };
 
   const handleBackToSelection = () => {
