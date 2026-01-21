@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 
 interface ForecastRankResult {
@@ -6,6 +6,17 @@ interface ForecastRankResult {
     totalStudents: number;
     topPercent: number;
     semesterId: string; // To know which semester was used
+}
+
+interface SemesterRankRow {
+    semester_name: string;
+    rank: number;
+}
+
+interface RankInputs {
+    gpa: number;
+    credits: number;
+    trainingScore: number;
 }
 
 export const useForecastRank = () => {
@@ -16,6 +27,9 @@ export const useForecastRank = () => {
     // New state for available reference semesters
     const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
     const [loadingSemesters, setLoadingSemesters] = useState(false);
+    const [semesterRanks, setSemesterRanks] = useState<Record<string, number>>({});
+    const [loadingSemesterRanks, setLoadingSemesterRanks] = useState(false);
+    const [rankInputs, setRankInputs] = useState<RankInputs | null>(null);
 
     // 1. Fetch distinct semesters available in DB using RPC
     const fetchAvailableSemesters = useCallback(async () => {
@@ -49,6 +63,58 @@ export const useForecastRank = () => {
             setLoadingSemesters(false);
         }
     }, [availableSemesters.length]);
+
+    const fetchSemesterRanks = useCallback(async (semesters: string[], inputs: RankInputs) => {
+        if (!supabase) return;
+        if (!semesters.length) return;
+
+        setLoadingSemesterRanks(true);
+        try {
+            const normalizedInputs: RankInputs = {
+                gpa: Number.isFinite(inputs.gpa) ? inputs.gpa : 0,
+                credits: Number.isFinite(inputs.credits) ? inputs.credits : 0,
+                trainingScore: Number.isFinite(inputs.trainingScore) ? inputs.trainingScore : 0
+            };
+
+            const { data, error } = await supabase.rpc('get_ranks_for_all_semesters', {
+                p_gpa: normalizedInputs.gpa,
+                p_credits: normalizedInputs.credits,
+                p_drl: normalizedInputs.trainingScore,
+                p_semesters: semesters
+            });
+
+            if (error) throw error;
+
+            const mappedRanks = (data as SemesterRankRow[] | null)?.reduce<Record<string, number>>(
+                (acc, row) => {
+                    if (row?.semester_name && Number.isFinite(row.rank)) {
+                        acc[row.semester_name] = row.rank;
+                    }
+                    return acc;
+                },
+                {}
+            ) ?? {};
+
+            setSemesterRanks(mappedRanks);
+        } catch (err: any) {
+            console.error("Error fetching semester ranks:", err);
+        } finally {
+            setLoadingSemesterRanks(false);
+        }
+    }, []);
+
+    const prepareSemesterRanks = useCallback((gpa: number, credits: number, trainingScore: number) => {
+        setRankInputs({
+            gpa,
+            credits,
+            trainingScore
+        });
+    }, []);
+
+    const resetSemesterRanks = useCallback(() => {
+        setSemesterRanks({});
+        setRankInputs(null);
+    }, []);
 
     // 2. Calculate Rank
     const fetchRank = useCallback(async (semesterId: string, myGpa: number, myCredits: number, myTrainingScore: number) => {
@@ -126,6 +192,11 @@ export const useForecastRank = () => {
         setError(null);
     }, []);
 
+    useEffect(() => {
+        if (!rankInputs || availableSemesters.length === 0) return;
+        fetchSemesterRanks(availableSemesters, rankInputs);
+    }, [availableSemesters, fetchSemesterRanks, rankInputs]);
+
     return { 
         fetchRank, 
         result, 
@@ -134,6 +205,10 @@ export const useForecastRank = () => {
         resetResult,
         fetchAvailableSemesters,
         availableSemesters,
-        loadingSemesters
+        loadingSemesters,
+        prepareSemesterRanks,
+        resetSemesterRanks,
+        semesterRanks,
+        loadingSemesterRanks
     };
 };

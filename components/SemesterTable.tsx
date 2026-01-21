@@ -68,7 +68,11 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
       resetResult,
       fetchAvailableSemesters,
       availableSemesters,
-      loadingSemesters
+      loadingSemesters,
+      prepareSemesterRanks,
+      resetSemesterRanks,
+      semesterRanks,
+      loadingSemesterRanks
   } = useForecastRank();
 
   const [showRankMenu, setShowRankMenu] = useState(false);
@@ -123,6 +127,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
     const handleClickOutside = (event: MouseEvent) => {
         if (rankMenuRef.current && !rankMenuRef.current.contains(event.target as Node)) {
             setShowRankMenu(false);
+            resetSemesterRanks();
         }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -161,6 +166,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
   const handleOpenRankMenu = () => {
       playClick();
       setShowRankMenu(true);
+      prepareSemesterRanks(semGPA4, totalRegisteredCredits, semester.trainingScore ?? 0);
       fetchAvailableSemesters(); // Fetch list when opening
   };
 
@@ -234,7 +240,15 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                                 <h4 className="font-bold text-sm flex items-center gap-2">
                                     <BarChart2 size={16}/> Xếp Hạng Dự Báo
                                 </h4>
-                                <button onClick={() => setShowRankMenu(false)} className="hover:bg-white/20 p-1 rounded-full transition-colors"><X size={14}/></button>
+                                <button
+                                    onClick={() => {
+                                        setShowRankMenu(false);
+                                        resetSemesterRanks();
+                                    }}
+                                    className="hover:bg-white/20 p-1 rounded-full transition-colors"
+                                >
+                                    <X size={14}/>
+                                </button>
                             </div>
                             
                             <div className="p-0">
@@ -277,16 +291,25 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                                             {loadingSemesters ? (
                                                 <div className="py-4 text-center text-xs text-gray-400">Đang tải danh sách kỳ...</div>
                                             ) : availableSemesters.length > 0 ? (
-                                                availableSemesters.map((semId) => (
+                                                availableSemesters.map((semId) => {
+                                                    const semesterRank = semesterRanks[semId];
+                                                    const rankLabel = Number.isFinite(semesterRank)
+                                                        ? `Hạng #${semesterRank}`
+                                                        : loadingSemesterRanks
+                                                            ? 'Đang tải hạng...'
+                                                            : 'Chưa có hạng';
+
+                                                    return (
                                                     <button 
                                                         key={semId}
                                                         onClick={() => handleSelectReferenceSemester(semId)}
                                                         className="w-full text-left px-3 py-2.5 hover:bg-blue-50 hover:text-[#003375] rounded-lg transition-all text-sm font-medium text-gray-700 flex justify-between items-center group"
                                                     >
-                                                        <span>Dữ liệu {mapIdToDisplay(semId)}</span>
+                                                        <span>Dữ liệu {mapIdToDisplay(semId)} - {rankLabel}</span>
                                                         <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400"/>
                                                     </button>
-                                                ))
+                                                );
+                                                })
                                             ) : (
                                                 <div className="py-6 text-center">
                                                     <p className="text-xs text-gray-400 mb-2">Chưa có dữ liệu xếp hạng nào.</p>
