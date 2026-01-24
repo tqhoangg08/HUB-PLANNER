@@ -81,4 +81,99 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const pageText = await extractCleanTextFromPage(page);
-        const lines = pageText
+        const lines = pageText.split('\n');
+        allLines = [...allLines, ...lines];
+    }
+
+    // 2. Khởi tạo biến (CHỈ KHAI BÁO 1 LẦN DUY NHẤT TẠI ĐÂY)
+    const studentInfo: Partial<UserData> = {};
+    const semestersMap = new Map<string, Semester>(); // Dùng Map để gom nhóm môn học
+    const yearRanges: { start: number; end: number }[] = [];
+
+    let currentSemId = "";
+    let currentSemName = "";
+
+    // Regex Definitions
+    const semHeaderRegex = /Học kỳ\s+(\d)\s*(?:\/|Năm học)?\s*(\d{4})[-–](\d{4})/i;
+    // Regex dòng môn học: STT Mã Tên TC ... Điểm
+    const rowRegex = /^\d+\s+[A-Z0-9_.]+\s+(.+?)\s+(\d+)\s+.*?\s([0-9.]+|M|Đạt|Không đạt|Vắng)\s*(?:[A-Z+-]+)?\s*(?:Đạt|Không đạt)?$/i;
+    
+    const nonGpaKeywords = ['gdtc', 'giáo dục thể chất', 'quốc phòng', 'an ninh', 'tiếng anh tăng cường', 'kỹ năng', 'đầu vào', 'sinh hoạt', 'học phần'];
+
+    // 3. Quét qua từng dòng (Linear Scan)
+    for (const line of allLines) {
+        const trimmedLine = line.trim().replace(/\s+/g, ' ');
+
+        // A. Tìm thông tin sinh viên
+        if (!studentInfo.studentName) {
+            const nameMatch = trimmedLine.match(/([^\s].+?)\s*\[Mã số:\s*(\d+)\]/i);
+            if (nameMatch) studentInfo.studentName = nameMatch[1].replace(/^(SV\.|Sinh viên)\s*/i, '').trim();
+        }
+        if (!studentInfo.majorName) {
+            const majorMatch = trimmedLine.match(/Chương trình đào tạo:\s*(.+?)\s+(?:Kết quả:|Năm học:|$)/i);
+            if (majorMatch) studentInfo.majorName = majorMatch[1].trim();
+        }
+
+        // B. Phát hiện tiêu đề Học Kỳ
+        const semMatch = trimmedLine.match(semHeaderRegex);
+        if (semMatch) {
+            const hk = parseInt(semMatch[1]);
+            const y1 = parseInt(semMatch[2]);
+            const y2 = parseInt(semMatch[3]);
+
+            currentSemId = `imported_${y1}_${y2}_hk${hk}`;
+            currentSemName = `Năm học ${y1}-${y2} - Học kỳ ${hk}`;
+
+            if (!yearRanges.some(y => y.start === y1)) {
+                yearRanges.push({ start: y1, end: y2 });
+            }
+
+            if (!semestersMap.has(currentSemId)) {
+                semestersMap.set(currentSemId, {
+                    id: currentSemId,
+                    name: currentSemName,
+                    subjects: [],
+                    trainingScore: null
+                });
+            }
+            continue; // Xong dòng này, sang dòng tiếp
+        }
+
+        // C. Phát hiện dòng Môn Học (khi đang ở trong 1 học kỳ)
+        if (currentSemId) {
+            const subjectMatch = trimmedLine.match(rowRegex);
+            if (subjectMatch) {
+                const nameRaw = subjectMatch[1].trim();
+                const credits = parseInt(subjectMatch[2]);
+                const rawScore = subjectMatch[3];
+
+                let scoreVal: number | null = null;
+                let isNonGPA = false;
+
+                if (['M', 'Đạt', 'Không đạt', 'Vắng'].includes(rawScore)) {
+                    isNonGPA = true;
+                } else {
+                    scoreVal = parseFloat(rawScore);
+                    if (isNaN(scoreVal)) scoreVal = null;
+                }
+
+                if (credits === 0 || nonGpaKeywords.some(k => nameRaw.toLowerCase().includes(k))) {
+                    isNonGPA = true;
+                }
+
+                semestersMap.get(currentSemId)?.subjects.push({
+                    id: `sub_${currentSemId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    name: nameRaw,
+                    credits: credits,
+                    scoreCC: scoreVal, scoreProcess: scoreVal, scoreMid: scoreVal, scoreFinal: scoreVal,
+                    isNonGPA: isNonGPA
+                });
+            }
+        }
+    }
+
+    // 4. Chuyển đổi Map thành Array (Đây là lần khai báo biến 'semesters' DUY NHẤT)
+    const semesters = Array.from(semestersMap.values()).sort((a, b) => a.id.localeCompare(b.id));
+
+    return { studentInfo, semesters, yearRanges };
+};
