@@ -814,7 +814,8 @@ const App: React.FC = () => {
 
     return (
     <div className="min-h-screen pb-12 font-sans text-gray-800 bg-[#f8f9fa] animate-fadeIn">
-      <VictoryCelebration />
+      <VictoryTheme />
+        <VictoryCelebration />
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b-2 border-[#003375] fixed top-0 left-0 w-full z-50 shadow-sm transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-0 min-h-[64px] flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
