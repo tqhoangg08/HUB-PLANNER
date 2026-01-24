@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Semester, Subject, GradeStatus } from '../types';
-import { calculateSubjectAverage, getGradeDetails, getSubjectStatus, getDegreeClassification } from '../utils/calculations';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Semester, Subject } from '../types';
+import { calculateSubjectAverage, getDegreeClassification, getGradeDetails } from '../utils/calculations';
 import { mapIdToDisplay } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
-import { Trash2, Plus, Star, Search, X, Pencil, BookOpen, Crown, TrendingUp, Loader2, AlertCircle, ChevronRight, BarChart2, ChevronLeft } from 'lucide-react';
+import { Trash2, Plus, Star, Search, X, Pencil, BookOpen, Crown, TrendingUp, Loader2, AlertCircle, ChevronRight, BarChart2, ChevronLeft, Award } from 'lucide-react';
 import { playClick } from '../utils/audio';
+import { SubjectRow } from './SubjectRow';
 
 interface SemesterTableProps {
   semester: Semester;
@@ -14,50 +15,13 @@ interface SemesterTableProps {
   onRemoveSemester: () => void;
 }
 
-const ScoreInput = ({ 
-  value, 
-  onChange 
-}: { 
-  value: number | null, 
-  onChange: (val: number | null) => void 
-}) => {
-  const [localValue, setLocalValue] = useState<string>(value?.toString() ?? '');
-
-  useEffect(() => {
-    const parsedLocal = localValue === '' ? null : parseFloat(localValue);
-    if (value !== parsedLocal) {
-       setLocalValue(value?.toString() ?? '');
-    }
-  }, [value]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVal = e.target.value;
-    if (newVal === '') {
-      setLocalValue('');
-      onChange(null);
-      return;
-    }
-    const parsed = parseFloat(newVal);
-    if (isNaN(parsed) || parsed < 0 || parsed > 10) return;
-
-    setLocalValue(newVal);
-    onChange(parsed);
-  };
-
-  return (
-    <input 
-      type="number" 
-      min="0" max="10" step="0.1"
-      className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent p-1 text-center font-medium transition-all hover:border-blue-300"
-      placeholder="-"
-      value={localValue}
-      onChange={handleChange}
-    />
-  );
-};
-
 export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const semesterRef = useRef(semester);
+
+  useEffect(() => {
+    semesterRef.current = semester;
+  }, [semester]);
   
   // New Ranking Hook
   const { 
@@ -68,21 +32,26 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
       resetResult,
       fetchAvailableSemesters,
       availableSemesters,
-      loadingSemesters
+      loadingSemesters,
+      prepareSemesterRanks,
+      resetSemesterRanks,
+      semesterRanks,
+      loadingSemesterRanks
   } = useForecastRank();
 
   const [showRankMenu, setShowRankMenu] = useState(false);
   const rankMenuRef = useRef<HTMLDivElement>(null);
   
-  const handleSubjectChange = (subjectId: string, field: keyof Subject, value: any) => {
-    const updatedSubjects = semester.subjects.map(sub => {
+  const handleSubjectChange = useCallback((subjectId: string, field: keyof Subject, value: any) => {
+    const currentSemester = semesterRef.current;
+    const updatedSubjects = currentSemester.subjects.map(sub => {
       if (sub.id === subjectId) {
         return { ...sub, [field]: value };
       }
       return sub;
     });
-    onUpdateSemester({ ...semester, subjects: updatedSubjects });
-  };
+    onUpdateSemester({ ...currentSemester, subjects: updatedSubjects });
+  }, [onUpdateSemester]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onUpdateSemester({ ...semester, name: e.target.value });
@@ -109,20 +78,28 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
       scoreFinal: null,
       isNonGPA: false
     };
-    onUpdateSemester({ ...semester, subjects: [...semester.subjects, newSubject] });
+    const currentSemester = semesterRef.current;
+    onUpdateSemester({ ...currentSemester, subjects: [...currentSemester.subjects, newSubject] });
     setSearchTerm(''); 
   };
 
-  const removeSubject = (id: string) => {
+  const removeSubject = useCallback((id: string) => {
     playClick();
-    onUpdateSemester({ ...semester, subjects: semester.subjects.filter(s => s.id !== id) });
-  };
+    const currentSemester = semesterRef.current;
+    onUpdateSemester({ ...currentSemester, subjects: currentSemester.subjects.filter(s => s.id !== id) });
+  }, [onUpdateSemester]);
+
+  const handleToggleNonGPA = useCallback((subjectId: string, isNonGPA: boolean) => {
+    playClick();
+    handleSubjectChange(subjectId, 'isNonGPA', isNonGPA);
+  }, [handleSubjectChange]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
         if (rankMenuRef.current && !rankMenuRef.current.contains(event.target as Node)) {
             setShowRankMenu(false);
+            resetSemesterRanks();
         }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -156,17 +133,43 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
   const semGPA10 = semTotalCredits ? Math.round((semWeightedScore10 / semTotalCredits) * 10) / 10 : 0;
   
   const classification = hasData ? getDegreeClassification(semGPA4) : '---';
+  const scholarshipStatus = (() => {
+    const drl = semester.trainingScore ?? 0;
+    const credits = totalRegisteredCredits;
+    const gpa = semGPA4;
+
+    const meetsRequirements = credits >= 15 && gpa >= 3.2 && drl >= 80;
+    if (!meetsRequirements) {
+      return {
+        label: 'Không đạt',
+        className: 'bg-gray-100 text-gray-500 border-gray-200'
+      };
+    }
+
+    if (gpa >= 3.6 && drl >= 90) {
+      return {
+        label: '🏆 HB Xuất sắc',
+        className: 'bg-yellow-50 text-yellow-700 border-yellow-200'
+      };
+    }
+
+    return {
+      label: '💰 HB Giỏi',
+      className: 'bg-green-50 text-green-700 border-green-200'
+    };
+  })();
 
   // --- NEW Ranking UI Logic ---
   const handleOpenRankMenu = () => {
       playClick();
       setShowRankMenu(true);
+      prepareSemesterRanks(semGPA4, totalRegisteredCredits, semester.trainingScore ?? 0);
       fetchAvailableSemesters(); // Fetch list when opening
   };
 
   const handleSelectReferenceSemester = (refId: string) => {
       playClick();
-      fetchRank(refId, semGPA4);
+      fetchRank(refId, semGPA4, totalRegisteredCredits, semester.trainingScore ?? 0);
   };
 
   const handleBackToSelection = () => {
@@ -234,7 +237,15 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                                 <h4 className="font-bold text-sm flex items-center gap-2">
                                     <BarChart2 size={16}/> Xếp Hạng Dự Báo
                                 </h4>
-                                <button onClick={() => setShowRankMenu(false)} className="hover:bg-white/20 p-1 rounded-full transition-colors"><X size={14}/></button>
+                                <button
+                                    onClick={() => {
+                                        setShowRankMenu(false);
+                                        resetSemesterRanks();
+                                    }}
+                                    className="hover:bg-white/20 p-1 rounded-full transition-colors"
+                                >
+                                    <X size={14}/>
+                                </button>
                             </div>
                             
                             <div className="p-0">
@@ -277,16 +288,25 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                                             {loadingSemesters ? (
                                                 <div className="py-4 text-center text-xs text-gray-400">Đang tải danh sách kỳ...</div>
                                             ) : availableSemesters.length > 0 ? (
-                                                availableSemesters.map((semId) => (
+                                                availableSemesters.map((semId) => {
+                                                    const semesterRank = semesterRanks[semId];
+                                                    const rankLabel = Number.isFinite(semesterRank)
+                                                        ? `Hạng #${semesterRank}`
+                                                        : loadingSemesterRanks
+                                                            ? 'Đang tải hạng...'
+                                                            : 'Chưa có hạng';
+
+                                                    return (
                                                     <button 
                                                         key={semId}
                                                         onClick={() => handleSelectReferenceSemester(semId)}
                                                         className="w-full text-left px-3 py-2.5 hover:bg-blue-50 hover:text-[#003375] rounded-lg transition-all text-sm font-medium text-gray-700 flex justify-between items-center group"
                                                     >
-                                                        <span>Dữ liệu {mapIdToDisplay(semId)}</span>
+                                                        <span>Dữ liệu {mapIdToDisplay(semId)} - {rankLabel}</span>
                                                         <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400"/>
                                                     </button>
-                                                ))
+                                                );
+                                                })
                                             ) : (
                                                 <div className="py-6 text-center">
                                                     <p className="text-xs text-gray-400 mb-2">Chưa có dữ liệu xếp hạng nào.</p>
@@ -335,6 +355,11 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                     value={semester.trainingScore ?? ''}
                     onChange={(e) => handleTrainingScoreChange(e.target.value)}
                 />
+            </div>
+
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-sm text-sm font-bold ${scholarshipStatus.className}`}>
+                <Award size={14} />
+                <span>{scholarshipStatus.label}</span>
             </div>
             
              <button 
@@ -391,99 +416,16 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filteredSubjects.length > 0 ? (
-                filteredSubjects.map((subject, sIdx) => {
-                const avg10 = calculateSubjectAverage(subject);
-                const { scale4: avg4, letter } = avg10 !== null ? getGradeDetails(avg10) : { scale4: null, letter: '-' };
-                const status = getSubjectStatus(avg10);
-                
-                let statusClass = "text-gray-400";
-                let statusText = "-";
-                let rowClass = "hover:bg-blue-50/30";
-
-                if (status === GradeStatus.FAIL) {
-                    statusClass = "bg-red-100 text-[#990000] font-bold";
-                    statusText = "Rớt";
-                    rowClass = "bg-red-50/50 hover:bg-red-100/50";
-                } else if (status === GradeStatus.IMPROVE) {
-                    statusClass = "bg-yellow-100 text-yellow-700";
-                    statusText = "Đạt";
-                } else if (status === GradeStatus.PASS) {
-                    statusClass = "bg-green-100 text-green-700 font-bold";
-                    statusText = "Đạt";
-                }
-
-                return (
-                    <tr key={subject.id} className={`${rowClass} transition-colors duration-150 group`}>
-                    <td className="px-3 py-2 text-center text-gray-500">{sIdx + 1}</td>
-                    
-                    {['scoreCC', 'scoreProcess', 'scoreMid', 'scoreFinal'].map((key) => (
-                        <td key={key} className="px-1 py-2">
-                        <ScoreInput 
-                            value={subject[key as keyof Subject] as number | null}
-                            onChange={(val) => handleSubjectChange(subject.id, key as keyof Subject, val)}
-                        />
-                        </td>
-                    ))}
-
-                    <td className="px-3 py-2">
-                        <input 
-                        type="text" 
-                        className="w-full bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375]"
-                        value={subject.name}
-                        onChange={(e) => handleSubjectChange(subject.id, 'name', e.target.value)}
-                        />
-                        <div className="flex items-center gap-2 mt-1">
-                            <label className="text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
-                                <input 
-                                    type="checkbox" 
-                                    checked={subject.isNonGPA}
-                                    onChange={(e) => { playClick(); handleSubjectChange(subject.id, 'isNonGPA', e.target.checked); }}
-                                    className="rounded text-[#003375] focus:ring-[#003375] w-3 h-3 mr-1"
-                                />
-                                Không tính GPA
-                            </label>
-                        </div>
-                    </td>
-                    
-                    <td className="px-1 py-2">
-                        <input 
-                        type="number" 
-                        className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300"
-                        value={subject.credits}
-                        onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)}
-                        />
-                    </td>
-                    
-                    <td className="px-2 py-2 text-center font-bold text-[#990000]">
-                        {avg10 !== null ? avg10.toFixed(1) : '-'}
-                    </td>
-
-                    <td className="px-2 py-2 text-center font-bold text-gray-700">
-                        {letter}
-                    </td>
-                    
-                    <td className="px-2 py-2 text-center font-bold text-[#003375]">
-                        {avg4 !== null ? avg4.toFixed(1) : '-'}
-                    </td>
-
-                    <td className="px-3 py-2 text-center">
-                        <span className={`px-2 py-1 rounded text-xs block w-full text-center shadow-sm ${statusClass}`}>
-                        {statusText}
-                        </span>
-                    </td>
-                    
-                    <td className="px-2 py-2 text-center">
-                        <button 
-                            onClick={() => removeSubject(subject.id)}
-                            className="text-gray-300 hover:text-red-500 transition-all hover:scale-110 p-1 active:scale-90"
-                            title="Xóa môn"
-                        >
-                            <Trash2 size={16} />
-                        </button>
-                    </td>
-                    </tr>
-                );
-                })
+                filteredSubjects.map((subject, sIdx) => (
+                  <SubjectRow
+                    key={subject.id}
+                    subject={subject}
+                    index={sIdx}
+                    onFieldChange={handleSubjectChange}
+                    onToggleNonGPA={handleToggleNonGPA}
+                    onRemove={removeSubject}
+                  />
+                ))
             ) : (
                 <tr>
                     <td colSpan={12} className="py-8 text-center text-gray-500">
