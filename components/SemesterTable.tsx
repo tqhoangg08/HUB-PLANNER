@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Semester, Subject } from '../types';
-import { getDegreeClassification } from '../utils/calculations';
+import { calculateSubjectAverage, getDegreeClassification, getGradeDetails } from '../utils/calculations';
 import { mapIdToDisplay } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
 import { Trash2, Plus, Star, Search, X, Pencil, BookOpen, Crown, TrendingUp, Loader2, AlertCircle, ChevronRight, BarChart2, ChevronLeft, Award } from 'lucide-react';
