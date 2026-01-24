@@ -601,10 +601,10 @@ const App: React.FC = () => {
                     <AlertTriangle size={20} className="shrink-0 mt-0.5" />
                     <div className="space-y-2">
                         <p>
-                            <strong>Lưu ý quan trọng:</strong> Hiện tại tính năng này chỉ hỗ trợ file PDF được xuất từ <strong>máy tính (PC/Laptop)</strong>. File xuất từ điện thoại có thể gặp lỗi định dạng hoặc không nhận diện được dữ liệu.
+                            <strong>Lưu ý quan trọng:HIỆN TẠI TÍNH NĂNG ĐANG ĐƯỢC BẢO TRÌ DO GẶP MỘT SỐ LỖI, MỌI NGƯỜI TẠM THỜI NHẬP TAY THỦ CÔNG GIÚP MÌNH VỚI NHAAA.</strong> 
                         </p>
                         <p>
-                            Ngoài ra, điểm quá trình sẽ được hệ thống random (do file PDF chỉ hiện điểm tổng kết) để khớp GPA.
+                            Hiện tại tính năng này chỉ hỗ trợ file PDF được xuất từ <strong>máy tính (PC/Laptop)</strong>. File xuất từ điện thoại có thể gặp lỗi định dạng hoặc không nhận diện được dữ liệu. Ngoài ra, điểm quá trình sẽ được hệ thống random (do file PDF chỉ hiện điểm tổng kết) để khớp GPA.
                         </p>
                     </div>
                 </div>

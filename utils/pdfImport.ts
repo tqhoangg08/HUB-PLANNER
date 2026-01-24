@@ -63,6 +63,7 @@ const extractCleanTextFromPage = async (page: pdfjsLib.PDFPageProxy) => {
     return lines.join('\n');
 };
 
+// --- HÀM 2: XỬ LÝ CHÍNH ---
 export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -88,18 +89,11 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     const studentMatch = fullText.match(studentNameRegex);
 
     const studentInfo: Partial<UserData> = {};
-    if (studentMatch) {
-        let rawName = studentMatch[1];
-        rawName = rawName.replace(/^SV\.\s*/i, '').replace(/^Sinh viên\s*/i, '').trim();
-        studentInfo.studentName = rawName;
-    }
+    const semestersMap = new Map<string, Semester>();
+    const yearRanges: { start: number; end: number }[] = []; 
 
-    // Pattern: "Chương trình đào tạo: Kinh doanh quốc tế"
-    const programRegex = /Chương trình đào tạo:\s*(.+?)\s+(?:Kết quả:|Năm học:)/i;
-    const programMatch = fullText.match(programRegex);
-    if (programMatch) {
-        studentInfo.majorName = programMatch[1].trim();
-    }
+    let currentSemId = "";
+    let currentSemName = "";
 
     // 3. Split by Semester Headers
     // Header pattern: "Học kỳ 1/2023-2024"
@@ -224,23 +218,9 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
                 isNonGPA: isNonGPA
             });
         }
-
-        // Parse Training Score (Regex is usually fine for this simple field)
-        const trScoreRegex = /Điểm rèn luyện\s*[=:]\s*(\d+)/i;
-        const trMatch = blockContent.match(trScoreRegex);
-        if (trMatch) {
-            trainingScore = parseInt(trMatch[1]);
-        }
-
-        if (subjects.length > 0) {
-            semesters.push({
-                id: current.id,
-                name: current.name,
-                subjects,
-                trainingScore
-            });
-        }
     }
+
+    const semesters = Array.from(semestersMap.values()).sort((a, b) => a.id.localeCompare(b.id));
 
     return { studentInfo, semesters, yearRanges };
 };
