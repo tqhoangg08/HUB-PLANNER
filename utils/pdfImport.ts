@@ -2,8 +2,8 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { UserData, Semester, Subject } from '../types';
 
 // Cấu hình Worker (Bắt buộc)
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min?url'; 
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 interface ParsedResult {
     studentInfo: Partial<UserData>;
     semesters: Semester[];
