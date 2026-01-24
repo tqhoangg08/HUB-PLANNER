@@ -416,7 +416,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
           <tbody className="divide-y divide-gray-100">
             {filteredSubjects.length > 0 ? (
                 filteredSubjects.map((subject, sIdx) => (
-                  <SubjectRow
+          
                     key={subject.id}
                     subject={subject}
                     index={sIdx}
