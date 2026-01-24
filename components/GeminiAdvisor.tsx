@@ -145,23 +145,28 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
             </div>
 
             <div className="p-4 border-t bg-gray-50 rounded-b-xl">
-              <div className="flex gap-2">
+<form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleAdvice();
+                }}
+                className="flex gap-2"
+              >
                 <input
                   type="text"
                   placeholder="Hỏi gì đó... (VD: Môn này có quan trọng không?)"
                   className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#003375] focus:outline-none transition-shadow"
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAdvice()}
                 />
                 <button
-                  onClick={handleAdvice}
+                  type="submit"
                   disabled={loading}
                   className="bg-[#003375] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#002855] disabled:opacity-50 flex items-center gap-2 min-w-[100px] justify-center transition-all duration-200 active:scale-95 shadow-md hover:shadow-lg"
                 >
                   {loading ? <Loader2 className="animate-spin" size={20} /> : 'Gửi'}
                 </button>
-              </div>
+              </form>
             </div>
           </div>
         </div>
