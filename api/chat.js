@@ -17,13 +17,15 @@ export default async function handler(req, res) {
 
   try {
     const { message } = req.body;
-const apiKey = process.env.VITE_GEMINI_API_KEY;
+
+    const apiKey = process.env.GEMINI_API_KEY;
+
     if (!apiKey) {
-      return res.status(500).json({ error: "Chưa nhập API Key trong Settings Vercel" });
+      return res.status(500).json({ error: "Server chưa có API Key" });
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const result = await model.generateContent(message);
     const response = await result.response;
@@ -31,6 +33,7 @@ const apiKey = process.env.VITE_GEMINI_API_KEY;
 
     return res.status(200).json({ reply: text });
   } catch (error) {
+    console.error("Lỗi:", error);
     return res.status(500).json({ error: error.message });
   }
 }
