@@ -4,6 +4,8 @@ import confetti from 'canvas-confetti';
 const CONFETTI_COLORS = ['#da251d', '#ffff00'];
 const SESSION_KEY = 'VICTORY_SEEN';
 
+let hasSeenInThisSession = false;
+
 export const VictoryCelebration = () => {
   const [isVisible, setIsVisible] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -33,11 +35,8 @@ export const VictoryCelebration = () => {
   }, []);
 
   useEffect(() => {
+    if (hasSeenInThisSession) return;
     if (!canvasRef.current) return;
-    if (sessionStorage.getItem(SESSION_KEY)) {
-      setIsVisible(false);
-      return;
-    }
 
     confettiRef.current = confetti.create(canvasRef.current, {
       resize: true,
@@ -52,6 +51,11 @@ export const VictoryCelebration = () => {
       window.clearTimeout(timer);
     };
   }, [fireConfetti]);
+
+  const handleClose = () => {
+    hasSeenInThisSession = true;
+    setIsVisible(false);
+  };
 
   if (!isVisible) return null;
 
@@ -83,10 +87,7 @@ export const VictoryCelebration = () => {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setIsVisible(false);
-              sessionStorage.setItem(SESSION_KEY, 'true');
-            }}
+            onClick={handleClose}
             className="rounded-full border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200"
           >
             Đóng

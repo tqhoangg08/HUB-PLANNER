@@ -120,7 +120,7 @@ export const VictoryTheme: React.FC = () => {
       `}</style>
 
       <div className="victory-theme-marquee">
-        <span>CHÚC MỪNG U23 VIỆT NAM - TỰ HÀO VIỆT NAM - CHÚC MỪNG U23 VIỆT NAM - TỰ HÀO VIỆT NAM</span>
+        <span>🇻🇳 CHÚC MỪNG U23 VIỆT NAM - TỰ HÀO VIỆT NAM 🇻🇳 CHÚC MỪNG U23 VIỆT NAM - TỰ HÀO VIỆT NAM</span>
       </div>
 
       <div className="victory-theme-sticker victory-theme-trophy animate-bounce" aria-hidden="true">
