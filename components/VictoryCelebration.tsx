@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
 
 const CONFETTI_COLORS = ['#da251d', '#ffff00'];
+const SESSION_KEY = 'VICTORY_SEEN';
 
 let hasSeenInThisSession = false;
 
@@ -69,7 +70,7 @@ export const VictoryCelebration = () => {
           width: '100%',
           height: '100%',
           pointerEvents: 'none',
-          zIndex: 9998,
+          zIndex: 99999999,
         }}
       />
       <div className="pointer-events-auto fixed bottom-4 right-4 z-[9999] max-w-xs rounded-2xl border border-red-200 bg-white/95 p-4 shadow-2xl backdrop-blur">
