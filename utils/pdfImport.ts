@@ -65,6 +65,47 @@ const extractSubjectsWithAI = async (
         console.error("Gemini Extraction Error:", error);
         return [];
     }
+
+    return results;
+};
+
+const normalizeSemesterKey = (value: string) => value.toLowerCase().replace(/\s+/g, ' ').trim();
+
+const mapAiSubjectsToSubjects = (aiSubjects: AiSubject[], currentId: string) => {
+    return aiSubjects.map((s: AiSubject, idx: number) => {
+        let isNonGPA = false;
+        const nameLower = s.ten_hoc_phan.toLowerCase();
+        const nonGpaKeywords = [
+            'gdtc', 'giáo dục thể chất',
+            'quốc phòng', 'an ninh',
+            'tiếng anh tăng cường',
+            'kỹ năng',
+            'đầu vào', 'học phần'
+        ];
+
+        if (s.tin_chi === 0 || s.ket_qua === 'M' || nonGpaKeywords.some(k => nameLower.includes(k))) {
+            isNonGPA = true;
+        }
+
+        let scoreVal: number | null = null;
+        if (typeof s.ket_qua === 'number') {
+            scoreVal = s.ket_qua;
+        } else if (typeof s.ket_qua === 'string') {
+            const parsed = parseFloat(s.ket_qua);
+            if (!isNaN(parsed)) scoreVal = parsed;
+        }
+
+        return {
+            id: `ai_${currentId}_${idx}`,
+            name: s.ten_hoc_phan,
+            credits: s.tin_chi,
+            scoreCC: scoreVal,
+            scoreProcess: scoreVal,
+            scoreMid: scoreVal,
+            scoreFinal: scoreVal,
+            isNonGPA: isNonGPA
+        };
+    });
 };
 
 const mapAiSubjectsToSubjects = (aiSubjects: AiSubject[]) => {
