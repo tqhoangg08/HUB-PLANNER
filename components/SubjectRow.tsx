@@ -49,7 +49,7 @@ const ScoreInput = ({ value, onChange }: ScoreInputProps) => {
     }
     debounceRef.current = window.setTimeout(() => {
       commitValue(localValue);
-    }, 250);
+    }, 500);
 
     return () => {
       if (debounceRef.current) {
@@ -148,7 +148,7 @@ export const SubjectRow = memo(({ subject, index, onFieldChange, onToggleNonGPA,
     }
     nameDebounceRef.current = window.setTimeout(() => {
       commitName(localName);
-    }, 300);
+    }, 500);
 
     return () => {
       if (nameDebounceRef.current) {
@@ -163,7 +163,7 @@ export const SubjectRow = memo(({ subject, index, onFieldChange, onToggleNonGPA,
     }
     creditsDebounceRef.current = window.setTimeout(() => {
       commitCredits(localCredits);
-    }, 300);
+    }, 500);
 
     return () => {
       if (creditsDebounceRef.current) {
