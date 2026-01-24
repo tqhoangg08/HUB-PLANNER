@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect } from 'react';
+import React, { memo, useState, useEffect, useRef } from 'react';
 import { Trash2 } from 'lucide-react';
 import { GradeStatus, Subject } from '../types';
 import { calculateSubjectAverage, getGradeDetails, getSubjectStatus } from '../utils/calculations';
@@ -14,14 +14,15 @@ interface ScoreInputProps {
 const ScoreInput = ({ value, onChange }: ScoreInputProps) => {
   // Chỉ khởi tạo state 1 lần, sau đó sync thủ công khi cần thiết
   const [localValue, setLocalValue] = useState<string>(value?.toString() ?? '');
+  const prevValueRef = useRef<number | null>(value ?? null);
 
   // Sync khi props value thay đổi từ bên ngoài (ví dụ: import PDF, reset)
-  // Dùng pattern này tránh loop vô tận của useEffect
-  const [prevValue, setPrevValue] = useState(value);
-  if (value !== prevValue) {
-     setPrevValue(value);
-     setLocalValue(value?.toString() ?? '');
-  }
+  useEffect(() => {
+    if (value !== prevValueRef.current) {
+      prevValueRef.current = value ?? null;
+      setLocalValue(value?.toString() ?? '');
+    }
+  }, [value]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVal = e.target.value;
