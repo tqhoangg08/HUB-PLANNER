@@ -2,7 +2,6 @@ import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { UserData, Semester, STORAGE_KEY } from './types';
 import { Dashboard } from './components/Dashboard';
 import { SemesterTable } from './components/SemesterTable';
-import { GeminiAdvisor } from './components/GeminiAdvisor';
 import { Onboarding } from './components/Onboarding';
 import { Handbook } from './components/Handbook';
 import { EventsBoard } from './components/EventsBoard';
@@ -1153,8 +1152,6 @@ const App: React.FC = () => {
             <Mail size={18} />
         </a>
       </div>
-
-      <GeminiAdvisor data={data} />
       
       {showImportLoadingToast && (
             <div className="fixed bottom-4 right-4 bg-white shadow-xl p-4 rounded-xl border border-blue-200 flex items-start gap-3 z-[100] animate-slideInRight max-w-sm">
