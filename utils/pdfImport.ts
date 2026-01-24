@@ -63,6 +63,7 @@ const extractCleanTextFromPage = async (page: pdfjsLib.PDFPageProxy) => {
     return lines.join('\n');
 };
 
+// --- 2. HÀM PARSE CHÍNH ---
 export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -213,23 +214,10 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
                 isNonGPA: isNonGPA
             });
         }
-
-        // Parse Training Score (Regex is usually fine for this simple field)
-        const trScoreRegex = /Điểm rèn luyện\s*[=:]\s*(\d+)/i;
-        const trMatch = blockContent.match(trScoreRegex);
-        if (trMatch) {
-            trainingScore = parseInt(trMatch[1]);
-        }
-
-        if (subjects.length > 0) {
-            semesters.push({
-                id: current.id,
-                name: current.name,
-                subjects,
-                trainingScore
-            });
-        }
     }
+
+    // Chuyển Map thành Array và sắp xếp theo thời gian
+    const semesters = Array.from(semestersMap.values()).sort((a, b) => a.id.localeCompare(b.id));
 
     return { studentInfo, semesters, yearRanges };
 };
