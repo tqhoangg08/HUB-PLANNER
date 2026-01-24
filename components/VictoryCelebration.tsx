@@ -35,7 +35,7 @@ export const VictoryCelebration = () => {
     if (!canvasRef.current) return;
     confettiRef.current = confetti.create(canvasRef.current, {
       resize: true,
-      useWorker: true,
+      useWorker: false,
     });
 
     const timer = window.setTimeout(() => {
@@ -53,7 +53,15 @@ export const VictoryCelebration = () => {
     <div className="fixed inset-0 pointer-events-none z-[9999]">
       <canvas
         ref={canvasRef}
-        className="fixed inset-0 h-full w-full pointer-events-none z-[9998]"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          zIndex: 9998,
+        }}
       />
       <div className="pointer-events-auto fixed bottom-4 right-4 z-[9999] max-w-xs rounded-2xl border border-red-200 bg-white/95 p-4 shadow-2xl backdrop-blur">
         <p className="text-sm font-semibold text-red-700">
