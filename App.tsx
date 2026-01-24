@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { UserData, Semester, STORAGE_KEY } from './types';
 import { Dashboard } from './components/Dashboard';
 import { SemesterTable } from './components/SemesterTable';
+import { GeminiAdvisor } from './components/GeminiAdvisor';
 import { Onboarding } from './components/Onboarding';
 import { Handbook } from './components/Handbook';
 import { EventsBoard } from './components/EventsBoard';
