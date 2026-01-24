@@ -3,12 +3,12 @@ import { GoogleGenAI } from "@google/genai";
 import { UserData, Semester, Subject } from '../types';
 
 // Set worker for PDF.js - ensure version matches the main library import
-// Tự động lấy đúng phiên bản worker khớp với thư viện
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+
 interface ParsedResult {
     studentInfo: Partial<UserData>;
     semesters: Semester[];
-    yearRanges: {start: number, end: number}[]; // Keep track of found years
+    yearRanges: {start: number, end: number}[];
 }
 
 interface AiSubject {
@@ -19,7 +19,7 @@ interface AiSubject {
     diem_chu: string | null;
 }
 
-// System instruction for Gemini
+// --- 1. SYSTEM PROMPT (Tối ưu cho One-Shot) ---
 const GEMINI_SYSTEM_PROMPT = `
 Bạn là một chuyên gia trích xuất dữ liệu từ văn bản và hình ảnh (OCR). Nhiệm vụ của bạn là đọc bảng điểm từ văn bản được cung cấp và trích xuất dữ liệu sạch.
 
@@ -43,8 +43,13 @@ QUY TẮC LỌC VÀ XỬ LÝ LỖI (BẮT BUỘC):
 
 const parseGeminiResponse = (jsonText?: string) => {
     if (!jsonText) return [];
-    const cleanJson = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(cleanJson);
+    try {
+        const cleanJson = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(cleanJson);
+    } catch (e) {
+        console.error("JSON Parse Error:", e);
+        return [];
+    }
 };
 
 const extractSubjectsWithAI = async (
@@ -66,46 +71,24 @@ const extractSubjectsWithAI = async (
         return [];
     }
 
-    return results;
-};
+    let scoreVal: number | null = null;
+    if (typeof s.ket_qua === 'number') {
+        scoreVal = s.ket_qua;
+    } else if (typeof s.ket_qua === 'string') {
+        const parsed = parseFloat(s.ket_qua);
+        if (!isNaN(parsed)) scoreVal = parsed;
+    }
 
-const normalizeSemesterKey = (value: string) => value.toLowerCase().replace(/\s+/g, ' ').trim();
-
-const mapAiSubjectsToSubjects = (aiSubjects: AiSubject[], currentId: string) => {
-    return aiSubjects.map((s: AiSubject, idx: number) => {
-        let isNonGPA = false;
-        const nameLower = s.ten_hoc_phan.toLowerCase();
-        const nonGpaKeywords = [
-            'gdtc', 'giáo dục thể chất',
-            'quốc phòng', 'an ninh',
-            'tiếng anh tăng cường',
-            'kỹ năng',
-            'đầu vào', 'học phần'
-        ];
-
-        if (s.tin_chi === 0 || s.ket_qua === 'M' || nonGpaKeywords.some(k => nameLower.includes(k))) {
-            isNonGPA = true;
-        }
-
-        let scoreVal: number | null = null;
-        if (typeof s.ket_qua === 'number') {
-            scoreVal = s.ket_qua;
-        } else if (typeof s.ket_qua === 'string') {
-            const parsed = parseFloat(s.ket_qua);
-            if (!isNaN(parsed)) scoreVal = parsed;
-        }
-
-        return {
-            id: `ai_${currentId}_${idx}`,
-            name: s.ten_hoc_phan,
-            credits: s.tin_chi,
-            scoreCC: scoreVal,
-            scoreProcess: scoreVal,
-            scoreMid: scoreVal,
-            scoreFinal: scoreVal,
-            isNonGPA: isNonGPA
-        };
-    });
+    return {
+        id: `sub_${Date.now()}_${index}`,
+        name: s.ten_hoc_phan,
+        credits: s.tin_chi,
+        scoreCC: scoreVal,
+        scoreProcess: scoreVal,
+        scoreMid: scoreVal,
+        scoreFinal: scoreVal,
+        isNonGPA: isNonGPA
+    };
 };
 
 const mapAiSubjectsToSubjects = (aiSubjects: AiSubject[]) => {
@@ -143,6 +126,7 @@ const mapAiSubjectsToSubjects = (aiSubjects: AiSubject[]) => {
 };
 
 export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
+    // A. Đọc PDF thành Text
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
@@ -170,16 +154,13 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
 
     const studentInfo: Partial<UserData> = {};
     if (studentMatch) {
-        let rawName = studentMatch[1];
-        rawName = rawName.replace(/^SV\.\s*/i, '').replace(/^Sinh viên\s*/i, '').trim();
+        let rawName = studentMatch[1].replace(/^SV\.\s*/i, '').replace(/^Sinh viên\s*/i, '').trim();
         studentInfo.studentName = rawName;
     }
 
     const programRegex = /Chương trình đào tạo:\s*(.+?)\s+(?:Kết quả:|Năm học:)/i;
     const programMatch = fullText.match(programRegex);
-    if (programMatch) {
-        studentInfo.majorName = programMatch[1].trim();
-    }
+    if (programMatch) studentInfo.majorName = programMatch[1].trim();
 
     // 3. Capture year ranges if available
     const yearRanges: {start: number, end: number}[] = [];
@@ -198,6 +179,7 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     // 4. Initialize AI (if API key exists)
     let ai: GoogleGenAI | null = null;
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) throw new Error("Chưa cấu hình API Key");
 
     if (apiKey) {
         ai = new GoogleGenAI({ apiKey: apiKey });
