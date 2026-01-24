@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState } from 'react';
+import React, { memo, useState, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
 import { GradeStatus, Subject } from '../types';
 import { calculateSubjectAverage, getGradeDetails, getSubjectStatus } from '../utils/calculations';
@@ -10,28 +10,36 @@ interface ScoreInputProps {
   onChange: (val: number | null) => void;
 }
 
+// Component nhập điểm đã được tối ưu
 const ScoreInput = ({ value, onChange }: ScoreInputProps) => {
+  // Chỉ khởi tạo state 1 lần, sau đó sync thủ công khi cần thiết
   const [localValue, setLocalValue] = useState<string>(value?.toString() ?? '');
 
-  useEffect(() => {
-    const parsedLocal = localValue === '' ? null : parseFloat(localValue);
-    if (value !== parsedLocal) {
-      setLocalValue(value?.toString() ?? '');
-    }
-  }, [localValue, value]);
+  // Sync khi props value thay đổi từ bên ngoài (ví dụ: import PDF, reset)
+  // Dùng pattern này tránh loop vô tận của useEffect
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+     setPrevValue(value);
+     setLocalValue(value?.toString() ?? '');
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVal = e.target.value;
+    
+    // 1. Cập nhật giao diện ngay lập tức (để gõ được dấu chấm)
+    setLocalValue(newVal);
+
+    // 2. Xử lý logic gửi dữ liệu đi
     if (newVal === '') {
-      setLocalValue('');
       onChange(null);
       return;
     }
+    
     const parsed = parseFloat(newVal);
-    if (isNaN(parsed) || parsed < 0 || parsed > 10) return;
-
-    setLocalValue(newVal);
-    onChange(parsed);
+    // Nếu nhập số hợp lệ thì mới gửi lên cha
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 10) {
+      onChange(parsed);
+    }
   };
 
   return (
@@ -77,6 +85,15 @@ export const SubjectRow = memo(({ subject, index, onFieldChange, onToggleNonGPA,
     statusText = 'Đạt';
   }
 
+  // Sử dụng useCallback để tránh tạo hàm mới mỗi lần render (tối ưu thêm)
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      onFieldChange(subject.id, 'name', e.target.value);
+  };
+  
+  const handleCreditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      onFieldChange(subject.id, 'credits', parseInt(e.target.value) || 0);
+  };
+
   return (
     <tr className={`${rowClass} transition-colors duration-150 group`}>
       <td className="px-3 py-2 text-center text-gray-500">{index + 1}</td>
@@ -95,7 +112,7 @@ export const SubjectRow = memo(({ subject, index, onFieldChange, onToggleNonGPA,
           type="text"
           className="w-full bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375]"
           value={subject.name}
-          onChange={(e) => onFieldChange(subject.id, 'name', e.target.value)}
+          onChange={handleNameChange}
         />
         <div className="flex items-center gap-2 mt-1">
           <label className="text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
@@ -115,7 +132,7 @@ export const SubjectRow = memo(({ subject, index, onFieldChange, onToggleNonGPA,
           type="number"
           className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300"
           value={subject.credits}
-          onChange={(e) => onFieldChange(subject.id, 'credits', parseInt(e.target.value) || 0)}
+          onChange={handleCreditChange}
         />
       </td>
 
@@ -148,6 +165,9 @@ export const SubjectRow = memo(({ subject, index, onFieldChange, onToggleNonGPA,
       </td>
     </tr>
   );
+}, (prevProps, nextProps) => {
+    // Tối ưu Memo: Chỉ render lại nếu dữ liệu thực sự thay đổi
+    return prevProps.subject === nextProps.subject && prevProps.index === nextProps.index;
 });
 
 SubjectRow.displayName = 'SubjectRow';
