@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Bảo mật
+.env
+.env.local
+.vercel
