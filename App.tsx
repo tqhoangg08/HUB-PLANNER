@@ -10,7 +10,6 @@ import { RoleSelection } from './components/RoleSelection';
 import { LoginScreen } from './components/LoginScreen';
 import { ActivityLogModal } from './components/ActivityLogModal';
 import { VictoryCelebration } from './components/VictoryCelebration';
-import { VictoryTheme } from './components/VictoryTheme';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfUse } from './components/TermsOfUse';
 import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock, Facebook, Phone, Mail } from 'lucide-react';
@@ -813,7 +812,6 @@ const App: React.FC = () => {
 
     return (
     <div className="min-h-screen pb-12 font-sans text-gray-800 bg-[#f8f9fa] animate-fadeIn">
-      <VictoryTheme />
       <VictoryCelebration />
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b-2 border-[#003375] fixed top-0 left-0 w-full z-50 shadow-sm transition-all duration-300">
