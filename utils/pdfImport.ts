@@ -1,8 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
-import { GoogleGenAI } from "@google/genai";
 import { UserData, Semester, Subject } from '../types';
 
-// Set worker
+// Cấu hình Worker (Bắt buộc)
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 interface ParsedResult {
@@ -11,218 +10,182 @@ interface ParsedResult {
     yearRanges: {start: number, end: number}[];
 }
 
-interface AiSubject {
-    ten_hoc_phan: string;
-    tin_chi: number;
-    ket_qua: string | number;
-    hoc_ky_raw: string;
-}
+// --- 1. HÀM TÁI TẠO DÒNG (CORE LOGIC) ---
+// Hàm này giúp text không bị dính chùm bằng cách kiểm tra tọa độ
+const extractCleanTextFromPage = async (page: any): Promise<string[]> => {
+    const textContent = await page.getTextContent();
+    const items = textContent.items as any[];
 
-// --- 1. CONFIG & HELPERS ---
-const SYSTEM_PROMPT = `Trích xuất bảng điểm thành JSON Array. Mỗi item: { "ten_hoc_phan": string, "tin_chi": number, "ket_qua": number|string, "hoc_ky_raw": string }. hoc_ky_raw lấy từ tiêu đề gần nhất bên trên (VD: "Học kỳ 1 Năm học 2023-2024"). Bỏ qua tiêu đề bảng. Chỉ trả về JSON.`;
+    if (items.length === 0) return [];
 
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+    // Bước 1: Sắp xếp các item text theo thứ tự đọc tự nhiên
+    // Ưu tiên Y (từ trên xuống), sau đó đến X (từ trái sang)
+    // Lưu ý: Trong PDF, Y gốc (0) thường ở dưới cùng, nên Y lớn là ở trên.
+    items.sort((a, b) => {
+        const yDiff = b.transform[5] - a.transform[5]; // So sánh độ cao
+        if (Math.abs(yDiff) > 5) { // Nếu lệch nhau quá 5 đơn vị thì coi là khác dòng
+            return yDiff; 
+        }
+        return a.transform[4] - b.transform[4]; // Nếu cùng dòng thì so sánh trái-phải
+    });
 
-// --- 2. HÀM REGEX PARSING (CỨU TINH KHI AI SẬP) ---
-// Hàm này chạy thuần túy bằng logic chuỗi, không sợ giới hạn API
-const parseWithRegexFallback = (fullText: string): Semester[] => {
-    console.log("⚠️ Đang chạy chế độ Regex Fallback (Do AI quá tải)...");
+    // Bước 2: Gom nhóm thành từng dòng văn bản
+    const lines: string[] = [];
+    let currentLineY = -1;
+    let currentLineText = "";
+
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const itemY = item.transform[5]; // Tọa độ Y
+        const itemText = item.str;
+
+        // Nếu đây là item đầu tiên hoặc Y lệch nhiều so với dòng hiện tại -> Dòng mới
+        if (currentLineY === -1 || Math.abs(itemY - currentLineY) > 5) {
+            if (currentLineText) lines.push(currentLineText.trim());
+            currentLineY = itemY;
+            currentLineText = itemText;
+        } else {
+            // Cùng dòng -> Nối thêm vào (Thêm dấu cách để tách cột)
+            // Mẹo: Luôn thêm dấu cách giữa các block text để tránh dính chữ (VD: MãHP TênHP)
+            currentLineText += " " + itemText;
+        }
+    }
+    // Đẩy dòng cuối cùng
+    if (currentLineText) lines.push(currentLineText.trim());
+
+    return lines;
+};
+
+// --- 2. HÀM PARSE CHÍNH ---
+export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     
+    let allLines: string[] = [];
+
+    // Đọc từng trang và tái tạo dòng sạch sẽ
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const pageLines = await extractCleanTextFromPage(page);
+        allLines = [...allLines, ...pageLines];
+    }
+
+    const studentInfo: Partial<UserData> = {};
     const semestersMap = new Map<string, Semester>();
-    
-    // 1. Tách văn bản thành từng phần dựa trên tiêu đề học kỳ
-    // Regex tìm: "Học kỳ 1/2023-2024" hoặc "Học kỳ 1 Năm học 2023-2024"
-    const splitRegex = /(Học kỳ\s+\d\s*[\/\-]?\s*(?:Năm học\s*)?\d{4}\s*[\-–]\s*\d{4})/gi;
-    
-    const parts = fullText.split(splitRegex);
-    let currentSemesterName = "";
-    
-    // Mảng chứa các keyword môn không tính điểm
-    const nonGpaKeywords = ['gdtc', 'giáo dục thể chất', 'quốc phòng', 'an ninh', 'tiếng anh tăng cường', 'kỹ năng', 'đầu vào', 'sinh hoạt'];
+    const yearRanges: {start: number, end: number}[] = [];
 
-    // Duyệt qua từng phần text đã cắt
-    for (let i = 0; i < parts.length; i++) {
-        const part = parts[i].trim();
-        if (!part) continue;
+    // Biến để theo dõi ngữ cảnh hiện tại (Đang ở học kỳ nào)
+    let currentSemId = "";
+    let currentSemName = "";
 
-        // Nếu part là tên học kỳ (do regex group giữ lại)
-        if (part.match(/^Học kỳ/i)) {
-            currentSemesterName = part;
-            continue;
+    // Regex nhận diện tiêu đề học kỳ
+    // VD: "Học kỳ 1 Năm học 2023-2024" hoặc "Học kỳ 2/2023-2024"
+    const semHeaderRegex = /Học kỳ\s+(\d)\s*(?:\/|Năm học)?\s*(\d{4})[-–](\d{4})/i;
+
+    // Regex nhận diện dòng môn học (Quan trọng nhất)
+    // Cấu trúc mong đợi: [STT] [Mã] [Tên Môn] [TC] ... [Điểm]
+    // VD: 1 002345 Kinh tế vi mô 3 ... 8.5
+    // Giải thích Regex:
+    // ^\d+ : Bắt đầu bằng số (STT)
+    // \s+ : Dấu cách
+    // [A-Z0-9_]+ : Mã môn (Chữ hoa + số)
+    // \s+ : Dấu cách
+    // (.+?) : Tên môn (Lấy tham lam tối thiểu)
+    // \s+ : Dấu cách trước số tín chỉ
+    // (\d+) : Số tín chỉ
+    // \s+ : Dấu cách
+    // .*? : Các cột ở giữa (Điểm quá trình, thi...) - bỏ qua
+    // \s : Dấu cách trước điểm tổng kết
+    // ([0-9.]+|M|Đạt|Không đạt|Vắng) : Điểm tổng kết hoặc trạng thái
+    // \s*$ : Kết thúc dòng
+    const rowRegex = /^\d+\s+[A-Z0-9_.]+\s+(.+?)\s+(\d+)\s+.*?\s([0-9.]+|M|Đạt|Không đạt|Vắng)\s*(?:[A-Z+-]+)?\s*(?:Đạt|Không đạt)?$/i;
+
+    // Keyword môn không tính GPA
+    const nonGpaKeywords = ['gdtc', 'giáo dục thể chất', 'quốc phòng', 'an ninh', 'tiếng anh tăng cường', 'kỹ năng', 'đầu vào', 'sinh hoạt', 'học phần'];
+
+    // --- BẮT ĐẦU DUYỆT TỪNG DÒNG ---
+    for (const line of allLines) {
+        const trimmedLine = line.trim().replace(/\s+/g, ' '); // Chuẩn hóa dấu cách thừa
+
+        // 1. Tìm thông tin sinh viên (nếu chưa có)
+        if (!studentInfo.studentName) {
+            const nameMatch = trimmedLine.match(/([^\s].+?)\s*\[Mã số:\s*(\d+)\]/i);
+            if (nameMatch) studentInfo.studentName = nameMatch[1].replace(/^(SV\.|Sinh viên)\s*/i, '').trim();
+        }
+        if (!studentInfo.majorName) {
+            const majorMatch = trimmedLine.match(/Chương trình đào tạo:\s*(.+?)\s+(?:Kết quả:|Năm học:|$)/i);
+            if (majorMatch) studentInfo.majorName = majorMatch[1].trim();
         }
 
-        // Nếu part là nội dung môn học và đã có tên học kỳ
-        if (currentSemesterName) {
-            // Tạo ID cho học kỳ
-            const yearMatch = currentSemesterName.match(/(\d{4})[-–](\d{4})/);
-            const hkMatch = currentSemesterName.match(/Học kỳ\s*(\d)/i);
-            
-            let semId = `sem_${Math.random().toString(36).substr(2, 9)}`;
-            if (yearMatch && hkMatch) {
-                semId = `imported_${yearMatch[1]}_${yearMatch[2]}_hk${hkMatch[1]}`;
+        // 2. Kiểm tra xem dòng này có phải là tiêu đề Học kỳ mới không?
+        const semMatch = trimmedLine.match(semHeaderRegex);
+        if (semMatch) {
+            const hk = parseInt(semMatch[1]);
+            const y1 = parseInt(semMatch[2]);
+            const y2 = parseInt(semMatch[3]);
+
+            currentSemId = `imported_${y1}_${y2}_hk${hk}`;
+            currentSemName = `Năm học ${y1}-${y2} - Học kỳ ${hk}`;
+
+            // Lưu range năm học
+            if (!yearRanges.some(y => y.start === y1)) {
+                yearRanges.push({start: y1, end: y2});
             }
 
-            if (!semestersMap.has(semId)) {
-                semestersMap.set(semId, {
-                    id: semId,
-                    name: currentSemesterName,
+            // Tạo học kỳ mới trong Map nếu chưa có
+            if (!semestersMap.has(currentSemId)) {
+                semestersMap.set(currentSemId, {
+                    id: currentSemId,
+                    name: currentSemName,
                     subjects: [],
                     trainingScore: null
                 });
             }
+            continue; // Xong dòng này, sang dòng tiếp
+        }
 
-            // Parse từng dòng môn học
-            // Regex tìm dòng: STT MãHP TênHP TC ... Điểm
-            // VD: 1 00123 Kinh tế vi mô 3 ... 8.5
-            const lines = part.split('\n');
-            const rowRegex = /^\s*\d+\s+[A-Z0-9_]+\s+(.+?)\s+(\d+)\s+.*?\s([0-9.]+|M|Đạt|Không đạt)\s*$/i;
+        // 3. Nếu đang ở trong một học kỳ, thử parse dòng môn học
+        if (currentSemId) {
+            const subjectMatch = trimmedLine.match(rowRegex);
+            if (subjectMatch) {
+                // Đã bắt được dòng môn học!
+                const nameRaw = subjectMatch[1].trim();
+                const credits = parseInt(subjectMatch[2]);
+                const rawScore = subjectMatch[3];
 
-            lines.forEach((line, idx) => {
-                const match = line.trim().match(rowRegex);
-                if (match) {
-                    const name = match[1].trim();
-                    const credits = parseInt(match[2]);
-                    const rawScore = match[3];
-                    
-                    // Logic tính điểm
-                    let scoreVal: number | null = null;
-                    let isNonGPA = false;
+                // Logic xử lý điểm số
+                let scoreVal: number | null = null;
+                let isNonGPA = false;
 
-                    if (rawScore === 'M' || rawScore === 'Đạt' || rawScore === 'Không đạt') {
-                        isNonGPA = true;
-                    } else {
-                        scoreVal = parseFloat(rawScore);
-                        if (isNaN(scoreVal)) scoreVal = null;
-                    }
-
-                    if (credits === 0 || nonGpaKeywords.some(k => name.toLowerCase().includes(k))) {
-                        isNonGPA = true;
-                    }
-
-                    semestersMap.get(semId)?.subjects.push({
-                        id: `reg_${semId}_${idx}`,
-                        name: name,
-                        credits: credits,
-                        scoreCC: scoreVal,
-                        scoreProcess: scoreVal,
-                        scoreMid: scoreVal,
-                        scoreFinal: scoreVal,
-                        isNonGPA: isNonGPA
-                    });
+                if (['M', 'Đạt', 'Không đạt', 'Vắng'].includes(rawScore)) {
+                    isNonGPA = true;
+                } else {
+                    scoreVal = parseFloat(rawScore);
+                    if (isNaN(scoreVal)) scoreVal = null;
                 }
-            });
-        }
-    }
 
-    return Array.from(semestersMap.values()).sort((a, b) => a.id.localeCompare(b.id));
-};
+                // Logic môn kỹ năng/GDTC
+                if (credits === 0 || nonGpaKeywords.some(k => nameRaw.toLowerCase().includes(k))) {
+                    isNonGPA = true;
+                }
 
-// --- 3. HÀM GỌI AI ---
-const generateContentOneShot = async (fullText: string, apiKey: string): Promise<AiSubject[]> => {
-    const ai = new GoogleGenAI(apiKey);
-    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
-    
-    const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: SYSTEM_PROMPT }, { text: `\nDATA:\n${fullText}` }] }],
-        generationConfig: { responseMimeType: "application/json" }
-    });
-    
-    const text = result.response.text();
-    return JSON.parse(text.replace(/```json|```/g, '').trim());
-};
-
-// --- 4. HÀM CHÍNH (PARSE PDF) ---
-export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
-    // A. Đọc PDF
-    const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    let fullText = '';
-    
-    // Đọc text giữ nguyên xuống dòng để Regex hoạt động tốt
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((item: any) => item.str).join(' '); // Dùng join(' ') để tránh dính chữ
-        // Thêm xuống dòng giả lập sau mỗi item có vẻ là cuối dòng (Optional optimization)
-        fullText += pageText + '\n'; 
-    }
-    
-    // B. Lấy Info Sinh Viên
-    const studentInfo: Partial<UserData> = {};
-    const nameMatch = fullText.match(/([^\s].+?)\s*\[Mã số:\s*(\d+)\]/i);
-    if (nameMatch) studentInfo.studentName = nameMatch[1].replace(/^(SV\.|Sinh viên)\s*/i, '').trim();
-    
-    const progMatch = fullText.match(/Chương trình đào tạo:\s*(.+?)\s+(?:Kết quả:|Năm học:)/i);
-    if (progMatch) studentInfo.majorName = progMatch[1].trim();
-
-    // C. Xử lý Môn học (HYBRID MODE)
-    let semesters: Semester[] = [];
-    
-    try {
-        // CÁCH 1: Dùng AI (Ưu tiên)
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        if (!apiKey) throw new Error("No API Key");
-
-        console.log("🚀 Đang thử dùng AI...");
-        const aiData = await generateContentOneShot(fullText, apiKey);
-        
-        // Map dữ liệu AI ra Semester (Code cũ của bạn)
-        const semMap = new Map<string, Semester>();
-        aiData.forEach((item, idx) => {
-            if (!item.hoc_ky_raw) return;
-            const yearMatch = item.hoc_ky_raw.match(/(\d{4})[-–](\d{4})/);
-            const hkMatch = item.hoc_ky_raw.match(/Học kỳ\s*(\d)/i);
-            
-            let semId = `sem_${idx}`, semName = item.hoc_ky_raw;
-            if (yearMatch && hkMatch) {
-                semId = `imported_${yearMatch[1]}_${yearMatch[2]}_hk${hkMatch[1]}`;
-                semName = `Năm học ${yearMatch[1]}-${yearMatch[2]} - Học kỳ ${hkMatch[1]}`;
+                // Thêm vào học kỳ hiện tại
+                semestersMap.get(currentSemId)?.subjects.push({
+                    id: `sub_${currentSemId}_${Date.now()}_${Math.random()}`,
+                    name: nameRaw,
+                    credits: credits,
+                    scoreCC: scoreVal,
+                    scoreProcess: scoreVal,
+                    scoreMid: scoreVal,
+                    scoreFinal: scoreVal,
+                    isNonGPA: isNonGPA
+                });
             }
-
-            if (!semMap.has(semId)) {
-                semMap.set(semId, { id: semId, name: semName, subjects: [], trainingScore: null });
-            }
-
-            // Logic môn học AI
-            let isNonGPA = false;
-            if (item.tin_chi === 0 || item.ket_qua === 'M' || item.ket_qua === 'Đạt') isNonGPA = true;
-            let scoreVal = (typeof item.ket_qua === 'number') ? item.ket_qua : parseFloat(item.ket_qua as string);
-            if (isNaN(scoreVal)) scoreVal = null;
-
-            semMap.get(semId)?.subjects.push({
-                id: `ai_${idx}`,
-                name: item.ten_hoc_phan,
-                credits: item.tin_chi,
-                scoreFinal: scoreVal,
-                scoreCC: scoreVal, scoreProcess: scoreVal, scoreMid: scoreVal,
-                isNonGPA
-            });
-        });
-        semesters = Array.from(semMap.values());
-        
-    } catch (error) {
-        // CÁCH 2: Dùng REGEX (Nếu AI lỗi 429 hoặc lỗi khác)
-        console.warn("⚠️ AI thất bại, chuyển sang Regex:", error);
-        semesters = parseWithRegexFallback(fullText);
-        
-        if (semesters.length === 0) {
-             alert("Hệ thống đang quá tải. Vui lòng thử lại sau ít phút!");
-             throw error;
         }
     }
 
-    // Sort lại học kỳ
-    semesters.sort((a, b) => a.id.localeCompare(b.id));
-
-    // Lấy range năm học
-    const yearRanges: {start: number, end: number}[] = [];
-    semesters.forEach(s => {
-        const match = s.id.match(/imported_(\d{4})_(\d{4})/);
-        if (match) {
-             const start = parseInt(match[1]);
-             if (!yearRanges.some(y => y.start === start)) yearRanges.push({start, end: parseInt(match[2])});
-        }
-    });
+    // Chuyển Map thành Array và sắp xếp theo thời gian
+    const semesters = Array.from(semestersMap.values()).sort((a, b) => a.id.localeCompare(b.id));
 
     return { studentInfo, semesters, yearRanges };
 };
