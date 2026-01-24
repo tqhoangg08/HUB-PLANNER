@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Semester, Subject, GradeStatus } from '../types';
 import { calculateSubjectAverage, getGradeDetails, getSubjectStatus, getDegreeClassification } from '../utils/calculations';
@@ -14,6 +13,7 @@ interface SemesterTableProps {
   onRemoveSemester: () => void;
 }
 
+// --- FIX: Đưa ScoreInput ra ngoài SemesterTable ---
 const ScoreInput = ({ 
   value, 
   onChange 
@@ -21,46 +21,31 @@ const ScoreInput = ({
   value: number | null, 
   onChange: (val: number | null) => void 
 }) => {
+  // Giữ nguyên logic xử lý localValue để trải nghiệm nhập liệu mượt mà
   const [localValue, setLocalValue] = useState<string>(value?.toString() ?? '');
 
   useEffect(() => {
-    // 1. Chuyển đổi cả 2 về cùng kiểu Number để so sánh an toàn
-    const numericValue = value === null || value === undefined ? null : Number(value);
-    const numericLocal = localValue === '' ? null : parseFloat(localValue);
-
-    // 2. Chỉ cập nhật lại localValue khi giá trị thực sự thay đổi về mặt con số.
-    // Điều này giúp giữ nguyên các trạng thái đang gõ như "8." hay "08"
-    if (numericValue !== numericLocal) {
+    // Chỉ cập nhật localValue nếu value từ props thực sự thay đổi khác với những gì đang gõ
+    // (Tránh ghi đè khi user đang gõ dấu chấm thập phân ví dụ "8.")
+    const parsedLocal = localValue === '' ? null : parseFloat(localValue);
+    if (value !== parsedLocal) {
        setLocalValue(value?.toString() ?? '');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]); 
+  }, [value]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVal = e.target.value;
-    
-    // Trường hợp xóa trắng
+    setLocalValue(newVal); // Cập nhật hiển thị ngay lập tức để không bị lag
+
     if (newVal === '') {
-      setLocalValue('');
       onChange(null);
       return;
     }
-
     const parsed = parseFloat(newVal);
-    
-    // Chặn nhập nếu không phải số hoặc ngoài khoảng 0-10
-    if (isNaN(parsed) || parsed < 0 || parsed > 10) return;
-
-    // Cập nhật localValue ngay lập tức để UI phản hồi mượt
-    setLocalValue(newVal);
-    onChange(parsed);
-  };
-
-  // Thêm onBlur để chuẩn hóa số liệu khi người dùng nhập xong (VD: nhập "8." -> blur thành "8")
-  const handleBlur = () => {
-      if (localValue !== '' && value !== null) {
-          setLocalValue(value.toString());
-      }
+    // Chỉ gọi onChange để tính toán lại GPA nếu số hợp lệ
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 10) {
+        onChange(parsed);
+    }
   };
 
   return (
@@ -71,10 +56,10 @@ const ScoreInput = ({
       placeholder="-"
       value={localValue}
       onChange={handleChange}
-      onBlur={handleBlur} // Thêm sự kiện blur để clean data
     />
   );
 };
+// ------------------------------------------------
 
 export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester }) => {
   const [searchTerm, setSearchTerm] = useState('');
