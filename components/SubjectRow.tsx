@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect } from 'react';
+import React, { memo, useState, useEffect, useRef, useCallback } from 'react';
 import { Trash2 } from 'lucide-react';
 import { GradeStatus, Subject } from '../types';
 import { calculateSubjectAverage, getGradeDetails, getSubjectStatus } from '../utils/calculations';
@@ -14,44 +14,65 @@ interface ScoreInputProps {
 const ScoreInput = ({ value, onChange }: ScoreInputProps) => {
   // Chỉ khởi tạo state 1 lần, sau đó sync thủ công khi cần thiết
   const [localValue, setLocalValue] = useState<string>(value?.toString() ?? '');
+  const prevValueRef = useRef<number | null>(value ?? null);
+  const debounceRef = useRef<number | null>(null);
+  const lastSentRef = useRef<number | null>(value ?? null);
 
   // Sync khi props value thay đổi từ bên ngoài (ví dụ: import PDF, reset)
-  // Dùng pattern này tránh loop vô tận của useEffect
-  const [prevValue, setPrevValue] = useState(value);
-  if (value !== prevValue) {
-     setPrevValue(value);
-     setLocalValue(value?.toString() ?? '');
-  }
+  useEffect(() => {
+    if (value !== prevValueRef.current) {
+      prevValueRef.current = value ?? null;
+      lastSentRef.current = value ?? null;
+      setLocalValue(value?.toString() ?? '');
+    }
+  }, [value]);
+
+  const commitValue = useCallback((rawValue: string) => {
+    if (rawValue.trim() === '') {
+      if (lastSentRef.current !== null) {
+        lastSentRef.current = null;
+        onChange(null);
+      }
+      return;
+    }
+
+    const parsed = parseFloat(rawValue);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 10 && parsed !== lastSentRef.current) {
+      lastSentRef.current = parsed;
+      onChange(parsed);
+    }
+  }, [onChange]);
+
+  useEffect(() => {
+    if (debounceRef.current) {
+      window.clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = window.setTimeout(() => {
+      commitValue(localValue);
+    }, 250);
+
+    return () => {
+      if (debounceRef.current) {
+        window.clearTimeout(debounceRef.current);
+      }
+    };
+  }, [commitValue, localValue]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVal = e.target.value;
-    
-    // 1. Cập nhật giao diện ngay lập tức (để gõ được dấu chấm)
     setLocalValue(newVal);
-
-    // 2. Xử lý logic gửi dữ liệu đi
-    if (newVal === '') {
-      onChange(null);
-      return;
-    }
-    
-    const parsed = parseFloat(newVal);
-    // Nếu nhập số hợp lệ thì mới gửi lên cha
-    if (!isNaN(parsed) && parsed >= 0 && parsed <= 10) {
-      onChange(parsed);
-    }
   };
 
   return (
     <input
-      type="number"
-      min="0"
-      max="10"
-      step="0.1"
+      type="text"
+      inputMode="decimal"
+      pattern="^\\d*(\\.\\d*)?$"
       className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent p-1 text-center font-medium transition-all hover:border-blue-300"
       placeholder="-"
       value={localValue}
       onChange={handleChange}
+      onBlur={() => commitValue(localValue)}
     />
   );
 };
