@@ -3,8 +3,7 @@ import { UserData, Semester, Subject } from '../types';
 
 // Cấu hình Worker (Bắt buộc)
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min?url'; 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
-interface ParsedResult {
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;interface ParsedResult {
     studentInfo: Partial<UserData>;
     semesters: Semester[];
     yearRanges: {start: number, end: number}[];
