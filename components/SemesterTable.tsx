@@ -24,24 +24,43 @@ const ScoreInput = ({
   const [localValue, setLocalValue] = useState<string>(value?.toString() ?? '');
 
   useEffect(() => {
-    const parsedLocal = localValue === '' ? null : parseFloat(localValue);
-    if (value !== parsedLocal) {
+    // 1. Chuyển đổi cả 2 về cùng kiểu Number để so sánh an toàn
+    const numericValue = value === null || value === undefined ? null : Number(value);
+    const numericLocal = localValue === '' ? null : parseFloat(localValue);
+
+    // 2. Chỉ cập nhật lại localValue khi giá trị thực sự thay đổi về mặt con số.
+    // Điều này giúp giữ nguyên các trạng thái đang gõ như "8." hay "08"
+    if (numericValue !== numericLocal) {
        setLocalValue(value?.toString() ?? '');
     }
-  }, [value]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]); 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVal = e.target.value;
+    
+    // Trường hợp xóa trắng
     if (newVal === '') {
       setLocalValue('');
       onChange(null);
       return;
     }
+
     const parsed = parseFloat(newVal);
+    
+    // Chặn nhập nếu không phải số hoặc ngoài khoảng 0-10
     if (isNaN(parsed) || parsed < 0 || parsed > 10) return;
 
+    // Cập nhật localValue ngay lập tức để UI phản hồi mượt
     setLocalValue(newVal);
     onChange(parsed);
+  };
+
+  // Thêm onBlur để chuẩn hóa số liệu khi người dùng nhập xong (VD: nhập "8." -> blur thành "8")
+  const handleBlur = () => {
+      if (localValue !== '' && value !== null) {
+          setLocalValue(value.toString());
+      }
   };
 
   return (
@@ -52,6 +71,7 @@ const ScoreInput = ({
       placeholder="-"
       value={localValue}
       onChange={handleChange}
+      onBlur={handleBlur} // Thêm sự kiện blur để clean data
     />
   );
 };
