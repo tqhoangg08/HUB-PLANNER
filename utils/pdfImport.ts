@@ -63,7 +63,7 @@ const extractCleanTextFromPage = async (page: pdfjsLib.PDFPageProxy) => {
     return lines.join('\n');
 };
 
-// --- 2. HÀM PARSE CHÍNH ---
+// --- HÀM 2: XỬ LÝ CHÍNH (LOGIC OFFLINE) ---
 export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
