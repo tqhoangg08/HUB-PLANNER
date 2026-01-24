@@ -10,8 +10,6 @@ import { LostFoundBoard } from './components/LostFoundBoard';
 import { RoleSelection } from './components/RoleSelection';
 import { LoginScreen } from './components/LoginScreen';
 import { ActivityLogModal } from './components/ActivityLogModal';
-import { VictoryCelebration } from './components/VictoryCelebration';
-import { VictoryTheme } from './components/VictoryTheme';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfUse } from './components/TermsOfUse';
 import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock, Facebook, Phone, Mail } from 'lucide-react';
@@ -601,10 +599,10 @@ const App: React.FC = () => {
                     <AlertTriangle size={20} className="shrink-0 mt-0.5" />
                     <div className="space-y-2">
                         <p>
-                            <strong>Lưu ý quan trọng:HIỆN TẠI TÍNH NĂNG ĐANG ĐƯỢC BẢO TRÌ DO GẶP MỘT SỐ LỖI, MỌI NGƯỜI TẠM THỜI NHẬP TAY THỦ CÔNG GIÚP MÌNH VỚI NHAAA.</strong> 
+                            <strong>Lưu ý quan trọng:</strong> Hiện tại tính năng này chỉ hỗ trợ file PDF được xuất từ <strong>máy tính (PC/Laptop)</strong>. File xuất từ điện thoại có thể gặp lỗi định dạng hoặc không nhận diện được dữ liệu.
                         </p>
                         <p>
-                            Hiện tại tính năng này chỉ hỗ trợ file PDF được xuất từ <strong>máy tính (PC/Laptop)</strong>. File xuất từ điện thoại có thể gặp lỗi định dạng hoặc không nhận diện được dữ liệu. Ngoài ra, điểm quá trình sẽ được hệ thống random (do file PDF chỉ hiện điểm tổng kết) để khớp GPA.
+                            Ngoài ra, điểm quá trình sẽ được hệ thống random (do file PDF chỉ hiện điểm tổng kết) để khớp GPA.
                         </p>
                     </div>
                 </div>
@@ -814,8 +812,6 @@ const App: React.FC = () => {
 
     return (
     <div className="min-h-screen pb-12 font-sans text-gray-800 bg-[#f8f9fa] animate-fadeIn">
-      <VictoryTheme />
-      <VictoryCelebration />
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b-2 border-[#003375] fixed top-0 left-0 w-full z-50 shadow-sm transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-0 min-h-[64px] flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
@@ -1156,8 +1152,8 @@ const App: React.FC = () => {
         </a>
       </div>
 
-          <GeminiAdvisor data={data} />
-        
+      <GeminiAdvisor data={data} />
+      
       {showImportLoadingToast && (
             <div className="fixed bottom-4 right-4 bg-white shadow-xl p-4 rounded-xl border border-blue-200 flex items-start gap-3 z-[100] animate-slideInRight max-w-sm">
                 <Loader2 className="animate-spin text-[#003375] shrink-0 mt-0.5" />
