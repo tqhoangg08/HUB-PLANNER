@@ -11,16 +11,24 @@ interface ParsedResult {
     yearRanges: {start: number, end: number}[]; // Keep track of found years
 }
 
+interface AiSubject {
+    ten_hoc_phan: string;
+    tin_chi: number;
+    ket_qua: string | number;
+    hoc_ky?: string;
+}
+
 // System instruction for Gemini
 const GEMINI_SYSTEM_PROMPT = `
 Bạn là một chuyên gia trích xuất dữ liệu từ văn bản và hình ảnh (OCR). Nhiệm vụ của bạn là đọc bảng điểm từ văn bản được cung cấp và trích xuất dữ liệu sạch.
 
 YÊU CẦU VỀ DỮ LIỆU ĐẦU RA:
 1. Định dạng: Chỉ trả về duy nhất một mảng JSON (JSON Array). Không thêm markdown (json), không thêm lời dẫn hay giải thích.
-2. Cấu trúc mỗi phần tử (Object) trong mảng chỉ bao gồm 3 trường sau:
+2. Cấu trúc mỗi phần tử (Object) trong mảng chỉ bao gồm 4 trường sau:
    - "ten_hoc_phan": (String) Tên đầy đủ của môn học.
    - "tin_chi": (Number) Số tín chỉ.
    - "ket_qua": (String/Number) Điểm tổng kết hoặc kết quả xếp loại (ví dụ: 8.5, "Đạt", "M").
+   - "hoc_ky": (String) Tên học kỳ đúng theo nhãn trong văn bản (ví dụ: "Năm học 2023-2024 - Học kỳ 1").
 
 QUY TẮC LỌC VÀ XỬ LÝ LỖI (BẮT BUỘC):
 1. BỎ QUA HOÀN TOÀN các cột sau: Mã học phần (như ITC301, ACC705...), các nút chức năng (Chi tiết, Xóa), và các ô checkbox.
@@ -31,26 +39,126 @@ QUY TẮC LỌC VÀ XỬ LÝ LỖI (BẮT BUỘC):
 4. Các môn bắt đầu bằng chữ "Kỹ năng", "GDTC", "Học phần", "Tiếng anh tăng cường" thường không tính vào GPA nhưng vẫn cần trích xuất chính xác.
 `;
 
-const extractSubjectsWithAI = async (text: string, ai: GoogleGenAI): Promise<any[]> => {
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: `${GEMINI_SYSTEM_PROMPT}\n\nVĂN BẢN CẦN XỬ LÝ:\n${text}`,
-            config: {
-                responseMimeType: "application/json"
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const isRateLimitError = (error: unknown) => {
+    if (!error) return false;
+    const message = error instanceof Error ? error.message : String(error);
+    return message.includes('429') || message.toLowerCase().includes('rate limit');
+};
+
+const parseGeminiResponse = (jsonText?: string) => {
+    if (!jsonText) return [];
+    const cleanJson = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleanJson);
+};
+
+const generateContentWithRetry = async (
+    text: string,
+    ai: GoogleGenAI,
+    maxRetries = 3
+): Promise<AiSubject[]> => {
+    let attempt = 0;
+    while (attempt <= maxRetries) {
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: `${GEMINI_SYSTEM_PROMPT}\n\nVĂN BẢN CẦN XỬ LÝ:\n${text}`,
+                config: {
+                    responseMimeType: "application/json"
+                }
+            });
+            return parseGeminiResponse(response.text) as AiSubject[];
+        } catch (error) {
+            if (isRateLimitError(error) && attempt < maxRetries) {
+                const delayMs = 1000 * Math.pow(2, attempt);
+                console.warn(`Gemini rate limit hit. Retry in ${delayMs}ms...`, error);
+                await sleep(delayMs);
+                attempt += 1;
+                continue;
             }
-        });
-        
-        const jsonText = response.text;
-        if (!jsonText) return [];
-        
-        // Clean up markdown code blocks if present (though prompt says not to)
-        const cleanJson = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleanJson);
-    } catch (error) {
-        console.error("Gemini Extraction Error:", error);
-        return [];
+            console.error("Gemini Extraction Error:", error);
+            return [];
+        }
     }
+    return [];
+};
+
+const buildAiBatches = (blocks: { name: string; text: string }[], maxChars = 12000) => {
+    const batches: string[] = [];
+    let current = '';
+    for (const block of blocks) {
+        const blockText = `<<<HOC_KY:${block.name}>>>\n${block.text}\n`;
+        if (current.length + blockText.length > maxChars && current.length > 0) {
+            batches.push(current);
+            current = blockText;
+        } else {
+            current += blockText;
+        }
+    }
+    if (current.trim()) {
+        batches.push(current);
+    }
+    return batches;
+};
+
+const extractSubjectsWithAI = async (
+    blocks: { name: string; text: string }[],
+    ai: GoogleGenAI
+): Promise<AiSubject[]> => {
+    const batches = buildAiBatches(blocks);
+    const results: AiSubject[] = [];
+
+    for (const [index, batch] of batches.entries()) {
+        const batchResult = await generateContentWithRetry(batch, ai);
+        if (batchResult.length > 0) {
+            results.push(...batchResult);
+        }
+        if (index < batches.length - 1) {
+            await sleep(1000);
+        }
+    }
+
+    return results;
+};
+
+const normalizeSemesterKey = (value: string) => value.toLowerCase().replace(/\s+/g, ' ').trim();
+
+const mapAiSubjectsToSubjects = (aiSubjects: AiSubject[], currentId: string) => {
+    return aiSubjects.map((s: AiSubject, idx: number) => {
+        let isNonGPA = false;
+        const nameLower = s.ten_hoc_phan.toLowerCase();
+        const nonGpaKeywords = [
+            'gdtc', 'giáo dục thể chất',
+            'quốc phòng', 'an ninh',
+            'tiếng anh tăng cường',
+            'kỹ năng',
+            'đầu vào', 'học phần'
+        ];
+
+        if (s.tin_chi === 0 || s.ket_qua === 'M' || nonGpaKeywords.some(k => nameLower.includes(k))) {
+            isNonGPA = true;
+        }
+
+        let scoreVal: number | null = null;
+        if (typeof s.ket_qua === 'number') {
+            scoreVal = s.ket_qua;
+        } else if (typeof s.ket_qua === 'string') {
+            const parsed = parseFloat(s.ket_qua);
+            if (!isNaN(parsed)) scoreVal = parsed;
+        }
+
+        return {
+            id: `ai_${currentId}_${idx}`,
+            name: s.ten_hoc_phan,
+            credits: s.tin_chi,
+            scoreCC: scoreVal,
+            scoreProcess: scoreVal,
+            scoreMid: scoreVal,
+            scoreFinal: scoreVal,
+            isNonGPA: isNonGPA
+        };
+    });
 };
 
 export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
@@ -144,14 +252,38 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     }
 
     // Initialize AI (if API key exists)
-let ai: GoogleGenAI | null = null;
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    let ai: GoogleGenAI | null = null;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-if (apiKey) {
-    ai = new GoogleGenAI({ apiKey: apiKey });
-} else {
-    console.error("LỖI: Chưa tìm thấy VITE_GEMINI_API_KEY. Hãy kiểm tra cài đặt trên Vercel!");
-}
+    if (apiKey) {
+        ai = new GoogleGenAI({ apiKey: apiKey });
+    } else {
+        console.error("LỖI: Chưa tìm thấy VITE_GEMINI_API_KEY. Hãy kiểm tra cài đặt trên Vercel!");
+    }
+
+    const blocks = indices.map((current, index) => {
+        const next = indices[index + 1];
+        const end = next ? next.index : textForRegex.length;
+        return {
+            name: current.name,
+            text: textForRegex.substring(current.index, end)
+        };
+    });
+
+    let aiSubjectsBySemester: Map<string, AiSubject[]> | null = null;
+    if (ai) {
+        const aiSubjects = await extractSubjectsWithAI(blocks, ai);
+        if (aiSubjects.length > 0) {
+            aiSubjectsBySemester = new Map<string, AiSubject[]>();
+            for (const subject of aiSubjects) {
+                if (!subject.hoc_ky) continue;
+                const key = normalizeSemesterKey(subject.hoc_ky);
+                const existing = aiSubjectsBySemester.get(key) ?? [];
+                existing.push(subject);
+                aiSubjectsBySemester.set(key, existing);
+            }
+        }
+    }
 
     // Process each block
     for (let i = 0; i < indices.length; i++) {
@@ -164,53 +296,12 @@ if (apiKey) {
         let trainingScore: number | null = null;
 
         // --- STRATEGY: Try AI first, Fallback to Regex ---
-        let aiSuccess = false;
+        const semesterKey = normalizeSemesterKey(current.name);
+        const aiSubjectsForSemester = aiSubjectsBySemester?.get(semesterKey) ?? [];
+        const aiSuccess = aiSubjectsForSemester.length > 0;
 
-        if (ai) {
-            try {
-                const aiSubjects = await extractSubjectsWithAI(blockContent, ai);
-                if (aiSubjects && aiSubjects.length > 0) {
-                    subjects = aiSubjects.map((s: any, idx: number) => {
-                        // Check non-GPA based on rules
-                        let isNonGPA = false;
-                        const nameLower = s.ten_hoc_phan.toLowerCase();
-                        const nonGpaKeywords = [
-                            'gdtc', 'giáo dục thể chất',
-                            'quốc phòng', 'an ninh',
-                            'tiếng anh tăng cường',
-                            'kỹ năng',
-                            'đầu vào','học phần'
-                        ];
-
-                        if (s.tin_chi === 0 || s.ket_qua === 'M' || nonGpaKeywords.some(k => nameLower.includes(k))) {
-                            isNonGPA = true;
-                        }
-                        
-                        // Parse score
-                        let scoreVal: number | null = null;
-                        if (typeof s.ket_qua === 'number') {
-                            scoreVal = s.ket_qua;
-                        } else if (typeof s.ket_qua === 'string') {
-                            const parsed = parseFloat(s.ket_qua);
-                            if (!isNaN(parsed)) scoreVal = parsed;
-                        }
-
-                        return {
-                            id: `ai_${current.id}_${idx}`,
-                            name: s.ten_hoc_phan,
-                            credits: s.tin_chi,
-                            scoreCC: scoreVal,
-                            scoreProcess: scoreVal, // AI gives summary, we assume components match for now
-                            scoreMid: scoreVal,
-                            scoreFinal: scoreVal,
-                            isNonGPA: isNonGPA
-                        };
-                    });
-                    aiSuccess = true;
-                }
-            } catch (err) {
-                console.warn("AI parsing failed for block, falling back to regex", err);
-            }
+        if (aiSuccess) {
+            subjects = mapAiSubjectsToSubjects(aiSubjectsForSemester, current.id);
         }
 
         // Fallback: Regex Parsing (if AI missing or failed)
