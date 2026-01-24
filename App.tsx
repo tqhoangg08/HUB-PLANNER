@@ -1154,8 +1154,8 @@ const App: React.FC = () => {
         </a>
       </div>
 
-      <GeminiAdvisor data={data} />
-      
+          <GeminiAdvisor data={data} />
+        
       {showImportLoadingToast && (
             <div className="fixed bottom-4 right-4 bg-white shadow-xl p-4 rounded-xl border border-blue-200 flex items-start gap-3 z-[100] animate-slideInRight max-w-sm">
                 <Loader2 className="animate-spin text-[#003375] shrink-0 mt-0.5" />
