@@ -89,6 +89,12 @@ export const SubjectRow = memo(({ subject, index, onFieldChange, onToggleNonGPA,
   const avg10 = calculateSubjectAverage(subject);
   const { scale4: avg4, letter } = avg10 !== null ? getGradeDetails(avg10) : { scale4: null, letter: '-' };
   const status = getSubjectStatus(avg10);
+  const [localName, setLocalName] = useState(subject.name);
+  const [localCredits, setLocalCredits] = useState(subject.credits.toString());
+  const nameRef = useRef(subject.name);
+  const creditsRef = useRef(subject.credits);
+  const nameDebounceRef = useRef<number | null>(null);
+  const creditsDebounceRef = useRef<number | null>(null);
 
   let statusClass = 'text-gray-400';
   let statusText = '-';
@@ -106,13 +112,72 @@ export const SubjectRow = memo(({ subject, index, onFieldChange, onToggleNonGPA,
     statusText = 'Đạt';
   }
 
-  // Sử dụng useCallback để tránh tạo hàm mới mỗi lần render (tối ưu thêm)
+  useEffect(() => {
+    if (subject.name !== nameRef.current) {
+      nameRef.current = subject.name;
+      setLocalName(subject.name);
+    }
+  }, [subject.name]);
+
+  useEffect(() => {
+    if (subject.credits !== creditsRef.current) {
+      creditsRef.current = subject.credits;
+      setLocalCredits(subject.credits.toString());
+    }
+  }, [subject.credits]);
+
+  const commitName = useCallback((value: string) => {
+    if (value !== nameRef.current) {
+      nameRef.current = value;
+      onFieldChange(subject.id, 'name', value);
+    }
+  }, [onFieldChange, subject.id]);
+
+  const commitCredits = useCallback((value: string) => {
+    const parsed = parseInt(value, 10);
+    const normalized = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    if (normalized !== creditsRef.current) {
+      creditsRef.current = normalized;
+      onFieldChange(subject.id, 'credits', normalized);
+    }
+  }, [onFieldChange, subject.id]);
+
+  useEffect(() => {
+    if (nameDebounceRef.current) {
+      window.clearTimeout(nameDebounceRef.current);
+    }
+    nameDebounceRef.current = window.setTimeout(() => {
+      commitName(localName);
+    }, 300);
+
+    return () => {
+      if (nameDebounceRef.current) {
+        window.clearTimeout(nameDebounceRef.current);
+      }
+    };
+  }, [commitName, localName]);
+
+  useEffect(() => {
+    if (creditsDebounceRef.current) {
+      window.clearTimeout(creditsDebounceRef.current);
+    }
+    creditsDebounceRef.current = window.setTimeout(() => {
+      commitCredits(localCredits);
+    }, 300);
+
+    return () => {
+      if (creditsDebounceRef.current) {
+        window.clearTimeout(creditsDebounceRef.current);
+      }
+    };
+  }, [commitCredits, localCredits]);
+
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      onFieldChange(subject.id, 'name', e.target.value);
+    setLocalName(e.target.value);
   };
   
   const handleCreditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      onFieldChange(subject.id, 'credits', parseInt(e.target.value) || 0);
+    setLocalCredits(e.target.value);
   };
 
   return (
@@ -132,8 +197,9 @@ export const SubjectRow = memo(({ subject, index, onFieldChange, onToggleNonGPA,
         <input
           type="text"
           className="w-full bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375]"
-          value={subject.name}
+          value={localName}
           onChange={handleNameChange}
+          onBlur={() => commitName(localName)}
         />
         <div className="flex items-center gap-2 mt-1">
           <label className="text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
@@ -150,10 +216,13 @@ export const SubjectRow = memo(({ subject, index, onFieldChange, onToggleNonGPA,
 
       <td className="px-1 py-2">
         <input
-          type="number"
+          type="text"
+          inputMode="numeric"
+          pattern="\\d*"
           className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300"
-          value={subject.credits}
+          value={localCredits}
           onChange={handleCreditChange}
+          onBlur={() => commitCredits(localCredits)}
         />
       </td>
 
