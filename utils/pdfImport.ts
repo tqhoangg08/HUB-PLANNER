@@ -72,8 +72,6 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     // 2. Setup variables
     const studentInfo: Partial<UserData> = {};
     const semestersMap = new Map<string, Semester>();
-    
-    // FIX LỖI Ở ĐÂY: Khởi tạo luôn giá trị rỗng = []
     const yearRanges: { start: number; end: number }[] = []; 
 
     let currentSemId = "";
@@ -144,4 +142,14 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
                     id: `sub_${currentSemId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                     name: nameRaw,
                     credits: credits,
-                    scoreCC: scoreVal, scoreProcess: scoreVal,
+                    scoreCC: scoreVal, scoreProcess: scoreVal, scoreMid: scoreVal, scoreFinal: scoreVal,
+                    isNonGPA: isNonGPA
+                });
+            }
+        }
+    }
+
+    const semesters = Array.from(semestersMap.values()).sort((a, b) => a.id.localeCompare(b.id));
+
+    return { studentInfo, semesters, yearRanges };
+};
