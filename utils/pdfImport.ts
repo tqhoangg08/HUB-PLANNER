@@ -145,12 +145,12 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
 
     // Initialize AI (if API key exists)
 let ai: GoogleGenAI | null = null;
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+const apiKey = import.meta.env.GEMINI_API_KEY;
 
 if (apiKey) {
     ai = new GoogleGenAI({ apiKey: apiKey });
 } else {
-    console.error("LỖI: Chưa tìm thấy VITE_GEMINI_API_KEY. Hãy kiểm tra cài đặt trên Vercel!");
+    console.error("LỖI: Chưa tìm thấy GEMINI_API_KEY. Hãy kiểm tra cài đặt trên Vercel!");
 }
 
     // Process each block
