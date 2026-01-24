@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
 
 const CONFETTI_COLORS = ['#da251d', '#ffff00'];
+const SESSION_KEY = 'VICTORY_SEEN';
 
 export const VictoryCelebration = () => {
   const [isVisible, setIsVisible] = useState(true);
@@ -33,6 +34,11 @@ export const VictoryCelebration = () => {
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    if (sessionStorage.getItem(SESSION_KEY)) {
+      setIsVisible(false);
+      return;
+    }
+
     confettiRef.current = confetti.create(canvasRef.current, {
       resize: true,
       useWorker: false,
@@ -77,7 +83,10 @@ export const VictoryCelebration = () => {
           </button>
           <button
             type="button"
-            onClick={() => setIsVisible(false)}
+            onClick={() => {
+              setIsVisible(false);
+              sessionStorage.setItem(SESSION_KEY, 'true');
+            }}
             className="rounded-full border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-600 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200"
           >
             Đóng
