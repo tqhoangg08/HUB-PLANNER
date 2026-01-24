@@ -6,7 +6,6 @@ import { mapIdToDisplay } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
 import { Trash2, Plus, Star, Search, X, Pencil, BookOpen, Crown, TrendingUp, Loader2, AlertCircle, ChevronRight, BarChart2, ChevronLeft, Award } from 'lucide-react';
 import { playClick } from '../utils/audio';
-import { SubjectRow } from './SubjectRow';
 
 interface SemesterTableProps {
   semester: Semester;
