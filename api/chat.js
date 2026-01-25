@@ -26,10 +26,8 @@ export default async function handler(req, res) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
 
-    // --- CẤU HÌNH THEO Ý BẠN ---
-    // Sử dụng model Gemini 3 Flash Preview
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-3-flash-preview", 
+        model: "gemini-2.5-flash-lite", 
         generationConfig: {
             responseMimeType: "application/json"
         }
@@ -44,10 +42,10 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error("API Error:", error);
     
-    // Trả về lỗi chi tiết để debug nếu model không tồn tại
     return res.status(500).json({ 
         error: error.message || "Lỗi Server", 
-        details: "Có thể tên model 'gemini-3-flash-preview' chưa khả dụng với API Key này."
+        details: "Có thể tên model 'gemini-2.5-flash-lite' chưa khả dụng với API Key này."
     });
   }
 }
+
