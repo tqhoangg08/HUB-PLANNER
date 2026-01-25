@@ -1,7 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 // ĐÃ XÓA: import { GoogleGenAI } from "@google/genai"; -> Không dùng SDK ở client để bảo mật
 import { UserData, Semester, Subject } from '../types';
-
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 // Set worker for PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
@@ -279,3 +279,4 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
 
     return { studentInfo, semesters, yearRanges };
 };
+
