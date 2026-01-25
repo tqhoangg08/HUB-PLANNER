@@ -144,6 +144,10 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
 
     // Process each block
     for (let i = 0; i < indices.length; i++) {
+        if (i > 0) {
+            console.log(`Đang đợi 4s để tránh rate limit... (Học kỳ ${i + 1})`);
+            await delay(4000); // Đợi 4000ms = 4 giây
+        }
         const current = indices[i];
         const next = indices[i + 1];
         const end = next ? next.index : textForRegex.length;
@@ -279,4 +283,5 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
 
     return { studentInfo, semesters, yearRanges };
 };
+
 
