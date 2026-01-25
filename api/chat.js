@@ -1,8 +1,9 @@
-// api/chat.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default async function handler(req, res) {
-  // Cấu hình CORS
+  // --------------------------------------------------------
+  // 1. CẤU HÌNH CORS (Để trình duyệt không báo lỗi)
+  // --------------------------------------------------------
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -11,80 +12,107 @@ export default async function handler(req, res) {
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   );
 
+  // Xử lý request OPTIONS (Preflight)
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
   }
 
-  const { message } = req.body;
+  // --------------------------------------------------------
+  // 2. 🛡️ BẢO MẬT CẤP 2: XÁC THỰC TÊN MIỀN (DOMAIN CHECK)
+  // --------------------------------------------------------
+  const referer = req.headers.referer || req.headers.referrer;
+  const origin = req.headers.origin;
+  
+  const allowedDomains = [
+    'hotrosinhvienhub.id.vn', // Web chính
+    'localhost',              // Để test dưới máy
+    '127.0.0.1'
+  ];
 
-  // 1. TẠO KHO KEY (POOL)
-  // Hãy thêm tất cả các key bạn tạo được vào đây (KEY_1, KEY_2, v.v.)
-  let keyPool = [
-    process.env.GEMINI_API_KEY,
-    process.env.KEY_1,
-    process.env.KEY_2,
-    process.env.KEY_3,
-    process.env.KEY_4
-  ].filter(k => k); // Lọc bỏ key rỗng
+  // Kiểm tra: Nếu request không đến từ các nguồn trên -> CHẶN
+  // Lưu ý: Postman hay tool chạy trực tiếp thường không có referer -> Bị chặn luôn
+  const isAllowed = allowedDomains.some(domain => 
+    (referer && referer.includes(domain)) || (origin && origin.includes(domain))
+  );
 
-  if (keyPool.length === 0) {
-    return res.status(500).json({ error: "Server chưa có API Key nào!" });
+  if (!isAllowed) {
+    console.warn(`⛔ Blocked request from: ${referer || origin || 'Unknown'}`);
+    return res.status(403).json({ 
+      error: "Forbidden", 
+      message: "Access denied. Requests must originate from hotrosinhvienhub.id.vn" 
+    });
   }
 
-  // Hàm hỗ trợ gọi Gemini
-  const callGemini = async (apiKey, msg) => {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash-lite", 
-        generationConfig: { responseMimeType: "application/json" }
-    });
-    const result = await model.generateContent(msg);
-    const response = await result.response;
-    return response.text();
-  };
+  // --------------------------------------------------------
+  // 3. 🔄 CHIẾN THUẬT XOAY VÒNG KEY (RANDOM KEY ROTATION)
+  // --------------------------------------------------------
+  try {
+    const { message } = req.body;
 
-  // 2. CHIẾN THUẬT: RANDOM + RETRY (FALLBACK)
-  // Thử tối đa 3 lần với 3 key khác nhau trước khi bỏ cuộc
-  let attempts = 0;
-  const maxAttempts = 3; 
-  let lastError = null;
+    let keyPool = [
+      process.env.GEMINI_API_KEY,
+      process.env.KEY_1,
+      process.env.KEY_2,
+      process.env.KEY_3,
+      process.env.KEY_4
+    ].filter(k => k); // Lọc bỏ các key rỗng (undefined)
 
-  while (attempts < maxAttempts && keyPool.length > 0) {
-    attempts++;
-    
-    // Chọn ngẫu nhiên 1 key (Chiến thuật Random/Round Robin)
-    const randomIndex = Math.floor(Math.random() * keyPool.length);
-    const currentKey = keyPool[randomIndex];
+    if (keyPool.length === 0) {
+      return res.status(500).json({ error: "Server Configuration Error: No API Keys found." });
+    }
 
-    try {
-      // Gọi thử
-      const text = await callGemini(currentKey, message);
+    // Hàm gọi Gemini (Có thể tái sử dụng)
+    const callGemini = async (apiKey, prompt) => {
+      const genAI = new GoogleGenerativeAI(apiKey);
       
-      // Nếu thành công -> Trả về ngay
-      return res.status(200).json({ reply: text });
+      const model = genAI.getGenerativeModel({ 
+          model: "gemini-2.5-flash-lite", 
+          generationConfig: { responseMimeType: "application/json" }
+      });
+      
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    };
 
-    } catch (error) {
-      console.error(`Lần thử ${attempts} thất bại với key đuôi ...${currentKey.slice(-4)}:`, error.message);
-      lastError = error;
+    // --- LOGIC THỬ LẠI (RETRY) ---
+    // Chọn ngẫu nhiên 1 key để bắt đầu
+    let attempts = 0;
+    let maxAttempts = 2; // Thử tối đa 2 key khác nhau nếu lỗi
+    let lastError = null;
 
-      // CHIẾN THUẬT FALLBACK:
-      // Nếu lỗi liên quan đến Quota (429) hoặc Quyền (403), xóa key này khỏi pool và thử key khác
-      if (error.message.includes('429') || error.message.includes('403') || error.message.includes('Quota')) {
-        // Xóa key hỏng khỏi danh sách để vòng lặp sau không chọn trúng nó nữa
-        keyPool.splice(randomIndex, 1);
-        console.log("-> Đang đổi sang Key khác...");
-        continue; // Chạy tiếp vòng lặp while
-      } else {
-        // Nếu lỗi khác (ví dụ sai cú pháp, server google sập) thì dừng luôn
+    while (attempts < maxAttempts && keyPool.length > 0) {
+      attempts++;
+      
+      // Random Key
+      const randomIndex = Math.floor(Math.random() * keyPool.length);
+      const currentKey = keyPool[randomIndex];
+
+      try {
+        const text = await callGemini(currentKey, message);
+        return res.status(200).json({ reply: text }); // Thành công -> Trả về luôn
+
+      } catch (error) {
+        console.error(`Attempt ${attempts} failed with key ...${currentKey.slice(-4)}: ${error.message}`);
+        lastError = error;
+
+        // Nếu lỗi liên quan đến Hết hạn mức (429) hoặc Quyền (403) -> Xóa key này và thử key khác
+        if (error.message.includes('429') || error.message.includes('403') || error.message.includes('Quota')) {
+           keyPool.splice(randomIndex, 1); // Loại bỏ key hỏng
+           continue; // Thử lại
+        } 
+        
+        // Nếu lỗi khác (ví dụ sai cú pháp) thì dừng luôn, không thử lại
         break;
       }
     }
-  }
 
-  // Nếu thử hết cách mà vẫn lỗi
-  return res.status(500).json({ 
-    error: "Tất cả các Key đều đang bận hoặc hết hạn mức.", 
-    details: lastError ? lastError.message : "Unknown error"
-  });
+    // Nếu chạy hết vòng lặp mà vẫn lỗi
+    throw lastError || new Error("All API keys are exhausted or busy.");
+
+  } catch (error) {
+    console.error("Final API Error:", error);
+    return res.status(500).json({ error: error.message || "Internal Server Error" });
+  }
 }
