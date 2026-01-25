@@ -20,3 +20,8 @@ export default defineConfig({
     sourcemap: false, // ✅ tắt source map khi build/deploy
   },
 })
+esbuild: {
+      drop: ['console', 'debugger'], 
+    },
+  },
+})
