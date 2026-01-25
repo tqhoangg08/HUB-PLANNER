@@ -12,6 +12,8 @@
     "@google/genai": "^1.34.0",
     "@google/generative-ai": "^0.21.0",
     "@supabase/supabase-js": "^2.90.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.36.1",
     "date-fns": "^4.1.0",
     "jspdf": "4.0.0",
     "jspdf-autotable": "5.0.7",
