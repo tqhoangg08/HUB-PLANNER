@@ -1,9 +1,29 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+// --------------------------------------------------------
+// KHỞI TẠO REDIS & RATE LIMITER (Nằm ngoài handler để tối ưu)
+// --------------------------------------------------------
+// Kiểm tra xem đã cấu hình Redis chưa để tránh lỗi crash server
+const redis = (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+  ? new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    })
+  : null;
+
+// Tạo bộ đếm: Cho phép 3 requests trong vòng 60 phút (1h)
+const ratelimit = redis
+  ? new Ratelimit({
+      redis: redis,
+      limiter: Ratelimit.slidingWindow(3, "60 m"), 
+      analytics: true, // Để xem biểu đồ trên Upstash dashboard
+    })
+  : null;
 
 export default async function handler(req, res) {
-  // --------------------------------------------------------
-  // 1. CẤU HÌNH CORS (Để trình duyệt không báo lỗi)
-  // --------------------------------------------------------
+  // 1. CẤU HÌNH CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -12,107 +32,88 @@ export default async function handler(req, res) {
     'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
   );
 
-  // Xử lý request OPTIONS (Preflight)
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // --------------------------------------------------------
-  // 2. 🛡️ BẢO MẬT CẤP 2: XÁC THỰC TÊN MIỀN (DOMAIN CHECK)
-  // --------------------------------------------------------
-  const referer = req.headers.referer || req.headers.referrer;
-  const origin = req.headers.origin;
-  
-  const allowedDomains = [
-    'hotrosinhvienhub.id.vn', // Web chính
-    'localhost',              // Để test dưới máy
-    '127.0.0.1'
-  ];
-
-  // Kiểm tra: Nếu request không đến từ các nguồn trên -> CHẶN
-  // Lưu ý: Postman hay tool chạy trực tiếp thường không có referer -> Bị chặn luôn
-  const isAllowed = allowedDomains.some(domain => 
-    (referer && referer.includes(domain)) || (origin && origin.includes(domain))
-  );
-
-  if (!isAllowed) {
-    console.warn(`⛔ Blocked request from: ${referer || origin || 'Unknown'}`);
-    return res.status(403).json({ 
-      error: "Forbidden", 
-      message: "Access denied. Requests must originate from hotrosinhvienhub.id.vn" 
-    });
-  }
-
-  // --------------------------------------------------------
-  // 3. 🔄 CHIẾN THUẬT XOAY VÒNG KEY (RANDOM KEY ROTATION)
-  // --------------------------------------------------------
   try {
-    const { message } = req.body;
-
-    let keyPool = [
-      process.env.GEMINI_API_KEY,
-      process.env.KEY_1,
-      process.env.KEY_2,
-      process.env.KEY_3,
-      process.env.KEY_4
-    ].filter(k => k); // Lọc bỏ các key rỗng (undefined)
-
-    if (keyPool.length === 0) {
-      return res.status(500).json({ error: "Server Configuration Error: No API Keys found." });
-    }
-
-    // Hàm gọi Gemini (Có thể tái sử dụng)
-    const callGemini = async (apiKey, prompt) => {
-      const genAI = new GoogleGenerativeAI(apiKey);
+    // ============================================================
+    // 🛡️ LỚP 1: RATE LIMITING (CHẶN THEO IP) - CAO CẤP
+    // ============================================================
+    if (ratelimit) {
+      // Lấy IP người dùng. Trên Vercel, IP thật nằm trong header 'x-forwarded-for'
+      const ip = req.headers['x-forwarded-for'] || '127.0.0.1';
       
-      const model = genAI.getGenerativeModel({ 
-          model: "gemini-2.5-flash-lite", 
-          generationConfig: { responseMimeType: "application/json" }
-      });
-      
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      return response.text();
-    };
+      // Gọi Upstash để kiểm tra xem IP này đã spam chưa
+      const { success, limit, remaining, reset } = await ratelimit.limit(ip);
 
-    // --- LOGIC THỬ LẠI (RETRY) ---
-    // Chọn ngẫu nhiên 1 key để bắt đầu
-    let attempts = 0;
-    let maxAttempts = 2; // Thử tối đa 2 key khác nhau nếu lỗi
-    let lastError = null;
+      // Trả về Header để Frontend biết còn bao nhiêu lượt (Tùy chọn)
+      res.setHeader('X-RateLimit-Limit', limit);
+      res.setHeader('X-RateLimit-Remaining', remaining);
 
-    while (attempts < maxAttempts && keyPool.length > 0) {
-      attempts++;
-      
-      // Random Key
-      const randomIndex = Math.floor(Math.random() * keyPool.length);
-      const currentKey = keyPool[randomIndex];
-
-      try {
-        const text = await callGemini(currentKey, message);
-        return res.status(200).json({ reply: text }); // Thành công -> Trả về luôn
-
-      } catch (error) {
-        console.error(`Attempt ${attempts} failed with key ...${currentKey.slice(-4)}: ${error.message}`);
-        lastError = error;
-
-        // Nếu lỗi liên quan đến Hết hạn mức (429) hoặc Quyền (403) -> Xóa key này và thử key khác
-        if (error.message.includes('429') || error.message.includes('403') || error.message.includes('Quota')) {
-           keyPool.splice(randomIndex, 1); // Loại bỏ key hỏng
-           continue; // Thử lại
-        } 
-        
-        // Nếu lỗi khác (ví dụ sai cú pháp) thì dừng luôn, không thử lại
-        break;
+      if (!success) {
+        console.warn(`⛔ Rate Limit Exceeded for IP: ${ip}`);
+        return res.status(429).json({ 
+          error: "Too Many Requests", 
+          message: "Bạn đã dùng hết lượt thử miễn phí trong giờ này. Vui lòng quay lại sau." 
+        });
       }
     }
 
-    // Nếu chạy hết vòng lặp mà vẫn lỗi
-    throw lastError || new Error("All API keys are exhausted or busy.");
+    // ============================================================
+    // 🛡️ LỚP 2: DOMAIN VERIFICATION (CHẶN REQUEST NGOÀI)
+    // ============================================================
+    const referer = req.headers.referer || req.headers.referrer;
+    const origin = req.headers.origin;
+    const allowedDomains = ['hotrosinhvienhub.id.vn', 'localhost', '127.0.0.1'];
+    
+    // Lưu ý: Nếu bạn test bằng Postman thì referer sẽ null -> Bị chặn
+    // Nếu muốn test Postman, hãy tạm comment đoạn if này lại
+    const isAllowed = allowedDomains.some(d => (referer?.includes(d) || origin?.includes(d)));
+    
+    if (!isAllowed) {
+      return res.status(403).json({ error: "Forbidden", message: "Domain not allowed." });
+    }
+
+    // ============================================================
+    // 🚀 LỚP 3: AI PROCESSING & KEY ROTATION
+    // ============================================================
+    const { message } = req.body;
+    let keyPool = [
+      process.env.GEMINI_API_KEY,
+      process.env.KEY_1, process.env.KEY_2, process.env.KEY_3, process.env.KEY_4
+    ].filter(k => k);
+
+    if (keyPool.length === 0) throw new Error("No API Keys configured.");
+
+    // Hàm gọi AI
+    const callGemini = async (apiKey, prompt) => {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", generationConfig: { responseMimeType: "application/json" }});
+      const result = await model.generateContent(prompt);
+      return (await result.response).text();
+    };
+
+    // Retry Logic
+    let attempts = 0;
+    while (attempts < 2 && keyPool.length > 0) {
+      attempts++;
+      const idx = Math.floor(Math.random() * keyPool.length);
+      const key = keyPool[idx];
+      try {
+        const text = await callGemini(key, message);
+        return res.status(200).json({ reply: text });
+      } catch (err) {
+        console.error(`Key ...${key.slice(-4)} failed:`, err.message);
+        if (err.message.includes('429') || err.message.includes('Quota')) {
+           keyPool.splice(idx, 1);
+           continue;
+        }
+        break;
+      }
+    }
+    throw new Error("Service busy, please try again.");
 
   } catch (error) {
-    console.error("Final API Error:", error);
+    console.error("Handler Error:", error);
     return res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 }
