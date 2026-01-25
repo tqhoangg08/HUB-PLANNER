@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { GoogleGenAI } from "@google/genai";
 import { MessageSquare, Sparkles, Loader2, X } from 'lucide-react';
-import { UserData, Subject } from '../types';
+import { UserData } from '../types';
 import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
 import { playClick } from '../utils/audio';
 import DOMPurify from 'dompurify';
@@ -9,25 +8,6 @@ import DOMPurify from 'dompurify';
 interface GeminiAdvisorProps {
   data: UserData;
 }
-
-// Helper to safely get API Key
-const getApiKey = () => {
-    try {
-        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-            return process.env.API_KEY;
-        }
-    } catch(e) {}
-    
-    try {
-        // @ts-ignore
-        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
-            // @ts-ignore
-            return import.meta.env.VITE_GEMINI_API_KEY;
-        }
-    } catch(e) {}
-    
-    return '';
-};
 
 export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -37,17 +17,12 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
 
   const handleAdvice = async () => {
     playClick();
-    const apiKey = getApiKey();
     
-    if (!apiKey) {
-      setResponse("Vui lòng cấu hình API KEY (VITE_GEMINI_API_KEY) để sử dụng tính năng này.");
-      return;
-    }
-
     setLoading(true);
     setResponse(null);
 
     try {
+      // 1. Chuẩn bị dữ liệu để gửi
       const stats = calculateCumulativeStats(data.semesters);
       const degree = getDegreeClassification(stats.gpa4);
       
@@ -65,6 +40,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
         ? Math.round(filledTrainingScores.reduce((a, b) => a + b, 0) / filledTrainingScores.length)
         : 0;
 
+      // 2. Tạo Prompt (Lời nhắc)
       const context = `
         Bạn là một Cố vấn Học tập ảo tại trường Đại học Ngân hàng TP.HCM (HUB).
         
@@ -75,8 +51,8 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
         - Chuyên ngành: ${data.specializationName || data.majorName || "N/A"}
         
         Dữ liệu học tập:
-        - GPA (Hệ 4): ${stats.gpa4.toFixed(1)}
-        - GPA (Hệ 10): ${stats.gpa10.toFixed(1)}
+        - GPA (Hệ 4): ${stats.gpa4.toFixed(2)}
+        - GPA (Hệ 10): ${stats.gpa10.toFixed(2)}
         - Tổng tín chỉ tích lũy: ${stats.passedCredits}/${data.totalCreditsRequired || 125}
         - Xếp loại tạm thời: ${degree}
         - Môn rớt (cần học lại): ${failedSubjects.length > 0 ? failedSubjects.join(', ') : 'Không có'}
@@ -88,16 +64,26 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
         Hãy trả lời ngắn gọn, thân thiện, gọi sinh viên bằng tên. Sử dụng markdown để định dạng. Tập trung vào các môn cần cải thiện hoặc chiến lược học tập phù hợp với chuyên ngành ${data.specializationName || "của sinh viên"}.
       `;
 
-      const ai = new GoogleGenAI({ apiKey: apiKey });
-      const result = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: context,
+      // 3. GỌI VỀ SERVER 
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: context })
       });
 
-      setResponse(result.text || "Xin lỗi, tôi không thể đưa ra lời khuyên lúc này.");
-    } catch (error) {
+      if (!res.ok) {
+          if (res.status === 429) throw new Error("Hệ thống đang bận, vui lòng thử lại sau ít phút.");
+          throw new Error(`Lỗi Server: ${res.status}`);
+      }
+
+      const resData = await res.json();
+      setResponse(resData.reply || "Xin lỗi, tôi không thể đưa ra lời khuyên lúc này.");
+
+    } catch (error: any) {
       console.error(error);
-      setResponse("Có lỗi xảy ra khi kết nối với Gemini AI.");
+      setResponse(error.message || "Có lỗi xảy ra khi kết nối với HUB Planner AI.");
     } finally {
       setLoading(false);
     }
@@ -145,7 +131,7 @@ export const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ data }) => {
             </div>
 
             <div className="p-4 border-t bg-gray-50 rounded-b-xl">
-<form
+              <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleAdvice();
