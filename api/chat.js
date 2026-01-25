@@ -2,6 +2,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default async function handler(req, res) {
+  // 1. Cấu hình CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -20,17 +21,15 @@ export default async function handler(req, res) {
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      console.error("Server Error: Thiếu GEMINI_API_KEY");
-      return res.status(500).json({ error: "Server configuration error: Missing API Key" });
+      return res.status(500).json({ error: "Server Error: Thiếu GEMINI_API_KEY" });
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
 
-    // --- SỬA Ở ĐÂY: Đổi tên model ---
-    // Thay vì 'gemini-1.5-flash', hãy dùng 'gemini-1.5-flash-latest'
-    // Hoặc nếu vẫn lỗi thì thử 'gemini-pro' (tuy cũ hơn nhưng rất ổn định)
+    // --- CẤU HÌNH THEO Ý BẠN ---
+    // Sử dụng model Gemini 3 Flash Preview
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash-latest", 
+        model: "gemini-3-flash-preview", 
         generationConfig: {
             responseMimeType: "application/json"
         }
@@ -44,10 +43,11 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("API Error:", error);
-    // Trả về lỗi chi tiết để dễ debug
+    
+    // Trả về lỗi chi tiết để debug nếu model không tồn tại
     return res.status(500).json({ 
-        error: error.message || "Internal Server Error",
-        details: error.toString()
+        error: error.message || "Lỗi Server", 
+        details: "Có thể tên model 'gemini-3-flash-preview' chưa khả dụng với API Key này."
     });
   }
 }
