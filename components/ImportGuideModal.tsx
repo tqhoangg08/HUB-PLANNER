@@ -73,8 +73,11 @@ export const ImportGuideModal: React.FC<ImportGuideModalProps> = ({ onClose, onF
                     <AlertTriangle size={20} className="shrink-0 mt-0.5" />
                     <div className="space-y-2">
                         <p>
-                            <strong>Lưu ý quan trọng: HIỆN TẠI WEB ĐANG BẢO TRÌ TÍNH NĂNG NHẬP BẢNG ĐIỂM BẰNG PDF, MỌI NGƯỜI TẠM THỜI NHẬP THỦ CÔNG BẰNG TAY GIÚP SỐP VỚI NHÉ HIC. SỐP SẼ SỚM QUAY TRỞ LẠI Ạ</strong>
+                            <strong>Lưu ý quan trọng: TÍNH NĂNG ĐÃ HOẠT ĐỘNG BÌNH THƯỜNG, CẢM ƠN BẠN ĐÃ ĐỢI CHỜ Ạ</strong>
                         </p>
+                        <p>
+                            Hiện tại tính năng này chỉ hỗ trợ file PDF được xuất từ <strong>máy tính (PC/Laptop)</strong>. File xuất từ điện thoại có thể gặp lỗi định dạng hoặc không nhận diện được dữ liệu. Ngoài ra, điểm quá trình sẽ được hệ thống random (do file PDF chỉ hiện điểm tổng kết) để khớp GPA.
+                       </p>
                     </div>
                 </div>
 
@@ -97,3 +100,4 @@ export const ImportGuideModal: React.FC<ImportGuideModalProps> = ({ onClose, onF
         </div>
     </div>
 );
+
