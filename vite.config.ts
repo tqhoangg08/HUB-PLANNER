@@ -18,10 +18,9 @@ export default defineConfig({
   build: {
     target: "esnext",
     sourcemap: false, // ✅ tắt source map khi build/deploy
-  },
-})
 esbuild: {
       drop: ['console', 'debugger'], 
     },
   },
 })
+
