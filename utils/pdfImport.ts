@@ -51,7 +51,7 @@ const checkSpamLimit = (): boolean => {
 // ==========================================
 // 🤖 PHẦN 2: CẤU HÌNH AI (PROMPT)
 // ==========================================
-const GEMINI_SYSTEM_PROMPT = `
+const AI_SYSTEM_PROMPT = `
 Bạn là chuyên gia OCR xử lý bảng điểm đại học.
 Nhiệm vụ: Trích xuất toàn bộ dữ liệu từ văn bản đầu vào và trả về 1 JSON duy nhất.
 
@@ -91,7 +91,7 @@ QUY TẮC QUAN TRỌNG:
 // ==========================================
 const extractFullTranscriptWithAI = async (text: string): Promise<any> => {
     try {
-        const fullMessage = `${GEMINI_SYSTEM_PROMPT}\n\nVĂN BẢN ĐẦU VÀO:\n${text}`;
+        const fullMessage = `${AI_SYSTEM_PROMPT}\n\nVĂN BẢN ĐẦU VÀO:\n${text}`;
         
         const response = await fetch('/api/chat', {
             method: 'POST',

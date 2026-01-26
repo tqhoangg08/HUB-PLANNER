@@ -1,27 +1,37 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk"; // 👈 Thư viện mới
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
 // --------------------------------------------------------
-// KHỞI TẠO REDIS & RATE LIMITER (Nằm ngoài handler để tối ưu)
+// 1. KHỞI TẠO GROQ CLIENT
 // --------------------------------------------------------
-// Kiểm tra xem đã cấu hình Redis chưa để tránh lỗi crash server
+const groq = new Groq({
+    apiKey: process.env.GROQ_API_KEY
+});
+
+// --------------------------------------------------------
+// 2. KHỞI TẠO REDIS & RATE LIMITER
+// --------------------------------------------------------
 const redis = (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
   ? new Redis({
       url: process.env.UPSTASH_REDIS_REST_URL,
       token: process.env.UPSTASH_REDIS_REST_TOKEN,
     })
   : null;
+
 const ratelimit = redis
   ? new Ratelimit({
       redis: redis,
-      limiter: Ratelimit.slidingWindow(2, "1 d"), 
-      analytics: true, // Để xem biểu đồ trên Upstash dashboard
+      // 🔥 Groq cho hạn mức cao, mình tăng lên 10 lần/ngày để bạn test thoải mái
+      limiter: Ratelimit.slidingWindow(10, "1 d"), 
+      analytics: true,
     })
   : null;
 
 export default async function handler(req, res) {
-  // 1. CẤU HÌNH CORS
+  // --------------------------------------------------------
+  // 3. CẤU HÌNH CORS (GIỮ NGUYÊN)
+  // --------------------------------------------------------
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -34,16 +44,12 @@ export default async function handler(req, res) {
 
   try {
     // ============================================================
-    // 🛡️ LỚP 1: RATE LIMITING (CHẶN THEO IP) - CAO CẤP
+    // 🛡️ LỚP 1: RATE LIMITING (Upstash)
     // ============================================================
     if (ratelimit) {
-      // Lấy IP người dùng. Trên Vercel, IP thật nằm trong header 'x-forwarded-for'
       const ip = req.headers['x-forwarded-for'] || '127.0.0.1';
-      
-      // Gọi Upstash để kiểm tra xem IP này đã spam chưa
-      const { success, limit, remaining, reset } = await ratelimit.limit(ip);
+      const { success, limit, remaining } = await ratelimit.limit(ip);
 
-      // Trả về Header để Frontend biết còn bao nhiêu lượt (Tùy chọn)
       res.setHeader('X-RateLimit-Limit', limit);
       res.setHeader('X-RateLimit-Remaining', remaining);
 
@@ -51,20 +57,19 @@ export default async function handler(req, res) {
         console.warn(`⛔ Rate Limit Exceeded for IP: ${ip}`);
         return res.status(429).json({ 
           error: "Too Many Requests", 
-          message: "Bạn đã dùng hết lượt thử miễn phí trong ngày hôm nay (2/2). Vui lòng quay lại sau." 
+          message: "Bạn đã dùng hết lượt miễn phí trong ngày. Mai quay lại nhé!" 
         });
       }
     }
 
     // ============================================================
-    // 🛡️ LỚP 2: DOMAIN VERIFICATION (CHẶN REQUEST NGOÀI)
+    // 🛡️ LỚP 2: DOMAIN VERIFICATION (Chặn request lạ)
     // ============================================================
     const referer = req.headers.referer || req.headers.referrer;
     const origin = req.headers.origin;
     const allowedDomains = ['hotrosinhvienhub.id.vn', 'localhost', '127.0.0.1'];
     
-    // Lưu ý: Nếu bạn test bằng Postman thì referer sẽ null -> Bị chặn
-    // Nếu muốn test Postman, hãy tạm comment đoạn if này lại
+    // Nếu test Postman thì comment dòng if dưới lại
     const isAllowed = allowedDomains.some(d => (referer?.includes(d) || origin?.includes(d)));
     
     if (!isAllowed) {
@@ -72,50 +77,47 @@ export default async function handler(req, res) {
     }
 
     // ============================================================
-    // 🚀 LỚP 3: AI PROCESSING & KEY ROTATION
+    // 🚀 LỚP 3: XỬ LÝ AI BẰNG GROQ (LLAMA 3)
     // ============================================================
     const { message } = req.body;
-    let keyPool = [
-      process.env.GEMINI_API_KEY,
-      process.env.KEY_1, process.env.KEY_2, process.env.KEY_3, process.env.KEY_4
-    ].filter(k => k);
 
-    if (keyPool.length === 0) throw new Error("No API Keys configured.");
-
-    // Hàm gọi AI
-    const callGemini = async (apiKey, prompt) => {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", generationConfig: { responseMimeType: "application/json" }});
-      const result = await model.generateContent(prompt);
-      return (await result.response).text();
-    };
-
-    // Retry Logic
-    let attempts = 0;
-    while (attempts < 2 && keyPool.length > 0) {
-      attempts++;
-      const idx = Math.floor(Math.random() * keyPool.length);
-      const key = keyPool[idx];
-      try {
-        const text = await callGemini(key, message);
-        return res.status(200).json({ reply: text });
-      } catch (err) {
-        console.error(`Key ...${key.slice(-4)} failed:`, err.message);
-        if (err.message.includes('429') || err.message.includes('Quota')) {
-           keyPool.splice(idx, 1);
-           continue;
-        }
-        break;
-      }
+    if (!process.env.GROQ_API_KEY) {
+        throw new Error("Chưa cấu hình GROQ_API_KEY trong biến môi trường.");
     }
-    throw new Error("Service busy, please try again.");
+
+    const completion = await groq.chat.completions.create({
+        messages: [
+            {
+                // Prompt hệ thống giúp định hướng JSON chặt chẽ hơn
+                role: "system",
+                content: "Bạn là một API xử lý dữ liệu OCR. Nhiệm vụ duy nhất của bạn là trích xuất thông tin từ văn bản được cung cấp và trả về kết quả dưới dạng JSON hợp lệ. Không được trả lời thêm bất kỳ lời dẫn hay giải thích nào."
+            },
+            {
+                role: "user",
+                content: message // Prompt + Text PDF từ Frontend gửi lên
+            }
+        ],
+        // 🏆 Model mạnh nhất và miễn phí hiện tại
+        model: "llama-3.3-70b-versatile",
+        
+        // 🔥 BẮT BUỘC: Ép kiểu về JSON Object để Frontend không bị lỗi
+        response_format: { type: "json_object" },
+        
+        // Nhiệt độ thấp để AI trả lời chính xác, không sáng tạo linh tinh
+        temperature: 0.1, 
+    });
+
+    // Lấy kết quả trả về
+    const reply = completion.choices[0]?.message?.content || "";
+
+    return res.status(200).json({ reply: reply });
 
   } catch (error) {
-    console.error("Handler Error:", error);
+    console.error("Groq Handler Error:", error);
+    // Xử lý lỗi Groq cụ thể
+    if (error.status === 429) {
+        return res.status(429).json({ error: "Groq Rate Limit", message: "Server AI đang quá tải, vui lòng thử lại sau 1 phút." });
+    }
     return res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 }
-
-
-
-
