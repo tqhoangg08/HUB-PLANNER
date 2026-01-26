@@ -12,12 +12,10 @@ const redis = (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_R
       token: process.env.UPSTASH_REDIS_REST_TOKEN,
     })
   : null;
-
-// Tạo bộ đếm: Cho phép 2 requests trong vòng 60 phút (1h)
 const ratelimit = redis
   ? new Ratelimit({
       redis: redis,
-      limiter: Ratelimit.slidingWindow(2, "60 m"), 
+      limiter: Ratelimit.slidingWindow(2, "1 d"), 
       analytics: true, // Để xem biểu đồ trên Upstash dashboard
     })
   : null;
@@ -53,7 +51,7 @@ export default async function handler(req, res) {
         console.warn(`⛔ Rate Limit Exceeded for IP: ${ip}`);
         return res.status(429).json({ 
           error: "Too Many Requests", 
-          message: "Bạn đã dùng hết lượt thử miễn phí trong giờ này. Vui lòng quay lại sau." 
+          message: "Bạn đã dùng hết lượt thử miễn phí trong ngày hôm nay (2/2). Vui lòng quay lại sau." 
         });
       }
     }
@@ -117,4 +115,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 }
+
 
