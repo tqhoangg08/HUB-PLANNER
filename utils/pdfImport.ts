@@ -15,7 +15,7 @@ interface ParsedResult {
 // ==========================================
 const checkSpamLimit = (): boolean => {
     const LIMIT_CONFIG = {
-        MAX_REQUESTS: 3,      // Tối đa 3 lần upload
+        MAX_REQUESTS: 2,      // Tối đa 3 lần upload
         TIME_WINDOW: 60 * 60 * 1000, // Trong 1 giờ
         STORAGE_KEY: 'hub_planner_rate_limit'
     };
@@ -34,8 +34,8 @@ const checkSpamLimit = (): boolean => {
     // Chặn nếu quá giới hạn
     if (data.count >= LIMIT_CONFIG.MAX_REQUESTS) {
         const waitMinutes = Math.ceil((data.startTime + LIMIT_CONFIG.TIME_WINDOW - now) / 60000);
-        alert(`⚠️ BẠN ĐANG THAO TÁC QUÁ NHANH!\n\nHệ thống giới hạn 3 lần xử lý/giờ để đảm bảo ổn định.\nVui lòng quay lại sau ${waitMinutes} phút nữa.`);
-        return false; // CHẶN
+        alert(`⚠️ BẠN ĐANG THAO TÁC QUÁ NHANH!\n\nHệ thống giới hạn 2 lần xử lý/giờ để đảm bảo ổn định.\nVui lòng quay lại sau ${waitMinutes} phút nữa.`);
+        return false; 
     }
 
     // Tăng đếm và cho qua
@@ -171,7 +171,7 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
                 }
 
                 const nameLower = mon.ten_mon ? mon.ten_mon.toLowerCase() : "";
-                const nonGpaKeywords = ['gdtc', 'thể chất', 'quốc phòng', 'an ninh', 'kỹ năng', 'đầu vào', 'tiếng anh tăng cường'];
+                const nonGpaKeywords = ['gdtc', 'thể chất', 'quốc phòng', 'an ninh', 'kỹ năng', 'đầu vào', 'tiếng anh tăng cường', 'học phần', 'quân sự', 'chiến đấu'];
                 if (mon.tin_chi === 0 || nonGpaKeywords.some(kw => nameLower.includes(kw))) isNonGPA = true;
 
                 return {
@@ -194,4 +194,5 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
 
     return result;
 };
+
 
