@@ -16,7 +16,7 @@ interface ParsedResult {
 const checkSpamLimit = (): boolean => {
     const LIMIT_CONFIG = {
         MAX_REQUESTS: 2,              // Tối đa 2 lần upload
-        TIME_WINDOW: 24 * 60 * 60 * 1000, // 24 giờ (1 ngày)
+        TIME_WINDOW: 60 * 60 * 1000, // 1 giờ
         STORAGE_KEY: 'hub_planner_rate_limit'
     };
 
@@ -38,7 +38,7 @@ const checkSpamLimit = (): boolean => {
         // Đổi sang giờ cho dễ nhìn nếu số phút quá lớn
         const waitHours = (waitMinutes / 60).toFixed(1);
 
-        alert(`⚠️ ĐÃ ĐẠT GIỚI HẠN TRONG NGÀY!\n\nĐể tiết kiệm tài nguyên, hệ thống giới hạn mỗi người chỉ được dùng 2 lần/ngày.\n\nVui lòng quay lại sau khoảng ${waitHours} giờ nữa (hoặc ${waitMinutes} phút).`);
+        alert(`⚠️ ĐÃ ĐẠT GIỚI HẠN TRONG NGÀY!\n\nĐể tiết kiệm tài nguyên, hệ thống giới hạn mỗi người chỉ được dùng 2 lần/giờ.\n\nVui lòng quay lại sau khoảng ${waitHours} giờ nữa (hoặc ${waitMinutes} phút).`);
         return false; 
     }
 
@@ -198,3 +198,4 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
 
     return result;
 };
+
