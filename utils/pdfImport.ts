@@ -11,12 +11,12 @@ interface ParsedResult {
 }
 
 // ==========================================
-// 🛡️ PHẦN 1: BỘ LỌC CHỐNG SPAM 
+// 🛡️ PHẦN 1: BỘ LỌC CHỐNG SPAM (ĐÃ SỬA)
 // ==========================================
 const checkSpamLimit = (): boolean => {
     const LIMIT_CONFIG = {
-        MAX_REQUESTS: 2,      // Tối đa 3 lần upload
-        TIME_WINDOW: 60 * 60 * 1000, // Trong 1 giờ
+        MAX_REQUESTS: 2,              // Tối đa 2 lần upload
+        TIME_WINDOW: 24 * 60 * 60 * 1000, // 24 giờ (1 ngày)
         STORAGE_KEY: 'hub_planner_rate_limit'
     };
 
@@ -24,7 +24,7 @@ const checkSpamLimit = (): boolean => {
     const now = Date.now();
     let data = rawData ? JSON.parse(rawData) : null;
 
-    // Reset nếu quá hạn
+    // Reset nếu quá hạn (sau 24h từ lần đầu tiên)
     if (!data || (now - data.startTime > LIMIT_CONFIG.TIME_WINDOW)) {
         const newData = { startTime: now, count: 1 };
         localStorage.setItem(LIMIT_CONFIG.STORAGE_KEY, JSON.stringify(newData));
@@ -33,8 +33,12 @@ const checkSpamLimit = (): boolean => {
 
     // Chặn nếu quá giới hạn
     if (data.count >= LIMIT_CONFIG.MAX_REQUESTS) {
+        // Tính thời gian còn lại (phút)
         const waitMinutes = Math.ceil((data.startTime + LIMIT_CONFIG.TIME_WINDOW - now) / 60000);
-        alert(`⚠️ BẠN ĐANG THAO TÁC QUÁ NHANH!\n\nHệ thống giới hạn 2 lần xử lý/giờ để đảm bảo ổn định.\nVui lòng quay lại sau ${waitMinutes} phút nữa.`);
+        // Đổi sang giờ cho dễ nhìn nếu số phút quá lớn
+        const waitHours = (waitMinutes / 60).toFixed(1);
+
+        alert(`⚠️ ĐÃ ĐẠT GIỚI HẠN TRONG NGÀY!\n\nĐể tiết kiệm tài nguyên, hệ thống giới hạn mỗi người chỉ được dùng 2 lần/ngày.\n\nVui lòng quay lại sau khoảng ${waitHours} giờ nữa (hoặc ${waitMinutes} phút).`);
         return false; 
     }
 
@@ -194,5 +198,3 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
 
     return result;
 };
-
-
