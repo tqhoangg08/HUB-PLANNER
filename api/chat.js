@@ -13,11 +13,11 @@ const redis = (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_R
     })
   : null;
 
-// Tạo bộ đếm: Cho phép 3 requests trong vòng 60 phút (1h)
+// Tạo bộ đếm: Cho phép 2 requests trong vòng 60 phút (1h)
 const ratelimit = redis
   ? new Ratelimit({
       redis: redis,
-      limiter: Ratelimit.slidingWindow(3, "60 m"), 
+      limiter: Ratelimit.slidingWindow(2, "60 m"), 
       analytics: true, // Để xem biểu đồ trên Upstash dashboard
     })
   : null;
@@ -117,3 +117,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 }
+
