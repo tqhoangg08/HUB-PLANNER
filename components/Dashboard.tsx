@@ -118,8 +118,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                     : 'Chưa đủ điều kiện'
         : '';
 
+    // =========================================================================
+    // 🔥 SỬA Ở ĐÂY: Dùng rawGPA4 thay vì gpa4 để tính dự báo chính xác
+    // =========================================================================
     const requiredAnalysis = calculateRequiredGPA(
-        stats.gpa4,
+        stats.rawGPA4, // <--- Đã sửa: Dùng số thô (3.15...) thay vì số làm tròn (3.2)
         stats.passedCredits,
         totalCreditsRequired,
         data.targetGPA
@@ -149,8 +152,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
             scoreClass = "text-green-600";
         }
     }
-
-
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8 animate-fadeIn">

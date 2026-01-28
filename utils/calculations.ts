@@ -36,9 +36,7 @@ export const calculateSubjectAverage = (s: Subject): number | null => {
 export const getSubjectStatus = (score10: number | null): GradeStatus => {
   if (score10 === null) return GradeStatus.UNKNOWN;
   if (score10 < 4.0) return GradeStatus.FAIL;
-  // Based on the image, any D- (1.6) or above is "Đạt" (Pass)
-  // But typically standard improvement range is D grades.
-  if (score10 < 5.5) return GradeStatus.IMPROVE; // C- and below might consider improving
+  if (score10 < 5.5) return GradeStatus.IMPROVE;
   return GradeStatus.PASS;
 };
 
@@ -64,14 +62,21 @@ export const calculateSemesterStats = (subjects: Subject[]) => {
     }
   });
 
-  // Calculate averages and explicitly round to 1 decimal place using Math.round
-  // This ensures 3.55 becomes 3.6
+  // Calculate averages
+  
+  // 1. Calculate RAW (Exact) values for internal calculations (Prediction)
+  // Tính chính xác không làm tròn để dùng cho hàm dự báo
+  const rawGPA4 = totalCredits > 0 ? totalScore4 / totalCredits : 0;
+
+  // 2. Calculate Display values (Rounded)
+  // Làm tròn 1 chữ số thập phân để hiển thị UI (VD: 3.15 -> 3.2)
   const gpa10 = totalCredits > 0 ? Math.round((totalScore10 / totalCredits) * 10) / 10 : 0;
-  const gpa4 = totalCredits > 0 ? Math.round((totalScore4 / totalCredits) * 10) / 10 : 0;
+  const gpa4 = totalCredits > 0 ? Math.round(rawGPA4 * 10) / 10 : 0;
 
   return {
     gpa10,
-    gpa4,
+    gpa4,      // Dùng để hiển thị
+    rawGPA4,   // Dùng để tính toán dự báo (MỚI THÊM)
     totalCredits,
     passedCredits,
     hasData: totalCredits > 0
@@ -86,21 +91,15 @@ export const calculateCumulativeStats = (semesters: { subjects: Subject[] }[]) =
 export const calculateYearlyStats = (semesters: Semester[]) => {
     const years: Record<string, Semester[]> = {};
     
-    // Group semesters by year ID prefix or logic
-    // We try to group by the year string found in the ID or Name
     semesters.forEach(sem => {
-        // Try to extract year from ID e.g., "imported_2023_2024..." -> "2023-2024"
-        // Or "y1_..." -> "y1"
         let groupKey = 'unknown';
         if (sem.id.startsWith('y')) {
-             groupKey = sem.id.split('_')[0]; // y1, y2
+             groupKey = sem.id.split('_')[0]; 
         } else if (sem.id.includes('_20')) {
-             // extract 20xx_20xx
              const match = sem.id.match(/(\d{4})_(\d{4})/);
              if (match) groupKey = `${match[1]}-${match[2]}`;
              else groupKey = 'Other';
         } else {
-            // Fallback to name parsing
             const nameMatch = sem.name.match(/(\d{4})-(\d{4})/);
             if (nameMatch) groupKey = `${nameMatch[1]}-${nameMatch[2]}`;
             else groupKey = 'Other';
@@ -125,24 +124,19 @@ export const calculateYearlyStats = (semesters: Semester[]) => {
     }).sort((a, b) => a.yearId.localeCompare(b.yearId));
 };
 
-// Updated based on image for Credit System (Scale 4)
 export const getDegreeClassification = (gpa4: number) => {
-  // Ensure we classify based on the rounded value
-  // Example: 3.55 -> 3.6 -> Xuất sắc
   const roundedGPA = Math.round(gpa4 * 10) / 10;
 
-  // Check strict ranges from top down
   if (roundedGPA >= 3.6) return "Xuất sắc";
-  if (roundedGPA >= 3.2) return "Giỏi"; // 3.2 to < 3.6
-  if (roundedGPA >= 2.5) return "Khá"; // 2.5 to < 3.2
-  if (roundedGPA >= 2.0) return "Trung bình"; // 2.0 to < 2.5
-  if (roundedGPA >= 1.0) return "Yếu"; // 1.0 to < 2.0
-  return "Kém"; // < 1.0
+  if (roundedGPA >= 3.2) return "Giỏi"; 
+  if (roundedGPA >= 2.5) return "Khá"; 
+  if (roundedGPA >= 2.0) return "Trung bình"; 
+  if (roundedGPA >= 1.0) return "Yếu"; 
+  return "Kém"; 
 };
 
 export const analyzeTrend = (semesters: Semester[]) => {
     const semStats = semesters.map(s => calculateSemesterStats(s.subjects));
-    // Filter only semesters with data
     const activeStats = semStats.filter(s => s.hasData);
     
     if (activeStats.length < 2) return "Chưa đủ dữ liệu để đánh giá xu hướng.";
@@ -181,26 +175,25 @@ export const getScholarshipStatus = (gpa: number, drl: number, credits: number) 
 };
 
 export const calculateRequiredGPA = (
-    currentGPA4: number,
+    currentRawGPA4: number, // CHÚ Ý: Truyền rawGPA4 vào đây thay vì gpa4
     passedCredits: number,
     totalCreditsRequired: number,
     targetGPA: number
   ) => {
     const remainingCredits = Math.max(0, totalCreditsRequired - passedCredits);
     
-    // If goal is already reached or impossible (credits overflow), handle gracefully
     if (remainingCredits === 0) return null; 
   
-    // Target Total Points = TargetGPA * TotalCredits
+    // Tổng điểm mục tiêu (Chính xác tuyệt đối)
     const targetTotalScore = targetGPA * totalCreditsRequired;
     
-    // Current Total Points = CurrentGPA * PassedCredits
-    const currentTotalScore = currentGPA4 * passedCredits;
+    // Tổng điểm hiện tại (Dùng GPA thô để chính xác)
+    const currentTotalScore = currentRawGPA4 * passedCredits;
   
-    // Required Points for the remaining credits
+    // Tổng điểm cần đạt cho các tín chỉ còn lại
     const requiredTotalScore = targetTotalScore - currentTotalScore;
   
-    // Required Average GPA for remaining credits
+    // GPA trung bình cần đạt cho quãng đường còn lại
     const requiredGPA = requiredTotalScore / remainingCredits;
   
     return {
