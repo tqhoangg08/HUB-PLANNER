@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Sparkles, Loader2, X, Send } from 'lucide-react';
+import { MessageSquare, Sparkles, X, Send } from 'lucide-react'; // Bỏ Loader2 vì mình tự làm hiệu ứng loading đẹp hơn
 import { UserData } from '../types';
 import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
 import { playClick } from '../utils/audio';
@@ -12,7 +12,6 @@ interface AIAdvisorProps {
 export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  // Lưu lịch sử chat để trò chuyện liên tục
   const [chatHistory, setChatHistory] = useState<{role: string, content: string}[]>([]);
   const [customPrompt, setCustomPrompt] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -20,7 +19,10 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
   // Tự động cuộn xuống cuối khi có tin nhắn mới
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth' // Cuộn mượt
+      });
     }
   }, [chatHistory, loading]);
 
@@ -28,19 +30,17 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
     if (!customPrompt.trim() && !isFirstTime) return;
 
     playClick();
-    setLoading(true);
-
+    
     const userQuestion = customPrompt || "Hãy phân tích bảng điểm của tôi và đưa ra lời khuyên.";
     
-    // Nếu không phải lần đầu, xóa ô nhập liệu ngay
     if (!isFirstTime) {
         setChatHistory(prev => [...prev, { role: "user", content: userQuestion }]);
-        setCustomPrompt("");
+        setCustomPrompt(""); 
     }
 
+    setLoading(true);
+
     try {
-      // 1. TÍNH TOÁN DỮ LIỆU SINH VIÊN (Context)
-      // Chỉ gửi kèm dữ liệu này trong tin nhắn ĐẦU TIÊN để AI nắm bắt
       let contextPrefix = "";
       
       if (chatHistory.length === 0) {
@@ -62,7 +62,6 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
             ? Math.round(filledTrainingScores.reduce((a, b) => a + b, 0) / filledTrainingScores.length)
             : 0;
 
-          // Tạo ngữ cảnh (Context) cho Llama 3
           contextPrefix = `
           DƯỚI ĐÂY LÀ DỮ LIỆU HỌC TẬP CỦA TÔI (Hãy đọc để tư vấn, không cần tóm tắt lại nếu không được hỏi):
           - Sinh viên: ${data.studentName || "Bạn"} | Khóa: ${data.cohort || "?"}
@@ -77,13 +76,12 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
           CÂU HỎI CỦA TÔI: `;
       }
 
-      // 2. GỬI VỀ API /api/bot (Dùng Llama 3)
       const res = await fetch('/api/bot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
             message: contextPrefix + userQuestion,
-            history: chatHistory // Gửi kèm lịch sử để AI nhớ
+            history: chatHistory 
         })
       });
 
@@ -107,7 +105,26 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
 
   return (
     <>
-      {/* Nút nổi (Floating Button) */}
+      {/* CSS Animation nội bộ cho Chat */}
+      <style>{`
+        @keyframes messageIn {
+          from { opacity: 0; transform: translateY(10px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-message {
+          animation: messageIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+        .typing-dot {
+          animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+      `}</style>
+
       <button
         onClick={() => { playClick(); setIsOpen(true); }}
         className="fixed bottom-6 right-6 bg-[#003375] hover:bg-[#002855] text-white p-4 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 z-50 flex items-center gap-2 border-4 border-white active:scale-95 group animate-float hover:animate-none"
@@ -116,7 +133,6 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
         <span className="font-semibold hidden md:inline group-hover:translate-x-1 transition-transform">Cố vấn AI</span>
       </button>
 
-      {/* Modal Chat */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl flex flex-col h-[80vh] animate-slideUp">
@@ -138,25 +154,25 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
             {/* Chat Content */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-gray-50" ref={scrollRef}>
               {chatHistory.length === 0 ? (
-                <div className="text-center text-gray-500 py-10 flex flex-col items-center">
+                <div className="text-center text-gray-500 py-10 flex flex-col items-center animate-message">
                   <div className="bg-blue-100 p-4 rounded-full mb-4">
-                     <MessageSquare size={32} className="text-[#003375]" />
+                      <MessageSquare size={32} className="text-[#003375]" />
                   </div>
                   <p className="font-medium text-gray-700">Chào {data.studentName || 'bạn'}!</p>
                   <p className="text-sm mt-1 max-w-xs">Mình là AI Cố vấn. Mình đã đọc bảng điểm của bạn. Bạn muốn mình tư vấn gì nào?</p>
                   
                   <div className="mt-6 flex flex-wrap justify-center gap-2">
-                      <button onClick={() => { setCustomPrompt("Đánh giá tổng quan kết quả học tập của mình"); handleAdvice(true); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition">
+                      <button onClick={() => { setCustomPrompt("Đánh giá tổng quan kết quả học tập của mình"); handleAdvice(true); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition hover:shadow-sm hover:-translate-y-0.5 active:scale-95">
                           📊 Đánh giá bảng điểm
                       </button>
-                      <button onClick={() => { setCustomPrompt("Mình cần cải thiện những môn nào?"); handleAdvice(true); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition">
+                      <button onClick={() => { setCustomPrompt("Mình cần cải thiện những môn nào?"); handleAdvice(true); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition hover:shadow-sm hover:-translate-y-0.5 active:scale-95">
                           ⚠️ Môn cần cải thiện
                       </button>
                   </div>
                 </div>
               ) : (
                 chatHistory.map((msg, idx) => (
-                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-message`}>
                     <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
                         msg.role === 'user' 
                         ? 'bg-[#003375] text-white rounded-br-none' 
@@ -177,12 +193,14 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
                 ))
               )}
               
+              {/* Hiệu ứng đang gõ (Typing Indicator) */}
               {loading && (
-                  <div className="flex justify-start">
-                      <div className="bg-gray-200 rounded-2xl rounded-bl-none px-4 py-3 flex items-center gap-2">
-                          <Loader2 size={16} className="animate-spin text-gray-500" />
-                          <span className="text-xs text-gray-500">Đang suy nghĩ...</span>
-                      </div>
+                  <div className="flex justify-start animate-message">
+                    <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-none px-4 py-4 flex items-center gap-1.5 shadow-sm">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                    </div>
                   </div>
               )}
             </div>
@@ -196,7 +214,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
                 <input
                   type="text"
                   placeholder="Nhập câu hỏi..."
-                  className="flex-1 border border-gray-300 rounded-full px-5 py-3 focus:ring-2 focus:ring-[#003375] focus:outline-none bg-gray-50 pr-12"
+                  className="flex-1 border border-gray-300 rounded-full px-5 py-3 focus:ring-2 focus:ring-[#003375] focus:outline-none bg-gray-50 pr-12 transition-all"
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   disabled={loading}
@@ -206,9 +224,14 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
                   disabled={loading || !customPrompt.trim()}
                   className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#003375] text-white p-2 rounded-full hover:bg-[#002855] disabled:opacity-50 transition-all active:scale-95"
                 >
-                  {loading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
+                  <Send size={20} className={loading ? 'opacity-0' : 'opacity-100'} /> 
+                  {/* Nút gửi giữ nguyên icon, hiệu ứng loading đã chuyển lên khung chat */}
                 </button>
               </form>
+              
+              <p className="text-[10px] text-center text-gray-400 mt-2 italic">
+                HUB Planner AI có thể mắc sai sót, vì vậy, nhớ xác minh câu trả lời của HUB Planner AI.
+              </p>
             </div>
           </div>
         </div>
@@ -216,4 +239,3 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
     </>
   );
 };
-// Update fix import path
