@@ -18,7 +18,8 @@ import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { supabase } from './utils/supabase';
-import { Link, Navigate, Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
+// 👇 ĐÃ THÊM: NavLink để làm menu
+import { Link, Navigate, Route, Routes, useNavigate, useSearchParams, NavLink } from 'react-router-dom';
 import { ImportGuideModal } from './components/ImportGuideModal';
 import { UserGuideModal } from './components/UserGuideModal';
 
@@ -129,7 +130,9 @@ const App: React.FC = () => {
     const [draftAvatarPreview, setDraftAvatarPreview] = useState('');
     const [profileSaving, setProfileSaving] = useState(false);
     const [profileError, setProfileError] = useState<string | null>(null);
-    const [activeView, setActiveView] = useState<'dashboard' | 'handbook' | 'events' | 'lost-found'>('dashboard');
+    
+    // 👇 ĐÃ XÓA: const [activeView, setActiveView]... (Không dùng nữa vì đã có Router)
+    
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const storageKey = useMemo(() => {
@@ -277,10 +280,8 @@ const App: React.FC = () => {
         };
     }, [draftAvatarPreview]);
 
-    // Scroll to top when switching views
-    useEffect(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, [activeView]);
+    // Scroll to top removed because Router handles it better usually, 
+    // or you can add a ScrollToTop component if needed.
 
     useEffect(() => {
         const ensureSchoolDomain = async () => {
@@ -578,10 +579,6 @@ const App: React.FC = () => {
         }
     };
 
-
-
-
-
     // --- ROUTING LOGIC ---
     const renderProtectedApp = () => {
         if (!isLoaded) return null;
@@ -623,22 +620,13 @@ const App: React.FC = () => {
         // 2. Admin Flow (Login Check)
         if (userRolePref === 'admin') {
             if (loadingRole) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#003375]" size={40} /></div>;
-
-            // If not logged in, show Login Screen
-            if (!session) {
-                return <LoginScreen />;
-            }
-
-            // If logged in, proceed to Main App (In-place Management Mode)
+            if (!session) return <LoginScreen />;
         }
 
         // 3. School Account Flow (Google) - Login Check
         if (userRolePref === 'school') {
             if (loadingRole) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#003375]" size={40} /></div>;
-
-            if (!session) {
-                return <LoginScreen />;
-            }
+            if (!session) return <LoginScreen />;
         }
 
         // 4. Student Flow - Check onboarding
@@ -652,8 +640,8 @@ const App: React.FC = () => {
                 <header className="bg-white/80 backdrop-blur-md border-b-2 border-[#003375] fixed top-0 left-0 w-full z-50 shadow-sm transition-all duration-300">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-0 min-h-[64px] flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                         <div className="flex items-center gap-3">
-                            {/* HUB Logo */}
-                            <div className="h-10 w-10 relative flex-shrink-0 group cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-95" onClick={playClick}>
+                            {/* Logo: Click về Dashboard */}
+                            <Link to="/dashboard" className="h-10 w-10 relative flex-shrink-0 group cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-95" onClick={playClick}>
                                 <img
                                     src="logo.png"
                                     alt="HUB Logo"
@@ -663,7 +651,7 @@ const App: React.FC = () => {
                                         e.currentTarget.parentElement!.innerHTML = '<div class="h-10 w-10 bg-[#003375] rounded flex items-center justify-center text-white font-bold text-xs shadow-md">HUB</div>';
                                     }}
                                 />
-                            </div>
+                            </Link>
                             <div>
                                 <h1 className="text-xl font-bold text-[#003375] tracking-tight uppercase group-hover:text-[#002855] transition-colors">HUB Planner</h1>
                                 <p className="text-[10px] text-gray-500 hidden md:block uppercase tracking-wider font-semibold text-[#990000]">Hỗ trợ sinh viên (Không chính thức từ nhà Trường)</p>
@@ -671,43 +659,47 @@ const App: React.FC = () => {
                         </div>
 
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-4 w-full sm:w-auto">
-                            {/* Navigation Tabs */}
+                            {/* 👇 SỬA NAVIGATION MENU: Dùng NavLink thay cho button */}
                             <div className="flex bg-gray-100 rounded-lg p-2 gap-2 overflow-x-auto w-full sm:w-auto max-w-full no-scrollbar shadow-inner sm:justify-start justify-between px-6 sm:px-2">
-                                <button
-                                    onClick={() => { playClick(); setActiveView('dashboard'); }}
-                                    className={`px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'dashboard' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
+                                <NavLink 
+                                    to="/dashboard" 
+                                    onClick={playClick}
+                                    className={({ isActive }) => `px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
                                 >
                                     <LayoutDashboard size={20} className="sm:hidden" />
                                     <LayoutDashboard size={16} className="hidden sm:inline" />
                                     <span className="hidden sm:inline">Bảng điểm</span>
-                                </button>
-                                <button
-                                    onClick={() => { playClick(); setActiveView('events'); }}
-                                    className={`px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'events' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
+                                </NavLink>
+                                <NavLink 
+                                    to="/events" 
+                                    onClick={playClick}
+                                    className={({ isActive }) => `px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
                                 >
                                     <Zap size={20} className="sm:hidden" />
                                     <Zap size={16} className="hidden sm:inline" />
                                     <span className="hidden sm:inline">Sự kiện ĐRL</span>
-                                </button>
-                                <button
-                                    onClick={() => { playClick(); setActiveView('lost-found'); }}
-                                    className={`px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'lost-found' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
+                                </NavLink>
+                                <NavLink 
+                                    to="/lost-found" 
+                                    onClick={playClick}
+                                    className={({ isActive }) => `px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
                                 >
                                     <Search size={20} className="sm:hidden" />
                                     <Search size={16} className="hidden sm:inline" />
                                     <span className="hidden sm:inline">Tìm đồ</span>
-                                </button>
-                                <button
-                                    onClick={() => { playClick(); setActiveView('handbook'); }}
-                                    className={`px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${activeView === 'handbook' ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
+                                </NavLink>
+                                <NavLink 
+                                    to="/handbook" 
+                                    onClick={playClick}
+                                    className={({ isActive }) => `px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
                                 >
                                     <Book size={20} className="sm:hidden" />
                                     <Book size={16} className="hidden sm:inline" />
                                     <span className="hidden sm:inline">Cẩm nang</span>
-                                </button>
+                                </NavLink>
                             </div>
 
-                            {/* User Info / Controls */}
+                            {/* User Info / Controls (Giữ nguyên) */}
                             <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start sm:border-l sm:border-gray-300 sm:pl-4 sm:ml-2">
                                 <div className="text-right hidden sm:block">
                                     {canManage ? (
@@ -859,94 +851,96 @@ const App: React.FC = () => {
                 </header>
 
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-[calc(9rem+env(safe-area-inset-top))] sm:pt-24">
+                    {/* 👇 SỬA ROUTING CHO NỘI DUNG CHÍNH */}
+                    <Routes>
+                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="/dashboard" element={
+                            <div className="animate-slideInRight">
+                                <Dashboard
+                                    data={data}
+                                    onTargetChange={(newTarget) => setData(prev => ({ ...prev, targetGPA: newTarget }))}
+                                    showSecurityNotice={!session}
+                                />
 
-                    {activeView === 'handbook' && <Handbook />}
-                    {activeView === 'events' && <EventsBoard />}
-                    {activeView === 'lost-found' && <LostFoundBoard />}
-                    {activeView === 'dashboard' && (
-                        <div className="animate-slideInRight">
-                            <Dashboard
-                                data={data}
-                                onTargetChange={(newTarget) => setData(prev => ({ ...prev, targetGPA: newTarget }))}
-                                showSecurityNotice={!session}
-                            />
+                                <div className="flex flex-col sm:flex-row justify-between items-end mb-4 gap-4">
+                                    <h2 className="text-2xl font-bold text-[#003375] border-l-4 border-[#990000] pl-3">Chi tiết bảng điểm</h2>
 
-                            <div className="flex flex-col sm:flex-row justify-between items-end mb-4 gap-4">
-                                <h2 className="text-2xl font-bold text-[#003375] border-l-4 border-[#990000] pl-3">Chi tiết bảng điểm</h2>
-
-                                <div className="flex gap-2">
-                                    {/* Export PDF Button */}
-                                    <button
-                                        onClick={handleExportPDF}
-                                        className="bg-white hover:bg-blue-50 text-[#003375] border border-gray-200 px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 active:scale-95 text-sm font-medium hover:shadow-md hover:-translate-y-0.5"
-                                    >
-                                        <Download size={18} />
-                                        Xuất PDF
-                                    </button>
-
-                                    {/* Import PDF Button */}
-                                    <div>
-                                        <input
-                                            type="file"
-                                            accept=".pdf"
-                                            ref={fileInputRef}
-                                            className="hidden"
-                                            onChange={handleFileUpload}
-                                        />
+                                    <div className="flex gap-2">
                                         <button
-                                            onClick={() => { playClick(); setShowImportGuide(true); }}
-                                            disabled={isImporting}
-                                            className="bg-[#990000] hover:bg-[#7a0000] text-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 active:scale-95 text-sm font-medium disabled:opacity-70 hover:shadow-lg hover:-translate-y-0.5"
+                                            onClick={handleExportPDF}
+                                            className="bg-white hover:bg-blue-50 text-[#003375] border border-gray-200 px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 active:scale-95 text-sm font-medium hover:shadow-md hover:-translate-y-0.5"
                                         >
-                                            {isImporting ? <Loader2 className="animate-spin" size={18} /> : <FileUp size={18} />}
-                                            Nhập PDF
+                                            <Download size={18} />
+                                            Xuất PDF
                                         </button>
-                                    </div>
 
-                                    <button
-                                        onClick={addSemester}
-                                        className="bg-[#003375] hover:bg-[#002855] text-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 active:scale-95 hover:shadow-md text-sm font-medium hover:-translate-y-0.5"
-                                    >
-                                        <Plus size={18} />
-                                        Thêm học kỳ
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="space-y-6">
-                                {data.semesters.map((sem, idx) => (
-                                    <SemesterTable
-                                        key={sem.id}
-                                        semester={sem}
-                                        index={idx}
-                                        onUpdateSemester={(updated) => updateSemester(idx, updated)}
-                                        onRemoveSemester={() => removeSemester(idx)}
-                                    />
-                                ))}
-
-                                {data.semesters.length === 0 && (
-                                    <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300 hover:shadow-md transition-shadow">
-                                        <p className="text-gray-400 mb-4">Chưa có dữ liệu học kỳ nào.</p>
-                                        <div className="flex justify-center gap-4">
-                                            <button onClick={() => { playClick(); setShowImportGuide(true); }} className="text-[#003375] font-medium hover:underline flex items-center gap-1 hover:scale-105 transition-transform active:scale-95">
-                                                <FileUp size={16} /> Nhập từ PDF
-                                            </button>
-                                            <span className="text-gray-300">|</span>
-                                            <button onClick={addSemester} className="text-[#990000] font-medium hover:underline flex items-center gap-1 hover:scale-105 transition-transform active:scale-95">
-                                                <Plus size={16} /> Tạo thủ công
+                                        <div>
+                                            <input
+                                                type="file"
+                                                accept=".pdf"
+                                                ref={fileInputRef}
+                                                className="hidden"
+                                                onChange={handleFileUpload}
+                                            />
+                                            <button
+                                                onClick={() => { playClick(); setShowImportGuide(true); }}
+                                                disabled={isImporting}
+                                                className="bg-[#990000] hover:bg-[#7a0000] text-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 active:scale-95 text-sm font-medium disabled:opacity-70 hover:shadow-lg hover:-translate-y-0.5"
+                                            >
+                                                {isImporting ? <Loader2 className="animate-spin" size={18} /> : <FileUp size={18} />}
+                                                Nhập PDF
                                             </button>
                                         </div>
+
+                                        <button
+                                            onClick={addSemester}
+                                            className="bg-[#003375] hover:bg-[#002855] text-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 active:scale-95 hover:shadow-md text-sm font-medium hover:-translate-y-0.5"
+                                        >
+                                            <Plus size={18} />
+                                            Thêm học kỳ
+                                        </button>
                                     </div>
-                                )}
+                                </div>
+
+                                <div className="space-y-6">
+                                    {data.semesters.map((sem, idx) => (
+                                        <SemesterTable
+                                            key={sem.id}
+                                            semester={sem}
+                                            index={idx}
+                                            onUpdateSemester={(updated) => updateSemester(idx, updated)}
+                                            onRemoveSemester={() => removeSemester(idx)}
+                                        />
+                                    ))}
+
+                                    {data.semesters.length === 0 && (
+                                        <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300 hover:shadow-md transition-shadow">
+                                            <p className="text-gray-400 mb-4">Chưa có dữ liệu học kỳ nào.</p>
+                                            <div className="flex justify-center gap-4">
+                                                <button onClick={() => { playClick(); setShowImportGuide(true); }} className="text-[#003375] font-medium hover:underline flex items-center gap-1 hover:scale-105 transition-transform active:scale-95">
+                                                    <FileUp size={16} /> Nhập từ PDF
+                                                </button>
+                                                <span className="text-gray-300">|</span>
+                                                <button onClick={addSemester} className="text-[#990000] font-medium hover:underline flex items-center gap-1 hover:scale-105 transition-transform active:scale-95">
+                                                    <Plus size={16} /> Tạo thủ công
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        } />
+                        <Route path="/events" element={<EventsBoard />} />
+                        <Route path="/lost-found" element={<LostFoundBoard />} />
+                        <Route path="/handbook" element={<Handbook />} />
+                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                    </Routes>
                 </main>
 
                 {/* Footer and other Modals */}
                 <footer className="text-center pb-4 pt-2">
                     <p className="text-[10px] text-gray-400 font-medium tracking-wide mb-2 uppercase">Web designed by tqhoangg</p>
-                <p className="text-[10px] text-gray-400/80 italic mb-3 px-4">
+                    <p className="text-[10px] text-gray-400/80 italic mb-3 px-4">
                         * HUB Planner có thể mắc sai sót, vui lòng xác minh lại thông tin khi cần thiết.
                     </p>
                     <div className="text-xs text-gray-500">
@@ -957,36 +951,16 @@ const App: React.FC = () => {
                 </footer>
 
                 <div className="fixed bottom-4 left-4 z-40 flex items-center gap-3">
-                    <a
-                        href="https://www.facebook.com/hubplannerr"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="h-11 w-11 rounded-full bg-[#1877F2] text-white flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
-                        aria-label="Facebook HUB Planner"
-                    >
+                    <a href="https://www.facebook.com/hubplannerr" target="_blank" rel="noopener noreferrer" className="h-11 w-11 rounded-full bg-[#1877F2] text-white flex items-center justify-center shadow-md hover:shadow-lg transition-shadow" aria-label="Facebook">
                         <Facebook size={18} />
                     </a>
-                    <a
-                        href="https://zalo.me/0389342812"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="h-11 w-11 rounded-full bg-[#0a68ff] text-white flex items-center justify-center shadow-md hover:shadow-lg transition-shadow text-[11px] font-bold"
-                        aria-label="Zalo HUB Planner"
-                    >
+                    <a href="https://zalo.me/0389342812" target="_blank" rel="noopener noreferrer" className="h-11 w-11 rounded-full bg-[#0a68ff] text-white flex items-center justify-center shadow-md hover:shadow-lg transition-shadow text-[11px] font-bold" aria-label="Zalo">
                         Zalo
                     </a>
-                    <a
-                        href="tel:0389342812"
-                        className="h-11 w-11 rounded-full bg-[#003375] text-white flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
-                        aria-label="Gọi điện thoại"
-                    >
+                    <a href="tel:0389342812" className="h-11 w-11 rounded-full bg-[#003375] text-white flex items-center justify-center shadow-md hover:shadow-lg transition-shadow" aria-label="Gọi điện">
                         <Phone size={18} />
                     </a>
-                    <a
-                        href="mailto:contact@hotrosinhvienhub.id.vn"
-                        className="h-11 w-11 rounded-full bg-[#990000] text-white flex items-center justify-center shadow-md hover:shadow-lg transition-shadow"
-                        aria-label="Gửi email"
-                    >
+                    <a href="mailto:contact@hotrosinhvienhub.id.vn" className="h-11 w-11 rounded-full bg-[#990000] text-white flex items-center justify-center shadow-md hover:shadow-lg transition-shadow" aria-label="Gửi email">
                         <Mail size={18} />
                     </a>
                 </div>
@@ -1016,32 +990,20 @@ const App: React.FC = () => {
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 animate-scaleIn">
                             <div className="bg-[#003375] p-4 text-white flex items-center justify-between">
                                 <h3 className="font-bold text-lg">Cài đặt tài khoản</h3>
-                                <button
-                                    onClick={() => setShowAccountSettings(false)}
-                                    className="p-2 hover:bg-white/20 rounded-full transition-colors"
-                                >
+                                <button onClick={() => setShowAccountSettings(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
                                     <X size={18} />
                                 </button>
                             </div>
-
                             <div className="p-6 space-y-5">
                                 {profileError && (
                                     <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100">
                                         {profileError}
                                     </div>
                                 )}
-
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-gray-700">Tên hiển thị</label>
-                                    <input
-                                        type="text"
-                                        value={draftFullName}
-                                        onChange={(e) => setDraftFullName(e.target.value)}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none transition-all"
-                                        placeholder="Nhập tên hiển thị"
-                                    />
+                                    <input type="text" value={draftFullName} onChange={(e) => setDraftFullName(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none transition-all" placeholder="Nhập tên hiển thị" />
                                 </div>
-
                                 <div className="space-y-3">
                                     <label className="text-sm font-bold text-gray-700">Chọn màu avatar</label>
                                     <div className="flex gap-2">
@@ -1064,7 +1026,6 @@ const App: React.FC = () => {
                                         ))}
                                     </div>
                                 </div>
-
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-gray-700">Tải ảnh đại diện</label>
                                     <input
@@ -1073,9 +1034,7 @@ const App: React.FC = () => {
                                         onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (!file) return;
-                                            if (draftAvatarPreview) {
-                                                URL.revokeObjectURL(draftAvatarPreview);
-                                            }
+                                            if (draftAvatarPreview) URL.revokeObjectURL(draftAvatarPreview);
                                             const previewUrl = URL.createObjectURL(file);
                                             setDraftAvatarFile(file);
                                             setDraftAvatarPreview(previewUrl);
@@ -1084,52 +1043,25 @@ const App: React.FC = () => {
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none transition-all"
                                     />
                                 </div>
-
                                 <div className="flex items-center gap-3">
                                     <span className="text-sm text-gray-500">Xem trước:</span>
                                     {draftAvatarPreview ? (
-                                        <img
-                                            src={draftAvatarPreview}
-                                            alt="Avatar preview"
-                                            className="h-10 w-10 rounded-full object-cover border border-gray-200"
-                                        />
+                                        <img src={draftAvatarPreview} alt="Avatar preview" className="h-10 w-10 rounded-full object-cover border border-gray-200" />
                                     ) : draftAvatarUrl ? (
                                         draftAvatarUrl.startsWith('#') ? (
-                                            <span
-                                                className="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                                                style={{ backgroundColor: draftAvatarUrl }}
-                                            >
-                                                {avatarSeed}
-                                            </span>
+                                            <span className="h-10 w-10 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ backgroundColor: draftAvatarUrl }}>{avatarSeed}</span>
                                         ) : (
-                                            <img
-                                                src={draftAvatarUrl}
-                                                alt="Avatar preview"
-                                                className="h-10 w-10 rounded-full object-cover border border-gray-200"
-                                            />
+                                            <img src={draftAvatarUrl} alt="Avatar preview" className="h-10 w-10 rounded-full object-cover border border-gray-200" />
                                         )
                                     ) : (
-                                        <span className="h-10 w-10 rounded-full bg-[#003375] text-white flex items-center justify-center text-sm font-bold">
-                                            {avatarSeed}
-                                        </span>
+                                        <span className="h-10 w-10 rounded-full bg-[#003375] text-white flex items-center justify-center text-sm font-bold">{avatarSeed}</span>
                                     )}
                                 </div>
                             </div>
-
                             <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
-                                <button
-                                    onClick={() => setShowAccountSettings(false)}
-                                    className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
-                                >
-                                    Hủy
-                                </button>
-                                <button
-                                    onClick={handleSaveProfile}
-                                    disabled={profileSaving}
-                                    className="px-4 py-2 rounded-lg bg-[#003375] text-white font-bold hover:bg-[#002855] transition flex items-center gap-2"
-                                >
-                                    {profileSaving ? <Loader2 className="animate-spin" size={16} /> : null}
-                                    Lưu
+                                <button onClick={() => setShowAccountSettings(false)} className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">Hủy</button>
+                                <button onClick={handleSaveProfile} disabled={profileSaving} className="px-4 py-2 rounded-lg bg-[#003375] text-white font-bold hover:bg-[#002855] transition flex items-center gap-2">
+                                    {profileSaving ? <Loader2 className="animate-spin" size={16} /> : null} Lưu
                                 </button>
                             </div>
                         </div>
@@ -1145,11 +1077,10 @@ const App: React.FC = () => {
             <Route path="/terms" element={<TermsOfUse />} />
             <Route path="/login" element={<LoginWrapper setRolePreference={setRolePreference} />} />
             <Route path="/guest" element={<GuestWrapper userRolePref={userRolePref} setRolePreference={setRolePreference}>{renderProtectedApp()}</GuestWrapper>} />
-            <Route path="/" element={session ? renderProtectedApp() : <RoleSelection onSelect={handleRoleSelect} />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* 👇 QUAN TRỌNG: Cho phép cả người dùng ẩn danh (student) vào xem */}
+            <Route path="/*" element={(session || userRolePref === 'student') ? renderProtectedApp() : <RoleSelection onSelect={handleRoleSelect} />} />
         </Routes>
     );
 };
-
 
 export default App;

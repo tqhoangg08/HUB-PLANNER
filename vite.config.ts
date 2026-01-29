@@ -6,6 +6,10 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  // 👇 Di chuyển esbuild ra đây (Top-level)
+  esbuild: {
+    drop: ['console', 'debugger'],
+  },
   optimizeDeps: {
     exclude: ['pdfjs-dist'],
     esbuildOptions: {
@@ -17,10 +21,6 @@ export default defineConfig({
   },
   build: {
     target: "esnext",
-    sourcemap: false, // ✅ tắt source map khi build/deploy
-esbuild: {
-      drop: ['console', 'debugger'], 
-    },
+    sourcemap: false,
   },
 })
-
