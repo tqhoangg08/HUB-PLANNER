@@ -5,17 +5,15 @@ import {
   MessageSquarePlus // Icon mới cho mục Góp ý
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
-
-// Thêm 'feedback' vào định nghĩa Type
+import { supabase } from '../utils/supabase';
 type TabType = 'contacts' | 'bus' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about' | 'feedback';
 
 export const Handbook: React.FC = () => {
-  // --- STATE QUẢN LÝ TAB VÀ TÌM KIẾM ---
   const [activeTab, setActiveTab] = useState<TabType>('contacts');
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // --- STATE QUẢN LÝ FORM GÓP Ý (MỚI) ---
+  // --- STATE QUẢN LÝ FORM GÓP Ý  ---
   const [feedbackType, setFeedbackType] = useState<'bug' | 'idea'>('idea');
   const [feedbackContent, setFeedbackContent] = useState('');
   const [contactInfo, setContactInfo] = useState('');
@@ -29,25 +27,24 @@ export const Handbook: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-        const res = await fetch('/api/feedback', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: feedbackType,
-                content: feedbackContent,
-                contact: contactInfo
-            })
-        });
+const { error } = await supabase
+            .from('feedback')
+            .insert([
+                { 
+                    type: feedbackType, 
+                    content: feedbackContent, 
+                    contact: contactInfo 
+                }
+            ]);
 
-        if (res.ok) {
-            setSubmitStatus('success');
-            setFeedbackContent('');
-            setContactInfo('');
-            setTimeout(() => setSubmitStatus('idle'), 5000); // Reset trạng thái sau 5s
-        } else {
-            setSubmitStatus('error');
-        }
+        if (error) throw error;
+
+        setSubmitStatus('success');
+        setFeedbackContent('');
+        setContactInfo('');
+        setTimeout(() => setSubmitStatus('idle'), 5000); 
     } catch (error) {
+        console.error("Lỗi gửi feedback:", error);
         setSubmitStatus('error');
     } finally {
         setIsSubmitting(false);
