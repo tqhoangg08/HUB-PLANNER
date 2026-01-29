@@ -946,6 +946,9 @@ const App: React.FC = () => {
                 {/* Footer and other Modals */}
                 <footer className="text-center pb-4 pt-2">
                     <p className="text-[10px] text-gray-400 font-medium tracking-wide mb-2 uppercase">Web designed by tqhoangg</p>
+                <p className="text-[10px] text-gray-400/80 italic mb-3 px-4">
+                        * HUB Planner có thể mắc sai sót, vui lòng xác minh lại thông tin khi cần thiết.
+                    </p>
                     <div className="text-xs text-gray-500">
                         <Link to="/privacy" className="hover:underline">Chính sách bảo mật</Link>
                         <span className="mx-2">|</span>
@@ -987,8 +990,6 @@ const App: React.FC = () => {
                         <Mail size={18} />
                     </a>
                 </div>
-
-                {/* 👇 2. CHÈN AI ADVISOR VÀO ĐÂY */}
                 {(userRolePref === 'student' || userRolePref === 'school') && (
                     <AIAdvisor data={data} />
                 )}
@@ -1149,5 +1150,6 @@ const App: React.FC = () => {
         </Routes>
     );
 };
+
 
 export default App;
