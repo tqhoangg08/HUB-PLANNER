@@ -17,7 +17,6 @@ interface ChatMessage {
     rating?: 'up' | 'down' | null; 
 }
 
-// 👇 QUAN TRỌNG: Phải có chữ "export" ở đây
 export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -114,15 +113,15 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
 
   const handleRate = async (index: number, isHelpful: boolean) => {
       const msg = chatHistory[index];
-      if (!msg.logId) return;
-
       playClick();
 
+      // Cập nhật giao diện ngay lập tức
       const newHistory = [...chatHistory];
       newHistory[index].rating = isHelpful ? 'up' : 'down';
       setChatHistory(newHistory);
 
-      if (supabase) {
+      // Chỉ gửi lên server nếu tin nhắn có logId
+      if (msg.logId && supabase) {
         try {
             await supabase
                 .from('ai_chat_logs')
@@ -218,7 +217,8 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
                       )}
                     </div>
 
-                    {msg.role === 'assistant' && msg.logId && (
+                    {/* 👇 ĐÃ SỬA: Luôn hiện nút Like/Dislike nếu là tin nhắn của Assistant */}
+                    {msg.role === 'assistant' && (
                         <div className="flex gap-2 mt-1 ml-2">
                             <button 
                                 onClick={() => handleRate(idx, true)}
