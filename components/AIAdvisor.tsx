@@ -1,119 +1,285 @@
-import Groq from "groq-sdk";
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
-import { createClient } from '@supabase/supabase-js';
+import React, { useState, useRef, useEffect } from 'react';
+import { MessageSquare, Sparkles, X, Send, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react'; 
+import { UserData } from '../types';
+import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
+import { playClick } from '../utils/audio';
+import { supabase } from '../utils/supabase'; 
+import DOMPurify from 'dompurify';
 
-// ============================================================
-// 1. CẤU HÌNH KEY RIÊNG CHO CHAT 🔑
-// ============================================================
-const CHAT_API_KEY = process.env.GROQ_CHAT_KEY;
-
-// ============================================================
-// 2. REDIS & RATE LIMIT & SUPABASE (Cấu hình)
-// ============================================================
-const redis = (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
-  ? new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    }) : null;
-
-const ratelimit = redis
-  ? new Ratelimit({
-      redis: redis,
-      limiter: Ratelimit.slidingWindow(100, "1 d"), 
-      analytics: true,
-    }) : null;
-
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
-const supabase = (supabaseUrl && supabaseKey) 
-  ? createClient(supabaseUrl, supabaseKey) 
-  : null;
-
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
-
-  try {
-    if (ratelimit) {
-      const ip = req.headers['x-forwarded-for'] || '127.0.0.1';
-      const { success } = await ratelimit.limit(ip + "_chat_v2"); 
-      if (!success) {
-        return res.status(429).json({ reply: "Hôm nay bạn nói chuyện nhiều quá rồi, mai quay lại tâm sự tiếp nhé! 😴" });
-      }
-    }
-
-    const { message, history } = req.body; 
-
-    if (!CHAT_API_KEY) throw new Error("Server chưa cấu hình Key Chat.");
-
-    const SYSTEM_PROMPT = `
-    I. NHÂN DẠNG:
-    Bạn là "Trợ lý ảo HUB Planner" - người bạn đồng hành thông minh của sinh viên Đại học Ngân hàng TP.HCM (HUB).
-    - Tính cách: Thân thiện, năng động, hài hước, dùng emoji 🎓✨, xưng hô "mình - bạn".
-    
-    II. KIẾN THỨC VỀ WEBSITE (HUB PLANNER):
-    1. 📊 Tính điểm & Quản lý học tập: Upload PDF từ Portal, tính GPA/CPA tự động, bảo mật trên trình duyệt.
-    2. 📅 Sự kiện (Events): Lịch hoạt động, deadline đăng ký.
-    3. 🏆 Tính điểm Rèn luyện (ĐRL): Tự chấm và ước lượng ĐRL.
-    4. 🔍 Tìm đồ thất lạc (Lost & Found): Đăng tin tìm đồ/nhặt được đồ.
-    5. 📖 Cẩm nang sinh viên (Wiki): Tips sinh tồn, xe buýt, sơ đồ trường.
-
-    III. NGUYÊN TẮC TRẢ LỜI:
-    - Ngắn gọn, đi thẳng vấn đề.
-    - Chỉ dẫn vào đúng menu chức năng.
-    `;
-
-    const conversation = [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...(history || []).map(msg => ({ role: msg.role, content: msg.content })), // Chỉ lấy role và content
-        { role: "user", content: message } 
-    ];
-
-    const groq = new Groq({ apiKey: CHAT_API_KEY });
-
-    const completion = await groq.chat.completions.create({
-        messages: conversation,
-        model: "llama-3.1-8b-instant", 
-        temperature: 0.7, 
-        max_tokens: 1024, 
-    });
-
-    const replyText = completion.choices[0]?.message?.content || "Bot đang suy nghĩ... bạn chờ xíu nha!";
-    
-    // ============================================================
-    // 📝 LƯU LOG VÀ TRẢ VỀ ID (SỬA ĐOẠN NÀY)
-    // ============================================================
-    let logId = null;
-    if (supabase) {
-        try {
-            const { data, error } = await supabase.from('ai_chat_logs').insert([
-                {
-                    user_message: message,
-                    bot_reply: replyText,
-                }
-            ]).select(); // Thêm .select() để lấy dữ liệu vừa tạo
-
-            if (data && data.length > 0) {
-                logId = data[0].id; // Lấy ID
-            }
-        } catch (logError) {
-            console.error("Lỗi lưu log:", logError);
-        }
-    }
-
-    // Trả về cả reply và logId
-    return res.status(200).json({ reply: replyText, logId: logId });
-
-  } catch (error) {
-    console.error("Chat Error:", error);
-    if (error.status === 429) {
-        return res.status(429).json({ reply: "Bot đang quá tải, bạn đợi 1 phút rồi thử lại nha! ⏳" });
-    }
-    return res.status(500).json({ reply: "Hệ thống đang bảo trì một chút! 🛠️" });
-  }
+interface AIAdvisorProps {
+  data: UserData;
 }
+
+interface ChatMessage {
+    role: string;
+    content: string;
+    logId?: number; 
+    rating?: 'up' | 'down' | null; 
+}
+
+// 👇 QUAN TRỌNG: Phải có chữ "export" ở đây
+export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [customPrompt, setCustomPrompt] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, [chatHistory, loading]);
+
+  const handleAdvice = async (isFirstTime = false) => {
+    if (!customPrompt.trim() && !isFirstTime) return;
+
+    playClick();
+    
+    const userQuestion = customPrompt || "Hãy phân tích bảng điểm của tôi và đưa ra lời khuyên.";
+    
+    if (!isFirstTime) {
+        setChatHistory(prev => [...prev, { role: "user", content: userQuestion }]);
+        setCustomPrompt(""); 
+    }
+
+    setLoading(true);
+
+    try {
+      let contextPrefix = "";
+      
+      if (chatHistory.length === 0) {
+          const stats = calculateCumulativeStats(data.semesters);
+          const degree = getDegreeClassification(stats.gpa4);
+          
+          const failedSubjects = data.semesters.flatMap(sem => sem.subjects)
+            .filter(s => {
+                const avg = calculateSubjectAverage(s);
+                return avg !== null && avg < 4.0 && !s.isNonGPA;
+            })
+            .map(s => s.name);
+
+          const filledTrainingScores = data.semesters
+            .map(s => s.trainingScore)
+            .filter((s): s is number => s !== null && s !== undefined);
+          
+          const avgTrainingScore = filledTrainingScores.length > 0
+            ? Math.round(filledTrainingScores.reduce((a, b) => a + b, 0) / filledTrainingScores.length)
+            : 0;
+
+          contextPrefix = `
+          DƯỚI ĐÂY LÀ DỮ LIỆU HỌC TẬP CỦA TÔI (Hãy đọc để tư vấn, không cần tóm tắt lại nếu không được hỏi):
+          - Sinh viên: ${data.studentName || "Bạn"} | Khóa: ${data.cohort || "?"}
+          - Ngành: ${data.majorName || "N/A"}
+          - GPA hệ 4: ${stats.gpa4.toFixed(2)} (${degree})
+          - GPA hệ 10: ${stats.gpa10.toFixed(2)}
+          - Tín chỉ đã đạt: ${stats.passedCredits}/${data.totalCreditsRequired || 125}
+          - Môn nợ (Rớt): ${failedSubjects.length > 0 ? failedSubjects.join(', ') : 'Không có'}
+          - ĐRL trung bình: ${avgTrainingScore}
+          - Mục tiêu GPA: ${data.targetGPA || 3.2}
+          
+          CÂU HỎI CỦA TÔI: `;
+      }
+
+      const res = await fetch('/api/bot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            message: contextPrefix + userQuestion,
+            history: chatHistory 
+        })
+      });
+
+      if (!res.ok) {
+          if (res.status === 429) throw new Error("Bot đang quá tải, đợi xíu nhé!");
+          throw new Error(`Lỗi Server: ${res.status}`);
+      }
+
+      const resData = await res.json();
+      const botReply = resData.reply || "Xin lỗi, mình đang mất kết nối.";
+      const logId = resData.logId; 
+
+      setChatHistory(prev => [...prev, { role: "assistant", content: botReply, logId: logId }]);
+
+    } catch (error: any) {
+      console.error(error);
+      setChatHistory(prev => [...prev, { role: "assistant", content: error.message || "Có lỗi xảy ra." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRate = async (index: number, isHelpful: boolean) => {
+      const msg = chatHistory[index];
+      if (!msg.logId) return;
+
+      playClick();
+
+      const newHistory = [...chatHistory];
+      newHistory[index].rating = isHelpful ? 'up' : 'down';
+      setChatHistory(newHistory);
+
+      if (supabase) {
+        try {
+            await supabase
+                .from('ai_chat_logs')
+                .update({ is_helpful: isHelpful })
+                .eq('id', msg.logId);
+        } catch (err) {
+            console.error("Lỗi đánh giá:", err);
+        }
+      }
+  };
+
+  return (
+    <>
+      <style>{`
+        @keyframes messageIn {
+          from { opacity: 0; transform: translateY(10px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-message {
+          animation: messageIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+        .typing-dot {
+          animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+      `}</style>
+
+      <button
+        onClick={() => { playClick(); setIsOpen(true); }}
+        className="fixed bottom-6 right-6 bg-[#003375] hover:bg-[#002855] text-white p-4 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 z-50 flex items-center gap-2 border-4 border-white active:scale-95 group animate-float hover:animate-none"
+      >
+        <Sparkles size={24} className="group-hover:animate-pulse text-yellow-300" />
+        <span className="font-semibold hidden md:inline group-hover:translate-x-1 transition-transform">Cố vấn AI</span>
+      </button>
+
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl flex flex-col h-[80vh] animate-slideUp">
+            
+            <div className="p-4 border-b flex justify-between items-center bg-[#003375] text-white rounded-t-xl shadow-md">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                <Sparkles size={20} className="text-yellow-300" />
+                Trợ lý Học tập HUB
+              </h3>
+              <button 
+                onClick={() => { playClick(); setIsOpen(false); }} 
+                className="hover:bg-white/20 p-2 rounded-full transition-colors active:scale-90"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-gray-50" ref={scrollRef}>
+              {chatHistory.length === 0 ? (
+                <div className="text-center text-gray-500 py-10 flex flex-col items-center animate-message">
+                  <div className="bg-blue-100 p-4 rounded-full mb-4">
+                      <MessageSquare size={32} className="text-[#003375]" />
+                  </div>
+                  <p className="font-medium text-gray-700">Chào {data.studentName || 'bạn'}!</p>
+                  <p className="text-sm mt-1 max-w-xs">Mình là AI Cố vấn. Mình đã đọc bảng điểm của bạn. Bạn muốn mình tư vấn gì nào?</p>
+                  
+                  <div className="mt-6 flex flex-wrap justify-center gap-2">
+                      <button onClick={() => { setCustomPrompt("Đánh giá tổng quan kết quả học tập của mình"); handleAdvice(true); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition hover:shadow-sm hover:-translate-y-0.5 active:scale-95">
+                          📊 Đánh giá bảng điểm
+                      </button>
+                      <button onClick={() => { setCustomPrompt("Mình cần cải thiện những môn nào?"); handleAdvice(true); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition hover:shadow-sm hover:-translate-y-0.5 active:scale-95">
+                          ⚠️ Môn cần cải thiện
+                      </button>
+                  </div>
+                </div>
+              ) : (
+                chatHistory.map((msg, idx) => (
+                  <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-message`}>
+                    <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
+                        msg.role === 'user' 
+                        ? 'bg-[#003375] text-white rounded-br-none' 
+                        : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
+                    }`}>
+                      {msg.role === 'assistant' ? (
+                          <div 
+                            className="prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{ 
+                                __html: DOMPurify.sanitize(msg.content.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')) 
+                            }} 
+                          />
+                      ) : (
+                          <p>{msg.content}</p>
+                      )}
+                    </div>
+
+                    {msg.role === 'assistant' && msg.logId && (
+                        <div className="flex gap-2 mt-1 ml-2">
+                            <button 
+                                onClick={() => handleRate(idx, true)}
+                                className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'up' ? 'text-green-600' : 'text-gray-400'}`}
+                                title="Hữu ích"
+                            >
+                                <ThumbsUp size={14} className={msg.rating === 'up' ? 'fill-current' : ''} />
+                            </button>
+                            <button 
+                                onClick={() => handleRate(idx, false)}
+                                className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'down' ? 'text-red-600' : 'text-gray-400'}`}
+                                title="Không hữu ích"
+                            >
+                                <ThumbsDown size={14} className={msg.rating === 'down' ? 'fill-current' : ''} />
+                            </button>
+                        </div>
+                    )}
+                  </div>
+                ))
+              )}
+              
+              {loading && (
+                  <div className="flex justify-start animate-message">
+                    <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-none px-4 py-4 flex items-center gap-1.5 shadow-sm">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                    </div>
+                  </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t bg-white rounded-b-xl">
+              <form
+                onSubmit={(e) => { e.preventDefault(); handleAdvice(); }}
+                className="flex gap-2 relative"
+              >
+                <input
+                  type="text"
+                  placeholder="Nhập câu hỏi..."
+                  className="flex-1 border border-gray-300 rounded-full px-5 py-3 focus:ring-2 focus:ring-[#003375] focus:outline-none bg-gray-50 pr-12 transition-all"
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  disabled={loading}
+                />
+                <button
+                  type="submit"
+                  disabled={loading || !customPrompt.trim()}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#003375] text-white p-2 rounded-full hover:bg-[#002855] disabled:opacity-50 transition-all active:scale-95"
+                >
+                  {loading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} className={loading ? 'opacity-0' : 'opacity-100'} />}
+                </button>
+              </form>
+              
+              <p className="text-[10px] text-center text-gray-400 mt-2 italic">
+                HUB Planner AI có thể mắc sai sót, vì vậy, nhớ xác minh câu trả lời của HUB Planner AI.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
