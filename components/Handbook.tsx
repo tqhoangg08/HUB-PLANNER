@@ -1,15 +1,60 @@
 import React, { useState } from 'react';
-import { Search, Phone, Mail, MapPin, Bus, Users, Book, Award, ChevronRight, Copy, Check, HelpCircle, ExternalLink, Info, Heart, Facebook, User } from 'lucide-react';
+import { 
+  Search, Phone, Mail, MapPin, Bus, Users, Book, Award, ChevronRight, 
+  Copy, Check, HelpCircle, ExternalLink, Info, Heart, Facebook, User, 
+  MessageSquarePlus // Icon mới cho mục Góp ý
+} from 'lucide-react';
 import { playClick } from '../utils/audio';
 
-type TabType = 'contacts' | 'bus' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about';
+// Thêm 'feedback' vào định nghĩa Type
+type TabType = 'contacts' | 'bus' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about' | 'feedback';
 
 export const Handbook: React.FC = () => {
+  // --- STATE QUẢN LÝ TAB VÀ TÌM KIẾM ---
   const [activeTab, setActiveTab] = useState<TabType>('contacts');
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // --- DATA FROM PDF ---
+  // --- STATE QUẢN LÝ FORM GÓP Ý (MỚI) ---
+  const [feedbackType, setFeedbackType] = useState<'bug' | 'idea'>('idea');
+  const [feedbackContent, setFeedbackContent] = useState('');
+  const [contactInfo, setContactInfo] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  // --- HÀM XỬ LÝ GỬI GÓP Ý ---
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackContent.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+        const res = await fetch('/api/feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: feedbackType,
+                content: feedbackContent,
+                contact: contactInfo
+            })
+        });
+
+        if (res.ok) {
+            setSubmitStatus('success');
+            setFeedbackContent('');
+            setContactInfo('');
+            setTimeout(() => setSubmitStatus('idle'), 5000); // Reset trạng thái sau 5s
+        } else {
+            setSubmitStatus('error');
+        }
+    } catch (error) {
+        setSubmitStatus('error');
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  // --- DATA (DỮ LIỆU CŨ GIỮ NGUYÊN) ---
   const contacts = [
     { name: 'Phòng Đào tạo', email: 'phongdaotao@hub.edu.vn', phone: '028.38.212.430', loc: '56 Hoàng Diệu 2 & 36 Tôn Thất Đạm' },
     { name: 'Phòng Công tác Sinh viên (TT SV&QHDN)', email: 'trungtamsvvaqhdn@hub.edu.vn', phone: '028.38.971.636', loc: '56 Hoàng Diệu 2' },
@@ -142,6 +187,7 @@ export const Handbook: React.FC = () => {
     }
   ];
 
+  // --- LOGIC TAB ---
   const filteredContacts = contacts.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     c.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -382,6 +428,118 @@ export const Handbook: React.FC = () => {
             </div>
         );
 
+      // --- MỤC GÓP Ý - PHẢN HỒI (MỚI) ---
+      case 'feedback':
+        return (
+            <div className="animate-fadeIn space-y-6">
+                <div className="bg-gradient-to-r from-teal-600 to-emerald-600 p-6 rounded-xl text-white shadow-lg flex items-center gap-4 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-white opacity-10 rounded-full -translate-y-1/2 translate-x-1/4"></div>
+                    <div className="bg-white/20 p-3 rounded-full relative z-10">
+                        <MessageSquarePlus size={32} className="text-white"/>
+                    </div>
+                    <div className="relative z-10">
+                        <h3 className="font-bold text-xl mb-1">Góp ý & Phản hồi</h3>
+                        <p className="text-teal-50 text-sm">Mọi ý kiến của bạn đều giúp HUB Planner hoàn thiện hơn mỗi ngày.</p>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    {submitStatus === 'success' ? (
+                        <div className="text-center py-10 animate-scaleIn">
+                            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Check size={32} />
+                            </div>
+                            <h4 className="text-xl font-bold text-gray-800 mb-2">Đã gửi thành công!</h4>
+                            <p className="text-gray-500">Cảm ơn bạn đã đóng góp ý kiến cho HUB Planner.</p>
+                            <button 
+                                onClick={() => setSubmitStatus('idle')}
+                                className="mt-4 text-[#003375] font-semibold hover:underline"
+                            >
+                                Gửi phản hồi khác
+                            </button>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleSubmitFeedback} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Bạn muốn gửi nội dung gì?</label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFeedbackType('bug')}
+                                        className={`p-4 rounded-lg border flex flex-col items-center gap-2 transition-all ${feedbackType === 'bug' ? 'bg-red-50 border-red-500 text-red-700 ring-1 ring-red-500' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                                    >
+                                        <div className={`p-2 rounded-full ${feedbackType === 'bug' ? 'bg-red-200' : 'bg-gray-100'}`}>
+                                            <Mail size={20} />
+                                        </div>
+                                        <span className="font-bold text-sm">Báo lỗi kỹ thuật</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFeedbackType('idea')}
+                                        className={`p-4 rounded-lg border flex flex-col items-center gap-2 transition-all ${feedbackType === 'idea' ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                                    >
+                                        <div className={`p-2 rounded-full ${feedbackType === 'idea' ? 'bg-blue-200' : 'bg-gray-100'}`}>
+                                            <ExternalLink size={20} />
+                                        </div>
+                                        <span className="font-bold text-sm">Đóng góp ý tưởng</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">
+                                    Nội dung chi tiết <span className="text-red-500">*</span>
+                                </label>
+                                <textarea
+                                    required
+                                    rows={4}
+                                    placeholder={feedbackType === 'bug' ? "Mô tả lỗi bạn gặp phải (Ví dụ: Không nhập được file PDF, tính sai điểm môn Toán...)" : "Bạn mong muốn có thêm tính năng gì?..."}
+                                    className="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none transition-all"
+                                    value={feedbackContent}
+                                    onChange={(e) => setFeedbackContent(e.target.value)}
+                                ></textarea>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">
+                                    Thông tin liên hệ (Không bắt buộc)
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="Email hoặc SĐT (để chúng mình liên hệ lại nếu cần)"
+                                    className="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none transition-all"
+                                    value={contactInfo}
+                                    onChange={(e) => setContactInfo(e.target.value)}
+                                />
+                            </div>
+
+                            {submitStatus === 'error' && (
+                                <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2">
+                                    <Info size={16} /> Có lỗi xảy ra, vui lòng thử lại sau.
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={isSubmitting || !feedbackContent.trim()}
+                                className="w-full bg-[#003375] hover:bg-[#002855] text-white font-bold py-3 rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {isSubmitting ? (
+                                    <>Đang gửi...</>
+                                ) : (
+                                    <>Gửi phản hồi <MessageSquarePlus size={18} /></>
+                                )}
+                            </button>
+                        </form>
+                    )}
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-center text-sm text-gray-600">
+                    Bạn cũng có thể liên hệ trực tiếp qua Fanpage <a href="https://www.facebook.com/hubplannerr" target="_blank" rel="noopener noreferrer" className="font-bold text-blue-600 hover:underline">HUB Planner</a>.
+                </div>
+            </div>
+        );
+
       case 'about':
         const founder = { 
             name: 'Trần Quốc Hoàng', 
@@ -419,7 +577,7 @@ export const Handbook: React.FC = () => {
                             <span>Made with love for HUB Students</span>
                         </div>
                     </div>
-                    {/* PHẦN ĐÃ SỬA: Xóa border/bg trắng, tăng kích thước lên w-64 h-64 */}
+                    {/* Logo Section */}
                     <div className="shrink-0 relative z-10 flex items-center justify-center w-64 h-64">
                         <img 
                             src="/logo.png" 
@@ -586,6 +744,15 @@ export const Handbook: React.FC = () => {
                 </button>
 
                 <button
+                    onClick={() => handleTabChange('feedback')}
+                    className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 ${activeTab === 'feedback' ? 'bg-teal-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50 hover:shadow-sm'}`}
+                >
+                    <MessageSquarePlus size={20} />
+                    <span className="font-bold">Góp ý - Phản hồi</span>
+                    {activeTab === 'feedback' && <ChevronRight size={16} className="ml-auto opacity-70"/>}
+                </button>
+
+                <button
                     onClick={() => handleTabChange('about')}
                     className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 ${activeTab === 'about' ? 'bg-[#003375] text-white shadow-md' : 'text-gray-600 hover:bg-white hover:shadow-sm'}`}
                 >
@@ -597,11 +764,9 @@ export const Handbook: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Content Area */}
       <div className="md:col-span-3">
         {renderContent()}
       </div>
     </div>
   );
 };
-
