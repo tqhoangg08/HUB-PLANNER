@@ -42,9 +42,13 @@
     {
       "@context": "https://schema.org",
       "@type": "WebSite",
-      "name": "HUB Planner", 
-      "alternateName": ["Hỗ Trợ Sinh Viên HUB", "HUB Tool", "hotrosinhvienhub"],
-      "url": "https://hotrosinhvienhub.id.vn/"
+      "name": "HUB Planner",
+      "url": "https://hotrosinhvienhub.id.vn/",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://hotrosinhvienhub.id.vn/?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
     },
     {
       "@context": "https://schema.org",
@@ -89,3 +93,4 @@
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>
+
