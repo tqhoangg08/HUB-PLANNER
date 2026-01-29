@@ -1,15 +1,15 @@
 import Groq from "groq-sdk";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { createClient } from '@supabase/supabase-js'; // 1. Thêm dòng này
 
 // ============================================================
 // 1. CẤU HÌNH KEY RIÊNG CHO CHAT 🔑
 // ============================================================
-// Chỉ lấy đúng 1 key dành riêng cho Chatbot để không đụng hàng với OCR
 const CHAT_API_KEY = process.env.GROQ_CHAT_KEY;
 
 // ============================================================
-// 2. REDIS & RATE LIMIT (Cấu hình riêng)
+// 2. REDIS & RATE LIMIT & SUPABASE (Cấu hình)
 // ============================================================
 const redis = (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
   ? new Redis({
@@ -23,6 +23,13 @@ const ratelimit = redis
       limiter: Ratelimit.slidingWindow(100, "1 d"), 
       analytics: true,
     }) : null;
+
+// Cấu hình Supabase để lưu log
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+const supabase = (supabaseUrl && supabaseKey) 
+  ? createClient(supabaseUrl, supabaseKey) 
+  : null;
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -109,6 +116,24 @@ export default async function handler(req, res) {
 
     const replyText = completion.choices[0]?.message?.content || "Bot đang suy nghĩ... bạn chờ xíu nha!";
     
+    // ============================================================
+    // 📝 5. LƯU LOG VÀO SUPABASE (PHẦN MỚI THÊM)
+    // ============================================================
+    if (supabase) {
+        // Dùng try-catch riêng để nếu lỗi lưu log thì web vẫn chạy bình thường
+        try {
+            await supabase.from('ai_chat_logs').insert([
+                {
+                    user_message: message,
+                    bot_reply: replyText,
+                    // Có thể lưu thêm user_id nếu muốn, nhưng cần lấy từ session
+                }
+            ]);
+        } catch (logError) {
+            console.error("⚠️ Không thể lưu log chat:", logError);
+        }
+    }
+
     return res.status(200).json({ reply: replyText });
 
   } catch (error) {
