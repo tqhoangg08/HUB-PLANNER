@@ -87,7 +87,7 @@ const { error } = await supabase
         { name: 'CLB Kế toán Kiểm toán (FAAC)', link: 'https://www.facebook.com/hub.faac', email: 'faac.hub@gmail.com', manager: 'Đoàn khoa KTKT' },
         { name: 'CLB Pháp lý', link: 'https://www.facebook.com/CLBPHAPLYHUB', email: 'clb.phaply@hub.edu.vn', manager: 'Đoàn khoa Luật' },
         { name: 'CLB Học thuật GIEO', link: '', email: 'gieoclub@hub.edu.vn', manager: 'Đoàn khoa HTTTQL' },
-        { name: 'CLB DATA LAB', link: 'https://www.facebook.com/profile.php?id=61576925573439', email: '', manager: 'Đoàn khoa Khoa học dữ liệu'}
+        { name: 'CLB DATA LAB', link: 'https://www.facebook.com/profile.php?id=61576925573439', email: '', manager: 'Đoàn khoa Khoa học dữ liệu'},
         { name: 'CLB Nghiên cứu - Ứng dụng Phân tích Dữ liệu & Phát triển Bền vững trong Kế toán - Kiểm toán (AICAS)', link: 'https://www.facebook.com/clbaicashub', email: 'clbaicashub@gmail.com', manager: 'Đoàn khoa Kế toán - Kiểm toán'}
       ]
     },
@@ -769,3 +769,4 @@ const { error } = await supabase
   );
 
 };
+
