@@ -310,7 +310,7 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
                                     // STATE 2: SELECTION LIST
                                     <div className="flex flex-col max-h-[300px]">
                                         <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 italic">
-                                            Chọn nguồn dữ liệu (Kỳ học cũ) để so sánh với GPA hiện tại của bạn ({semGPA4.toFixed(1)}).
+                                            Chọn nguồn dữ liệu (Kỳ học cũ) để so sánh với GPA hiện tại của bạn ({semGPA4.toFixed(1)}). So sánh dựa trên tiêu chí: (1) loại học bổng; (2) GPA thang 4; (3) Điểm rèn luyện; (4) Tổng số tín chỉ.
                                         </div>
                                         <div className="overflow-y-auto custom-scrollbar p-2 space-y-1">
                                             {loadingSemesters ? (
@@ -560,3 +560,4 @@ export const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, o
     </div>
   );
 };
+
