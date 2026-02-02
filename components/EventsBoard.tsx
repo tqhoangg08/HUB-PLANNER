@@ -1,7 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../utils/supabase';
-import { Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, Save, ToggleLeft, ToggleRight, Settings, Tag, RotateCcw } from 'lucide-react';
+import { 
+  Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, 
+  AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, 
+  Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, 
+  MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, 
+  Save, ToggleLeft, ToggleRight, Settings, Tag, RotateCcw,
+  // 👇 Đã thêm các icon mới cho thông báo
+  Info, ExternalLink, CalendarClock 
+} from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
 import { useUserRole } from '../hooks/useUserRole';
@@ -693,7 +701,7 @@ const DiscussionModal = ({ event, onClose }: { event: {id: string, name: string}
                     <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
                 </div>
                 <div className="flex-1 overflow-hidden relative">
-                     <CommentSection contextId={`event_${event.id}`} title="Bình luận" className="h-full border-0 shadow-none rounded-none"/>
+                      <CommentSection contextId={`event_${event.id}`} title="Bình luận" className="h-full border-0 shadow-none rounded-none"/>
                 </div>
             </div>
         </div>, document.body
@@ -1294,6 +1302,43 @@ export const EventsBoard: React.FC = () => {
         </div>
       </div>
 
+      {/* --- NOTIFICATION BANNER (NEW) --- */}
+      <div className="bg-blue-50 border-l-4 border-[#003375] p-4 mb-6 rounded-r-lg shadow-sm animate-fadeIn">
+        <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-0.5">
+            <Info className="h-5 w-5 text-[#003375]" />
+            </div>
+            <div className="flex-1 space-y-2">
+            <p className="text-sm text-blue-900 font-medium">
+                📢 <span className="font-bold">Thông báo kiểm dò hoạt động HK1 2025-2026</span>
+            </p>
+            
+            <div className="text-sm text-blue-800 space-y-1">
+                <p>
+                ⏳ <strong>Thời gian kiểm dò:</strong> Từ <span className="font-bold text-red-600">03/02/2026</span> đến <span className="font-bold text-red-600">17h00 ngày 13/02/2026</span>.
+                </p>
+                <p>
+                📝 <strong>Cách thực hiện:</strong> Truy cập 
+                <a 
+                    href="https://member.youth.buh.edu.vn/" 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="inline-flex items-center gap-1 mx-1 font-bold underline hover:text-[#003375] transition-colors"
+                >
+                    member.youth.buh.edu.vn <ExternalLink size={12} />
+                </a> 
+                ➝ Chọn "Tra cứu" ➝ Nhập MSSV ➝ Kiểm tra hoạt động.
+                </p>
+                <div className="flex items-start gap-2 mt-2 pt-2 border-t border-blue-200 text-blue-700 italic text-xs">
+                <CalendarClock size={14} className="mt-0.5 shrink-0" />
+                <span>Đối với các hoạt động <strong>ngoài Trường</strong>, sinh viên sẽ cập nhật từ ngày <strong>02/3/2026</strong> đến hết ngày <strong>11/3/2026</strong>.</span>
+                </div>
+            </div>
+            </div>
+        </div>
+      </div>
+      {/* ---------------------------------- */}
+
       {/* Tabs */}
       <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-6 overflow-x-auto no-scrollbar">
         {[{id:'all',l:'Tất cả'},{id:'I',l:'Mục I'},{id:'II',l:'Mục II'},{id:'III',l:'Mục III'},{id:'IV',l:'Mục IV'},{id:'V',l:'Mục V'}].map(tab => (
@@ -1333,7 +1378,7 @@ export const EventsBoard: React.FC = () => {
             {/* --- MỤC: ĐÃ HẾT HẠN --- */}
             {expiredEvents.length > 0 && (
                 <div>
-                     <h3 className="text-xl font-bold text-gray-500 mb-4 flex items-center gap-2">
+                      <h3 className="text-xl font-bold text-gray-500 mb-4 flex items-center gap-2">
                         <Lock className="text-gray-400" /> 
                         Đã hết hạn ({expiredEvents.length})
                     </h3>
