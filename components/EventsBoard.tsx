@@ -7,8 +7,9 @@ import {
   Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, 
   MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, 
   Save, ToggleLeft, ToggleRight, Settings, Tag, RotateCcw,
-  // 👇 Đã thêm các icon mới cho thông báo
-  Info, ExternalLink, CalendarClock 
+  Info, ExternalLink, CalendarClock,
+  // 👇 Thêm icon cho tính năng đánh dấu tham gia
+  Bookmark, BookmarkCheck
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
@@ -723,6 +724,34 @@ export const EventsBoard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [activeScope, setActiveScope] = useState('all');
+
+  // --- NEW: PERSONAL PARTICIPATION STATE ---
+  const [participatedEvents, setParticipatedEvents] = useState<string[]>([]);
+
+  // Load from LocalStorage on mount
+  useEffect(() => {
+      const saved = localStorage.getItem('hub_participated_events');
+      if (saved) {
+          try {
+              setParticipatedEvents(JSON.parse(saved));
+          } catch (e) {
+              console.error("Lỗi đọc dữ liệu đã tham gia", e);
+          }
+      }
+  }, []);
+
+  // Toggle Function
+  const toggleParticipation = (eventId: string) => {
+      playClick();
+      setParticipatedEvents(prev => {
+          const newEvents = prev.includes(eventId) 
+              ? prev.filter(id => id !== eventId) 
+              : [...prev, eventId];
+          localStorage.setItem('hub_participated_events', JSON.stringify(newEvents));
+          return newEvents;
+      });
+  };
+  // -----------------------------------------
   
   // Modals State
   const [showScoreGuide, setShowScoreGuide] = useState(false);
@@ -875,9 +904,14 @@ export const EventsBoard: React.FC = () => {
                           evt.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           evt.classification.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Exact match for category (Mục I, II, III...) to avoid Roman numeral substring issues
-    // Example: "I" shouldn't match "II" or "III"
-    const matchesTab = activeTab === 'all' || evt.category === activeTab; 
+    // --- UPDATED TAB LOGIC FOR PARTICIPATED ---
+    let matchesTab = true;
+    if (activeTab === 'participated') {
+        matchesTab = participatedEvents.includes(evt.id);
+    } else if (activeTab !== 'all') {
+        matchesTab = evt.category === activeTab;
+    }
+    // ------------------------------------------
 
     const matchesScope = activeScope === 'all' || 
                          (activeScope === 'internal' && evt.scope === 'Trong trường') ||
@@ -1158,6 +1192,9 @@ export const EventsBoard: React.FC = () => {
 
     const formattedLink = evt.link && !evt.link.startsWith('http') ? `https://${evt.link}` : evt.link;
 
+    // --- CHECK PARTICIPATION ---
+    const isParticipated = participatedEvents.includes(evt.id);
+
     return (
       <div key={evt.id} className={`bg-white rounded-xl shadow-sm border p-5 flex flex-col transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group relative overflow-hidden 
         ${isLinkClosed ? 'border-gray-200 opacity-80' : ''} 
@@ -1216,6 +1253,20 @@ export const EventsBoard: React.FC = () => {
         <div className="mt-auto flex gap-2">
              <button onClick={() => { playClick(); setDiscussEvent({ id: evt.id, name: evt.name }); }} className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 hover:text-[#003375] py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow-md" title="Thảo luận"><MessageCircle size={18} /><span className="hidden sm:inline">Thảo luận</span></button>
             
+            {/* --- TOGGLE PARTICIPATION BUTTON --- */}
+            <button 
+                onClick={() => toggleParticipation(evt.id)}
+                className={`flex-none w-10 flex items-center justify-center rounded-lg border transition-all active:scale-95 shadow-sm hover:shadow-md ${
+                    isParticipated 
+                    ? 'bg-green-50 border-green-200 text-green-600 hover:bg-green-100' 
+                    : 'bg-white border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                }`}
+                title={isParticipated ? "Đã tham gia (Bấm để hủy)" : "Đánh dấu đã tham gia"}
+            >
+                {isParticipated ? <BookmarkCheck size={20} /> : <Bookmark size={20} />}
+            </button>
+            {/* ----------------------------------- */}
+
             {evt.link && !isLinkClosed ? (
                 <a href={formattedLink} target="_blank" rel="noopener noreferrer" onClick={(e) => { playClick(); e.stopPropagation(); }} className={`flex-[2] text-white py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow-md ${isDeadlineToday ? 'bg-red-600 hover:bg-red-700' : 'bg-[#003375] hover:bg-[#002855]'}`}>Tham gia ngay</a>
             ) : (
@@ -1341,8 +1392,8 @@ export const EventsBoard: React.FC = () => {
 
       {/* Tabs */}
       <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-6 overflow-x-auto no-scrollbar">
-        {[{id:'all',l:'Tất cả'},{id:'I',l:'Mục I'},{id:'II',l:'Mục II'},{id:'III',l:'Mục III'},{id:'IV',l:'Mục IV'},{id:'V',l:'Mục V'}].map(tab => (
-            <button key={tab.id} onClick={() => { playClick(); setActiveTab(tab.id); }} className={`flex-1 min-w-[80px] py-2 rounded-lg text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-blue-50 text-[#003375]' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>{tab.l}</button>
+        {[{id:'all',l:'Tất cả'},{id:'participated', l:'Đã tham gia 🚩'},{id:'I',l:'Mục I'},{id:'II',l:'Mục II'},{id:'III',l:'Mục III'},{id:'IV',l:'Mục IV'},{id:'V',l:'Mục V'}].map(tab => (
+            <button key={tab.id} onClick={() => { playClick(); setActiveTab(tab.id); }} className={`flex-1 min-w-[80px] py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap px-3 ${activeTab === tab.id ? 'bg-blue-50 text-[#003375]' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'}`}>{tab.l}</button>
         ))}
       </div>
 

@@ -14,7 +14,7 @@ import {
     getGradeDetails,
     getScholarshipStatus
 } from '../utils/calculations';
-import { Target, TrendingUp, AlertTriangle, Award, User, BookOpen, Star, BarChart3, Calendar, CheckCircle2, Pencil, Calculator, Trophy, TrendingDown, Zap, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, List, X } from 'lucide-react';
+import { Target, TrendingUp, AlertTriangle, Award, User, BookOpen, Star, BarChart3, Calendar, CheckCircle2, Pencil, Calculator, Trophy, TrendingDown, Zap, PieChart as PieChartIcon, ArrowUpRight, ArrowDownRight, List, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { playClick } from '../utils/audio';
 import { AdsBanner } from './AdsBanner';
@@ -27,6 +27,9 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, showSecurityNotice }) => {
     const [showRankingModal, setShowRankingModal] = useState(false);
+    // State để quản lý việc xem thêm danh sách môn nợ
+    const [showAllFailed, setShowAllFailed] = useState(false);
+
     const stats = calculateCumulativeStats(data.semesters);
     const yearlyStats = calculateYearlyStats(data.semesters);
     const classification = getDegreeClassification(stats.gpa4);
@@ -101,28 +104,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
         : 0;
 
     const allSubjects = data.semesters.flatMap(s => s.subjects);
-    const failedCount = allSubjects.filter(s => {
+    
+    // Calculate Failed Subjects List
+    const failedSubjectsList = allSubjects.filter(s => {
         const avg = calculateSubjectAverage(s);
         return getSubjectStatus(avg) === GradeStatus.FAIL && !s.isNonGPA;
-    }).length;
+    });
+    
+    const failedCount = failedSubjectsList.length;
 
     const totalCreditsRequired = data.totalCreditsRequired || 125;
-    const scholarshipStatus = getScholarshipStatus(stats.gpa4, averageTrainingScore, stats.passedCredits);
-    const scholarshipReason = scholarshipStatus.type === 'none'
-        ? stats.passedCredits < 15
-            ? 'Thiếu tín chỉ'
-            : stats.gpa4 < 3.2
-                ? 'GPA thấp'
-                : averageTrainingScore < 80
-                    ? 'ĐRL thấp'
-                    : 'Chưa đủ điều kiện'
-        : '';
-
+    
     // =========================================================================
-    // 🔥 SỬA Ở ĐÂY: Dùng rawGPA4 thay vì gpa4 để tính dự báo chính xác
+    // 🔥 Dùng rawGPA4 để tính dự báo chính xác
     // =========================================================================
     const requiredAnalysis = calculateRequiredGPA(
-        stats.rawGPA4, // <--- Đã sửa: Dùng số thô (3.15...) thay vì số làm tròn (3.2)
+        stats.rawGPA4, 
         stats.passedCredits,
         totalCreditsRequired,
         data.targetGPA
@@ -319,17 +316,41 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                         </div>
                     )}
 
+                    {/* --- REPLACED SCHOLARSHIP WITH FAILED SUBJECTS LIST --- */}
                     <div className="p-3 rounded-md text-sm border bg-white">
-                        <div className="font-semibold mb-1 flex items-center gap-1">
-                            <Award size={14} className="text-[#990000]" /> Dự báo học bổng:
+                        <div className="font-semibold mb-2 flex items-center gap-1 text-gray-700">
+                            <List size={14} className="text-red-500"/> Danh sách môn nợ/rớt:
                         </div>
-                        <div className={`font-semibold ${scholarshipStatus.color}`}>
-                            {scholarshipStatus.label}
-                        </div>
-                        {scholarshipStatus.type === 'none' && (
-                            <div className="text-xs text-gray-500 mt-1">Lý do: {scholarshipReason}</div>
+                        {failedSubjectsList.length === 0 ? (
+                            <p className="text-gray-500 italic text-xs pl-1">Không có (Quá tuyệt vời! 🎉)</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {failedSubjectsList.slice(0, showAllFailed ? undefined : 3).map((sub, idx) => {
+                                    const avg = calculateSubjectAverage(sub);
+                                    return (
+                                        <div key={idx} className="flex justify-between items-center text-xs bg-red-50 text-red-700 px-2 py-1.5 rounded border border-red-100">
+                                            <span className="truncate flex-1 mr-2" title={sub.name}>{sub.name}</span>
+                                            <span className="font-bold shrink-0">{avg?.toFixed(1) || '0.0'}</span>
+                                        </div>
+                                    );
+                                })}
+                                
+                                {failedSubjectsList.length > 3 && (
+                                    <button 
+                                        onClick={() => { playClick(); setShowAllFailed(!showAllFailed); }}
+                                        className="w-full text-center text-xs text-blue-600 hover:text-blue-800 font-medium mt-1 flex items-center justify-center gap-1 hover:underline pt-1"
+                                    >
+                                        {showAllFailed ? (
+                                            <><ChevronUp size={12}/> Thu gọn</>
+                                        ) : (
+                                            <><ChevronDown size={12}/> Xem thêm ({failedSubjectsList.length - 3} môn)</>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
                         )}
                     </div>
+                    {/* --------------------------------------------------- */}
                 </div>
 
                 {/* Target Box */}
