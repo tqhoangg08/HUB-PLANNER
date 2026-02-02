@@ -22,7 +22,7 @@ import { supabase } from './utils/supabase';
 import { Link, Navigate, Route, Routes, useNavigate, useSearchParams, NavLink } from 'react-router-dom';
 import { ImportGuideModal } from './components/ImportGuideModal';
 import { UserGuideModal } from './components/UserGuideModal';
-
+import ProfilePage from './pages/ProfilePage';
 const LoginWrapper: React.FC<{ setRolePreference: (role: 'student' | 'admin' | 'school') => void }> = ({ setRolePreference }) => {
     const [searchParams] = useSearchParams();
     const role = searchParams.get('role');
@@ -933,6 +933,7 @@ const App: React.FC = () => {
                         <Route path="/events" element={<EventsBoard />} />
                         <Route path="/lost-found" element={<LostFoundBoard />} />
                         <Route path="/handbook" element={<Handbook />} />
+                        <Route path="/profile/:id" element={<ProfilePage />} />
                         <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Routes>
                 </main>
@@ -1077,7 +1078,6 @@ const App: React.FC = () => {
             <Route path="/terms" element={<TermsOfUse />} />
             <Route path="/login" element={<LoginWrapper setRolePreference={setRolePreference} />} />
             <Route path="/guest" element={<GuestWrapper userRolePref={userRolePref} setRolePreference={setRolePreference}>{renderProtectedApp()}</GuestWrapper>} />
-            {/* 👇 QUAN TRỌNG: Cho phép cả người dùng ẩn danh (student) vào xem */}
             <Route path="/*" element={(session || userRolePref === 'student') ? renderProtectedApp() : <RoleSelection onSelect={handleRoleSelect} />} />
         </Routes>
     );
