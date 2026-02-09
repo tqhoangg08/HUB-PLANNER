@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@layer base {
+
+  /* 👇 1. CẤU HÌNH SIZE CHỮ TOÀN WEB */
+  html,
+  body {
+    /* overflow-x: hidden;  <-- Tạm tắt để fix lỗi sticky sidebar */
+  }
+
+  html {
+    /* 📱 MOBILE: Mặc định set chữ gốc là 14px (nhỏ hơn chuẩn 16px khoảng 12.5%) */
+    /* Điều này sẽ làm toàn bộ web trên điện thoại nhỏ nhắn, gọn gàng hơn */
+    font-size: 14px;
+  }
+
+  /* 💻 LAPTOP: Khi màn hình rộng từ 1024px trở lên -> Trả về size chuẩn 16px */
+  @media (min-width: 1024px) {
+    html {
+      font-size: 16px;
+    }
+  }
+
+  /* 👇 2. CẤU HÌNH BODY (GIỮ NGUYÊN CŨ) */
+  body {
+    @apply antialiased text-gray-900 bg-gray-50;
+  }
+}

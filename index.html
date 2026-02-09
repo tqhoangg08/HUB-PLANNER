@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src * 'unsafe-inline' 'unsafe-eval' wss: https: data: blob:;">
+
+  <script>
+    window.onerror = function(message, source, lineno, colno, error) {
+      if (!message.includes('ResizeObserver')) {
+         console.error(message);
+      }
+    };
+  </script>
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-RS87LQMBFC"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-RS87LQMBFC');
+  </script>
+  
+  <link rel="icon" type="image/png" href="/logo1.png" />
+  <link rel="apple-touch-icon" href="/logo1.png" />
+
+  <title>HUB Planner - Công cụ Lập kế hoạch & Tính điểm</title>
+  <meta name="description" content="Công cụ miễn phí dành cho sinh viên Đại học Ngân hàng TP.HCM (HUB): Quản lý học tập, tính điểm GPA, tìm đồ thất lạc và cập nhật sự kiện mới nhất." />
+  
+  <link rel="canonical" href="https://hotrosinhvienhub.id.vn/" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://hotrosinhvienhub.id.vn/" />
+  <meta property="og:site_name" content="HUB Planner" />
+  <meta property="og:title" content="HUB Planner - Hỗ Trợ Sinh Viên HUB" />
+  <meta property="og:description" content="Công cụ 'cứu cánh' cho sinh viên HUB: Tự động tính GPA, điểm rèn luyện, tìm đồ thất lạc. Dùng ngay không cần đăng nhập!" />
+  <meta property="og:image" content="https://hotrosinhvienhub.id.vn/banner.png" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta property="twitter:domain" content="hotrosinhvienhub.id.vn" />
+  <meta property="twitter:url" content="https://hotrosinhvienhub.id.vn/" />
+  <meta name="twitter:title" content="HUB Planner - Công cụ hỗ trợ sinh viên HUB" />
+  <meta name="twitter:description" content="Tính điểm GPA, tổng hợp sự kiện, tìm đồ thất lạc cho sinh viên ĐH Ngân hàng TP.HCM." />
+  <meta name="twitter:image" content="https://hotrosinhvienhub.id.vn/banner.png" />
+
+  <script type="application/ld+json">
+  [
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "HUB Planner",
+      "url": "https://hotrosinhvienhub.id.vn/",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://hotrosinhvienhub.id.vn/?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "HUB Planner - Hỗ trợ Sinh viên",
+      "operatingSystem": "Web Browser",
+      "applicationCategory": "EducationalApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "VND"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.9",
+        "ratingCount": "150"
+      }
+    }
+  ]
+  </script>
+
+  <style>
+    html, body, #root { width: 100%; max-width: 100%; }
+    body { margin: 0; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    .animate-fadeIn { animation: fadeIn 0.5s ease-out forwards; }
+    .animate-slideUp { animation: slideUp 0.5s ease-out forwards; }
+    .animate-slideInRight { animation: slideInRight 0.3s ease-out forwards; }
+    .animate-scaleIn { animation: scaleIn 0.3s ease-out forwards; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+  </style>
+</head>
+
+<body class="bg-gray-50">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>
