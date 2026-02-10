@@ -2,12 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
     Search, Phone, Mail, MapPin, Bus, Users, Book, Award, ChevronRight,
     Copy, Check, HelpCircle, ExternalLink, Info, Heart, Facebook, User,
-    MessageSquarePlus
+    MessageSquarePlus, Crown // <--- Đã thêm Crown
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { supabase } from '../utils/supabase';
 
-type TabType = 'contacts' | 'bus' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about' | 'feedback';
+// <--- Đã thêm 'donate' vào Type
+type TabType = 'contacts' | 'bus' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about' | 'feedback' | 'donate';
 
 export const Handbook: React.FC = () => {
     const [activeTab, setActiveTab] = useState<TabType>('contacts');
@@ -22,6 +23,12 @@ export const Handbook: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
+    // --- STATE CHO PHẦN ỦNG HỘ (DONATE) - MỚI THÊM ---
+    const [donateForm, setDonateForm] = useState({ name: '', mssv: '', amount: '', message: '' });
+    const [isDonating, setIsDonating] = useState(false);
+    const [donors, setDonors] = useState<any[]>([]);
+    const [loadingDonors, setLoadingDonors] = useState(false);
+
     // --- MENU CONFIGURATION ---
     const MENU_ITEMS = [
         { id: 'contacts', label: 'Danh bạ & Khoa', icon: Phone, color: 'bg-[#003375]' },
@@ -30,6 +37,7 @@ export const Handbook: React.FC = () => {
         { id: 'scholarships', label: 'Học bổng & Quy chế', icon: Award, color: 'bg-green-600' },
         { id: 'faqs', label: 'FAQs', icon: HelpCircle, color: 'bg-indigo-600' },
         { id: 'feedback', label: 'Góp ý', icon: MessageSquarePlus, color: 'bg-teal-600' },
+        { id: 'donate', label: 'Ủng hộ & Tri ân', icon: Heart, color: 'bg-pink-600' }, // <--- MỚI THÊM
         { id: 'about', label: 'Về chúng mình', icon: Info, color: 'bg-gray-600' },
     ];
 
@@ -42,6 +50,61 @@ export const Handbook: React.FC = () => {
             }
         }
     }, [activeTab]);
+
+    // --- LOGIC LẤY DANH SÁCH ỦNG HỘ (MỚI THÊM) ---
+    useEffect(() => {
+        if (activeTab === 'donate') {
+            fetchDonors();
+        }
+    }, [activeTab]);
+
+    const fetchDonors = async () => {
+        setLoadingDonors(true);
+        const { data, error } = await supabase
+            .from('donations')
+            .select('*')
+            .order('created_at', { ascending: false }); // Mới nhất lên đầu
+        
+        if (!error && data) {
+            setDonors(data);
+        }
+        setLoadingDonors(false);
+    };
+
+    // --- LOGIC GỬI FORM ỦNG HỘ (MỚI THÊM) ---
+    const handleDonateSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!donateForm.name || !donateForm.amount) return;
+
+        setIsDonating(true);
+        try {
+            // Chỉ lấy số từ chuỗi tiền (ví dụ nhập "50.000" -> 50000)
+            const cleanAmount = parseInt(donateForm.amount.replace(/\D/g, '')) || 0;
+
+            const { error } = await supabase.from('donations').insert([{
+                name: donateForm.name,
+                student_id: donateForm.mssv,
+                message: donateForm.message,
+                amount: cleanAmount
+            }]);
+
+            if (error) throw error;
+
+            alert("Cảm ơn tấm lòng vàng của bạn! ❤️");
+            setDonateForm({ name: '', mssv: '', amount: '', message: '' }); // Reset form
+            fetchDonors(); // Load lại bảng vàng
+        } catch (error) {
+            console.error("Lỗi:", error);
+            alert("Có lỗi xảy ra, vui lòng thử lại.");
+        } finally {
+            setIsDonating(false);
+        }
+    };
+
+    // Hàm format tiền tệ (VND)
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+    };
 
     const handleSubmitFeedback = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -523,6 +586,151 @@ export const Handbook: React.FC = () => {
 
                         <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-center text-sm text-gray-600">
                             Bạn cũng có thể liên hệ trực tiếp qua Fanpage <a href="https://www.facebook.com/hubplannerr" target="_blank" rel="noopener noreferrer" className="font-bold text-blue-600 hover:underline">HUB Planner</a>.
+                        </div>
+                    </div>
+                );
+
+            case 'donate':
+                return (
+                    <div className="animate-fadeIn pb-10">
+                        {/* 1. HEADER KÊU GỌI & QR CODE */}
+                        <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl p-8 text-white shadow-xl mb-10 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -translate-y-1/2 translate-x-1/3"></div>
+                            
+                            <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                                <div className="flex-1 text-center md:text-left">
+                                    <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 border border-white/30">
+                                        <Heart size={14} className="fill-current" /> Đồng hành cùng HUB Planner
+                                    </div>
+                                    <h2 className="text-3xl font-black mb-4 leading-tight">
+                                        Chung tay phát triển <br/> Cộng đồng sinh viên
+                                    </h2>
+                                    <p className="text-pink-100 text-lg mb-6 leading-relaxed">
+                                        Dự án phi lợi nhuận cần sự hỗ trợ của bạn để duy trì Server và phát triển tính năng mới. 
+                                        Mọi sự đóng góp dù nhỏ nhất đều là động lực to lớn với chúng mình!
+                                    </p>
+                                </div>
+
+                                {/* KHUNG MÃ QR */}
+                                <div className="shrink-0 bg-white p-4 rounded-2xl shadow-2xl transform rotate-2 hover:rotate-0 transition-transform duration-300">
+                                    <div className="w-48 h-48 bg-gray-100 rounded-lg overflow-hidden mb-2">
+                                        <img src="/qr-code.png" alt="QR Code Momo/Bank" className="w-full h-full object-cover" />
+                                    </div>
+                                    <p className="text-center text-gray-500 text-xs font-bold uppercase tracking-wider">Quét mã ủng hộ</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* 2. FORM XÁC NHẬN ỦNG HỘ */}
+                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-fit">
+                                <h3 className="text-xl font-bold text-[#003375] mb-1">Xác nhận ủng hộ</h3>
+                                <p className="text-sm text-gray-500 mb-6">Điền thông tin để chúng mình vinh danh bạn trên Bảng vàng nhé!</p>
+                                
+                                <form onSubmit={handleDonateSubmit} className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Họ tên <span className="text-red-500">*</span></label>
+                                            <input 
+                                                type="text" required 
+                                                className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 outline-none transition-all"
+                                                placeholder="Nguyễn Văn A"
+                                                value={donateForm.name}
+                                                onChange={e => setDonateForm({...donateForm, name: e.target.value})}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Số tiền <span className="text-red-500">*</span></label>
+                                            <input 
+                                                type="text" required 
+                                                className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 outline-none transition-all"
+                                                placeholder="Ví dụ: 20.000"
+                                                value={donateForm.amount}
+                                                onChange={e => setDonateForm({...donateForm, amount: e.target.value})}
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase mb-1">MSSV (Tùy chọn)</label>
+                                        <input 
+                                            type="text" 
+                                            className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 outline-none transition-all"
+                                            placeholder="Để trống nếu muốn ẩn danh"
+                                            value={donateForm.mssv}
+                                            onChange={e => setDonateForm({...donateForm, mssv: e.target.value})}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Lời nhắn gửi</label>
+                                        <textarea 
+                                            rows={3}
+                                            className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 outline-none transition-all"
+                                            placeholder="Gửi lời yêu thương đến team..."
+                                            value={donateForm.message}
+                                            onChange={e => setDonateForm({...donateForm, message: e.target.value})}
+                                        ></textarea>
+                                    </div>
+
+                                    <button 
+                                        type="submit" 
+                                        disabled={isDonating}
+                                        className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        {isDonating ? 'Đang gửi...' : <><Heart size={18} className="fill-current"/> Gửi thông tin</>}
+                                    </button>
+                                </form>
+                            </div>
+
+                            {/* 3. BẢNG VÀNG TRI ÂN */}
+                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[500px]">
+                                <div className="bg-yellow-50 p-4 border-b border-yellow-100 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-lg font-black text-yellow-800 flex items-center gap-2 uppercase tracking-wide">
+                                            <Crown size={20} className="fill-yellow-500 text-yellow-600"/> Bảng vàng tri ân
+                                        </h3>
+                                        <p className="text-xs text-yellow-700 mt-1">Cập nhật realtime từ hệ thống</p>
+                                    </div>
+                                    <div className="bg-white px-3 py-1 rounded-full text-xs font-bold text-yellow-700 shadow-sm border border-yellow-100">
+                                        {donors.length} lượt ủng hộ
+                                    </div>
+                                </div>
+
+                                <div className="overflow-y-auto custom-scrollbar flex-1 p-2 space-y-2">
+                                    {loadingDonors ? (
+                                        <div className="text-center py-10 text-gray-400">Đang tải danh sách...</div>
+                                    ) : donors.length === 0 ? (
+                                        <div className="text-center py-10 text-gray-400 italic">Chưa có ai, hãy là người đầu tiên! 🥇</div>
+                                    ) : (
+                                        donors.map((donor, idx) => (
+                                            <div key={idx} className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm flex items-start gap-3 hover:bg-gray-50 transition-colors">
+                                                <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm
+                                                    ${idx === 0 ? 'bg-yellow-400 text-white ring-2 ring-yellow-200' : 
+                                                      idx === 1 ? 'bg-gray-300 text-white' : 
+                                                      idx === 2 ? 'bg-orange-300 text-white' : 'bg-blue-50 text-blue-600'}`}
+                                                >
+                                                    {idx + 1}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex justify-between items-start">
+                                                        <h4 className="font-bold text-gray-800 text-sm truncate">{donor.name}</h4>
+                                                        <span className="text-green-600 font-bold text-sm bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                                                            {formatCurrency(donor.amount)}
+                                                        </span>
+                                                    </div>
+                                                    {donor.message && (
+                                                        <p className="text-xs text-gray-500 italic mt-1 line-clamp-2">"{donor.message}"</p>
+                                                    )}
+                                                    {donor.student_id && (
+                                                        <p className="text-[10px] text-gray-400 mt-1 uppercase">MSSV: {donor.student_id}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 );
