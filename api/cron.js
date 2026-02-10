@@ -8,30 +8,30 @@ const supabase = createClient(
 
 export default async function handler(request, response) {
   try {
+    // 1. Cào dữ liệu từ web trường
     const res = await fetch('https://online.hub.edu.vn/');
     const html = await res.text();
     const $ = cheerio.load(html);
-    const announcements = [];
+    const scrapedData = [];
 
     $('a.titlenews').each((index, element) => {
       const title = $(element).text().trim();
       let rawLink = $(element).attr('href');
       
-      // 1. Xử lý Ngày tháng
+      // Xử lý ngày tháng
       let dateText = $(element).parent().find('.lillenews').text().trim(); 
       dateText = dateText.replace('[Ngày đăng:', '').replace(']', '').trim();
-
       let isoDate = new Date().toISOString().split('T')[0]; 
       const parts = dateText.split('/'); 
       if (parts.length === 3) {
           isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
       }
 
-      // 2. Xử lý Link (Fix lỗi javascript:__doPostBack)
+      // Xử lý Link (Tạo ID duy nhất)
       let finalLink = rawLink;
       if (rawLink) {
           if (rawLink.startsWith('javascript:')) {
-              // Tạo link giả để làm khóa chính (Primary Key) không bị trùng
+              // Tạo ID giả định danh dựa trên Base64 của tiêu đề
               finalLink = `https://online.hub.edu.vn/#id=${Buffer.from(title).toString('base64')}`; 
           } else if (!rawLink.startsWith('http')) {
               finalLink = `https://online.hub.edu.vn/${rawLink}`;
@@ -39,31 +39,64 @@ export default async function handler(request, response) {
       }
 
       if (title && finalLink) {
-        announcements.push({
+        scrapedData.push({
           title,
           link: finalLink, 
           date: isoDate,
-          is_new: true
+          // Chưa vội gán is_new: true ở đây
         });
       }
     });
 
-    if (announcements.length > 0) {
-      // 3. Fix lỗi Upsert: Cho phép cập nhật nếu trùng link
+    if (scrapedData.length === 0) {
+        return response.status(200).json({ message: "Không tìm thấy tin nào." });
+    }
+
+    // 2. Lấy danh sách link đã tồn tại trong Database để đối chiếu
+    // Chỉ cần lấy cột 'link' của những tin đang có trong danh sách cào được
+    const linksToCheck = scrapedData.map(item => item.link);
+    
+    const { data: existingRecords, error: fetchError } = await supabase
+        .from('school_announcements')
+        .select('link')
+        .in('link', linksToCheck);
+
+    if (fetchError) throw fetchError;
+
+    // Tạo một Set chứa các link đã tồn tại để tra cứu cho nhanh
+    const existingLinksSet = new Set(existingRecords.map(r => r.link));
+
+    // 3. Phân loại và chuẩn bị dữ liệu Upsert
+    const recordsToUpsert = scrapedData.map(item => {
+        const isAlreadyExist = existingLinksSet.has(item.link);
+        
+        return {
+            ...item,
+            // Nếu link CHƯA có trong DB -> Tin mới (true)
+            // Nếu link ĐÃ có trong DB -> Tin cũ (false)
+            is_new: !isAlreadyExist 
+        };
+    });
+
+    // 4. Thực hiện Upsert
+    if (recordsToUpsert.length > 0) {
       const { error } = await supabase
         .from('school_announcements')
-        .upsert(announcements, { 
+        .upsert(recordsToUpsert, { 
             onConflict: 'link', 
-            ignoreDuplicates: false // <--- QUAN TRỌNG: Phải là false để update
+            ignoreDuplicates: false 
         });
         
       if (error) throw error;
     }
 
+    // Đếm số lượng tin thực sự mới
+    const newItemsCount = recordsToUpsert.filter(i => i.is_new).length;
+
     return response.status(200).json({ 
         success: true, 
-        message: `Đã cập nhật ${announcements.length} tin mới`,
-        data: announcements // Trả về data để bạn kiểm tra xem cào được gì
+        message: `Đã xử lý ${recordsToUpsert.length} tin. Trong đó có ${newItemsCount} tin mới hoàn toàn.`,
+        data: recordsToUpsert 
     });
 
   } catch (error) {
