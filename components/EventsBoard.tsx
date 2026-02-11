@@ -1273,7 +1273,9 @@ export const EventsBoard: React.FC = () => {
             </div>
         </div>
 
-        <h3 className={`font-bold text-gray-800 mb-3 line-clamp-2 transition-colors h-[3.5rem] flex items-center ${!isLinkClosed && !evt.is_deleted ? 'group-hover:text-[#003375]' : ''}`}>{evt.name}</h3>
+        <h3 className={`font-bold text-gray-800 mb-3 h-[4rem] overflow-y-auto custom-scrollbar pr-1 transition-colors ${!isLinkClosed && !evt.is_deleted ? 'group-hover:text-[#003375]' : ''}`} title={evt.name}>
+            {evt.name}
+        </h3>
         {evt.scope && evt.scope !== 'Khác' && <div className="mb-2"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${evt.scope === 'Trong trường' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-pink-50 text-pink-700 border-pink-100'}`}><Building2 size={10} /> {evt.scope}</span></div>}
 
         <div className="space-y-2 text-sm text-gray-600 mb-4 flex-1">
