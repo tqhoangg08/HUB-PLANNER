@@ -58,12 +58,12 @@ export const Handbook: React.FC = () => {
         }
     }, [activeTab]);
 
-    const fetchDonors = async () => {
+const fetchDonors = async () => {
         setLoadingDonors(true);
         const { data, error } = await supabase
             .from('donations')
             .select('*')
-            .order('created_at', { ascending: false }); // Mới nhất lên đầu
+            .order('amount', { ascending: false }); 
         
         if (!error && data) {
             setDonors(data);
