@@ -18,9 +18,11 @@ export default async function handler(request, response) {
       const title = $(element).text().trim();
       let rawLink = $(element).attr('href');
       
-      // Xử lý ngày tháng
+      // Xử lý ngày tháng (Ngày cào được)
       let dateText = $(element).parent().find('.lillenews').text().trim(); 
       dateText = dateText.replace('[Ngày đăng:', '').replace(']', '').trim();
+      
+      // Mặc định là hôm nay, nếu parse được thì dùng ngày web trường
       let isoDate = new Date().toISOString().split('T')[0]; 
       const parts = dateText.split('/'); 
       if (parts.length === 3) {
@@ -31,7 +33,7 @@ export default async function handler(request, response) {
       let finalLink = rawLink;
       if (rawLink) {
           if (rawLink.startsWith('javascript:')) {
-              // Tạo ID giả định danh dựa trên Base64 của tiêu đề
+              // Tạo ID giả định danh
               finalLink = `https://online.hub.edu.vn/#id=${Buffer.from(title).toString('base64')}`; 
           } else if (!rawLink.startsWith('http')) {
               finalLink = `https://online.hub.edu.vn/${rawLink}`;
@@ -42,8 +44,8 @@ export default async function handler(request, response) {
         scrapedData.push({
           title,
           link: finalLink, 
-          date: isoDate,
-          // Chưa vội gán is_new: true ở đây
+          date: isoDate, // Đây là ngày cào được
+          // is_new tính sau
         });
       }
     });
@@ -52,28 +54,36 @@ export default async function handler(request, response) {
         return response.status(200).json({ message: "Không tìm thấy tin nào." });
     }
 
-    // 2. Lấy danh sách link đã tồn tại trong Database để đối chiếu
-    // Chỉ cần lấy cột 'link' của những tin đang có trong danh sách cào được
+    // 2. Lấy danh sách link VÀ DATE đã tồn tại trong Database
     const linksToCheck = scrapedData.map(item => item.link);
     
+    // 👇 SỬA Ở ĐÂY: Lấy thêm cột 'date' để bảo lưu ngày cũ
     const { data: existingRecords, error: fetchError } = await supabase
         .from('school_announcements')
-        .select('link')
+        .select('link, date') 
         .in('link', linksToCheck);
 
     if (fetchError) throw fetchError;
 
-    // Tạo một Set chứa các link đã tồn tại để tra cứu cho nhanh
-    const existingLinksSet = new Set(existingRecords.map(r => r.link));
+    // Tạo Map để tra cứu nhanh: Link -> Record cũ
+    const existingMap = new Map();
+    existingRecords.forEach(record => {
+        existingMap.set(record.link, record);
+    });
 
     // 3. Phân loại và chuẩn bị dữ liệu Upsert
     const recordsToUpsert = scrapedData.map(item => {
-        const isAlreadyExist = existingLinksSet.has(item.link);
+        const existingRecord = existingMap.get(item.link);
+        const isAlreadyExist = !!existingRecord;
         
         return {
             ...item,
-            // Nếu link CHƯA có trong DB -> Tin mới (true)
-            // Nếu link ĐÃ có trong DB -> Tin cũ (false)
+            // 👇 QUAN TRỌNG: 
+            // Nếu đã có trong DB -> Dùng ngày cũ (existingRecord.date) để không bị nhảy ngày
+            // Nếu chưa có -> Dùng ngày mới cào được (item.date)
+            date: isAlreadyExist ? existingRecord.date : item.date,
+            
+            // Logic tin mới/cũ giữ nguyên
             is_new: !isAlreadyExist 
         };
     });
@@ -90,12 +100,11 @@ export default async function handler(request, response) {
       if (error) throw error;
     }
 
-    // Đếm số lượng tin thực sự mới
     const newItemsCount = recordsToUpsert.filter(i => i.is_new).length;
 
     return response.status(200).json({ 
         success: true, 
-        message: `Đã xử lý ${recordsToUpsert.length} tin. Trong đó có ${newItemsCount} tin mới hoàn toàn.`,
+        message: `Đã xử lý ${recordsToUpsert.length} tin. ${newItemsCount} tin mới. Giữ nguyên ngày tháng tin cũ.`,
         data: recordsToUpsert 
     });
 
