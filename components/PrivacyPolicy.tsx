@@ -99,8 +99,7 @@ export const PrivacyPolicy: React.FC = () => {
           <p>An toàn thông tin là ưu tiên hàng đầu của chúng tôi. Chúng tôi áp dụng các biện pháp kỹ thuật tiên tiến để bảo vệ dữ liệu của bạn:</p>
           <ul className="list-disc pl-6 space-y-2 text-gray-700">
             <li>
-              <strong>Nơi lưu trữ an toàn:</strong> Dữ liệu định danh và học tập của bạn được lưu trữ trên nền tảng <strong>Supabase</strong> – một dịch vụ cơ sở dữ liệu đám mây (Backend-as-a-Service) uy tín hàng đầu thế giới, tuân thủ các tiêu chuẩn bảo mật quốc tế.
-            </li>
+<strong>Nơi lưu trữ đạt chuẩn quốc tế:</strong> Dữ liệu của bạn được lưu trữ và mã hóa trên hạ tầng của <strong>Supabase</strong> (Enterprise Grade). Nền tảng này đã đạt các chứng chỉ bảo mật cao cấp nhất thế giới bao gồm: <strong>SOC 2 Type 2</strong>, <strong>HIPAA</strong> và tuân thủ quy định <strong>GDPR</strong>. Điều này đảm bảo dữ liệu của bạn được bảo vệ ở cấp độ tương đương các ứng dụng ngân hàng.            </li>
             <li>
               <strong>Mã hóa đường truyền:</strong> Mọi dữ liệu truyền tải giữa thiết bị của bạn và máy chủ của chúng tôi đều được mã hóa bằng giao thức <strong>SSL/TLS (HTTPS)</strong>, đảm bảo thông tin không bị đánh cắp hoặc nghe lén khi truyền qua mạng internet.
             </li>
