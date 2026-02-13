@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // <--- Thêm Link vào đây
+import { useNavigate, Link } from 'react-router-dom';
 import { GraduationCap, ShieldCheck, ArrowRight, Mail } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
@@ -137,14 +137,16 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
                         <span className="font-bold text-[#990000]">Lưu ý:</span> Đây là dự án hỗ trợ sinh viên được phát triển bởi nhóm sinh viên, <strong>KHÔNG PHẢI</strong> là website chính thức của Trường Đại học Ngân hàng TP.HCM (HUB).
                     </div>
 
-                    {/* --- MỚI THÊM: CHÍNH SÁCH & ĐIỀU KHOẢN --- */}
+                    {/* --- ĐÃ SỬA ĐƯỜNG DẪN ĐÚNG --- */}
                     <div className={`flex items-center justify-center gap-4 text-[10px] md:text-xs font-semibold tracking-wide transition-colors duration-300
                          ${isTetMode ? 'text-[#990000]/70' : 'text-gray-400'}`}>
-                        <Link to="/privacy-policy" className="hover:underline hover:text-black transition-colors">
+                        {/* Sửa to="/privacy-policy" thành to="/privacy" */}
+                        <Link to="/privacy" className="hover:underline hover:text-black transition-colors">
                             Chính sách bảo mật
                         </Link>
                         <span>•</span>
-                        <Link to="/terms-of-use" className="hover:underline hover:text-black transition-colors">
+                        {/* Sửa to="/terms-of-use" thành to="/terms" */}
+                        <Link to="/terms" className="hover:underline hover:text-black transition-colors">
                             Điều khoản sử dụng
                         </Link>
                     </div>
