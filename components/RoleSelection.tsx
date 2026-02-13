@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { GraduationCap, ShieldCheck, ArrowRight, Mail, ToggleLeft, ToggleRight } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom'; // <--- Thêm Link vào đây
+import { GraduationCap, ShieldCheck, ArrowRight, Mail } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 // --- 1. IMPORT THƯ VIỆN HIỆU ỨNG HOA RƠI ---
@@ -130,10 +130,23 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
                     />
                 </div>
 
-                <div className="mt-8 md:mt-16 text-center space-y-3 max-w-2xl px-4 animate-fadeIn delay-200">
+                <div className="mt-6 md:mt-10 text-center space-y-2 max-w-2xl px-4 animate-fadeIn delay-200">
+                    {/* Hộp lưu ý */}
                     <div className={`text-[10px] md:text-[11px] rounded-lg p-3 shadow-sm backdrop-blur-md border transition-colors duration-300
                         ${isTetMode ? 'bg-white/40 border-red-100 text-gray-800 font-medium' : 'bg-white/60 border-gray-200 text-gray-500'}`}>
                         <span className="font-bold text-[#990000]">Lưu ý:</span> Đây là dự án hỗ trợ sinh viên được phát triển bởi nhóm sinh viên, <strong>KHÔNG PHẢI</strong> là website chính thức của Trường Đại học Ngân hàng TP.HCM (HUB).
+                    </div>
+
+                    {/* --- MỚI THÊM: CHÍNH SÁCH & ĐIỀU KHOẢN --- */}
+                    <div className={`flex items-center justify-center gap-4 text-[10px] md:text-xs font-semibold tracking-wide transition-colors duration-300
+                         ${isTetMode ? 'text-[#990000]/70' : 'text-gray-400'}`}>
+                        <Link to="/privacy-policy" className="hover:underline hover:text-black transition-colors">
+                            Chính sách bảo mật
+                        </Link>
+                        <span>•</span>
+                        <Link to="/terms-of-use" className="hover:underline hover:text-black transition-colors">
+                            Điều khoản sử dụng
+                        </Link>
                     </div>
                 </div>
             </div>
