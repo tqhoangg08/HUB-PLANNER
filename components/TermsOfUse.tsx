@@ -105,7 +105,6 @@ export const TermsOfUse: React.FC = () => {
             <li>Điện thoại: 0389342812</li>
             <li>Email: contact@hotrosinhvienhub.id.vn</li>
             <li>Đơn vị: Sinh viên Khoa Kinh tế Quốc tế - Đại học Ngân hàng TP.HCM (HUB).</li>
-            <li>Địa chỉ: Thôn Bắc Kinh, xã Đông Kinh, tỉnh Hà Tĩnh</li>
           </ul>
         </section>
       </div>
