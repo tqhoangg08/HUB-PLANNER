@@ -18,6 +18,7 @@ interface LostFoundItem {
   user_name: string;
   image_url: string | null;
   status: 'pending' | 'approved';
+  is_deleted: boolean; 
 }
 
 // --- SHARED MODAL LOGIC (SUBMIT) ---
@@ -26,7 +27,7 @@ interface SubmitModalProps {
     onClose: () => void;
     type: 'FOUND' | 'LOST';
     onShowToast: (msg: string, type: 'success' | 'error') => void;
-    editingItem?: LostFoundItem | null; // Optional for Edit Mode
+    editingItem?: LostFoundItem | null; 
 }
 
 const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShowToast, editingItem }) => {
@@ -45,7 +46,6 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
     useEffect(() => {
         if (isOpen) {
             if (editingItem) {
-                // Edit Mode
                 setFormData({
                     title: editingItem.title,
                     description: editingItem.description,
@@ -56,7 +56,6 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                 setPreviewUrl(editingItem.image_url);
                 setImageFile(null);
             } else {
-                // Create Mode
                 setFormData({ title: '', description: '', location: '', contact_info: '', user_name: '' });
                 setImageFile(null);
                 setPreviewUrl(null);
@@ -110,7 +109,6 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
             }
 
             if (editingItem) {
-                // Update
                 const { error } = await supabase
                     .from('lost_found_items')
                     .update({
@@ -120,13 +118,11 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                         contact_info: formData.contact_info,
                         user_name: formData.user_name,
                         image_url: imageUrl,
-                        // Maintain existing type and status
                     })
                     .eq('id', editingItem.id);
                 if (error) throw error;
                 onShowToast("Cập nhật thành công!", 'success');
             } else {
-                // Create
                 const { error } = await supabase
                     .from('lost_found_items')
                     .insert([{
@@ -289,7 +285,7 @@ export const LostFoundBoard: React.FC = () => {
   
   const [selectedItem, setSelectedItem] = useState<LostFoundItem | null>(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [editingItem, setEditingItem] = useState<LostFoundItem | null>(null); // State for Edit
+  const [editingItem, setEditingItem] = useState<LostFoundItem | null>(null);
   const [submitType, setSubmitType] = useState<'FOUND' | 'LOST'>('FOUND');
   const [notification, setNotification] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
 
@@ -299,13 +295,11 @@ export const LostFoundBoard: React.FC = () => {
     if (!supabase) { setItems([]); setError("Chưa cấu hình Supabase."); setLoading(false); return; }
 
     try {
-      // Updated query to filter out soft-deleted items
       let query = supabase.from('lost_found_items')
         .select('*')
         .eq('is_deleted', false)
         .order('created_at', { ascending: false });
       
-      // RBAC: Students only see approved items. Admin/CTV see all (including pending)
       if (isStudent) {
           query = query.eq('status', 'approved');
       }
@@ -322,7 +316,6 @@ export const LostFoundBoard: React.FC = () => {
   };
 
   useEffect(() => {
-    // Re-fetch when role determines to ensure we get pending items if admin
     fetchItems();
   }, [isAdmin, isCTV, isStudent]);
 
@@ -334,7 +327,6 @@ export const LostFoundBoard: React.FC = () => {
     return matchesTab && matchesSearch;
   });
 
-  // --- MANAGEMENT ACTIONS ---
   const handleApprove = async (id: number) => {
       if (!canManage) return;
       playClick();
@@ -351,7 +343,6 @@ export const LostFoundBoard: React.FC = () => {
       playClick();
       if (!window.confirm("Xóa tin này?")) return;
       
-      // Soft delete: Update is_deleted to true
       const { error } = await supabase!
         .from('lost_found_items')
         .update({ is_deleted: true })
@@ -373,7 +364,7 @@ export const LostFoundBoard: React.FC = () => {
 
   const openSubmitModal = (type: 'FOUND' | 'LOST') => {
       playClick();
-      setEditingItem(null); // Create mode
+      setEditingItem(null); 
       setSubmitType(type);
       setShowSubmitModal(true);
   };
@@ -395,8 +386,13 @@ export const LostFoundBoard: React.FC = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div>
            <h2 className="text-2xl font-bold text-[#003375] flex items-center gap-2"><Search className="text-[#990000]" /> Góc Tìm Đồ Thất Lạc</h2>
+           {/* 👇 ĐÃ THÊM DÒNG NÀY THEO YÊU CẦU 👇 */}
+           <p className="text-xs text-gray-500 mt-1 italic flex items-center gap-1">
+               <Info size={12}/> Đây là khu vực trao đổi thông tin nội bộ hỗ trợ học tập
+           </p>
+           
            {canManage && (
-               <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-1 border border-blue-100">
+               <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-2 border border-blue-100">
                    <Shield size={10} className="inline mr-1"/>
                    {isAdmin ? 'Admin Mode: Full Access' : 'CTV Mode: Approve/Edit'}
                </div>
@@ -440,7 +436,6 @@ export const LostFoundBoard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeIn">
             {filteredItems.length > 0 ? (
                 filteredItems.map((item) => {
-                    // Highlight pending items for Admin/CTV
                     const isPending = item.status === 'pending';
                     const borderClass = isPending 
                         ? 'border-yellow-400 ring-2 ring-yellow-100' 
@@ -477,7 +472,6 @@ export const LostFoundBoard: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* --- MANAGEMENT ACTIONS (ADMIN/CTV) --- */}
                         {canManage ? (
                             <div className="px-4 pb-4 pt-2 border-t border-gray-100 flex gap-2">
                                 {isPending && (
