@@ -9,15 +9,14 @@
   }
 
   html {
-    /* 📱 MOBILE: Mặc định set chữ gốc là 14px (nhỏ hơn chuẩn 16px khoảng 12.5%) */
-    /* Điều này sẽ làm toàn bộ web trên điện thoại nhỏ nhắn, gọn gàng hơn */
+    /* 📱 MOBILE: Mặc định 14px */
     font-size: 14px;
   }
 
-  /* 💻 LAPTOP: Khi màn hình rộng từ 1024px trở lên -> Trả về size chuẩn 16px */
+  /* 💻 LAPTOP (Màn hình > 1024px) */
   @media (min-width: 1024px) {
     html {
-      font-size: 16px;
+      font-size: 14px; 
     }
   }
 
