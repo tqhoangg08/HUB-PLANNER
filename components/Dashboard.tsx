@@ -13,7 +13,7 @@ import {
     calculateRequiredGPA,
     getGradeDetails
 } from '../utils/calculations';
-import { Target, AlertTriangle, Award, User, BookOpen, Star, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, PieChart as PieChartIcon, List, ChevronRight, X, AlertCircle } from 'lucide-react';
+import { Target, AlertTriangle, Award, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, PieChart as PieChartIcon, List, ChevronRight, X } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { playClick } from '../utils/audio';
 import { AdsBanner } from './AdsBanner';
@@ -118,7 +118,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
 
     const stats = calculateCumulativeStats(data.semesters);
     const yearlyStats = calculateYearlyStats(data.semesters);
-    const classification = getDegreeClassification(stats.gpa4);
+    // const classification = getDegreeClassification(stats.gpa4); // Unused variable
     const trendAnalysis = analyzeTrend(data.semesters);
 
     // --- ANALYTICS CALCULATIONS ---
@@ -218,27 +218,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
     }
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8 animate-fadeIn">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-8 animate-fadeIn">
             <AdsBanner />
             {showSecurityNotice && (
                 <div className="lg:col-span-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 shadow-sm">
                     <AlertTriangle className="text-amber-600 shrink-0 mt-1" size={20} />
                     <div className="text-sm text-amber-800 leading-relaxed">
-                        <span className="font-bold">Lưu ý bảo mật:</span> Điểm số của bạn chỉ được lưu cục bộ trên thiết bị của bạn đang sử dụng (Local Storage). Hệ thống KHÔNG gửi hay lưu trữ thông tin này về máy chủ, nên Admin/CTV hoàn toàn không xem được. Nếu bạn đang dùng thiết bị công cộng (quán net, thư viện, của bạn bè...), vui lòng nhớ bấm nút <span className="font-bold">Xóa dữ liệu</span> (Reset) ở góc phải màn hình trước khi rời đi để bảo mật thông tin.
+                        <span className="font-bold">Lưu ý bảo mật:</span> Điểm số của bạn chỉ được lưu cục bộ trên thiết bị (Local Storage). Nếu dùng máy công cộng, nhớ bấm <span className="font-bold">Xóa dữ liệu (Reset)</span> trước khi rời đi.
                     </div>
                 </div>
             )}
 
             {/* User Info Card */}
             {data.studentName && (
-                <div className="lg:col-span-4 bg-gradient-to-r from-[#003375] to-[#00509d] rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden transition-all duration-300 hover:scale-[1.01] hover:shadow-xl group">
+                <div className="lg:col-span-4 bg-gradient-to-r from-[#003375] to-[#00509d] rounded-xl p-5 text-white shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden transition-all duration-300 hover:scale-[1.005] hover:shadow-lg group">
                     <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full transform translate-x-1/2 -translate-y-1/2 group-hover:scale-110 transition-transform duration-700"></div>
                     <div className="relative z-10">
-                        <h2 className="text-2xl font-bold flex items-center gap-2">
-                            <User className="bg-white/20 p-1 rounded-full text-white" size={32} />
+                        <h2 className="text-xl font-bold flex items-center gap-2">
+                            <User className="bg-white/20 p-1 rounded-full text-white" size={28} />
                             Xin chào, {data.studentName}
                         </h2>
-                        <div className="flex flex-wrap gap-4 mt-2 text-blue-100 text-sm">
+                        <div className="flex flex-wrap gap-3 mt-2 text-blue-100 text-xs sm:text-sm">
                             <span className="bg-black/20 px-3 py-1 rounded-full border border-white/10">Khóa: {data.cohort}</span>
                             <span className="bg-black/20 px-3 py-1 rounded-full border border-white/10 flex items-center gap-1">
                                 <BookOpen size={14} /> {data.specializationName || data.majorName}
@@ -249,21 +249,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                         </div>
                     </div>
                     <div className="text-right hidden md:block relative z-10">
-                        <p className="text-sm opacity-80 uppercase tracking-wider">Chương trình đào tạo</p>
-                        <p className="font-semibold text-lg">{data.programName}</p>
+                        <p className="text-xs opacity-80 uppercase tracking-wider">Chương trình đào tạo</p>
+                        <p className="font-semibold text-base">{data.programName}</p>
                     </div>
                 </div>
             )}
 
             {/* Highlights Row */}
             <div className="lg:col-span-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative group">
-                    <div className="w-12 h-12 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center shadow-inner shrink-0">
-                        <Trophy size={24} />
+                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 hover:shadow-md transition-all duration-300 relative group">
+                    <div className="w-10 h-10 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center shadow-inner shrink-0">
+                        <Trophy size={20} />
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start">
-                            <p className="text-sm text-gray-500 font-medium">Môn điểm cao nhất</p>
+                            <p className="text-xs text-gray-500 font-medium">Điểm cao nhất</p>
                             <button
                                 onClick={() => { playClick(); setShowRankingModal(true); }}
                                 className="text-[10px] font-bold text-[#003375] bg-blue-50 px-2 py-0.5 rounded hover:bg-[#003375] hover:text-white transition-colors flex items-center gap-1 active:scale-95"
@@ -272,74 +272,75 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                             </button>
                         </div>
                         {highestSubject ? (
-                            <div className="mt-1">
-                                <p className="font-bold text-gray-800 line-clamp-1" title={highestSubject.name}>{highestSubject.name}</p>
-                                <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">{highestSubject.avg.toFixed(1)} ({highestSubject.letter})</span>
+                            <div className="mt-0.5">
+                                <p className="font-bold text-gray-800 line-clamp-1 text-sm" title={highestSubject.name}>{highestSubject.name}</p>
+                                <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full border border-green-100">{highestSubject.avg.toFixed(1)} ({highestSubject.letter})</span>
                             </div>
-                        ) : <p className="text-gray-400 text-sm mt-1">Chưa có dữ liệu</p>}
+                        ) : <p className="text-gray-400 text-xs mt-1">Chưa có dữ liệu</p>}
                     </div>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                    <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner shrink-0">
-                        <Zap size={24} />
+                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 hover:shadow-md transition-all duration-300">
+                    <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner shrink-0">
+                        <Zap size={20} />
                     </div>
                     <div>
-                        <p className="text-sm text-gray-500 font-medium">Học kỳ tốt nhất</p>
+                        <p className="text-xs text-gray-500 font-medium">Học kỳ tốt nhất</p>
                         {bestSemester ? (
                             <div>
-                                <p className="font-bold text-gray-800">{bestSemester.name}</p>
-                                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">GPA: {bestSemester.gpa.toFixed(1)}</span>
+                                <p className="font-bold text-gray-800 text-sm line-clamp-1">{bestSemester.name}</p>
+                                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">GPA: {bestSemester.gpa.toFixed(1)}</span>
                             </div>
-                        ) : <p className="text-gray-400 text-sm">Chưa có dữ liệu</p>}
+                        ) : <p className="text-gray-400 text-xs">Chưa có dữ liệu</p>}
                     </div>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                    <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner shrink-0">
-                        <BookOpen size={24} />
+                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 hover:shadow-md transition-all duration-300">
+                    <div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner shrink-0">
+                        <BookOpen size={20} />
                     </div>
                     <div>
-                        <p className="text-sm text-gray-500 font-medium">Tổng môn đã học</p>
-                        <div className="flex items-end gap-2">
-                            <p className="font-bold text-2xl text-gray-800 leading-none">{validSubjects.length}</p>
-                            <span className="text-xs text-gray-400 mb-1">môn ({stats.passedCredits} TC)</span>
+                        <p className="text-xs text-gray-500 font-medium">Tổng môn đã học</p>
+                        <div className="flex items-end gap-1">
+                            <p className="font-bold text-xl text-gray-800 leading-none">{validSubjects.length}</p>
+                            <span className="text-[10px] text-gray-400 mb-0.5">môn ({stats.passedCredits} TC)</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* ==================== CHARTS ROW ==================== */}
-            
-            <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-200 transition-all duration-300 hover:scale-[1.01] hover:shadow-xl flex flex-col">
-                <h2 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
-                    <Award className="text-[#990000]" />
+            {/* ==================== COMPACT CHART SECTION ==================== */}
+            {/* Sử dụng p-4 (thay vì p-6) và flex row để tiết kiệm diện tích */}
+            <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
+                <h2 className="text-base font-bold text-[#003375] mb-3 flex items-center gap-2">
+                    <Award className="text-[#990000]" size={18} />
                     GPA toàn khóa & Phân bố
                 </h2>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 transition-colors hover:bg-blue-100/50">
-                        <p className="text-sm text-[#003375] font-medium">GPA (Hệ 4)</p>
-                        <p className="text-3xl font-bold text-[#003375]">{stats.gpa4.toFixed(1)}</p>
+                <div className="flex flex-col sm:flex-row gap-4 h-full">
+                    {/* Cột trái: Điểm số */}
+                    <div className="flex-1 flex flex-col justify-center gap-3">
+                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 flex justify-between items-center">
+                            <span className="text-xs text-[#003375] font-semibold">GPA (Hệ 4)</span>
+                            <span className="text-2xl font-bold text-[#003375]">{stats.gpa4.toFixed(2)}</span>
+                        </div>
+                        <div className="p-3 bg-orange-50 rounded-lg border border-orange-100 flex justify-between items-center">
+                            <span className="text-xs text-[#990000] font-semibold">GPA (Hệ 10)</span>
+                            <span className="text-2xl font-bold text-[#990000]">{stats.gpa10.toFixed(2)}</span>
+                        </div>
                     </div>
-                    <div className="p-4 bg-orange-50 rounded-lg border border-orange-100 transition-colors hover:bg-orange-100/50">
-                        <p className="text-sm text-[#990000] font-medium">GPA (Hệ 10)</p>
-                        <p className="text-3xl font-bold text-[#990000]">{stats.gpa10.toFixed(1)}</p>
-                    </div>
-                </div>
 
-                <div className="flex-1 min-h-[180px] relative">
-                    <h4 className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-1"><PieChartIcon size={14} /> Phân bố điểm số (A-F)</h4>
-                    {pieData.length > 0 ? (
-                        <div className="h-48 w-full">
+                    {/* Cột phải: Biểu đồ tròn - Giảm chiều cao */}
+                    <div className="flex-1 h-36 relative">
+                        {pieData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
                                         data={pieData}
                                         cx="50%"
                                         cy="50%"
-                                        innerRadius={40}
-                                        outerRadius={70}
+                                        innerRadius={30}
+                                        outerRadius={55}
                                         paddingAngle={5}
                                         dataKey="value"
                                     >
@@ -347,42 +348,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                                             <Cell key={`cell-${index}`} fill={entry.color} />
                                         ))}
                                     </Pie>
-                                    <RechartsTooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                                    <Legend verticalAlign="middle" align="right" layout="vertical" iconSize={8} wrapperStyle={{ fontSize: '11px' }} />
+                                    <RechartsTooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} />
+                                    <Legend verticalAlign="middle" align="right" layout="vertical" iconSize={8} wrapperStyle={{ fontSize: '10px' }} />
                                 </PieChart>
                             </ResponsiveContainer>
-                        </div>
-                    ) : (
-                        <div className="h-full flex items-center justify-center text-gray-400 bg-gray-50 rounded border border-dashed text-sm">
-                            Chưa có dữ liệu điểm
-                        </div>
-                    )}
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-gray-300 text-xs border border-dashed rounded-lg">Chưa có dữ liệu</div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-200 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg">
-                <h3 className="font-bold text-[#003375] mb-4 flex items-center gap-2">
-                    <BarChart3 className="text-[#003375]" size={20} />
+            <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
+                <h3 className="text-base font-bold text-[#003375] mb-3 flex items-center gap-2">
+                    <BarChart3 className="text-[#003375]" size={18} />
                     Xu hướng học tập
                 </h3>
-                <div className="h-64 w-full">
+                {/* Giảm chiều cao biểu đồ đường xuống h-48 */}
+                <div className="h-48 w-full">
                     {trendData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={trendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                            <LineChart data={trendData} margin={{ top: 5, right: 10, bottom: 0, left: -20 }}>
                                 <CartesianGrid stroke="#f5f5f5" strokeDasharray="3 3" />
-                                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#666' }} interval={0} />
-                                <YAxis domain={[0, 4]} tickCount={5} tick={{ fill: '#666' }} />
-                                <RechartsTooltip
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                />
-                                <Legend />
-                                <Line type="monotone" dataKey="gpa4" name="GPA (4)" stroke="#003375" strokeWidth={3} activeDot={{ r: 8, fill: '#003375' }} />
-                                <Line type="monotone" dataKey="gpa10" name="GPA (10)" stroke="#990000" strokeWidth={2} strokeDasharray="5 5" />
+                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#666' }} interval={0} />
+                                <YAxis domain={[0, 4]} tickCount={5} tick={{ fontSize: 10, fill: '#666' }} />
+                                <RechartsTooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} />
+                                <Legend wrapperStyle={{ fontSize: '10px' }}/>
+                                <Line type="monotone" dataKey="gpa4" name="GPA (4)" stroke="#003375" strokeWidth={2} activeDot={{ r: 6 }} />
+                                <Line type="monotone" dataKey="gpa10" name="GPA (10)" stroke="#990000" strokeWidth={2} strokeDasharray="4 4" />
                             </LineChart>
                         </ResponsiveContainer>
                     ) : (
-                        <div className="h-full flex items-center justify-center text-gray-400 bg-gray-50 rounded-lg border border-dashed">
-                            Chưa có dữ liệu học kỳ để hiển thị biểu đồ.
+                        <div className="h-full flex items-center justify-center text-gray-300 text-xs border border-dashed rounded-lg">
+                            Chưa có dữ liệu học kỳ.
                         </div>
                     )}
                 </div>
