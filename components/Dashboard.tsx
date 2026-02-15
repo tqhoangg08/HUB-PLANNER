@@ -315,10 +315,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                     GPA toàn khóa & Phân bố
                 </h2>
 
-                {/* SỬA: items-center để căn giữa dọc, pb-2 để đẩy nội dung lên chút cho cân */}
                 <div className="flex items-center gap-4 h-full w-full pb-2">
                     
-                    {/* Cột trái: Tăng width lên 40% cho rộng rãi */}
+                    {/* Cột trái */}
                     <div className="w-[40%] flex flex-col gap-2 justify-center">
                         <div className="px-3 py-2 bg-blue-50 rounded-lg border border-blue-100 flex flex-col justify-center text-center">
                             <span className="text-[10px] text-[#003375] font-semibold uppercase opacity-80">GPA (Hệ 4)</span>
@@ -330,7 +329,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                         </div>
                     </div>
 
-                    {/* Cột phải: Dùng flex-1 để tự lấp đầy khoảng trống còn lại */}
+                    {/* Cột phải */}
                     <div className="flex-1 h-full min-h-[140px] flex items-center justify-center relative">
                         {pieData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
@@ -431,17 +430,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                 </div>
             </div>
 
-            {/* ==================== BOTTOM ROW ==================== */}
+            {/* ==================== BOTTOM ROW - SỬA LỖI CHIỀU CAO KHÔNG CÂN ==================== */}
             <div className="lg:col-span-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                 
                 {/* LEFT COLUMN: School Announcements */}
-                <div className="flex flex-col h-[320px] lg:h-auto rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-white">
+                {/* Thay h-[320px] lg:h-auto thành h-full min-h-[320px] để nó stretch theo cột bên cạnh */}
+                <div className="flex flex-col h-full min-h-[320px] rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-white">
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
                          <SchoolAnnouncements />
                     </div>
                 </div>
 
-                {/* RIGHT COLUMN */}
+                {/* RIGHT COLUMN: Giữ nguyên h-full để lấp đầy grid cell */}
                 <div className="flex flex-col gap-3 h-full">
                     
                     {/* Row 1: Target & Yearly */}
@@ -538,8 +538,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                         </div>
                     </div>
 
-                    {/* Row 2: Advice Box */}
-                    <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 h-auto min-h-[140px] flex flex-col overflow-hidden">
+                    {/* Row 2: Advice Box - DÙNG FLEX-1 ĐỂ LẤP ĐẦY KHOẢNG TRỐNG CÒN LẠI */}
+                    <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex-1 min-h-[140px] flex flex-col overflow-hidden">
                         <h3 className="font-bold text-[#003375] mb-1.5 flex items-center gap-2 text-xs uppercase tracking-wide">
                             <AlertTriangle className="text-orange-500" size={14} />
                             Đánh giá & Cảnh báo
