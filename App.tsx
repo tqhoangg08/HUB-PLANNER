@@ -194,29 +194,35 @@ const App: React.FC = () => {
 
                 if (profileData?.data) {
                     setData({ ...INITIAL_DATA, ...profileData.data });
+                    setProfileFullName(profileData.full_name || ''); // Lấy tên từ DB
+                    setProfileAvatarUrl(profileData.avatar_url || ''); // Lấy ảnh từ DB
                     localStorage.setItem(storageKey, JSON.stringify(profileData.data));
                     setIsLoaded(true);
                     return;
                 }
 
-                if (!error) {
-                    setProfileFullName(profileData?.full_name ?? '');
-                    setProfileAvatarUrl(profileData?.avatar_url ?? '');
-                    const saved = localStorage.getItem(storageKey);
-                    if (saved) {
-                        try {
-                            const parsed = JSON.parse(saved);
-                            setData({ ...INITIAL_DATA, ...parsed });
-                        } catch (e) {
-                            console.error("Failed to load data", e);
-                            setData(INITIAL_DATA);
-                        }
-                    } else {
+                // TRƯỜNG HỢP: Đăng nhập lại sau khi Reset (DB chưa có dữ liệu)
+                // Ta lấy thông tin từ Session (Google/Microsoft gửi về) để điền vào
+                const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
+                const metaAvatar = session.user.user_metadata.avatar_url || session.user.user_metadata.picture || '';
+                
+                setProfileFullName(metaName);
+                setProfileAvatarUrl(metaAvatar);
+                
+                // Nếu local có dữ liệu tạm thì lấy, ko thì lấy mặc định
+                const saved = localStorage.getItem(storageKey);
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        setData({ ...INITIAL_DATA, ...parsed });
+                    } catch (e) {
                         setData(INITIAL_DATA);
                     }
-                    setIsLoaded(true);
-                    return;
+                } else {
+                    setData(INITIAL_DATA);
                 }
+                setIsLoaded(true);
+                return;
             }
 
             if (userRolePref !== 'school') {
@@ -264,6 +270,8 @@ const App: React.FC = () => {
             const payload = {
                 id: session.user.id,
                 data,
+                full_name: profileFullName, 
+                avatar_url: profileAvatarUrl,
                 updated_at: new Date().toISOString(),
             };
 
@@ -281,7 +289,7 @@ const App: React.FC = () => {
                 window.clearTimeout(saveTimeoutRef.current);
             }
         };
-    }, [data, isLoaded, session?.user?.id, userRolePref]);
+    }, [data, isLoaded, session?.user?.id, userRolePref, profileFullName, profileAvatarUrl]);
 
     useEffect(() => {
         if (showAccountSettings) {
@@ -444,7 +452,7 @@ const App: React.FC = () => {
         }
     };
 
-const resetData = async () => {
+    const resetData = async () => {
         playClick();
         if (!window.confirm("CẢNH BÁO CỰC MẠNH: Hành động này sẽ xóa VĨNH VIỄN toàn bộ dữ liệu (điểm số, ảnh đại diện, thông tin cá nhân) trên cả máy và máy chủ. Bạn có chắc chắn không?")) {
             return;
@@ -455,7 +463,6 @@ const resetData = async () => {
             if (userRolePref === 'school' && session?.user?.id && supabase) {
                 
                 // A. Xóa ảnh đại diện trong Storage (nếu có)
-                // Logic upload của bạn lưu ảnh vào folder trùng tên user.id
                 const { data: listFiles } = await supabase.storage
                     .from('avatars')
                     .list(session.user.id);
@@ -482,7 +489,7 @@ const resetData = async () => {
 
             // 2. Xóa dữ liệu Local Storage & State
             setData(INITIAL_DATA);
-            localStorage.clear(); // Xóa sạch sành sanh local storage
+            localStorage.clear();
 
             // 3. Đăng xuất khỏi Supabase Auth
             if (supabase) {
@@ -494,11 +501,11 @@ const resetData = async () => {
             console.error("Lỗi khi reset:", error);
             alert("Có lỗi xảy ra. Dữ liệu có thể chưa được xóa hết.");
         } finally {
-            // 4. Dọn dẹp biến cục bộ và reload trang để sạch cache
+            // 4. Dọn dẹp biến cục bộ và reload trang
             localStorage.removeItem('user_role_preference');
             setUserRolePref('unknown');
             navigate('/');
-            window.location.reload(); // Reload trang để đảm bảo app về trạng thái trắng tinh
+            window.location.reload(); 
         }
     };
 
