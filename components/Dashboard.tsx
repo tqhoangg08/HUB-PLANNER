@@ -308,7 +308,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                 </div>
             </div>
 
-            {/* ==================== GPA SECTION (ĐÃ FIX LAYOUT) ==================== */}
+            {/* ==================== GPA SECTION ==================== */}
             <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300 flex flex-col h-[190px]">
                 <h2 className="text-base font-bold text-[#003375] mb-1 flex items-center gap-2 shrink-0">
                     <Award className="text-[#990000]" size={18} />
@@ -316,8 +316,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                 </h2>
 
                 <div className="flex items-center gap-4 h-full w-full pb-2">
-                    
-                    {/* Cột trái */}
                     <div className="w-[40%] flex flex-col gap-2 justify-center">
                         <div className="px-3 py-2 bg-blue-50 rounded-lg border border-blue-100 flex flex-col justify-center text-center">
                             <span className="text-[10px] text-[#003375] font-semibold uppercase opacity-80">GPA (Hệ 4)</span>
@@ -329,7 +327,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                         </div>
                     </div>
 
-                    {/* Cột phải */}
                     <div className="flex-1 h-full min-h-[140px] flex items-center justify-center relative">
                         {pieData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
@@ -430,21 +427,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                 </div>
             </div>
 
-            {/* ==================== BOTTOM ROW - SỬA LỖI CHIỀU CAO KHÔNG CÂN ==================== */}
+            {/* ==================== BOTTOM ROW - SỬA LỖI TRÀN DÒNG (OVERLAP) & CÂN ĐỐI ==================== */}
+            {/* 1. Container: Bỏ set chiều cao cứng (h-[290px]). Để h-auto để nó bao trọn nội dung cột phải */}
             <div className="lg:col-span-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                 
-                {/* LEFT COLUMN: School Announcements */}
-                {/* Thay h-[320px] lg:h-auto thành h-full min-h-[320px] để nó stretch theo cột bên cạnh */}
-                <div className="flex flex-col h-full min-h-[320px] rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-white">
+                {/* 2. LEFT COLUMN: 
+                    - Mobile: h-[320px] (để có độ cao nhất định mà cuộn).
+                    - Desktop (lg): h-0 min-h-full. 
+                      + h-0: Để nó không "ép" grid cha cao theo nội dung dài ngoằng của nó.
+                      + min-h-full: Để nó tự động dãn ra bằng đúng chiều cao của cột bên phải (Cột bên phải sẽ quyết định chiều cao chung).
+                */}
+                <div className="flex flex-col h-[320px] lg:h-0 lg:min-h-full rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-white">
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
                          <SchoolAnnouncements />
                     </div>
                 </div>
 
-                {/* RIGHT COLUMN: Giữ nguyên h-full để lấp đầy grid cell */}
-                <div className="flex flex-col gap-3 h-full">
+                {/* RIGHT COLUMN: Để tự nhiên (h-auto) để nó quyết định chiều cao của cả hàng */}
+                <div className="flex flex-col gap-3 h-auto">
                     
-                    {/* Row 1: Target & Yearly */}
+                    {/* Row 1: Target & Yearly - Giữ nguyên chiều cao cố định */}
                     <div className="grid grid-cols-2 gap-3 h-40 shrink-0"> 
                         {/* Target Forecast */}
                         <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col relative overflow-hidden h-full">
@@ -538,8 +540,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                         </div>
                     </div>
 
-                    {/* Row 2: Advice Box - DÙNG FLEX-1 ĐỂ LẤP ĐẦY KHOẢNG TRỐNG CÒN LẠI */}
-                    <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex-1 min-h-[140px] flex flex-col overflow-hidden">
+                    {/* Row 2: Advice Box - Dùng flex-1 nếu muốn nó giãn, hoặc h-auto */}
+                    {/* Ở đây ta dùng h-auto để nó ôm vừa đủ nội dung cảnh báo, không bị thừa trắng */}
+                    <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 h-auto min-h-[120px] flex flex-col overflow-hidden">
                         <h3 className="font-bold text-[#003375] mb-1.5 flex items-center gap-2 text-xs uppercase tracking-wide">
                             <AlertTriangle className="text-orange-500" size={14} />
                             Đánh giá & Cảnh báo
@@ -594,7 +597,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                     </div>
                 </div>
             </div>
-
+            
             {showRankingModal && <SubjectRankingModal subjects={validSubjects} onClose={() => setShowRankingModal(false)} />}
             {showFailedModal && <FailedSubjectsModal subjects={failedSubjectsList} onClose={() => setShowFailedModal(false)} />}
             {showYearlyModal && <YearlyStatsModal stats={yearlyStats} onClose={() => setShowYearlyModal(false)} />}
