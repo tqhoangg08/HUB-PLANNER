@@ -224,8 +224,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                 <div className="lg:col-span-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 shadow-sm">
                     <AlertTriangle className="text-amber-600 shrink-0 mt-1" size={20} />
                     <div className="text-sm text-amber-800 leading-relaxed">
-                        <span className="font-bold">Lưu ý bảo mật:</span> Điểm số của bạn chỉ được lưu cục bộ trên thiết bị (Local Storage). Nếu dùng máy công cộng, nhớ bấm <span className="font-bold">Xóa dữ liệu (Reset)</span> trước khi rời đi.
-                    </div>
+                        <span className="font-bold">Lưu ý bảo mật:</span> Điểm số của bạn chỉ được lưu cục bộ trên thiết bị của bạn đang sử dụng (Local Storage). Hệ thống KHÔNG gửi hay lưu trữ thông tin này về máy chủ, nên Admin/CTV hoàn toàn không xem được. Nếu bạn đang dùng thiết bị công cộng (quán net, thư viện, của bạn bè...), vui lòng nhớ bấm nút <span className="font-bold">Xóa dữ liệu</span> (Reset) ở góc phải màn hình trước khi rời đi để bảo mật thông tin.                    </div>
                 </div>
             )}
 
@@ -309,29 +308,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                 </div>
             </div>
 
-            {/* ==================== COMPACT CHART SECTION ==================== */}
-            {/* Sử dụng p-4 (thay vì p-6) và flex row để tiết kiệm diện tích */}
-            <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
-                <h2 className="text-base font-bold text-[#003375] mb-3 flex items-center gap-2">
+            {/* ==================== GPA SECTION (ĐÃ FIX BIỂU ĐỒ) ==================== */}
+            <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300 flex flex-col justify-between h-[190px]"> {/* Đặt chiều cao cố định cho container */}
+                <h2 className="text-base font-bold text-[#003375] mb-2 flex items-center gap-2 shrink-0">
                     <Award className="text-[#990000]" size={18} />
                     GPA toàn khóa & Phân bố
                 </h2>
 
-                <div className="flex flex-col sm:flex-row gap-4 h-full">
-                    {/* Cột trái: Điểm số */}
-                    <div className="flex-1 flex flex-col justify-center gap-3">
-                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 flex justify-between items-center">
-                            <span className="text-xs text-[#003375] font-semibold">GPA (Hệ 4)</span>
-                            <span className="text-2xl font-bold text-[#003375]">{stats.gpa4.toFixed(2)}</span>
+                {/* Container chính: Flex row, full height */}
+                <div className="flex items-start gap-2 h-full w-full">
+                    
+                    {/* Cột trái: Điểm số (Chiếm 40%) */}
+                    <div className="w-[30%] flex flex-col gap-2 justify-center">
+                        <div className="px-3 py-2 bg-blue-50 rounded-lg border border-blue-100 flex flex-col justify-center text-center">
+                            <span className="text-[10px] text-[#003375] font-semibold uppercase opacity-80">GPA (Hệ 4)</span>
+                            <span className="text-3xl font-bold text-[#003375] leading-none mt-1">{stats.gpa4.toFixed(2)}</span>
                         </div>
-                        <div className="p-3 bg-orange-50 rounded-lg border border-orange-100 flex justify-between items-center">
-                            <span className="text-xs text-[#990000] font-semibold">GPA (Hệ 10)</span>
-                            <span className="text-2xl font-bold text-[#990000]">{stats.gpa10.toFixed(2)}</span>
+                        <div className="px-3 py-2 bg-orange-50 rounded-lg border border-orange-100 flex flex-col justify-center text-center">
+                            <span className="text-[10px] text-[#990000] font-semibold uppercase opacity-80">GPA (Hệ 10)</span>
+                            <span className="text-3xl font-bold text-[#990000] leading-none mt-1">{stats.gpa10.toFixed(2)}</span>
                         </div>
                     </div>
 
-                    {/* Cột phải: Biểu đồ tròn - Giảm chiều cao */}
-                    <div className="flex-1 h-36 relative">
+                    {/* Cột phải: Biểu đồ tròn (Chiếm 60%) - Quan trọng: min-height và min-width */}
+                    <div className="w-[60%] h-full relative min-h-[160px]">
                         {pieData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -341,19 +341,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                                         cy="50%"
                                         innerRadius={30}
                                         outerRadius={55}
-                                        paddingAngle={5}
+                                        paddingAngle={4}
                                         dataKey="value"
                                     >
                                         {pieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                            <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={1} />
                                         ))}
                                     </Pie>
-                                    <RechartsTooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} />
-                                    <Legend verticalAlign="middle" align="right" layout="vertical" iconSize={8} wrapperStyle={{ fontSize: '10px' }} />
+                                    <RechartsTooltip 
+                                        contentStyle={{ borderRadius: '8px', fontSize: '12px', padding: '4px 8px', border: 'none', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }} 
+                                        itemStyle={{ padding: 0 }}
+                                    />
+                                    <Legend 
+                                        layout="vertical" 
+                                        verticalAlign="middle" 
+                                        align="right"
+                                        iconSize={8}
+                                        wrapperStyle={{ fontSize: '10px', lineHeight: '14px', right: 0 }} 
+                                    />
                                 </PieChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div className="h-full flex items-center justify-center text-gray-300 text-xs border border-dashed rounded-lg">Chưa có dữ liệu</div>
+                            <div className="h-full w-full flex items-center justify-center text-gray-300 text-xs border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                                Chưa có dữ liệu
+                            </div>
                         )}
                     </div>
                 </div>
@@ -365,13 +376,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                     Xu hướng học tập
                 </h3>
                 {/* Giảm chiều cao biểu đồ đường xuống h-48 */}
-                <div className="h-48 w-full">
+                <div className="h-37 w-full">
                     {trendData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={trendData} margin={{ top: 5, right: 10, bottom: 0, left: -20 }}>
+                            <LineChart data={trendData} margin={{ top: 5, right: 10, bottom: -10, left: -20 }}>
                                 <CartesianGrid stroke="#f5f5f5" strokeDasharray="3 3" />
                                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#666' }} interval={0} />
-                                <YAxis domain={[0, 4]} tickCount={5} tick={{ fontSize: 10, fill: '#666' }} />
+                                <YAxis domain={[0, 10]} tickCount={5} tick={{ fontSize: 10, fill: '#666' }} />
                                 <RechartsTooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} />
                                 <Legend wrapperStyle={{ fontSize: '10px' }}/>
                                 <Line type="monotone" dataKey="gpa4" name="GPA (4)" stroke="#003375" strokeWidth={2} activeDot={{ r: 6 }} />
@@ -388,8 +399,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
 
             {/* ==================== BOTTOM ROW ==================== */}
             
-            {/* CONTAINER CHUNG VỚI CHIỀU CAO CỐ ĐỊNH 400px (Để 2 cột luôn bằng nhau) */}
-            <div className="lg:col-span-4 grid grid-cols-1 lg:grid-cols-2 gap-4 h-[400px]">
+            {/* CONTAINER CHUNG VỚI CHIỀU CAO CỐ ĐỊNH 350px (GIẢM TỪ 400px ĐỂ CẮT BỚT KHOẢNG TRẮNG) */}
+            <div className="lg:col-span-4 grid grid-cols-1 lg:grid-cols-2 gap-4 h-[350px]">
                 
                 {/* LEFT COLUMN: School Announcements */}
                 {/* overflow-hidden để bo tròn góc của header sticky bên trong */}
