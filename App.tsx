@@ -166,6 +166,7 @@ const App: React.FC = () => {
 
     const saveTimeoutRef = useRef<number | null>(null);
 
+    // --- EFFECT: LOAD DATA ---
     useEffect(() => {
         let isActive = true;
         setIsLoaded(false);
@@ -174,6 +175,7 @@ const App: React.FC = () => {
         }
 
         const loadData = async () => {
+            // 1. Nếu là User trường HUB (Có đăng nhập)
             if (userRolePref === 'school' && session?.user?.id && supabase) {
                 const { data: profileData, error } = await supabase
                     .from(STUDENT_PROFILE_TABLE)
@@ -187,25 +189,22 @@ const App: React.FC = () => {
                     console.error('Failed to load profile data:', error);
                 }
 
-                if (profileData?.full_name || profileData?.avatar_url) {
-                    setProfileFullName(profileData?.full_name ?? '');
-                    setProfileAvatarUrl(profileData?.avatar_url ?? '');
-                }
-
+                // Nếu có dữ liệu trên DB -> Load về
                 if (profileData?.data) {
                     setData({ ...INITIAL_DATA, ...profileData.data });
-                    setProfileFullName(profileData.full_name || ''); // Lấy tên từ DB
-                    setProfileAvatarUrl(profileData.avatar_url || ''); // Lấy ảnh từ DB
+                    setProfileFullName(profileData.full_name || ''); 
+                    setProfileAvatarUrl(profileData.avatar_url || ''); 
                     localStorage.setItem(storageKey, JSON.stringify(profileData.data));
                     setIsLoaded(true);
                     return;
                 }
 
-                // TRƯỜNG HỢP: Đăng nhập lại sau khi Reset (DB chưa có dữ liệu)
-                // Ta lấy thông tin từ Session (Google/Microsoft gửi về) để điền vào
+                // TRƯỜNG HỢP: Đăng nhập lần đầu hoặc sau khi Reset (DB chưa có dữ liệu)
+                // -> Lấy thông tin từ Google/Microsoft (Session Metadata) để điền vào
                 const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
                 const metaAvatar = session.user.user_metadata.avatar_url || session.user.user_metadata.picture || '';
                 
+                // Set state để tí nữa useEffect auto-save sẽ lưu cái này lên DB
                 setProfileFullName(metaName);
                 setProfileAvatarUrl(metaAvatar);
                 
@@ -225,6 +224,7 @@ const App: React.FC = () => {
                 return;
             }
 
+            // 2. Nếu là Khách (Không đăng nhập)
             if (userRolePref !== 'school') {
                 setProfileFullName('');
                 setProfileAvatarUrl('');
@@ -252,12 +252,14 @@ const App: React.FC = () => {
         };
     }, [storageKey, session?.user?.id, userRolePref]);
 
+    // --- EFFECT: SYNC LOCAL STORAGE ---
     useEffect(() => {
         if (isLoaded) {
             localStorage.setItem(storageKey, JSON.stringify(data));
         }
     }, [data, isLoaded, storageKey]);
 
+    // --- EFFECT: AUTO SAVE TO DB (FIX LỖI NULL) ---
     useEffect(() => {
         if (!isLoaded) return;
         if (userRolePref !== 'school' || !session?.user?.id || !supabase) return;
@@ -267,11 +269,21 @@ const App: React.FC = () => {
         }
 
         saveTimeoutRef.current = window.setTimeout(async () => {
+            const userEmail = session.user.email || '';
+            // Tách MSSV từ email (lấy phần trước @)
+            const studentCode = userEmail.split('@')[0];
+
+            // Nếu profileFullName đang rỗng (do mới reset), thử lấy lại từ metadata
+            const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
+            const nameToSave = profileFullName || metaName;
+
             const payload = {
                 id: session.user.id,
-                data,
-                full_name: profileFullName, 
+                email: userEmail,          // 👇 ĐÃ THÊM: Lưu email
+                student_code: studentCode, // 👇 ĐÃ THÊM: Lưu MSSV
+                full_name: nameToSave,     // 👇 ĐÃ THÊM: Lưu tên (ưu tiên state, fallback metadata)
                 avatar_url: profileAvatarUrl,
+                data,
                 updated_at: new Date().toISOString(),
             };
 
@@ -281,6 +293,11 @@ const App: React.FC = () => {
 
             if (error) {
                 console.error('Failed to save profile data:', error);
+            } else {
+                // Cập nhật lại state nếu tên vừa được lấy từ metadata để đồng bộ giao diện
+                if (!profileFullName && nameToSave) {
+                    setProfileFullName(nameToSave);
+                }
             }
         }, 600);
 
@@ -289,7 +306,7 @@ const App: React.FC = () => {
                 window.clearTimeout(saveTimeoutRef.current);
             }
         };
-    }, [data, isLoaded, session?.user?.id, userRolePref, profileFullName, profileAvatarUrl]);
+    }, [data, isLoaded, session?.user?.id, userRolePref, profileFullName, profileAvatarUrl]); // Dependency đầy đủ
 
     useEffect(() => {
         if (showAccountSettings) {
@@ -387,11 +404,17 @@ const App: React.FC = () => {
             avatarUrlToSave = publicData.publicUrl;
         }
 
+        // Khi lưu thủ công cũng nhớ cập nhật student_code và email để chắc chắn
+        const userEmail = session.user.email || '';
+        const studentCode = userEmail.split('@')[0];
+
         const { error } = await supabase
             .from(STUDENT_PROFILE_TABLE)
             .update({
                 full_name: draftFullName.trim(),
                 avatar_url: avatarUrlToSave,
+                student_code: studentCode,
+                email: userEmail,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', session.user.id);
