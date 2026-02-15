@@ -159,7 +159,6 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
         className="fixed bottom-6 right-6 bg-[#003375] hover:bg-[#002855] text-white p-4 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 z-50 flex items-center gap-2 border-4 border-white active:scale-95 group animate-float hover:animate-none"
       >
         <Sparkles size={24} className="group-hover:animate-pulse text-yellow-300" />
-        <span className="font-semibold hidden md:inline group-hover:translate-x-1 transition-transform">Cố vấn AI</span>
       </button>
 
       {isOpen && (
