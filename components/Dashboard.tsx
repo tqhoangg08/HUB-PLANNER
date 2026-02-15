@@ -13,7 +13,7 @@ import {
     calculateRequiredGPA,
     getGradeDetails
 } from '../utils/calculations';
-import { Target, AlertTriangle, Award, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, PieChart as PieChartIcon, List, ChevronRight, X } from 'lucide-react';
+import { Target, AlertTriangle, Award, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, List, ChevronRight, X } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { playClick } from '../utils/audio';
 import { AdsBanner } from './AdsBanner';
@@ -118,7 +118,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
 
     const stats = calculateCumulativeStats(data.semesters);
     const yearlyStats = calculateYearlyStats(data.semesters);
-    // const classification = getDegreeClassification(stats.gpa4); // Unused variable
     const trendAnalysis = analyzeTrend(data.semesters);
 
     // --- ANALYTICS CALCULATIONS ---
@@ -224,7 +223,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                 <div className="lg:col-span-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 shadow-sm">
                     <AlertTriangle className="text-amber-600 shrink-0 mt-1" size={20} />
                     <div className="text-sm text-amber-800 leading-relaxed">
-                        <span className="font-bold">Lưu ý bảo mật:</span> Điểm số của bạn chỉ được lưu cục bộ trên thiết bị của bạn đang sử dụng (Local Storage). Hệ thống KHÔNG gửi hay lưu trữ thông tin này về máy chủ, nên Admin/CTV hoàn toàn không xem được. Nếu bạn đang dùng thiết bị công cộng (quán net, thư viện, của bạn bè...), vui lòng nhớ bấm nút <span className="font-bold">Xóa dữ liệu</span> (Reset) ở góc phải màn hình trước khi rời đi để bảo mật thông tin.                    </div>
+                        <span className="font-bold">Lưu ý bảo mật:</span> Điểm số của bạn chỉ được lưu cục bộ trên thiết bị của bạn đang sử dụng (Local Storage). Hệ thống KHÔNG gửi hay lưu trữ thông tin này về máy chủ, nên Admin/CTV hoàn toàn không xem được. Nếu bạn đang dùng thiết bị công cộng (quán net, thư viện, của bạn bè...), vui lòng nhớ bấm nút <span className="font-bold">Xóa dữ liệu</span> (Reset) ở góc phải màn hình trước khi rời đi để bảo mật thông tin.
+                    </div>
                 </div>
             )}
 
@@ -308,18 +308,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                 </div>
             </div>
 
-            {/* ==================== GPA SECTION (ĐÃ FIX BIỂU ĐỒ) ==================== */}
-            <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300 flex flex-col justify-between h-[190px]"> {/* Đặt chiều cao cố định cho container */}
-                <h2 className="text-base font-bold text-[#003375] mb-2 flex items-center gap-2 shrink-0">
+            {/* ==================== GPA SECTION (ĐÃ FIX LAYOUT) ==================== */}
+            <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300 flex flex-col h-[190px]">
+                <h2 className="text-base font-bold text-[#003375] mb-1 flex items-center gap-2 shrink-0">
                     <Award className="text-[#990000]" size={18} />
                     GPA toàn khóa & Phân bố
                 </h2>
 
-                {/* Container chính: Flex row, full height */}
-                <div className="flex items-start gap-2 h-full w-full">
+                {/* SỬA: items-center để căn giữa dọc, pb-2 để đẩy nội dung lên chút cho cân */}
+                <div className="flex items-center gap-4 h-full w-full pb-2">
                     
-                    {/* Cột trái: Điểm số (Chiếm 40%) */}
-                    <div className="w-[30%] flex flex-col gap-2 justify-center">
+                    {/* Cột trái: Tăng width lên 40% cho rộng rãi */}
+                    <div className="w-[40%] flex flex-col gap-2 justify-center">
                         <div className="px-3 py-2 bg-blue-50 rounded-lg border border-blue-100 flex flex-col justify-center text-center">
                             <span className="text-[10px] text-[#003375] font-semibold uppercase opacity-80">GPA (Hệ 4)</span>
                             <span className="text-3xl font-bold text-[#003375] leading-none mt-1">{stats.gpa4.toFixed(2)}</span>
@@ -330,8 +330,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                         </div>
                     </div>
 
-                    {/* Cột phải: Biểu đồ tròn (Chiếm 60%) - Quan trọng: min-height và min-width */}
-                    <div className="w-[60%] h-full relative min-h-[160px]">
+                    {/* Cột phải: Dùng flex-1 để tự lấp đầy khoảng trống còn lại */}
+                    <div className="flex-1 h-full min-h-[140px] flex items-center justify-center relative">
                         {pieData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -370,12 +370,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                 </div>
             </div>
 
-<div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
+            <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
                 <h3 className="text-base font-bold text-[#003375] mb-3 flex items-center gap-2">
                     <BarChart3 className="text-[#003375]" size={18} />
                     Xu hướng học tập
                 </h3>
-                
                 <div className="h-37 w-full">
                     {trendData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
@@ -402,9 +401,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                                 />
                                 <Legend wrapperStyle={{ fontSize: '11px', marginTop: '10px' }} iconType="circle"/>
                                 
-                                {/* LINE 1: GPA HỆ 4 - Xanh dương */}
                                 <Line 
-                                    type="monotone" // Hoặc "natural" để cong hơn nữa
+                                    type="monotone" 
                                     dataKey="gpa4" 
                                     name="GPA (4)" 
                                     stroke="#003375" 
@@ -413,14 +411,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                                     activeDot={{ r: 6, fill: '#003375', stroke: '#fff', strokeWidth: 2 }}
                                 />
 
-                                {/* LINE 2: GPA HỆ 10 - Đỏ cam */}
                                 <Line 
-                                    type="monotone" // Hoặc "natural"
+                                    type="monotone" 
                                     dataKey="gpa10" 
                                     name="GPA (10)" 
-                                    stroke="#ef4444" // Màu đỏ tươi hơn chút cho nổi
+                                    stroke="#ef4444" 
                                     strokeWidth={3} 
-                                    strokeDasharray="0" // Bỏ nét đứt để giống mẫu hơn (hoặc giữ nếu muốn phân biệt)
+                                    strokeDasharray="0" 
                                     dot={{ r: 4, fill: '#fff', stroke: '#ef4444', strokeWidth: 2 }}
                                     activeDot={{ r: 6, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }}
                                 />
@@ -435,13 +432,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
             </div>
 
             {/* ==================== BOTTOM ROW ==================== */}
-            
-            {/* CONTAINER CHUNG VỚI CHIỀU CAO CỐ ĐỊNH 350px (GIẢM TỪ 400px ĐỂ CẮT BỚT KHOẢNG TRẮNG) */}
-            <div className="lg:col-span-4 grid grid-cols-1 lg:grid-cols-2 gap-4 h-[320px]">
+            <div className="lg:col-span-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                 
                 {/* LEFT COLUMN: School Announcements */}
-                {/* overflow-hidden để bo tròn góc của header sticky bên trong */}
-                <div className="flex flex-col h-full rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-white">
+                <div className="flex flex-col h-[320px] lg:h-auto rounded-xl overflow-hidden shadow-sm border border-gray-200 bg-white">
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
                          <SchoolAnnouncements />
                     </div>
@@ -450,7 +444,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                 {/* RIGHT COLUMN */}
                 <div className="flex flex-col gap-3 h-full">
                     
-                    {/* Row 1: Target & Yearly (Height 40 ~ 160px) */}
+                    {/* Row 1: Target & Yearly */}
                     <div className="grid grid-cols-2 gap-3 h-40 shrink-0"> 
                         {/* Target Forecast */}
                         <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col relative overflow-hidden h-full">
@@ -507,7 +501,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                             <p className="text-[8px] text-gray-500 text-right mt-0.5">{stats.passedCredits}/{totalCreditsRequired} TC</p>
                         </div>
 
-                        {/* Yearly Summary - UPDATED */}
+                        {/* Yearly Summary */}
                         <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex flex-col h-full overflow-hidden">
                             <h3 className="font-bold text-[#003375] mb-1 flex items-center gap-1.5 text-xs uppercase tracking-wide">
                                 <Calendar className="text-[#990000]" size={14} />
@@ -515,8 +509,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                             </h3>
                             <div className="space-y-1.5 overflow-y-auto custom-scrollbar flex-1 pr-1">
                                 {yearlyStats.length === 0 && <p className="text-center text-gray-400 text-[10px] py-4">Chưa có dữ liệu.</p>}
-                                
-                                {/* Chỉ hiện tối đa 3 năm đầu */}
                                 {yearlyStats.slice(0, 3).map((year) => {
                                     const yearClass = year.hasData ? getDegreeClassification(year.gpa4) : '-';
                                     return (
@@ -534,8 +526,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                                         </div>
                                     );
                                 })}
-
-                                {/* Nút xem thêm nếu > 3 năm */}
                                 {yearlyStats.length > 3 && (
                                     <button 
                                         onClick={() => { playClick(); setShowYearlyModal(true); }}
@@ -548,8 +538,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                         </div>
                     </div>
 
-                    {/* Row 2: Advice Box (Fills remaining height) */}
-                    <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex-1 min-h-0 flex flex-col overflow-hidden">
+                    {/* Row 2: Advice Box */}
+                    <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 h-auto min-h-[140px] flex flex-col overflow-hidden">
                         <h3 className="font-bold text-[#003375] mb-1.5 flex items-center gap-2 text-xs uppercase tracking-wide">
                             <AlertTriangle className="text-orange-500" size={14} />
                             Đánh giá & Cảnh báo
@@ -559,7 +549,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                             "{trendAnalysis}"
                         </div>
 
-                        <div className="flex-1 overflow-y-auto custom-scrollbar">
+                        <div className="overflow-y-auto custom-scrollbar">
                             {failedCount > 0 ? (
                                 <div className="bg-red-50 text-[#990000] p-1.5 rounded-md text-[11px] mb-1.5 border border-red-100 font-medium flex items-center gap-1">
                                     ⚠️ Nợ <strong>{failedCount}</strong> môn.
@@ -570,7 +560,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                                 </div>
                             )}
 
-                            {/* FAILED SUBJECTS LIST - UPDATED LOGIC */}
+                            {/* FAILED SUBJECTS LIST */}
                             <div className="p-1.5 rounded-md text-sm border bg-white">
                                 <div className="font-semibold mb-1 flex items-center gap-1 text-gray-700 text-[10px]">
                                     <List size={10} className="text-red-500"/> Chi tiết:
@@ -579,8 +569,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                                     <p className="text-gray-500 italic text-[10px] pl-1">Không có (Quá tuyệt vời! 🎉)</p>
                                 ) : (
                                     <div className="space-y-1">
-                                        {/* Luôn luôn chỉ hiện tối đa 3 môn ở đây */}
-                                        {failedSubjectsList.slice(0, 3).map((sub, idx) => {
+                                        {failedSubjectsList.slice(0, 1).map((sub, idx) => {
                                             const avg = calculateSubjectAverage(sub);
                                             return (
                                                 <div key={idx} className="flex justify-between items-center text-[10px] bg-red-50 text-red-700 px-1.5 py-0.5 rounded border border-red-100">
@@ -590,13 +579,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                                             );
                                         })}
                                         
-                                        {/* Nếu nhiều hơn 3 môn thì hiện nút Xem thêm (mở Modal) */}
-                                        {failedSubjectsList.length > 3 && (
+                                        {failedSubjectsList.length > 1 && (
                                             <button 
                                                 onClick={() => { playClick(); setShowFailedModal(true); }}
-                                                className="w-full text-center text-[9px] text-blue-600 hover:text-blue-800 font-medium mt-0.5 flex items-center justify-center gap-1 hover:underline"
+                                                className="w-full text-center text-[9px] text-blue-600 hover:text-blue-800 font-medium mt-2 pb-1 flex items-center justify-center gap-1 hover:underline transition-all"
                                             >
-                                                <ChevronRight size={10}/> Xem thêm ({failedSubjectsList.length - 3} môn khác)
+                                                <ChevronRight size={10}/> Xem thêm ({failedSubjectsList.length - 1} môn khác)
                                             </button>
                                         )}
                                     </div>
@@ -608,9 +596,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
             </div>
 
             {showRankingModal && <SubjectRankingModal subjects={validSubjects} onClose={() => setShowRankingModal(false)} />}
-            {/* Modal hiển thị danh sách nợ môn */}
             {showFailedModal && <FailedSubjectsModal subjects={failedSubjectsList} onClose={() => setShowFailedModal(false)} />}
-            {/* Modal hiển thị tổng kết năm */}
             {showYearlyModal && <YearlyStatsModal stats={yearlyStats} onClose={() => setShowYearlyModal(false)} />}
         </div>
     );
