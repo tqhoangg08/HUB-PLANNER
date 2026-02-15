@@ -444,35 +444,61 @@ const App: React.FC = () => {
         }
     };
 
-    const resetData = async () => {
+const resetData = async () => {
         playClick();
-        if (!window.confirm("Cảnh báo: Hành động này sẽ xóa toàn bộ dữ liệu điểm số và đăng xuất. Bạn có chắc không?")) {
+        if (!window.confirm("CẢNH BÁO CỰC MẠNH: Hành động này sẽ xóa VĨNH VIỄN toàn bộ dữ liệu (điểm số, ảnh đại diện, thông tin cá nhân) trên cả máy và máy chủ. Bạn có chắc chắn không?")) {
             return;
         }
 
         try {
-            setData(INITIAL_DATA);
-            localStorage.clear();
-
+            // 1. Xử lý xóa trên Cloud (Supabase) nếu là tài khoản đăng nhập
             if (userRolePref === 'school' && session?.user?.id && supabase) {
-                await supabase
+                
+                // A. Xóa ảnh đại diện trong Storage (nếu có)
+                // Logic upload của bạn lưu ảnh vào folder trùng tên user.id
+                const { data: listFiles } = await supabase.storage
+                    .from('avatars')
+                    .list(session.user.id);
+
+                if (listFiles && listFiles.length > 0) {
+                    const filesToRemove = listFiles.map(x => `${session.user.id}/${x.name}`);
+                    await supabase.storage
+                        .from('avatars')
+                        .remove(filesToRemove);
+                }
+
+                // B. Xóa dữ liệu trong Database (Bảng profiles)
+                const { error: dbError } = await supabase
                     .from(STUDENT_PROFILE_TABLE)
                     .delete()
                     .eq('id', session.user.id);
-            }
-
-            if (supabase) {
-                const { error } = await supabase.auth.signOut();
-                if (error) {
-                    console.log("Lỗi đăng xuất:", error);
+                
+                if (dbError) {
+                    console.error("Lỗi xóa DB:", dbError);
+                    alert("Không thể xóa dữ liệu trên máy chủ. Vui lòng thử lại.");
+                    return; 
                 }
             }
+
+            // 2. Xóa dữ liệu Local Storage & State
+            setData(INITIAL_DATA);
+            localStorage.clear(); // Xóa sạch sành sanh local storage
+
+            // 3. Đăng xuất khỏi Supabase Auth
+            if (supabase) {
+                const { error } = await supabase.auth.signOut();
+                if (error) console.log("Lỗi đăng xuất:", error);
+            }
+
         } catch (error) {
             console.error("Lỗi khi reset:", error);
+            alert("Có lỗi xảy ra. Dữ liệu có thể chưa được xóa hết.");
         } finally {
+            // 4. Dọn dẹp biến cục bộ và reload trang để sạch cache
             localStorage.removeItem('user_role_preference');
             setUserRolePref('unknown');
             navigate('/');
+            window.location.reload(); // Reload trang để đảm bảo app về trạng thái trắng tinh
         }
     };
 
