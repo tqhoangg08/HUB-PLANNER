@@ -370,23 +370,60 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
                 </div>
             </div>
 
-            <div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
+<div className="lg:col-span-2 bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300">
                 <h3 className="text-base font-bold text-[#003375] mb-3 flex items-center gap-2">
                     <BarChart3 className="text-[#003375]" size={18} />
                     Xu hướng học tập
                 </h3>
-                {/* Giảm chiều cao biểu đồ đường xuống h-48 */}
+                
                 <div className="h-37 w-full">
                     {trendData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={trendData} margin={{ top: 5, right: 10, bottom: -10, left: -20 }}>
-                                <CartesianGrid stroke="#f5f5f5" strokeDasharray="3 3" />
-                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#666' }} interval={0} />
-                                <YAxis domain={[0, 10]} tickCount={5} tick={{ fontSize: 10, fill: '#666' }} />
-                                <RechartsTooltip contentStyle={{ borderRadius: '8px', fontSize: '12px' }} />
-                                <Legend wrapperStyle={{ fontSize: '10px' }}/>
-                                <Line type="monotone" dataKey="gpa4" name="GPA (4)" stroke="#003375" strokeWidth={2} activeDot={{ r: 6 }} />
-                                <Line type="monotone" dataKey="gpa10" name="GPA (10)" stroke="#990000" strokeWidth={2} strokeDasharray="4 4" />
+                            <LineChart data={trendData} margin={{ top: 10, right: 20, bottom: -10, left: -15 }}>
+                                <CartesianGrid stroke="#7d7a7a" strokeDasharray="3 3" vertical={false} />
+                                <XAxis 
+                                    dataKey="name" 
+                                    tick={{ fontSize: 10, fill: '#5a5656' }} 
+                                    interval={0} 
+                                    axisLine={false}
+                                    tickLine={false}
+                                    dy={10}
+                                />
+                                <YAxis 
+                                    domain={[0, 10]} 
+                                    tickCount={6} 
+                                    tick={{ fontSize: 10, fill: '#4e4d4d' }} 
+                                    axisLine={false}
+                                    tickLine={false}
+                                />
+                                <RechartsTooltip 
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                    cursor={{ stroke: '#003375', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                />
+                                <Legend wrapperStyle={{ fontSize: '11px', marginTop: '10px' }} iconType="circle"/>
+                                
+                                {/* LINE 1: GPA HỆ 4 - Xanh dương */}
+                                <Line 
+                                    type="monotone" // Hoặc "natural" để cong hơn nữa
+                                    dataKey="gpa4" 
+                                    name="GPA (4)" 
+                                    stroke="#003375" 
+                                    strokeWidth={3} 
+                                    dot={{ r: 4, fill: '#fff', stroke: '#003375', strokeWidth: 2 }}
+                                    activeDot={{ r: 6, fill: '#003375', stroke: '#fff', strokeWidth: 2 }}
+                                />
+
+                                {/* LINE 2: GPA HỆ 10 - Đỏ cam */}
+                                <Line 
+                                    type="monotone" // Hoặc "natural"
+                                    dataKey="gpa10" 
+                                    name="GPA (10)" 
+                                    stroke="#ef4444" // Màu đỏ tươi hơn chút cho nổi
+                                    strokeWidth={3} 
+                                    strokeDasharray="0" // Bỏ nét đứt để giống mẫu hơn (hoặc giữ nếu muốn phân biệt)
+                                    dot={{ r: 4, fill: '#fff', stroke: '#ef4444', strokeWidth: 2 }}
+                                    activeDot={{ r: 6, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }}
+                                />
                             </LineChart>
                         </ResponsiveContainer>
                     ) : (
