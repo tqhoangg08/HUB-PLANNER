@@ -437,7 +437,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, show
             {/* ==================== BOTTOM ROW ==================== */}
             
             {/* CONTAINER CHUNG VỚI CHIỀU CAO CỐ ĐỊNH 350px (GIẢM TỪ 400px ĐỂ CẮT BỚT KHOẢNG TRẮNG) */}
-            <div className="lg:col-span-4 grid grid-cols-1 lg:grid-cols-2 gap-4 h-[350px]">
+            <div className="lg:col-span-4 grid grid-cols-1 lg:grid-cols-2 gap-4 h-[px]">
                 
                 {/* LEFT COLUMN: School Announcements */}
                 {/* overflow-hidden để bo tròn góc của header sticky bên trong */}
