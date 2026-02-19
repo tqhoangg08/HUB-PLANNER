@@ -8,7 +8,7 @@ import {
   MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, 
   Save, ToggleLeft, ToggleRight, Settings, Tag, RotateCcw,
   Info, ExternalLink, CalendarClock,
-  Bookmark, BookmarkCheck
+  Bookmark, BookmarkCheck, ArrowDownUp // Đã thêm icon ArrowDownUp cho nút sắp xếp
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
@@ -31,6 +31,7 @@ interface HubEvent {
   status: string;
   is_manually_closed: boolean;
   is_deleted: boolean; // Thêm trường này để xử lý hiển thị
+  created_at: string; // Thêm trường này để sắp xếp
 }
 
 // --- Helper ---
@@ -723,10 +724,11 @@ export const EventsBoard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Filter State
+  // Filter & Sort State
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [activeScope, setActiveScope] = useState('all');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest'); // THÊM STATE SẮP XẾP
 
   // --- NEW: PERSONAL PARTICIPATION STATE (With Sync) ---
   const [participatedEvents, setParticipatedEvents] = useState<string[]>([]);
@@ -871,7 +873,8 @@ export const EventsBoard: React.FC = () => {
                   scope: row.location_type || 'Trong trường',
                   status: row.status || 'Sắp diễn ra',
                   is_manually_closed: row.is_manually_closed || false,
-                  is_deleted: row.is_deleted || false
+                  is_deleted: row.is_deleted || false,
+                  created_at: row.created_at || new Date().toISOString() // MAP TRƯỜNG NGÀY THÊM
               };
           });
 
@@ -941,7 +944,7 @@ export const EventsBoard: React.FC = () => {
       setShowManageModal(true);
   };
 
-  // --- RENDERING FILTER LOGIC ---
+  // --- RENDERING FILTER & SORT LOGIC ---
   const filteredEvents = events.filter(evt => {
     const matchesSearch = evt.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           evt.organizer.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -964,6 +967,16 @@ export const EventsBoard: React.FC = () => {
                          (activeScope === 'internal' && evt.scope === 'Trong trường') ||
                          (activeScope === 'external' && evt.scope === 'Ngoài trường');
     return matchesSearch && matchesTab && matchesScope && isVisible;
+  }).sort((a, b) => {
+      // LOGIC SẮP XẾP MỚI THÊM
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      
+      if (sortOrder === 'newest') {
+          return dateB - dateA; // Mới nhất lên trước
+      } else {
+          return dateA - dateB; // Cũ nhất lên trước
+      }
   });
 
   // --- CLASSIFICATION ---
@@ -1350,12 +1363,27 @@ export const EventsBoard: React.FC = () => {
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto items-stretch">
             <div className="relative flex-1 sm:flex-none"><input type="text" placeholder="Tìm tên, BTC, loại hình..." className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none w-full md:w-64 transition-all hover:border-blue-300 h-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /></div>
-            <div className="relative">
-                <select value={activeScope} onChange={(e) => { playClick(); setActiveScope(e.target.value); }} className="appearance-none pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none bg-white text-sm font-medium text-gray-700 h-full w-full sm:w-auto cursor-pointer hover:border-blue-300 transition-colors">
-                    <option value="all">Tất cả khu vực</option><option value="internal">Trong trường</option><option value="external">Ngoài trường</option>
-                </select>
-                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+            
+            {/* START: DROP DOWN KHU VỰC VÀ SẮP XẾP */}
+            <div className="flex gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:flex-none">
+                    <select value={activeScope} onChange={(e) => { playClick(); setActiveScope(e.target.value); }} className="appearance-none pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none bg-white text-sm font-medium text-gray-700 h-full w-full cursor-pointer hover:border-blue-300 transition-colors">
+                        <option value="all">Tất cả khu vực</option><option value="internal">Trong trường</option><option value="external">Ngoài trường</option>
+                    </select>
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                </div>
+                
+                {/* NÚT SẮP XẾP MỚI THÊM */}
+                <div className="relative flex-1 sm:flex-none">
+                    <select value={sortOrder} onChange={(e) => { playClick(); setSortOrder(e.target.value as 'newest' | 'oldest'); }} className="appearance-none pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none bg-white text-sm font-medium text-gray-700 h-full w-full cursor-pointer hover:border-blue-300 transition-colors">
+                        <option value="newest">Mới nhất</option>
+                        <option value="oldest">Cũ nhất</option>
+                    </select>
+                    <ArrowDownUp className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                </div>
             </div>
+            {/* END: DROP DOWN */}
+
             <div className="flex gap-2">
                 <button onClick={() => { playClick(); fetchEvents(); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95 hover:rotate-180 duration-500" title="Làm mới"><RefreshCw size={20} className={loading ? "animate-spin" : ""} /></button>
                 <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95" title="Xem bảng điểm"><FileText size={20} /></button>
