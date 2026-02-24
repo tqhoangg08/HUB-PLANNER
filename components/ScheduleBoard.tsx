@@ -139,9 +139,6 @@ export default function ScheduleBoard() {
       return;
     }
 
-    const newDays = course.day_of_week ? course.day_of_week.toString().replace(/,/g, ' ').trim().split(/\s+/) : [];
-    const newWeeks = parseWeeks(course.weeks);
-
     for (const existingCourse of mySchedule) {
       if (course.shift === existingCourse.shift) {
         let isConflict = false;
@@ -246,13 +243,15 @@ export default function ScheduleBoard() {
   const currentWeekDates = getWeekDates(selectedWeek);
 
   return (
-    <div className="relative z-20 flex flex-col lg:flex-row gap-6 h-[calc(100vh-140px)]">
+    // ĐÃ SỬA: Bỏ ép chiều cao trên mobile, chỉ ép (lg:h-[calc...]) trên laptop
+    <div className="relative z-20 flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-140px)]">
       
-      {/* CỘT TRÁI: TÌM KIẾM & LỌC MÔN (Đã giảm xuống 28%) */}
-      <div className="w-full lg:w-[28%] flex flex-col bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 overflow-hidden">
-        <div className="p-5 border-b border-gray-100 bg-white/50 relative">
+      {/* CỘT TRÁI: TÌM KIẾM & LỌC MÔN */}
+      {/* ĐÃ SỬA: Cho mobile cao 500px để cuộn mượt, laptop cao full */}
+      <div className="w-full lg:w-[28%] flex flex-col bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 overflow-hidden h-[500px] lg:h-full shrink-0">
+        <div className="p-4 sm:p-5 border-b border-gray-100 bg-white/50 relative">
           <h2 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
-            <Search size={22} className="text-[#990000]" /> Tìm kiếm & Bộ lọc
+            <Search size={22} className="text-[#990000]" /> Tìm kiếm & Lọc
           </h2>
           
           <div className="space-y-3">
@@ -298,7 +297,7 @@ export default function ScheduleBoard() {
           ) : availableCourses.length === 0 ? (
             <div className="text-center mt-10">
               <Filter size={40} className="mx-auto text-gray-300 mb-3" />
-              <p className="text-gray-500 font-medium text-sm">Không tìm thấy môn học nào.</p>
+              <p className="text-gray-500 font-medium text-sm">Không tìm thấy môn học nào phù hợp.</p>
             </div>
           ) : (
             availableCourses.map((course) => (
@@ -339,8 +338,9 @@ export default function ScheduleBoard() {
         </div>
       </div>
 
-      {/* CỘT PHẢI: LƯỚI THỜI KHÓA BIỂU (Đã tăng lên 72%) */}
-      <div className="w-full lg:w-[72%] bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 p-6 flex flex-col overflow-hidden">
+      {/* CỘT PHẢI: LƯỚI THỜI KHÓA BIỂU */}
+      {/* ĐÃ SỬA: Cho mobile min-height 600px để không bị ép cụt ngủn */}
+      <div className="w-full lg:w-[72%] bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 p-4 sm:p-6 flex flex-col overflow-hidden min-h-[600px] lg:min-h-0 lg:h-full">
         
         <div className="mb-4">
           <div className="flex justify-between items-center mb-4">
@@ -352,7 +352,7 @@ export default function ScheduleBoard() {
                 {selectedSemester}
               </span>
               <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200 shadow-sm">
-                {mySchedule.length} môn đã lưu
+                {mySchedule.length} môn
               </span>
             </div>
           </div>
@@ -362,7 +362,7 @@ export default function ScheduleBoard() {
               <button
                 key={w}
                 onClick={() => setSelectedWeek(w)}
-                className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border ${
+                className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border shrink-0 ${
                   selectedWeek === w 
                     ? 'bg-[#003375] text-white border-[#003375] shadow-md' 
                     : HOLIDAY_WEEKS.includes(w) 
@@ -377,117 +377,117 @@ export default function ScheduleBoard() {
         </div>
 
         {HOLIDAY_WEEKS.includes(selectedWeek) && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-bold flex items-center justify-center gap-2 animate-pulse">
-            <Zap size={18} /> Tuần {selectedWeek} là tuần Nghỉ Tết Nguyên Đán, không có lịch học!
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-bold flex items-center justify-center gap-2 animate-pulse text-center">
+            <Zap size={18} className="shrink-0" /> Tuần {selectedWeek} là tuần Nghỉ Tết, không có lịch học!
           </div>
         )}
         
         <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-inner overflow-hidden flex flex-col">
-          <table className="w-full min-w-[700px] border-collapse table-fixed flex-1">
-            <thead>
-              <tr>
-                <th className="w-[70px] p-2 border-b-2 border-r border-gray-200 bg-[#f8fafc] text-xs font-bold text-gray-500 uppercase tracking-wider">Ca</th>
-                {[2, 3, 4, 5, 6, 7, 8].map((day, index) => (
-                  <th key={day} className="p-2 border-b-2 border-gray-200 bg-[#f8fafc] text-center">
-                    <span className="block text-sm font-bold text-[#003375] uppercase mb-0.5">
-                      Thứ {day === 8 ? 'CN' : day}
-                    </span>
-                    <span className="block text-[11px] font-semibold text-[#990000] bg-red-50 rounded-md mx-auto w-fit px-1.5 border border-red-100">
-                      {currentWeekDates[index]}
-                    </span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {['S', 'C'].map((shift) => (
-                <tr key={shift}>
-                  <td className="p-2 border-r border-b border-gray-200 text-center bg-[#f8fafc] align-middle">
-                    <span className={`block text-sm font-extrabold ${shift === 'S' ? 'text-orange-500' : 'text-indigo-500'}`}>
-                      {shift === 'S' ? 'SÁNG' : 'CHIỀU'}
-                    </span>
-                    <span className="text-[10px] font-medium text-gray-500 mt-1 block leading-tight">
-                      {shift === 'S' ? '07:00\n11:05' : '13:00\n17:05'}
-                    </span>
-                  </td>
-                  
-                  {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
-                    const slotCourses = mySchedule.filter(c => checkIsCourseInSlot(c, day, selectedWeek, shift));
-
-                    const slotExams = mySchedule.filter(c => {
-                      if (!c.exam_date || !c.exam_shift) return false;
-                      const examDM = getExamDayMonth(c.exam_date);
-                      const isSameDate = examDM === currentWeekDates[index];
-                      const isSameShift = isExamInShift(c.exam_shift, shift);
-                      return isSameDate && isSameShift;
-                    });
-                    
-                    return (
-                      <td key={`${shift}-${day}`} className="border border-gray-200 align-top bg-white hover:bg-gray-50/50 transition-colors p-1.5 h-auto">
-                        <div className="flex flex-col gap-1.5 w-full">
-                          
-                          {/* ĐÃ SỬA: Đổi truncate thành break-words để mã lớp không bị hiện dấu ... */}
-                          {slotCourses.map(course => (
-                            <div 
-                              key={course.id} 
-                              onClick={() => setSelectedCourse(course)}
-                              className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-2 relative group cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-blue-300 transition-all shrink-0 w-full"
-                            >
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation(); 
-                                  removeFromSchedule(course.id);
-                                }}
-                                className="absolute -top-2 -right-2 bg-white border border-red-200 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:scale-110 z-10 shadow-sm"
-                                title="Xóa môn này"
-                              >
-                                <X size={14} strokeWidth={3}/>
-                              </button>
-                              
-                              <h4 className="font-bold text-[#003375] text-[11px] leading-snug mb-1.5 line-clamp-3 break-words" title={course.subject_name}>
-                                {course.subject_name}
-                              </h4>
-                              
-                              <div className="flex flex-col gap-1 w-full">
-                                <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-white border border-gray-200 text-gray-600 rounded text-[9px] font-bold" title={course.course_code}>
-                                  {course.course_code}
-                                </span>
-                                <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-[#990000]/10 text-[#990000] rounded text-[9px] font-bold border border-[#990000]/20" title={`Phòng ${course.room}`}>
-                                  P. {course.room}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-
-                          {/* Lịch Thi */}
-                          {slotExams.map(exam => (
-                            <div 
-                              key={`exam-${exam.id}`} 
-                              onClick={() => setSelectedCourse(exam)}
-                              className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-300 rounded-lg p-2 relative group cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-orange-400 transition-all shrink-0 w-full"
-                            >
-                              <div className="flex items-center gap-1 mb-1 text-orange-600">
-                                <Zap size={12} fill="currentColor" className="shrink-0"/>
-                                <span className="text-[10px] font-black uppercase tracking-wider">Lịch Thi</span>
-                              </div>
-                              <h4 className="font-bold text-orange-900 text-[11px] leading-snug mb-1.5 line-clamp-2 break-words" title={exam.subject_name}>
-                                {exam.subject_name}
-                              </h4>
-                              <div className="flex flex-col gap-1 w-full">
-                                <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-white text-orange-700 rounded text-[9px] font-bold border border-orange-200" title={exam.exam_shift}>
-                                  {exam.exam_shift}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                    );
-                  })}
+          <div className="overflow-x-auto h-full w-full">
+            <table className="w-full min-w-[700px] border-collapse table-fixed h-full">
+              <thead>
+                <tr>
+                  <th className="w-[60px] sm:w-[70px] p-2 border-b-2 border-r border-gray-200 bg-[#f8fafc] text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider">Ca</th>
+                  {[2, 3, 4, 5, 6, 7, 8].map((day, index) => (
+                    <th key={day} className="p-2 border-b-2 border-gray-200 bg-[#f8fafc] text-center">
+                      <span className="block text-xs sm:text-sm font-bold text-[#003375] uppercase mb-0.5">
+                        Thứ {day === 8 ? 'CN' : day}
+                      </span>
+                      <span className="block text-[10px] sm:text-[11px] font-semibold text-[#990000] bg-red-50 rounded-md mx-auto w-fit px-1.5 border border-red-100">
+                        {currentWeekDates[index]}
+                      </span>
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {['S', 'C'].map((shift) => (
+                  <tr key={shift}>
+                    <td className="p-2 border-r border-b border-gray-200 text-center bg-[#f8fafc] align-middle">
+                      <span className={`block text-xs sm:text-sm font-extrabold ${shift === 'S' ? 'text-orange-500' : 'text-indigo-500'}`}>
+                        {shift === 'S' ? 'SÁNG' : 'CHIỀU'}
+                      </span>
+                      <span className="text-[9px] sm:text-[10px] font-medium text-gray-500 mt-1 block leading-tight">
+                        {shift === 'S' ? '07:00\n11:05' : '13:00\n17:05'}
+                      </span>
+                    </td>
+                    
+                    {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
+                      const slotCourses = mySchedule.filter(c => checkIsCourseInSlot(c, day, selectedWeek, shift));
+
+                      const slotExams = mySchedule.filter(c => {
+                        if (!c.exam_date || !c.exam_shift) return false;
+                        const examDM = getExamDayMonth(c.exam_date);
+                        const isSameDate = examDM === currentWeekDates[index];
+                        const isSameShift = isExamInShift(c.exam_shift, shift);
+                        return isSameDate && isSameShift;
+                      });
+                      
+                      return (
+                        <td key={`${shift}-${day}`} className="border border-gray-200 align-top bg-white hover:bg-gray-50/50 transition-colors p-1 sm:p-1.5 h-auto">
+                          <div className="flex flex-col gap-1.5 w-full">
+                            
+                            {slotCourses.map(course => (
+                              <div 
+                                key={course.id} 
+                                onClick={() => setSelectedCourse(course)}
+                                className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-1.5 sm:p-2 relative group cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-blue-300 transition-all shrink-0 w-full"
+                              >
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation(); 
+                                    removeFromSchedule(course.id);
+                                  }}
+                                  className="absolute -top-2 -right-2 bg-white border border-red-200 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:scale-110 z-10 shadow-sm"
+                                  title="Xóa môn này"
+                                >
+                                  <X size={14} strokeWidth={3}/>
+                                </button>
+                                
+                                <h4 className="font-bold text-[#003375] text-[10px] sm:text-[11px] leading-snug mb-1.5 line-clamp-3 break-words" title={course.subject_name}>
+                                  {course.subject_name}
+                                </h4>
+                                
+                                <div className="flex flex-col gap-1 w-full">
+                                  <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-white border border-gray-200 text-gray-600 rounded text-[8px] sm:text-[9px] font-bold" title={course.course_code}>
+                                    {course.course_code}
+                                  </span>
+                                  <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-[#990000]/10 text-[#990000] rounded text-[8px] sm:text-[9px] font-bold border border-[#990000]/20" title={`Phòng ${course.room}`}>
+                                    P. {course.room}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+
+                            {slotExams.map(exam => (
+                              <div 
+                                key={`exam-${exam.id}`} 
+                                onClick={() => setSelectedCourse(exam)}
+                                className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-300 rounded-lg p-1.5 sm:p-2 relative group cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-orange-400 transition-all shrink-0 w-full"
+                              >
+                                <div className="flex items-center gap-1 mb-1 text-orange-600">
+                                  <Zap size={10} sm-size={12} fill="currentColor" className="shrink-0"/>
+                                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider truncate">Lịch Thi</span>
+                                </div>
+                                <h4 className="font-bold text-orange-900 text-[10px] sm:text-[11px] leading-snug mb-1.5 line-clamp-2 break-words" title={exam.subject_name}>
+                                  {exam.subject_name}
+                                </h4>
+                                <div className="flex flex-col gap-1 w-full">
+                                  <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-white text-orange-700 rounded text-[8px] sm:text-[9px] font-bold border border-orange-200" title={exam.exam_shift}>
+                                    {exam.exam_shift}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
