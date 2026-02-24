@@ -24,6 +24,7 @@ import { UserGuideModal } from './components/UserGuideModal';
 import ProfilePage from './pages/ProfilePage';
 import UserSearch from './components/UserSearch';
 import NotificationBell from './components/NotificationBell';
+import ScheduleBoard from './components/ScheduleBoard';
 
 // --- 1. IMPORT THƯ VIỆN HOA RƠI ---
 import Particles from "react-particles";
@@ -716,6 +717,15 @@ const App: React.FC = () => {
                                         <span className="hidden sm:inline">Tổng quan</span>
                                     </NavLink>
                                     <NavLink
+                                        to="/schedule"
+                                        onClick={playClick}
+                                        className={({ isActive }) => `px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'}`}
+                                    >
+                                        <Zap size={20} className="sm:hidden" />
+                                        <Zap size={16} className="hidden sm:inline" />
+                                        <span className="hidden sm:inline">Thời khóa biểu</span>
+                                    </NavLink>
+                                    <NavLink
                                         to="/events"
                                         onClick={playClick}
                                         className={({ isActive }) => `px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'}`}
@@ -904,6 +914,7 @@ const App: React.FC = () => {
                                     </div>
                                 </div>
                             } />
+                            <Route path="/schedule" element={<ScheduleBoard />} />
                             <Route path="/events" element={<EventsBoard />} />
                             <Route path="/lost-found" element={<LostFoundBoard />} />
                             <Route path="/handbook" element={<Handbook />} />
