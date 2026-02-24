@@ -92,34 +92,26 @@ export default function ScheduleBoard() {
     }
   };
 
-  // ---------------------------------------------------------------------
-  // BỘ NÃO LOGIC MỚI: XỬ LÝ ALT+ENTER (XUỐNG DÒNG) TỪ EXCEL CỦA TRƯỜNG
-  // ---------------------------------------------------------------------
   const checkIsCourseInSlot = (course: Course, currentDay: number, currentWeek: number, currentShift: string) => {
     if (course.shift !== currentShift) return false;
     if (!course.day_of_week || !course.weeks) return false;
 
-    // Tách chuỗi theo dấu xuống dòng (\n)
     const dayLines = course.day_of_week.toString().trim().split(/\r?\n/);
     const weekLines = course.weeks.toString().trim().split(/\r?\n/);
 
-    // XỬ LÝ 1: Nếu có nhiều dòng (do trường xài Alt+Enter), bắt cặp 1-1 (Dòng 1 đi với Dòng 1)
     if (dayLines.length > 1 && dayLines.length === weekLines.length) {
       for (let i = 0; i < dayLines.length; i++) {
         const daysInLine = dayLines[i].replace(/,/g, ' ').trim().split(/\s+/).map(Number);
-        // Parse tuần độc lập cho từng dòng
         const weeksInLine = parseWeeks(weekLines[i]); 
         
         if (daysInLine.includes(currentDay) && weeksInLine.includes(currentWeek)) {
-          return true; // Khớp 1 cặp là vẽ luôn!
+          return true; 
         }
       }
       return false;
     }
 
-    // XỬ LÝ 2: Trường hợp bình thường (1 dòng)
     const allDays = course.day_of_week.toString().replace(/,/g, ' ').replace(/\n/g, ' ').trim().split(/\s+/).map(Number);
-    // SỬA LỖI TUẦN 14 (DÍNH SỐ): Thay \n thành dấu phẩy trước khi parse để "9\n10" không thành "910"
     const safeWeeksString = course.weeks.toString().replace(/\n/g, ','); 
     const allWeeks = parseWeeks(safeWeeksString);
 
@@ -147,15 +139,12 @@ export default function ScheduleBoard() {
       return;
     }
 
-    // --- BỘ LỌC CẢNH BÁO TRÙNG LỊCH (MA TRẬN) ---
     for (const existingCourse of mySchedule) {
       
-      // 1. QUÉT TRÙNG LỊCH HỌC
       if (course.shift === existingCourse.shift) {
         let isConflict = false;
         let conflictDay = null;
 
-        // Quét toàn bộ 24 tuần và 7 ngày
         for (let w = 1; w <= 24; w++) {
           for (let d = 2; d <= 8; d++) {
             if (checkIsCourseInSlot(course, d, w, course.shift) && checkIsCourseInSlot(existingCourse, d, w, existingCourse.shift)) {
@@ -173,7 +162,6 @@ export default function ScheduleBoard() {
         }
       }
 
-      // 2. QUÉT TRÙNG LỊCH THI
       if (course.exam_date && existingCourse.exam_date && course.exam_date.trim() === existingCourse.exam_date.trim()) { 
         const newIsMorning = isExamInShift(course.exam_shift, 'S');
         const existIsMorning = isExamInShift(existingCourse.exam_shift, 'S');
@@ -186,7 +174,6 @@ export default function ScheduleBoard() {
         }
       }
     }
-    // --- KẾT THÚC QUÉT ---
 
     setMySchedule([...mySchedule, course]);
     setIsSyncing(true);
@@ -394,6 +381,7 @@ export default function ScheduleBoard() {
         )}
         
         <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-inner overflow-hidden flex flex-col">
+          {/* ĐÃ SỬA: Giữ nguyên table-fixed để cố định bề ngang */}
           <table className="w-full min-w-[700px] border-collapse table-fixed flex-1">
             <thead>
               <tr>
@@ -423,7 +411,6 @@ export default function ScheduleBoard() {
                   </td>
                   
                   {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
-                    // Dùng logic lọc nâng cao mới cập nhật ở trên
                     const slotCourses = mySchedule.filter(c => checkIsCourseInSlot(c, day, selectedWeek, shift));
 
                     const slotExams = mySchedule.filter(c => {
@@ -435,8 +422,10 @@ export default function ScheduleBoard() {
                     });
                     
                     return (
-                      <td key={`${shift}-${day}`} className="border border-gray-200 align-top bg-white hover:bg-gray-50/50 transition-colors h-[220px] max-h-[220px] overflow-hidden p-0 relative">
-                        <div className="absolute inset-0 p-1.5 overflow-y-auto custom-scrollbar flex flex-col gap-1.5">
+                      // ĐÃ SỬA: Bỏ cố định chiều cao, dùng h-auto và p-1.5 để co dãn tự động theo nội dung
+                      <td key={`${shift}-${day}`} className="border border-gray-200 align-top bg-white hover:bg-gray-50/50 transition-colors p-1.5 h-auto">
+                        {/* ĐÃ SỬA: Bỏ absolute, dùng flex column bình thường để dãn khung */}
+                        <div className="flex flex-col gap-1.5">
                           
                           {/* Lịch Học */}
                           {slotCourses.map(course => (
