@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap } from 'lucide-react';
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
 
@@ -18,6 +18,8 @@ interface Course {
   cohort: string;
   major: string;
   academic_program: string;
+  phase: string;      // Thêm trường phase (Đợt)
+  semester: string;   // Thêm trường semester (Học kỳ)
 }
 
 const HK_START_DATE = new Date('2026-02-02T00:00:00');
@@ -32,18 +34,36 @@ export default function ScheduleBoard() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
 
+  // ĐÃ THÊM: State quản lý Bộ Lọc
+  const [selectedSemester, setSelectedSemester] = useState<string>('HK2_2025_2026');
+  const [selectedPhase, setSelectedPhase] = useState<string>('all');
+
+  // ĐÃ SỬA: Chạy lại fetch khi Học kỳ, Đợt, hoặc Từ khóa thay đổi
   useEffect(() => {
     fetchCourses();     
+  }, [searchTerm, selectedSemester, selectedPhase]);
+
+  // ĐÃ SỬA: Chạy lại TKB cá nhân khi đổi Học kỳ
+  useEffect(() => {
     fetchMySchedule();  
-  }, [searchTerm]);
+  }, [selectedSemester]);
 
   const fetchCourses = async () => {
     setIsLoading(true);
     try {
-      let query = supabase.from('course_schedules').select('*').limit(30);
+      // Lọc theo Học kỳ mặc định
+      let query = supabase.from('course_schedules').select('*').eq('semester', selectedSemester).limit(50);
+      
+      // Lọc thêm theo Đợt nếu user có chọn
+      if (selectedPhase !== 'all') {
+        query = query.eq('phase', selectedPhase);
+      }
+
+      // Lọc theo từ khóa
       if (searchTerm) {
         query = query.or(`subject_name.ilike.%${searchTerm}%,course_code.ilike.%${searchTerm}%`);
       }
+
       const { data, error } = await query;
       if (!error && data) setAvailableCourses(data);
     } catch (error) {
@@ -57,14 +77,19 @@ export default function ScheduleBoard() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return; 
 
+    // Reset lại TKB hiện tại khi đổi kỳ
+    setMySchedule([]);
+
     try {
       const { data, error } = await supabase
         .from('user_schedules')
         .select(`
           course_id,
+          semester,
           course_schedules (*)
         `)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .eq('semester', selectedSemester); // Lọc TKB đúng của Học kỳ đó
 
       if (!error && data) {
         const savedCourses = data.map((item: any) => item.course_schedules).filter(Boolean);
@@ -75,7 +100,6 @@ export default function ScheduleBoard() {
     }
   };
 
-  // Logic phân loại Ca thi chuẩn 100%
   const isExamInShift = (examShift: string, currentShift: string) => {
     if (!examShift) return false;
     const normalized = examShift.replace(/\s/g, '').toUpperCase();
@@ -86,7 +110,6 @@ export default function ScheduleBoard() {
     return afternoonShifts.includes(normalized);
   };
 
-  // ĐÃ CẬP NHẬT LOGIC: Kiểm tra trùng lịch cực kỳ chặt chẽ
   const addToSchedule = async (course: Course) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -99,21 +122,20 @@ export default function ScheduleBoard() {
       return;
     }
 
-    // --- BỘ LỌC KIỂM TRA TRÙNG LỊCH ---
+    // Bộ lọc kiểm tra trùng lịch (Giữ nguyên)
     const newDays = course.day_of_week ? course.day_of_week.toString().replace(/,/g, ' ').trim().split(/\s+/) : [];
     const newWeeks = parseWeeks(course.weeks);
 
     for (const existingCourse of mySchedule) {
-      // 1. CHECK TRÙNG LỊCH HỌC
-      if (course.shift === existingCourse.shift) { // Cùng Ca
+      if (course.shift === existingCourse.shift) { 
         const existDays = existingCourse.day_of_week ? existingCourse.day_of_week.toString().replace(/,/g, ' ').trim().split(/\s+/) : [];
         const hasSameDay = newDays.some(d => existDays.includes(d));
 
-        if (hasSameDay) { // Cùng Thứ
+        if (hasSameDay) { 
           const existWeeks = parseWeeks(existingCourse.weeks);
           const hasSameWeek = newWeeks.some(w => existWeeks.includes(w));
 
-          if (hasSameWeek) { // Trùng bóp nghẹt cả Tuần
+          if (hasSameWeek) { 
             const conflictDay = newDays.find(d => existDays.includes(d));
             alert(`⛔ CẢNH BÁO TRÙNG LỊCH HỌC!\n\nMôn [${course.subject_name}] bị trùng giờ học với môn [${existingCourse.subject_name}].\n(Cùng học Thứ ${conflictDay} - Ca ${course.shift === 'S' ? 'Sáng' : 'Chiều'}).\n\nHệ thống đã chặn thao tác này. Vui lòng chọn Lớp học phần khác!`);
             return; 
@@ -121,20 +143,18 @@ export default function ScheduleBoard() {
         }
       }
 
-      // 2. CHECK TRÙNG LỊCH THI
-      if (course.exam_date && existingCourse.exam_date && course.exam_date.trim() === existingCourse.exam_date.trim()) { // Cùng Ngày
+      if (course.exam_date && existingCourse.exam_date && course.exam_date.trim() === existingCourse.exam_date.trim()) { 
         const newIsMorning = isExamInShift(course.exam_shift, 'S');
         const existIsMorning = isExamInShift(existingCourse.exam_shift, 'S');
         const newIsAfternoon = isExamInShift(course.exam_shift, 'C');
         const existIsAfternoon = isExamInShift(existingCourse.exam_shift, 'C');
 
-        if ((newIsMorning && existIsMorning) || (newIsAfternoon && existIsAfternoon)) { // Cùng Buổi
+        if ((newIsMorning && existIsMorning) || (newIsAfternoon && existIsAfternoon)) { 
           alert(`⛔ CẢNH BÁO TRÙNG LỊCH THI!\n\nMôn [${course.subject_name}] bị trùng buổi thi với môn [${existingCourse.subject_name}].\n(Cùng thi ngày ${course.exam_date} - ${newIsMorning ? 'Buổi Sáng' : 'Buổi Chiều'}).\n\nHệ thống đã chặn thao tác này. Vui lòng chọn Lớp học phần khác để tránh bỏ thi!`);
           return; 
         }
       }
     }
-    // --- KẾT THÚC KIỂM TRA ---
 
     setMySchedule([...mySchedule, course]);
     setIsSyncing(true);
@@ -145,7 +165,7 @@ export default function ScheduleBoard() {
         .insert({
           user_id: user.id,
           course_id: course.id,
-          semester: 'HK2_2025_2026'
+          semester: selectedSemester // ĐÃ SỬA: Lưu đúng học kỳ đang chọn
         });
 
       if (error) {
@@ -207,35 +227,72 @@ export default function ScheduleBoard() {
   return (
     <div className="relative z-20 flex flex-col lg:flex-row gap-6 h-[calc(100vh-140px)]">
       
-      {/* CỘT TRÁI: TÌM KIẾM & CHỌN MÔN */}
+      {/* CỘT TRÁI: TÌM KIẾM & LỌC MÔN */}
       <div className="w-full lg:w-[35%] flex flex-col bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 overflow-hidden">
         <div className="p-5 border-b border-gray-100 bg-white/50 relative">
           <h2 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
-            <Search size={22} className="text-[#990000]" /> Tìm kiếm môn học
+            <Search size={22} className="text-[#990000]" /> Tìm kiếm & Bộ lọc
           </h2>
-          <div className="relative">
-            <input 
-              type="text" 
-              placeholder="Nhập tên môn hoặc mã lớp HP..." 
-              className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#003375] focus:ring-4 focus:ring-blue-500/10 outline-none text-sm font-medium transition-all bg-white"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
+          
+          <div className="space-y-3">
+            {/* Bộ Lọc (Học kỳ & Đợt) */}
+            <div className="flex gap-2">
+              <select 
+                value={selectedSemester}
+                onChange={(e) => setSelectedSemester(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-sm font-bold text-[#003375] bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <option value="HK2_2025_2026">HK2 (2025 - 2026)</option>
+                <option value="HK1_2025_2026">HK1 (2025 - 2026)</option>
+              </select>
+
+              <select 
+                value={selectedPhase}
+                onChange={(e) => setSelectedPhase(e.target.value)}
+                className="w-1/3 px-3 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-sm font-bold text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <option value="all">Mọi đợt</option>
+                <option value="1">Đợt 1</option>
+                <option value="2">Đợt 2</option>
+              </select>
+            </div>
+
+            {/* Thanh Tìm kiếm */}
+            <div className="relative">
+              <input 
+                type="text" 
+                placeholder="Nhập tên môn hoặc mã lớp HP..." 
+                className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#003375] focus:ring-4 focus:ring-blue-500/10 outline-none text-sm font-medium transition-all bg-white"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
+            </div>
           </div>
 
-          {isSyncing && <p className="absolute top-5 right-5 text-[10px] text-blue-600 font-bold flex items-center gap-1 animate-pulse">Đang đồng bộ Cloud...</p>}
+          {isSyncing && <p className="absolute top-5 right-5 text-[10px] text-blue-600 font-bold flex items-center gap-1 animate-pulse">Đang đồng bộ...</p>}
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-gray-50/30">
           {isLoading ? (
             <p className="text-center text-gray-500 font-medium mt-10 animate-pulse">Đang tải dữ liệu môn học...</p>
           ) : availableCourses.length === 0 ? (
-            <p className="text-center text-gray-500 font-medium mt-10">Không tìm thấy môn học nào.</p>
+            <div className="text-center mt-10">
+              <Filter size={40} className="mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-500 font-medium">Không tìm thấy môn học nào phù hợp.</p>
+            </div>
           ) : (
             availableCourses.map((course) => (
-              <div key={course.id} className="p-4 bg-white border-2 border-transparent hover:border-blue-200 rounded-xl shadow-sm hover:shadow-md transition-all group">
-                <h3 className="font-bold text-[#003375] text-[15px] leading-tight mb-1">{course.subject_name}</h3>
+              <div key={course.id} className="p-4 bg-white border-2 border-transparent hover:border-blue-200 rounded-xl shadow-sm hover:shadow-md transition-all group relative">
+                
+                {/* Tag Đợt */}
+                {course.phase && (
+                  <span className="absolute top-3 right-3 bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                    Đợt {course.phase}
+                  </span>
+                )}
+
+                <h3 className="font-bold text-[#003375] text-[15px] leading-tight mb-1 pr-12">{course.subject_name}</h3>
                 <p className="text-xs text-[#990000] font-bold mb-3">{course.course_code}</p>
                 
                 <div className="grid grid-cols-2 gap-y-2 text-xs text-gray-600 mb-4 bg-gray-50 p-2 rounded-lg">
@@ -272,9 +329,14 @@ export default function ScheduleBoard() {
             <h2 className="text-xl font-bold text-[#003375] flex items-center gap-2">
               <Calendar size={22} className="text-[#990000]" /> Lịch học theo tuần
             </h2>
-            <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200 shadow-sm">
-              {mySchedule.length} môn đã lưu
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 bg-blue-50 text-[#003375] text-xs font-bold rounded-full border border-blue-200">
+                {selectedSemester}
+              </span>
+              <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200 shadow-sm">
+                {mySchedule.length} môn đã lưu
+              </span>
+            </div>
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar" style={{ scrollbarWidth: 'none' }}>
@@ -407,8 +469,13 @@ export default function ScheduleBoard() {
           <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-scaleIn border border-gray-100" onClick={e => e.stopPropagation()}>
             <div className="bg-gradient-to-r from-[#003375] to-[#00509d] p-5 text-white relative">
               <button onClick={() => setSelectedCourse(null)} className="absolute top-4 right-4 text-white/70 hover:text-white hover:rotate-90 transition-transform"><X size={24}/></button>
+              
+              {selectedCourse.phase && (
+                <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-md mb-2 inline-block">Đợt {selectedCourse.phase}</span>
+              )}
+              
               <h2 className="text-lg font-bold pr-8 leading-tight">{selectedCourse.subject_name}</h2>
-              <p className="text-blue-200 mt-1.5 text-sm font-medium">{selectedCourse.course_code}</p>
+              <p className="text-blue-200 mt-1 text-sm font-medium">{selectedCourse.course_code}</p>
             </div>
             
             <div className="p-6 space-y-4">
