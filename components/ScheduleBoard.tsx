@@ -636,7 +636,7 @@ export default function ScheduleBoard() {
             
             <form onSubmit={handleReportSubmit} className="p-5 space-y-4">
               <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-700 mb-2">
-                Hệ thống dữ liệu có thể chứa sai sót do quá trình cào dữ liệu tự động. Cảm ơn bạn đã đóng góp để HUB Planner chính xác hơn!
+                Hệ thống dữ liệu có thể chứa sai sót do quá trình cập nhật dữ liệu tự động. Cảm ơn bạn đã đóng góp để HUB Planner chính xác hơn!
               </div>
 
               <div>
