@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 import * as cheerio from 'cheerio';
 import axios from 'axios';
 
-// Kết nối Supabase bằng biến môi trường (Bảo mật Key)
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -27,29 +26,31 @@ export default async function handler(request, response) {
 
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
-    // Hàm lấy 1 MSSV
-    async function getOneStudentFromCourse(courseCodeRaw) {
-      try {
-        const encodedCode = encodeURIComponent(courseCodeRaw);
-        const url = `https://online.hub.edu.vn/Liststudentsinschedulestudyunit.aspx?ScheduleStudyUnitId=${encodedCode}`;
-        
-        const res = await axios.get(url, { headers });
-        const $ = cheerio.load(res.data);
-        
-        let mssv = '';
-        $('table tr').each((i, row) => {
-          if (i === 1) { 
-            mssv = $(row).find('td:nth-child(2)').text().trim();
-          }
-        });
-        return mssv;
-      } catch (error) {
-        console.error(`Lỗi lấy DSSV cho mã ${courseCodeRaw}: ${error.message}`);
-        return null;
-      }
+    // 1. HÀM LẤY MSSV (ĐÃ NÂNG CẤP AI TÌM KIẾM)
+    async function fetchMssvFromUrl(url) {
+        try {
+            const res = await axios.get(url, { headers });
+            if (res.data.includes("Đăng nhập") || res.data.includes("Login")) return 'COOKIE_DEAD';
+            
+            const $ = cheerio.load(res.data);
+            let mssv = null;
+            
+            // Quét mọi hàng trong mọi bảng
+            $('table tr').each((i, row) => {
+              const td2 = $(row).find('td:nth-child(2)').text().trim();
+              // Nếu cột 2 là một dãy số dài từ 8 đến 15 chữ số (Chính xác là format MSSV HUB)
+              if (/^\d{8,15}$/.test(td2)) {
+                mssv = td2;
+                return false; // Ngừng vòng lặp ngay khi tìm thấy bé đầu tiên
+              }
+            });
+            return mssv;
+        } catch (e) {
+            return null;
+        }
     }
 
-    // Hàm tìm Giảng viên
+    // 2. HÀM TÌM GIẢNG VIÊN (ĐÃ NÂNG CẤP CHỐNG BẪY HTML)
     async function getInstructorFromStudentSchedule(mssv, targetCourseCode) {
       try {
         const url = `https://online.hub.edu.vn/Print_aspx?NH=2025-2026&HK=HK02&StudentID=${mssv}`;
@@ -58,31 +59,32 @@ export default async function handler(request, response) {
         
         let instructor = '';
         $('table tr').each((i, row) => {
-          const tdMaHP = $(row).find('td:nth-child(2)').text().trim();
+          const stt = $(row).find('td:nth-child(1)').text().trim();
           
-          const baseCode = targetCourseCode.split('_')[0]; 
-          const tailCode = targetCourseCode.split('_').pop();
+          // Chỉ xét những dòng có STT là số thứ tự (loại bỏ các hàng tiêu đề, layout)
+          if (/^\d+$/.test(stt)) {
+              const tdMaHP = $(row).find('td:nth-child(2)').text().trim();
+              const baseCode = targetCourseCode.split('_')[0]; 
+              const tailCode = targetCourseCode.split('_').pop();
 
-          if (tdMaHP.includes(baseCode) && tdMaHP.includes(tailCode)) {
-            instructor = $(row).find('td:nth-child(6)').text().trim();
+              if (tdMaHP.includes(baseCode) && tdMaHP.includes(tailCode)) {
+                instructor = $(row).find('td:nth-child(7)').text().trim();
+                return false; // Ngừng vòng lặp
+              }
           }
         });
         return instructor;
       } catch (error) {
-        console.error(`Lỗi xem TKB của MSSV ${mssv}: ${error.message}`);
         return '';
       }
     }
 
     // --- TIẾN HÀNH QUÉT ---
-    console.log("🚀 Bắt đầu quá trình cào dữ liệu Giảng Viên...");
-
-    // Quét 10 môn mỗi mẻ để tránh Timeout
     const { data: courses, error } = await supabase
       .from('course_schedules')
       .select('id, course_code')
       .eq('semester', 'HK2_2025_2026')
-      .or('instructor.eq.,instructor.is.null')
+      .or('instructor.eq.,instructor.is.null') 
       .limit(10); 
 
     if (error || !courses || courses.length === 0) {
@@ -94,21 +96,31 @@ export default async function handler(request, response) {
 
     for (let i = 0; i < courses.length; i++) {
       const course = courses[i];
-      let searchCode = course.course_code;
+      let originalCode = course.course_code;
       
-      if (searchCode.split('_').length === 3) {
-        const parts = searchCode.split('_');
-        searchCode = `${parts[0]}_${parts[1]}_1_${parts[2]}`; 
+      // Chiến thuật 1: Thử link gốc
+      let mssv = await fetchMssvFromUrl(`https://online.hub.edu.vn/Liststudentsinschedulestudyunit.aspx?ScheduleStudyUnitId=${encodeURIComponent(originalCode)}`);
+      
+      // Chiến thuật 2: Nếu link gốc không có, thử nhét thêm "_1_" vào giữa
+      if (!mssv && originalCode.split('_').length === 3) {
+          const parts = originalCode.split('_');
+          const altCode = `${parts[0]}_${parts[1]}_1_${parts[2]}`;
+          await delay(500); // Tránh bão Request
+          mssv = await fetchMssvFromUrl(`https://online.hub.edu.vn/Liststudentsinschedulestudyunit.aspx?ScheduleStudyUnitId=${encodeURIComponent(altCode)}`);
       }
 
-      const mssv = await getOneStudentFromCourse(searchCode);
       await delay(1000); 
+
+      if (mssv === 'COOKIE_DEAD') {
+        return response.status(401).json({ error: "Cookie đã hết hạn, vui lòng đăng nhập lại HUB lấy Cookie mới." });
+      }
 
       if (mssv) {
         const instructorName = await getInstructorFromStudentSchedule(mssv, course.course_code);
         await delay(1000); 
 
-        if (instructorName) {
+        // Ràng buộc cẩn thận: Tên GV phải có chữ, không rỗng
+        if (instructorName && instructorName.length > 2) {
           const { error: updateError } = await supabase
             .from('course_schedules')
             .update({ instructor: instructorName })
@@ -116,15 +128,15 @@ export default async function handler(request, response) {
           
           if (!updateError) {
             successCount++;
-            resultsLog.push(`✅ ${course.course_code}: ${instructorName}`);
+            resultsLog.push(`✅ [${course.course_code}]: ${instructorName}`);
           } else {
-            resultsLog.push(`⚠️ Lỗi DB: ${course.course_code}`);
+            resultsLog.push(`⚠️ Lỗi lưu DB [${course.course_code}]`);
           }
         } else {
-          resultsLog.push(`⚠️ Không thấy GV: ${course.course_code}`);
+          resultsLog.push(`⚠️ Không thấy GV [${course.course_code}]`);
         }
       } else {
-        resultsLog.push(`⚠️ Không thấy SV: ${course.course_code}`);
+        resultsLog.push(`⚠️ Không thấy SV [${course.course_code}] (URL sai hoặc lớp bị hủy)`);
       }
     }
     
