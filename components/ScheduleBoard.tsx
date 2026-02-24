@@ -63,7 +63,6 @@ export default function ScheduleBoard() {
     setMySchedule(mySchedule.filter(c => c.id !== courseId));
   };
 
-  // Hàm tính ngày/tháng cho 7 ngày trong tuần được chọn
   const getWeekDates = (weekNum: number) => {
     const dates = [];
     for (let i = 0; i < 7; i++) {
@@ -74,18 +73,24 @@ export default function ScheduleBoard() {
     return dates;
   };
 
-  // Helper logic: Phân loại Ca Thi vào Sáng hay Chiều
+  // ĐÃ SỬA: Logic phân loại Ca thi chuẩn 100% theo bảng quy định HUB
   const isExamInShift = (examShift: string, currentShift: string) => {
     if (!examShift) return false;
-    const shiftLower = examShift.toLowerCase();
+    
+    // Chuẩn hóa: xóa khoảng trắng và viết hoa (VD: "Ca 1" -> "CA1", "Ca S1" -> "CAS1")
+    const normalized = examShift.replace(/\s/g, '').toUpperCase();
+
+    // Khai báo mảng chứa các ca thi chuẩn
+    const morningShifts = ['CA1', 'CA2', 'CAS1', 'CAS2', 'CAS3', '1', '2', 'S1', 'S2', 'S3'];
+    const afternoonShifts = ['CA3', 'CA4', 'CA5', 'CAC1', 'CAC2', 'CAC3', '3', '4', '5', 'C1', 'C2', 'C3'];
+
     if (currentShift === 'S') {
-      return shiftLower.includes('1') || shiftLower.includes('2') || shiftLower.includes('s');
+      return morningShifts.includes(normalized);
     } else {
-      return shiftLower.includes('3') || shiftLower.includes('4') || shiftLower.includes('5') || shiftLower.includes('c');
+      return afternoonShifts.includes(normalized);
     }
   };
 
-  // Helper logic: Lấy DD/MM từ exam_date (VD: "06/05/2026" -> "06/05")
   const getExamDayMonth = (dateStr: string) => {
     if (!dateStr) return "";
     const parts = dateStr.split('/');
@@ -155,7 +160,6 @@ export default function ScheduleBoard() {
       {/* CỘT PHẢI: LƯỚI THỜI KHÓA BIỂU */}
       <div className="w-full lg:w-[65%] bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 p-6 flex flex-col">
         
-        {/* HEADER & CHỌN TUẦN */}
         <div className="mb-4">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-[#003375] flex items-center gap-2">
@@ -191,7 +195,6 @@ export default function ScheduleBoard() {
           </div>
         )}
         
-        {/* LƯỚI THỜI KHÓA BIỂU */}
         <div className="flex-1 overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-inner relative">
           <table className="w-full min-w-[700px] border-collapse h-full">
             <thead>
@@ -222,7 +225,6 @@ export default function ScheduleBoard() {
                   </td>
                   
                   {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
-                    // Lọc môn HỌC bình thường
                     const slotCourses = mySchedule.filter(c => {
                       const isSameDay = c.day_of_week?.includes(day.toString());
                       const isSameShift = c.shift === shift;
@@ -230,7 +232,6 @@ export default function ScheduleBoard() {
                       return isSameDay && isSameShift && isSameWeek;
                     });
 
-                    // Lọc môn THI
                     const slotExams = mySchedule.filter(c => {
                       if (!c.exam_date || !c.exam_shift) return false;
                       const examDM = getExamDayMonth(c.exam_date);
@@ -240,10 +241,9 @@ export default function ScheduleBoard() {
                     });
                     
                     return (
-                      // ĐÃ SỬA: Bỏ h-[180px], dùng h-auto min-h-[100px] và giảm padding (p-1.5)
                       <td key={`${shift}-${day}`} className="p-1.5 border border-gray-200 relative h-auto min-h-[100px] align-top bg-white hover:bg-gray-50/50 transition-colors">
                         
-                        {/* Render thẻ môn học */}
+                        {/* Lịch Học */}
                         {slotCourses.map(course => (
                           <div 
                             key={course.id} 
@@ -252,7 +252,7 @@ export default function ScheduleBoard() {
                           >
                             <button 
                               onClick={(e) => {
-                                e.stopPropagation(); // ĐÃ THÊM: Chống nổi bọt sự kiện click mở modal
+                                e.stopPropagation(); 
                                 removeFromSchedule(course.id);
                               }}
                               className="absolute -top-2 -right-2 bg-white border border-red-200 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:scale-110 z-10"
@@ -268,7 +268,7 @@ export default function ScheduleBoard() {
                           </div>
                         ))}
 
-                        {/* Render thẻ Lịch Thi (Nổi bật hơn) */}
+                        {/* Lịch Thi */}
                         {slotExams.map(exam => (
                            <div 
                            key={`exam-${exam.id}`} 
@@ -328,7 +328,6 @@ export default function ScheduleBoard() {
             <div className="p-5 border-t border-gray-100 bg-white flex gap-3">
               <button onClick={() => setSelectedCourse(null)} className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 font-bold hover:bg-gray-50 transition-colors">Đóng</button>
               
-              {/* Kiểm tra nếu môn đã có trong TKB thì ẩn nút thêm đi */}
               {!mySchedule.some(c => c.id === selectedCourse.id) && (
                 <button 
                   onClick={() => { addToSchedule(selectedCourse); setSelectedCourse(null); }}
