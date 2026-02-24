@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// ĐÃ THÊM: Icon User cho Giảng viên
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User } from 'lucide-react';
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
 
@@ -21,7 +20,7 @@ interface Course {
   academic_program: string;
   phase: string;      
   semester: string;   
-  instructor?: string; // ĐÃ THÊM: Trường giảng viên
+  instructor?: string; 
 }
 
 const HK_START_DATE = new Date('2026-02-02T00:00:00');
@@ -38,6 +37,15 @@ export default function ScheduleBoard() {
 
   const [selectedSemester, setSelectedSemester] = useState<string>('HK2_2025_2026');
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
+
+  // STATE CHO TÍNH NĂNG BÁO CÁO LỖI
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [reportData, setReportData] = useState({
+    course_code: '',
+    subject_name: '',
+    description: ''
+  });
 
   useEffect(() => {
     fetchCourses();     
@@ -57,7 +65,7 @@ export default function ScheduleBoard() {
       }
 
       if (searchTerm) {
-        query = query.or(`subject_name.ilike.%${searchTerm}%,course_code.ilike.%${searchTerm}%,instructor.ilike.%${searchTerm}%`); // Hỗ trợ tìm theo cả tên GV
+        query = query.or(`subject_name.ilike.%${searchTerm}%,course_code.ilike.%${searchTerm}%,instructor.ilike.%${searchTerm}%`); 
       }
 
       const { data, error } = await query;
@@ -242,6 +250,45 @@ export default function ScheduleBoard() {
     return dateStr;
   }
 
+  // HÀM XỬ LÝ MỞ FORM BÁO CÁO
+  const openReportModal = (course?: Course) => {
+    if (course) {
+      setReportData({ course_code: course.course_code, subject_name: course.subject_name, description: '' });
+    } else {
+      setReportData({ course_code: '', subject_name: '', description: '' });
+    }
+    setIsReportModalOpen(true);
+  };
+
+  // HÀM SUBMIT BÁO CÁO
+  const handleReportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reportData.course_code.trim() || !reportData.subject_name.trim() || !reportData.description.trim()) {
+      alert("Vui lòng điền đầy đủ thông tin báo cáo!");
+      return;
+    }
+
+    setIsSubmittingReport(true);
+    try {
+      const { error } = await supabase.from('course_reports').insert({
+        course_code: reportData.course_code,
+        subject_name: reportData.subject_name,
+        error_description: reportData.description
+      });
+
+      if (error) throw error;
+      
+      alert("✅ Gửi báo cáo thành công! Cảm ơn bạn đã đóng góp giúp hệ thống tốt hơn.");
+      setIsReportModalOpen(false);
+      setReportData({ course_code: '', subject_name: '', description: '' });
+    } catch (error) {
+      console.error("Lỗi gửi báo cáo:", error);
+      alert("Đã xảy ra lỗi khi gửi báo cáo. Vui lòng thử lại sau.");
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
   const currentWeekDates = getWeekDates(selectedWeek);
 
   return (
@@ -286,6 +333,17 @@ export default function ScheduleBoard() {
               />
               <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
             </div>
+
+            {/* BANNER BÁO CÁO LỖI NẰM TẠI ĐÂY */}
+            <div 
+              onClick={() => openReportModal()}
+              className="mt-2 p-2.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl flex items-start gap-2 cursor-pointer transition-colors"
+            >
+              <AlertTriangle size={16} className="text-red-500 mt-0.5 shrink-0" />
+              <p className="text-[11px] sm:text-xs text-red-700 font-medium leading-tight">
+                Phát hiện sai sót thông tin môn học, giảng viên? <span className="font-bold underline text-red-800">Báo cáo tại đây!</span>
+              </p>
+            </div>
           </div>
 
           {isSyncing && <p className="absolute top-5 right-5 text-[10px] text-blue-600 font-bold flex items-center gap-1 animate-pulse">Đang đồng bộ...</p>}
@@ -312,7 +370,6 @@ export default function ScheduleBoard() {
                 <h3 className="font-bold text-[#003375] text-[14px] leading-tight mb-1 pr-12">{course.subject_name}</h3>
                 <p className="text-xs text-[#990000] font-bold mb-3">{course.course_code}</p>
                 
-                {/* ĐÃ SỬA: Thêm hàng Giảng viên vào thẻ thông tin */}
                 <div className="grid grid-cols-2 gap-y-2 text-xs text-gray-600 mb-4 bg-gray-50 p-2 rounded-lg whitespace-pre-line">
                   <div className="flex items-start gap-1.5 font-medium"><Clock size={14} className="text-blue-500 mt-0.5"/> Thứ {course.day_of_week} ({course.shift})</div>
                   <div className="flex items-start gap-1.5 font-medium"><MapPin size={14} className="text-orange-500 mt-0.5"/> P. {course.room}</div>
@@ -497,7 +554,6 @@ export default function ScheduleBoard() {
       {/* MODAL CHI TIẾT MÔN HỌC */}
       {selectedCourse && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pt-24 sm:pt-4" onClick={() => setSelectedCourse(null)}>
-          
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[calc(100vh-120px)]" onClick={e => e.stopPropagation()}>
             
             <div className="bg-gradient-to-r from-[#003375] to-[#00509d] p-4 sm:p-5 text-white relative shrink-0 rounded-t-2xl">
@@ -519,7 +575,6 @@ export default function ScheduleBoard() {
                 <DetailItem icon={<CheckCircle />} label="Tín chỉ" value={`${selectedCourse.credits} tín chỉ`} />
               </div>
 
-              {/* ĐÃ THÊM: Block hiển thị tên Giảng Viên cực kỳ nổi bật */}
               <div className="mt-4 p-3 sm:p-4 bg-emerald-50/80 border border-emerald-100 rounded-xl flex items-center gap-3">
                 <div className="bg-white p-2 rounded-lg text-emerald-600 shadow-sm shrink-0">
                   <User size={20} strokeWidth={2.5} />
@@ -537,10 +592,19 @@ export default function ScheduleBoard() {
                 <p className="text-orange-700 text-xs sm:text-sm font-medium">Ngày thi: {selectedCourse.exam_date || 'Chưa công bố'} • {selectedCourse.exam_shift || ''}</p>
               </div>
 
-              <div className="pt-4 border-t border-gray-100 space-y-1.5 bg-gray-50 p-3 rounded-xl">
+              <div className="pt-4 border-t border-gray-100 space-y-1.5 bg-gray-50 p-3 rounded-xl relative">
                 <p className="text-xs sm:text-sm text-gray-700"><span className="font-bold text-gray-900">Chương trình:</span> {selectedCourse.academic_program || 'Đại trà'}</p>
                 <p className="text-xs sm:text-sm text-gray-700"><span className="font-bold text-gray-900">Ngành:</span> {selectedCourse.major || 'Chung'} • Khóa {selectedCourse.cohort || '39'}</p>
               </div>
+
+              {/* ĐÃ THÊM: Nút báo cáo sai sót nằm bên trong Form Chi tiết */}
+              <button 
+                onClick={() => openReportModal(selectedCourse)} 
+                className="w-full mt-2 py-2 flex justify-center items-center gap-2 text-xs text-red-500 font-medium hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+              >
+                <AlertTriangle size={14} /> Môn này bị sai thông tin? Báo cáo ngay
+              </button>
+
             </div>
             
             <div className="p-4 sm:p-5 border-t border-gray-100 bg-white flex gap-3 shrink-0 rounded-b-2xl">
@@ -559,6 +623,79 @@ export default function ScheduleBoard() {
           </div>
         </div>
       )}
+
+      {/* FORM MODAL: BÁO CÁO LỖI THÔNG TIN */}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4" onClick={() => setIsReportModalOpen(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-scaleIn border border-gray-100 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-red-600 to-red-500 p-4 text-white relative flex items-center gap-2">
+              <AlertTriangle size={20} />
+              <h2 className="font-bold text-lg">Báo cáo sai sót thông tin</h2>
+              <button onClick={() => setIsReportModalOpen(false)} className="absolute top-4 right-4 text-white/70 hover:text-white transition-transform hover:rotate-90"><X size={20}/></button>
+            </div>
+            
+            <form onSubmit={handleReportSubmit} className="p-5 space-y-4">
+              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-700 mb-2">
+                Hệ thống dữ liệu có thể chứa sai sót do quá trình cào dữ liệu tự động. Cảm ơn bạn đã đóng góp để HUB Planner chính xác hơn!
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Mã học phần *</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="VD: MAG318_252_D02"
+                  value={reportData.course_code}
+                  onChange={e => setReportData({...reportData, course_code: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Tên môn học *</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="VD: Đàm phán kinh doanh quốc tế"
+                  value={reportData.subject_name}
+                  onChange={e => setReportData({...reportData, subject_name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Chi tiết sai sót *</label>
+                <textarea 
+                  required
+                  rows={3}
+                  placeholder="VD: Môn này bị sai tên giảng viên, sai phòng học, hay không tồn tại?..."
+                  value={reportData.description}
+                  onChange={e => setReportData({...reportData, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm resize-none custom-scrollbar"
+                ></textarea>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setIsReportModalOpen(false)} 
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-bold hover:bg-gray-50 transition-colors"
+                >
+                  Hủy bỏ
+                </button>
+                <button 
+                  type="submit"
+                  disabled={isSubmittingReport}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 shadow-lg shadow-red-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmittingReport ? 'Đang gửi...' : <><Send size={16} /> Gửi báo cáo</>}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
