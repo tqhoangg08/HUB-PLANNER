@@ -140,7 +140,6 @@ export default function ScheduleBoard() {
     }
 
     for (const existingCourse of mySchedule) {
-      
       if (course.shift === existingCourse.shift) {
         let isConflict = false;
         let conflictDay = null;
@@ -381,7 +380,6 @@ export default function ScheduleBoard() {
         )}
         
         <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-inner overflow-hidden flex flex-col">
-          {/* ĐÃ SỬA: Giữ nguyên table-fixed để cố định bề ngang */}
           <table className="w-full min-w-[700px] border-collapse table-fixed flex-1">
             <thead>
               <tr>
@@ -422,17 +420,15 @@ export default function ScheduleBoard() {
                     });
                     
                     return (
-                      // ĐÃ SỬA: Bỏ cố định chiều cao, dùng h-auto và p-1.5 để co dãn tự động theo nội dung
                       <td key={`${shift}-${day}`} className="border border-gray-200 align-top bg-white hover:bg-gray-50/50 transition-colors p-1.5 h-auto">
-                        {/* ĐÃ SỬA: Bỏ absolute, dùng flex column bình thường để dãn khung */}
-                        <div className="flex flex-col gap-1.5">
+                        <div className="flex flex-col gap-1.5 w-full">
                           
-                          {/* Lịch Học */}
+                          {/* ĐÃ SỬA: Sắp xếp các nội dung theo chiều dọc và cắt chữ để không bị lòi khung */}
                           {slotCourses.map(course => (
                             <div 
                               key={course.id} 
                               onClick={() => setSelectedCourse(course)}
-                              className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-2 relative group cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-blue-300 transition-all shrink-0"
+                              className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-2 relative group cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-blue-300 transition-all shrink-0 w-full"
                             >
                               <button 
                                 onClick={(e) => {
@@ -444,28 +440,44 @@ export default function ScheduleBoard() {
                               >
                                 <X size={14} strokeWidth={3}/>
                               </button>
-                              <h4 className="font-bold text-[#003375] text-[11px] leading-snug mb-1.5 line-clamp-3">{course.subject_name}</h4>
-                              <div className="flex flex-wrap gap-1">
-                                <span className="inline-block px-1.5 py-0.5 bg-white border border-gray-200 text-gray-600 rounded text-[9px] font-bold">{course.course_code}</span>
-                                <span className="inline-block px-1.5 py-0.5 bg-[#990000]/10 text-[#990000] rounded text-[9px] font-bold border border-[#990000]/20 whitespace-pre-line">P. {course.room}</span>
+                              
+                              {/* Sửa: Thêm break-words cho tên môn */}
+                              <h4 className="font-bold text-[#003375] text-[11px] leading-snug mb-1.5 line-clamp-3 break-words" title={course.subject_name}>
+                                {course.subject_name}
+                              </h4>
+                              
+                              {/* Sửa: Đổi thành flex-col và dùng truncate để chữ tự thu gọi thành dấu ... */}
+                              <div className="flex flex-col gap-1 w-full">
+                                <span className="block w-full truncate px-1.5 py-0.5 bg-white border border-gray-200 text-gray-600 rounded text-[9px] font-bold" title={course.course_code}>
+                                  {course.course_code}
+                                </span>
+                                <span className="block w-full truncate px-1.5 py-0.5 bg-[#990000]/10 text-[#990000] rounded text-[9px] font-bold border border-[#990000]/20" title={`Phòng ${course.room}`}>
+                                  P. {course.room}
+                                </span>
                               </div>
                             </div>
                           ))}
 
-                          {/* Lịch Thi */}
+                          {/* ĐÃ SỬA LỊCH THI: Tương tự như trên */}
                           {slotExams.map(exam => (
                             <div 
-                            key={`exam-${exam.id}`} 
-                            onClick={() => setSelectedCourse(exam)}
-                            className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-300 rounded-lg p-2 relative group cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-orange-400 transition-all shrink-0"
-                          >
-                            <div className="flex items-center gap-1 mb-1 text-orange-600">
-                              <Zap size={12} fill="currentColor" />
-                              <span className="text-[10px] font-black uppercase tracking-wider">Lịch Thi</span>
+                              key={`exam-${exam.id}`} 
+                              onClick={() => setSelectedCourse(exam)}
+                              className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-300 rounded-lg p-2 relative group cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-orange-400 transition-all shrink-0 w-full"
+                            >
+                              <div className="flex items-center gap-1 mb-1 text-orange-600">
+                                <Zap size={12} fill="currentColor" className="shrink-0"/>
+                                <span className="text-[10px] font-black uppercase tracking-wider truncate">Lịch Thi</span>
+                              </div>
+                              <h4 className="font-bold text-orange-900 text-[11px] leading-snug mb-1.5 line-clamp-2 break-words" title={exam.subject_name}>
+                                {exam.subject_name}
+                              </h4>
+                              <div className="flex flex-col gap-1 w-full">
+                                <span className="block w-full truncate px-1.5 py-0.5 bg-white text-orange-700 rounded text-[9px] font-bold border border-orange-200" title={exam.exam_shift}>
+                                  {exam.exam_shift}
+                                </span>
+                              </div>
                             </div>
-                            <h4 className="font-bold text-orange-900 text-[11px] leading-snug mb-1.5 line-clamp-2">{exam.subject_name}</h4>
-                            <span className="inline-block px-1.5 py-0.5 bg-white text-orange-700 rounded text-[9px] font-bold border border-orange-200">{exam.exam_shift}</span>
-                          </div>
                           ))}
                         </div>
                       </td>
