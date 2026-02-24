@@ -1,160 +1,165 @@
 import React from 'react';
 
+// 👇 Phải có "export const" để App.tsx có thể import và sử dụng
 export const PrivacyPolicy: React.FC = () => {
   return (
     <div className="min-h-screen bg-white text-gray-900 px-6 sm:px-10 py-12 flex justify-center">
-      <div className="w-full max-w-4xl space-y-10 text-base leading-relaxed">
+      <div className="w-full max-w-4xl space-y-10 text-base leading-relaxed text-justify">
+        
+        {/* HEADER */}
         <header className="space-y-3 text-center border-b border-gray-200 pb-6">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-wide uppercase text-[#003375]">
             CHÍNH SÁCH BẢO MẬT VÀ QUYỀN RIÊNG TƯ
           </h1>
-          <p className="text-sm text-gray-600">Phiên bản 1.0 - Cập nhật lần cuối: ngày 17 tháng 01 năm 2026</p>
+          <p className="text-sm text-gray-600 italic">Phiên bản 1.1 - Cập nhật lần cuối: ngày 25 tháng 02 năm 2026</p>
         </header>
 
-        <nav className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-600 mb-3">
-            Mục lục
+        {/* MỤC LỤC TỰ ĐỘNG CUỘN */}
+        <nav className="bg-gray-50 border border-gray-200 rounded-lg p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-600 mb-4 border-b pb-2">
+            Mục lục chính sách
           </h2>
-          <ul className="grid gap-2 text-sm sm:grid-cols-2 text-blue-600">
+          <ul className="grid gap-2 text-sm sm:grid-cols-2 text-blue-600 font-medium">
             <li><a href="#section-1" className="hover:underline">1. Giới thiệu chung</a></li>
             <li><a href="#section-2" className="hover:underline">2. Dữ liệu chúng tôi thu thập</a></li>
             <li><a href="#section-3" className="hover:underline">3. Mục đích sử dụng dữ liệu</a></li>
             <li><a href="#section-4" className="hover:underline">4. Lưu trữ và bảo vệ dữ liệu</a></li>
             <li><a href="#section-5" className="hover:underline">5. Chia sẻ dữ liệu với bên thứ ba</a></li>
             <li><a href="#section-6" className="hover:underline">6. Quyền của người dùng</a></li>
-            <li><a href="#section-7" className="hover:underline">7. Liên hệ</a></li>
+            <li><a href="#section-7" className="hover:underline">7. Thay đổi chính sách</a></li>
+            <li><a href="#section-8" className="hover:underline">8. Thông tin liên hệ</a></li>
           </ul>
         </nav>
 
-        <section id="section-1" className="space-y-3">
+        {/* NỘI DUNG CHI TIẾT */}
+        
+        <section id="section-1" className="space-y-3 scroll-mt-20">
           <h2 className="text-xl font-bold text-[#003375]">ĐIỀU 1. GIỚI THIỆU CHUNG</h2>
           <p>
-            Chào mừng bạn đến với <strong>HUB Planner</strong> ("Ứng dụng", "Chúng tôi"). Ứng dụng được phát triển với mục đích hỗ trợ sinh viên Trường Đại học Ngân hàng TP.HCM (HUB) trong việc quản lý học tập, tính điểm GPA, xem sự kiện rèn luyện và lập kế hoạch cá nhân một cách hiệu quả.
+            Chào mừng bạn đến với <strong>HUB Planner</strong> ("Ứng dụng", "Chúng tôi"). Ứng dụng được phát triển bởi nhóm sinh viên với mục đích hỗ trợ cộng đồng sinh viên Trường Đại học Ngân hàng TP.HCM (HUB) trong việc quản lý lộ trình học tập, tính toán điểm số GPA, tra cứu Thời khóa biểu, Lịch thi và lập kế hoạch cá nhân một cách khoa học.
           </p>
           <p>
-            Chúng tôi hiểu rằng quyền riêng tư là tài sản vô giá của mỗi cá nhân. Chính sách bảo mật này là cam kết pháp lý minh bạch về cách chúng tôi thu thập, sử dụng, lưu trữ và bảo vệ thông tin cá nhân của bạn khi bạn truy cập và sử dụng dịch vụ tại địa chỉ: <a href="https://hotrosinhvienhub.id.vn" className="text-blue-600 hover:underline">https://hotrosinhvienhub.id.vn</a>.
+            Chúng tôi hiểu rằng quyền riêng tư là tài sản vô giá. Chính sách bảo mật này là cam kết minh bạch về cách chúng tôi thu thập, sử dụng, lưu trữ và bảo vệ thông tin cá nhân của bạn khi sử dụng dịch vụ tại địa chỉ chính thức: <a href="https://hotrosinhvienhub.id.vn" className="text-blue-600 hover:underline">https://hotrosinhvienhub.id.vn</a>.
           </p>
           <p>
-             Bằng việc sử dụng Dịch vụ, bạn đồng ý với việc thu thập và sử dụng thông tin theo quy định tại Chính sách này.
+             Bằng việc đăng nhập và sử dụng Dịch vụ, bạn xác nhận đã hiểu và đồng ý với việc thu thập và sử dụng thông tin theo các quy định nghiêm ngặt tại Chính sách này.
           </p>
         </section>
 
-        <section id="section-2" className="space-y-4">
+        <section id="section-2" className="space-y-6 scroll-mt-20">
           <h2 className="text-xl font-bold text-[#003375]">ĐIỀU 2. DỮ LIỆU CHÚNG TÔI THU THẬP</h2>
-          <p>
-            Để cung cấp các tính năng tốt nhất và đảm bảo trải nghiệm người dùng, chúng tôi có thể thu thập và xử lý các loại dữ liệu sau đây:
-          </p>
+          <p>Để đảm bảo các tính năng hoạt động chính xác và ổn định, chúng tôi thu thập các loại dữ liệu sau:</p>
           
-          <div className="pl-4 border-l-4 border-blue-100">
-            <h3 className="font-bold text-gray-800 mb-2">a. Dữ liệu định danh (Thông qua Google OAuth)</h3>
-            <p className="mb-2">
-              Khi bạn chọn đăng nhập bằng tài khoản Google, chúng tôi chỉ được cấp quyền truy cập vào các thông tin cơ bản công khai (theo sự cho phép của bạn và chính sách của Google), bao gồm:
-            </p>
-            <ul className="list-disc pl-6 space-y-1 text-gray-700">
-              <li><strong>ID Người dùng (Google User ID):</strong> Một chuỗi ký tự duy nhất để định danh tài khoản của bạn trên hệ thống của chúng tôi.</li>
-              <li><strong>Họ và Tên:</strong> Dùng để hiển thị lời chào và cá nhân hóa giao diện người dùng.</li>
-              <li><strong>Địa chỉ Email:</strong> Dùng để xác thực tài khoản, phân quyền (ví dụ: email đuôi @st.buh.edu.vn) và hỗ trợ khôi phục tài khoản khi cần thiết.</li>
-              <li><strong>Ảnh đại diện (Avatar URL):</strong> Để hiển thị ảnh cá nhân của bạn trên thanh công cụ và trang hồ sơ.</li>
-            </ul>
-            <div className="mt-3 p-3 bg-red-50 text-red-700 text-sm rounded border border-red-100 font-medium">
-               ⚠️ TUYÊN BỐ QUAN TRỌNG: Chúng tôi TUYỆT ĐỐI KHÔNG có quyền truy cập và KHÔNG BAO GIỜ thu thập: Mật khẩu Google, dữ liệu trong Google Drive, nội dung Gmail, danh bạ điện thoại hay bất kỳ thông tin riêng tư nào khác trên thiết bị của bạn.
+          <div className="pl-5 border-l-4 border-blue-100 space-y-4">
+            <div>
+              <h3 className="font-bold text-gray-800 mb-2">a. Dữ liệu định danh (Thông qua Google OAuth)</h3>
+              <p className="mb-2">Khi bạn đăng nhập bằng Google, chúng tôi chỉ truy cập các thông tin cơ bản do Google cung cấp theo sự cho phép của bạn:</p>
+              <ul className="list-disc pl-6 space-y-1 text-gray-700 text-sm">
+                <li><strong>ID Người dùng (Google ID):</strong> Định danh duy nhất để quản lý tài khoản trên hệ thống.</li>
+                <li><strong>Họ và Tên:</strong> Hiển thị cá nhân hóa trên giao diện ứng dụng.</li>
+                <li><strong>Email sinh viên:</strong> Xác thực tư cách người dùng (đuôi @st.buh.edu.vn).</li>
+                <li><strong>Ảnh đại diện:</strong> Hiển thị trên hồ sơ cá nhân.</li>
+              </ul>
+              <div className="mt-3 p-3 bg-red-50 text-red-700 text-xs rounded border border-red-100 font-bold">
+                ⚠️ TUYÊN BỐ: Chúng tôi KHÔNG có quyền và KHÔNG BAO GIỜ thu thập mật khẩu Google, dữ liệu Gmail hay bất kỳ thông tin riêng tư nào khác trên thiết bị của bạn.
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-bold text-gray-800 mb-2">b. Dữ liệu học tập và Lập kế hoạch</h3>
+              <p className="text-gray-700 text-sm">Hệ thống lưu trữ các dữ liệu do bạn chủ động nhập hoặc đồng bộ từ cổng thông tin: Mã học phần, tên môn học, số tín chỉ, điểm số chi tiết các thành phần, lịch thi dự kiến và tên giảng viên phụ trách môn học.</p>
+            </div>
+
+            <div>
+              <h3 className="font-bold text-gray-800 mb-2">c. Dữ liệu Báo cáo sai sót (Course Reports)</h3>
+              <p className="text-gray-700 text-sm">Khi bạn thực hiện báo cáo lỗi dữ liệu, chúng tôi sẽ thu thập nội dung mô tả sai sót kèm mã học phần liên quan để phục vụ mục đích kiểm tra và chỉnh sửa hệ thống chung.</p>
+            </div>
+
+            <div>
+              <h3 className="font-bold text-gray-800 mb-2">d. Dữ liệu Kỹ thuật và Cookie</h3>
+              <p className="text-gray-700 text-sm">Chúng tôi sử dụng Cookie để duy trì trạng thái đăng nhập. Trong quá trình đồng bộ dữ liệu từ cổng thông tin HUB, các thông tin định danh tạm thời chỉ được xử lý trong phiên làm việc và <strong>KHÔNG</strong> được lưu trữ vĩnh viễn trong cơ sở dữ liệu của chúng tôi.</p>
             </div>
           </div>
-
-          <div className="pl-4 border-l-4 border-green-100">
-            <h3 className="font-bold text-gray-800 mb-2">b. Dữ liệu học tập do người dùng cung cấp</h3>
-            <p className="mb-2">
-              Trong quá trình sử dụng các công cụ tiện ích (như Tính điểm GPA, Lập lịch, Nhập bảng điểm), bạn có thể chủ động nhập hoặc tải lên các dữ liệu sau:
-            </p>
-            <ul className="list-disc pl-6 space-y-1 text-gray-700">
-              <li>Danh sách các môn học, mã môn học, tên môn học.</li>
-              <li>Số tín chỉ, hệ số điểm của từng môn.</li>
-              <li>Điểm số các thành phần chi tiết (Điểm chuyên cần, Điểm quá trình/Thường xuyên, Điểm giữa kỳ, Điểm thi kết thúc học phần).</li>
-              <li>Thời khóa biểu cá nhân, lịch thi (nếu có tính năng nhập liệu).</li>
-            </ul>
-          </div>
         </section>
 
-        <section id="section-3" className="space-y-3">
+        <section id="section-3" className="space-y-3 scroll-mt-20">
           <h2 className="text-xl font-bold text-[#003375]">ĐIỀU 3. MỤC ĐÍCH SỬ DỤNG DỮ LIỆU</h2>
-          <p>Chúng tôi sử dụng thông tin thu thập được cho các mục đích hợp pháp, minh bạch và cụ thể sau:</p>
+          <p>Chúng tôi cam kết sử dụng thông tin của bạn vì lợi ích học tập của chính bạn:</p>
           <ul className="list-disc pl-6 space-y-2 text-gray-700">
-            <li>
-                <strong>Định danh và Xác thực:</strong> Đảm bảo bạn là chủ sở hữu hợp pháp của tài khoản khi truy cập ứng dụng, ngăn chặn các hành vi truy cập trái phép.
-            </li>
-            <li>
-              <strong>Đồng bộ hóa dữ liệu (Cloud Sync):</strong> Giúp bạn có thể truy cập bảng điểm, tiến độ học tập và kế hoạch cá nhân của mình một cách liền mạch từ nhiều thiết bị khác nhau (Điện thoại, Laptop, Máy tính bảng) mà không bị mất dữ liệu.
-            </li>
-            <li>
-              <strong>Cung cấp tính năng cốt lõi:</strong> Sử dụng dữ liệu điểm số để tính toán GPA (Hệ 4, Hệ 10), xếp loại học lực, dự báo mục tiêu điểm số cần đạt được cho các kỳ học tiếp theo.
-            </li>
-            <li>
-              <strong>Cải thiện trải nghiệm người dùng:</strong> Phân tích dữ liệu ẩn danh (ví dụ: số lượng người dùng truy cập, tính năng được sử dụng nhiều nhất) để phát hiện lỗi, tối ưu hóa hiệu suất và phát triển các tính năng mới phù hợp với nhu cầu sinh viên.
-            </li>
+            <li><strong>Xác thực và Bảo mật:</strong> Ngăn chặn việc truy cập trái phép vào bảng điểm và kế hoạch học tập cá nhân.</li>
+            <li><strong>Đồng bộ hóa đám mây (Cloud Sync):</strong> Đảm bảo dữ liệu học tập của bạn luôn đồng nhất khi chuyển đổi giữa các thiết bị (Điện thoại, Laptop, Tablet).</li>
+            <li><strong>Cung cấp tính năng:</strong> Tính toán chính xác GPA theo quy chế, hiển thị lịch học theo tuần và lịch thi cá nhân hóa.</li>
+            <li><strong>Cải thiện hệ thống:</strong> Sử dụng các báo cáo lỗi để nâng cao chất lượng dữ liệu giảng viên và môn học cho cộng đồng.</li>
           </ul>
         </section>
 
-        <section id="section-4" className="space-y-3">
+        <section id="section-4" className="space-y-3 scroll-mt-20">
           <h2 className="text-xl font-bold text-[#003375]">ĐIỀU 4. LƯU TRỮ VÀ BẢO VỆ DỮ LIỆU</h2>
-          <p>An toàn thông tin là ưu tiên hàng đầu của chúng tôi. Chúng tôi áp dụng các biện pháp kỹ thuật tiên tiến để bảo vệ dữ liệu của bạn:</p>
-          <ul className="list-disc pl-6 space-y-2 text-gray-700">
+          <p>An toàn thông tin là ưu tiên hàng đầu. Chúng tôi áp dụng các tiêu chuẩn kỹ thuật cao cấp:</p>
+          <ul className="list-disc pl-6 space-y-3 text-gray-700 text-sm">
             <li>
-<strong>Nơi lưu trữ đạt chuẩn quốc tế:</strong> Dữ liệu của bạn được lưu trữ và mã hóa trên hạ tầng của <strong>Supabase</strong> (Enterprise Grade). Nền tảng này đã đạt các chứng chỉ bảo mật cao cấp nhất thế giới bao gồm: <strong>SOC 2 Type 2</strong>, <strong>HIPAA</strong> và tuân thủ quy định <strong>GDPR</strong>. Điều này đảm bảo dữ liệu của bạn được bảo vệ ở cấp độ tương đương các ứng dụng ngân hàng.            </li>
-            <li>
-              <strong>Mã hóa đường truyền:</strong> Mọi dữ liệu truyền tải giữa thiết bị của bạn và máy chủ của chúng tôi đều được mã hóa bằng giao thức <strong>SSL/TLS (HTTPS)</strong>, đảm bảo thông tin không bị đánh cắp hoặc nghe lén khi truyền qua mạng internet.
+              <strong>Hạ tầng Supabase (Enterprise Grade):</strong> Dữ liệu được mã hóa và lưu trữ tại các trung tâm dữ liệu đạt chứng chỉ <strong>SOC 2 Type 2</strong> và tuân thủ <strong>GDPR</strong> toàn cầu.
             </li>
             <li>
-               <strong>Cơ chế phân quyền nghiêm ngặt (RLS):</strong> Chúng tôi áp dụng chính sách Row Level Security (RLS) ở cấp độ cơ sở dữ liệu. Điều này đảm bảo về mặt kỹ thuật rằng chỉ có tài khoản có ID trùng khớp với chủ sở hữu dữ liệu mới có quyền xem, sửa hoặc xóa dữ liệu đó. Ngay cả những người dùng khác trong hệ thống cũng không thể truy cập dữ liệu của bạn.
+              <strong>Mã hóa SSL/TLS:</strong> Mọi đường truyền dữ liệu giữa bạn và máy chủ luôn được bảo vệ bởi giao thức HTTPS mạnh mẽ, chống lại hành vi can thiệp từ bên thứ ba.
+            </li>
+            <li>
+              <strong>Row Level Security (RLS):</strong> Chúng tôi áp dụng cơ chế bảo mật cấp độ hàng (RLS). Điều này có nghĩa là về mặt vật lý, không ai có quyền truy cập dữ liệu của bạn trừ khi họ đăng nhập đúng tài khoản Google của chính bạn.
             </li>
           </ul>
         </section>
 
-        <section id="section-5" className="space-y-3">
+        <section id="section-5" className="space-y-3 scroll-mt-20">
           <h2 className="text-xl font-bold text-[#003375]">ĐIỀU 5. CHIA SẺ DỮ LIỆU VỚI BÊN THỨ BA</h2>
-          <p>
-            Chúng tôi cam kết <strong>KHÔNG</strong> bán, trao đổi, cho thuê hoặc tiết lộ thông tin cá nhân của sinh viên cho bất kỳ bên thứ ba nào (nhà quảng cáo, doanh nghiệp...) vì mục đích thương mại.
-          </p>
-          <p>Dữ liệu của bạn chỉ được chia sẻ trong các trường hợp kỹ thuật bắt buộc để vận hành ứng dụng:</p>
-          <ul className="list-disc pl-6 space-y-1 text-gray-700">
-            <li><strong>Google:</strong> Để thực hiện quy trình đăng nhập và xác thực danh tính (Authentication).</li>
-            <li><strong>Supabase:</strong> Để cung cấp hạ tầng lưu trữ cơ sở dữ liệu và xác thực người dùng.</li>
-            <li><strong>Cơ quan pháp luật:</strong> Trong trường hợp có yêu cầu bằng văn bản từ cơ quan nhà nước có thẩm quyền theo quy định của pháp luật Việt Nam.</li>
+          <p>Chúng tôi <strong>TUYỆT ĐỐI KHÔNG</strong> kinh doanh, bán hoặc cho thuê dữ liệu cá nhân của sinh viên cho các đơn vị quảng cáo hay bất kỳ tổ chức nào khác.</p>
+          <p>Dữ liệu chỉ tương tác với các đơn vị kỹ thuật bắt buộc:</p>
+          <ul className="list-disc pl-6 space-y-2 text-gray-700 text-sm">
+            <li><strong>Google:</strong> Phục vụ hạ tầng đăng nhập OAuth.</li>
+            <li><strong>Supabase:</strong> Phục vụ hạ tầng lưu trữ cơ sở dữ liệu mã hóa.</li>
+            <li><strong>Hệ thống Portal HUB:</strong> Tương tác kỹ thuật để lấy dữ liệu công khai (quá trình này không lưu lại tài khoản/mật khẩu cổng thông tin của bạn).</li>
+            <li><strong>Yêu cầu pháp lý:</strong> Chỉ cung cấp thông tin khi có yêu cầu bằng văn bản từ cơ quan nhà nước có thẩm quyền theo pháp luật Việt Nam.</li>
           </ul>
         </section>
 
-        <section id="section-6" className="space-y-3">
+        <section id="section-6" className="space-y-3 scroll-mt-20">
           <h2 className="text-xl font-bold text-[#003375]">ĐIỀU 6. QUYỀN CỦA NGƯỜI DÙNG (USER RIGHTS)</h2>
-          <p>Bạn có toàn quyền kiểm soát đối với dữ liệu cá nhân của mình trên hệ thống HUB Planner:</p>
-          <ul className="list-disc pl-6 space-y-2 text-gray-700">
-            <li><strong>Quyền truy cập:</strong> Bạn có thể đăng nhập bất cứ lúc nào để xem lại toàn bộ điểm số, thông tin cá nhân và dữ liệu đã lưu.</li>
-            <li><strong>Quyền chỉnh sửa:</strong> Bạn có quyền tự do cập nhật, sửa đổi thông tin nếu phát hiện sai lệch (ví dụ: nhập sai điểm, sai tên môn học).</li>
-            <li>
-              <strong>Quyền xóa bỏ (Right to be forgotten):</strong>
-              <ul className="list-circle pl-6 mt-1 space-y-1">
-                 <li>Bạn có thể sử dụng tính năng "Xóa dữ liệu (Reset)" ngay trong phần Cài đặt của ứng dụng để xóa toàn bộ dữ liệu học tập cá nhân.</li>
-                 <li>Bạn có quyền yêu cầu chúng tôi xóa vĩnh viễn tài khoản và toàn bộ dữ liệu liên quan khỏi hệ thống máy chủ bất cứ lúc nào bằng cách liên hệ với Nhà phát triển.</li>
+          <p>Bạn là chủ sở hữu duy nhất đối với dữ liệu của mình trên HUB Planner:</p>
+          <ul className="list-disc pl-6 space-y-3 text-gray-700">
+            <li><strong>Quyền kiểm soát:</strong> Tự do xem, chỉnh sửa hoặc cập nhật các thông tin điểm số và môn học.</li>
+            <li><strong>Quyền xóa bỏ (Right to be forgotten):</strong>
+              <ul className="list-circle pl-6 mt-1 space-y-2">
+                 <li>Bạn có thể chủ động sử dụng tính năng <strong>"Reset dữ liệu"</strong> trong mục Cài đặt để xóa toàn bộ dữ liệu học tập cá nhân ngay lập tức.</li>
+                 <li>Bạn có quyền yêu cầu chúng tôi xóa vĩnh viễn toàn bộ tài khoản và các thông tin liên quan bằng cách liên hệ với Nhà phát triển.</li>
               </ul>
             </li>
           </ul>
         </section>
 
-        <section id="section-7" className="space-y-4">
-          <h2 className="text-xl font-bold text-[#003375]">ĐIỀU 7. LIÊN HỆ</h2>
+        <section id="section-7" className="space-y-3 scroll-mt-20">
+          <h2 className="text-xl font-bold text-[#003375]">ĐIỀU 7. THAY ĐỔI CHÍNH SÁCH</h2>
           <p>
-            Nếu bạn có bất kỳ câu hỏi, thắc mắc nào về Chính sách bảo mật này, hoặc muốn thực hiện quyền truy cập/xóa dữ liệu của mình, vui lòng liên hệ trực tiếp với đội ngũ phát triển:
-          </p>
-          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-             <ul className="space-y-2 text-gray-800">
-                <li><strong>Họ tên:</strong> Trần Quốc Hoàng (Đại diện nhóm phát triển)</li>
-                <li><strong>Số điện thoại / Zalo:</strong> <a href="tel:0389342812" className="text-blue-600 hover:underline">0389342812</a></li>
-                <li><strong>Email:</strong> <a href="mailto:contact@hotrosinhvienhub.id.vn" className="text-blue-600 hover:underline">contact@hotrosinhvienhub.id.vn</a></li>
-                <li><strong>Đơn vị:</strong> Sinh viên Khoa Kinh tế Quốc tế - Trường Đại học Ngân hàng TP.HCM (HUB).</li>
-             </ul>
-          </div>
-          <p className="text-sm text-gray-500 italic mt-4">
-             Bản chính sách này có thể được cập nhật theo thời gian để phù hợp với các thay đổi về tính năng ứng dụng hoặc quy định pháp luật. Chúng tôi khuyến khích bạn xem lại trang này thường xuyên để nắm bắt thông tin mới nhất.
+            Chính sách bảo mật này có thể được cập nhật thường xuyên để phù hợp với các thay đổi về công nghệ hoặc quy định pháp luật. Mọi thay đổi sẽ có hiệu lực ngay khi được đăng tải công khai trên trang này. Việc bạn tiếp tục sử dụng ứng dụng đồng nghĩa với việc bạn chấp nhận các điều khoản bảo mật mới nhất.
           </p>
         </section>
+
+        <section id="section-8" className="space-y-4 scroll-mt-20">
+          <h2 className="text-xl font-bold text-[#003375]">ĐIỀU 8. THÔNG TIN LIÊN HỆ</h2>
+          <p>
+            Nếu bạn có bất kỳ thắc mắc nào về vấn đề bảo mật thông tin hoặc muốn thực hiện quyền xóa dữ liệu cá nhân, vui lòng liên hệ:
+          </p>
+          <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-sm">
+             <ul className="space-y-3 text-gray-800">
+                <li><span className="font-bold w-32 inline-block">Họ tên:</span> <strong>Trần Quốc Hoàng</strong> (Đại diện nhóm phát triển)</li>
+                <li><span className="font-bold w-32 inline-block">Zalo / SĐT:</span> <a href="tel:0389342812" className="text-blue-600 hover:underline">0389342812</a></li>
+                <li><span className="font-bold w-32 inline-block">Email:</span> <a href="mailto:contact@hotrosinhvienhub.id.vn" className="text-blue-600 hover:underline">contact@hotrosinhvienhub.id.vn</a></li>
+                <li><span className="font-bold w-32 inline-block">Đơn vị:</span> Sinh viên Khoa Kinh tế Quốc tế - HUB.</li>
+             </ul>
+          </div>
+        </section>
+
+        <footer className="text-center pt-10 border-t border-gray-100 text-gray-400 text-xs">
+          <p>© 2026 HUB Planner. Cam kết bảo mật dữ liệu sinh viên.</p>
+        </footer>
       </div>
     </div>
   );
