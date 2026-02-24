@@ -30,7 +30,7 @@ export default async function handler(request, response) {
 
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
-    // --- HÀM 1: LẤY MSSV CỦA SINH VIÊN ĐẦU TIÊN BẮT ĐƯỢC ---
+    // --- HÀM 1: LẤY MSSV ---
     async function fetchMssvFromUrl(url) {
         try {
             const res = await axios.get(url, { headers, validateStatus: () => true });
@@ -42,15 +42,13 @@ export default async function handler(request, response) {
             const $ = cheerio.load(res.data);
             let mssv = null;
 
-            // Quét từng hàng trong bảng
             $('table tr').each((i, row) => {
                 const tds = $(row).children('td');
-                // Nếu hàng có chứa cột, kiểm tra Cột thứ 2 (Index 1) xem có phải MSSV không
                 if (tds.length >= 2) {
                     const text = $(tds[1]).text().trim();
                     if (/^030\d{9}$/.test(text)) {
                         mssv = text;
-                        return false; // TÌM THẤY BÉ ĐẦU TIÊN LÀ DỪNG LUÔN (Break loop)
+                        return false; 
                     }
                 }
             });
@@ -61,7 +59,7 @@ export default async function handler(request, response) {
         }
     }
 
-    // --- HÀM 2: DÒ CHÍNH XÁC DÒNG MÔN HỌC ĐỂ LẤY GIẢNG VIÊN ---
+    // --- HÀM 2: LẤY TÊN GIẢNG VIÊN ---
     async function getInstructorFromStudentSchedule(mssv, targetCourseCode) {
       try {
         const url = `https://online.hub.edu.vn/Print_.aspx?NH=2025-2026&HK=HK02&StudentID=${mssv}`;
@@ -75,21 +73,16 @@ export default async function handler(request, response) {
         $('table tr').each((i, row) => {
             const tds = $(row).children('td');
             
-            // Bảng chuẩn của trường có ít nhất 7 cột (Từ STT đến Ngày đăng ký)
             if (tds.length >= 7) {
-                // Lấy đích danh Cột 2 để so sánh (Mã lớp học phần)
                 const tdMaHP = $(tds[1]).text().trim();
 
-                // NẾU MÃ HỌC PHẦN Ở DÒNG NÀY KHỚP VỚI MÔN ĐANG TÌM -> MỚI ĐƯỢC LẤY
                 if (tdMaHP.includes(baseCode) && tdMaHP.includes(tailCode)) {
-                    // Cột thứ 7 (Index 6) chứa tên giảng viên
                     let teacherName = $(tds[6]).text().trim(); 
 
-                    // Màng lọc an toàn cuối cùng
                     if (teacherName && !teacherName.includes("()") && !teacherName.includes("Thứ")) {
                         instructor = teacherName;
                     }
-                    return false; // Lấy đúng môn rồi thì nghỉ, không quét xuống các môn dưới nữa
+                    return false; 
                 }
             }
         });
@@ -104,6 +97,7 @@ export default async function handler(request, response) {
     // =======================================================
     console.log("🚀 Bắt đầu quá trình cào dữ liệu Giảng Viên...");
 
+    // Vẫn tìm các môn trống
     const { data: courses, error } = await supabase
       .from('course_schedules')
       .select('id, course_code')
@@ -151,6 +145,7 @@ export default async function handler(request, response) {
         await delay(800); 
 
         if (instructorName && instructorName.length > 3) {
+          // TRƯỜNG HỢP 1: TÌM THẤY GIẢNG VIÊN
           const { error: updateError } = await supabase
             .from('course_schedules')
             .update({ instructor: instructorName })
@@ -163,10 +158,22 @@ export default async function handler(request, response) {
             resultsLog.push(`⚠️ Lỗi lưu DB [${course.course_code}]`);
           }
         } else {
-          resultsLog.push(`⚠️ Có SV (${mssv}) nhưng TRỐNG TÊN GV [${course.course_code}]`);
+          // TRƯỜNG HỢP 2: CÓ SINH VIÊN NHƯNG CỘT GIẢNG VIÊN TRỐNG (Trường chưa xếp GV)
+          // -> Cập nhật chữ "Chưa xếp GV" để lần sau Bot né ra
+          await supabase
+            .from('course_schedules')
+            .update({ instructor: 'Chưa xếp GV' })
+            .eq('id', course.id);
+          resultsLog.push(`⚠️ Chưa xếp GV [${course.course_code}] -> Đã đánh dấu bỏ qua.`);
         }
       } else {
-        resultsLog.push(`👻 Lớp rỗng/Hủy [${course.course_code}]`);
+        // TRƯỜNG HỢP 3: KHÔNG TÌM THẤY BẤT KỲ SINH VIÊN NÀO (Lớp Hủy)
+        // -> Cập nhật chữ "Lớp Hủy" để lần sau Bot né ra
+        await supabase
+            .from('course_schedules')
+            .update({ instructor: 'Lớp Hủy/Trống' })
+            .eq('id', course.id);
+        resultsLog.push(`👻 Lớp rỗng/Hủy [${course.course_code}] -> Đã đánh dấu bỏ qua.`);
       }
     }
     
