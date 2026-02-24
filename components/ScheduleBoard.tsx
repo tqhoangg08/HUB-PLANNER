@@ -29,12 +29,16 @@ export default function ScheduleBoard() {
   const [mySchedule, setMySchedule] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false); // Trạng thái đang lưu lên DB
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
 
+  // 1. TẢI DỮ LIỆU KHI VỪA MỞ TRANG
   useEffect(() => {
-    fetchCourses();
+    fetchCourses();     // Tải danh sách môn học chung
+    fetchMySchedule();  // Tải TKB của riêng mình
   }, [searchTerm]);
 
+  // Hàm tải danh sách môn từ Excel
   const fetchCourses = async () => {
     setIsLoading(true);
     try {
@@ -45,22 +49,106 @@ export default function ScheduleBoard() {
       const { data, error } = await query;
       if (!error && data) setAvailableCourses(data);
     } catch (error) {
-      console.error("Lỗi:", error);
+      console.error("Lỗi tải danh sách môn:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const addToSchedule = (course: Course) => {
+  // ĐÃ THÊM: Hàm kéo TKB từ Supabase về
+  const fetchMySchedule = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return; // Nếu chưa đăng nhập thì thôi
+
+    try {
+      // Kéo từ bảng user_schedules, dùng cú pháp join (*) để lấy chi tiết môn học
+      const { data, error } = await supabase
+        .from('user_schedules')
+        .select(`
+          course_id,
+          course_schedules (*)
+        `)
+        .eq('user_id', user.id);
+
+      if (!error && data) {
+        // Bóc tách dữ liệu trả về và đưa vào State
+        const savedCourses = data.map((item: any) => item.course_schedules).filter(Boolean);
+        setMySchedule(savedCourses);
+      }
+    } catch (error) {
+      console.error("Lỗi kéo TKB:", error);
+    }
+  };
+
+  // ĐÃ SỬA: Hàm Thêm môn học (Lưu lên DB)
+  const addToSchedule = async (course: Course) => {
+    // Kiểm tra đăng nhập
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      alert("⚠️ Vui lòng đăng nhập bằng tài khoản sinh viên HUB để tạo Thời khóa biểu!");
+      return;
+    }
+
     if (mySchedule.some(c => c.id === course.id)) {
       alert("Môn học này đã có trong thời khóa biểu!");
       return;
     }
+
+    // Cập nhật giao diện ngay lập tức cho mượt (Optimistic UI)
     setMySchedule([...mySchedule, course]);
+    setIsSyncing(true);
+
+    try {
+      // Đẩy lên Supabase
+      const { error } = await supabase
+        .from('user_schedules')
+        .insert({
+          user_id: user.id,
+          course_id: course.id,
+          semester: 'HK2_2025_2026'
+        });
+
+      if (error) {
+        console.error("Lỗi lưu DB:", error);
+        alert("Lỗi khi lưu lên máy chủ. Đang hoàn tác...");
+        // Nếu lỗi DB, thu hồi lại giao diện
+        setMySchedule(mySchedule.filter(c => c.id !== course.id));
+      }
+    } catch (err) {
+       console.error("Lỗi mạng:", err);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
-  const removeFromSchedule = (courseId: string) => {
+  // ĐÃ SỬA: Hàm Xóa môn học (Xóa trên DB)
+  const removeFromSchedule = async (courseId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Lưu tạm TKB hiện tại để phòng trường hợp lỗi
+    const backupSchedule = [...mySchedule];
+    
+    // Xóa khỏi giao diện ngay lập tức
     setMySchedule(mySchedule.filter(c => c.id !== courseId));
+
+    try {
+      // Xóa khỏi Supabase
+      const { error } = await supabase
+        .from('user_schedules')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('course_id', courseId);
+
+      if (error) {
+        console.error("Lỗi xóa DB:", error);
+        alert("Không thể xóa khỏi máy chủ. Vui lòng thử lại.");
+        setMySchedule(backupSchedule); // Hoàn tác
+      }
+    } catch (err) {
+       console.error("Lỗi mạng:", err);
+       setMySchedule(backupSchedule); // Hoàn tác
+    }
   };
 
   const getWeekDates = (weekNum: number) => {
@@ -73,14 +161,9 @@ export default function ScheduleBoard() {
     return dates;
   };
 
-  // ĐÃ SỬA: Logic phân loại Ca thi chuẩn 100% theo bảng quy định HUB
   const isExamInShift = (examShift: string, currentShift: string) => {
     if (!examShift) return false;
-    
-    // Chuẩn hóa: xóa khoảng trắng và viết hoa (VD: "Ca 1" -> "CA1", "Ca S1" -> "CAS1")
     const normalized = examShift.replace(/\s/g, '').toUpperCase();
-
-    // Khai báo mảng chứa các ca thi chuẩn
     const morningShifts = ['CA1', 'CA2', 'CAS1', 'CAS2', 'CAS3', '1', '2', 'S1', 'S2', 'S3'];
     const afternoonShifts = ['CA3', 'CA4', 'CA5', 'CAC1', 'CAC2', 'CAC3', '3', '4', '5', 'C1', 'C2', 'C3'];
 
@@ -105,7 +188,7 @@ export default function ScheduleBoard() {
       
       {/* CỘT TRÁI: TÌM KIẾM & CHỌN MÔN */}
       <div className="w-full lg:w-[35%] flex flex-col bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 overflow-hidden">
-        <div className="p-5 border-b border-gray-100 bg-white/50">
+        <div className="p-5 border-b border-gray-100 bg-white/50 relative">
           <h2 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
             <Search size={22} className="text-[#990000]" /> Tìm kiếm môn học
           </h2>
@@ -119,6 +202,9 @@ export default function ScheduleBoard() {
             />
             <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
           </div>
+
+          {/* Dòng chữ nhỏ báo hiệu đang lưu lên cloud */}
+          {isSyncing && <p className="absolute top-5 right-5 text-[10px] text-blue-600 font-bold flex items-center gap-1 animate-pulse">Đang đồng bộ Cloud...</p>}
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-gray-50/30">
@@ -146,7 +232,8 @@ export default function ScheduleBoard() {
                   </button>
                   <button 
                     onClick={() => addToSchedule(course)}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-[#003375] text-white hover:bg-[#002855] shadow-md shadow-blue-900/20 text-xs font-bold transition-all active:scale-95"
+                    disabled={isSyncing}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-[#003375] text-white hover:bg-[#002855] shadow-md shadow-blue-900/20 text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
                   >
                     <Plus size={16}/> Thêm vào TKB
                   </button>
@@ -165,7 +252,7 @@ export default function ScheduleBoard() {
             <h2 className="text-xl font-bold text-[#003375] flex items-center gap-2">
               <Calendar size={22} className="text-[#990000]" /> Lịch học theo tuần
             </h2>
-            <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200">
+            <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200 shadow-sm">
               {mySchedule.length} môn đã lưu
             </span>
           </div>
@@ -205,7 +292,7 @@ export default function ScheduleBoard() {
                     <span className="block text-sm font-bold text-[#003375] uppercase mb-0.5">
                       Thứ {day === 8 ? 'CN' : day}
                     </span>
-                    <span className="block text-[11px] font-semibold text-[#990000] bg-red-50 rounded-md mx-auto w-fit px-1.5">
+                    <span className="block text-[11px] font-semibold text-[#990000] bg-red-50 rounded-md mx-auto w-fit px-1.5 border border-red-100">
                       {currentWeekDates[index]}
                     </span>
                   </th>
@@ -255,7 +342,7 @@ export default function ScheduleBoard() {
                                 e.stopPropagation(); 
                                 removeFromSchedule(course.id);
                               }}
-                              className="absolute -top-2 -right-2 bg-white border border-red-200 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:scale-110 z-10"
+                              className="absolute -top-2 -right-2 bg-white border border-red-200 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:scale-110 z-10 shadow-sm"
                               title="Xóa môn này"
                             >
                               <X size={14} strokeWidth={3}/>
@@ -331,7 +418,8 @@ export default function ScheduleBoard() {
               {!mySchedule.some(c => c.id === selectedCourse.id) && (
                 <button 
                   onClick={() => { addToSchedule(selectedCourse); setSelectedCourse(null); }}
-                  className="flex-1 py-2.5 rounded-xl bg-[#003375] text-white font-bold hover:bg-[#002855] shadow-lg shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  disabled={isSyncing}
+                  className="flex-1 py-2.5 rounded-xl bg-[#003375] text-white font-bold hover:bg-[#002855] shadow-lg shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <Plus size={18} /> Thêm vào TKB
                 </button>
