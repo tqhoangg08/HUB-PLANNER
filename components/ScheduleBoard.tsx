@@ -26,6 +26,26 @@ interface Course {
 const HK_START_DATE = new Date('2026-02-02T00:00:00');
 const HOLIDAY_WEEKS = [2, 3, 4]; 
 
+// HÀM HELPER: QUY ĐỔI CA THI SANG GIỜ THI
+const getExamTime = (shiftStr?: string) => {
+  if (!shiftStr) return "";
+  const normalized = shiftStr.replace(/\s/g, '').toUpperCase();
+  switch (normalized) {
+    case 'CA1': case '1': return '07:00';
+    case 'CA2': case '2': return '09:30';
+    case 'CA3': case '3': return '13:00';
+    case 'CA4': case '4': return '15:30';
+    case 'CA5': case '5': return '18:00';
+    case 'CAS1': case 'S1': return '07:00';
+    case 'CAS2': case 'S2': return '08:30';
+    case 'CAS3': case 'S3': return '10:00';
+    case 'CAC1': case 'C1': return '13:00';
+    case 'CAC2': case 'C2': return '14:30';
+    case 'CAC3': case 'C3': return '16:00';
+    default: return '';
+  }
+};
+
 export default function ScheduleBoard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
@@ -38,7 +58,6 @@ export default function ScheduleBoard() {
   const [selectedSemester, setSelectedSemester] = useState<string>('HK2_2025_2026');
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
 
-  // STATE CHO TÍNH NĂNG BÁO CÁO LỖI
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [reportData, setReportData] = useState({
@@ -250,7 +269,6 @@ export default function ScheduleBoard() {
     return dateStr;
   }
 
-  // HÀM XỬ LÝ MỞ FORM BÁO CÁO
   const openReportModal = (course?: Course) => {
     if (course) {
       setReportData({ course_code: course.course_code, subject_name: course.subject_name, description: '' });
@@ -260,7 +278,6 @@ export default function ScheduleBoard() {
     setIsReportModalOpen(true);
   };
 
-  // HÀM SUBMIT BÁO CÁO
   const handleReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reportData.course_code.trim() || !reportData.subject_name.trim() || !reportData.description.trim()) {
@@ -334,7 +351,6 @@ export default function ScheduleBoard() {
               <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
             </div>
 
-            {/* BANNER BÁO CÁO LỖI NẰM TẠI ĐÂY */}
             <div 
               onClick={() => openReportModal()}
               className="mt-2 p-2.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl flex items-start gap-2 cursor-pointer transition-colors"
@@ -533,8 +549,9 @@ export default function ScheduleBoard() {
                                   {exam.subject_name}
                                 </h4>
                                 <div className="flex flex-col gap-1 w-full">
+                                  {/* ĐÃ CẬP NHẬT: Hiện giờ thi bên ngoài lưới TKB */}
                                   <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-white text-orange-700 rounded text-[8px] sm:text-[9px] font-bold border border-orange-200" title={exam.exam_shift}>
-                                    {exam.exam_shift}
+                                    {exam.exam_shift}{getExamTime(exam.exam_shift) ? ` - ${getExamTime(exam.exam_shift)}` : ''}
                                   </span>
                                 </div>
                               </div>
@@ -589,7 +606,11 @@ export default function ScheduleBoard() {
                 <h3 className="text-orange-800 font-bold text-xs sm:text-sm mb-1.5 flex items-center gap-2">
                   <Zap size={16} /> Lịch thi dự kiến
                 </h3>
-                <p className="text-orange-700 text-xs sm:text-sm font-medium">Ngày thi: {selectedCourse.exam_date || 'Chưa công bố'} • {selectedCourse.exam_shift || ''}</p>
+                {/* ĐÃ CẬP NHẬT: Hiện giờ thi bên trong Modal chi tiết */}
+                <p className="text-orange-700 text-xs sm:text-sm font-medium">
+                  Ngày thi: {selectedCourse.exam_date || 'Chưa công bố'} • {selectedCourse.exam_shift || ''}
+                  {selectedCourse.exam_shift && getExamTime(selectedCourse.exam_shift) ? ` - ${getExamTime(selectedCourse.exam_shift)}` : ''}
+                </p>
               </div>
 
               <div className="pt-4 border-t border-gray-100 space-y-1.5 bg-gray-50 p-3 rounded-xl relative">
@@ -597,7 +618,6 @@ export default function ScheduleBoard() {
                 <p className="text-xs sm:text-sm text-gray-700"><span className="font-bold text-gray-900">Ngành:</span> {selectedCourse.major || 'Chung'} • Khóa {selectedCourse.cohort || '39'}</p>
               </div>
 
-              {/* ĐÃ THÊM: Nút báo cáo sai sót nằm bên trong Form Chi tiết */}
               <button 
                 onClick={() => openReportModal(selectedCourse)} 
                 className="w-full mt-2 py-2 flex justify-center items-center gap-2 text-xs text-red-500 font-medium hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
@@ -636,7 +656,7 @@ export default function ScheduleBoard() {
             
             <form onSubmit={handleReportSubmit} className="p-5 space-y-4">
               <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-700 mb-2">
-                Hệ thống dữ liệu có thể chứa sai sót do quá trình cập nhật dữ liệu tự động. Cảm ơn bạn đã đóng góp để HUB Planner chính xác hơn!
+                Hệ thống dữ liệu có thể chứa sai sót do quá trình cào dữ liệu tự động. Cảm ơn bạn đã đóng góp để HUB Planner chính xác hơn!
               </div>
 
               <div>
