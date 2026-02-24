@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
-import { getShiftTime, parseWeeks } from '../utils/scheduleLogic'; // ĐÃ THÊM parseWeeks
+import { parseWeeks } from '../utils/scheduleLogic'; 
 
 interface Course {
   id: string;
@@ -20,7 +20,6 @@ interface Course {
   academic_program: string;
 }
 
-// Cấu hình ngày bắt đầu Học kỳ 2 và các tuần nghỉ Tết
 const HK_START_DATE = new Date('2026-02-02T00:00:00');
 const HOLIDAY_WEEKS = [2, 3, 4]; 
 
@@ -30,8 +29,6 @@ export default function ScheduleBoard() {
   const [mySchedule, setMySchedule] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  
-  // ĐÃ THÊM: State lưu tuần đang chọn (Mặc định tuần 1)
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
 
   useEffect(() => {
@@ -55,7 +52,6 @@ export default function ScheduleBoard() {
   };
 
   const addToSchedule = (course: Course) => {
-    // Kiểm tra xem đã có môn này trong TKB chưa
     if (mySchedule.some(c => c.id === course.id)) {
       alert("Môn học này đã có trong thời khóa biểu!");
       return;
@@ -67,7 +63,7 @@ export default function ScheduleBoard() {
     setMySchedule(mySchedule.filter(c => c.id !== courseId));
   };
 
-  // ĐÃ THÊM: Hàm tính ngày/tháng cho 7 ngày trong tuần được chọn
+  // Hàm tính ngày/tháng cho 7 ngày trong tuần được chọn
   const getWeekDates = (weekNum: number) => {
     const dates = [];
     for (let i = 0; i < 7; i++) {
@@ -77,6 +73,25 @@ export default function ScheduleBoard() {
     }
     return dates;
   };
+
+  // Helper logic: Phân loại Ca Thi vào Sáng hay Chiều
+  const isExamInShift = (examShift: string, currentShift: string) => {
+    if (!examShift) return false;
+    const shiftLower = examShift.toLowerCase();
+    if (currentShift === 'S') {
+      return shiftLower.includes('1') || shiftLower.includes('2') || shiftLower.includes('s');
+    } else {
+      return shiftLower.includes('3') || shiftLower.includes('4') || shiftLower.includes('5') || shiftLower.includes('c');
+    }
+  };
+
+  // Helper logic: Lấy DD/MM từ exam_date (VD: "06/05/2026" -> "06/05")
+  const getExamDayMonth = (dateStr: string) => {
+    if (!dateStr) return "";
+    const parts = dateStr.split('/');
+    if (parts.length >= 2) return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}`;
+    return dateStr;
+  }
 
   const currentWeekDates = getWeekDates(selectedWeek);
 
@@ -151,7 +166,6 @@ export default function ScheduleBoard() {
             </span>
           </div>
 
-          {/* Thanh cuộn chọn tuần */}
           <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar" style={{ scrollbarWidth: 'none' }}>
             {Array.from({length: 24}, (_, i) => i + 1).map(w => (
               <button
@@ -161,7 +175,7 @@ export default function ScheduleBoard() {
                   selectedWeek === w 
                     ? 'bg-[#003375] text-white border-[#003375] shadow-md' 
                     : HOLIDAY_WEEKS.includes(w) 
-                      ? 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100' // Highlight tuần lễ tết
+                      ? 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100' 
                       : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                 }`}
               >
@@ -171,7 +185,6 @@ export default function ScheduleBoard() {
           </div>
         </div>
 
-        {/* THÔNG BÁO NGHỈ LỄ NẾU CÓ */}
         {HOLIDAY_WEEKS.includes(selectedWeek) && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-bold flex items-center justify-center gap-2 animate-pulse">
             <Zap size={18} /> Tuần {selectedWeek} là tuần Nghỉ Tết Nguyên Đán, không có lịch học!
@@ -189,7 +202,6 @@ export default function ScheduleBoard() {
                     <span className="block text-sm font-bold text-[#003375] uppercase mb-0.5">
                       Thứ {day === 8 ? 'CN' : day}
                     </span>
-                    {/* Hiển thị ngày/tháng cụ thể */}
                     <span className="block text-[11px] font-semibold text-[#990000] bg-red-50 rounded-md mx-auto w-fit px-1.5">
                       {currentWeekDates[index]}
                     </span>
@@ -209,24 +221,41 @@ export default function ScheduleBoard() {
                     </span>
                   </td>
                   
-                  {[2, 3, 4, 5, 6, 7, 8].map(day => {
-                    // ĐÃ SỬA: Lọc môn học theo Thứ + Ca + Tuần hiện tại
+                  {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
+                    // Lọc môn HỌC bình thường
                     const slotCourses = mySchedule.filter(c => {
                       const isSameDay = c.day_of_week?.includes(day.toString());
                       const isSameShift = c.shift === shift;
-                      // Dùng parseWeeks để kiểm tra tuần đang chọn có nằm trong chuỗi "1, 5-12" không
                       const isSameWeek = parseWeeks(c.weeks).includes(selectedWeek);
-                      
                       return isSameDay && isSameShift && isSameWeek;
+                    });
+
+                    // Lọc môn THI
+                    const slotExams = mySchedule.filter(c => {
+                      if (!c.exam_date || !c.exam_shift) return false;
+                      const examDM = getExamDayMonth(c.exam_date);
+                      const isSameDate = examDM === currentWeekDates[index];
+                      const isSameShift = isExamInShift(c.exam_shift, shift);
+                      return isSameDate && isSameShift;
                     });
                     
                     return (
-                      <td key={`${shift}-${day}`} className="p-2 border border-gray-200 relative h-[180px] align-top bg-white hover:bg-gray-50/50 transition-colors">
+                      // ĐÃ SỬA: Bỏ h-[180px], dùng h-auto min-h-[100px] và giảm padding (p-1.5)
+                      <td key={`${shift}-${day}`} className="p-1.5 border border-gray-200 relative h-auto min-h-[100px] align-top bg-white hover:bg-gray-50/50 transition-colors">
+                        
+                        {/* Render thẻ môn học */}
                         {slotCourses.map(course => (
-                          <div key={course.id} className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-2.5 mb-2 relative group cursor-pointer shadow-sm hover:shadow-md transition-all">
+                          <div 
+                            key={course.id} 
+                            onClick={() => setSelectedCourse(course)}
+                            className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-2 mb-1.5 relative group cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-blue-300 transition-all"
+                          >
                             <button 
-                              onClick={() => removeFromSchedule(course.id)}
-                              className="absolute -top-2 -right-2 bg-white border border-red-200 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:scale-110"
+                              onClick={(e) => {
+                                e.stopPropagation(); // ĐÃ THÊM: Chống nổi bọt sự kiện click mở modal
+                                removeFromSchedule(course.id);
+                              }}
+                              className="absolute -top-2 -right-2 bg-white border border-red-200 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:scale-110 z-10"
                               title="Xóa môn này"
                             >
                               <X size={14} strokeWidth={3}/>
@@ -238,6 +267,23 @@ export default function ScheduleBoard() {
                             </div>
                           </div>
                         ))}
+
+                        {/* Render thẻ Lịch Thi (Nổi bật hơn) */}
+                        {slotExams.map(exam => (
+                           <div 
+                           key={`exam-${exam.id}`} 
+                           onClick={() => setSelectedCourse(exam)}
+                           className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-300 rounded-lg p-2 mb-1.5 relative group cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-orange-400 transition-all"
+                         >
+                           <div className="flex items-center gap-1 mb-1 text-orange-600">
+                             <Zap size={12} fill="currentColor" />
+                             <span className="text-[10px] font-black uppercase tracking-wider">Lịch Thi</span>
+                           </div>
+                           <h4 className="font-bold text-orange-900 text-[11px] leading-snug mb-1.5 line-clamp-2">{exam.subject_name}</h4>
+                           <span className="inline-block px-1.5 py-0.5 bg-white text-orange-700 rounded text-[9px] font-bold border border-orange-200">{exam.exam_shift}</span>
+                         </div>
+                        ))}
+
                       </td>
                     );
                   })}
@@ -250,8 +296,8 @@ export default function ScheduleBoard() {
 
       {/* MODAL CHI TIẾT MÔN HỌC */}
       {selectedCourse && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-scaleIn border border-gray-100">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setSelectedCourse(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-scaleIn border border-gray-100" onClick={e => e.stopPropagation()}>
             <div className="bg-gradient-to-r from-[#003375] to-[#00509d] p-5 text-white relative">
               <button onClick={() => setSelectedCourse(null)} className="absolute top-4 right-4 text-white/70 hover:text-white hover:rotate-90 transition-transform"><X size={24}/></button>
               <h2 className="text-lg font-bold pr-8 leading-tight">{selectedCourse.subject_name}</h2>
@@ -281,12 +327,16 @@ export default function ScheduleBoard() {
             
             <div className="p-5 border-t border-gray-100 bg-white flex gap-3">
               <button onClick={() => setSelectedCourse(null)} className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 font-bold hover:bg-gray-50 transition-colors">Đóng</button>
-              <button 
-                onClick={() => { addToSchedule(selectedCourse); setSelectedCourse(null); }}
-                className="flex-1 py-2.5 rounded-xl bg-[#003375] text-white font-bold hover:bg-[#002855] shadow-lg shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-              >
-                <Plus size={18} /> Thêm vào TKB
-              </button>
+              
+              {/* Kiểm tra nếu môn đã có trong TKB thì ẩn nút thêm đi */}
+              {!mySchedule.some(c => c.id === selectedCourse.id) && (
+                <button 
+                  onClick={() => { addToSchedule(selectedCourse); setSelectedCourse(null); }}
+                  className="flex-1 py-2.5 rounded-xl bg-[#003375] text-white font-bold hover:bg-[#002855] shadow-lg shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Plus size={18} /> Thêm vào TKB
+                </button>
+              )}
             </div>
           </div>
         </div>
