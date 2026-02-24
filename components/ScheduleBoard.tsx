@@ -139,6 +139,9 @@ export default function ScheduleBoard() {
       return;
     }
 
+    const newDays = course.day_of_week ? course.day_of_week.toString().replace(/,/g, ' ').trim().split(/\s+/) : [];
+    const newWeeks = parseWeeks(course.weeks);
+
     for (const existingCourse of mySchedule) {
       if (course.shift === existingCourse.shift) {
         let isConflict = false;
@@ -245,8 +248,8 @@ export default function ScheduleBoard() {
   return (
     <div className="relative z-20 flex flex-col lg:flex-row gap-6 h-[calc(100vh-140px)]">
       
-      {/* CỘT TRÁI: TÌM KIẾM & LỌC MÔN */}
-      <div className="w-full lg:w-[35%] flex flex-col bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 overflow-hidden">
+      {/* CỘT TRÁI: TÌM KIẾM & LỌC MÔN (Đã giảm xuống 28%) */}
+      <div className="w-full lg:w-[28%] flex flex-col bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 overflow-hidden">
         <div className="p-5 border-b border-gray-100 bg-white/50 relative">
           <h2 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
             <Search size={22} className="text-[#990000]" /> Tìm kiếm & Bộ lọc
@@ -266,7 +269,7 @@ export default function ScheduleBoard() {
               <select 
                 value={selectedPhase}
                 onChange={(e) => setSelectedPhase(e.target.value)}
-                className="w-1/3 px-3 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-sm font-bold text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+                className="w-[35%] px-3 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-sm font-bold text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
               >
                 <option value="all">Mọi đợt</option>
                 <option value="1">Đợt 1</option>
@@ -277,7 +280,7 @@ export default function ScheduleBoard() {
             <div className="relative">
               <input 
                 type="text" 
-                placeholder="Nhập tên môn hoặc mã lớp HP..." 
+                placeholder="Nhập tên môn, mã HP..." 
                 className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#003375] focus:ring-4 focus:ring-blue-500/10 outline-none text-sm font-medium transition-all bg-white"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -289,13 +292,13 @@ export default function ScheduleBoard() {
           {isSyncing && <p className="absolute top-5 right-5 text-[10px] text-blue-600 font-bold flex items-center gap-1 animate-pulse">Đang đồng bộ...</p>}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-gray-50/30">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/30">
           {isLoading ? (
             <p className="text-center text-gray-500 font-medium mt-10 animate-pulse">Đang tải dữ liệu môn học...</p>
           ) : availableCourses.length === 0 ? (
             <div className="text-center mt-10">
               <Filter size={40} className="mx-auto text-gray-300 mb-3" />
-              <p className="text-gray-500 font-medium">Không tìm thấy môn học nào phù hợp.</p>
+              <p className="text-gray-500 font-medium text-sm">Không tìm thấy môn học nào.</p>
             </div>
           ) : (
             availableCourses.map((course) => (
@@ -307,7 +310,7 @@ export default function ScheduleBoard() {
                   </span>
                 )}
 
-                <h3 className="font-bold text-[#003375] text-[15px] leading-tight mb-1 pr-12">{course.subject_name}</h3>
+                <h3 className="font-bold text-[#003375] text-[14px] leading-tight mb-1 pr-12">{course.subject_name}</h3>
                 <p className="text-xs text-[#990000] font-bold mb-3">{course.course_code}</p>
                 
                 <div className="grid grid-cols-2 gap-y-2 text-xs text-gray-600 mb-4 bg-gray-50 p-2 rounded-lg whitespace-pre-line">
@@ -327,7 +330,7 @@ export default function ScheduleBoard() {
                     disabled={isSyncing}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-[#003375] text-white hover:bg-[#002855] shadow-md shadow-blue-900/20 text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
                   >
-                    <Plus size={16}/> Thêm vào TKB
+                    <Plus size={16}/> Thêm
                   </button>
                 </div>
               </div>
@@ -336,8 +339,8 @@ export default function ScheduleBoard() {
         </div>
       </div>
 
-      {/* CỘT PHẢI: LƯỚI THỜI KHÓA BIỂU */}
-      <div className="w-full lg:w-[65%] bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 p-6 flex flex-col">
+      {/* CỘT PHẢI: LƯỚI THỜI KHÓA BIỂU (Đã tăng lên 72%) */}
+      <div className="w-full lg:w-[72%] bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 p-6 flex flex-col overflow-hidden">
         
         <div className="mb-4">
           <div className="flex justify-between items-center mb-4">
@@ -345,7 +348,7 @@ export default function ScheduleBoard() {
               <Calendar size={22} className="text-[#990000]" /> Lịch học theo tuần
             </h2>
             <div className="flex items-center gap-2">
-              <span className="px-3 py-1 bg-blue-50 text-[#003375] text-xs font-bold rounded-full border border-blue-200">
+              <span className="px-3 py-1 bg-blue-50 text-[#003375] text-xs font-bold rounded-full border border-blue-200 hidden sm:block">
                 {selectedSemester}
               </span>
               <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200 shadow-sm">
@@ -423,7 +426,7 @@ export default function ScheduleBoard() {
                       <td key={`${shift}-${day}`} className="border border-gray-200 align-top bg-white hover:bg-gray-50/50 transition-colors p-1.5 h-auto">
                         <div className="flex flex-col gap-1.5 w-full">
                           
-                          {/* ĐÃ SỬA: Sắp xếp các nội dung theo chiều dọc và cắt chữ để không bị lòi khung */}
+                          {/* ĐÃ SỬA: Đổi truncate thành break-words để mã lớp không bị hiện dấu ... */}
                           {slotCourses.map(course => (
                             <div 
                               key={course.id} 
@@ -441,24 +444,22 @@ export default function ScheduleBoard() {
                                 <X size={14} strokeWidth={3}/>
                               </button>
                               
-                              {/* Sửa: Thêm break-words cho tên môn */}
                               <h4 className="font-bold text-[#003375] text-[11px] leading-snug mb-1.5 line-clamp-3 break-words" title={course.subject_name}>
                                 {course.subject_name}
                               </h4>
                               
-                              {/* Sửa: Đổi thành flex-col và dùng truncate để chữ tự thu gọi thành dấu ... */}
                               <div className="flex flex-col gap-1 w-full">
-                                <span className="block w-full truncate px-1.5 py-0.5 bg-white border border-gray-200 text-gray-600 rounded text-[9px] font-bold" title={course.course_code}>
+                                <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-white border border-gray-200 text-gray-600 rounded text-[9px] font-bold" title={course.course_code}>
                                   {course.course_code}
                                 </span>
-                                <span className="block w-full truncate px-1.5 py-0.5 bg-[#990000]/10 text-[#990000] rounded text-[9px] font-bold border border-[#990000]/20" title={`Phòng ${course.room}`}>
+                                <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-[#990000]/10 text-[#990000] rounded text-[9px] font-bold border border-[#990000]/20" title={`Phòng ${course.room}`}>
                                   P. {course.room}
                                 </span>
                               </div>
                             </div>
                           ))}
 
-                          {/* ĐÃ SỬA LỊCH THI: Tương tự như trên */}
+                          {/* Lịch Thi */}
                           {slotExams.map(exam => (
                             <div 
                               key={`exam-${exam.id}`} 
@@ -467,13 +468,13 @@ export default function ScheduleBoard() {
                             >
                               <div className="flex items-center gap-1 mb-1 text-orange-600">
                                 <Zap size={12} fill="currentColor" className="shrink-0"/>
-                                <span className="text-[10px] font-black uppercase tracking-wider truncate">Lịch Thi</span>
+                                <span className="text-[10px] font-black uppercase tracking-wider">Lịch Thi</span>
                               </div>
                               <h4 className="font-bold text-orange-900 text-[11px] leading-snug mb-1.5 line-clamp-2 break-words" title={exam.subject_name}>
                                 {exam.subject_name}
                               </h4>
                               <div className="flex flex-col gap-1 w-full">
-                                <span className="block w-full truncate px-1.5 py-0.5 bg-white text-orange-700 rounded text-[9px] font-bold border border-orange-200" title={exam.exam_shift}>
+                                <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-white text-orange-700 rounded text-[9px] font-bold border border-orange-200" title={exam.exam_shift}>
                                   {exam.exam_shift}
                                 </span>
                               </div>
