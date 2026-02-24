@@ -76,6 +76,7 @@ export default async function handler(request, response) {
             if (tds.length >= 7) {
                 const tdMaHP = $(tds[1]).text().trim();
 
+                // Logic tìm kiếm này cực xịn: Nó khớp GYM303 (đầu) và D34 (đuôi)
                 if (tdMaHP.includes(baseCode) && tdMaHP.includes(tailCode)) {
                     let teacherName = $(tds[6]).text().trim(); 
 
@@ -97,7 +98,6 @@ export default async function handler(request, response) {
     // =======================================================
     console.log("🚀 Bắt đầu quá trình cào dữ liệu Giảng Viên...");
 
-    // Vẫn tìm các môn trống
     const { data: courses, error } = await supabase
       .from('course_schedules')
       .select('id, course_code')
@@ -118,20 +118,36 @@ export default async function handler(request, response) {
       let mssv = null;
       let urlsToTry = [];
 
-      if (originalCode.split('_').length === 3) {
-          const parts = originalCode.split('_');
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${parts[0]}_${parts[1]}_1_${parts[2]}`);
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${parts[0]}_${parts[1]}_2_${parts[2]}`);
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
-      } else {
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
-      }
+      // THUẬT TOÁN TẠO LINK ĐỘT BIẾN (Bao trọn mọi loại mã của HUB)
+      const parts = originalCode.split('_');
+      if (parts.length >= 3) {
+          const p0 = parts[0]; // VD: INE302 hoặc GYM303
+          const p1 = parts[1]; // VD: 252
+          // Gom tất cả phần đuôi lại với nhau (VD: D04 hoặc BB1_D34)
+          const pRest = parts.slice(2).join('_'); 
 
+          // Trường hợp 1: Chèn _1_ (VD: 252_1_D04)
+          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}_1_${pRest}`);
+          
+          // Trường hợp 2: Chèn dính liền 1_1_ (VD: 2521_1_D04) - Lỗi IT trường
+          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}1_1_${pRest}`);
+          
+          // Trường hợp 3: Chèn _2_ cho đợt 2 (VD: 252_2_D04)
+          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}_2_${pRest}`);
+
+          // Trường hợp 4: Chèn dính liền 2_2_ đợt 2
+          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}2_2_${pRest}`);
+      }
+      
+      // Trường hợp 5: Mã gốc (vét máng)
+      urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
+
+      // Cho Bot dội bom tuần tự các link trên
       for (let url of urlsToTry) {
           mssv = await fetchMssvFromUrl(url);
           if (mssv === 'COOKIE_DEAD') break; 
           if (mssv) break; 
-          await delay(600); 
+          await delay(500); 
       }
 
       await delay(500); 
@@ -145,7 +161,6 @@ export default async function handler(request, response) {
         await delay(800); 
 
         if (instructorName && instructorName.length > 3) {
-          // TRƯỜNG HỢP 1: TÌM THẤY GIẢNG VIÊN
           const { error: updateError } = await supabase
             .from('course_schedules')
             .update({ instructor: instructorName })
@@ -158,22 +173,18 @@ export default async function handler(request, response) {
             resultsLog.push(`⚠️ Lỗi lưu DB [${course.course_code}]`);
           }
         } else {
-          // TRƯỜNG HỢP 2: CÓ SINH VIÊN NHƯNG CỘT GIẢNG VIÊN TRỐNG (Trường chưa xếp GV)
-          // -> Cập nhật chữ "Chưa xếp GV" để lần sau Bot né ra
           await supabase
             .from('course_schedules')
             .update({ instructor: 'Chưa xếp GV' })
             .eq('id', course.id);
-          resultsLog.push(`⚠️ Chưa xếp GV [${course.course_code}] -> Đã đánh dấu bỏ qua.`);
+          resultsLog.push(`⚠️ Chưa xếp GV [${course.course_code}]`);
         }
       } else {
-        // TRƯỜNG HỢP 3: KHÔNG TÌM THẤY BẤT KỲ SINH VIÊN NÀO (Lớp Hủy)
-        // -> Cập nhật chữ "Lớp Hủy" để lần sau Bot né ra
         await supabase
             .from('course_schedules')
             .update({ instructor: 'Lớp Hủy/Trống' })
             .eq('id', course.id);
-        resultsLog.push(`👻 Lớp rỗng/Hủy [${course.course_code}] -> Đã đánh dấu bỏ qua.`);
+        resultsLog.push(`👻 Lớp rỗng/Hủy [${course.course_code}]`);
       }
     }
     
