@@ -335,7 +335,7 @@ const fetchDonors = async () => {
                                 <Users size={20} /> Hoạt động Đoàn - Hội
                             </h3>
                             <p className="text-sm text-blue-800">
-                                HUB có 39 CLB/Đội/Nhóm. Tham gia để rèn luyện kỹ năng và cộng điểm rèn luyện!
+                                HUB có 41 CLB/Đội/Nhóm. Tham gia để rèn luyện kỹ năng và cộng điểm rèn luyện!
                             </p>
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">

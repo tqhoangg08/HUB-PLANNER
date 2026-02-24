@@ -243,11 +243,9 @@ export default function ScheduleBoard() {
   const currentWeekDates = getWeekDates(selectedWeek);
 
   return (
-    // ĐÃ SỬA: Bỏ ép chiều cao trên mobile, chỉ ép (lg:h-[calc...]) trên laptop
     <div className="relative z-20 flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-140px)]">
       
       {/* CỘT TRÁI: TÌM KIẾM & LỌC MÔN */}
-      {/* ĐÃ SỬA: Cho mobile cao 500px để cuộn mượt, laptop cao full */}
       <div className="w-full lg:w-[28%] flex flex-col bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 overflow-hidden h-[500px] lg:h-full shrink-0">
         <div className="p-4 sm:p-5 border-b border-gray-100 bg-white/50 relative">
           <h2 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
@@ -339,8 +337,8 @@ export default function ScheduleBoard() {
       </div>
 
       {/* CỘT PHẢI: LƯỚI THỜI KHÓA BIỂU */}
-      {/* ĐÃ SỬA: Cho mobile min-height 600px để không bị ép cụt ngủn */}
-      <div className="w-full lg:w-[72%] bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 p-4 sm:p-6 flex flex-col overflow-hidden min-h-[600px] lg:min-h-0 lg:h-full">
+      {/* ĐÃ SỬA: Bỏ min-h-[600px], đổi thành h-fit để khung ôm khít lấy cái bảng */}
+      <div className="w-full lg:w-[72%] bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 p-4 sm:p-6 flex flex-col overflow-hidden h-fit lg:h-full">
         
         <div className="mb-4">
           <div className="flex justify-between items-center mb-4">
@@ -493,48 +491,53 @@ export default function ScheduleBoard() {
 
       {/* MODAL CHI TIẾT MÔN HỌC */}
       {selectedCourse && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setSelectedCourse(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-scaleIn border border-gray-100" onClick={e => e.stopPropagation()}>
-            <div className="bg-gradient-to-r from-[#003375] to-[#00509d] p-5 text-white relative">
+        // ĐÃ SỬA: Thêm pt-24 sm:pt-4 để trên điện thoại Modal được đẩy lùi xuống khỏi thanh menu z-50
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pt-24 sm:pt-4" onClick={() => setSelectedCourse(null)}>
+          
+          {/* ĐÃ SỬA: Chuyển Modal thành dạng flex-col và khống chế chiều cao max-h để nội dung bên trong có thể tự cuộn */}
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[calc(100vh-120px)]" onClick={e => e.stopPropagation()}>
+            
+            <div className="bg-gradient-to-r from-[#003375] to-[#00509d] p-4 sm:p-5 text-white relative shrink-0 rounded-t-2xl">
               <button onClick={() => setSelectedCourse(null)} className="absolute top-4 right-4 text-white/70 hover:text-white hover:rotate-90 transition-transform"><X size={24}/></button>
               
               {selectedCourse.phase && (
                 <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-md mb-2 inline-block">Đợt {selectedCourse.phase}</span>
               )}
               
-              <h2 className="text-lg font-bold pr-8 leading-tight">{selectedCourse.subject_name}</h2>
-              <p className="text-blue-200 mt-1 text-sm font-medium">{selectedCourse.course_code}</p>
+              <h2 className="text-base sm:text-lg font-bold pr-8 leading-tight">{selectedCourse.subject_name}</h2>
+              <p className="text-blue-200 mt-1 text-xs sm:text-sm font-medium">{selectedCourse.course_code}</p>
             </div>
             
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            {/* ĐÃ SỬA: Cho phép phần nội dung overflow-y-auto để cuộn mượt mà trên mobile */}
+            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <DetailItem icon={<Clock />} label="Thời gian học" value={`Thứ ${selectedCourse.day_of_week}\nCa ${selectedCourse.shift === 'S' ? 'Sáng' : 'Chiều'}`} />
                 <DetailItem icon={<MapPin />} label="Địa điểm" value={`Phòng ${selectedCourse.room}\n${selectedCourse.campus || 'Chưa cập nhật'}`} />
                 <DetailItem icon={<Calendar />} label="Tuần học" value={`Tuần: ${selectedCourse.weeks}`} />
                 <DetailItem icon={<CheckCircle />} label="Tín chỉ" value={`${selectedCourse.credits} tín chỉ`} />
               </div>
 
-              <div className="p-4 bg-orange-50/80 border border-orange-100 rounded-xl mt-2">
-                <h3 className="text-orange-800 font-bold text-sm mb-1.5 flex items-center gap-2">
+              <div className="p-3 sm:p-4 bg-orange-50/80 border border-orange-100 rounded-xl mt-2">
+                <h3 className="text-orange-800 font-bold text-xs sm:text-sm mb-1.5 flex items-center gap-2">
                   <Zap size={16} /> Lịch thi dự kiến
                 </h3>
-                <p className="text-orange-700 text-sm font-medium">Ngày thi: {selectedCourse.exam_date || 'Chưa công bố'} • {selectedCourse.exam_shift || ''}</p>
+                <p className="text-orange-700 text-xs sm:text-sm font-medium">Ngày thi: {selectedCourse.exam_date || 'Chưa công bố'} • {selectedCourse.exam_shift || ''}</p>
               </div>
 
               <div className="pt-4 border-t border-gray-100 space-y-1.5 bg-gray-50 p-3 rounded-xl">
-                <p className="text-sm text-gray-700"><span className="font-bold text-gray-900">Chương trình:</span> {selectedCourse.academic_program || 'Đại trà'}</p>
-                <p className="text-sm text-gray-700"><span className="font-bold text-gray-900">Ngành:</span> {selectedCourse.major || 'Chung'} • Khóa {selectedCourse.cohort || '39'}</p>
+                <p className="text-xs sm:text-sm text-gray-700"><span className="font-bold text-gray-900">Chương trình:</span> {selectedCourse.academic_program || 'Đại trà'}</p>
+                <p className="text-xs sm:text-sm text-gray-700"><span className="font-bold text-gray-900">Ngành:</span> {selectedCourse.major || 'Chung'} • Khóa {selectedCourse.cohort || '39'}</p>
               </div>
             </div>
             
-            <div className="p-5 border-t border-gray-100 bg-white flex gap-3">
-              <button onClick={() => setSelectedCourse(null)} className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 font-bold hover:bg-gray-50 transition-colors">Đóng</button>
+            <div className="p-4 sm:p-5 border-t border-gray-100 bg-white flex gap-3 shrink-0 rounded-b-2xl">
+              <button onClick={() => setSelectedCourse(null)} className="flex-1 py-2 sm:py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 text-sm sm:text-base font-bold hover:bg-gray-50 transition-colors">Đóng</button>
               
               {!mySchedule.some(c => c.id === selectedCourse.id) && (
                 <button 
                   onClick={() => { addToSchedule(selectedCourse); setSelectedCourse(null); }}
                   disabled={isSyncing}
-                  className="flex-1 py-2.5 rounded-xl bg-[#003375] text-white font-bold hover:bg-[#002855] shadow-lg shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 py-2 sm:py-2.5 rounded-xl bg-[#003375] text-white text-sm sm:text-base font-bold hover:bg-[#002855] shadow-lg shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <Plus size={18} /> Thêm vào TKB
                 </button>
@@ -549,11 +552,11 @@ export default function ScheduleBoard() {
 
 function DetailItem({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) {
   return (
-    <div className="flex gap-3 items-start">
-      <div className="text-[#003375] bg-blue-50 p-2 rounded-lg mt-0.5">{React.cloneElement(icon as React.ReactElement, { size: 16, strokeWidth: 2.5 })}</div>
+    <div className="flex gap-2 sm:gap-3 items-start">
+      <div className="text-[#003375] bg-blue-50 p-1.5 sm:p-2 rounded-lg mt-0.5">{React.cloneElement(icon as React.ReactElement, { size: 16, strokeWidth: 2.5 })}</div>
       <div>
-        <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wide">{label}</p>
-        <p className="text-sm font-semibold text-gray-900 whitespace-pre-line leading-snug mt-0.5">{value}</p>
+        <p className="text-[10px] sm:text-[11px] text-gray-500 font-bold uppercase tracking-wide">{label}</p>
+        <p className="text-xs sm:text-sm font-semibold text-gray-900 whitespace-pre-line leading-snug mt-0.5">{value}</p>
       </div>
     </div>
   );
