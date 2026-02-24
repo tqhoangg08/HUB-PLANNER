@@ -30,7 +30,7 @@ export default async function handler(request, response) {
 
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
-    // --- HÀM 1: LẤY MSSV ---
+    // --- HÀM 1: LẤY MSSV (ĐÃ MỞ KHÓA MỌI ĐẦU SỐ) ---
     async function fetchMssvFromUrl(url) {
         try {
             const res = await axios.get(url, { headers, validateStatus: () => true });
@@ -46,7 +46,8 @@ export default async function handler(request, response) {
                 const tds = $(row).children('td');
                 if (tds.length >= 2) {
                     const text = $(tds[1]).text().trim();
-                    if (/^030\d{9}$/.test(text)) {
+                    // ĐÃ SỬA: Chấp nhận MỌI dãy số dài từ 8 đến 15 chữ số (Bao trọn mọi khóa)
+                    if (/^\d{8,15}$/.test(text)) {
                         mssv = text;
                         return false; 
                     }
@@ -76,7 +77,6 @@ export default async function handler(request, response) {
             if (tds.length >= 7) {
                 const tdMaHP = $(tds[1]).text().trim();
 
-                // Logic tìm kiếm này cực xịn: Nó khớp GYM303 (đầu) và D34 (đuôi)
                 if (tdMaHP.includes(baseCode) && tdMaHP.includes(tailCode)) {
                     let teacherName = $(tds[6]).text().trim(); 
 
@@ -118,31 +118,33 @@ export default async function handler(request, response) {
       let mssv = null;
       let urlsToTry = [];
 
-      // THUẬT TOÁN TẠO LINK ĐỘT BIẾN (Bao trọn mọi loại mã của HUB)
       const parts = originalCode.split('_');
-      if (parts.length >= 3) {
-          const p0 = parts[0]; // VD: INE302 hoặc GYM303
-          const p1 = parts[1]; // VD: 252
-          // Gom tất cả phần đuôi lại với nhau (VD: D04 hoặc BB1_D34)
-          const pRest = parts.slice(2).join('_'); 
 
-          // Trường hợp 1: Chèn _1_ (VD: 252_1_D04)
+      // LUỒNG 1: MÔN THỂ DỤC (GYM)
+      if (originalCode.startsWith('GYM') && parts.length >= 3) {
+          const p0 = parts[0]; 
+          const p1 = parts[1]; 
+          const pLast = parts[parts.length - 1]; 
+          
+          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}_1_${pLast}`);
+          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}_2_${pLast}`);
+          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
+      } 
+      // LUỒNG 2: CÁC MÔN CÒN LẠI
+      else if (parts.length >= 3) {
+          const p0 = parts[0];
+          const p1 = parts[1];
+          const pRest = parts.slice(2).join('_');
+
           urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}_1_${pRest}`);
-          
-          // Trường hợp 2: Chèn dính liền 1_1_ (VD: 2521_1_D04) - Lỗi IT trường
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}1_1_${pRest}`);
-          
-          // Trường hợp 3: Chèn _2_ cho đợt 2 (VD: 252_2_D04)
+          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}1_1_${pRest}`); 
           urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}_2_${pRest}`);
-
-          // Trường hợp 4: Chèn dính liền 2_2_ đợt 2
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}2_2_${pRest}`);
+          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}2_2_${pRest}`); 
+          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
+      } else {
+          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
       }
-      
-      // Trường hợp 5: Mã gốc (vét máng)
-      urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
 
-      // Cho Bot dội bom tuần tự các link trên
       for (let url of urlsToTry) {
           mssv = await fetchMssvFromUrl(url);
           if (mssv === 'COOKIE_DEAD') break; 
