@@ -29,16 +29,14 @@ export default function ScheduleBoard() {
   const [mySchedule, setMySchedule] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false); // Trạng thái đang lưu lên DB
+  const [isSyncing, setIsSyncing] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
 
-  // 1. TẢI DỮ LIỆU KHI VỪA MỞ TRANG
   useEffect(() => {
-    fetchCourses();     // Tải danh sách môn học chung
-    fetchMySchedule();  // Tải TKB của riêng mình
+    fetchCourses();     
+    fetchMySchedule();  
   }, [searchTerm]);
 
-  // Hàm tải danh sách môn từ Excel
   const fetchCourses = async () => {
     setIsLoading(true);
     try {
@@ -55,13 +53,11 @@ export default function ScheduleBoard() {
     }
   };
 
-  // ĐÃ THÊM: Hàm kéo TKB từ Supabase về
   const fetchMySchedule = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return; // Nếu chưa đăng nhập thì thôi
+    if (!user) return; 
 
     try {
-      // Kéo từ bảng user_schedules, dùng cú pháp join (*) để lấy chi tiết môn học
       const { data, error } = await supabase
         .from('user_schedules')
         .select(`
@@ -71,7 +67,6 @@ export default function ScheduleBoard() {
         .eq('user_id', user.id);
 
       if (!error && data) {
-        // Bóc tách dữ liệu trả về và đưa vào State
         const savedCourses = data.map((item: any) => item.course_schedules).filter(Boolean);
         setMySchedule(savedCourses);
       }
@@ -80,9 +75,19 @@ export default function ScheduleBoard() {
     }
   };
 
-  // ĐÃ SỬA: Hàm Thêm môn học (Lưu lên DB)
+  // Logic phân loại Ca thi chuẩn 100%
+  const isExamInShift = (examShift: string, currentShift: string) => {
+    if (!examShift) return false;
+    const normalized = examShift.replace(/\s/g, '').toUpperCase();
+    const morningShifts = ['CA1', 'CA2', 'CAS1', 'CAS2', 'CAS3', '1', '2', 'S1', 'S2', 'S3'];
+    const afternoonShifts = ['CA3', 'CA4', 'CA5', 'CAC1', 'CAC2', 'CAC3', '3', '4', '5', 'C1', 'C2', 'C3'];
+
+    if (currentShift === 'S') return morningShifts.includes(normalized);
+    return afternoonShifts.includes(normalized);
+  };
+
+  // ĐÃ CẬP NHẬT LOGIC: Kiểm tra trùng lịch cực kỳ chặt chẽ
   const addToSchedule = async (course: Course) => {
-    // Kiểm tra đăng nhập
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       alert("⚠️ Vui lòng đăng nhập bằng tài khoản sinh viên HUB để tạo Thời khóa biểu!");
@@ -90,16 +95,51 @@ export default function ScheduleBoard() {
     }
 
     if (mySchedule.some(c => c.id === course.id)) {
-      alert("Môn học này đã có trong thời khóa biểu!");
+      alert("Môn học này đã có sẵn trong thời khóa biểu của bạn!");
       return;
     }
 
-    // Cập nhật giao diện ngay lập tức cho mượt (Optimistic UI)
+    // --- BỘ LỌC KIỂM TRA TRÙNG LỊCH ---
+    const newDays = course.day_of_week ? course.day_of_week.toString().replace(/,/g, ' ').trim().split(/\s+/) : [];
+    const newWeeks = parseWeeks(course.weeks);
+
+    for (const existingCourse of mySchedule) {
+      // 1. CHECK TRÙNG LỊCH HỌC
+      if (course.shift === existingCourse.shift) { // Cùng Ca
+        const existDays = existingCourse.day_of_week ? existingCourse.day_of_week.toString().replace(/,/g, ' ').trim().split(/\s+/) : [];
+        const hasSameDay = newDays.some(d => existDays.includes(d));
+
+        if (hasSameDay) { // Cùng Thứ
+          const existWeeks = parseWeeks(existingCourse.weeks);
+          const hasSameWeek = newWeeks.some(w => existWeeks.includes(w));
+
+          if (hasSameWeek) { // Trùng bóp nghẹt cả Tuần
+            const conflictDay = newDays.find(d => existDays.includes(d));
+            alert(`⛔ CẢNH BÁO TRÙNG LỊCH HỌC!\n\nMôn [${course.subject_name}] bị trùng giờ học với môn [${existingCourse.subject_name}].\n(Cùng học Thứ ${conflictDay} - Ca ${course.shift === 'S' ? 'Sáng' : 'Chiều'}).\n\nHệ thống đã chặn thao tác này. Vui lòng chọn Lớp học phần khác!`);
+            return; 
+          }
+        }
+      }
+
+      // 2. CHECK TRÙNG LỊCH THI
+      if (course.exam_date && existingCourse.exam_date && course.exam_date.trim() === existingCourse.exam_date.trim()) { // Cùng Ngày
+        const newIsMorning = isExamInShift(course.exam_shift, 'S');
+        const existIsMorning = isExamInShift(existingCourse.exam_shift, 'S');
+        const newIsAfternoon = isExamInShift(course.exam_shift, 'C');
+        const existIsAfternoon = isExamInShift(existingCourse.exam_shift, 'C');
+
+        if ((newIsMorning && existIsMorning) || (newIsAfternoon && existIsAfternoon)) { // Cùng Buổi
+          alert(`⛔ CẢNH BÁO TRÙNG LỊCH THI!\n\nMôn [${course.subject_name}] bị trùng buổi thi với môn [${existingCourse.subject_name}].\n(Cùng thi ngày ${course.exam_date} - ${newIsMorning ? 'Buổi Sáng' : 'Buổi Chiều'}).\n\nHệ thống đã chặn thao tác này. Vui lòng chọn Lớp học phần khác để tránh bỏ thi!`);
+          return; 
+        }
+      }
+    }
+    // --- KẾT THÚC KIỂM TRA ---
+
     setMySchedule([...mySchedule, course]);
     setIsSyncing(true);
 
     try {
-      // Đẩy lên Supabase
       const { error } = await supabase
         .from('user_schedules')
         .insert({
@@ -111,7 +151,6 @@ export default function ScheduleBoard() {
       if (error) {
         console.error("Lỗi lưu DB:", error);
         alert("Lỗi khi lưu lên máy chủ. Đang hoàn tác...");
-        // Nếu lỗi DB, thu hồi lại giao diện
         setMySchedule(mySchedule.filter(c => c.id !== course.id));
       }
     } catch (err) {
@@ -121,19 +160,14 @@ export default function ScheduleBoard() {
     }
   };
 
-  // ĐÃ SỬA: Hàm Xóa môn học (Xóa trên DB)
   const removeFromSchedule = async (courseId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Lưu tạm TKB hiện tại để phòng trường hợp lỗi
     const backupSchedule = [...mySchedule];
-    
-    // Xóa khỏi giao diện ngay lập tức
     setMySchedule(mySchedule.filter(c => c.id !== courseId));
 
     try {
-      // Xóa khỏi Supabase
       const { error } = await supabase
         .from('user_schedules')
         .delete()
@@ -143,11 +177,11 @@ export default function ScheduleBoard() {
       if (error) {
         console.error("Lỗi xóa DB:", error);
         alert("Không thể xóa khỏi máy chủ. Vui lòng thử lại.");
-        setMySchedule(backupSchedule); // Hoàn tác
+        setMySchedule(backupSchedule); 
       }
     } catch (err) {
        console.error("Lỗi mạng:", err);
-       setMySchedule(backupSchedule); // Hoàn tác
+       setMySchedule(backupSchedule); 
     }
   };
 
@@ -159,19 +193,6 @@ export default function ScheduleBoard() {
       dates.push(`${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`);
     }
     return dates;
-  };
-
-  const isExamInShift = (examShift: string, currentShift: string) => {
-    if (!examShift) return false;
-    const normalized = examShift.replace(/\s/g, '').toUpperCase();
-    const morningShifts = ['CA1', 'CA2', 'CAS1', 'CAS2', 'CAS3', '1', '2', 'S1', 'S2', 'S3'];
-    const afternoonShifts = ['CA3', 'CA4', 'CA5', 'CAC1', 'CAC2', 'CAC3', '3', '4', '5', 'C1', 'C2', 'C3'];
-
-    if (currentShift === 'S') {
-      return morningShifts.includes(normalized);
-    } else {
-      return afternoonShifts.includes(normalized);
-    }
   };
 
   const getExamDayMonth = (dateStr: string) => {
@@ -203,7 +224,6 @@ export default function ScheduleBoard() {
             <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
           </div>
 
-          {/* Dòng chữ nhỏ báo hiệu đang lưu lên cloud */}
           {isSyncing && <p className="absolute top-5 right-5 text-[10px] text-blue-600 font-bold flex items-center gap-1 animate-pulse">Đang đồng bộ Cloud...</p>}
         </div>
 
