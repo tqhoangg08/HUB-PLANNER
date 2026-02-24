@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter } from 'lucide-react';
+// ĐÃ THÊM: Icon User cho Giảng viên
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
 
@@ -20,6 +21,7 @@ interface Course {
   academic_program: string;
   phase: string;      
   semester: string;   
+  instructor?: string; // ĐÃ THÊM: Trường giảng viên
 }
 
 const HK_START_DATE = new Date('2026-02-02T00:00:00');
@@ -55,7 +57,7 @@ export default function ScheduleBoard() {
       }
 
       if (searchTerm) {
-        query = query.or(`subject_name.ilike.%${searchTerm}%,course_code.ilike.%${searchTerm}%`);
+        query = query.or(`subject_name.ilike.%${searchTerm}%,course_code.ilike.%${searchTerm}%,instructor.ilike.%${searchTerm}%`); // Hỗ trợ tìm theo cả tên GV
       }
 
       const { data, error } = await query;
@@ -277,7 +279,7 @@ export default function ScheduleBoard() {
             <div className="relative">
               <input 
                 type="text" 
-                placeholder="Nhập tên môn, mã HP..." 
+                placeholder="Nhập tên môn, mã HP, giảng viên..." 
                 className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#003375] focus:ring-4 focus:ring-blue-500/10 outline-none text-sm font-medium transition-all bg-white"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -310,9 +312,13 @@ export default function ScheduleBoard() {
                 <h3 className="font-bold text-[#003375] text-[14px] leading-tight mb-1 pr-12">{course.subject_name}</h3>
                 <p className="text-xs text-[#990000] font-bold mb-3">{course.course_code}</p>
                 
+                {/* ĐÃ SỬA: Thêm hàng Giảng viên vào thẻ thông tin */}
                 <div className="grid grid-cols-2 gap-y-2 text-xs text-gray-600 mb-4 bg-gray-50 p-2 rounded-lg whitespace-pre-line">
                   <div className="flex items-start gap-1.5 font-medium"><Clock size={14} className="text-blue-500 mt-0.5"/> Thứ {course.day_of_week} ({course.shift})</div>
                   <div className="flex items-start gap-1.5 font-medium"><MapPin size={14} className="text-orange-500 mt-0.5"/> P. {course.room}</div>
+                  <div className="col-span-2 pt-1.5 mt-0.5 border-t border-gray-200 flex items-start gap-1.5 font-bold text-emerald-700">
+                    <User size={14} className="mt-0.5"/> {course.instructor || 'Đang cập nhật...'}
+                  </div>
                 </div>
 
                 <div className="flex gap-2">
@@ -337,7 +343,6 @@ export default function ScheduleBoard() {
       </div>
 
       {/* CỘT PHẢI: LƯỚI THỜI KHÓA BIỂU */}
-      {/* ĐÃ SỬA: Bỏ min-h-[600px], đổi thành h-fit để khung ôm khít lấy cái bảng */}
       <div className="w-full lg:w-[72%] bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 p-4 sm:p-6 flex flex-col overflow-hidden h-fit lg:h-full">
         
         <div className="mb-4">
@@ -491,10 +496,8 @@ export default function ScheduleBoard() {
 
       {/* MODAL CHI TIẾT MÔN HỌC */}
       {selectedCourse && (
-        // ĐÃ SỬA: Thêm pt-24 sm:pt-4 để trên điện thoại Modal được đẩy lùi xuống khỏi thanh menu z-50
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pt-24 sm:pt-4" onClick={() => setSelectedCourse(null)}>
           
-          {/* ĐÃ SỬA: Chuyển Modal thành dạng flex-col và khống chế chiều cao max-h để nội dung bên trong có thể tự cuộn */}
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[calc(100vh-120px)]" onClick={e => e.stopPropagation()}>
             
             <div className="bg-gradient-to-r from-[#003375] to-[#00509d] p-4 sm:p-5 text-white relative shrink-0 rounded-t-2xl">
@@ -508,13 +511,23 @@ export default function ScheduleBoard() {
               <p className="text-blue-200 mt-1 text-xs sm:text-sm font-medium">{selectedCourse.course_code}</p>
             </div>
             
-            {/* ĐÃ SỬA: Cho phép phần nội dung overflow-y-auto để cuộn mượt mà trên mobile */}
             <div className="p-5 sm:p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <DetailItem icon={<Clock />} label="Thời gian học" value={`Thứ ${selectedCourse.day_of_week}\nCa ${selectedCourse.shift === 'S' ? 'Sáng' : 'Chiều'}`} />
                 <DetailItem icon={<MapPin />} label="Địa điểm" value={`Phòng ${selectedCourse.room}\n${selectedCourse.campus || 'Chưa cập nhật'}`} />
                 <DetailItem icon={<Calendar />} label="Tuần học" value={`Tuần: ${selectedCourse.weeks}`} />
                 <DetailItem icon={<CheckCircle />} label="Tín chỉ" value={`${selectedCourse.credits} tín chỉ`} />
+              </div>
+
+              {/* ĐÃ THÊM: Block hiển thị tên Giảng Viên cực kỳ nổi bật */}
+              <div className="mt-4 p-3 sm:p-4 bg-emerald-50/80 border border-emerald-100 rounded-xl flex items-center gap-3">
+                <div className="bg-white p-2 rounded-lg text-emerald-600 shadow-sm shrink-0">
+                  <User size={20} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <p className="text-[10px] sm:text-[11px] text-emerald-600/80 font-bold uppercase tracking-wide mb-0.5">Giảng viên phụ trách</p>
+                  <p className="text-xs sm:text-sm font-bold text-emerald-900">{selectedCourse.instructor || 'Đang cập nhật...'}</p>
+                </div>
               </div>
 
               <div className="p-3 sm:p-4 bg-orange-50/80 border border-orange-100 rounded-xl mt-2">
