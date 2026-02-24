@@ -30,25 +30,28 @@ export default async function handler(request, response) {
 
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
-    // --- HÀM 1: LẤY MSSV (ĐÃ SỬA CHÍNH XÁC URL CỦA TRƯỜNG) ---
+    // --- HÀM 1: LẤY MSSV CỦA SINH VIÊN ĐẦU TIÊN BẮT ĐƯỢC ---
     async function fetchMssvFromUrl(url) {
         try {
             const res = await axios.get(url, { headers, validateStatus: () => true });
             
-            // Check nếu server trả về trang đăng nhập
-            if (res.data.includes("Đăng nhập") || res.data.includes("Object moved") || res.status === 302) {
+            if (res.data.includes("Đăng nhập") || res.data.includes("Object moved")) {
                 return 'COOKIE_DEAD';
             }
             
             const $ = cheerio.load(res.data);
             let mssv = null;
 
-            $('td').each((i, el) => {
-                const text = $(el).text().trim();
-                // Quét mã sinh viên HUB bắt đầu bằng 030 và có 12 số
-                if (/^030\d{9}$/.test(text)) {
-                    mssv = text;
-                    return false; 
+            // Quét từng hàng trong bảng
+            $('table tr').each((i, row) => {
+                const tds = $(row).children('td');
+                // Nếu hàng có chứa cột, kiểm tra Cột thứ 2 (Index 1) xem có phải MSSV không
+                if (tds.length >= 2) {
+                    const text = $(tds[1]).text().trim();
+                    if (/^030\d{9}$/.test(text)) {
+                        mssv = text;
+                        return false; // TÌM THẤY BÉ ĐẦU TIÊN LÀ DỪNG LUÔN (Break loop)
+                    }
                 }
             });
             
@@ -58,10 +61,9 @@ export default async function handler(request, response) {
         }
     }
 
-    // --- HÀM 2: LẤY TÊN GIẢNG VIÊN (ĐÃ SỬA CHÍNH XÁC URL) ---
+    // --- HÀM 2: DÒ CHÍNH XÁC DÒNG MÔN HỌC ĐỂ LẤY GIẢNG VIÊN ---
     async function getInstructorFromStudentSchedule(mssv, targetCourseCode) {
       try {
-        // Đã sửa thành Print_.aspx theo đúng format
         const url = `https://online.hub.edu.vn/Print_.aspx?NH=2025-2026&HK=HK02&StudentID=${mssv}`;
         const res = await axios.get(url, { headers, validateStatus: () => true });
         const $ = cheerio.load(res.data);
@@ -70,21 +72,25 @@ export default async function handler(request, response) {
         const baseCode = targetCourseCode.split('_')[0]; 
         const tailCode = targetCourseCode.split('_').pop();
 
-        $('tr').each((i, row) => {
-            const rowText = $(row).text();
+        $('table tr').each((i, row) => {
+            const tds = $(row).children('td');
             
-            if (rowText.includes(baseCode) && rowText.includes(tailCode)) {
-                const tds = $(row).find('td');
-                
-                let cell7 = $(tds[6]).text().trim(); 
-                let cell6 = $(tds[5]).text().trim(); 
+            // Bảng chuẩn của trường có ít nhất 7 cột (Từ STT đến Ngày đăng ký)
+            if (tds.length >= 7) {
+                // Lấy đích danh Cột 2 để so sánh (Mã lớp học phần)
+                const tdMaHP = $(tds[1]).text().trim();
 
-                if (cell7 && cell7.length > 3 && !cell7.includes("Thứ") && !cell7.includes("Phòng")) {
-                    instructor = cell7;
-                } else if (cell6 && cell6.length > 3 && !cell6.includes("Thứ") && !cell6.includes("Phòng")) {
-                    instructor = cell6;
+                // NẾU MÃ HỌC PHẦN Ở DÒNG NÀY KHỚP VỚI MÔN ĐANG TÌM -> MỚI ĐƯỢC LẤY
+                if (tdMaHP.includes(baseCode) && tdMaHP.includes(tailCode)) {
+                    // Cột thứ 7 (Index 6) chứa tên giảng viên
+                    let teacherName = $(tds[6]).text().trim(); 
+
+                    // Màng lọc an toàn cuối cùng
+                    if (teacherName && !teacherName.includes("()") && !teacherName.includes("Thứ")) {
+                        instructor = teacherName;
+                    }
+                    return false; // Lấy đúng môn rồi thì nghỉ, không quét xuống các môn dưới nữa
                 }
-                return false; 
             }
         });
         return instructor;
@@ -118,16 +124,10 @@ export default async function handler(request, response) {
       let mssv = null;
       let urlsToTry = [];
 
-      // SỬA LẠI ĐÚNG CHÍNH TẢ DO IT TRƯỜNG VIẾT SAI:
-      // - Liststudent (không có s)
-      // - SchduleStudyUnitId (không có e)
       if (originalCode.split('_').length === 3) {
           const parts = originalCode.split('_');
-          // Ưu tiên đợt 1
           urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${parts[0]}_${parts[1]}_1_${parts[2]}`);
-          // Thử đợt 2
           urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${parts[0]}_${parts[1]}_2_${parts[2]}`);
-          // Thử mã gốc
           urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
       } else {
           urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
