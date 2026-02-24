@@ -12,7 +12,8 @@ import { ActivityLogModal } from './components/ActivityLogModal';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfUse } from './components/TermsOfUse';
 import { AIAdvisor } from './components/AIAdvisor';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock, Facebook, Phone, Mail } from 'lucide-react';
+// ĐÃ THÊM: Import Calendar cho icon Thời khóa biểu
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
@@ -143,7 +144,7 @@ const App: React.FC = () => {
     }, []);
 
     const particlesOptions = useMemo((): ISourceOptions => ({
-        fullScreen: { enable: true, zIndex: 0 }, // Z-index 0 để nằm dưới cùng
+        fullScreen: { enable: true, zIndex: 0 }, 
         fpsLimit: 60,
         particles: {
             number: { value: 30, density: { enable: true, area: 800 } },
@@ -176,7 +177,6 @@ const App: React.FC = () => {
         }
 
         const loadData = async () => {
-            // 1. Nếu là User trường HUB (Có đăng nhập)
             if (userRolePref === 'school' && session?.user?.id && supabase) {
                 const { data: profileData, error } = await supabase
                     .from(STUDENT_PROFILE_TABLE)
@@ -190,7 +190,6 @@ const App: React.FC = () => {
                     console.error('Failed to load profile data:', error);
                 }
 
-                // Nếu có dữ liệu trên DB -> Load về
                 if (profileData?.data) {
                     setData({ ...INITIAL_DATA, ...profileData.data });
                     setProfileFullName(profileData.full_name || ''); 
@@ -200,16 +199,12 @@ const App: React.FC = () => {
                     return;
                 }
 
-                // TRƯỜNG HỢP: Đăng nhập lần đầu hoặc sau khi Reset (DB chưa có dữ liệu)
-                // -> Lấy thông tin từ Google/Microsoft (Session Metadata) để điền vào
                 const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
                 const metaAvatar = session.user.user_metadata.avatar_url || session.user.user_metadata.picture || '';
                 
-                // Set state để tí nữa useEffect auto-save sẽ lưu cái này lên DB
                 setProfileFullName(metaName);
                 setProfileAvatarUrl(metaAvatar);
                 
-                // Nếu local có dữ liệu tạm thì lấy, ko thì lấy mặc định
                 const saved = localStorage.getItem(storageKey);
                 if (saved) {
                     try {
@@ -225,7 +220,6 @@ const App: React.FC = () => {
                 return;
             }
 
-            // 2. Nếu là Khách (Không đăng nhập)
             if (userRolePref !== 'school') {
                 setProfileFullName('');
                 setProfileAvatarUrl('');
@@ -260,7 +254,7 @@ const App: React.FC = () => {
         }
     }, [data, isLoaded, storageKey]);
 
-    // --- EFFECT: AUTO SAVE TO DB (FIX LỖI NULL) ---
+    // --- EFFECT: AUTO SAVE TO DB ---
     useEffect(() => {
         if (!isLoaded) return;
         if (userRolePref !== 'school' || !session?.user?.id || !supabase) return;
@@ -271,18 +265,15 @@ const App: React.FC = () => {
 
         saveTimeoutRef.current = window.setTimeout(async () => {
             const userEmail = session.user.email || '';
-            // Tách MSSV từ email (lấy phần trước @)
             const studentCode = userEmail.split('@')[0];
-
-            // Nếu profileFullName đang rỗng (do mới reset), thử lấy lại từ metadata
             const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
             const nameToSave = profileFullName || metaName;
 
             const payload = {
                 id: session.user.id,
-                email: userEmail,          // 👇 ĐÃ THÊM: Lưu email
-                student_code: studentCode, // 👇 ĐÃ THÊM: Lưu MSSV
-                full_name: nameToSave,     // 👇 ĐÃ THÊM: Lưu tên (ưu tiên state, fallback metadata)
+                email: userEmail,
+                student_code: studentCode,
+                full_name: nameToSave,
                 avatar_url: profileAvatarUrl,
                 data,
                 updated_at: new Date().toISOString(),
@@ -295,7 +286,6 @@ const App: React.FC = () => {
             if (error) {
                 console.error('Failed to save profile data:', error);
             } else {
-                // Cập nhật lại state nếu tên vừa được lấy từ metadata để đồng bộ giao diện
                 if (!profileFullName && nameToSave) {
                     setProfileFullName(nameToSave);
                 }
@@ -307,7 +297,7 @@ const App: React.FC = () => {
                 window.clearTimeout(saveTimeoutRef.current);
             }
         };
-    }, [data, isLoaded, session?.user?.id, userRolePref, profileFullName, profileAvatarUrl]); // Dependency đầy đủ
+    }, [data, isLoaded, session?.user?.id, userRolePref, profileFullName, profileAvatarUrl]);
 
     useEffect(() => {
         if (showAccountSettings) {
@@ -379,7 +369,6 @@ const App: React.FC = () => {
     };
 
     const handleSaveProfile = async () => {
-        // ... (Logic lưu profile giữ nguyên) ...
         if (!session?.user?.id || !supabase) return;
         setProfileSaving(true);
         setProfileError(null);
@@ -405,7 +394,6 @@ const App: React.FC = () => {
             avatarUrlToSave = publicData.publicUrl;
         }
 
-        // Khi lưu thủ công cũng nhớ cập nhật student_code và email để chắc chắn
         const userEmail = session.user.email || '';
         const studentCode = userEmail.split('@')[0];
 
@@ -483,10 +471,7 @@ const App: React.FC = () => {
         }
 
         try {
-            // 1. Xử lý xóa trên Cloud (Supabase) nếu là tài khoản đăng nhập
             if (userRolePref === 'school' && session?.user?.id && supabase) {
-                
-                // A. Xóa ảnh đại diện trong Storage (nếu có)
                 const { data: listFiles } = await supabase.storage
                     .from('avatars')
                     .list(session.user.id);
@@ -498,7 +483,6 @@ const App: React.FC = () => {
                         .remove(filesToRemove);
                 }
 
-                // B. Xóa dữ liệu trong Database (Bảng profiles)
                 const { error: dbError } = await supabase
                     .from(STUDENT_PROFILE_TABLE)
                     .delete()
@@ -511,11 +495,9 @@ const App: React.FC = () => {
                 }
             }
 
-            // 2. Xóa dữ liệu Local Storage & State
             setData(INITIAL_DATA);
             localStorage.clear();
 
-            // 3. Đăng xuất khỏi Supabase Auth
             if (supabase) {
                 const { error } = await supabase.auth.signOut();
                 if (error) console.log("Lỗi đăng xuất:", error);
@@ -525,7 +507,6 @@ const App: React.FC = () => {
             console.error("Lỗi khi reset:", error);
             alert("Có lỗi xảy ra. Dữ liệu có thể chưa được xóa hết.");
         } finally {
-            // 4. Dọn dẹp biến cục bộ và reload trang
             localStorage.removeItem('user_role_preference');
             setUserRolePref('unknown');
             navigate('/');
@@ -557,7 +538,6 @@ const App: React.FC = () => {
         try {
             const result = await parseHubPdf(file);
             setData(prev => {
-                // ... (Logic xử lý PDF giữ nguyên để tiết kiệm dòng) ...
                 const newData = { ...prev };
                 if (!newData.studentName && result.studentInfo.studentName) {
                     newData.studentName = result.studentInfo.studentName!;
@@ -655,10 +635,8 @@ const App: React.FC = () => {
         }
 
         return (
-            // 👇 THAY ĐỔI: Xóa nền màu, để relative để chứa hình nền & nội dung
             <div className="min-h-screen relative font-sans text-gray-800">
 
-                {/* --- 1. HIỆU ỨNG HOA RƠI (Toàn màn hình) --- */}
                 <Particles
                     id="app-particles"
                     init={particlesInit}
@@ -666,24 +644,17 @@ const App: React.FC = () => {
                     className="fixed inset-0 z-0 pointer-events-none"
                 />
 
-                {/* --- 2. HÌNH NỀN TẾT (Fixed) - TÁCH BIỆT MOBILE/LAPTOP --- */}
-
-                {/* Mobile: Chỉ hiện ảnh dọc khi < 768px (md:hidden) */}
                 <div className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat pointer-events-none md:hidden opacity-40 bg-[#FFF9F2]"
                     style={{ backgroundImage: "url('/backgroundrole-mobile.png')" }}>
                 </div>
 
-                {/* Laptop: Chỉ hiện ảnh ngang khi >= 768px (hidden md:block) */}
                 <div className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat pointer-events-none hidden md:block opacity-40 bg-[#FFF9F2]"
                     style={{ backgroundImage: "url('/backgroundrole.png')" }}>
                 </div>
 
-                {/* --- 3. NỘI DUNG CHÍNH (z-10 để nổi lên trên) --- */}
                 <div className="min-h-screen flex flex-col">
 
-                    {/* Header: Hiệu ứng kính mờ (backdrop-blur) */}
                     <header className="bg-white/70 backdrop-blur-md border-b border-red-200/40 fixed top-0 left-0 w-full z-50 shadow-sm transition-all duration-300">
-                        {/* 👇 ĐÃ SỬA: Thay max-w-7xl thành w-full max-w-[1600px] */}
                         <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 py-3 sm:py-0 min-h-[64px] flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                             <div className="flex items-center gap-3">
                                 <Link to="/dashboard" className="h-10 w-10 relative flex-shrink-0 group cursor-pointer transition-transform duration-300 hover:scale-110 active:scale-95" onClick={playClick}>
@@ -705,51 +676,51 @@ const App: React.FC = () => {
 
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-4 w-full sm:w-auto">
 
-                                {/* Menu Navigation: Nền kính mờ */}
+                                {/* ĐÃ SỬA: Thay đổi cấu trúc hiển thị Ẩn/Hiện Chữ và Icon trên Mobile/Laptop */}
                                 <div className="flex bg-white/50 backdrop-blur-sm rounded-lg p-2 gap-2 overflow-x-auto w-full sm:w-auto max-w-full no-scrollbar shadow-inner sm:justify-start justify-between px-6 sm:px-2 border border-white/50">
                                     <NavLink
                                         to="/dashboard"
                                         onClick={playClick}
-                                        className={({ isActive }) => `px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'}`}
+                                        className={({ isActive }) => `px-3 sm:px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'}`}
                                     >
-                                        <LayoutDashboard size={20} className="sm:hidden" />
-                                        <LayoutDashboard size={16} className="hidden sm:inline" />
+                                        <LayoutDashboard size={22} className="sm:hidden" />
                                         <span className="hidden sm:inline">Tổng quan</span>
                                     </NavLink>
+                                    
+                                    {/* ĐÃ SỬA: Đổi Icon tia sét (Zap) thành Lịch (Calendar) */}
                                     <NavLink
                                         to="/schedule"
                                         onClick={playClick}
-                                        className={({ isActive }) => `px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'}`}
+                                        className={({ isActive }) => `px-3 sm:px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'}`}
                                     >
-                                        <Zap size={20} className="sm:hidden" />
-                                        <Zap size={16} className="hidden sm:inline" />
+                                        <Calendar size={22} className="sm:hidden" />
                                         <span className="hidden sm:inline">Thời khóa biểu</span>
                                     </NavLink>
+                                    
                                     <NavLink
                                         to="/events"
                                         onClick={playClick}
-                                        className={({ isActive }) => `px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'}`}
+                                        className={({ isActive }) => `px-3 sm:px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'}`}
                                     >
-                                        <Zap size={20} className="sm:hidden" />
-                                        <Zap size={16} className="hidden sm:inline" />
+                                        <Zap size={22} className="sm:hidden" />
                                         <span className="hidden sm:inline">Sự kiện ĐRL</span>
                                     </NavLink>
+                                    
                                     <NavLink
                                         to="/lost-found"
                                         onClick={playClick}
-                                        className={({ isActive }) => `px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'}`}
+                                        className={({ isActive }) => `px-3 sm:px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'}`}
                                     >
-                                        <Search size={20} className="sm:hidden" />
-                                        <Search size={16} className="hidden sm:inline" />
+                                        <Search size={22} className="sm:hidden" />
                                         <span className="hidden sm:inline">Tìm đồ</span>
                                     </NavLink>
+                                    
                                     <NavLink
                                         to="/handbook"
                                         onClick={playClick}
-                                        className={({ isActive }) => `px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'}`}
+                                        className={({ isActive }) => `px-3 sm:px-4 py-2 rounded-md text-base sm:text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 ${isActive ? 'bg-white text-[#003375] shadow-sm scale-100' : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'}`}
                                     >
-                                        <Book size={20} className="sm:hidden" />
-                                        <Book size={16} className="hidden sm:inline" />
+                                        <Book size={22} className="sm:hidden" />
                                         <span className="hidden sm:inline">Cẩm nang</span>
                                     </NavLink>
                                 </div>
@@ -831,7 +802,6 @@ const App: React.FC = () => {
                         </div>
                     </header>
 
-                    {/* 👇 Main Content: Đổi max-w-7xl thành w-full max-w-[1600px] để rộng hơn */}
                     <main className={`w-full max-w-[1600px] mx-auto px-4 sm:px-8 py-8 sm:pt-24 flex-1 ${(userRolePref === 'school' || userRolePref === 'student')
                         ? 'pt-[calc(11.5rem+env(safe-area-inset-top))]'
                         : 'pt-[calc(8rem+env(safe-area-inset-top))]'
