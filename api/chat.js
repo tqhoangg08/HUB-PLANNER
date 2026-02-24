@@ -30,7 +30,7 @@ const ratelimit = redis
   ? new Ratelimit({
       redis: redis,
       // 🔥 Giới hạn người dùng: 5 lần/ngày
-      limiter: Ratelimit.slidingWindow(5, "1 d"), 
+      limiter: Ratelimit.slidingWindow(15, "1 d"), 
       analytics: true,
     })
   : null;
