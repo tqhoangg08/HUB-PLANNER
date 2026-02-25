@@ -8,7 +8,7 @@ import {
   MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, 
   Save, ToggleLeft, ToggleRight, Settings, Tag, RotateCcw,
   Info, ExternalLink, CalendarClock,
-  Bookmark, BookmarkCheck, ArrowDownUp // Đã thêm icon ArrowDownUp cho nút sắp xếp
+  Bookmark, BookmarkCheck, ArrowDownUp 
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
@@ -46,6 +46,7 @@ const formatDateString = (isoDate: string): string => {
 };
 
 // --- Sub-Components (Modals) ---
+// (Mình giữ nguyên toàn bộ Modals của bạn: ScoreGuideModal, RecruitFormModal, ContributeEventModal, DiscussionModal)
 
 const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
     if (!isOpen) return null;
@@ -823,35 +824,31 @@ export const EventsBoard: React.FC = () => {
       setTimeout(() => setNotification(null), 4000);
   };
 
+  // =========================================================================
+  // ---> ĐÃ SỬA: HÀM FETCH DATA CHUYỂN QUA GỌI API CỦA VERCEL <---
+  // =========================================================================
   const fetchEvents = async () => {
     setLoading(true);
     setError(null);
 
-    if (!supabase) {
-        setEvents([]);
-        setError("Chưa cấu hình Supabase.");
-        setLoading(false);
-        return;
-    }
-
     try {
-      // 1. Updated query: BỎ filter is_deleted = false ở đây
-      // Để lấy về TẤT CẢ sự kiện, sau đó sẽ lọc ở client tùy theo tab
-      let query = supabase.from('events')
-        .select('*')
-        .order('deadline', { ascending: true });
-      
-      // If NOT Admin/CTV, only show accepted/published events
-      if (!canManage) {
-          query = query.neq('status', 'pending');
+      // Gọi lên máy chủ Vercel của bạn thay vì gọi thẳng Supabase
+      const res = await fetch('/api/events');
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json.error || 'Lỗi khi tải dữ liệu sự kiện');
       }
 
-      const { data, error } = await query;
+      let fetchedData = json.data || [];
 
-      if (error) throw error;
+      // Nếu KHÔNG PHẢI Admin/CTV -> Lọc bỏ các sự kiện 'pending' (Chờ duyệt)
+      if (!canManage) {
+        fetchedData = fetchedData.filter((evt: any) => evt.status !== 'pending');
+      }
 
-      if (data) {
-          const parsedEvents: HubEvent[] = data.map((row: any) => {
+      if (fetchedData) {
+          const parsedEvents: HubEvent[] = fetchedData.map((row: any) => {
               let deadlineDate = null;
               if (row.deadline) {
                   deadlineDate = new Date(row.deadline);
@@ -874,7 +871,7 @@ export const EventsBoard: React.FC = () => {
                   status: row.status || 'Sắp diễn ra',
                   is_manually_closed: row.is_manually_closed || false,
                   is_deleted: row.is_deleted || false,
-                  created_at: row.created_at || new Date().toISOString() // MAP TRƯỜNG NGÀY THÊM
+                  created_at: row.created_at || new Date().toISOString()
               };
           });
 
@@ -883,10 +880,11 @@ export const EventsBoard: React.FC = () => {
       setLoading(false);
     } catch (err) {
       console.error(err);
-      setError('Lỗi kết nối đến cơ sở dữ liệu.');
+      setError('Lỗi kết nối đến máy chủ.');
       setLoading(false);
     }
   };
+  // =========================================================================
 
   useEffect(() => {
     fetchEvents();

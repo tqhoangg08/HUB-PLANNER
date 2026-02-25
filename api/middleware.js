@@ -1,4 +1,4 @@
-import logger from './utils/logger';
+import logger from './logger.js';
 
 export function withLogging(handler) {
   return async (req, res) => {
