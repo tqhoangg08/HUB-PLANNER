@@ -1,4 +1,5 @@
 import { createLogger, format, transports } from 'winston';
+import { WinstonTransport as AxiomTransport } from '@axiomhq/winston';
 
 // 1. Danh sách các từ khóa chứa dữ liệu nhạy cảm cần che
 const SENSITIVE_KEYS = ['password', 'token', 'cookie', 'authorization', 'secret'];
@@ -29,7 +30,22 @@ const maskFormat = format((info) => {
   return info;
 });
 
-// 4. Khởi tạo Logger
+// 4. Khởi tạo danh sách các đường ống xuất log
+const activeTransports = [
+  new transports.Console() // Luôn in ra màn hình Console (để Vercel bắt được)
+];
+
+// Nếu đã cài đặt chìa khóa bí mật của Axiom thì mới gắn thêm ống dẫn sang Axiom
+if (process.env.AXIOM_DATASET && process.env.AXIOM_TOKEN) {
+  activeTransports.push(
+    new AxiomTransport({
+      dataset: process.env.AXIOM_DATASET, // Tên kho chứa trên Axiom
+      token: process.env.AXIOM_TOKEN,     // Chìa khóa kết nối
+    })
+  );
+}
+
+// 5. Khởi tạo Logger
 const logger = createLogger({
   level: 'info',
   format: format.combine(
@@ -37,9 +53,7 @@ const logger = createLogger({
     format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     format.json() // Định dạng JSON rất tốt để Vercel và Axiom phân tích
   ),
-  transports: [
-    new transports.Console() // In ra console (để Vercel bắt được)
-  ],
+  transports: activeTransports,
 });
 
 export default logger;
