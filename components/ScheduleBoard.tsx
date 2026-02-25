@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus } from 'lucide-react';
+// ĐÃ THÊM: Icon List và Trash2 cho Modal Quản lý môn
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus, List, Trash2 } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
 
@@ -90,9 +91,35 @@ const splitData = (str?: string) => {
 
 const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: number, targetShiftType: string) => {
   const weekArr = splitData(course.weeks);
+  const dayArr = splitData(course.day_of_week);
+  const roomArr = splitData(course.room);
+  const shiftArr = splitData(course.shift);
+
   if (weekArr.length === 0) return null;
 
-  // 1. Tìm TẤT CẢ các dòng lịch có chứa tuần hiện tại
+  // ==========================================
+  // XỬ LÝ RIÊNG CHO TUẦN 0 (TỔNG QUÁT)
+  // ==========================================
+  if (targetWeek === 0) {
+    for (let i = 0; i < Math.max(dayArr.length, shiftArr.length); i++) {
+      const cDayStr = dayArr[i] !== undefined ? dayArr[i] : (dayArr[dayArr.length - 1] || "");
+      const cShiftStr = shiftArr[i] !== undefined ? shiftArr[i] : (shiftArr[0] || "");
+      const cRoomStr = roomArr[i] !== undefined ? roomArr[i] : (roomArr[0] || "");
+      const cWeekStr = weekArr[i] !== undefined ? weekArr[i] : (weekArr[0] || "");
+
+      const days = cDayStr.replace(/,/g, ' ').trim().split(/\s+/).map(Number);
+      const shiftType = getMainShiftType(cShiftStr);
+
+      if (days.includes(targetDay) && shiftType === targetShiftType) {
+        return { day: targetDay, shift: cShiftStr, room: cRoomStr, weeks: cWeekStr };
+      }
+    }
+    return null;
+  }
+
+  // ==========================================
+  // XỬ LÝ CHO CÁC TUẦN BÌNH THƯỜNG (CÓ OVERRIDE)
+  // ==========================================
   let matchingLines: { index: number, weekStr: string }[] = [];
   for (let i = 0; i < weekArr.length; i++) {
     if (parseWeeks(weekArr[i]).includes(targetWeek)) {
@@ -100,7 +127,6 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
     }
   }
 
-  // 2. Logic Ghi Đè (Override): Dòng phía sau sẽ xóa bỏ dòng phía trước nếu trùng tuần
   let activeLines: number[] = [];
   for (let i = 0; i < matchingLines.length; i++) {
     let isOverridden = false;
@@ -113,11 +139,6 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
     if (!isOverridden) activeLines.push(matchingLines[i].index);
   }
 
-  const dayArr = splitData(course.day_of_week);
-  const roomArr = splitData(course.room);
-  const shiftArr = splitData(course.shift);
-
-  // 3. Kiểm tra xem dòng lịch đang "sống" có khớp với Thứ và Ca trên bảng không
   for (let activeIdx of activeLines) {
     const cDayStr = dayArr[activeIdx] !== undefined ? dayArr[activeIdx] : (dayArr[dayArr.length - 1] || "");
     const cShiftStr = shiftArr[activeIdx] !== undefined ? shiftArr[activeIdx] : (shiftArr[0] || "");
@@ -128,12 +149,7 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
     const shiftType = getMainShiftType(cShiftStr);
 
     if (days.includes(targetDay) && shiftType === targetShiftType) {
-      return {
-        day: targetDay,
-        shift: cShiftStr,
-        room: cRoomStr,
-        weeks: cWeekStr
-      };
+      return { day: targetDay, shift: cShiftStr, room: cRoomStr, weeks: cWeekStr };
     }
   }
 
@@ -148,16 +164,18 @@ export default function ScheduleBoard() {
   const [mySchedule, setMySchedule] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [selectedWeek, setSelectedWeek] = useState<number>(0); // Mặc định mở lên là Tuần 0 luôn cho đẹp
 
   const [selectedSemester, setSelectedSemester] = useState<string>('HK2_2025_2026');
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
 
-  // ĐÃ CẬP NHẬT: Lưu trữ thêm details động cho Modal
   const [selectedCourseInfo, setSelectedCourseInfo] = useState<{
     course: Course;
     details?: { day: number, shift: string, room: string, weeks: string };
   } | null>(null);
+
+  // ĐÃ THÊM: State mở Modal Quản lý môn học (My Courses)
+  const [isMyScheduleModalOpen, setIsMyScheduleModalOpen] = useState(false);
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
@@ -277,6 +295,7 @@ export default function ScheduleBoard() {
   };
 
   const getWeekDates = (weekNum: number) => {
+    if (weekNum === 0) return ['', '', '', '', '', '', '']; // Tuần 0 không cần hiện ngày tháng
     const dates = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date(HK_START_DATE);
@@ -375,7 +394,6 @@ export default function ScheduleBoard() {
             </div>
           ) : (
             availableCourses.map((course) => {
-              // Hiển thị chuẩn trên thẻ Danh sách (Nếu có nhiều dòng, gộp lại thành 1 chuỗi dễ nhìn)
               const displayDay = course.day_of_week ? course.day_of_week.replace(/\n/g, ' - ') : '';
               const displayRoom = course.room ? course.room.replace(/\n/g, ' / ') : '';
               const displayShift = getShiftDisplay(course.shift ? course.shift.split(/\s|\n/)[0] : '');
@@ -418,11 +436,27 @@ export default function ScheduleBoard() {
             </h2>
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 bg-blue-50 text-[#003375] text-xs font-bold rounded-full border border-blue-200 hidden sm:block">{selectedSemester}</span>
-              <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200 shadow-sm">{mySchedule.length} môn</span>
+              
+              {/* ĐÃ SỬA: Cục xanh 5 môn bây giờ có thể bấm được để mở Modal Danh sách */}
+              <button 
+                onClick={() => setIsMyScheduleModalOpen(true)}
+                className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200 shadow-sm hover:bg-green-200 transition-colors flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                title="Xem danh sách môn đã thêm"
+              >
+                <List size={14} strokeWidth={2.5}/> {mySchedule.length} môn
+              </button>
             </div>
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar" style={{ scrollbarWidth: 'none' }}>
+            {/* ĐÃ THÊM: Nút Tuần 0 - Tổng quát */}
+            <button 
+              onClick={() => setSelectedWeek(0)} 
+              className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border shrink-0 flex justify-center items-center gap-1 ${selectedWeek === 0 ? 'bg-[#003375] text-white border-[#003375] shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+            >
+               Tổng quát
+            </button>
+            
             {Array.from({length: 24}, (_, i) => i + 1).map(w => (
               <button key={w} onClick={() => setSelectedWeek(w)} className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border shrink-0 ${selectedWeek === w ? 'bg-[#003375] text-white border-[#003375] shadow-md' : HOLIDAY_WEEKS.includes(w) ? 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
                 Tuần {w}
@@ -446,7 +480,9 @@ export default function ScheduleBoard() {
                   {[2, 3, 4, 5, 6, 7, 8].map((day, index) => (
                     <th key={day} className="p-2 border-b-2 border-gray-200 bg-[#f8fafc] text-center">
                       <span className="block text-xs sm:text-sm font-bold text-[#003375] uppercase mb-0.5">Thứ {day === 8 ? 'CN' : day}</span>
-                      <span className="block text-[10px] sm:text-[11px] font-semibold text-[#990000] bg-red-50 rounded-md mx-auto w-fit px-1.5 border border-red-100">{currentWeekDates[index]}</span>
+                      {selectedWeek !== 0 && (
+                        <span className="block text-[10px] sm:text-[11px] font-semibold text-[#990000] bg-red-50 rounded-md mx-auto w-fit px-1.5 border border-red-100">{currentWeekDates[index]}</span>
+                      )}
                     </th>
                   ))}
                 </tr>
@@ -461,7 +497,6 @@ export default function ScheduleBoard() {
                     
                     {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
                       
-                      // ĐÃ SỬA: Lọc môn dựa trên Thuật toán Override thông minh
                       const slotCourses = mySchedule.map(c => {
                         const details = getCourseDetailsForSlot(c, day, selectedWeek, shift);
                         return details ? { course: c, slotDetails: details } : null;
@@ -469,6 +504,17 @@ export default function ScheduleBoard() {
 
                       const slotExams = mySchedule.filter(c => {
                         if (!c.exam_date || !c.exam_shift) return false;
+                        // Xử lý Lịch thi cho Tuần 0: Chỉ lấy thứ (day of week) từ chuỗi ngày thi
+                        if (selectedWeek === 0) {
+                          const parts = c.exam_date.split('/');
+                          if(parts.length >= 3) {
+                              const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                              let dOfWeek = d.getDay() + 1;
+                              if (dOfWeek === 1) dOfWeek = 8; 
+                              return dOfWeek === day && isExamInShift(c.exam_shift, shift);
+                          }
+                          return false;
+                        }
                         const examDM = getExamDayMonth(c.exam_date);
                         return examDM === currentWeekDates[index] && isExamInShift(c.exam_shift, shift);
                       });
@@ -483,7 +529,6 @@ export default function ScheduleBoard() {
                                 <h4 className="font-bold text-[#003375] text-[10px] sm:text-[11px] leading-snug mb-1.5 line-clamp-3 break-words">{course.subject_name}</h4>
                                 <div className="flex flex-col gap-1 w-full">
                                   <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-white border border-gray-200 text-gray-600 rounded text-[8px] sm:text-[9px] font-bold">{course.course_code}</span>
-                                  {/* Hiển thị chính xác PHÒNG của tuần đó (ko bị dính chuỗi 2 phòng lại) */}
                                   <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-[#990000]/10 text-[#990000] rounded text-[8px] sm:text-[9px] font-bold border border-[#990000]/20">P. {slotDetails.room}</span>
                                 </div>
                               </div>
@@ -510,13 +555,11 @@ export default function ScheduleBoard() {
         </div>
       </div>
 
-      {/* MODAL CHI TIẾT MÔN */}
+      {/* MODAL CHI TIẾT MÔN ĐỘNG */}
       {selectedCourseInfo && (() => {
         const course = selectedCourseInfo.course;
         const details = selectedCourseInfo.details;
 
-        // Nếu bấm từ bảng TKB (Có truyền details): Hiện CHÍNH XÁC thông tin tuần đó
-        // Nếu bấm từ danh sách Tìm kiếm: Hiện TẤT CẢ thông tin
         const modalDay = details ? `Thứ ${details.day}` : `Thứ ${course.day_of_week?.replace(/\n/g, ' - ')}`;
         const modalShift = details ? getShiftDisplay(details.shift) : getShiftDisplay(course.shift?.split(/\s|\n/)[0]);
         const modalTime = details ? getCourseTimeLabel(details.shift) : getCourseTimeLabel(course.shift?.split(/\s|\n/)[0]);
@@ -570,7 +613,56 @@ export default function ScheduleBoard() {
         );
       })()}
 
-      {/* MODAL 1: BÁO CÁO LỖI */}
+      {/* ĐÃ THÊM: MODAL QUẢN LÝ DANH SÁCH MÔN HỌC (MY COURSES) */}
+      {isMyScheduleModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4" onClick={() => setIsMyScheduleModalOpen(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[calc(100vh-100px)]" onClick={e => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-[#003375] to-blue-700 p-4 text-white flex items-center gap-2 justify-between rounded-t-2xl shrink-0">
+              <div className="flex items-center gap-2">
+                <List size={20} strokeWidth={2.5} />
+                <h2 className="font-bold text-lg">Môn học đã đăng ký ({mySchedule.length})</h2>
+              </div>
+              <button onClick={() => setIsMyScheduleModalOpen(false)} className="text-white/70 hover:text-white transition-colors"><X size={22}/></button>
+            </div>
+
+            <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 bg-gray-50/50 rounded-b-2xl">
+              {mySchedule.length === 0 ? (
+                <div className="text-center py-10 text-gray-500">
+                  <Filter size={40} className="mx-auto text-gray-300 mb-3" />
+                  <p className="font-medium text-sm">Chưa có môn học nào trong Thời khóa biểu.</p>
+                </div>
+              ) : (
+                mySchedule.map(course => (
+                  <div key={course.id} className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between gap-3 hover:border-blue-300 transition-colors group">
+                    <div className="flex-1 min-w-0">
+                      {course.phase && <span className="bg-blue-50 text-blue-700 text-[9px] font-bold px-1.5 py-0.5 rounded mr-2 align-middle">Đợt {course.phase}</span>}
+                      <h4 className="font-bold text-[#003375] text-sm truncate inline align-middle">{course.subject_name}</h4>
+                      <p className="text-xs text-[#990000] font-bold mt-1">{course.course_code}</p>
+                      <p className="text-[11px] text-gray-500 font-medium mt-1.5 flex items-center gap-1.5"><User size={12} className="text-gray-400"/> {course.instructor || 'Chưa cập nhật'}</p>
+                    </div>
+                    <div className="flex flex-col gap-2 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => { setSelectedCourseInfo({ course }); setIsMyScheduleModalOpen(false); }} 
+                        className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-[11px] font-bold hover:bg-blue-100 flex items-center justify-center gap-1.5 border border-blue-100 transition-colors"
+                      >
+                        <Info size={14} strokeWidth={2.5}/> Chi tiết
+                      </button>
+                      <button 
+                        onClick={() => removeFromSchedule(course.id)} 
+                        className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[11px] font-bold hover:bg-red-100 flex items-center justify-center gap-1.5 border border-red-100 transition-colors"
+                      >
+                        <Trash2 size={14} strokeWidth={2.5}/> Xóa môn
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL BÁO CÁO LỖI */}
       {isReportModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4" onClick={() => setIsReportModalOpen(false)}>
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-scaleIn border border-gray-100 overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -588,7 +680,7 @@ export default function ScheduleBoard() {
         </div>
       )}
 
-      {/* MODAL 2: TẠO MÔN HỌC MỚI */}
+      {/* MODAL TẠO MÔN HỌC MỚI */}
       {isCreateCourseModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4" onClick={() => setIsCreateCourseModalOpen(false)}>
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-scaleIn border border-gray-100 overflow-hidden" onClick={e => e.stopPropagation()}>
