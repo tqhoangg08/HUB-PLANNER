@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// ĐÃ THÊM: Icon BookPlus cho tính năng Thêm môn
 import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
@@ -27,6 +26,50 @@ interface Course {
 const HK_START_DATE = new Date('2026-02-02T00:00:00');
 const HOLIDAY_WEEKS = [2, 3, 4]; 
 
+// =======================================================================
+// HỆ THỐNG HELPER DỊCH "CA" VÀ "TIẾT"
+// =======================================================================
+
+// 1. Phân loại Tiết học vào đúng Buổi Sáng ('S') hoặc Buổi Chiều ('C')
+const getMainShiftType = (shiftStr?: string) => {
+  if (!shiftStr) return '';
+  const s = shiftStr.trim().toUpperCase();
+  if (s === 'S') return 'S';
+  if (s === 'C') return 'C';
+  
+  // Sáng: Tiết 1 đến 5
+  if (/[12345]/.test(s)) return 'S';
+  // Chiều: Tiết 6 đến 10
+  if (/[6789]/.test(s) || /10/.test(s)) return 'C';
+  
+  return '';
+};
+
+// 2. Chuyển đổi để hiển thị text gọn gàng trên UI (Thẻ môn học)
+const getShiftDisplay = (shiftStr?: string) => {
+  if (!shiftStr) return '';
+  const s = shiftStr.trim().toUpperCase();
+  if (s === 'S') return 'Ca Sáng';
+  if (s === 'C') return 'Ca Chiều';
+  return `Tiết ${s}`; 
+};
+
+// 3. Quy đổi số Tiết ra Giờ chính xác (Dùng trong Modal Chi tiết)
+const getCourseTimeLabel = (shiftStr?: string) => {
+  if (!shiftStr) return '';
+  const s = shiftStr.trim().toUpperCase();
+  if (s === 'S') return '07:00 - 11:05';
+  if (s === 'C') return '13:00 - 17:05';
+  
+  if (s.includes('1-3')) return '07:00 - 09:15';
+  if (s.includes('4-5')) return '09:35 - 11:05';
+  if (s.includes('6-8')) return '13:00 - 15:15';
+  if (s.includes('9-10')) return '15:35 - 17:05';
+  
+  return ''; 
+};
+
+// 4. Quy đổi Ca thi ra Giờ thi
 const getExamTime = (shiftStr?: string) => {
   if (!shiftStr) return "";
   const normalized = shiftStr.replace(/\s/g, '').toUpperCase();
@@ -45,6 +88,7 @@ const getExamTime = (shiftStr?: string) => {
     default: return '';
   }
 };
+// =======================================================================
 
 export default function ScheduleBoard() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -132,7 +176,8 @@ export default function ScheduleBoard() {
   };
 
   const checkIsCourseInSlot = (course: Course, currentDay: number, currentWeek: number, currentShift: string) => {
-    if (course.shift !== currentShift) return false;
+    // ĐÃ SỬA: Quy đổi tiết học của môn (vd: 1-3) về đúng Buổi đang xét (S hoặc C)
+    if (getMainShiftType(course.shift) !== currentShift) return false;
     if (!course.day_of_week || !course.weeks) return false;
 
     const dayLines = course.day_of_week.toString().trim().split(/\r?\n/);
@@ -179,13 +224,16 @@ export default function ScheduleBoard() {
     }
 
     for (const existingCourse of mySchedule) {
-      if (course.shift === existingCourse.shift) {
+      // ĐÃ SỬA: Check trùng lặp theo Buổi (Sáng/Chiều) thay vì so khớp chính xác string
+      if (getMainShiftType(course.shift) === getMainShiftType(existingCourse.shift)) {
         let isConflict = false;
         let conflictDay = null;
 
         for (let w = 1; w <= 24; w++) {
           for (let d = 2; d <= 8; d++) {
-            if (checkIsCourseInSlot(course, d, w, course.shift) && checkIsCourseInSlot(existingCourse, d, w, existingCourse.shift)) {
+            // Test thử theo Buổi Sáng (S) hoặc Buổi Chiều (C)
+            const shiftTypeToTest = getMainShiftType(course.shift);
+            if (checkIsCourseInSlot(course, d, w, shiftTypeToTest) && checkIsCourseInSlot(existingCourse, d, w, shiftTypeToTest)) {
               isConflict = true;
               conflictDay = d;
               break;
@@ -195,7 +243,7 @@ export default function ScheduleBoard() {
         }
 
         if (isConflict) {
-          alert(`⛔ CẢNH BÁO TRÙNG LỊCH HỌC!\n\nMôn [${course.subject_name}] bị trùng giờ học với môn [${existingCourse.subject_name}].\n(Bị trùng lặp vào Thứ ${conflictDay} - Ca ${course.shift === 'S' ? 'Sáng' : 'Chiều'}).\n\nHệ thống đã chặn thao tác này. Vui lòng chọn Lớp học phần khác!`);
+          alert(`⛔ CẢNH BÁO TRÙNG LỊCH HỌC!\n\nMôn [${course.subject_name}] bị trùng giờ học với môn [${existingCourse.subject_name}].\n(Bị trùng lặp vào Thứ ${conflictDay} - ${getShiftDisplay(course.shift)}).\n\nHệ thống đã chặn thao tác này. Vui lòng chọn Lớp học phần khác!`);
           return; 
         }
       }
@@ -299,7 +347,7 @@ export default function ScheduleBoard() {
     }
   };
 
-  // HÀM SUBMIT TẠO MÔN MỚI
+  // SUBMIT TẠO MÔN MỚI
   const handleCreateCourseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCourseData.subject_name.trim() || !newCourseData.course_code.trim()) {
@@ -373,7 +421,6 @@ export default function ScheduleBoard() {
               <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
             </div>
 
-            {/* BLOCK NÚT BÁO CÁO & THÊM MÔN NHỎ */}
             <div className="flex gap-2 pt-1">
               <button 
                 onClick={() => setIsReportModalOpen(true)}
@@ -397,14 +444,12 @@ export default function ScheduleBoard() {
           {isLoading ? (
             <p className="text-center text-gray-500 font-medium mt-10 animate-pulse">Đang tải dữ liệu môn học...</p>
           ) : availableCourses.length === 0 ? (
-            // GIAO DIỆN KHI KHÔNG TÌM THẤY MÔN HỌC
             <div className="text-center mt-10 flex flex-col items-center px-4">
               <Filter size={40} className="text-gray-300 mb-3" />
               <p className="text-gray-600 font-bold text-sm mb-1">Không tìm thấy môn học!</p>
               <p className="text-gray-500 text-xs mb-5">Có thể hệ thống chưa cập nhật kịp môn học này. Bạn hãy gửi yêu cầu để Admin thêm vào nhé!</p>
               <button 
                 onClick={() => {
-                  // Tự động điền Keyword đang tìm vào tên môn luôn cho nhanh
                   setNewCourseData({...newCourseData, subject_name: searchTerm});
                   setIsCreateCourseModalOpen(true);
                 }}
@@ -427,7 +472,8 @@ export default function ScheduleBoard() {
                 <p className="text-xs text-[#990000] font-bold mb-3">{course.course_code}</p>
                 
                 <div className="grid grid-cols-2 gap-y-2 text-xs text-gray-600 mb-4 bg-gray-50 p-2 rounded-lg whitespace-pre-line">
-                  <div className="flex items-start gap-1.5 font-medium"><Clock size={14} className="text-blue-500 mt-0.5"/> Thứ {course.day_of_week} ({course.shift})</div>
+                  {/* ĐÃ SỬA: Dùng getShiftDisplay để hiện Ca Sáng/Ca Chiều hoặc Tiết 1-3 */}
+                  <div className="flex items-start gap-1.5 font-medium"><Clock size={14} className="text-blue-500 mt-0.5"/> Thứ {course.day_of_week} ({getShiftDisplay(course.shift)})</div>
                   <div className="flex items-start gap-1.5 font-medium"><MapPin size={14} className="text-orange-500 mt-0.5"/> P. {course.room}</div>
                   <div className="col-span-2 pt-1.5 mt-0.5 border-t border-gray-200 flex items-start gap-1.5 font-bold text-emerald-700">
                     <User size={14} className="mt-0.5"/> {course.instructor || 'Đang cập nhật...'}
@@ -528,6 +574,7 @@ export default function ScheduleBoard() {
                     </td>
                     
                     {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
+                      // ĐÃ SỬA: Hàm filter sẽ tự động dồn môn thể dục (VD tiết 1-3) về đúng Buổi Sáng
                       const slotCourses = mySchedule.filter(c => checkIsCourseInSlot(c, day, selectedWeek, shift));
                       const slotExams = mySchedule.filter(c => {
                         if (!c.exam_date || !c.exam_shift) return false;
@@ -587,7 +634,16 @@ export default function ScheduleBoard() {
             
             <div className="p-5 sm:p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                <DetailItem icon={<Clock />} label="Thời gian" value={`Thứ ${selectedCourse.day_of_week}\nCa ${selectedCourse.shift === 'S' ? 'Sáng' : 'Chiều'}`} />
+                {/* ĐÃ SỬA: Hiển thị cả Ca (Tiết) và quy đổi ra Giờ cực kỳ xịn xò */}
+                <DetailItem 
+                  icon={<Clock />} 
+                  label="Thời gian học" 
+                  value={[
+                    `Thứ ${selectedCourse.day_of_week}`,
+                    getShiftDisplay(selectedCourse.shift),
+                    getCourseTimeLabel(selectedCourse.shift)
+                  ].filter(Boolean).join('\n')} 
+                />
                 <DetailItem icon={<MapPin />} label="Địa điểm" value={`Phòng ${selectedCourse.room}\n${selectedCourse.campus || 'Chưa cập nhật'}`} />
                 <DetailItem icon={<Calendar />} label="Tuần học" value={`Tuần: ${selectedCourse.weeks}`} />
                 <DetailItem icon={<CheckCircle />} label="Tín chỉ" value={`${selectedCourse.credits} tín chỉ`} />
