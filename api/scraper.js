@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import * as cheerio from 'cheerio';
 import axios from 'axios';
+import logger from './logger'; // ---> ĐÃ THÊM: Import công cụ dẫn log sang Axiom
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -12,18 +13,18 @@ export default async function handler(request, response) {
     return response.status(405).json({ error: 'Chỉ hỗ trợ phương thức POST' });
   }
 
-  // ---> THÊM MỚI: LẤY IP VÀ KIỂM TRA MẬT KHẨU (SECRET KEY) <---
   const clientIp = request.headers['x-forwarded-for'] || request.socket?.remoteAddress || 'Unknown IP';
-  const { cookie, secret } = request.body; // Lấy thêm secret từ body gửi lên
+  const { cookie, secret } = request.body; 
 
   // Nếu mật khẩu gửi lên không khớp với mật khẩu lưu trên Vercel
   if (secret !== process.env.MY_SECRET_SCRAPER_KEY) {
-    // Ghi Log cảnh báo (Forensic)
-    console.warn(`[CẢNH BÁO BẢO MẬT] Truy cập trái phép API Scraper! IP: ${clientIp} | Thời gian: ${new Date().toISOString()}`);
-    // Đá văng ra ngoài, không cho chạy code bên dưới
+    // ---> ĐÃ SỬA: Dùng Logger cảnh báo bắn thẳng lên Axiom (để Forensic)
+    logger.warn('Truy cập trái phép API Scraper!', {
+      meta: { action: 'UNAUTHORIZED_ACCESS', ip: clientIp, url: request.url }
+    });
+    
     return response.status(403).json({ error: 'Cấm truy cập: Sai mật khẩu bảo mật hệ thống!' });
   }
-  // -----------------------------------------------------------
 
   try {
     if (!cookie) {
@@ -106,7 +107,10 @@ export default async function handler(request, response) {
     // =======================================================
     // CHƯƠNG TRÌNH CHÍNH
     // =======================================================
-    console.log(`[INFO] Admin (${clientIp}) bắt đầu quá trình cào dữ liệu Giảng Viên...`);
+    // ---> ĐÃ SỬA: Dùng Logger ghi nhận mẻ quét bắt đầu
+    logger.info('Bắt đầu cào dữ liệu Giảng Viên', {
+        meta: { action: 'START_SCRAPING', ip: clientIp }
+    });
 
     const { data: courses, error } = await supabase
       .from('course_schedules')
@@ -122,7 +126,6 @@ export default async function handler(request, response) {
     let successCount = 0;
     let resultsLog = [];
 
-    // ... (Phần vòng lặp xử lý logic của bạn giữ nguyên, mình thu gọn lại để bạn dễ nhìn) ...
     for (let i = 0; i < courses.length; i++) {
         const course = courses[i];
         let originalCode = course.course_code;
@@ -208,6 +211,11 @@ export default async function handler(request, response) {
     });
 
   } catch (error) {
+    // ---> ĐÃ THÊM MỚI: Ghi log lỗi sập hệ thống để có bằng chứng điều tra
+    logger.error('Lỗi hệ thống trong quá trình cào dữ liệu', {
+        meta: { action: 'SYSTEM_ERROR', error: error.message, ip: clientIp }
+    });
+
     return response.status(500).json({ error: error.message });
   }
 }
