@@ -34,8 +34,11 @@ const getMainShiftType = (shiftStr?: string) => {
   const s = shiftStr.trim().toUpperCase();
   if (s === 'S') return 'S';
   if (s === 'C') return 'C';
-  if (/[12345]/.test(s)) return 'S';
-  if (/[6789]/.test(s) || /10/.test(s)) return 'C';
+  
+  // ĐÃ SỬA: Dùng \b để bắt chính xác giới hạn số (Ví dụ bắt số 1, chứ không bắt số 1 trong 10)
+  if (/\b(6|7|8|9|10)\b/.test(s)) return 'C'; // Chiều: Tiết 6 đến 10
+  if (/\b(1|2|3|4|5)\b/.test(s)) return 'S';  // Sáng: Tiết 1 đến 5
+  
   return '';
 };
 
@@ -96,7 +99,6 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
 
   if (weekArr.length === 0) return null;
 
-  // XỬ LÝ RIÊNG CHO TUẦN 0 (TỔNG QUÁT)
   if (targetWeek === 0) {
     for (let i = 0; i < Math.max(dayArr.length, shiftArr.length); i++) {
       const cDayStr = dayArr[i] !== undefined ? dayArr[i] : (dayArr[dayArr.length - 1] || "");
@@ -114,7 +116,6 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
     return null;
   }
 
-  // XỬ LÝ CHO CÁC TUẦN BÌNH THƯỜNG (CÓ OVERRIDE)
   let matchingLines: { index: number, weekStr: string }[] = [];
   for (let i = 0; i < weekArr.length; i++) {
     if (parseWeeks(weekArr[i]).includes(targetWeek)) {
@@ -495,10 +496,7 @@ export default function ScheduleBoard() {
 
                       const slotExams = mySchedule.filter(c => {
                         if (!c.exam_date || !c.exam_shift) return false;
-                        // ĐÃ SỬA: Tuần 0 KHÔNG hiện Lịch thi nữa
-                        if (selectedWeek === 0) {
-                          return false; 
-                        }
+                        if (selectedWeek === 0) return false; 
                         const examDM = getExamDayMonth(c.exam_date);
                         return examDM === currentWeekDates[index] && isExamInShift(c.exam_shift, shift);
                       });
@@ -539,14 +537,34 @@ export default function ScheduleBoard() {
         </div>
       </div>
 
-      {/* ĐÃ SỬA: MODAL CHI TIẾT MÔN (Giới hạn chiều cao max-h-[80vh] và đẩy lùi pt-24 để không đè Menu) */}
+      {/* MODAL CHI TIẾT MÔN (Đã sửa logic hiển thị gộp thời gian học) */}
       {selectedCourseInfo && (() => {
         const course = selectedCourseInfo.course;
         const details = selectedCourseInfo.details;
 
-        const modalDay = details ? `Thứ ${details.day}` : `Thứ ${course.day_of_week?.replace(/\n/g, ' - ')}`;
-        const modalShift = details ? getShiftDisplay(details.shift) : getShiftDisplay(course.shift?.split(/\s|\n/)[0]);
-        const modalTime = details ? getCourseTimeLabel(details.shift) : getCourseTimeLabel(course.shift?.split(/\s|\n/)[0]);
+        let timeDisplayValue = '';
+        if (details) {
+          // Bấm từ bên trong 1 ô của Bảng TKB: Chỉ hiện đúng giờ của ô đó
+          timeDisplayValue = [
+            `Thứ ${details.day}`,
+            getShiftDisplay(details.shift),
+            getCourseTimeLabel(details.shift)
+          ].filter(Boolean).join('\n');
+        } else {
+          // Bấm từ List môn: CỘNG GỘP và hiển thị toàn bộ lịch của môn học
+          const dayArr = splitData(course.day_of_week);
+          const shiftArr = splitData(course.shift);
+          const combined = [];
+          const maxLen = Math.max(dayArr.length, shiftArr.length);
+          for(let i=0; i<maxLen; i++) {
+              const d = dayArr[i] || dayArr[0];
+              const s = shiftArr[i] || shiftArr[0];
+              const tLabel = getCourseTimeLabel(s);
+              combined.push(`Thứ ${d} • ${getShiftDisplay(s)}${tLabel ? ` (${tLabel})` : ''}`);
+          }
+          timeDisplayValue = combined.join('\n'); // Nối các ngày lại bằng dấu xuống dòng
+        }
+
         const modalRoom = details ? details.room : course.room?.replace(/\n/g, ' / ');
         const modalWeeks = details ? details.weeks : course.weeks?.replace(/\n/g, ' / ');
 
@@ -565,7 +583,7 @@ export default function ScheduleBoard() {
                   <DetailItem 
                     icon={<Clock />} 
                     label="Thời gian học" 
-                    value={[modalDay, modalShift, modalTime].filter(Boolean).join('\n')} 
+                    value={timeDisplayValue} 
                   />
                   <DetailItem icon={<MapPin />} label="Địa điểm" value={`Phòng ${modalRoom}\n${course.campus || 'Chưa cập nhật'}`} />
                   <DetailItem icon={<Calendar />} label="Tuần học" value={`Tuần: ${modalWeeks}`} />
@@ -597,7 +615,7 @@ export default function ScheduleBoard() {
         );
       })()}
 
-      {/* ĐÃ SỬA: MODAL DANH SÁCH MÔN (Giới hạn max-h-[80vh] và pt-24) */}
+      {/* MODAL DANH SÁCH MÔN */}
       {isMyScheduleModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 pt-24" onClick={() => setIsMyScheduleModalOpen(false)}>
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -646,7 +664,7 @@ export default function ScheduleBoard() {
         </div>
       )}
 
-      {/* ĐÃ SỬA: MODAL BÁO CÁO LỖI (Thêm pt-24 và max-h-[80vh]) */}
+      {/* MODAL BÁO CÁO LỖI */}
       {isReportModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 pt-24" onClick={() => setIsReportModalOpen(false)}>
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-scaleIn border border-gray-100 overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
@@ -664,7 +682,7 @@ export default function ScheduleBoard() {
         </div>
       )}
 
-      {/* ĐÃ SỬA: MODAL TẠO MÔN HỌC MỚI (Thêm pt-24 và max-h-[80vh]) */}
+      {/* MODAL TẠO MÔN HỌC MỚI */}
       {isCreateCourseModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 pt-24" onClick={() => setIsCreateCourseModalOpen(false)}>
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-scaleIn border border-gray-100 overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
