@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// ĐÃ THÊM: Icon List và Trash2 cho Modal Quản lý môn
 import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus, List, Trash2 } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
@@ -97,9 +96,7 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
 
   if (weekArr.length === 0) return null;
 
-  // ==========================================
   // XỬ LÝ RIÊNG CHO TUẦN 0 (TỔNG QUÁT)
-  // ==========================================
   if (targetWeek === 0) {
     for (let i = 0; i < Math.max(dayArr.length, shiftArr.length); i++) {
       const cDayStr = dayArr[i] !== undefined ? dayArr[i] : (dayArr[dayArr.length - 1] || "");
@@ -117,9 +114,7 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
     return null;
   }
 
-  // ==========================================
   // XỬ LÝ CHO CÁC TUẦN BÌNH THƯỜNG (CÓ OVERRIDE)
-  // ==========================================
   let matchingLines: { index: number, weekStr: string }[] = [];
   for (let i = 0; i < weekArr.length; i++) {
     if (parseWeeks(weekArr[i]).includes(targetWeek)) {
@@ -164,7 +159,7 @@ export default function ScheduleBoard() {
   const [mySchedule, setMySchedule] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [selectedWeek, setSelectedWeek] = useState<number>(0); // Mặc định mở lên là Tuần 0 luôn cho đẹp
+  const [selectedWeek, setSelectedWeek] = useState<number>(0); 
 
   const [selectedSemester, setSelectedSemester] = useState<string>('HK2_2025_2026');
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
@@ -174,7 +169,6 @@ export default function ScheduleBoard() {
     details?: { day: number, shift: string, room: string, weeks: string };
   } | null>(null);
 
-  // ĐÃ THÊM: State mở Modal Quản lý môn học (My Courses)
   const [isMyScheduleModalOpen, setIsMyScheduleModalOpen] = useState(false);
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -224,7 +218,7 @@ export default function ScheduleBoard() {
 
   const addToSchedule = async (course: Course) => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { alert("⚠️ Vui lòng đăng nhập bằng tài khoản sinh viên HUB!"); return; }
+    if (!user) { alert("⚠️ Vui lòng đăng nhập bằng tài khoản sinh viên HUB để tạo Thời khóa biểu!"); return; }
     if (mySchedule.some(c => c.id === course.id)) { alert("Môn học này đã có sẵn trong thời khóa biểu của bạn!"); return; }
 
     for (const existingCourse of mySchedule) {
@@ -295,7 +289,7 @@ export default function ScheduleBoard() {
   };
 
   const getWeekDates = (weekNum: number) => {
-    if (weekNum === 0) return ['', '', '', '', '', '', '']; // Tuần 0 không cần hiện ngày tháng
+    if (weekNum === 0) return ['', '', '', '', '', '', '']; 
     const dates = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date(HK_START_DATE);
@@ -436,8 +430,6 @@ export default function ScheduleBoard() {
             </h2>
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 bg-blue-50 text-[#003375] text-xs font-bold rounded-full border border-blue-200 hidden sm:block">{selectedSemester}</span>
-              
-              {/* ĐÃ SỬA: Cục xanh 5 môn bây giờ có thể bấm được để mở Modal Danh sách */}
               <button 
                 onClick={() => setIsMyScheduleModalOpen(true)}
                 className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200 shadow-sm hover:bg-green-200 transition-colors flex items-center gap-1.5 active:scale-95 cursor-pointer"
@@ -449,7 +441,6 @@ export default function ScheduleBoard() {
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar" style={{ scrollbarWidth: 'none' }}>
-            {/* ĐÃ THÊM: Nút Tuần 0 - Tổng quát */}
             <button 
               onClick={() => setSelectedWeek(0)} 
               className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border shrink-0 flex justify-center items-center gap-1 ${selectedWeek === 0 ? 'bg-[#003375] text-white border-[#003375] shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
@@ -504,16 +495,9 @@ export default function ScheduleBoard() {
 
                       const slotExams = mySchedule.filter(c => {
                         if (!c.exam_date || !c.exam_shift) return false;
-                        // Xử lý Lịch thi cho Tuần 0: Chỉ lấy thứ (day of week) từ chuỗi ngày thi
+                        // ĐÃ SỬA: Tuần 0 KHÔNG hiện Lịch thi nữa
                         if (selectedWeek === 0) {
-                          const parts = c.exam_date.split('/');
-                          if(parts.length >= 3) {
-                              const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-                              let dOfWeek = d.getDay() + 1;
-                              if (dOfWeek === 1) dOfWeek = 8; 
-                              return dOfWeek === day && isExamInShift(c.exam_shift, shift);
-                          }
-                          return false;
+                          return false; 
                         }
                         const examDM = getExamDayMonth(c.exam_date);
                         return examDM === currentWeekDates[index] && isExamInShift(c.exam_shift, shift);
@@ -555,7 +539,7 @@ export default function ScheduleBoard() {
         </div>
       </div>
 
-      {/* MODAL CHI TIẾT MÔN ĐỘNG */}
+      {/* ĐÃ SỬA: MODAL CHI TIẾT MÔN (Giới hạn chiều cao max-h-[80vh] và đẩy lùi pt-24 để không đè Menu) */}
       {selectedCourseInfo && (() => {
         const course = selectedCourseInfo.course;
         const details = selectedCourseInfo.details;
@@ -567,8 +551,8 @@ export default function ScheduleBoard() {
         const modalWeeks = details ? details.weeks : course.weeks?.replace(/\n/g, ' / ');
 
         return (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pt-24 sm:pt-4" onClick={() => setSelectedCourseInfo(null)}>
-            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[calc(100vh-120px)]" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 pt-24" onClick={() => setSelectedCourseInfo(null)}>
+            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="bg-gradient-to-r from-[#003375] to-[#00509d] p-4 sm:p-5 text-white relative shrink-0 rounded-t-2xl">
                 <button onClick={() => setSelectedCourseInfo(null)} className="absolute top-4 right-4 text-white/70 hover:text-white hover:rotate-90 transition-transform"><X size={24}/></button>
                 {course.phase && <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-md mb-2 inline-block">Đợt {course.phase}</span>}
@@ -613,10 +597,10 @@ export default function ScheduleBoard() {
         );
       })()}
 
-      {/* ĐÃ THÊM: MODAL QUẢN LÝ DANH SÁCH MÔN HỌC (MY COURSES) */}
+      {/* ĐÃ SỬA: MODAL DANH SÁCH MÔN (Giới hạn max-h-[80vh] và pt-24) */}
       {isMyScheduleModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4" onClick={() => setIsMyScheduleModalOpen(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[calc(100vh-100px)]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 pt-24" onClick={() => setIsMyScheduleModalOpen(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="bg-gradient-to-r from-[#003375] to-blue-700 p-4 text-white flex items-center gap-2 justify-between rounded-t-2xl shrink-0">
               <div className="flex items-center gap-2">
                 <List size={20} strokeWidth={2.5} />
@@ -662,15 +646,15 @@ export default function ScheduleBoard() {
         </div>
       )}
 
-      {/* MODAL BÁO CÁO LỖI */}
+      {/* ĐÃ SỬA: MODAL BÁO CÁO LỖI (Thêm pt-24 và max-h-[80vh]) */}
       {isReportModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4" onClick={() => setIsReportModalOpen(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-scaleIn border border-gray-100 overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="bg-gradient-to-r from-red-600 to-red-500 p-4 text-white flex items-center gap-2 justify-between">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 pt-24" onClick={() => setIsReportModalOpen(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-scaleIn border border-gray-100 overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-red-600 to-red-500 p-4 text-white flex items-center gap-2 justify-between shrink-0">
               <div className="flex items-center gap-2"><AlertTriangle size={20} /><h2 className="font-bold text-lg">Báo cáo sai sót</h2></div>
               <button onClick={() => setIsReportModalOpen(false)} className="text-white/70 hover:text-white"><X size={20}/></button>
             </div>
-            <form onSubmit={handleReportSubmit} className="p-5 space-y-4">
+            <form onSubmit={handleReportSubmit} className="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1">
               <div><label className="block text-xs font-bold text-gray-700 mb-1">Mã học phần *</label><input required value={reportData.course_code} onChange={e => setReportData({...reportData, course_code: e.target.value})} className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm"/></div>
               <div><label className="block text-xs font-bold text-gray-700 mb-1">Tên môn học *</label><input required value={reportData.subject_name} onChange={e => setReportData({...reportData, subject_name: e.target.value})} className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm"/></div>
               <div><label className="block text-xs font-bold text-gray-700 mb-1">Chi tiết sai sót *</label><textarea required rows={3} value={reportData.description} onChange={e => setReportData({...reportData, description: e.target.value})} className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm"></textarea></div>
@@ -680,15 +664,15 @@ export default function ScheduleBoard() {
         </div>
       )}
 
-      {/* MODAL TẠO MÔN HỌC MỚI */}
+      {/* ĐÃ SỬA: MODAL TẠO MÔN HỌC MỚI (Thêm pt-24 và max-h-[80vh]) */}
       {isCreateCourseModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4" onClick={() => setIsCreateCourseModalOpen(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-scaleIn border border-gray-100 overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 p-4 text-white flex items-center gap-2 justify-between">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 pt-24" onClick={() => setIsCreateCourseModalOpen(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-scaleIn border border-gray-100 overflow-hidden flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 p-4 text-white flex items-center gap-2 justify-between shrink-0">
               <div className="flex items-center gap-2"><BookPlus size={20} /><h2 className="font-bold text-lg">Yêu cầu thêm môn học</h2></div>
               <button onClick={() => setIsCreateCourseModalOpen(false)} className="text-white/70 hover:text-white"><X size={20}/></button>
             </div>
-            <form onSubmit={handleCreateCourseSubmit} className="p-5 space-y-4">
+            <form onSubmit={handleCreateCourseSubmit} className="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1">
               <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg text-xs text-emerald-700 mb-2">Môn học bạn cần chưa có trên hệ thống? Hãy gửi thông tin bên dưới để Admin kiểm tra và cập nhật vào Database nhé!</div>
               <div><label className="block text-xs font-bold text-gray-700 mb-1">Tên môn học *</label><input type="text" required placeholder="VD: Toán cao cấp 2" value={newCourseData.subject_name} onChange={e => setNewCourseData({...newCourseData, subject_name: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl outline-none text-sm font-medium"/></div>
               <div><label className="block text-xs font-bold text-gray-700 mb-1">Mã học phần *</label><input type="text" required placeholder="VD: AMA302_252_D08 hoặc D08" value={newCourseData.course_code} onChange={e => setNewCourseData({...newCourseData, course_code: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-xl outline-none text-sm font-medium"/></div>
