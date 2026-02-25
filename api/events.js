@@ -1,31 +1,27 @@
 import { createClient } from '@supabase/supabase-js';
 import { withLogging } from './middleware.js'; 
 
-// Khởi tạo kết nối Supabase an toàn trên máy chủ
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 async function handler(request, response) {
-  // API này chỉ cho phép đọc dữ liệu (GET)
   if (request.method !== 'GET') {
     return response.status(405).json({ error: 'Chỉ hỗ trợ phương thức GET' });
   }
 
   try {
-    // Lấy dữ liệu từ Supabase 
-    // THÊM BẢO VỆ: Giới hạn lấy tối đa 50 sự kiện mỗi lần để chống "cào sạch"
+    // ---> ĐÃ SỬA: Sắp xếp theo ngày tạo mới nhất và nới lỏng trần lên 300 <---
     let query = supabase.from('events')
       .select('*')
-      .order('deadline', { ascending: true })
-      .limit(50); 
+      .order('created_at', { ascending: false }) // Những event mới thêm sẽ luôn được ưu tiên lấy trước
+      .limit(300); // Bạn có thể tăng lên 500 nếu sau này web có quá nhiều sự kiện
 
     const { data, error } = await query;
 
     if (error) throw error;
 
-    // Trả dữ liệu về cho Frontend
     return response.status(200).json({ success: true, data: data });
 
   } catch (error) {
@@ -33,5 +29,4 @@ async function handler(request, response) {
   }
 }
 
-// Bọc API bằng "Bác bảo vệ" để tự động ghi log IP lên Axiom
 export default withLogging(handler);
