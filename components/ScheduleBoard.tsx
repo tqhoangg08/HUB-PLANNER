@@ -35,9 +35,8 @@ const getMainShiftType = (shiftStr?: string) => {
   if (s === 'S') return 'S';
   if (s === 'C') return 'C';
   
-  // ĐÃ SỬA: Dùng \b để bắt chính xác giới hạn số (Ví dụ bắt số 1, chứ không bắt số 1 trong 10)
-  if (/\b(6|7|8|9|10)\b/.test(s)) return 'C'; // Chiều: Tiết 6 đến 10
-  if (/\b(1|2|3|4|5)\b/.test(s)) return 'S';  // Sáng: Tiết 1 đến 5
+  if (/\b(6|7|8|9|10)\b/.test(s)) return 'C'; 
+  if (/\b(1|2|3|4|5)\b/.test(s)) return 'S';  
   
   return '';
 };
@@ -183,17 +182,32 @@ export default function ScheduleBoard() {
   useEffect(() => { fetchCourses(); }, [searchTerm, selectedSemester, selectedPhase]);
   useEffect(() => { fetchMySchedule(); }, [selectedSemester]);
 
+  // =========================================================================
+  // ---> ĐÃ SỬA: HÀM FETCH DATA CHUYỂN QUA GỌI API CỦA VERCEL <---
+  // =========================================================================
   const fetchCourses = async () => {
     setIsLoading(true);
     try {
-      let query = supabase.from('course_schedules').select('*').eq('semester', selectedSemester).limit(50);
-      if (selectedPhase !== 'all') query = query.eq('phase', selectedPhase);
-      if (searchTerm) query = query.or(`subject_name.ilike.%${searchTerm}%,course_code.ilike.%${searchTerm}%,instructor.ilike.%${searchTerm}%`); 
-      const { data, error } = await query;
-      if (!error && data) setAvailableCourses(data);
-    } catch (error) { console.error("Lỗi tải danh sách môn:", error); } 
-    finally { setIsLoading(false); }
+      // Đóng gói các tham số lọc để gửi lên API
+      const params = new URLSearchParams();
+      params.append('semester', selectedSemester);
+      if (selectedPhase !== 'all') params.append('phase', selectedPhase);
+      if (searchTerm) params.append('search', searchTerm);
+
+      // Gọi API Vercel thay vì gọi thẳng Supabase
+      const res = await fetch(`/api/courses?${params.toString()}`);
+      const json = await res.json();
+      
+      if (!res.ok) throw new Error(json.error || 'Lỗi tải danh sách môn');
+      
+      setAvailableCourses(json.data || []);
+    } catch (error) { 
+      console.error("Lỗi tải danh sách môn:", error); 
+    } finally { 
+      setIsLoading(false); 
+    }
   };
+  // =========================================================================
 
   const fetchMySchedule = async () => {
     const { data: { user } } = await supabase.auth.getUser();
