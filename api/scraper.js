@@ -12,9 +12,20 @@ export default async function handler(request, response) {
     return response.status(405).json({ error: 'Chỉ hỗ trợ phương thức POST' });
   }
 
-  try {
-    const { cookie } = request.body;
+  // ---> THÊM MỚI: LẤY IP VÀ KIỂM TRA MẬT KHẨU (SECRET KEY) <---
+  const clientIp = request.headers['x-forwarded-for'] || request.socket?.remoteAddress || 'Unknown IP';
+  const { cookie, secret } = request.body; // Lấy thêm secret từ body gửi lên
 
+  // Nếu mật khẩu gửi lên không khớp với mật khẩu lưu trên Vercel
+  if (secret !== process.env.MY_SECRET_SCRAPER_KEY) {
+    // Ghi Log cảnh báo (Forensic)
+    console.warn(`[CẢNH BÁO BẢO MẬT] Truy cập trái phép API Scraper! IP: ${clientIp} | Thời gian: ${new Date().toISOString()}`);
+    // Đá văng ra ngoài, không cho chạy code bên dưới
+    return response.status(403).json({ error: 'Cấm truy cập: Sai mật khẩu bảo mật hệ thống!' });
+  }
+  // -----------------------------------------------------------
+
+  try {
     if (!cookie) {
       return response.status(400).json({ error: 'Thiếu tham số cookie' });
     }
@@ -46,7 +57,6 @@ export default async function handler(request, response) {
                 const tds = $(row).children('td');
                 if (tds.length >= 2) {
                     const text = $(tds[1]).text().trim();
-                    // ĐÃ SỬA: Chấp nhận MỌI dãy số dài từ 8 đến 15 chữ số (Bao trọn mọi khóa)
                     if (/^\d{8,15}$/.test(text)) {
                         mssv = text;
                         return false; 
@@ -96,7 +106,7 @@ export default async function handler(request, response) {
     // =======================================================
     // CHƯƠNG TRÌNH CHÍNH
     // =======================================================
-    console.log("🚀 Bắt đầu quá trình cào dữ liệu Giảng Viên...");
+    console.log(`[INFO] Admin (${clientIp}) bắt đầu quá trình cào dữ liệu Giảng Viên...`);
 
     const { data: courses, error } = await supabase
       .from('course_schedules')
@@ -112,84 +122,85 @@ export default async function handler(request, response) {
     let successCount = 0;
     let resultsLog = [];
 
+    // ... (Phần vòng lặp xử lý logic của bạn giữ nguyên, mình thu gọn lại để bạn dễ nhìn) ...
     for (let i = 0; i < courses.length; i++) {
-      const course = courses[i];
-      let originalCode = course.course_code;
-      let mssv = null;
-      let urlsToTry = [];
-
-      const parts = originalCode.split('_');
-
-      // LUỒNG 1: MÔN THỂ DỤC (GYM)
-      if (originalCode.startsWith('GYM') && parts.length >= 3) {
-          const p0 = parts[0]; 
-          const p1 = parts[1]; 
-          const pLast = parts[parts.length - 1]; 
-          
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}_1_${pLast}`);
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}_2_${pLast}`);
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
-      } 
-      // LUỒNG 2: CÁC MÔN CÒN LẠI
-      else if (parts.length >= 3) {
-          const p0 = parts[0];
-          const p1 = parts[1];
-          const pRest = parts.slice(2).join('_');
-
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}_1_${pRest}`);
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}1_1_${pRest}`); 
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}_2_${pRest}`);
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}2_2_${pRest}`); 
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
-      } else {
-          urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
-      }
-
-      for (let url of urlsToTry) {
-          mssv = await fetchMssvFromUrl(url);
-          if (mssv === 'COOKIE_DEAD') break; 
-          if (mssv) break; 
-          await delay(500); 
-      }
-
-      await delay(500); 
-
-      if (mssv === 'COOKIE_DEAD') {
-        return response.status(401).json({ error: "Cookie đã chết. Hãy F5 trang web HUB lấy Cookie mới!" });
-      }
-
-      if (mssv) {
-        const instructorName = await getInstructorFromStudentSchedule(mssv, course.course_code);
-        await delay(800); 
-
-        if (instructorName && instructorName.length > 3) {
-          const { error: updateError } = await supabase
-            .from('course_schedules')
-            .update({ instructor: instructorName })
-            .eq('id', course.id);
-          
-          if (!updateError) {
-            successCount++;
-            resultsLog.push(`✅ [${course.course_code}] -> GV: ${instructorName}`);
+        const course = courses[i];
+        let originalCode = course.course_code;
+        let mssv = null;
+        let urlsToTry = [];
+  
+        const parts = originalCode.split('_');
+  
+        // LUỒNG 1: MÔN THỂ DỤC (GYM)
+        if (originalCode.startsWith('GYM') && parts.length >= 3) {
+            const p0 = parts[0]; 
+            const p1 = parts[1]; 
+            const pLast = parts[parts.length - 1]; 
+            
+            urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}_1_${pLast}`);
+            urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}_2_${pLast}`);
+            urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
+        } 
+        // LUỒNG 2: CÁC MÔN CÒN LẠI
+        else if (parts.length >= 3) {
+            const p0 = parts[0];
+            const p1 = parts[1];
+            const pRest = parts.slice(2).join('_');
+  
+            urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}_1_${pRest}`);
+            urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}1_1_${pRest}`); 
+            urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}_2_${pRest}`);
+            urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${p0}_${p1}2_2_${pRest}`); 
+            urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
+        } else {
+            urlsToTry.push(`https://online.hub.edu.vn/Liststudentinschedulestudyunit.aspx?SchduleStudyUnitId=${encodeURIComponent(originalCode)}`);
+        }
+  
+        for (let url of urlsToTry) {
+            mssv = await fetchMssvFromUrl(url);
+            if (mssv === 'COOKIE_DEAD') break; 
+            if (mssv) break; 
+            await delay(500); 
+        }
+  
+        await delay(500); 
+  
+        if (mssv === 'COOKIE_DEAD') {
+          return response.status(401).json({ error: "Cookie đã chết. Hãy F5 trang web HUB lấy Cookie mới!" });
+        }
+  
+        if (mssv) {
+          const instructorName = await getInstructorFromStudentSchedule(mssv, course.course_code);
+          await delay(800); 
+  
+          if (instructorName && instructorName.length > 3) {
+            const { error: updateError } = await supabase
+              .from('course_schedules')
+              .update({ instructor: instructorName })
+              .eq('id', course.id);
+            
+            if (!updateError) {
+              successCount++;
+              resultsLog.push(`✅ [${course.course_code}] -> GV: ${instructorName}`);
+            } else {
+              resultsLog.push(`⚠️ Lỗi lưu DB [${course.course_code}]`);
+            }
           } else {
-            resultsLog.push(`⚠️ Lỗi lưu DB [${course.course_code}]`);
+            await supabase
+              .from('course_schedules')
+              .update({ instructor: 'Chưa xếp GV' })
+              .eq('id', course.id);
+            resultsLog.push(`⚠️ Chưa xếp GV [${course.course_code}]`);
           }
         } else {
           await supabase
-            .from('course_schedules')
-            .update({ instructor: 'Chưa xếp GV' })
-            .eq('id', course.id);
-          resultsLog.push(`⚠️ Chưa xếp GV [${course.course_code}]`);
+              .from('course_schedules')
+              .update({ instructor: 'Lớp Hủy/Trống' })
+              .eq('id', course.id);
+          resultsLog.push(`👻 Lớp rỗng/Hủy [${course.course_code}]`);
         }
-      } else {
-        await supabase
-            .from('course_schedules')
-            .update({ instructor: 'Lớp Hủy/Trống' })
-            .eq('id', course.id);
-        resultsLog.push(`👻 Lớp rỗng/Hủy [${course.course_code}]`);
       }
-    }
-    
+
     return response.status(200).json({ 
         success: true, 
         message: `Đã chạy xong mẻ quét. Cập nhật thành công ${successCount}/${courses.length} môn.`,
