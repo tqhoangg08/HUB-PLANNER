@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import * as cheerio from 'cheerio';
 import axios from 'axios';
-import logger from './logger'; // ---> ĐÃ THÊM: Import công cụ dẫn log sang Axiom
+import logger from './logger.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
