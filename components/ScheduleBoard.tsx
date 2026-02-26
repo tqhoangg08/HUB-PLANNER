@@ -321,11 +321,22 @@ export default function ScheduleBoard() {
     return dateStr;
   }
 
+// 1. SUBMIT BÁO CÁO LỖI (Đã thêm user_id)
   const handleReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Lấy thông tin user đang đăng nhập
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { alert("⚠️ Bạn cần đăng nhập để gửi báo cáo!"); return; }
+
     setIsSubmittingReport(true);
     try {
-      const { error } = await supabase.from('course_reports').insert({ course_code: reportData.course_code, subject_name: reportData.subject_name, error_description: reportData.description });
+      const { error } = await supabase.from('course_reports').insert({ 
+        course_code: reportData.course_code, 
+        subject_name: reportData.subject_name, 
+        error_description: reportData.description,
+        user_id: user.id
+      });
       if (error) throw error;
       alert("✅ Gửi báo cáo thành công! Cảm ơn bạn đã đóng góp.");
       setIsReportModalOpen(false);
@@ -333,17 +344,28 @@ export default function ScheduleBoard() {
     finally { setIsSubmittingReport(false); }
   };
 
+  // 2. SUBMIT TẠO MÔN MỚI (Đã thêm user_id)
   const handleCreateCourseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCourseData.subject_name.trim() || !newCourseData.course_code.trim()) { alert("Vui lòng điền tối thiểu Tên môn học và Mã học phần!"); return; }
+    
+    // Lấy thông tin user đang đăng nhập
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { alert("⚠️ Bạn cần đăng nhập để gửi yêu cầu!"); return; }
+
     setIsSubmittingCourse(true);
     try {
-      const { error } = await supabase.from('user_course_requests').insert({ subject_name: newCourseData.subject_name, course_code: newCourseData.course_code, instructor: newCourseData.instructor || 'Chưa rõ' });
+      const { error } = await supabase.from('user_course_requests').insert({ 
+        subject_name: newCourseData.subject_name, 
+        course_code: newCourseData.course_code, 
+        instructor: newCourseData.instructor || 'Chưa rõ',
+        user_id: user.id // <-- ĐÃ BỔ SUNG CÁI NÀY
+      });
       if (error) throw error;
-      alert("✅ Gửi yêu cầu thành công! Admin sẽ kiểm tra và cập nhật môn này vào hệ thống sớm nhất có thể.");
+      alert("✅ Gửi yêu cầu thành công! Admin sẽ kiểm tra và cập nhật môn này.");
       setIsCreateCourseModalOpen(false);
       setNewCourseData({ subject_name: '', course_code: '', instructor: '' });
-    } catch (error) { alert("Đã xảy ra lỗi khi gửi yêu cầu. Vui lòng thử lại sau."); } 
+    } catch (error) { alert("Đã xảy ra lỗi khi gửi yêu cầu."); } 
     finally { setIsSubmittingCourse(false); }
   };
 

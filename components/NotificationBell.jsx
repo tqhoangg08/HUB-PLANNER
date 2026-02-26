@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabase';
-import { Bell } from 'lucide-react';
+// ĐÃ THÊM: Icon AlertCircle và Settings để trang trí thông báo hệ thống
+import { Bell, AlertCircle, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-// 👇 IMPORT CÔNG CỤ XỬ LÝ NGÀY THÁNG TỪ UTILS
 import { formatDate, formatTime } from '../utils/dateUtils';
 
 const NotificationBell = ({ currentUserId }) => {
@@ -36,7 +36,7 @@ const NotificationBell = ({ currentUserId }) => {
 
     fetchNotifications();
 
-    // 2. KẾT NỐI REALTIME (Đã bọc "giáp" chống sập web trên Mobile)
+    // 2. KẾT NỐI REALTIME
     let channel;
     try {
       channel = supabase
@@ -47,15 +47,19 @@ const NotificationBell = ({ currentUserId }) => {
             event: 'INSERT',
             schema: 'public',
             table: 'notifications',
-            filter: `receiver_id=eq.${currentUserId}`, // 👈 ĐÃ THÊM DÒNG NÀY ĐỂ BẮT REALTIME NHẠY HƠN
+            filter: `receiver_id=eq.${currentUserId}`, 
           },
           async (payload) => {
-            // Logic xử lý khi có tin nhắn mới
-             const { data: actorData } = await supabase
-              .from('profiles')
-              .select('full_name, avatar_url, student_code')
-              .eq('id', payload.new.actor_id)
-              .single();
+             // Thử lấy thông tin người gửi (actor) nếu có. Nếu là thông báo hệ thống (không có actor_id) thì bỏ qua bước này.
+             let actorData = null;
+             if (payload.new.actor_id) {
+                 const { data } = await supabase
+                  .from('profiles')
+                  .select('full_name, avatar_url, student_code')
+                  .eq('id', payload.new.actor_id)
+                  .single();
+                 actorData = data;
+             }
 
             const newNotif = { ...payload.new, actor: actorData };
             
@@ -64,7 +68,6 @@ const NotificationBell = ({ currentUserId }) => {
           }
         )
         .subscribe((status) => {
-           // Nếu kết nối lỗi (do Safari chặn), chỉ log ra console chứ không làm sập app
            if (status === 'CHANNEL_ERROR') {
              console.log('Realtime connection failed (safe mode)');
            }
@@ -78,7 +81,6 @@ const NotificationBell = ({ currentUserId }) => {
     };
   }, [currentUserId]);
 
-  // Đóng menu khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -89,10 +91,17 @@ const NotificationBell = ({ currentUserId }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // HÀM XỬ LÝ KHI BẤM VÀO THÔNG BÁO (Đã nâng cấp)
   const handleRead = async (notif) => {
-    if (notif?.actor?.student_code) {
+    // Nếu thông báo có gắn link riêng (VD: '/schedule'), ưu tiên nhảy theo link đó
+    if (notif.link) {
+        navigate(notif.link);
+    } 
+    // Nếu không có link riêng, nhưng có profile người gửi -> nhảy về trang cá nhân của họ
+    else if (notif?.actor?.student_code) {
         navigate(`/profile/${notif.actor.student_code}`);
     }
+
     setIsOpen(false);
 
     if (!notif.is_read) {
@@ -117,6 +126,68 @@ const NotificationBell = ({ currentUserId }) => {
     setUnreadCount(0);
   }
 
+  // HÀM HELPER: RENDER NỘI DUNG VÀ AVATAR TÙY THEO LOẠI THÔNG BÁO
+  const renderNotificationContent = (notif) => {
+      // 1. Trường hợp thông báo Hệ thống / Admin (Dùng khi bạn gửi SQL thủ công)
+      if (notif.type === 'system_alert') {
+          return {
+              avatar: (
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center border border-blue-200">
+                      <Settings size={20} />
+                  </div>
+              ),
+              message: (
+                  <span className="font-medium text-gray-800">
+                      {/* Ưu tiên hiện nội dung bạn gõ trong cột 'content', nếu không có thì hiện dòng mặc định */}
+                      {notif.content || "Bạn có một thông báo mới từ hệ thống."}
+                  </span>
+              )
+          };
+      }
+
+      // 2. Trường hợp thông báo Follow (Như cũ)
+      if (notif.type === 'follow') {
+          return {
+              avatar: (
+                  <>
+                      <img 
+                          src={notif.actor?.avatar_url || `https://ui-avatars.com/api/?name=${notif.actor?.full_name || 'User'}&background=random`} 
+                          className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200" 
+                          alt="avatar"
+                          onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${notif.actor?.full_name || 'U'}&background=random`; }}
+                      />
+                      <div className="absolute -bottom-1 -right-1 bg-[#003375] rounded-full p-0.5 border-2 border-white">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                      </div>
+                  </>
+              ),
+              message: (
+                  <>
+                      <span className="font-bold">{notif.actor?.full_name || 'Người dùng'}</span> đã bắt đầu theo dõi bạn.
+                  </>
+              )
+          };
+      }
+
+      // 3. Trường hợp các loại thông báo chung (Like, Comment...) sau này bạn muốn làm thêm
+      return {
+          avatar: (
+              <img 
+                  src={notif.actor?.avatar_url || `https://ui-avatars.com/api/?name=${notif.actor?.full_name || 'User'}&background=random`} 
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200" 
+                  alt="avatar"
+                  onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${notif.actor?.full_name || 'U'}&background=random`; }}
+              />
+          ),
+          message: (
+              <>
+                  <span className="font-bold">{notif.actor?.full_name || 'Người dùng'}</span> 
+                  {notif.content ? ` ${notif.content}` : ' đã tương tác với bạn.'}
+              </>
+          )
+      };
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button 
@@ -131,13 +202,13 @@ const NotificationBell = ({ currentUserId }) => {
         )}
       </button>
 
-{isOpen && (
+      {isOpen && (
         <div 
           className="
             absolute 
-            -right-16 sm:right-0  /* Mobile: Dịch sang phải 64px | Laptop: Neo sát phải */
+            -right-16 sm:right-0  
             mt-2 
-            w-72 sm:w-80          /* Mobile: Rộng 288px | Laptop: Rộng 320px */
+            w-72 sm:w-80          
             bg-white 
             rounded-xl 
             shadow-xl 
@@ -145,7 +216,7 @@ const NotificationBell = ({ currentUserId }) => {
             overflow-hidden 
             z-50 
             animate-fadeIn
-            max-w-[95vw]          /* Đảm bảo không bao giờ to hơn màn hình */
+            max-w-[95vw]          
           "
         >
           <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">
@@ -157,43 +228,34 @@ const NotificationBell = ({ currentUserId }) => {
             )}
           </div>
           
-          <div className="max-h-80 sm:max-h-96 overflow-y-auto custom-scrollbar"> {/* Thêm custom-scrollbar nếu cần */}
+          <div className="max-h-80 sm:max-h-96 overflow-y-auto custom-scrollbar"> 
             {notifications.length === 0 ? (
               <div className="p-8 text-center text-sm text-gray-500">Chưa có thông báo nào</div>
             ) : (
-              notifications.map((notif) => (
-                <div 
-                  key={notif.id} 
-                  onClick={() => handleRead(notif)}
-                  className={`p-3 flex items-start gap-3 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0 ${!notif.is_read ? 'bg-blue-50/60' : ''}`}
-                >
-                  <div className="relative shrink-0"> {/* Thêm shrink-0 để avatar không bị méo */}
-                    <img 
-                      src={notif.actor?.avatar_url || `https://ui-avatars.com/api/?name=${notif.actor?.full_name || 'User'}&background=random`} 
-                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200" 
-                      alt="avatar"
-                      onError={(e) => {
-                        e.target.src = `https://ui-avatars.com/api/?name=${notif.actor?.full_name || 'U'}&background=random`;
-                      }}
-                    />
-                    {notif.type === 'follow' && (
-                        <div className="absolute -bottom-1 -right-1 bg-[#003375] rounded-full p-0.5 border-2 border-white">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-                        </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0"> {/* min-w-0 giúp text truncate hoạt động tốt */}
-                    <p className="text-xs sm:text-sm text-gray-800 leading-snug">
-                      <span className="font-bold">{notif.actor?.full_name || 'Người dùng'}</span>
-                      {notif.type === 'follow' ? ' đã bắt đầu theo dõi bạn.' : ' đã tương tác.'}
-                    </p>
-                    <p className="text-[10px] text-gray-400 mt-1 font-medium">
-                      {formatTime(notif.created_at)} · {formatDate(notif.created_at)}
-                    </p>
-                  </div>
-                  {!notif.is_read && <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 shrink-0"></div>}
-                </div>
-              ))
+              notifications.map((notif) => {
+                const { avatar, message } = renderNotificationContent(notif);
+
+                return (
+                    <div 
+                      key={notif.id} 
+                      onClick={() => handleRead(notif)}
+                      className={`p-3 flex items-start gap-3 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0 ${!notif.is_read ? 'bg-blue-50/60' : ''}`}
+                    >
+                      <div className="relative shrink-0"> 
+                          {avatar}
+                      </div>
+                      <div className="flex-1 min-w-0"> 
+                        <p className="text-xs sm:text-sm text-gray-800 leading-snug">
+                            {message}
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-1 font-medium">
+                          {formatTime(notif.created_at)} · {formatDate(notif.created_at)}
+                        </p>
+                      </div>
+                      {!notif.is_read && <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 shrink-0"></div>}
+                    </div>
+                );
+              })
             )}
           </div>
         </div>
