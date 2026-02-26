@@ -32,7 +32,6 @@ export const Handbook: React.FC = () => {
     // --- MENU CONFIGURATION ---
     const MENU_ITEMS = [
         { id: 'contacts', label: 'Danh bạ & Khoa', icon: Phone, color: 'bg-[#003375]' },
-        { id: 'bus', label: 'Xe buýt', icon: Bus, color: 'bg-yellow-500' },
         { id: 'clubs', label: 'CLB - Đội - Nhóm', icon: Users, color: 'bg-[#990000]' },
         { id: 'scholarships', label: 'Học bổng & Quy chế', icon: Award, color: 'bg-green-600' },
         { id: 'faqs', label: 'FAQs', icon: HelpCircle, color: 'bg-indigo-600' },
@@ -208,12 +207,6 @@ const fetchDonors = async () => {
         }
     ];
 
-    const busRoutes = [
-        { id: '53', name: 'Lê Hồng Phong – ĐH Quốc gia', time: '5h00 – 19h30', freq: '7–15 phút', color: 'bg-blue-600' },
-        { id: '104', name: 'Bến xe An Sương – ĐH Nông Lâm', time: '4h40 – 19h45', freq: '4–12 phút', color: 'bg-green-600' },
-        { id: '168', name: 'ĐH Ngân hàng – Metro Thủ Đức', time: '5h00 – 22h00', freq: '10–12 phút', color: 'bg-orange-500' },
-    ];
-
     const faqs = [
         {
             group: "Nhóm 1: Về Bảo Mật & Tài Khoản",
@@ -293,40 +286,6 @@ const fetchDonors = async () => {
                         </div>
                     </div>
                 );
-
-            case 'bus':
-                return (
-                    <div className="space-y-4 animate-fadeIn">
-                        <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 mb-4 transition-all duration-300 hover:shadow-md cursor-default hover:-translate-y-1">
-                            <h3 className="font-bold text-yellow-800 flex items-center gap-2 mb-1">
-                                <Bus size={20} /> Thông tin xe buýt hỗ trợ sinh viên
-                            </h3>
-                            <p className="text-sm text-yellow-700">Các tuyến xe buýt phổ biến đi qua cơ sở 56 Hoàng Diệu 2, Thủ Đức.</p>
-                        </div>
-                        {busRoutes.map(bus => (
-                            <div
-                                key={bus.id}
-                                className="bg-white p-4 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg cursor-pointer hover:border-blue-200"
-                                onClick={playClick}
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className={`${bus.color} text-white w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shadow-md`}>
-                                        {bus.id}
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-gray-800">{bus.name}</h4>
-                                        <p className="text-sm text-gray-500">Tần suất: {bus.freq}</p>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <span className="block text-xs font-bold text-gray-400 uppercase">Hoạt động</span>
-                                    <span className="font-medium text-[#003375]">{bus.time}</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                );
-
             case 'clubs':
                 return (
                     <div className="space-y-6 animate-fadeIn">
@@ -409,18 +368,13 @@ const fetchDonors = async () => {
                                     </tr>
                                     <tr className="hover:bg-gray-50 transition-colors">
                                         <td className="p-3 font-medium">Giỏi</td>
-                                        <td className="p-3 text-center font-bold text-blue-600">3.2 - 3.59</td>
-                                        <td className="p-3 text-center">Tốt (80-89)</td>
-                                    </tr>
-                                    <tr className="hover:bg-gray-50 transition-colors">
-                                        <td className="p-3 font-medium">Khá</td>
-                                        <td className="p-3 text-center font-bold text-yellow-600">2.5 - 3.19</td>
-                                        <td className="p-3 text-center">Khá (65-79)</td>
+                                        <td className="p-3 text-center font-bold text-blue-600">3.2 - 3.5</td>
+                                        <td className="p-3 text-center">Tốt hoặc Xuất sắc (80-100)</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
-                        <p className="text-xs text-gray-500 italic">* Điều kiện: Tích lũy tối thiểu 15 tín chỉ/kỳ, không rớt môn nào, không bị kỷ luật.</p>
+                        <p className="text-xs text-gray-500 italic">* Điều kiện: Tích lũy tối thiểu 15 tín chỉ/kỳ, ĐRL 80 trở lên, không rớt môn nào, không bị kỷ luật.</p>
 
                         <h3 className="text-lg font-bold text-[#003375] mt-6 mb-2 flex items-center gap-2">
                             <Book className="text-[#990000]" /> Chế độ miễn giảm học phí
