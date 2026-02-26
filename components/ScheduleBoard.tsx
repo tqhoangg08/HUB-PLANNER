@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus, List, Trash2 } from 'lucide-react';
+// ĐÃ THÊM: Icon CalendarDays cho Lịch Tháng
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
 
@@ -156,13 +157,20 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
 export default function ScheduleBoard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
+  
+  // mySchedule bây giờ sẽ chứa FULL TẤT CẢ CÁC KỲ
   const [mySchedule, setMySchedule] = useState<Course[]>([]);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [selectedWeek, setSelectedWeek] = useState<number>(0); 
-
+  
   const [selectedSemester, setSelectedSemester] = useState<string>('HK2_2025_2026');
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
+
+  // VIEW MODE STATES
+  const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
+  const [selectedWeek, setSelectedWeek] = useState<number>(0); 
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(new Date().getMonth()); // Default là tháng hiện tại (0-11)
 
   const [selectedCourseInfo, setSelectedCourseInfo] = useState<{
     course: Course;
@@ -179,22 +187,20 @@ export default function ScheduleBoard() {
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
   const [newCourseData, setNewCourseData] = useState({ subject_name: '', course_code: '', instructor: '' });
 
-  useEffect(() => { fetchCourses(); }, [searchTerm, selectedSemester, selectedPhase]);
-  useEffect(() => { fetchMySchedule(); }, [selectedSemester]);
+  // Tách riêng schedule của kỳ hiện tại cho Lịch Tuần
+  const currentSemesterSchedule = mySchedule.filter(c => c.semester === selectedSemester);
 
-  // =========================================================================
-  // ---> ĐÃ SỬA: HÀM FETCH DATA CHUYỂN QUA GỌI API CỦA VERCEL <---
-  // =========================================================================
+  useEffect(() => { fetchCourses(); }, [searchTerm, selectedSemester, selectedPhase]);
+  useEffect(() => { fetchMySchedule(); }, []);
+
   const fetchCourses = async () => {
     setIsLoading(true);
     try {
-      // Đóng gói các tham số lọc để gửi lên API
       const params = new URLSearchParams();
       params.append('semester', selectedSemester);
       if (selectedPhase !== 'all') params.append('phase', selectedPhase);
       if (searchTerm) params.append('search', searchTerm);
 
-      // Gọi API Vercel thay vì gọi thẳng Supabase
       const res = await fetch(`/api/courses?${params.toString()}`);
       const json = await res.json();
       
@@ -207,14 +213,14 @@ export default function ScheduleBoard() {
       setIsLoading(false); 
     }
   };
-  // =========================================================================
 
   const fetchMySchedule = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return; 
     setMySchedule([]);
     try {
-      const { data, error } = await supabase.from('user_schedules').select(`course_id, semester, course_schedules (*)`).eq('user_id', user.id).eq('semester', selectedSemester); 
+      // ĐÃ SỬA: Bỏ giới hạn theo kỳ, kéo toàn bộ môn học đã lưu của User
+      const { data, error } = await supabase.from('user_schedules').select(`course_id, semester, course_schedules (*)`).eq('user_id', user.id); 
       if (!error && data) {
         const savedCourses = data.map((item: any) => item.course_schedules).filter(Boolean);
         setMySchedule(savedCourses);
@@ -236,7 +242,7 @@ export default function ScheduleBoard() {
     if (!user) { alert("⚠️ Vui lòng đăng nhập bằng tài khoản sinh viên HUB để tạo Thời khóa biểu!"); return; }
     if (mySchedule.some(c => c.id === course.id)) { alert("Môn học này đã có sẵn trong thời khóa biểu của bạn!"); return; }
 
-    for (const existingCourse of mySchedule) {
+    for (const existingCourse of currentSemesterSchedule) {
       let isConflict = false;
       let conflictDay = null;
       let conflictShiftStr = "";
@@ -321,11 +327,65 @@ export default function ScheduleBoard() {
     return dateStr;
   }
 
-// 1. SUBMIT BÁO CÁO LỖI (Đã thêm user_id)
+  // =======================================================================
+  // THUẬT TOÁN CHO LỊCH THÁNG (Tính toán mảng ngày & tìm môn học)
+  // =======================================================================
+  const getCoursesForDate = (targetDate: Date, schedule: Course[]) => {
+    const dayOfWeek = targetDate.getDay() === 0 ? 8 : targetDate.getDay() + 1; 
+
+    return schedule.map(course => {
+      // Xác định ngày bắt đầu của học kỳ đó để tính Tuần cho chuẩn
+      let startDate = new Date('2026-02-02T00:00:00'); // Mặc định HK2
+      if (course.semester === 'HK1_2025_2026') startDate = new Date('2025-08-11T00:00:00'); // Giả định ngày bắt đầu HK1
+
+      const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+      const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+      
+      const diffTime = target.getTime() - start.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      const weekNum = Math.floor(diffDays / 7) + 1;
+
+      if (weekNum < 1 || weekNum > 24) return [];
+
+      const sDetails = getCourseDetailsForSlot(course, dayOfWeek, weekNum, 'S');
+      const cDetails = getCourseDetailsForSlot(course, dayOfWeek, weekNum, 'C');
+
+      const results = [];
+      if (sDetails) results.push({ course, details: sDetails, shiftType: 'S' });
+      if (cDetails) results.push({ course, details: cDetails, shiftType: 'C' });
+
+      return results;
+    }).flat().filter(Boolean);
+  };
+
+  const getExamsForDate = (targetDate: Date, schedule: Course[]) => {
+    const shortStr = `${targetDate.getDate().toString().padStart(2, '0')}/${(targetDate.getMonth() + 1).toString().padStart(2, '0')}`;
+    const longStr = `${shortStr}/${targetDate.getFullYear()}`;
+    
+    return schedule.filter(c => {
+       if (!c.exam_date) return false;
+       const d = c.exam_date.trim();
+       return d === shortStr || d === longStr;
+    });
+  };
+
+  const renderMonthDays = () => {
+    const year = 2026;
+    const firstDay = new Date(year, selectedMonthIndex, 1);
+    const startingDayOfWeek = firstDay.getDay() === 0 ? 7 : firstDay.getDay(); 
+    const daysInMonth = new Date(year, selectedMonthIndex + 1, 0).getDate();
+    
+    const days: (Date | null)[] = [];
+    for(let i = 1; i < startingDayOfWeek; i++) days.push(null); // Ô trống đầu tháng
+    for(let i = 1; i <= daysInMonth; i++) days.push(new Date(year, selectedMonthIndex, i));
+    
+    return days;
+  };
+
+  // =======================================================================
+
   const handleReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Lấy thông tin user đang đăng nhập
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { alert("⚠️ Bạn cần đăng nhập để gửi báo cáo!"); return; }
 
@@ -340,16 +400,15 @@ export default function ScheduleBoard() {
       if (error) throw error;
       alert("✅ Gửi báo cáo thành công! Cảm ơn bạn đã đóng góp.");
       setIsReportModalOpen(false);
+      setReportData({ course_code: '', subject_name: '', description: '' });
     } catch (error) { alert("Đã xảy ra lỗi khi gửi báo cáo."); } 
     finally { setIsSubmittingReport(false); }
   };
 
-  // 2. SUBMIT TẠO MÔN MỚI (Đã thêm user_id)
   const handleCreateCourseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCourseData.subject_name.trim() || !newCourseData.course_code.trim()) { alert("Vui lòng điền tối thiểu Tên môn học và Mã học phần!"); return; }
     
-    // Lấy thông tin user đang đăng nhập
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { alert("⚠️ Bạn cần đăng nhập để gửi yêu cầu!"); return; }
 
@@ -359,7 +418,7 @@ export default function ScheduleBoard() {
         subject_name: newCourseData.subject_name, 
         course_code: newCourseData.course_code, 
         instructor: newCourseData.instructor || 'Chưa rõ',
-        user_id: user.id // <-- ĐÃ BỔ SUNG CÁI NÀY
+        user_id: user.id
       });
       if (error) throw error;
       alert("✅ Gửi yêu cầu thành công! Admin sẽ kiểm tra và cập nhật môn này.");
@@ -400,7 +459,7 @@ export default function ScheduleBoard() {
             </div>
 
             <div className="flex gap-2 pt-1">
-              <button onClick={() => setIsReportModalOpen(true)} className="flex-1 flex items-center justify-center gap-1.5 p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-lg text-[10px] sm:text-xs font-bold transition-colors">
+              <button onClick={() => { setReportData({ course_code: '', subject_name: '', description: '' }); setIsReportModalOpen(true); }} className="flex-1 flex items-center justify-center gap-1.5 p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-lg text-[10px] sm:text-xs font-bold transition-colors">
                 <AlertTriangle size={14} /> Báo lỗi môn
               </button>
               <button onClick={() => setIsCreateCourseModalOpen(true)} className="flex-1 flex items-center justify-center gap-1.5 p-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 rounded-lg text-[10px] sm:text-xs font-bold transition-colors">
@@ -458,136 +517,193 @@ export default function ScheduleBoard() {
         </div>
       </div>
 
-      {/* CỘT PHẢI: LƯỚI THỜI KHÓA BIỂU */}
+      {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
       <div className="w-full lg:w-[72%] bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 p-4 sm:p-6 flex flex-col overflow-hidden h-fit lg:h-full">
         <div className="mb-4">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-[#003375] flex items-center gap-2">
-              <Calendar size={22} className="text-[#990000]" /> Lịch học theo tuần
+              <Calendar size={22} className="text-[#990000]" /> Lịch học cá nhân
             </h2>
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-1 bg-blue-50 text-[#003375] text-xs font-bold rounded-full border border-blue-200 hidden sm:block">{selectedSemester}</span>
+            
+            {/* ĐÃ THÊM: NÚT TOGGLE CHUYỂN ĐỔI CHẾ ĐỘ XEM */}
+            <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl">
+              <button onClick={() => setViewMode('week')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1 ${viewMode === 'week' ? 'bg-white shadow-sm text-[#003375]' : 'text-gray-500 hover:text-gray-700'}`}>
+                 Theo tuần
+              </button>
+              <button onClick={() => setViewMode('month')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1 ${viewMode === 'month' ? 'bg-white shadow-sm text-[#003375]' : 'text-gray-500 hover:text-gray-700'}`}>
+                 Theo tháng
+              </button>
+            </div>
+          </div>
+          
+          <div className="flex justify-between items-center mb-2">
+              {viewMode === 'week' ? (
+                 <span className="px-3 py-1 bg-blue-50 text-[#003375] text-xs font-bold rounded-full border border-blue-200">{selectedSemester}</span>
+              ) : (
+                 <span className="px-3 py-1 bg-purple-50 text-purple-700 text-xs font-bold rounded-full border border-purple-200 flex items-center gap-1"><CalendarDays size={14}/> Năm 2026 (Tất cả học kỳ)</span>
+              )}
+              
               <button 
                 onClick={() => setIsMyScheduleModalOpen(true)}
                 className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-200 shadow-sm hover:bg-green-200 transition-colors flex items-center gap-1.5 active:scale-95 cursor-pointer"
                 title="Xem danh sách môn đã thêm"
               >
-                <List size={14} strokeWidth={2.5}/> {mySchedule.length} môn
+                <List size={14} strokeWidth={2.5}/> Đã lưu {currentSemesterSchedule.length} môn
               </button>
-            </div>
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar" style={{ scrollbarWidth: 'none' }}>
-            <button 
-              onClick={() => setSelectedWeek(0)} 
-              className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border shrink-0 flex justify-center items-center gap-1 ${selectedWeek === 0 ? 'bg-[#003375] text-white border-[#003375] shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-            >
-               Tổng quát
-            </button>
-            
-            {Array.from({length: 24}, (_, i) => i + 1).map(w => (
-              <button key={w} onClick={() => setSelectedWeek(w)} className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border shrink-0 ${selectedWeek === w ? 'bg-[#003375] text-white border-[#003375] shadow-md' : HOLIDAY_WEEKS.includes(w) ? 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
-                Tuần {w}
-              </button>
-            ))}
           </div>
         </div>
 
-        {HOLIDAY_WEEKS.includes(selectedWeek) && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-bold flex items-center justify-center gap-2 animate-pulse text-center">
-            <Zap size={18} className="shrink-0" /> Tuần {selectedWeek} là tuần Nghỉ Tết, không có lịch học!
-          </div>
-        )}
-        
-        <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-inner overflow-hidden flex flex-col">
-          <div className="overflow-x-auto h-full w-full">
-            <table className="w-full min-w-[700px] border-collapse table-fixed h-full">
-              <thead>
-                <tr>
-                  <th className="w-[60px] sm:w-[70px] p-2 border-b-2 border-r border-gray-200 bg-[#f8fafc] text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider">Ca</th>
-                  {[2, 3, 4, 5, 6, 7, 8].map((day, index) => (
-                    <th key={day} className="p-2 border-b-2 border-gray-200 bg-[#f8fafc] text-center">
-                      <span className="block text-xs sm:text-sm font-bold text-[#003375] uppercase mb-0.5">Thứ {day === 8 ? 'CN' : day}</span>
-                      {selectedWeek !== 0 && (
-                        <span className="block text-[10px] sm:text-[11px] font-semibold text-[#990000] bg-red-50 rounded-md mx-auto w-fit px-1.5 border border-red-100">{currentWeekDates[index]}</span>
-                      )}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {['S', 'C'].map((shift) => (
-                  <tr key={shift}>
-                    <td className="p-2 border-r border-b border-gray-200 text-center bg-[#f8fafc] align-middle">
-                      <span className={`block text-xs sm:text-sm font-extrabold ${shift === 'S' ? 'text-orange-500' : 'text-indigo-500'}`}>{shift === 'S' ? 'SÁNG' : 'CHIỀU'}</span>
-                      <span className="text-[9px] sm:text-[10px] font-medium text-gray-500 mt-1 block leading-tight">{shift === 'S' ? '07:00\n11:05' : '13:00\n17:05'}</span>
-                    </td>
-                    
-                    {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
-                      
-                      const slotCourses = mySchedule.map(c => {
-                        const details = getCourseDetailsForSlot(c, day, selectedWeek, shift);
-                        return details ? { course: c, slotDetails: details } : null;
-                      }).filter(Boolean);
-
-                      const slotExams = mySchedule.filter(c => {
-                        if (!c.exam_date || !c.exam_shift) return false;
-                        if (selectedWeek === 0) return false; 
-                        const examDM = getExamDayMonth(c.exam_date);
-                        return examDM === currentWeekDates[index] && isExamInShift(c.exam_shift, shift);
-                      });
-                      
-                      return (
-                        <td key={`${shift}-${day}`} className="border border-gray-200 align-top bg-white hover:bg-gray-50/50 transition-colors p-1 sm:p-1.5 h-auto">
-                          <div className="flex flex-col gap-1.5 w-full">
-                            
-                            {slotCourses.map(({course, slotDetails}: any) => (
-                              <div key={course.id} onClick={() => setSelectedCourseInfo({ course, details: slotDetails })} className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-1.5 sm:p-2 relative group cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-blue-300 transition-all shrink-0 w-full">
-                                <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="absolute -top-2 -right-2 bg-white border border-red-200 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 z-10 shadow-sm"><X size={14} strokeWidth={3}/></button>
-                                <h4 className="font-bold text-[#003375] text-[10px] sm:text-[11px] leading-snug mb-1.5 line-clamp-3 break-words">{course.subject_name}</h4>
-                                <div className="flex flex-col gap-1 w-full">
-                                  <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-white border border-gray-200 text-gray-600 rounded text-[8px] sm:text-[9px] font-bold">{course.course_code}</span>
-                                  <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-[#990000]/10 text-[#990000] rounded text-[8px] sm:text-[9px] font-bold border border-[#990000]/20">P. {slotDetails.room}</span>
-                                </div>
-                              </div>
-                            ))}
-
-                            {slotExams.map(exam => (
-                              <div key={`exam-${exam.id}`} onClick={() => setSelectedCourseInfo({ course: exam })} className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-300 rounded-lg p-1.5 sm:p-2 relative group cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-orange-400 transition-all shrink-0 w-full">
-                                <div className="flex items-center gap-1 mb-1 text-orange-600"><Zap size={10} fill="currentColor" className="shrink-0"/><span className="text-[9px] font-black uppercase tracking-wider truncate">Lịch Thi</span></div>
-                                <h4 className="font-bold text-orange-900 text-[10px] sm:text-[11px] leading-snug mb-1.5 line-clamp-2 break-words">{exam.subject_name}</h4>
-                                <div className="flex flex-col gap-1 w-full">
-                                  <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-white text-orange-700 rounded text-[8px] sm:text-[9px] font-bold border border-orange-200">{exam.exam_shift}{getExamTime(exam.exam_shift) ? ` - ${getExamTime(exam.exam_shift)}` : ''}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
+        {/* ======================= HIỂN THỊ LỊCH TUẦN (CŨ) ======================= */}
+        {viewMode === 'week' && (
+           <>
+              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar mb-2" style={{ scrollbarWidth: 'none' }}>
+                <button onClick={() => setSelectedWeek(0)} className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border shrink-0 flex justify-center items-center gap-1 ${selectedWeek === 0 ? 'bg-[#003375] text-white border-[#003375] shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>Tổng quát</button>
+                {Array.from({length: 24}, (_, i) => i + 1).map(w => (
+                  <button key={w} onClick={() => setSelectedWeek(w)} className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border shrink-0 ${selectedWeek === w ? 'bg-[#003375] text-white border-[#003375] shadow-md' : HOLIDAY_WEEKS.includes(w) ? 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>Tuần {w}</button>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              </div>
+
+              {HOLIDAY_WEEKS.includes(selectedWeek) && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-bold flex items-center justify-center gap-2 animate-pulse text-center">
+                  <Zap size={18} className="shrink-0" /> Tuần {selectedWeek} là tuần Nghỉ Tết, không có lịch học!
+                </div>
+              )}
+              
+              <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-inner overflow-hidden flex flex-col">
+                <div className="overflow-x-auto h-full w-full">
+                  <table className="w-full min-w-[700px] border-collapse table-fixed h-full">
+                    <thead>
+                      <tr>
+                        <th className="w-[60px] sm:w-[70px] p-2 border-b-2 border-r border-gray-200 bg-[#f8fafc] text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider">Ca</th>
+                        {[2, 3, 4, 5, 6, 7, 8].map((day, index) => (
+                          <th key={day} className="p-2 border-b-2 border-gray-200 bg-[#f8fafc] text-center">
+                            <span className="block text-xs sm:text-sm font-bold text-[#003375] uppercase mb-0.5">Thứ {day === 8 ? 'CN' : day}</span>
+                            {selectedWeek !== 0 && (
+                              <span className="block text-[10px] sm:text-[11px] font-semibold text-[#990000] bg-red-50 rounded-md mx-auto w-fit px-1.5 border border-red-100">{currentWeekDates[index]}</span>
+                            )}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {['S', 'C'].map((shift) => (
+                        <tr key={shift}>
+                          <td className="p-2 border-r border-b border-gray-200 text-center bg-[#f8fafc] align-middle">
+                            <span className={`block text-xs sm:text-sm font-extrabold ${shift === 'S' ? 'text-orange-500' : 'text-indigo-500'}`}>{shift === 'S' ? 'SÁNG' : 'CHIỀU'}</span>
+                            <span className="text-[9px] sm:text-[10px] font-medium text-gray-500 mt-1 block leading-tight">{shift === 'S' ? '07:00\n11:05' : '13:00\n17:05'}</span>
+                          </td>
+                          
+                          {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
+                            const slotCourses = currentSemesterSchedule.map(c => {
+                              const details = getCourseDetailsForSlot(c, day, selectedWeek, shift);
+                              return details ? { course: c, slotDetails: details } : null;
+                            }).filter(Boolean);
+
+                            const slotExams = currentSemesterSchedule.filter(c => {
+                              if (!c.exam_date || !c.exam_shift) return false;
+                              if (selectedWeek === 0) return false; 
+                              const examDM = getExamDayMonth(c.exam_date);
+                              return examDM === currentWeekDates[index] && isExamInShift(c.exam_shift, shift);
+                            });
+                            
+                            return (
+                              <td key={`${shift}-${day}`} className="border border-gray-200 align-top bg-white hover:bg-gray-50/50 transition-colors p-1 sm:p-1.5 h-auto">
+                                <div className="flex flex-col gap-1.5 w-full">
+                                  {slotCourses.map(({course, slotDetails}: any) => (
+                                    <div key={course.id} onClick={() => setSelectedCourseInfo({ course, details: slotDetails })} className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-1.5 sm:p-2 relative group cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-blue-300 transition-all shrink-0 w-full">
+                                      <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="absolute -top-2 -right-2 bg-white border border-red-200 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 z-10 shadow-sm"><X size={14} strokeWidth={3}/></button>
+                                      <h4 className="font-bold text-[#003375] text-[10px] sm:text-[11px] leading-snug mb-1.5 line-clamp-3 break-words">{course.subject_name}</h4>
+                                      <div className="flex flex-col gap-1 w-full">
+                                        <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-white border border-gray-200 text-gray-600 rounded text-[8px] sm:text-[9px] font-bold">{course.course_code}</span>
+                                        <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-[#990000]/10 text-[#990000] rounded text-[8px] sm:text-[9px] font-bold border border-[#990000]/20">P. {slotDetails.room}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+
+                                  {slotExams.map(exam => (
+                                    <div key={`exam-${exam.id}`} onClick={() => setSelectedCourseInfo({ course: exam })} className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-300 rounded-lg p-1.5 sm:p-2 relative group cursor-pointer shadow-sm hover:shadow-md hover:ring-2 hover:ring-orange-400 transition-all shrink-0 w-full">
+                                      <div className="flex items-center gap-1 mb-1 text-orange-600"><Zap size={10} fill="currentColor" className="shrink-0"/><span className="text-[9px] font-black uppercase tracking-wider truncate">Lịch Thi</span></div>
+                                      <h4 className="font-bold text-orange-900 text-[10px] sm:text-[11px] leading-snug mb-1.5 line-clamp-2 break-words">{exam.subject_name}</h4>
+                                      <div className="flex flex-col gap-1 w-full">
+                                        <span className="block w-full break-words leading-tight px-1.5 py-0.5 bg-white text-orange-700 rounded text-[8px] sm:text-[9px] font-bold border border-orange-200">{exam.exam_shift}{getExamTime(exam.exam_shift) ? ` - ${getExamTime(exam.exam_shift)}` : ''}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+           </>
+        )}
+
+        {/* ======================= HIỂN THỊ LỊCH THÁNG (MỚI) ======================= */}
+        {viewMode === 'month' && (
+           <>
+              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar mb-2" style={{ scrollbarWidth: 'none' }}>
+                {Array.from({length: 12}, (_, i) => i).map(m => (
+                  <button key={m} onClick={() => setSelectedMonthIndex(m)} className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border shrink-0 ${selectedMonthIndex === m ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>Tháng {m + 1}</button>
+                ))}
+              </div>
+
+              <div className="flex-1 rounded-xl border border-gray-200 shadow-inner overflow-hidden flex flex-col">
+                 <div className="grid grid-cols-7 gap-px bg-gray-200 h-full overflow-y-auto custom-scrollbar">
+                    {['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'].map(d => (
+                       <div key={d} className="bg-[#f8fafc] text-center text-[10px] sm:text-xs font-bold py-2 text-[#003375] uppercase tracking-wider border-b border-gray-200">{d}</div>
+                    ))}
+                    
+                    {renderMonthDays().map((date, idx) => {
+                       if (!date) return <div key={`empty-${idx}`} className="bg-gray-50/50 min-h-[90px] sm:min-h-[110px]" />;
+                       
+                       // Kéo TẤT CẢ các môn học và lịch thi trong năm đổ vào từng ngày
+                       const dayCourses = getCoursesForDate(date, mySchedule);
+                       const dayExams = getExamsForDate(date, mySchedule);
+                       const isToday = new Date().toDateString() === date.toDateString();
+                       
+                       return (
+                          <div key={date.toISOString()} className={`bg-white min-h-[90px] sm:min-h-[110px] p-1 sm:p-1.5 border-t border-gray-100 transition-colors hover:bg-gray-50/50 ${isToday ? 'bg-blue-50/30 ring-1 ring-inset ring-blue-300' : ''}`}>
+                             <div className={`text-[10px] sm:text-xs font-bold text-center mb-1 ${isToday ? 'bg-blue-600 text-white rounded-full w-5 h-5 mx-auto flex items-center justify-center shadow-sm' : 'text-gray-500'}`}>
+                               {date.getDate()}
+                             </div>
+                             <div className="flex flex-col gap-1 overflow-hidden">
+                                {dayCourses.map((item: any, i: number) => (
+                                   <div key={i} onClick={() => setSelectedCourseInfo({course: item.course, details: item.details})} className={`text-[9px] sm:text-[10px] p-1 rounded truncate cursor-pointer font-bold border transition-colors ${item.shiftType === 'S' ? 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100' : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'}`}>
+                                      {item.course.subject_name.split(' ')[0]} - {getShiftDisplay(item.details.shift)}
+                                   </div>
+                                ))}
+                                {dayExams.map((exam: any, i: number) => (
+                                   <div key={`exam-${i}`} onClick={() => setSelectedCourseInfo({course: exam})} className="bg-red-100 text-red-700 text-[9px] sm:text-[10px] p-1 rounded truncate cursor-pointer font-black border border-red-200 hover:bg-red-200 flex items-center gap-1">
+                                      <Zap size={8} /> Thi {exam.subject_name.split(' ')[0]}
+                                   </div>
+                                ))}
+                             </div>
+                          </div>
+                       )
+                    })}
+                 </div>
+              </div>
+           </>
+        )}
       </div>
 
-      {/* MODAL CHI TIẾT MÔN (Đã sửa logic hiển thị gộp thời gian học) */}
+      {/* MODAL CHI TIẾT MÔN */}
       {selectedCourseInfo && (() => {
         const course = selectedCourseInfo.course;
         const details = selectedCourseInfo.details;
 
         let timeDisplayValue = '';
         if (details) {
-          // Bấm từ bên trong 1 ô của Bảng TKB: Chỉ hiện đúng giờ của ô đó
           timeDisplayValue = [
             `Thứ ${details.day}`,
             getShiftDisplay(details.shift),
             getCourseTimeLabel(details.shift)
           ].filter(Boolean).join('\n');
         } else {
-          // Bấm từ List môn: CỘNG GỘP và hiển thị toàn bộ lịch của môn học
           const dayArr = splitData(course.day_of_week);
           const shiftArr = splitData(course.shift);
           const combined = [];
@@ -598,7 +714,7 @@ export default function ScheduleBoard() {
               const tLabel = getCourseTimeLabel(s);
               combined.push(`Thứ ${d} • ${getShiftDisplay(s)}${tLabel ? ` (${tLabel})` : ''}`);
           }
-          timeDisplayValue = combined.join('\n'); // Nối các ngày lại bằng dấu xuống dòng
+          timeDisplayValue = combined.join('\n'); 
         }
 
         const modalRoom = details ? details.room : course.room?.replace(/\n/g, ' / ');
@@ -616,11 +732,7 @@ export default function ScheduleBoard() {
               
               <div className="p-5 sm:p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
                 <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <DetailItem 
-                    icon={<Clock />} 
-                    label="Thời gian học" 
-                    value={timeDisplayValue} 
-                  />
+                  <DetailItem icon={<Clock />} label="Thời gian học" value={timeDisplayValue} />
                   <DetailItem icon={<MapPin />} label="Địa điểm" value={`Phòng ${modalRoom}\n${course.campus || 'Chưa cập nhật'}`} />
                   <DetailItem icon={<Calendar />} label="Tuần học" value={`Tuần: ${modalWeeks}`} />
                   <DetailItem icon={<CheckCircle />} label="Tín chỉ" value={`${course.credits} tín chỉ`} />
@@ -638,11 +750,23 @@ export default function ScheduleBoard() {
                   <h3 className="text-orange-800 font-bold text-xs sm:text-sm mb-1.5 flex items-center gap-2"><Zap size={16} /> Lịch thi dự kiến</h3>
                   <p className="text-orange-700 text-xs sm:text-sm font-medium">Ngày thi: {course.exam_date || 'Chưa công bố'} • {course.exam_shift || ''}{course.exam_shift && getExamTime(course.exam_shift) ? ` - ${getExamTime(course.exam_shift)}` : ''}</p>
                 </div>
+
+                {/* NÚT BẤM BÁO CÁO NHANH TỪ MODAL */}
+                <button 
+                  onClick={() => {
+                    setReportData({ course_code: course.course_code, subject_name: course.subject_name, description: '' });
+                    setIsReportModalOpen(true);
+                    setSelectedCourseInfo(null);
+                  }}
+                  className="w-full text-center mt-2 text-[11px] sm:text-xs text-red-500 hover:text-red-700 hover:underline font-bold flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <AlertTriangle size={14} /> Báo cáo nếu môn học này sai thông tin
+                </button>
               </div>
               
               <div className="p-4 sm:p-5 border-t border-gray-100 bg-white flex gap-3 shrink-0 rounded-b-2xl">
                 <button onClick={() => setSelectedCourseInfo(null)} className="flex-1 py-2 sm:py-2.5 rounded-xl border-2 border-gray-200 text-gray-700 text-sm sm:text-base font-bold hover:bg-gray-50 transition-colors">Đóng</button>
-                {!mySchedule.some(c => c.id === course.id) && (
+                {!currentSemesterSchedule.some(c => c.id === course.id) && (
                   <button onClick={() => { addToSchedule(course); setSelectedCourseInfo(null); }} disabled={isSyncing} className="flex-1 py-2 sm:py-2.5 rounded-xl bg-[#003375] text-white text-sm sm:text-base font-bold hover:bg-[#002855] shadow-lg transition-all active:scale-95 flex justify-center gap-2"><Plus size={18} /> Thêm vào TKB</button>
                 )}
               </div>
@@ -658,19 +782,19 @@ export default function ScheduleBoard() {
             <div className="bg-gradient-to-r from-[#003375] to-blue-700 p-4 text-white flex items-center gap-2 justify-between rounded-t-2xl shrink-0">
               <div className="flex items-center gap-2">
                 <List size={20} strokeWidth={2.5} />
-                <h2 className="font-bold text-lg">Môn học đã đăng ký ({mySchedule.length})</h2>
+                <h2 className="font-bold text-lg">Môn học đã đăng ký ({currentSemesterSchedule.length})</h2>
               </div>
               <button onClick={() => setIsMyScheduleModalOpen(false)} className="text-white/70 hover:text-white transition-colors"><X size={22}/></button>
             </div>
 
             <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 bg-gray-50/50 rounded-b-2xl">
-              {mySchedule.length === 0 ? (
+              {currentSemesterSchedule.length === 0 ? (
                 <div className="text-center py-10 text-gray-500">
                   <Filter size={40} className="mx-auto text-gray-300 mb-3" />
                   <p className="font-medium text-sm">Chưa có môn học nào trong Thời khóa biểu.</p>
                 </div>
               ) : (
-                mySchedule.map(course => (
+                currentSemesterSchedule.map(course => (
                   <div key={course.id} className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between gap-3 hover:border-blue-300 transition-colors group">
                     <div className="flex-1 min-w-0">
                       {course.phase && <span className="bg-blue-50 text-blue-700 text-[9px] font-bold px-1.5 py-0.5 rounded mr-2 align-middle">Đợt {course.phase}</span>}
@@ -679,18 +803,8 @@ export default function ScheduleBoard() {
                       <p className="text-[11px] text-gray-500 font-medium mt-1.5 flex items-center gap-1.5"><User size={12} className="text-gray-400"/> {course.instructor || 'Chưa cập nhật'}</p>
                     </div>
                     <div className="flex flex-col gap-2 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => { setSelectedCourseInfo({ course }); setIsMyScheduleModalOpen(false); }} 
-                        className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-[11px] font-bold hover:bg-blue-100 flex items-center justify-center gap-1.5 border border-blue-100 transition-colors"
-                      >
-                        <Info size={14} strokeWidth={2.5}/> Chi tiết
-                      </button>
-                      <button 
-                        onClick={() => removeFromSchedule(course.id)} 
-                        className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[11px] font-bold hover:bg-red-100 flex items-center justify-center gap-1.5 border border-red-100 transition-colors"
-                      >
-                        <Trash2 size={14} strokeWidth={2.5}/> Xóa môn
-                      </button>
+                      <button onClick={() => { setSelectedCourseInfo({ course }); setIsMyScheduleModalOpen(false); }} className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-[11px] font-bold hover:bg-blue-100 flex items-center justify-center gap-1.5 border border-blue-100 transition-colors"><Info size={14} strokeWidth={2.5}/> Chi tiết</button>
+                      <button onClick={() => removeFromSchedule(course.id)} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[11px] font-bold hover:bg-red-100 flex items-center justify-center gap-1.5 border border-red-100 transition-colors"><Trash2 size={14} strokeWidth={2.5}/> Xóa môn</button>
                     </div>
                   </div>
                 ))
@@ -709,9 +823,18 @@ export default function ScheduleBoard() {
               <button onClick={() => setIsReportModalOpen(false)} className="text-white/70 hover:text-white"><X size={20}/></button>
             </div>
             <form onSubmit={handleReportSubmit} className="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1">
-              <div><label className="block text-xs font-bold text-gray-700 mb-1">Mã học phần *</label><input required value={reportData.course_code} onChange={e => setReportData({...reportData, course_code: e.target.value})} className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm"/></div>
-              <div><label className="block text-xs font-bold text-gray-700 mb-1">Tên môn học *</label><input required value={reportData.subject_name} onChange={e => setReportData({...reportData, subject_name: e.target.value})} className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm"/></div>
-              <div><label className="block text-xs font-bold text-gray-700 mb-1">Chi tiết sai sót *</label><textarea required rows={3} value={reportData.description} onChange={e => setReportData({...reportData, description: e.target.value})} className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm"></textarea></div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Mã học phần *</label>
+                <input required placeholder="VD: ACC718_2521_L04" value={reportData.course_code} onChange={e => setReportData({...reportData, course_code: e.target.value})} className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm"/>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Tên môn học *</label>
+                <input required placeholder="VD: Kế toán thuế" value={reportData.subject_name} onChange={e => setReportData({...reportData, subject_name: e.target.value})} className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm"/>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Chi tiết sai sót *</label>
+                <textarea required rows={3} placeholder="VD: Môn này phòng học đổi thành B1.101 rồi Admin ơi..." value={reportData.description} onChange={e => setReportData({...reportData, description: e.target.value})} className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none text-sm"></textarea>
+              </div>
               <button type="submit" disabled={isSubmittingReport} className="w-full py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg flex justify-center gap-2">{isSubmittingReport ? 'Đang gửi...' : <><Send size={16} /> Gửi báo cáo</>}</button>
             </form>
           </div>
