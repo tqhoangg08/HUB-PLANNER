@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, MessageSquare, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield, EyeOff } from 'lucide-react';
 import { playClick } from '../utils/audio';
@@ -274,6 +274,9 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
 
 // --- MAIN COMPONENT ---
 export const LostFoundBoard: React.FC = () => {
+    useEffect(() => {
+    document.title = "Tìm đồ thất lạc | HUB Planner";
+  }, []);
   const { isAdmin, isCTV, isStudent } = useUserRole();
   const canManage = isAdmin || isCTV;
 

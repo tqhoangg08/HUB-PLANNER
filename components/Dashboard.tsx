@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom'; 
 import { SubjectRankingModal } from './SubjectRankingModal';
 import { UserData, GradeStatus, Subject } from '../types';
@@ -111,6 +111,9 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ data, onTargetChange, showSecurityNotice }) => {
+    useEffect(() => {
+    document.title = "Tổng quan | HUB Planner";
+  }, []);
     const [showRankingModal, setShowRankingModal] = useState(false);
     const [showFailedModal, setShowFailedModal] = useState(false);
     // State cho modal tổng kết năm

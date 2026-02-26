@@ -155,6 +155,9 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
 // =======================================================================
 
 export default function ScheduleBoard() {
+  useEffect(() => {
+    document.title = "Thời khóa biểu | HUB Planner";
+  }, []);
   const [searchTerm, setSearchTerm] = useState('');
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
   

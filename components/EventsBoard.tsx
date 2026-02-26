@@ -713,6 +713,9 @@ const DiscussionModal = ({ event, onClose }: { event: {id: string, name: string}
 
 
 export const EventsBoard: React.FC = () => {
+    useEffect(() => {
+    document.title = "Sự kiện ĐRL | HUB Planner";
+  }, []);
   // Roles
   const { isAdmin, isCTV, session } = useUserRole();
   const canManage = isAdmin || isCTV;

@@ -11,6 +11,9 @@ import { supabase } from '../utils/supabase';
 type TabType = 'contacts' | 'bus' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about' | 'feedback' | 'donate';
 
 export const Handbook: React.FC = () => {
+    useEffect(() => {
+    document.title = "Cẩm nang | HUB Planner";
+  }, []);
     const [activeTab, setActiveTab] = useState<TabType>('contacts');
     const [searchTerm, setSearchTerm] = useState('');
     const [copiedId, setCopiedId] = useState<string | null>(null);
