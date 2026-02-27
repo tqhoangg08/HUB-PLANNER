@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../utils/supabase';
-// ĐÃ THÊM ICON MỚI CHO MODAL
+import { createPortal } from 'react-dom';
 import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 
@@ -178,11 +178,10 @@ const SchoolAnnouncements = () => {
           )}
         </div>
       </div>
-
-      {/* =========================================================
-          MODAL XEM TẤT CẢ (FULL MÀN HÌNH)
+{/* =========================================================
+          MODAL XEM TẤT CẢ (FULL MÀN HÌNH) BẰNG PORTAL
           ========================================================= */}
-      {isModalOpen && (
+      {isModalOpen && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 pt-16 lg:p-10" onClick={() => setIsModalOpen(false)}>
           <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
             
@@ -198,7 +197,7 @@ const SchoolAnnouncements = () => {
               <button onClick={() => setIsModalOpen(false)} className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all"><X size={20}/></button>
             </div>
 
-            {/* Thanh Tìm kiếm & Lọc */}
+            {/* Thanh Tìm kiếm & Lọc (Giữ nguyên) */}
             <div className="p-4 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row gap-3 shrink-0">
               <div className="relative flex-1">
                 <input 
@@ -223,7 +222,7 @@ const SchoolAnnouncements = () => {
               </div>
             </div>
 
-            {/* Danh sách Data Modal */}
+            {/* Danh sách Data Modal (Giữ nguyên) */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-2 sm:p-4 bg-white">
               {isLoadingModal ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
@@ -274,7 +273,7 @@ const SchoolAnnouncements = () => {
               )}
             </div>
 
-            {/* Thanh Phân trang (Pagination) */}
+            {/* Thanh Phân trang (Pagination) (Giữ nguyên) */}
             <div className="p-4 border-t border-gray-100 bg-gray-50 shrink-0 flex flex-col sm:flex-row justify-between items-center gap-3">
               <p className="text-xs text-gray-500 font-medium">
                 Hiển thị <span className="font-bold text-gray-800">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> - <span className="font-bold text-gray-800">{Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}</span> trong tổng số <span className="font-bold text-gray-800">{totalCount}</span> thông báo
@@ -304,7 +303,8 @@ const SchoolAnnouncements = () => {
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body 
       )}
     </>
   );
