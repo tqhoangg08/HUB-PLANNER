@@ -14,17 +14,12 @@ function normalizeLink(rawLink, baseOrigin) {
     if (!rawLink) return null;
     let link = rawLink.trim();
     
-    // Loại bỏ dấu slash ở cuối cùng nếu có (VD: .html/ -> .html)
     link = link.replace(/\/$/, '');
-
-    // Nếu là link trang cũ
     if (link.startsWith('javascript:')) return null; 
 
-    // Nối domain nếu thiếu
     if (link.startsWith('/')) {
         link = `${baseOrigin}${link}`;
     } else if (!link.startsWith('http')) {
-        // Trường hợp link dạng phongktdbcl.hub... (không có http)
         if (link.includes('hub.edu.vn')) {
             link = `https://${link}`;
         } else {
@@ -32,25 +27,23 @@ function normalizeLink(rawLink, baseOrigin) {
         }
     }
 
-    // Ép toàn bộ về https:// để đồng nhất Database
     link = link.replace(/^http:\/\//i, 'https://');
     return link;
 }
 
 // ============================================================================
-// HÀM CÀO DỮ LIỆU SIÊU TỐC (CHẠY SONG SONG CÁC TRANG)
+// HÀM CÀO DỮ LIỆU SIÊU TỐC VÀ TRUY VẾT NGÀY THÁNG ĐỊCH DANH CLASS
 // ============================================================================
 async function scrapeSource(source) {
-  // 1. Tạo danh sách tất cả các URL cần cào (Ví dụ: /page/1, /page/2...)
   const pageUrls = [source.url];
+  
   if (source.maxPages > 1 && source.type === 'modern') {
       const baseUrl = source.url.replace(/\/$/, '');
       for (let i = 2; i <= source.maxPages; i++) {
-          pageUrls.push(`${baseUrl}/page/${i}/`);
+          pageUrls.push(`${baseUrl}?trang=${i}`);
       }
   }
 
-  // 2. Bắn yêu cầu CÙNG LÚC tới tất cả các trang (Tránh bị Vercel Timeout)
   const fetchPromises = pageUrls.map(async (targetUrl) => {
       try {
           const res = await fetch(targetUrl);
@@ -67,9 +60,15 @@ async function scrapeSource(source) {
               
               let dateText = $(element).parent().find('.lillenews').text().trim(); 
               dateText = dateText.replace('[Ngày đăng:', '').replace(']', '').trim();
+              
               let isoDate = new Date().toISOString().split('T')[0]; 
+              let hasRealDate = false;
+              
               const parts = dateText.split('/'); 
-              if (parts.length === 3) isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+              if (parts.length === 3) {
+                  isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                  hasRealDate = true;
+              }
 
               let finalLink = rawLink;
               if (rawLink && rawLink.startsWith('javascript:')) {
@@ -78,7 +77,9 @@ async function scrapeSource(source) {
                   finalLink = `https://online.hub.edu.vn/${rawLink}`;
               }
 
-              if (title && finalLink) pageResults.push({ title, link: finalLink, date: isoDate });
+              if (title && finalLink) {
+                  pageResults.push({ title, link: finalLink, date: isoDate, hasRealDate });
+              }
             });
           } else {
             const urlObj = new URL(source.url);
@@ -86,33 +87,75 @@ async function scrapeSource(source) {
 
             $('a').each((index, element) => {
               const rawLink = $(element).attr('href');
+              
               if (!rawLink || !rawLink.includes('/thong-bao/')) return;
-              if (rawLink === '/thong-bao' || rawLink === '/thong-bao/' || rawLink.includes('/page/')) return;
+              if (rawLink === '/thong-bao' || rawLink === '/thong-bao/' || rawLink.includes('?trang=')) return;
 
               let title = $(element).text().replace(/\s+/g, ' ').trim();
               if (!title) title = $(element).attr('title')?.trim();
               if (!title) title = $(element).find('img').attr('alt')?.trim();
               if (!title || title.length < 15) return; 
 
-              // Sử dụng hàm chuẩn hóa link để chống Duplicate
               const finalLink = normalizeLink(rawLink, baseOrigin);
               if (!finalLink) return;
 
-              // === THUẬT TOÁN BẮT NGÀY THÁNG THÔNG MINH (SỬA LỖI BUG 3) ===
-              // Gom toàn bộ text của 3 cấp thẻ cha để chắc chắn không lọt mất ngày
-              let surroundingText = $(element).text() + " " + $(element).parent().text() + " " + $(element).parent().parent().text();
-              let isoDate = new Date().toISOString().split('T')[0]; 
+              // 👇 TÌM NGÀY THÁNG DỰA TRÊN CLASS CHÍNH XÁC MÀ BẠN CUNG CẤP 👇
+              let dateFound = null;
               
-              // Regex mạnh mẽ: Bắt mọi định dạng dd/mm/yyyy, dd-mm-yyyy, dd mm.yyyy
-              const dateMatch = surroundingText.match(/\b(\d{1,2})[\s\/\-\.]+(\d{1,2})[\s\/\-\.]+(\d{4})\b/);
-              if (dateMatch) {
-                  const day = dateMatch[1].padStart(2, '0');
-                  const month = dateMatch[2].padStart(2, '0');
-                  const year = dateMatch[3];
-                  isoDate = `${year}-${month}-${day}`; // Format chuẩn DB
+              // 1. Tìm cái "hộp" to nhất chứa cả tiêu đề và ngày tháng (Dựa vào hình F12 của bạn)
+              const cardContainer = $(element).closest('.notification-item, .news-item, article');
+
+              if (cardContainer.length > 0) {
+                  // Kịch bản A: Dành cho CLC và ĐBCL (Tách đôi day và month-year)
+                  const dayEl = cardContainer.find('.date .day');
+                  const monthYearEl = cardContainer.find('.date .month-year');
+                  
+                  if (dayEl.length > 0 && monthYearEl.length > 0) {
+                      const day = dayEl.text().trim().padStart(2, '0');
+                      const monthYear = monthYearEl.text().trim(); // Dạng "02.2026"
+                      const parts = monthYear.split('.');
+                      if (parts.length === 2) {
+                          const month = parts[0].padStart(2, '0');
+                          const year = parts[1];
+                          dateFound = `${year}-${month}-${day}`;
+                      }
+                  } 
+                  // Kịch bản B: Dành cho SCC (Dùng class news-date)
+                  else {
+                      const newsDateEl = cardContainer.find('.news-date');
+                      if (newsDateEl.length > 0) {
+                          const textDate = newsDateEl.text().trim(); // Dạng "11/09/2021"
+                          const match = textDate.match(/(\d{1,2})[\/\-\.]+(\d{1,2})[\/\-\.]+(\d{4})/);
+                          if (match) {
+                              const day = match[1].padStart(2, '0');
+                              const month = match[2].padStart(2, '0');
+                              const year = match[3];
+                              dateFound = `${year}-${month}-${day}`;
+                          }
+                      }
+                  }
+
+                  // Kịch bản C: Phương án dự phòng cuối cùng (Quét text nếu web lén đổi tên Class)
+                  if (!dateFound) {
+                      let text = cardContainer.text().replace(/\s+/g, ' ').trim();
+                      const match = text.match(/\b(\d{1,2})[\s\/\-\.]+(\d{1,2})[\s\/\-\.]+(\d{4})\b/);
+                      if (match) {
+                          const day = match[1].padStart(2, '0');
+                          const month = match[2].padStart(2, '0');
+                          const year = match[3];
+                          dateFound = `${year}-${month}-${day}`;
+                      }
+                  }
               }
 
-              pageResults.push({ title, link: finalLink, date: isoDate });
+              let isoDate = dateFound || new Date().toISOString().split('T')[0]; 
+              
+              pageResults.push({ 
+                  title, 
+                  link: finalLink, 
+                  date: isoDate, 
+                  hasRealDate: !!dateFound 
+              });
             });
           }
           return pageResults;
@@ -121,12 +164,10 @@ async function scrapeSource(source) {
       }
   });
 
-  // Chờ tất cả các trang cào xong và gộp lại thành 1 mảng lớn
   const resultsArrays = await Promise.all(fetchPromises);
   return resultsArrays.flat();
 }
 
-// Hàm chia nhỏ mảng (Tránh sập Supabase khi check 1000 link cùng lúc)
 const chunkArray = (arr, size) => Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
 
 // ============================================================================
@@ -156,13 +197,11 @@ export default async function handler(request, response) {
 
     if (specificTarget) SOURCES = SOURCES.filter(s => s.id === specificTarget);
 
-    // 1. Cào song song
     const scrapedArrays = await Promise.all(SOURCES.map(scrapeSource));
     const allScrapedData = scrapedArrays.flat(); 
 
     if (allScrapedData.length === 0) return response.status(200).json({ message: "Không tìm thấy tin nào." });
 
-    // 2. Lọc trùng lặp nội bộ (Giữ lại link gốc)
     const uniqueMap = new Map();
     allScrapedData.forEach(item => {
         if (!uniqueMap.has(item.link) || uniqueMap.get(item.link).title.length < item.title.length) {
@@ -171,7 +210,6 @@ export default async function handler(request, response) {
     });
     const finalScrapedData = Array.from(uniqueMap.values());
 
-    // 3. Đối chiếu DB cũ (Chia lô 300 link mỗi lần để tránh quá tải Server)
     const linksToCheck = finalScrapedData.map(item => item.link);
     const linkChunks = chunkArray(linksToCheck, 300);
     const existingRecords = [];
@@ -187,17 +225,24 @@ export default async function handler(request, response) {
     const existingMap = new Map();
     existingRecords.forEach(record => existingMap.set(record.link, record));
 
-    // 4. Chuẩn bị dữ liệu
+    // CƠ CHẾ TỰ CHỮA LÀNH DỮ LIỆU
     const recordsToUpsert = finalScrapedData.map(item => {
         const existingRecord = existingMap.get(item.link);
+        let finalDate = item.date;
+        
+        // Nếu bắt được ngày xịn, ghi đè luôn ngày cũ đang bị sai (2026-02-27)
+        if (existingRecord && !item.hasRealDate) {
+            finalDate = existingRecord.date;
+        }
+
         return {
-            ...item,
-            date: existingRecord ? existingRecord.date : item.date, // Tôn trọng ngày của DB nếu đã tồn tại
+            title: item.title,
+            link: item.link,
+            date: finalDate, 
             is_new: !existingRecord 
         };
     });
 
-    // 5. Lưu vào Supabase (Lưu từng lô 300 tin để an toàn)
     const upsertChunks = chunkArray(recordsToUpsert, 300);
     for (const chunk of upsertChunks) {
         const { error } = await supabase
@@ -211,7 +256,7 @@ export default async function handler(request, response) {
 
     return response.status(200).json({ 
         success: true, 
-        message: `Đã quét ${SOURCES.reduce((acc, curr) => acc + curr.maxPages, 0)} trang. Cào được ${recordsToUpsert.length} tin. Bỏ qua trùng lặp. Thêm mới thành công ${newItemsCount} tin.`,
+        message: `Đã quét ${SOURCES.reduce((acc, curr) => acc + curr.maxPages, 0)} trang. Xử lý ${recordsToUpsert.length} tin. Hệ thống đã dò chính xác cấu trúc HTML và sửa lỗi ngày!`,
     });
 
   } catch (error) {
