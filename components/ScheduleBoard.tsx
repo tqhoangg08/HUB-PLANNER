@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
@@ -191,6 +191,47 @@ export default function ScheduleBoard() {
 
   // Tách riêng schedule của kỳ hiện tại cho Lịch Tuần
   const currentSemesterSchedule = mySchedule.filter(c => c.semester === selectedSemester);
+
+  // 👇 ================= HỆ THỐNG KÉO THẢ CHUỘT (DRAG TO SCROLL) ================= 👇
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    isDragging.current = true;
+    if (scrollRef.current) {
+        scrollRef.current.classList.add('cursor-grabbing');
+        scrollRef.current.classList.remove('cursor-grab');
+        startX.current = e.pageX - scrollRef.current.offsetLeft;
+        scrollLeft.current = scrollRef.current.scrollLeft;
+    }
+  };
+
+  const handleMouseLeave = () => {
+    isDragging.current = false;
+    if (scrollRef.current) {
+        scrollRef.current.classList.remove('cursor-grabbing');
+        scrollRef.current.classList.add('cursor-grab');
+    }
+  };
+
+  const handleMouseUp = () => {
+    isDragging.current = false;
+    if (scrollRef.current) {
+        scrollRef.current.classList.remove('cursor-grabbing');
+        scrollRef.current.classList.add('cursor-grab');
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging.current || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startX.current) * 1.5; // Tốc độ lướt
+    scrollRef.current.scrollLeft = scrollLeft.current - walk;
+  };
+  // 👆 ========================================================================= 👆
 
   useEffect(() => { fetchCourses(); }, [searchTerm, selectedSemester, selectedPhase]);
   useEffect(() => { fetchMySchedule(); }, []);
@@ -555,10 +596,17 @@ export default function ScheduleBoard() {
           </div>
         </div>
 
-        {/* ======================= HIỂN THỊ LỊCH TUẦN (CŨ) ======================= */}
+        {/* ======================= HIỂN THỊ LỊCH TUẦN ======================= */}
         {viewMode === 'week' && (
            <>
-              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar mb-2" style={{ scrollbarWidth: 'none' }}>
+              <div 
+                  ref={scrollRef}
+                  onMouseDown={handleMouseDown}
+                  onMouseLeave={handleMouseLeave}
+                  onMouseUp={handleMouseUp}
+                  onMouseMove={handleMouseMove}
+                  className="flex gap-2 overflow-x-auto pb-3 custom-scrollbar mb-2 cursor-grab select-none" 
+              >
                 <button onClick={() => setSelectedWeek(0)} className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border shrink-0 flex justify-center items-center gap-1 ${selectedWeek === 0 ? 'bg-[#003375] text-white border-[#003375] shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>Tổng quát</button>
                 {Array.from({length: 24}, (_, i) => i + 1).map(w => (
                   <button key={w} onClick={() => setSelectedWeek(w)} className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border shrink-0 ${selectedWeek === w ? 'bg-[#003375] text-white border-[#003375] shadow-md' : HOLIDAY_WEEKS.includes(w) ? 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>Tuần {w}</button>
@@ -572,7 +620,7 @@ export default function ScheduleBoard() {
               )}
               
               <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-inner overflow-hidden flex flex-col">
-                <div className="overflow-x-auto h-full w-full">
+                <div className="overflow-x-auto h-full w-full custom-scrollbar">
                   <table className="w-full min-w-[700px] border-collapse table-fixed h-full">
                     <thead>
                       <tr>
@@ -644,10 +692,17 @@ export default function ScheduleBoard() {
            </>
         )}
 
-        {/* ======================= HIỂN THỊ LỊCH THÁNG (MỚI) ======================= */}
+        {/* ======================= HIỂN THỊ LỊCH THÁNG ======================= */}
         {viewMode === 'month' && (
            <>
-              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar mb-2" style={{ scrollbarWidth: 'none' }}>
+              <div 
+                  ref={scrollRef}
+                  onMouseDown={handleMouseDown}
+                  onMouseLeave={handleMouseLeave}
+                  onMouseUp={handleMouseUp}
+                  onMouseMove={handleMouseMove}
+                  className="flex gap-2 overflow-x-auto pb-3 custom-scrollbar mb-2 cursor-grab select-none" 
+              >
                 {Array.from({length: 12}, (_, i) => i).map(m => (
                   <button key={m} onClick={() => setSelectedMonthIndex(m)} className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border shrink-0 ${selectedMonthIndex === m ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>Tháng {m + 1}</button>
                 ))}
