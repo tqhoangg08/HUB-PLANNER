@@ -7,9 +7,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY 
 );
 
-// ============================================================================
-// HÀM CHUẨN HÓA LINK (CHỐNG TRÙNG LẶP RÁC)
-// ============================================================================
 function normalizeLink(rawLink, baseOrigin) {
     if (!rawLink) return null;
     let link = rawLink.trim().replace(/\/$/, '');
@@ -23,9 +20,6 @@ function normalizeLink(rawLink, baseOrigin) {
     return link.replace(/^http:\/\//i, 'https://');
 }
 
-// ============================================================================
-// HÀM CÀO DỮ LIỆU SIÊU TỐC ĐA NỀN TẢNG (OLD, MODERN, LIBRARY)
-// ============================================================================
 async function scrapeSource(source) {
   const pageUrls = [source.url];
   
@@ -34,7 +28,6 @@ async function scrapeSource(source) {
           const baseUrl = source.url.replace(/\/$/, '');
           for (let i = 2; i <= source.maxPages; i++) pageUrls.push(`${baseUrl}?trang=${i}`);
       } else if (source.type === 'library') {
-          // Trang library.hub dùng cấu trúc &Page=2
           for (let i = 2; i <= source.maxPages; i++) pageUrls.push(`${source.url}&Page=${i}`);
       }
   }
@@ -48,9 +41,6 @@ async function scrapeSource(source) {
           const $ = cheerio.load(html);
           let pageResults = [];
 
-          // -------------------------------------------------------------
-          // 1. TRANG CŨ (online.hub.edu.vn)
-          // -------------------------------------------------------------
           if (source.type === 'old') {
             $('a.titlenews').each((index, element) => {
               const title = $(element).text().trim();
@@ -74,14 +64,10 @@ async function scrapeSource(source) {
               if (title && finalLink) pageResults.push({ title, link: finalLink, date: isoDate, hasRealDate });
             });
           } 
-          // -------------------------------------------------------------
-          // 2. TRANG ĐẶC BIỆT THƯ VIỆN (library.hub.edu.vn)
-          // -------------------------------------------------------------
           else if (source.type === 'library') {
             const baseOrigin = 'https://library.hub.edu.vn';
             $('a').each((index, element) => {
               const rawLink = $(element).attr('href');
-              // Lọc chỉ lấy link chứa bài viết (ArticleId)
               if (!rawLink || !rawLink.toLowerCase().includes('articleid=')) return;
 
               let title = $(element).text().replace(/\s+/g, ' ').trim();
@@ -91,31 +77,22 @@ async function scrapeSource(source) {
               if (!finalLink) return;
 
               let dateFound = null;
-              // Dò tìm class "topic_ngay" xung quanh link
               let container = $(element).closest('div, td, tr');
               let text = container.text().replace(/\s+/g, ' ').trim();
               
-              // Bắt cụm "Đăng ngày: 14/02/2026"
               const match = text.match(/(\d{1,2})[\/\-\.]+(\d{1,2})[\/\-\.]+(\d{4})/);
-              if (match) {
-                  dateFound = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
-              }
+              if (match) dateFound = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
 
               let isoDate = dateFound || new Date().toISOString().split('T')[0]; 
               pageResults.push({ title, link: finalLink, date: isoDate, hasRealDate: !!dateFound });
             });
           }
-          // -------------------------------------------------------------
-          // 3. CÁC TRANG HIỆN ĐẠI (CLC, ĐBCL, Đào tạo, CNTT, Tổ chức...)
-          // -------------------------------------------------------------
           else if (source.type === 'modern') {
             const urlObj = new URL(source.url);
             const baseOrigin = urlObj.origin;
 
             $('a').each((index, element) => {
               const rawLink = $(element).attr('href');
-              
-              // Lọc bao quát: Cứ là link bài viết (đuôi .html) thì lấy, bỏ qua nút bấm phân trang
               if (!rawLink || !rawLink.endsWith('.html')) return;
               if (rawLink.includes('?trang=')) return;
 
@@ -186,7 +163,6 @@ export default async function handler(request, response) {
 
     logger.info(`Bắt đầu cào thông báo. Chế độ sâu: ${isDeepScrape}, Mục tiêu: ${specificTarget || 'Tất cả'}`);
 
-    // ĐẠI GIA ĐÌNH 11 TRANG WEB CỦA HUB 🚀
     let SOURCES = [
       { id: 'old', url: 'https://online.hub.edu.vn/', type: 'old', maxPages: 1 },
       { id: 'dbcl', url: 'https://phongktdbcl.hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 14 : 1 },
@@ -208,40 +184,41 @@ export default async function handler(request, response) {
 
     if (allScrapedData.length === 0) return response.status(200).json({ message: "Không tìm thấy tin nào." });
 
-    // 1. Lọc trùng lặp nội bộ dựa trên Tiêu đề
+    // 1. Lọc trùng lặp nội bộ (Dựa vào CẢ LINK và TITLE)
     const uniqueMap = new Map();
     allScrapedData.forEach(item => {
-        const normalizedTitle = item.title.trim().toLowerCase().replace(/\s+/g, ' ');
-        if (!uniqueMap.has(normalizedTitle)) {
-            uniqueMap.set(normalizedTitle, item);
+        // Ưu tiên gom nhóm bằng Link trước
+        if (!uniqueMap.has(item.link)) {
+            uniqueMap.set(item.link, item);
         }
     });
     const finalScrapedData = Array.from(uniqueMap.values());
 
-    // 2. Đối chiếu DB cũ
+    // 2. Kéo danh sách Link VÀ Title từ DB lên để đối chiếu
+    const linksToCheck = finalScrapedData.map(item => item.link);
     const titlesToCheck = finalScrapedData.map(item => item.title.trim());
-    const titleChunks = chunkArray(titlesToCheck, 300);
-    const existingRecords = [];
+    
+    const existingLinksSet = new Set();
+    const existingTitlesSet = new Set();
 
-    for (const chunk of titleChunks) {
-        const { data, error } = await supabase
-            .from('school_announcements')
-            .select('title') 
-            .in('title', chunk);
-        if (!error && data) existingRecords.push(...data);
+    // Check Links
+    for (const chunk of chunkArray(linksToCheck, 300)) {
+        const { data, error } = await supabase.from('school_announcements').select('link').in('link', chunk);
+        if (!error && data) data.forEach(r => existingLinksSet.add(r.link));
     }
 
-    const existingTitlesMap = new Map();
-    existingRecords.forEach(record => {
-        const normTitle = record.title.trim().toLowerCase().replace(/\s+/g, ' ');
-        existingTitlesMap.set(normTitle, true);
-    });
+    // Check Titles
+    for (const chunk of chunkArray(titlesToCheck, 300)) {
+        const { data, error } = await supabase.from('school_announcements').select('title').in('title', chunk);
+        if (!error && data) data.forEach(r => existingTitlesSet.add(r.title.trim().toLowerCase().replace(/\s+/g, ' ')));
+    }
 
-    // 3. Chuẩn bị dữ liệu Insert
+    // 3. Chuẩn bị dữ liệu (BỘ LỌC KÉP: Trùng Link HOẶC trùng Title -> Vứt)
     const recordsToInsert = [];
     finalScrapedData.forEach(item => {
         const normTitle = item.title.trim().toLowerCase().replace(/\s+/g, ' ');
-        if (!existingTitlesMap.has(normTitle)) {
+        
+        if (!existingLinksSet.has(item.link) && !existingTitlesSet.has(normTitle)) {
             recordsToInsert.push({
                 title: item.title,
                 link: item.link,
@@ -251,13 +228,14 @@ export default async function handler(request, response) {
         }
     });
 
-    // 4. Lưu vào Supabase
+    // 4. Lưu vào Supabase (Dùng UPSERT + Bỏ qua lỗi Duplicate)
     if (recordsToInsert.length > 0) {
         const insertChunks = chunkArray(recordsToInsert, 300);
         for (const chunk of insertChunks) {
             const { error } = await supabase
                 .from('school_announcements')
-                .insert(chunk);
+                // KHIÊN BẢO VỆ: Lỡ có cái link nào sót, Supabase sẽ âm thầm bỏ qua, ko báo lỗi đỏ!
+                .upsert(chunk, { onConflict: 'link', ignoreDuplicates: true });
             if (error) throw error;
         }
     }
@@ -266,7 +244,7 @@ export default async function handler(request, response) {
 
     return response.status(200).json({ 
         success: true, 
-        message: `Đã quét ${SOURCES.reduce((acc, curr) => acc + curr.maxPages, 0)} trang. Cào được ${finalScrapedData.length} tin tổng hợp. Thêm mới ${recordsToInsert.length} tin.`,
+        message: `Đã quét ${SOURCES.reduce((acc, curr) => acc + curr.maxPages, 0)} trang. Đã lọc bỏ thông báo trùng Link HOẶC Tiêu đề. Bổ sung thành công ${recordsToInsert.length} tin MỚI.`,
     });
 
   } catch (error) {
