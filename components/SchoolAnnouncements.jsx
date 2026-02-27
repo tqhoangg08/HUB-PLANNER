@@ -12,8 +12,8 @@ const SchoolAnnouncements = () => {
         const { data, error } = await supabase
           .from('school_announcements')
           .select('*')
-          .order('date', { ascending: false }) // Cảnh báo Admin: Phải giữ đúng format date là YYYY-MM-DD
-          .order('created_at', { ascending: false }) // Dự phòng nếu trùng ngày
+          .order('date', { ascending: false }) 
+          .order('created_at', { ascending: false }) 
           .limit(10); 
         
         if (error) throw error;
@@ -46,16 +46,21 @@ const SchoolAnnouncements = () => {
         ) : (
           news.map((item) => {
             // =================================================================
-            // THUẬT TOÁN XỬ LÝ LINK THÔNG MINH & AN TOÀN CHO ADMIN
+            // THUẬT TOÁN XỬ LÝ LINK THÔNG MINH & TỰ ĐỘNG VÁ LỖI CHO ADMIN
             // =================================================================
-            let finalLink = 'https://online.hub.edu.vn/'; // Mặc định an toàn 100%
-            let isCustomLink = false; // Biến kiểm tra xem có phải link Admin tự gắn không
+            let finalLink = 'https://online.hub.edu.vn/'; 
+            let isCustomLink = false; 
             
             if (item.link && typeof item.link === 'string') {
-                const linkStr = item.link.toLowerCase();
-                // Nếu link KHÔNG chứa mã ảo của trường -> Đây là link thật Admin gắn!
+                const linkStr = item.link.toLowerCase().trim(); // Lọc khoảng trắng thừa
+                
                 if (!linkStr.includes('javascript') && !linkStr.includes('dopostback')) {
-                    finalLink = item.link;
+                    // CƠ CHẾ MỚI: Tự động đắp thêm 'https://' nếu Admin quên gõ
+                    if (!linkStr.startsWith('http://') && !linkStr.startsWith('https://')) {
+                        finalLink = 'https://' + item.link.trim();
+                    } else {
+                        finalLink = item.link.trim();
+                    }
                     isCustomLink = true;
                 }
             }
@@ -80,7 +85,6 @@ const SchoolAnnouncements = () => {
                 <div className="flex justify-between items-center mt-1.5 lg:mt-1">
                   <span className="text-[9px] lg:text-[10px] text-gray-400 flex items-center gap-1">
                     {formatDate(item.date)}
-                    {/* Báo hiệu nhẹ cho sinh viên biết đây là link do Admin dán */}
                     {isCustomLink && <span className="text-emerald-500 ml-1 font-semibold">• Đính kèm link</span>}
                   </span>
                   <ExternalLink className={`${isCustomLink ? 'text-emerald-500' : 'text-gray-300 group-hover:text-blue-400'} w-3 h-3 lg:w-3 lg:h-3 transition-colors`}/>
