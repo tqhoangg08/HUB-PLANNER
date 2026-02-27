@@ -168,7 +168,6 @@ const SchoolAnnouncements = () => {
                   <div className="flex justify-between items-center mt-1.5 lg:mt-1">
                     <span className="text-[9px] lg:text-[10px] text-gray-400 flex items-center gap-1">
                       {formatDate(item.date)}
-                      {isCustomLink && <span className="text-emerald-500 ml-1 font-semibold">• Đính kèm link</span>}
                     </span>
                     <ExternalLink className={`${isCustomLink ? 'text-emerald-500' : 'text-gray-300 group-hover:text-blue-400'} w-3 h-3 lg:w-3 lg:h-3 transition-colors`}/>
                   </div>
@@ -257,11 +256,6 @@ const SchoolAnnouncements = () => {
                         </div>
                         
                         <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
-                          {isCustomLink ? (
-                             <span className="text-emerald-600 text-[10px] font-bold bg-emerald-50 px-2 py-1 rounded border border-emerald-100">Đính kèm Link</span>
-                          ) : (
-                             <span className="text-gray-400 text-[10px] font-medium">Nguồn: online.hub.edu.vn</span>
-                          )}
                           <div className="text-[#003375] text-[11px] font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                              Xem chi tiết <ChevronRight size={14}/>
                           </div>
