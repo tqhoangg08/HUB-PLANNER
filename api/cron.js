@@ -8,87 +8,126 @@ const supabase = createClient(
 );
 
 // ============================================================================
-// HÀM CÀO DỮ LIỆU ĐA TRANG (PAGINATION SCRAPING)
+// HÀM CHUẨN HÓA LINK (CHỐNG TRÙNG LẶP RÁC)
+// ============================================================================
+function normalizeLink(rawLink, baseOrigin) {
+    if (!rawLink) return null;
+    let link = rawLink.trim();
+    
+    // Loại bỏ dấu slash ở cuối cùng nếu có (VD: .html/ -> .html)
+    link = link.replace(/\/$/, '');
+
+    // Nếu là link trang cũ
+    if (link.startsWith('javascript:')) return null; 
+
+    // Nối domain nếu thiếu
+    if (link.startsWith('/')) {
+        link = `${baseOrigin}${link}`;
+    } else if (!link.startsWith('http')) {
+        // Trường hợp link dạng phongktdbcl.hub... (không có http)
+        if (link.includes('hub.edu.vn')) {
+            link = `https://${link}`;
+        } else {
+            link = `${baseOrigin}/${link}`;
+        }
+    }
+
+    // Ép toàn bộ về https:// để đồng nhất Database
+    link = link.replace(/^http:\/\//i, 'https://');
+    return link;
+}
+
+// ============================================================================
+// HÀM CÀO DỮ LIỆU SIÊU TỐC (CHẠY SONG SONG CÁC TRANG)
 // ============================================================================
 async function scrapeSource(source) {
-  let allResults = [];
-
-  for (let page = 1; page <= source.maxPages; page++) {
-    try {
-      let targetUrl = source.url;
-      if (source.type === 'modern' && page > 1) {
-          targetUrl = `${source.url}/page/${page}/`;
+  // 1. Tạo danh sách tất cả các URL cần cào (Ví dụ: /page/1, /page/2...)
+  const pageUrls = [source.url];
+  if (source.maxPages > 1 && source.type === 'modern') {
+      const baseUrl = source.url.replace(/\/$/, '');
+      for (let i = 2; i <= source.maxPages; i++) {
+          pageUrls.push(`${baseUrl}/page/${i}/`);
       }
-
-      const res = await fetch(targetUrl);
-      if (!res.ok) break; 
-
-      const html = await res.text();
-      const $ = cheerio.load(html);
-      let pageResults = [];
-
-      if (source.type === 'old') {
-        $('a.titlenews').each((index, element) => {
-          const title = $(element).text().trim();
-          let rawLink = $(element).attr('href');
-          
-          let dateText = $(element).parent().find('.lillenews').text().trim(); 
-          dateText = dateText.replace('[Ngày đăng:', '').replace(']', '').trim();
-          let isoDate = new Date().toISOString().split('T')[0]; 
-          const parts = dateText.split('/'); 
-          if (parts.length === 3) isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-
-          let finalLink = rawLink;
-          if (rawLink && rawLink.startsWith('javascript:')) {
-              finalLink = `https://online.hub.edu.vn/#id=${Buffer.from(title).toString('base64')}`; 
-          } else if (rawLink && !rawLink.startsWith('http')) {
-              finalLink = `https://online.hub.edu.vn/${rawLink}`;
-          }
-
-          if (title && finalLink) pageResults.push({ title, link: finalLink, date: isoDate });
-        });
-      } else {
-        const urlObj = new URL(source.url);
-        const baseOrigin = urlObj.origin;
-
-        $('a').each((index, element) => {
-          const rawLink = $(element).attr('href');
-          
-          if (!rawLink || !rawLink.includes('/thong-bao/')) return;
-          if (rawLink === '/thong-bao' || rawLink === '/thong-bao/' || rawLink.includes('/page/')) return;
-
-          let title = $(element).text().replace(/\s+/g, ' ').trim();
-          if (!title) title = $(element).attr('title')?.trim();
-          if (!title) title = $(element).find('img').attr('alt')?.trim();
-          
-          if (!title || title.length < 15) return; 
-
-          let finalLink = rawLink;
-          if (rawLink.startsWith('/')) finalLink = `${baseOrigin}${rawLink}`;
-          else if (!rawLink.startsWith('http')) finalLink = `${baseOrigin}/${rawLink}`;
-
-          let cardText = $(element).closest('div, li, article, section').text().replace(/\s+/g, ' ');
-          let isoDate = new Date().toISOString().split('T')[0]; 
-          
-          const dateMatch = cardText.match(/(\d{1,2})[\s\/\-\.]+(\d{1,2})[\/\-\.]+(\d{4})/);
-          if (dateMatch) {
-              isoDate = `${dateMatch[3]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[1].padStart(2, '0')}`;
-          }
-
-          pageResults.push({ title, link: finalLink, date: isoDate });
-        });
-      }
-
-      if (pageResults.length === 0) break; 
-      allResults = allResults.concat(pageResults);
-
-    } catch (err) {
-      console.error(`Lỗi cào ${source.url} ở trang ${page}:`, err.message);
-      break; 
-    }
   }
-  return allResults;
+
+  // 2. Bắn yêu cầu CÙNG LÚC tới tất cả các trang (Tránh bị Vercel Timeout)
+  const fetchPromises = pageUrls.map(async (targetUrl) => {
+      try {
+          const res = await fetch(targetUrl);
+          if (!res.ok) return []; 
+
+          const html = await res.text();
+          const $ = cheerio.load(html);
+          let pageResults = [];
+
+          if (source.type === 'old') {
+            $('a.titlenews').each((index, element) => {
+              const title = $(element).text().trim();
+              let rawLink = $(element).attr('href');
+              
+              let dateText = $(element).parent().find('.lillenews').text().trim(); 
+              dateText = dateText.replace('[Ngày đăng:', '').replace(']', '').trim();
+              let isoDate = new Date().toISOString().split('T')[0]; 
+              const parts = dateText.split('/'); 
+              if (parts.length === 3) isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+
+              let finalLink = rawLink;
+              if (rawLink && rawLink.startsWith('javascript:')) {
+                  finalLink = `https://online.hub.edu.vn/#id=${Buffer.from(title).toString('base64')}`; 
+              } else if (rawLink && !rawLink.startsWith('http')) {
+                  finalLink = `https://online.hub.edu.vn/${rawLink}`;
+              }
+
+              if (title && finalLink) pageResults.push({ title, link: finalLink, date: isoDate });
+            });
+          } else {
+            const urlObj = new URL(source.url);
+            const baseOrigin = urlObj.origin;
+
+            $('a').each((index, element) => {
+              const rawLink = $(element).attr('href');
+              if (!rawLink || !rawLink.includes('/thong-bao/')) return;
+              if (rawLink === '/thong-bao' || rawLink === '/thong-bao/' || rawLink.includes('/page/')) return;
+
+              let title = $(element).text().replace(/\s+/g, ' ').trim();
+              if (!title) title = $(element).attr('title')?.trim();
+              if (!title) title = $(element).find('img').attr('alt')?.trim();
+              if (!title || title.length < 15) return; 
+
+              // Sử dụng hàm chuẩn hóa link để chống Duplicate
+              const finalLink = normalizeLink(rawLink, baseOrigin);
+              if (!finalLink) return;
+
+              // === THUẬT TOÁN BẮT NGÀY THÁNG THÔNG MINH (SỬA LỖI BUG 3) ===
+              // Gom toàn bộ text của 3 cấp thẻ cha để chắc chắn không lọt mất ngày
+              let surroundingText = $(element).text() + " " + $(element).parent().text() + " " + $(element).parent().parent().text();
+              let isoDate = new Date().toISOString().split('T')[0]; 
+              
+              // Regex mạnh mẽ: Bắt mọi định dạng dd/mm/yyyy, dd-mm-yyyy, dd mm.yyyy
+              const dateMatch = surroundingText.match(/\b(\d{1,2})[\s\/\-\.]+(\d{1,2})[\s\/\-\.]+(\d{4})\b/);
+              if (dateMatch) {
+                  const day = dateMatch[1].padStart(2, '0');
+                  const month = dateMatch[2].padStart(2, '0');
+                  const year = dateMatch[3];
+                  isoDate = `${year}-${month}-${day}`; // Format chuẩn DB
+              }
+
+              pageResults.push({ title, link: finalLink, date: isoDate });
+            });
+          }
+          return pageResults;
+      } catch (err) {
+          return []; 
+      }
+  });
+
+  // Chờ tất cả các trang cào xong và gộp lại thành 1 mảng lớn
+  const resultsArrays = await Promise.all(fetchPromises);
+  return resultsArrays.flat();
 }
+
+// Hàm chia nhỏ mảng (Tránh sập Supabase khi check 1000 link cùng lúc)
+const chunkArray = (arr, size) => Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
 
 // ============================================================================
 // HÀM XỬ LÝ CHÍNH
@@ -103,13 +142,11 @@ export default async function handler(request, response) {
   }
 
   try {
-    // ĐỌC CÁC CÔNG TẮC TỪ URL CỦA ADMIN
-    const isDeepScrape = request.query?.deep === 'true'; // Cờ hiệu cào vét cạn
-    const specificTarget = request.query?.target;        // Cờ hiệu chọn đích danh 1 khoa để cào
+    const isDeepScrape = request.query?.deep === 'true'; 
+    const specificTarget = request.query?.target;        
 
     logger.info(`Bắt đầu cào thông báo. Chế độ sâu: ${isDeepScrape}, Mục tiêu: ${specificTarget || 'Tất cả'}`);
 
-    // Cấu hình linh hoạt số trang dựa trên cờ hiệu "deep"
     let SOURCES = [
       { id: 'old', url: 'https://online.hub.edu.vn/', type: 'old', maxPages: 1 },
       { id: 'dbcl', url: 'https://phongktdbcl.hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 14 : 1 },
@@ -117,10 +154,7 @@ export default async function handler(request, response) {
       { id: 'clc', url: 'https://clc.hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 60 : 1 }
     ];
 
-    // Nếu Admin chỉ định mục tiêu cụ thể, chỉ cào thằng đó để tránh sập máy chủ
-    if (specificTarget) {
-      SOURCES = SOURCES.filter(s => s.id === specificTarget);
-    }
+    if (specificTarget) SOURCES = SOURCES.filter(s => s.id === specificTarget);
 
     // 1. Cào song song
     const scrapedArrays = await Promise.all(SOURCES.map(scrapeSource));
@@ -128,7 +162,7 @@ export default async function handler(request, response) {
 
     if (allScrapedData.length === 0) return response.status(200).json({ message: "Không tìm thấy tin nào." });
 
-    // 2. Lọc trùng lặp nội bộ
+    // 2. Lọc trùng lặp nội bộ (Giữ lại link gốc)
     const uniqueMap = new Map();
     allScrapedData.forEach(item => {
         if (!uniqueMap.has(item.link) || uniqueMap.get(item.link).title.length < item.title.length) {
@@ -137,14 +171,18 @@ export default async function handler(request, response) {
     });
     const finalScrapedData = Array.from(uniqueMap.values());
 
-    // 3. Đối chiếu DB cũ
+    // 3. Đối chiếu DB cũ (Chia lô 300 link mỗi lần để tránh quá tải Server)
     const linksToCheck = finalScrapedData.map(item => item.link);
-    const { data: existingRecords, error: fetchError } = await supabase
-        .from('school_announcements')
-        .select('link, date') 
-        .in('link', linksToCheck);
+    const linkChunks = chunkArray(linksToCheck, 300);
+    const existingRecords = [];
 
-    if (fetchError) throw fetchError;
+    for (const chunk of linkChunks) {
+        const { data, error } = await supabase
+            .from('school_announcements')
+            .select('link, date') 
+            .in('link', chunk);
+        if (!error && data) existingRecords.push(...data);
+    }
 
     const existingMap = new Map();
     existingRecords.forEach(record => existingMap.set(record.link, record));
@@ -154,17 +192,18 @@ export default async function handler(request, response) {
         const existingRecord = existingMap.get(item.link);
         return {
             ...item,
-            date: existingRecord ? existingRecord.date : item.date,
+            date: existingRecord ? existingRecord.date : item.date, // Tôn trọng ngày của DB nếu đã tồn tại
             is_new: !existingRecord 
         };
     });
 
-    // 5. Lưu vào Supabase
-    if (recordsToUpsert.length > 0) {
-      const { error } = await supabase
-        .from('school_announcements')
-        .upsert(recordsToUpsert, { onConflict: 'link', ignoreDuplicates: false });
-      if (error) throw error;
+    // 5. Lưu vào Supabase (Lưu từng lô 300 tin để an toàn)
+    const upsertChunks = chunkArray(recordsToUpsert, 300);
+    for (const chunk of upsertChunks) {
+        const { error } = await supabase
+            .from('school_announcements')
+            .upsert(chunk, { onConflict: 'link', ignoreDuplicates: false });
+        if (error) throw error;
     }
 
     const newItemsCount = recordsToUpsert.filter(i => i.is_new).length;
@@ -172,7 +211,7 @@ export default async function handler(request, response) {
 
     return response.status(200).json({ 
         success: true, 
-        message: `Đã quét hoàn tất. Tổng thu thập: ${recordsToUpsert.length} tin. Thêm mới ${newItemsCount} tin.`,
+        message: `Đã quét ${SOURCES.reduce((acc, curr) => acc + curr.maxPages, 0)} trang. Cào được ${recordsToUpsert.length} tin. Bỏ qua trùng lặp. Thêm mới thành công ${newItemsCount} tin.`,
     });
 
   } catch (error) {
