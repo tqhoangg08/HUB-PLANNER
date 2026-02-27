@@ -15,6 +15,7 @@ const SchoolAnnouncements = () => {
   const [modalNews, setModalNews] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [inputPage, setInputPage] = useState("1"); // State cho ô nhập số trang
   const [isLoadingModal, setIsLoadingModal] = useState(false);
 
   // Bộ lọc
@@ -88,7 +89,24 @@ const SchoolAnnouncements = () => {
     }
   }, [searchQuery]);
 
-  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
+
+  // Đồng bộ ô nhập trang với currentPage khi bấm nút mũi tên
+  useEffect(() => {
+    setInputPage(currentPage.toString());
+  }, [currentPage]);
+
+  // Xử lý khi người dùng gõ số trang và bấm Enter
+  const handlePageSubmit = (e) => {
+    if (e.key === 'Enter' || e.type === 'blur') {
+      let newPage = parseInt(inputPage, 10);
+      if (isNaN(newPage) || newPage < 1) newPage = 1;
+      if (newPage > totalPages) newPage = totalPages;
+      
+      setCurrentPage(newPage);
+      setInputPage(newPage.toString());
+    }
+  };
 
   // =================================================================
   // HÀM HELPER: XỬ LÝ LINK THÔNG MINH BẢO VỆ ADMIN
@@ -141,7 +159,6 @@ const SchoolAnnouncements = () => {
                   title={item.title}
                 >
                   <div className="flex justify-between items-start gap-2">
-                    {/* ĐÃ SỬA: Tiêu đề màu xám đậm, hover mới lên xanh */}
                     <p className="text-xs lg:text-sm font-medium text-gray-800 group-hover:text-[#003375] line-clamp-2 leading-snug transition-colors">
                       {item.title}
                     </p>
@@ -180,7 +197,7 @@ const SchoolAnnouncements = () => {
             </div>
 
             {/* Thanh Tìm kiếm & Lọc */}
-            <div className="p-4 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row gap-3 shrink-0">
+            <div className="p-3 sm:p-4 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row gap-3 shrink-0">
               <div className="relative flex-1">
                 <input 
                   type="text" 
@@ -191,14 +208,16 @@ const SchoolAnnouncements = () => {
                 />
                 <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
               </div>
-              <div className="flex gap-2">
-                <div className="relative flex-1 sm:w-36">
-                  <input type="date" value={startDate} onChange={(e) => {setStartDate(e.target.value); setCurrentPage(1);}} className="w-full pl-8 pr-2 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-xs text-gray-600 transition-all"/>
+              {/* ĐÃ SỬA: Dùng Grid 2 cột trên Mobile để không bị dính nét */}
+              <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-3">
+                <div className="relative w-full sm:w-36">
+                  <input type="date" value={startDate} onChange={(e) => {setStartDate(e.target.value); setCurrentPage(1);}} className="w-full pl-7 pr-1 sm:pr-2 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-[11px] sm:text-xs text-gray-600 transition-all"/>
                   <Calendar className="absolute left-2.5 top-2.5 text-gray-400" size={14} />
                 </div>
-                <div className="flex items-center text-gray-400">-</div>
-                <div className="relative flex-1 sm:w-36">
-                  <input type="date" value={endDate} onChange={(e) => {setEndDate(e.target.value); setCurrentPage(1);}} className="w-full pl-8 pr-2 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-xs text-gray-600 transition-all"/>
+                {/* Ẩn dấu '-' trên mobile để tiết kiệm không gian */}
+                <div className="hidden sm:flex items-center text-gray-400">-</div>
+                <div className="relative w-full sm:w-36">
+                  <input type="date" value={endDate} onChange={(e) => {setEndDate(e.target.value); setCurrentPage(1);}} className="w-full pl-7 pr-1 sm:pr-2 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-[11px] sm:text-xs text-gray-600 transition-all"/>
                   <Calendar className="absolute left-2.5 top-2.5 text-gray-400" size={14} />
                 </div>
               </div>
@@ -234,14 +253,12 @@ const SchoolAnnouncements = () => {
                                <Calendar size={10}/> {formatDate(item.date)}
                             </span>
                           </div>
-                          {/* ĐÃ SỬA: Tiêu đề màu xám đậm, hover lên xanh */}
                           <p className="text-sm font-bold text-gray-800 group-hover:text-[#003375] line-clamp-3 leading-snug transition-colors">
                             {item.title}
                           </p>
                         </div>
                         
                         <div className="flex items-center justify-end mt-3 pt-3 border-t border-gray-50">
-                          {/* Giữ màu xanh làm điểm nhấn kêu gọi hành động (CTA) */}
                           <div className="text-[#003375] text-[11px] font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                              Xem chi tiết <ChevronRight size={14}/>
                           </div>
@@ -253,31 +270,43 @@ const SchoolAnnouncements = () => {
               )}
             </div>
 
-            {/* Thanh Phân trang (Pagination) */}
-            <div className="p-4 border-t border-gray-100 bg-gray-50 shrink-0 flex flex-col sm:flex-row justify-between items-center gap-3">
-              <p className="text-xs text-gray-500 font-medium">
+            {/* Thanh Phân trang (Pagination) CẢI TIẾN */}
+            <div className="p-3 sm:p-4 border-t border-gray-100 bg-gray-50 shrink-0 flex flex-col sm:flex-row justify-between items-center gap-3">
+              <p className="text-[11px] sm:text-xs text-gray-500 font-medium">
                 Hiển thị <span className="font-bold text-gray-800">{totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}</span> - <span className="font-bold text-gray-800">{Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}</span> trong tổng số <span className="font-bold text-gray-800">{totalCount}</span> thông báo
               </p>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <button 
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1 || isLoadingModal}
-                  className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="p-1.5 sm:p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  <ChevronLeft size={18} />
+                  <ChevronLeft size={16} />
                 </button>
                 
-                <div className="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-100 text-[#003375] font-bold text-sm min-w-[80px] text-center">
-                  {currentPage} / {totalPages || 1}
+                {/* ĐÃ SỬA: Đổi thành Input để nhập số */}
+                <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-blue-50 border border-blue-100 text-[#003375] font-bold text-xs sm:text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-300">
+                  <input
+                    type="number"
+                    value={inputPage}
+                    onChange={(e) => setInputPage(e.target.value)}
+                    onBlur={handlePageSubmit}
+                    onKeyDown={handlePageSubmit}
+                    disabled={isLoadingModal}
+                    className="w-8 sm:w-10 text-center bg-white border border-blue-200 rounded outline-none py-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    min="1"
+                    max={totalPages}
+                  />
+                  <span className="whitespace-nowrap px-1">/ {totalPages}</span>
                 </div>
 
                 <button 
                   onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                   disabled={currentPage >= totalPages || isLoadingModal}
-                  className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="p-1.5 sm:p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  <ChevronRight size={18} />
+                  <ChevronRight size={16} />
                 </button>
               </div>
             </div>

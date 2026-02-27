@@ -1,322 +1,266 @@
-import React, { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { supabase } from '../utils/supabase';
-import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
-import { formatDate } from '../utils/dateUtils';
+import { createClient } from '@supabase/supabase-js';
+import * as cheerio from 'cheerio';
+import logger from './logger.js';
 
-const ITEMS_PER_PAGE = 10;
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL, 
+  process.env.SUPABASE_SERVICE_ROLE_KEY 
+);
 
-const SchoolAnnouncements = () => {
-  // === STATE CHO WIDGET BÊN NGOÀI ===
-  const [news, setNews] = useState([]);
+// ============================================================================
+// HÀM CHUẨN HÓA LINK (CHỐNG TRÙNG LẶP RÁC)
+// ============================================================================
+function normalizeLink(rawLink, baseOrigin) {
+    if (!rawLink) return null;
+    let link = rawLink.trim();
+    
+    link = link.replace(/\/$/, '');
+    if (link.startsWith('javascript:')) return null; 
 
-  // === STATE CHO MODAL XEM TẤT CẢ ===
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalNews, setModalNews] = useState([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [inputPage, setInputPage] = useState("1"); // State cho ô nhập số trang
-  const [isLoadingModal, setIsLoadingModal] = useState(false);
-
-  // Bộ lọc
-  const [searchQuery, setSearchQuery] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-
-  // 1. FETCH 10 TIN MỚI NHẤT CHO WIDGET BÊN NGOÀI
-  useEffect(() => {
-    const fetchNews = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('school_announcements')
-          .select('*')
-          .order('date', { ascending: false }) 
-          .order('created_at', { ascending: false }) 
-          .limit(10); 
-        
-        if (error) throw error;
-        if (data) setNews(data);
-      } catch (err) {
-        console.error("Lỗi tải thông báo trường:", err);
-      }
-    };
-    fetchNews();
-  }, []);
-
-  // 2. FETCH DATA CHO MODAL KHI MỞ HOẶC KHI ĐỔI TRANG/BỘ LỌC
-  const fetchModalNews = async () => {
-    setIsLoadingModal(true);
-    try {
-      let query = supabase
-        .from('school_announcements')
-        .select('*', { count: 'exact' });
-
-      if (searchQuery) query = query.ilike('title', `%${searchQuery}%`);
-      if (startDate) query = query.gte('date', startDate);
-      if (endDate) query = query.lte('date', endDate);
-
-      query = query.order('date', { ascending: false }).order('created_at', { ascending: false });
-
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
-      query = query.range(from, to);
-
-      const { data, count, error } = await query;
-
-      if (error) throw error;
-      if (data) {
-        setModalNews(data);
-        setTotalCount(count || 0);
-      }
-    } catch (err) {
-      console.error("Lỗi tải Modal thông báo:", err);
-    } finally {
-      setIsLoadingModal(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isModalOpen) fetchModalNews();
-  }, [isModalOpen, currentPage, startDate, endDate]);
-
-  useEffect(() => {
-    if (isModalOpen) {
-      const delayDebounceFn = setTimeout(() => {
-        setCurrentPage(1); 
-        fetchModalNews();
-      }, 500); 
-      return () => clearTimeout(delayDebounceFn);
-    }
-  }, [searchQuery]);
-
-  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
-
-  // Đồng bộ ô nhập trang với currentPage khi bấm nút mũi tên
-  useEffect(() => {
-    setInputPage(currentPage.toString());
-  }, [currentPage]);
-
-  // Xử lý khi người dùng gõ số trang và bấm Enter
-  const handlePageSubmit = (e) => {
-    if (e.key === 'Enter' || e.type === 'blur') {
-      let newPage = parseInt(inputPage, 10);
-      if (isNaN(newPage) || newPage < 1) newPage = 1;
-      if (newPage > totalPages) newPage = totalPages;
-      
-      setCurrentPage(newPage);
-      setInputPage(newPage.toString());
-    }
-  };
-
-  // =================================================================
-  // HÀM HELPER: XỬ LÝ LINK THÔNG MINH BẢO VỆ ADMIN
-  // =================================================================
-  const processLinkData = (item) => {
-    let finalLink = 'https://online.hub.edu.vn/'; 
-    if (item.link && typeof item.link === 'string') {
-        const linkStr = item.link.toLowerCase().trim(); 
-        if (!linkStr.includes('javascript') && !linkStr.includes('dopostback')) {
-            if (!linkStr.startsWith('http://') && !linkStr.startsWith('https://')) {
-                finalLink = 'https://' + item.link.trim();
-            } else {
-                finalLink = item.link.trim();
-            }
+    if (link.startsWith('/')) {
+        link = `${baseOrigin}${link}`;
+    } else if (!link.startsWith('http')) {
+        if (link.includes('hub.edu.vn')) {
+            link = `https://${link}`;
+        } else {
+            link = `${baseOrigin}/${link}`;
         }
     }
-    return finalLink;
-  };
 
-  return (
-    <>
-      {/* =========================================================
-          GIAO DIỆN WIDGET BÊN NGOÀI DASHBOARD
-          ========================================================= */}
-      <div className="bg-white min-h-full rounded-xl overflow-hidden border border-gray-100 shadow-sm flex flex-col"> 
-        <div className="bg-[#003375] px-3 py-2 lg:px-4 lg:py-3 flex justify-between items-center z-20 shrink-0">
-          <h3 className="text-white font-bold text-xs lg:text-sm flex items-center gap-1.5 lg:gap-2">
-            <Bell className="w-3.5 h-3.5 lg:w-4 lg:h-4 animate-pulse"/> 
-            <span className="truncate">THÔNG BÁO TỪ TRƯỜNG (HUB)</span>
-          </h3>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="text-[10px] lg:text-xs text-blue-200 hover:text-white underline shrink-0 cursor-pointer font-medium"
-          >
-            Xem tất cả
-          </button>
-        </div>
-        
-        <div className="divide-y divide-gray-100 overflow-y-auto custom-scrollbar flex-1">
-          {news.length === 0 ? (
-            <div className="p-4 text-center text-xs text-gray-400">Đang cập nhật dữ liệu...</div>
-          ) : (
-            news.map((item) => {
-              const finalLink = processLinkData(item);
+    link = link.replace(/^http:\/\//i, 'https://');
+    return link;
+}
 
-              return (
-                <a 
-                  key={item.id} href={finalLink} target="_blank" rel="noreferrer"
-                  className="block p-2 lg:p-3 hover:bg-blue-50 transition-colors group relative"
-                  title={item.title}
-                >
-                  <div className="flex justify-between items-start gap-2">
-                    <p className="text-xs lg:text-sm font-medium text-gray-800 group-hover:text-[#003375] line-clamp-2 leading-snug transition-colors">
-                      {item.title}
-                    </p>
-                    {item.is_new && <span className="bg-red-500 text-white text-[8px] lg:text-[9px] px-1 lg:px-1.5 py-0.5 rounded font-bold shrink-0">MỚI</span>}
-                  </div>
-                  <div className="flex justify-between items-center mt-1.5 lg:mt-1">
-                    <span className="text-[9px] lg:text-[10px] text-gray-400 flex items-center gap-1">
-                      {formatDate(item.date)}
-                    </span>
-                    <ExternalLink className="text-gray-300 group-hover:text-blue-400 w-3 h-3 lg:w-3 lg:h-3 transition-colors"/>
-                  </div>
-                </a>
-              );
-            })
-          )}
-        </div>
-      </div>
+// ============================================================================
+// HÀM CÀO DỮ LIỆU SIÊU TỐC VÀ TRUY VẾT NGÀY THÁNG ĐỊCH DANH CLASS
+// ============================================================================
+async function scrapeSource(source) {
+  const pageUrls = [source.url];
+  
+  if (source.maxPages > 1 && source.type === 'modern') {
+      const baseUrl = source.url.replace(/\/$/, '');
+      for (let i = 2; i <= source.maxPages; i++) {
+          pageUrls.push(`${baseUrl}?trang=${i}`);
+      }
+  }
 
-      {/* =========================================================
-          MODAL XEM TẤT CẢ BẰNG PORTAL
-          ========================================================= */}
-      {isModalOpen && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 pt-16 lg:p-10" onClick={() => setIsModalOpen(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-            
-            {/* Header Modal */}
-            <div className="bg-gradient-to-r from-[#003375] to-blue-700 p-4 sm:p-5 text-white flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="bg-white/20 p-2 rounded-lg"><Bell size={20} /></div>
-                <div>
-                  <h2 className="font-bold text-base sm:text-lg leading-tight">Kho thông báo HUB</h2>
-                  <p className="text-blue-200 text-[10px] sm:text-xs">Hệ thống tra cứu dữ liệu thông báo</p>
-                </div>
-              </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all"><X size={20}/></button>
-            </div>
+  const fetchPromises = pageUrls.map(async (targetUrl) => {
+      try {
+          const res = await fetch(targetUrl);
+          if (!res.ok) return []; 
 
-            {/* Thanh Tìm kiếm & Lọc */}
-            <div className="p-3 sm:p-4 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row gap-3 shrink-0">
-              <div className="relative flex-1">
-                <input 
-                  type="text" 
-                  placeholder="Nhập tên thông báo cần tìm..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 focus:border-[#003375] focus:ring-2 focus:ring-blue-500/20 outline-none text-sm transition-all"
-                />
-                <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-              </div>
-              {/* ĐÃ SỬA: Dùng Grid 2 cột trên Mobile để không bị dính nét */}
-              <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-3">
-                <div className="relative w-full sm:w-36">
-                  <input type="date" value={startDate} onChange={(e) => {setStartDate(e.target.value); setCurrentPage(1);}} className="w-full pl-7 pr-1 sm:pr-2 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-[11px] sm:text-xs text-gray-600 transition-all"/>
-                  <Calendar className="absolute left-2.5 top-2.5 text-gray-400" size={14} />
-                </div>
-                {/* Ẩn dấu '-' trên mobile để tiết kiệm không gian */}
-                <div className="hidden sm:flex items-center text-gray-400">-</div>
-                <div className="relative w-full sm:w-36">
-                  <input type="date" value={endDate} onChange={(e) => {setEndDate(e.target.value); setCurrentPage(1);}} className="w-full pl-7 pr-1 sm:pr-2 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-[11px] sm:text-xs text-gray-600 transition-all"/>
-                  <Calendar className="absolute left-2.5 top-2.5 text-gray-400" size={14} />
-                </div>
-              </div>
-            </div>
+          const html = await res.text();
+          const $ = cheerio.load(html);
+          let pageResults = [];
 
-            {/* Danh sách Data Modal */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-2 sm:p-4 bg-white">
-              {isLoadingModal ? (
-                <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
-                  <Filter size={30} className="animate-pulse" />
-                  <p className="text-sm font-medium">Đang truy xuất dữ liệu...</p>
-                </div>
-              ) : modalNews.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
-                  <Search size={40} className="text-gray-200" />
-                  <p className="text-sm font-medium text-gray-500">Không tìm thấy thông báo nào phù hợp.</p>
-                  <button onClick={() => {setSearchQuery(''); setStartDate(''); setEndDate('');}} className="mt-2 text-xs text-[#003375] font-bold hover:underline">Xóa bộ lọc</button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {modalNews.map((item) => {
-                    const finalLink = processLinkData(item);
-
-                    return (
-                      <a 
-                        key={item.id} href={finalLink} target="_blank" rel="noreferrer"
-                        className="p-3 sm:p-4 rounded-xl border border-gray-100 bg-white hover:border-blue-300 hover:shadow-md transition-all group flex flex-col justify-between h-full"
-                      >
-                        <div>
-                          <div className="flex justify-between items-start gap-2 mb-2">
-                            {item.is_new && <span className="bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0">MỚI</span>}
-                            <span className={`text-[10px] text-gray-400 flex items-center gap-1 font-medium bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100 ${!item.is_new ? 'ml-auto' : ''}`}>
-                               <Calendar size={10}/> {formatDate(item.date)}
-                            </span>
-                          </div>
-                          <p className="text-sm font-bold text-gray-800 group-hover:text-[#003375] line-clamp-3 leading-snug transition-colors">
-                            {item.title}
-                          </p>
-                        </div>
-                        
-                        <div className="flex items-center justify-end mt-3 pt-3 border-t border-gray-50">
-                          <div className="text-[#003375] text-[11px] font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                             Xem chi tiết <ChevronRight size={14}/>
-                          </div>
-                        </div>
-                      </a>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Thanh Phân trang (Pagination) CẢI TIẾN */}
-            <div className="p-3 sm:p-4 border-t border-gray-100 bg-gray-50 shrink-0 flex flex-col sm:flex-row justify-between items-center gap-3">
-              <p className="text-[11px] sm:text-xs text-gray-500 font-medium">
-                Hiển thị <span className="font-bold text-gray-800">{totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}</span> - <span className="font-bold text-gray-800">{Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}</span> trong tổng số <span className="font-bold text-gray-800">{totalCount}</span> thông báo
-              </p>
+          if (source.type === 'old') {
+            $('a.titlenews').each((index, element) => {
+              const title = $(element).text().trim();
+              let rawLink = $(element).attr('href');
               
-              <div className="flex items-center gap-1 sm:gap-2">
-                <button 
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1 || isLoadingModal}
-                  className="p-1.5 sm:p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                
-                {/* ĐÃ SỬA: Đổi thành Input để nhập số */}
-                <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-blue-50 border border-blue-100 text-[#003375] font-bold text-xs sm:text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-300">
-                  <input
-                    type="number"
-                    value={inputPage}
-                    onChange={(e) => setInputPage(e.target.value)}
-                    onBlur={handlePageSubmit}
-                    onKeyDown={handlePageSubmit}
-                    disabled={isLoadingModal}
-                    className="w-8 sm:w-10 text-center bg-white border border-blue-200 rounded outline-none py-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    min="1"
-                    max={totalPages}
-                  />
-                  <span className="whitespace-nowrap px-1">/ {totalPages}</span>
-                </div>
+              let dateText = $(element).parent().find('.lillenews').text().trim(); 
+              dateText = dateText.replace('[Ngày đăng:', '').replace(']', '').trim();
+              
+              let isoDate = new Date().toISOString().split('T')[0]; 
+              let hasRealDate = false;
+              
+              const parts = dateText.split('/'); 
+              if (parts.length === 3) {
+                  isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                  hasRealDate = true;
+              }
 
-                <button 
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage >= totalPages || isLoadingModal}
-                  className="p-1.5 sm:p-2 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
+              let finalLink = rawLink;
+              if (rawLink && rawLink.startsWith('javascript:')) {
+                  finalLink = `https://online.hub.edu.vn/#id=${Buffer.from(title).toString('base64')}`; 
+              } else if (rawLink && !rawLink.startsWith('http')) {
+                  finalLink = `https://online.hub.edu.vn/${rawLink}`;
+              }
 
-          </div>
-        </div>,
-        document.body
-      )}
-    </>
-  );
-};
+              if (title && finalLink) {
+                  pageResults.push({ title, link: finalLink, date: isoDate, hasRealDate });
+              }
+            });
+          } else {
+            const urlObj = new URL(source.url);
+            const baseOrigin = urlObj.origin;
 
-export default SchoolAnnouncements;
+            $('a').each((index, element) => {
+              const rawLink = $(element).attr('href');
+              
+              if (!rawLink || !rawLink.includes('/thong-bao/')) return;
+              if (rawLink === '/thong-bao' || rawLink === '/thong-bao/' || rawLink.includes('?trang=')) return;
+
+              let title = $(element).text().replace(/\s+/g, ' ').trim();
+              if (!title) title = $(element).attr('title')?.trim();
+              if (!title) title = $(element).find('img').attr('alt')?.trim();
+              if (!title || title.length < 15) return; 
+
+              const finalLink = normalizeLink(rawLink, baseOrigin);
+              if (!finalLink) return;
+
+              // 👇 TÌM NGÀY THÁNG DỰA TRÊN CLASS CHÍNH XÁC MÀ BẠN CUNG CẤP 👇
+              let dateFound = null;
+              
+              // 1. Tìm cái "hộp" to nhất chứa cả tiêu đề và ngày tháng (Dựa vào hình F12 của bạn)
+              const cardContainer = $(element).closest('.notification-item, .news-item, article');
+
+              if (cardContainer.length > 0) {
+                  // Kịch bản A: Dành cho CLC và ĐBCL (Tách đôi day và month-year)
+                  const dayEl = cardContainer.find('.date .day');
+                  const monthYearEl = cardContainer.find('.date .month-year');
+                  
+                  if (dayEl.length > 0 && monthYearEl.length > 0) {
+                      const day = dayEl.text().trim().padStart(2, '0');
+                      const monthYear = monthYearEl.text().trim(); // Dạng "02.2026"
+                      const parts = monthYear.split('.');
+                      if (parts.length === 2) {
+                          const month = parts[0].padStart(2, '0');
+                          const year = parts[1];
+                          dateFound = `${year}-${month}-${day}`;
+                      }
+                  } 
+                  // Kịch bản B: Dành cho SCC (Dùng class news-date)
+                  else {
+                      const newsDateEl = cardContainer.find('.news-date');
+                      if (newsDateEl.length > 0) {
+                          const textDate = newsDateEl.text().trim(); // Dạng "11/09/2021"
+                          const match = textDate.match(/(\d{1,2})[\/\-\.]+(\d{1,2})[\/\-\.]+(\d{4})/);
+                          if (match) {
+                              const day = match[1].padStart(2, '0');
+                              const month = match[2].padStart(2, '0');
+                              const year = match[3];
+                              dateFound = `${year}-${month}-${day}`;
+                          }
+                      }
+                  }
+
+                  // Kịch bản C: Phương án dự phòng cuối cùng (Quét text nếu web lén đổi tên Class)
+                  if (!dateFound) {
+                      let text = cardContainer.text().replace(/\s+/g, ' ').trim();
+                      const match = text.match(/\b(\d{1,2})[\s\/\-\.]+(\d{1,2})[\s\/\-\.]+(\d{4})\b/);
+                      if (match) {
+                          const day = match[1].padStart(2, '0');
+                          const month = match[2].padStart(2, '0');
+                          const year = match[3];
+                          dateFound = `${year}-${month}-${day}`;
+                      }
+                  }
+              }
+
+              let isoDate = dateFound || new Date().toISOString().split('T')[0]; 
+              
+              pageResults.push({ 
+                  title, 
+                  link: finalLink, 
+                  date: isoDate, 
+                  hasRealDate: !!dateFound 
+              });
+            });
+          }
+          return pageResults;
+      } catch (err) {
+          return []; 
+      }
+  });
+
+  const resultsArrays = await Promise.all(fetchPromises);
+  return resultsArrays.flat();
+}
+
+const chunkArray = (arr, size) => Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
+
+// ============================================================================
+// HÀM XỬ LÝ CHÍNH
+// ============================================================================
+export default async function handler(request, response) {
+  const clientIp = request.headers['x-forwarded-for'] || request.socket?.remoteAddress || 'Unknown IP';
+  const secret = request.query?.secret || request.body?.secret || request.headers['x-secret-key'];
+
+  if (secret !== process.env.MY_SECRET_SCRAPER_KEY) {
+    logger.warn('Truy cập trái phép API Cron!', { meta: { action: 'UNAUTHORIZED', ip: clientIp }});
+    return response.status(403).json({ error: 'Cấm truy cập: Sai mật khẩu!' });
+  }
+
+  try {
+    const isDeepScrape = request.query?.deep === 'true'; 
+    const specificTarget = request.query?.target;        
+
+    logger.info(`Bắt đầu cào thông báo. Chế độ sâu: ${isDeepScrape}, Mục tiêu: ${specificTarget || 'Tất cả'}`);
+
+    let SOURCES = [
+      { id: 'old', url: 'https://online.hub.edu.vn/', type: 'old', maxPages: 1 },
+      { id: 'dbcl', url: 'https://phongktdbcl.hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 14 : 1 },
+      { id: 'scc', url: 'https://scc.hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 23 : 1 },
+      { id: 'clc', url: 'https://clc.hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 60 : 1 }
+    ];
+
+    if (specificTarget) SOURCES = SOURCES.filter(s => s.id === specificTarget);
+
+    const scrapedArrays = await Promise.all(SOURCES.map(scrapeSource));
+    const allScrapedData = scrapedArrays.flat(); 
+
+    if (allScrapedData.length === 0) return response.status(200).json({ message: "Không tìm thấy tin nào." });
+
+    const uniqueMap = new Map();
+    allScrapedData.forEach(item => {
+        if (!uniqueMap.has(item.link) || uniqueMap.get(item.link).title.length < item.title.length) {
+            uniqueMap.set(item.link, item);
+        }
+    });
+    const finalScrapedData = Array.from(uniqueMap.values());
+
+    const linksToCheck = finalScrapedData.map(item => item.link);
+    const linkChunks = chunkArray(linksToCheck, 300);
+    const existingRecords = [];
+
+    for (const chunk of linkChunks) {
+        const { data, error } = await supabase
+            .from('school_announcements')
+            .select('link, date') 
+            .in('link', chunk);
+        if (!error && data) existingRecords.push(...data);
+    }
+
+    const existingMap = new Map();
+    existingRecords.forEach(record => existingMap.set(record.link, record));
+
+    // CƠ CHẾ TỰ CHỮA LÀNH DỮ LIỆU
+    const recordsToUpsert = finalScrapedData.map(item => {
+        const existingRecord = existingMap.get(item.link);
+        let finalDate = item.date;
+        
+        // Nếu bắt được ngày xịn, ghi đè luôn ngày cũ đang bị sai (2026-02-27)
+        if (existingRecord && !item.hasRealDate) {
+            finalDate = existingRecord.date;
+        }
+
+        return {
+            title: item.title,
+            link: item.link,
+            date: finalDate, 
+            is_new: !existingRecord 
+        };
+    });
+
+    const upsertChunks = chunkArray(recordsToUpsert, 300);
+    for (const chunk of upsertChunks) {
+        const { error } = await supabase
+            .from('school_announcements')
+            .upsert(chunk, { onConflict: 'link', ignoreDuplicates: false });
+        if (error) throw error;
+    }
+
+    const newItemsCount = recordsToUpsert.filter(i => i.is_new).length;
+    logger.info('Cào dữ liệu hoàn tất', { meta: { newItems: newItemsCount }});
+
+    return response.status(200).json({ 
+        success: true, 
+        message: `Đã quét ${SOURCES.reduce((acc, curr) => acc + curr.maxPages, 0)} trang. Xử lý ${recordsToUpsert.length} tin. Hệ thống đã dò chính xác cấu trúc HTML và sửa lỗi ngày!`,
+    });
+
+  } catch (error) {
+    logger.error('Lỗi sập API Cron', { meta: { error: error.message }});
+    return response.status(500).json({ error: error.message });
+  }
+}
