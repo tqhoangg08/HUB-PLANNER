@@ -7,6 +7,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY 
 );
 
+// ============================================================================
+// HÀM CHUẨN HÓA LINK
+// ============================================================================
 function normalizeLink(rawLink, baseOrigin) {
     if (!rawLink) return null;
     let link = rawLink.trim().replace(/\/$/, '');
@@ -20,6 +23,9 @@ function normalizeLink(rawLink, baseOrigin) {
     return link.replace(/^http:\/\//i, 'https://');
 }
 
+// ============================================================================
+// HÀM CÀO DỮ LIỆU ĐA NỀN TẢNG
+// ============================================================================
 async function scrapeSource(source) {
   const pageUrls = [source.url];
   
@@ -184,15 +190,22 @@ export default async function handler(request, response) {
 
     if (allScrapedData.length === 0) return response.status(200).json({ message: "Không tìm thấy tin nào." });
 
-    // 1. Lọc trùng lặp nội bộ (Dựa vào CẢ LINK và TITLE)
-    const uniqueMap = new Map();
+    // 👇 1. BỘ LỌC KÉP TUYỆT ĐỐI TỪ TRONG TRỨNG NƯỚC 👇
+    const uniqueLinks = new Set();
+    const uniqueTitles = new Set();
+    const finalScrapedData = [];
+
     allScrapedData.forEach(item => {
-        // Ưu tiên gom nhóm bằng Link trước
-        if (!uniqueMap.has(item.link)) {
-            uniqueMap.set(item.link, item);
+        // Chuẩn hóa Title để tránh bị lọt do dư khoảng trắng
+        const normTitle = item.title.trim().toLowerCase().replace(/\s+/g, ' ');
+        
+        // CHỈ LẤY KHI: Link chưa xuất hiện VÀ Tiêu đề chưa xuất hiện trong lần cào này
+        if (!uniqueLinks.has(item.link) && !uniqueTitles.has(normTitle)) {
+            uniqueLinks.add(item.link);
+            uniqueTitles.add(normTitle);
+            finalScrapedData.push(item);
         }
     });
-    const finalScrapedData = Array.from(uniqueMap.values());
 
     // 2. Kéo danh sách Link VÀ Title từ DB lên để đối chiếu
     const linksToCheck = finalScrapedData.map(item => item.link);
@@ -201,19 +214,17 @@ export default async function handler(request, response) {
     const existingLinksSet = new Set();
     const existingTitlesSet = new Set();
 
-    // Check Links
     for (const chunk of chunkArray(linksToCheck, 300)) {
         const { data, error } = await supabase.from('school_announcements').select('link').in('link', chunk);
         if (!error && data) data.forEach(r => existingLinksSet.add(r.link));
     }
 
-    // Check Titles
     for (const chunk of chunkArray(titlesToCheck, 300)) {
         const { data, error } = await supabase.from('school_announcements').select('title').in('title', chunk);
         if (!error && data) data.forEach(r => existingTitlesSet.add(r.title.trim().toLowerCase().replace(/\s+/g, ' ')));
     }
 
-    // 3. Chuẩn bị dữ liệu (BỘ LỌC KÉP: Trùng Link HOẶC trùng Title -> Vứt)
+    // 3. Chuẩn bị dữ liệu (Lọc loại bỏ nếu đã có trong DB)
     const recordsToInsert = [];
     finalScrapedData.forEach(item => {
         const normTitle = item.title.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -228,15 +239,20 @@ export default async function handler(request, response) {
         }
     });
 
-    // 4. Lưu vào Supabase (Dùng UPSERT + Bỏ qua lỗi Duplicate)
+    // 4. Lưu vào Supabase 
     if (recordsToInsert.length > 0) {
         const insertChunks = chunkArray(recordsToInsert, 300);
         for (const chunk of insertChunks) {
             const { error } = await supabase
                 .from('school_announcements')
-                // KHIÊN BẢO VỆ: Lỡ có cái link nào sót, Supabase sẽ âm thầm bỏ qua, ko báo lỗi đỏ!
+                // Dùng Upsert với ignoreDuplicates: true để làm khiên chắn cuối cùng
                 .upsert(chunk, { onConflict: 'link', ignoreDuplicates: true });
-            if (error) throw error;
+            
+            // Nếu vẫn có lỗi văng ra (rất khó xảy ra lúc này), bắt nó lại luôn để API không sập
+            if (error) {
+                logger.error('Lỗi khi lưu 1 lô dữ liệu', { meta: { error: error.message } });
+                console.error("Lỗi bỏ qua lô:", error.message);
+            }
         }
     }
 
@@ -244,7 +260,7 @@ export default async function handler(request, response) {
 
     return response.status(200).json({ 
         success: true, 
-        message: `Đã quét ${SOURCES.reduce((acc, curr) => acc + curr.maxPages, 0)} trang. Đã lọc bỏ thông báo trùng Link HOẶC Tiêu đề. Bổ sung thành công ${recordsToInsert.length} tin MỚI.`,
+        message: `Đã quét ${SOURCES.reduce((acc, curr) => acc + curr.maxPages, 0)} trang. Lọc bỏ sạch sẽ thông báo trùng Link VÀ trùng Title. Thêm mới ${recordsToInsert.length} tin.`,
     });
 
   } catch (error) {
