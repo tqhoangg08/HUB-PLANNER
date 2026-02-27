@@ -8,7 +8,7 @@ import {
   MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, 
   Save, ToggleLeft, ToggleRight, Settings, Tag, RotateCcw,
   Info, ExternalLink, CalendarClock,
-  Bookmark, BookmarkCheck, ArrowDownUp 
+  Bookmark, BookmarkCheck, ArrowDownUp, AlertTriangle
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
@@ -46,8 +46,6 @@ const formatDateString = (isoDate: string): string => {
 };
 
 // --- Sub-Components (Modals) ---
-// (Mình giữ nguyên toàn bộ Modals của bạn: ScoreGuideModal, RecruitFormModal, ContributeEventModal, DiscussionModal)
-
 const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
     if (!isOpen) return null;
 
@@ -403,8 +401,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         organizer: '',
         link: '',
         format: 'Offline',
-        location_type: 'Trong trường', // Default
-        description: '' // Ghi chú thêm
+        location_type: 'Trong trường', 
+        description: '' 
     });
     const [submitting, setSubmitting] = useState(false);
     const [isDraftLoaded, setIsDraftLoaded] = useState(false);
@@ -418,7 +416,6 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                     const parsed = JSON.parse(savedDraft);
                     setFormData(parsed);
                     setIsDraftLoaded(true);
-                    // Ẩn thông báo "Đã khôi phục" sau 3s
                     setTimeout(() => setIsDraftLoaded(false), 3000);
                 } catch (e) {
                     console.error("Failed to restore draft", e);
@@ -432,7 +429,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         if (isOpen) {
             const timeoutId = setTimeout(() => {
                 localStorage.setItem(DRAFT_KEY, JSON.stringify(formData));
-            }, 500); // Debounce 500ms
+            }, 500); 
             return () => clearTimeout(timeoutId);
         }
     }, [formData, isOpen]);
@@ -462,7 +459,6 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Basic validation
         if (!formData.title.trim()) {
             onShowToast("Vui lòng nhập tên sự kiện!", "error");
             return;
@@ -477,22 +473,19 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         playClick();
 
         try {
-            // Prepare payload matching DB schema
             const payload = {
                 title: formData.title,
                 deadline: formData.deadline || null,
-                category: formData.category, // Loại hình (Minigame, Workshop...)
-                criteria: formData.criteria, // Mục I, II...
+                category: formData.category, 
+                criteria: formData.criteria, 
                 points: formData.points,
                 organizer: formData.organizer,
                 link: formData.link,
                 format: formData.format,
-                // Map description to a DB field if exists, or assume standard structure
-                // Assuming 'description' column exists or we fit it into title/notes
                 description: formData.description, 
                 location_type: formData.location_type,
-                status: 'pending', // IMPORTANT: Hardcode pending
-                is_manually_closed: false // IMPORTANT: Hardcode false
+                status: 'pending', 
+                is_manually_closed: false 
             };
 
             const { error } = await supabase
@@ -503,19 +496,10 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
 
             onShowToast("Đóng góp của bạn đã được gửi và đang chờ Admin duyệt. Cảm ơn bạn!", "success");
             
-            // Clean up draft
             localStorage.removeItem(DRAFT_KEY);
             setFormData({
-                title: '',
-                deadline: '',
-                category: 'Hoạt động phong trào',
-                criteria: 'III',
-                points: '5',
-                organizer: '',
-                link: '',
-                format: 'Offline',
-                location_type: 'Trong trường',
-                description: ''
+                title: '', deadline: '', category: 'Hoạt động phong trào', criteria: 'III', points: '5',
+                organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
             });
             onClose();
         } catch (err: any) {
@@ -595,11 +579,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                     value={formData.criteria} 
                                     onChange={e => setFormData({...formData, criteria: e.target.value})}
                                 >
-                                    <option value="I">Mục I</option>
-                                    <option value="II">Mục II</option>
-                                    <option value="III">Mục III</option>
-                                    <option value="IV">Mục IV</option>
-                                    <option value="V">Mục V</option>
+                                    <option value="I">Mục I</option><option value="II">Mục II</option><option value="III">Mục III</option><option value="IV">Mục IV</option><option value="V">Mục V</option>
                                 </select>
                             </div>
                             <div className="col-span-1">
@@ -629,9 +609,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                     value={formData.format} 
                                     onChange={e => setFormData({...formData, format: e.target.value})}
                                 >
-                                    <option value="Offline">Offline</option>
-                                    <option value="Online">Online</option>
-                                    <option value="Hỗn hợp">Hỗn hợp</option>
+                                    <option value="Offline">Offline</option><option value="Online">Online</option><option value="Hỗn hợp">Hỗn hợp</option>
                                 </select>
                             </div>
                         </div>
@@ -710,6 +688,121 @@ const DiscussionModal = ({ event, onClose }: { event: {id: string, name: string}
         </div>, document.body
     );
 };
+
+// =========================================================================
+// BẢNG BÁO CÁO SAI SÓT SỰ KIỆN (ĐÃ ÉP USER_ID)
+// =========================================================================
+const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boolean; onClose: () => void; event: HubEvent | null; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
+    // 👇 GỌI HOOK NÀY ĐỂ LẤY THÔNG TIN TÀI KHOẢN ĐANG ĐĂNG NHẬP 👇
+    const { session } = useUserRole(); 
+    
+    const [issue, setIssue] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+
+    if (!isOpen || !event) return null;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!issue.trim()) {
+            onShowToast("Vui lòng nhập chi tiết lỗi sai!", "error");
+            return;
+        }
+        setSubmitting(true);
+        playClick();
+
+        try {
+            // Chuẩn bị Data đẩy lên DB (Đã có user_id)
+            const payload = {
+                event_id: parseInt(event.id) || null, 
+                user_id: session?.user?.id || null, // 👈 ÉP ID NGƯỜI DÙNG VÀO ĐÂY
+                event_name: event.name,
+                organizer: event.organizer,
+                issue_description: issue,
+                status: 'pending' 
+            };
+
+            const { error } = await supabase!.from('event_reports').insert([payload]);
+            if (error) throw error;
+
+            onShowToast("Đã gửi báo cáo thành công. Đội ngũ sẽ khắc phục sớm nhất!", "success");
+            setIssue('');
+            onClose();
+        } catch (err: any) {
+            console.error(err);
+            onShowToast("Lỗi: " + err.message, "error");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return createPortal(
+        <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+            <div className="bg-white rounded-xl w-full max-w-lg p-0 overflow-hidden animate-scaleIn shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
+                
+                <div className="bg-red-600 p-4 flex justify-between items-center text-white shrink-0">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        <AlertTriangle size={20}/> Báo cáo sai sót thông tin
+                    </h3>
+                    <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
+                </div>
+
+                <div className="p-6">
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-5 text-sm text-orange-800 leading-relaxed">
+                        Cảm ơn bạn đã giúp cộng đồng! Vui lòng chỉ ra thông tin bị sai của sự kiện này để chúng mình điều chỉnh ngay nhé.
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Tên sự kiện bị lỗi</label>
+                            <div className="w-full bg-gray-100 border border-gray-200 rounded-lg p-3 text-sm font-medium text-gray-700 cursor-not-allowed line-clamp-2">
+                                {event.name}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Ban tổ chức</label>
+                            <div className="w-full bg-gray-100 border border-gray-200 rounded-lg p-3 text-sm font-medium text-gray-700 cursor-not-allowed flex items-center gap-2">
+                                <Users size={16} className="text-gray-400"/> {event.organizer}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Chi tiết sai sót <span className="text-red-500">*</span></label>
+                            <textarea 
+                                rows={4}
+                                required
+                                autoFocus
+                                className="w-full border border-gray-300 rounded-lg p-3 outline-none focus:ring-2 focus:ring-red-500 resize-none text-sm transition-all"
+                                placeholder="VD: Sai tên chương trình, sai số điểm ĐRL, hạn chót đã thay đổi thành ngày..."
+                                value={issue}
+                                onChange={e => setIssue(e.target.value)}
+                            ></textarea>
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                            <button 
+                                type="button" 
+                                onClick={onClose} 
+                                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all"
+                            >
+                                Hủy bỏ
+                            </button>
+                            <button 
+                                type="submit" 
+                                disabled={submitting} 
+                                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md"
+                            >
+                                {submitting ? <Loader2 className="animate-spin" size={18}/> : <Send size={18}/>} 
+                                {submitting ? 'Đang gửi...' : 'Gửi báo cáo'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>, document.body
+    );
+};
+// =========================================================================
 
 
 export const EventsBoard: React.FC = () => {
@@ -820,6 +913,10 @@ export const EventsBoard: React.FC = () => {
   const [showManageModal, setShowManageModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<HubEvent | null>(null);
   const [discussEvent, setDiscussEvent] = useState<{id: string, name: string} | null>(null);
+  
+  // STATE MỚI CHO BÁO CÁO SAI SÓT
+  const [reportingEvent, setReportingEvent] = useState<HubEvent | null>(null);
+
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error') => {
@@ -1304,6 +1401,22 @@ export const EventsBoard: React.FC = () => {
             <div className="flex items-start gap-2"><MapPin size={16} className="text-gray-400 mt-0.5 shrink-0" /><span className="line-clamp-1">{evt.location}</span></div>
         </div>
 
+        {/* 👇 NÚT BÁO CÁO LỖI (MỚI) 👇 */}
+        {!evt.is_deleted && (
+            <div className="mb-4 py-1.5 px-3 bg-gray-50/80 border border-gray-100 rounded-lg flex items-center justify-between gap-2 transition-colors hover:bg-orange-50 hover:border-orange-100 group/report">
+                <div className="flex items-center gap-1.5 text-gray-500 group-hover/report:text-orange-600 transition-colors text-[10px] sm:text-xs font-medium">
+                    <AlertTriangle size={13} className="shrink-0"/>
+                    <span>Thông tin chưa chính xác?</span>
+                </div>
+                <button 
+                    onClick={(e) => { e.stopPropagation(); playClick(); setReportingEvent(evt); }} 
+                    className="text-gray-500 group-hover/report:text-orange-600 font-bold text-[10px] sm:text-xs hover:underline transition-colors"
+                >
+                    Báo cáo ngay
+                </button>
+            </div>
+        )}
+
         <div className="mt-auto flex gap-2">
              <button onClick={() => { playClick(); setDiscussEvent({ id: evt.id, name: evt.name }); }} className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 hover:text-[#003375] py-2 rounded-lg font-medium flex items-center justify-center gap-2 text-sm transition-all active:scale-95 shadow-sm hover:shadow-md" title="Thảo luận"><MessageCircle size={18} /><span className="hidden sm:inline">Thảo luận</span></button>
             
@@ -1402,7 +1515,7 @@ export const EventsBoard: React.FC = () => {
         </div>
       </div>
 
-      {/* --- NOTIFICATION BANNER (NEW) --- */}
+      {/* --- NOTIFICATION BANNER --- */}
       <div className="bg-blue-50 border-l-4 border-[#003375] p-4 mb-6 rounded-r-lg shadow-sm animate-fadeIn">
         <div className="flex items-start gap-3">
             <div className="flex-shrink-0 mt-0.5">
@@ -1437,9 +1550,8 @@ export const EventsBoard: React.FC = () => {
             </div>
         </div>
       </div>
-      {/* ---------------------------------- */}
 
-      {/* Tabs - Fixed Layout: Scrollable on mobile, Justified on Desktop */}
+      {/* Tabs */}
       <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-6 overflow-x-auto no-scrollbar snap-x md:flex-wrap">
         {[
             {id:'all',l:'Tất cả'},
@@ -1465,7 +1577,6 @@ export const EventsBoard: React.FC = () => {
         <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn"><p className="font-bold mb-2">Đã xảy ra lỗi</p><p>{error}</p></div>
       ) : (
         <div className="space-y-8 animate-fadeIn">
-            {/* --- MỤC: ĐANG MỞ ĐĂNG KÝ --- */}
             {openingEvents.length > 0 && (
                 <div>
                     <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
@@ -1478,7 +1589,6 @@ export const EventsBoard: React.FC = () => {
                 </div>
             )}
 
-            {/* --- MỤC: ĐÃ HẾT HẠN --- */}
             {expiredEvents.length > 0 && (
                 <div>
                       <h3 className="text-xl font-bold text-gray-500 mb-4 flex items-center gap-2">
@@ -1508,6 +1618,14 @@ export const EventsBoard: React.FC = () => {
       {showContributeModal && <ContributeEventModal isOpen={showContributeModal} onClose={() => setShowContributeModal(false)} onShowToast={showToast} />}
       {showScoreGuide && <ScoreGuideModal isOpen={showScoreGuide} onClose={() => setShowScoreGuide(false)} />}
       {showManageModal && <ManageEventModal />}
+      
+      {/* Kích hoạt Modal Báo cáo */}
+      <ReportEventModal 
+          isOpen={!!reportingEvent} 
+          onClose={() => setReportingEvent(null)} 
+          event={reportingEvent} 
+          onShowToast={showToast} 
+      />
     </div>
   );
 };
