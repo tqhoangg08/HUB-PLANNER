@@ -112,29 +112,11 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ onClose }) => {
                             </div>
                         </section>
 
-                        {/* Mục 3: Cào tin tức */}
-                        <section className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
-                            <div className="flex items-center gap-3 mb-4 border-b border-gray-100 pb-3">
-                                <div className="p-2.5 bg-red-100 text-red-600 rounded-xl"><Bell size={22}/></div>
-                                <h4 className="font-bold text-[#003375] text-lg">3. Cỗ Máy "Hút" Thông Báo Đa Nền Tảng</h4>
-                            </div>
-                            <div className="space-y-4 px-2">
-                                <p>Không bao giờ bỏ lỡ bất kỳ thông báo học vụ nào với Radar tự động của chúng tôi:</p>
-                                <div className="bg-red-50/50 p-4 rounded-xl border border-red-100">
-                                    <ul className="space-y-3">
-                                        <li>📌 <strong>Quy quét 11 nguồn:</strong> Bot tự động của HUB Planner hoạt động 24/7, liên tục cào dữ liệu từ 11 website khác nhau trong trường (Phòng Đào tạo, Khảo thí, CLC, Tổ chức, Kế toán...). Mọi thông báo sẽ hội tụ về đúng 1 màn hình duy nhất.</li>
-                                        <li>📌 <strong>Lọc rác thông minh:</strong> Hệ thống được tích hợp bộ lọc kép chống trùng lặp Link và trùng lặp Tiêu đề, loại bỏ hoàn toàn các thông báo rác từ Menu hoặc Footer của web trường.</li>
-                                        <li>📌 <strong>Nhãn nhận diện:</strong> Những tin nóng hổi vừa được đăng trong ngày sẽ có nhãn <span className="bg-red-500 text-white px-1.5 py-0.5 rounded text-[10px] font-bold">MỚI</span>. Góc dưới của thẻ cũng sẽ đính kèm biểu tượng tòa nhà ghi rõ tên Phòng ban phát hành.</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </section>
-
                         {/* Mục 4: ĐRL */}
                         <section className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
                             <div className="flex items-center gap-3 mb-4 border-b border-gray-100 pb-3">
                                 <div className="p-2.5 bg-orange-100 text-orange-600 rounded-xl"><Award size={22}/></div>
-                                <h4 className="font-bold text-[#003375] text-lg">4. Mạng Lưới Sự Kiện & Điểm Rèn Luyện</h4>
+                                <h4 className="font-bold text-[#003375] text-lg">3. Mạng Lưới Sự Kiện & Điểm Rèn Luyện</h4>
                             </div>
                             <div className="space-y-4 px-2">
                                 <p>Công cụ đắc lực giúp bạn săn đủ 100 Điểm Rèn Luyện (ĐRL) mà không tốn nhiều công sức:</p>
@@ -159,7 +141,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ onClose }) => {
                         <section className="bg-white p-5 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
                             <div className="flex items-center gap-3 mb-4 border-b border-gray-100 pb-3">
                                 <div className="p-2.5 bg-purple-100 text-purple-600 rounded-xl"><Search size={22}/></div>
-                                <h4 className="font-bold text-[#003375] text-lg">5. Không Gian Tiện Ích Sinh Viên</h4>
+                                <h4 className="font-bold text-[#003375] text-lg">4. Không Gian Tiện Ích Sinh Viên</h4>
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100 hover:bg-purple-50 transition-colors">
@@ -181,7 +163,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ onClose }) => {
                         <section className="bg-gradient-to-br from-sky-50 to-blue-50 p-5 sm:p-6 rounded-2xl border border-sky-100 shadow-sm">
                             <div className="flex items-center gap-3 mb-4 border-b border-sky-200/50 pb-3">
                                 <div className="p-2.5 bg-sky-500 text-white rounded-xl shadow-md shadow-sky-500/30"><Headset size={22}/></div>
-                                <h4 className="font-bold text-[#003375] text-lg">6. Liên hệ & Hỗ trợ kỹ thuật</h4>
+                                <h4 className="font-bold text-[#003375] text-lg">5. Liên hệ & Hỗ trợ kỹ thuật</h4>
                             </div>
                             <div className="px-2 mb-4 text-sky-900/80">
                                 Nếu bạn gặp lỗi trong quá trình sử dụng, cần đóng góp ý tưởng tính năng mới, hoặc muốn hợp tác phát triển dự án, đừng ngần ngại liên hệ với đội ngũ phát triển nhé:
