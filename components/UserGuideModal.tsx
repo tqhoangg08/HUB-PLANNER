@@ -180,7 +180,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ onClose }) => (
                                 <div className="p-2 bg-red-50 text-red-500 rounded-lg group-hover:scale-110 transition-transform"><Mail size={18}/></div>
                                 <div>
                                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Email Hỗ Trợ</p>
-                                    <p className="font-bold text-[#003375] text-sm">admin@hotrosinhvienhub.id.vn</p>
+                                    <p className="font-bold text-[#003375] text-sm">contact@hotrosinhvienhub.id.vn</p>
                                 </div>
                             </a>
 
@@ -189,7 +189,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ onClose }) => (
                                 <div className="p-2 bg-blue-50 text-blue-500 rounded-lg group-hover:scale-110 transition-transform"><MessageCircle size={18}/></div>
                                 <div>
                                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Zalo Hỗ Trợ / Phản hồi</p>
-                                    <p className="font-bold text-[#003375] text-sm">0987.xxx.xxx (Trần Quốc Hoàng)</p>
+                                    <p className="font-bold text-[#003375] text-sm">0389.342.812 (Trần Quốc Hoàng)</p>
                                 </div>
                             </a>
 
@@ -198,7 +198,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ onClose }) => (
                                 <div className="p-2 bg-indigo-50 text-indigo-500 rounded-lg group-hover:scale-110 transition-transform"><Globe size={18}/></div>
                                 <div>
                                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Cộng đồng sinh viên</p>
-                                    <p className="font-bold text-[#003375] text-sm hover:underline">Fanpage / Group HUB Planner</p>
+                                    <p className="font-bold text-[#003375] text-sm hover:underline">Fanpage HUB Planner</p>
                                 </div>
                             </a>
 
