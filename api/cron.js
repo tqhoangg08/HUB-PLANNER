@@ -99,20 +99,18 @@ async function scrapeSource(source) {
               const finalLink = normalizeLink(rawLink, baseOrigin);
               if (!finalLink) return;
 
-              // 👇 TÌM NGÀY THÁNG DỰA TRÊN CLASS CHÍNH XÁC MÀ BẠN CUNG CẤP 👇
               let dateFound = null;
               
-              // 1. Tìm cái "hộp" to nhất chứa cả tiêu đề và ngày tháng (Dựa vào hình F12 của bạn)
               const cardContainer = $(element).closest('.notification-item, .news-item, article');
 
               if (cardContainer.length > 0) {
-                  // Kịch bản A: Dành cho CLC và ĐBCL (Tách đôi day và month-year)
+                  // Kịch bản A: Dành cho HUB MAIN, CLC và ĐBCL 
                   const dayEl = cardContainer.find('.date .day');
                   const monthYearEl = cardContainer.find('.date .month-year');
                   
                   if (dayEl.length > 0 && monthYearEl.length > 0) {
                       const day = dayEl.text().trim().padStart(2, '0');
-                      const monthYear = monthYearEl.text().trim(); // Dạng "02.2026"
+                      const monthYear = monthYearEl.text().trim(); 
                       const parts = monthYear.split('.');
                       if (parts.length === 2) {
                           const month = parts[0].padStart(2, '0');
@@ -120,11 +118,11 @@ async function scrapeSource(source) {
                           dateFound = `${year}-${month}-${day}`;
                       }
                   } 
-                  // Kịch bản B: Dành cho SCC (Dùng class news-date)
+                  // Kịch bản B: Dành cho SCC 
                   else {
                       const newsDateEl = cardContainer.find('.news-date');
                       if (newsDateEl.length > 0) {
-                          const textDate = newsDateEl.text().trim(); // Dạng "11/09/2021"
+                          const textDate = newsDateEl.text().trim(); 
                           const match = textDate.match(/(\d{1,2})[\/\-\.]+(\d{1,2})[\/\-\.]+(\d{4})/);
                           if (match) {
                               const day = match[1].padStart(2, '0');
@@ -135,7 +133,6 @@ async function scrapeSource(source) {
                       }
                   }
 
-                  // Kịch bản C: Phương án dự phòng cuối cùng (Quét text nếu web lén đổi tên Class)
                   if (!dateFound) {
                       let text = cardContainer.text().replace(/\s+/g, ' ').trim();
                       const match = text.match(/\b(\d{1,2})[\s\/\-\.]+(\d{1,2})[\s\/\-\.]+(\d{4})\b/);
@@ -188,11 +185,13 @@ export default async function handler(request, response) {
 
     logger.info(`Bắt đầu cào thông báo. Chế độ sâu: ${isDeepScrape}, Mục tiêu: ${specificTarget || 'Tất cả'}`);
 
+    // 👇 ĐÃ THÊM: Nguồn web chính của HUB vào danh sách (ID: hub_main) 👇
     let SOURCES = [
       { id: 'old', url: 'https://online.hub.edu.vn/', type: 'old', maxPages: 1 },
       { id: 'dbcl', url: 'https://phongktdbcl.hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 14 : 1 },
       { id: 'scc', url: 'https://scc.hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 23 : 1 },
-      { id: 'clc', url: 'https://clc.hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 60 : 1 }
+      { id: 'clc', url: 'https://clc.hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 60 : 1 },
+      { id: 'hub_main', url: 'https://hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 71 : 1 } // Thay số 40 bằng số trang thực tế nhé
     ];
 
     if (specificTarget) SOURCES = SOURCES.filter(s => s.id === specificTarget);
@@ -225,12 +224,10 @@ export default async function handler(request, response) {
     const existingMap = new Map();
     existingRecords.forEach(record => existingMap.set(record.link, record));
 
-    // CƠ CHẾ TỰ CHỮA LÀNH DỮ LIỆU
     const recordsToUpsert = finalScrapedData.map(item => {
         const existingRecord = existingMap.get(item.link);
         let finalDate = item.date;
         
-        // Nếu bắt được ngày xịn, ghi đè luôn ngày cũ đang bị sai (2026-02-27)
         if (existingRecord && !item.hasRealDate) {
             finalDate = existingRecord.date;
         }
