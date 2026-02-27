@@ -47,6 +47,23 @@ const SchoolAnnouncements = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // 👇 ĐÃ THÊM: HÀM KHÓA CUỘN NỀN KHI MỞ MODAL 👇
+  useEffect(() => {
+    if (isModalOpen) {
+      // Khi Modal mở -> Khóa cuộn thẻ body
+      document.body.style.overflow = 'hidden';
+    } else {
+      // Khi Modal đóng -> Mở lại
+      document.body.style.overflow = 'unset';
+    }
+
+    // Hàm dọn dẹp phòng trường hợp Component bị unmount đột ngột
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isModalOpen]);
+  // 👆 KẾT THÚC 👇
+
   // 1. FETCH 10 TIN MỚI NHẤT CHO WIDGET BÊN NGOÀI
   useEffect(() => {
     const fetchNews = async () => {
