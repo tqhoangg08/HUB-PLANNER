@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays } from 'lucide-react';
+// ĐÃ THÊM: Import thêm icon Lock cho giao diện chưa đăng nhập
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
 
@@ -157,10 +158,13 @@ export default function ScheduleBoard() {
   useEffect(() => {
     document.title = "Thời khóa biểu | HUB Planner";
   }, []);
+
+  // 👇 ĐÃ THÊM: STATE KIỂM TRA ĐĂNG NHẬP 👇
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
   
-  // mySchedule bây giờ sẽ chứa FULL TẤT CẢ CÁC KỲ
   const [mySchedule, setMySchedule] = useState<Course[]>([]);
   
   const [isLoading, setIsLoading] = useState(false);
@@ -169,10 +173,9 @@ export default function ScheduleBoard() {
   const [selectedSemester, setSelectedSemester] = useState<string>('HK2_2025_2026');
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
 
-  // VIEW MODE STATES
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [selectedWeek, setSelectedWeek] = useState<number>(0); 
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(new Date().getMonth()); // Default là tháng hiện tại (0-11)
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(new Date().getMonth()); 
 
   const [selectedCourseInfo, setSelectedCourseInfo] = useState<{
     course: Course;
@@ -189,10 +192,8 @@ export default function ScheduleBoard() {
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
   const [newCourseData, setNewCourseData] = useState({ subject_name: '', course_code: '', instructor: '' });
 
-  // Tách riêng schedule của kỳ hiện tại cho Lịch Tuần
   const currentSemesterSchedule = mySchedule.filter(c => c.semester === selectedSemester);
 
-  // 👇 ================= HỆ THỐNG KÉO THẢ CHUỘT (DRAG TO SCROLL) ================= 👇
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const startX = useRef(0);
@@ -228,13 +229,34 @@ export default function ScheduleBoard() {
     if (!isDragging.current || !scrollRef.current) return;
     e.preventDefault();
     const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX.current) * 1.5; // Tốc độ lướt
+    const walk = (x - startX.current) * 1.5; 
     scrollRef.current.scrollLeft = scrollLeft.current - walk;
   };
-  // 👆 ========================================================================= 👆
 
-  useEffect(() => { fetchCourses(); }, [searchTerm, selectedSemester, selectedPhase]);
-  useEffect(() => { fetchMySchedule(); }, []);
+  // 👇 ĐÃ THÊM: KIỂM TRA SESSION KHI VÀO TRANG 👇
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsAuthenticated(!!session);
+    };
+    checkAuth();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => { 
+    if (isAuthenticated) fetchCourses(); // Chỉ fetch khi đã đăng nhập
+  }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated]);
+
+  useEffect(() => { 
+    if (isAuthenticated) fetchMySchedule(); 
+  }, [isAuthenticated]);
 
   const fetchCourses = async () => {
     setIsLoading(true);
@@ -262,7 +284,6 @@ export default function ScheduleBoard() {
     if (!user) return; 
     setMySchedule([]);
     try {
-      // ĐÃ SỬA: Bỏ giới hạn theo kỳ, kéo toàn bộ môn học đã lưu của User
       const { data, error } = await supabase.from('user_schedules').select(`course_id, semester, course_schedules (*)`).eq('user_id', user.id); 
       if (!error && data) {
         const savedCourses = data.map((item: any) => item.course_schedules).filter(Boolean);
@@ -370,16 +391,12 @@ export default function ScheduleBoard() {
     return dateStr;
   }
 
-  // =======================================================================
-  // THUẬT TOÁN CHO LỊCH THÁNG (Tính toán mảng ngày & tìm môn học)
-  // =======================================================================
   const getCoursesForDate = (targetDate: Date, schedule: Course[]) => {
     const dayOfWeek = targetDate.getDay() === 0 ? 8 : targetDate.getDay() + 1; 
 
     return schedule.map(course => {
-      // Xác định ngày bắt đầu của học kỳ đó để tính Tuần cho chuẩn
-      let startDate = new Date('2026-02-02T00:00:00'); // Mặc định HK2
-      if (course.semester === 'HK1_2025_2026') startDate = new Date('2025-08-11T00:00:00'); // Giả định ngày bắt đầu HK1
+      let startDate = new Date('2026-02-02T00:00:00'); 
+      if (course.semester === 'HK1_2025_2026') startDate = new Date('2025-08-11T00:00:00'); 
 
       const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
       const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
@@ -419,13 +436,11 @@ export default function ScheduleBoard() {
     const daysInMonth = new Date(year, selectedMonthIndex + 1, 0).getDate();
     
     const days: (Date | null)[] = [];
-    for(let i = 1; i < startingDayOfWeek; i++) days.push(null); // Ô trống đầu tháng
+    for(let i = 1; i < startingDayOfWeek; i++) days.push(null); 
     for(let i = 1; i <= daysInMonth; i++) days.push(new Date(year, selectedMonthIndex, i));
     
     return days;
   };
-
-  // =======================================================================
 
   const handleReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -485,11 +500,12 @@ export default function ScheduleBoard() {
           
           <div className="space-y-3">
             <div className="flex gap-2">
-              <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="flex-1 px-3 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-sm font-bold text-[#003375] bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer">
+              {/* 👇 ĐÃ SỬA: Disable Select khi chưa đăng nhập 👇 */}
+              <select disabled={isAuthenticated === false} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className={`flex-1 px-3 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-sm font-bold text-[#003375] bg-gray-50 transition-colors ${isAuthenticated === false ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100 cursor-pointer'}`}>
                 <option value="HK2_2025_2026">HK2 (2025 - 2026)</option>
                 <option value="HK1_2025_2026">HK1 (2025 - 2026)</option>
               </select>
-              <select value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="w-[35%] px-3 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-sm font-bold text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer">
+              <select disabled={isAuthenticated === false} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className={`w-[35%] px-3 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-sm font-bold text-gray-700 bg-gray-50 transition-colors ${isAuthenticated === false ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100 cursor-pointer'}`}>
                 <option value="all">Mọi đợt</option>
                 <option value="1">Đợt 1</option>
                 <option value="2">Đợt 2</option>
@@ -497,15 +513,16 @@ export default function ScheduleBoard() {
             </div>
 
             <div className="relative">
-              <input type="text" placeholder="Nhập tên môn, mã HP, giảng viên..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#003375] focus:ring-4 focus:ring-blue-500/10 outline-none text-sm font-medium transition-all bg-white"/>
+              {/* 👇 ĐÃ SỬA: Disable Search Input khi chưa đăng nhập 👇 */}
+              <input disabled={isAuthenticated === false} type="text" placeholder="Nhập tên môn, mã HP, giảng viên..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full pl-11 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#003375] focus:ring-4 focus:ring-blue-500/10 outline-none text-sm font-medium transition-all ${isAuthenticated === false ? 'bg-gray-100 opacity-70 cursor-not-allowed' : 'bg-white'}`}/>
               <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
             </div>
 
             <div className="flex gap-2 pt-1">
-              <button onClick={() => { setReportData({ course_code: '', subject_name: '', description: '' }); setIsReportModalOpen(true); }} className="flex-1 flex items-center justify-center gap-1.5 p-2 bg-red-50 hover:bg-red-100 border border-red-100 text-red-600 rounded-lg text-[10px] sm:text-xs font-bold transition-colors">
+              <button disabled={isAuthenticated === false} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '' }); setIsReportModalOpen(true); }} className={`flex-1 flex items-center justify-center gap-1.5 p-2 rounded-lg text-[10px] sm:text-xs font-bold transition-colors ${isAuthenticated === false ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed' : 'bg-red-50 hover:bg-red-100 border border-red-100 text-red-600'}`}>
                 <AlertTriangle size={14} /> Báo lỗi môn
               </button>
-              <button onClick={() => setIsCreateCourseModalOpen(true)} className="flex-1 flex items-center justify-center gap-1.5 p-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 rounded-lg text-[10px] sm:text-xs font-bold transition-colors">
+              <button disabled={isAuthenticated === false} onClick={() => setIsCreateCourseModalOpen(true)} className={`flex-1 flex items-center justify-center gap-1.5 p-2 rounded-lg text-[10px] sm:text-xs font-bold transition-colors ${isAuthenticated === false ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed' : 'bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700'}`}>
                 <BookPlus size={14} /> Gửi yêu cầu môn mới
               </button>
             </div>
@@ -513,8 +530,19 @@ export default function ScheduleBoard() {
           {isSyncing && <p className="absolute top-5 right-5 text-[10px] text-blue-600 font-bold flex items-center gap-1 animate-pulse">Đang đồng bộ...</p>}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/30">
-          {isLoading ? (
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/30 relative">
+          {/* 👇 ĐÃ THÊM: GIAO DIỆN KHÓA ẨN DANH 👇 */}
+          {isAuthenticated === false ? (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6 bg-white/60 backdrop-blur-sm animate-fadeIn">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 border border-gray-200 shadow-sm">
+                <Lock size={28} className="text-gray-400" />
+              </div>
+              <h3 className="font-bold text-gray-800 text-base mb-2">Thông tin bảo mật</h3>
+              <p className="text-[13px] text-gray-500 mb-6 leading-relaxed max-w-[280px]">
+                Dữ liệu về học phần, phòng học và giảng viên là thông tin nội bộ. Vui lòng đăng nhập bằng tài khoản sinh viên để sử dụng tính năng tra cứu.
+              </p>
+            </div>
+          ) : isLoading ? (
             <p className="text-center text-gray-500 font-medium mt-10 animate-pulse">Đang tải dữ liệu môn học...</p>
           ) : availableCourses.length === 0 ? (
             <div className="text-center mt-10 flex flex-col items-center px-4">
@@ -568,7 +596,6 @@ export default function ScheduleBoard() {
               <Calendar size={22} className="text-[#990000]" /> Lịch học cá nhân
             </h2>
             
-            {/* ĐÃ THÊM: NÚT TOGGLE CHUYỂN ĐỔI CHẾ ĐỘ XEM */}
             <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl">
               <button onClick={() => setViewMode('week')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1 ${viewMode === 'week' ? 'bg-white shadow-sm text-[#003375]' : 'text-gray-500 hover:text-gray-700'}`}>
                  Theo tuần
@@ -619,7 +646,7 @@ export default function ScheduleBoard() {
                 </div>
               )}
               
-              <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-inner overflow-hidden flex flex-col">
+              <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-inner overflow-hidden flex flex-col relative">
                 <div className="overflow-x-auto h-full w-full custom-scrollbar">
                   <table className="w-full min-w-[700px] border-collapse table-fixed h-full">
                     <thead>
@@ -708,7 +735,7 @@ export default function ScheduleBoard() {
                 ))}
               </div>
 
-              <div className="flex-1 rounded-xl border border-gray-200 shadow-inner overflow-hidden flex flex-col">
+              <div className="flex-1 rounded-xl border border-gray-200 shadow-inner overflow-hidden flex flex-col relative">
                  <div className="grid grid-cols-7 gap-px bg-gray-200 h-full overflow-y-auto custom-scrollbar">
                     {['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'].map(d => (
                        <div key={d} className="bg-[#f8fafc] text-center text-[10px] sm:text-xs font-bold py-2 text-[#003375] uppercase tracking-wider border-b border-gray-200">{d}</div>
