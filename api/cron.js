@@ -196,8 +196,7 @@ export default async function handler(request, response) {
       { id: 'qlcntt', url: 'https://phongqlcntt.hub.edu.vn/tin-hoat-dong/thong-bao', type: 'modern', maxPages: isDeepScrape ? 2 : 1 },
       { id: 'tstt', url: 'https://phongtstt.hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 2 : 1 },
       { id: 'tochuc', url: 'https://phongtochuc.hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 4 : 1 },
-      { id: 'ketoan', url: 'https://phongketoan.hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 3 : 1 },
-      { id: 'library', url: 'https://library.hub.edu.vn/Default.aspx?TopicId=b1e09557-8d7e-420e-9af4-9cfccbeb0883', type: 'library', maxPages: isDeepScrape ? 26 : 1 }
+      { id: 'ketoan', url: 'https://phongketoan.hub.edu.vn/thong-bao', type: 'modern', maxPages: isDeepScrape ? 3 : 1 }
     ];
 
     if (specificTarget) SOURCES = SOURCES.filter(s => s.id === specificTarget);
