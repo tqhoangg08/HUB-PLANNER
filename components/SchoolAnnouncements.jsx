@@ -1,10 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../utils/supabase';
-import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+// ĐÃ THÊM: Import icon Building (Tòa nhà) để làm giao diện phòng ban
+import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter, Building } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 
 const ITEMS_PER_PAGE = 10;
+
+// =================================================================
+// HÀM HELPER: DỊCH URL SANG TÊN PHÒNG BAN CHUẨN XÁC
+// =================================================================
+const getDepartmentName = (link) => {
+  if (!link) return 'HUB Portal';
+  const l = link.toLowerCase();
+  
+  if (l.includes('phongktdbcl')) return 'Phòng Khảo thí và ĐBCL';
+  if (l.includes('scc.hub.edu.vn')) return 'Trung tâm SV và QHDN'; // Viết tắt cho gọn giao diện Mobile
+  if (l.includes('clc.hub.edu.vn')) return 'Ban quản lý CLC';
+  if (l.includes('phongdaotao')) return 'Phòng Đào tạo';
+  if (l.includes('phongqlcntt')) return 'Phòng Quản lý CNTT';
+  if (l.includes('phongtstt')) return 'Phòng Tuyển sinh TT';
+  if (l.includes('phongtochuc')) return 'Phòng Tổ chức';
+  if (l.includes('phongketoan')) return 'Phòng Kế toán';
+  if (l.includes('online.hub.edu.vn')) return 'HUB Portal';
+  
+  // Để cái hub.edu.vn ở cuối cùng làm Fallback (Tránh nó nhận diện nhầm các link ở trên do đều có chữ hub.edu.vn)
+  if (l.includes('hub.edu.vn')) return 'HUB'; 
+  
+  return 'HUB';
+};
 
 const SchoolAnnouncements = () => {
   // === STATE CHO WIDGET BÊN NGOÀI ===
@@ -15,7 +39,7 @@ const SchoolAnnouncements = () => {
   const [modalNews, setModalNews] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [inputPage, setInputPage] = useState("1"); // State cho ô nhập số trang
+  const [inputPage, setInputPage] = useState("1"); 
   const [isLoadingModal, setIsLoadingModal] = useState(false);
 
   // Bộ lọc
@@ -91,12 +115,10 @@ const SchoolAnnouncements = () => {
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE) || 1;
 
-  // Đồng bộ ô nhập trang với currentPage khi bấm nút mũi tên
   useEffect(() => {
     setInputPage(currentPage.toString());
   }, [currentPage]);
 
-  // Xử lý khi người dùng gõ số trang và bấm Enter
   const handlePageSubmit = (e) => {
     if (e.key === 'Enter' || e.type === 'blur') {
       let newPage = parseInt(inputPage, 10);
@@ -108,9 +130,6 @@ const SchoolAnnouncements = () => {
     }
   };
 
-  // =================================================================
-  // HÀM HELPER: XỬ LÝ LINK THÔNG MINH BẢO VỆ ADMIN
-  // =================================================================
   const processLinkData = (item) => {
     let finalLink = 'https://online.hub.edu.vn/'; 
     if (item.link && typeof item.link === 'string') {
@@ -151,6 +170,7 @@ const SchoolAnnouncements = () => {
           ) : (
             news.map((item) => {
               const finalLink = processLinkData(item);
+              const deptName = getDepartmentName(finalLink); // Lấy tên phòng ban
 
               return (
                 <a 
@@ -158,17 +178,25 @@ const SchoolAnnouncements = () => {
                   className="block p-2 lg:p-3 hover:bg-blue-50 transition-colors group relative"
                   title={item.title}
                 >
-                  <div className="flex justify-between items-start gap-2">
+                  <div className="flex justify-between items-start gap-2 mb-1">
                     <p className="text-xs lg:text-sm font-medium text-gray-800 group-hover:text-[#003375] line-clamp-2 leading-snug transition-colors">
                       {item.title}
                     </p>
                     {item.is_new && <span className="bg-red-500 text-white text-[8px] lg:text-[9px] px-1 lg:px-1.5 py-0.5 rounded font-bold shrink-0">MỚI</span>}
                   </div>
-                  <div className="flex justify-between items-center mt-1.5 lg:mt-1">
-                    <span className="text-[9px] lg:text-[10px] text-gray-400 flex items-center gap-1">
-                      {formatDate(item.date)}
-                    </span>
-                    <ExternalLink className="text-gray-300 group-hover:text-blue-400 w-3 h-3 lg:w-3 lg:h-3 transition-colors"/>
+                  
+                  {/* BỐ CỤC CHÂN THẺ WIDGET: Thêm Badge Phòng Ban */}
+                  <div className="flex justify-between items-center mt-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] lg:text-[10px] text-gray-400 flex items-center gap-1">
+                        {formatDate(item.date)}
+                      </span>
+                      {/* Badge tên phòng ban */}
+                      <span className="text-[8px] lg:text-[9px] font-medium px-1.5 py-0.5 rounded border border-blue-100 bg-blue-50 text-blue-600/80 truncate max-w-[100px] sm:max-w-none">
+                        {deptName}
+                      </span>
+                    </div>
+                    <ExternalLink className="text-gray-300 group-hover:text-blue-400 w-3 h-3 lg:w-3 lg:h-3 transition-colors shrink-0"/>
                   </div>
                 </a>
               );
@@ -190,7 +218,7 @@ const SchoolAnnouncements = () => {
                 <div className="bg-white/20 p-2 rounded-lg"><Bell size={20} /></div>
                 <div>
                   <h2 className="font-bold text-base sm:text-lg leading-tight">Kho thông báo HUB</h2>
-                  <p className="text-blue-200 text-[10px] sm:text-xs">Hệ thống tra cứu dữ liệu thông báo</p>
+                  <p className="text-blue-200 text-[10px] sm:text-xs">Hệ thống tra cứu dữ liệu thông báo đa nền tảng</p>
                 </div>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all"><X size={20}/></button>
@@ -208,13 +236,11 @@ const SchoolAnnouncements = () => {
                 />
                 <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
               </div>
-              {/* ĐÃ SỬA: Dùng Grid 2 cột trên Mobile để không bị dính nét */}
               <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-3">
                 <div className="relative w-full sm:w-36">
                   <input type="date" value={startDate} onChange={(e) => {setStartDate(e.target.value); setCurrentPage(1);}} className="w-full pl-7 pr-1 sm:pr-2 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-[11px] sm:text-xs text-gray-600 transition-all"/>
                   <Calendar className="absolute left-2.5 top-2.5 text-gray-400" size={14} />
                 </div>
-                {/* Ẩn dấu '-' trên mobile để tiết kiệm không gian */}
                 <div className="hidden sm:flex items-center text-gray-400">-</div>
                 <div className="relative w-full sm:w-36">
                   <input type="date" value={endDate} onChange={(e) => {setEndDate(e.target.value); setCurrentPage(1);}} className="w-full pl-7 pr-1 sm:pr-2 py-2 rounded-xl border border-gray-200 focus:border-[#003375] outline-none text-[11px] sm:text-xs text-gray-600 transition-all"/>
@@ -240,6 +266,7 @@ const SchoolAnnouncements = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {modalNews.map((item) => {
                     const finalLink = processLinkData(item);
+                    const deptName = getDepartmentName(finalLink); // Lấy tên phòng ban
 
                     return (
                       <a 
@@ -258,8 +285,12 @@ const SchoolAnnouncements = () => {
                           </p>
                         </div>
                         
-                        <div className="flex items-center justify-end mt-3 pt-3 border-t border-gray-50">
-                          <div className="text-[#003375] text-[11px] font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                        {/* CHÂN THẺ MODAL: Tên phòng ban nằm bên trái, Nút xem chi tiết bên phải */}
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
+                          <div className="text-gray-500 text-[10px] sm:text-[11px] font-medium flex items-center gap-1.5">
+                            <Building size={12} className="text-blue-500/70"/> {deptName}
+                          </div>
+                          <div className="text-[#003375] text-[11px] font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform shrink-0">
                              Xem chi tiết <ChevronRight size={14}/>
                           </div>
                         </div>
@@ -270,7 +301,7 @@ const SchoolAnnouncements = () => {
               )}
             </div>
 
-            {/* Thanh Phân trang (Pagination) CẢI TIẾN */}
+            {/* Thanh Phân trang (Pagination) */}
             <div className="p-3 sm:p-4 border-t border-gray-100 bg-gray-50 shrink-0 flex flex-col sm:flex-row justify-between items-center gap-3">
               <p className="text-[11px] sm:text-xs text-gray-500 font-medium">
                 Hiển thị <span className="font-bold text-gray-800">{totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}</span> - <span className="font-bold text-gray-800">{Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}</span> trong tổng số <span className="font-bold text-gray-800">{totalCount}</span> thông báo
@@ -285,7 +316,6 @@ const SchoolAnnouncements = () => {
                   <ChevronLeft size={16} />
                 </button>
                 
-                {/* ĐÃ SỬA: Đổi thành Input để nhập số */}
                 <div className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-blue-50 border border-blue-100 text-[#003375] font-bold text-xs sm:text-sm transition-colors focus-within:ring-2 focus-within:ring-blue-300">
                   <input
                     type="number"
