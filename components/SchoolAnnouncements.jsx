@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../utils/supabase';
 import { createPortal } from 'react-dom';
+import { supabase } from '../utils/supabase';
 import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 
@@ -48,25 +48,14 @@ const SchoolAnnouncements = () => {
     try {
       let query = supabase
         .from('school_announcements')
-        .select('*', { count: 'exact' }); // Lấy thêm tổng số lượng để làm phân trang
+        .select('*', { count: 'exact' });
 
-      // Áp dụng bộ lọc Tìm kiếm
-      if (searchQuery) {
-        query = query.ilike('title', `%${searchQuery}%`);
-      }
+      if (searchQuery) query = query.ilike('title', `%${searchQuery}%`);
+      if (startDate) query = query.gte('date', startDate);
+      if (endDate) query = query.lte('date', endDate);
 
-      // Áp dụng bộ lọc Ngày tháng
-      if (startDate) {
-        query = query.gte('date', startDate);
-      }
-      if (endDate) {
-        query = query.lte('date', endDate);
-      }
-
-      // Sắp xếp
       query = query.order('date', { ascending: false }).order('created_at', { ascending: false });
 
-      // Phân trang
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
       query = query.range(from, to);
@@ -85,34 +74,27 @@ const SchoolAnnouncements = () => {
     }
   };
 
-  // Kích hoạt fetch khi Modal mở hoặc các state thay đổi
   useEffect(() => {
-    if (isModalOpen) {
-      fetchModalNews();
-    }
+    if (isModalOpen) fetchModalNews();
   }, [isModalOpen, currentPage, startDate, endDate]);
 
-  // Nếu người dùng gõ tìm kiếm, phải delay 1 chút (debounce) để tránh gọi API liên tục
   useEffect(() => {
     if (isModalOpen) {
       const delayDebounceFn = setTimeout(() => {
-        setCurrentPage(1); // Gõ tìm kiếm thì tự động về trang 1
+        setCurrentPage(1); 
         fetchModalNews();
-      }, 500); // Đợi gõ xong 0.5s mới gọi API
-
+      }, 500); 
       return () => clearTimeout(delayDebounceFn);
     }
   }, [searchQuery]);
 
-  // Hàm tính tổng số trang
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   // =================================================================
-  // HÀM HELPER: XỬ LÝ LINK THÔNG MINH CHO CẢ WIDGET VÀ MODAL
+  // HÀM HELPER: XỬ LÝ LINK THÔNG MINH BẢO VỆ ADMIN
   // =================================================================
   const processLinkData = (item) => {
     let finalLink = 'https://online.hub.edu.vn/'; 
-    let isCustomLink = false; 
     if (item.link && typeof item.link === 'string') {
         const linkStr = item.link.toLowerCase().trim(); 
         if (!linkStr.includes('javascript') && !linkStr.includes('dopostback')) {
@@ -121,10 +103,9 @@ const SchoolAnnouncements = () => {
             } else {
                 finalLink = item.link.trim();
             }
-            isCustomLink = true;
         }
     }
-    return { finalLink, isCustomLink };
+    return finalLink;
   };
 
   return (
@@ -138,7 +119,6 @@ const SchoolAnnouncements = () => {
             <Bell className="w-3.5 h-3.5 lg:w-4 lg:h-4 animate-pulse"/> 
             <span className="truncate">THÔNG BÁO TỪ TRƯỜNG (HUB)</span>
           </h3>
-          {/* ĐÃ SỬA: Đổi Trang chủ thành nút bật Modal */}
           <button 
             onClick={() => setIsModalOpen(true)}
             className="text-[10px] lg:text-xs text-blue-200 hover:text-white underline shrink-0 cursor-pointer font-medium"
@@ -152,15 +132,17 @@ const SchoolAnnouncements = () => {
             <div className="p-4 text-center text-xs text-gray-400">Đang cập nhật dữ liệu...</div>
           ) : (
             news.map((item) => {
-              const { finalLink, isCustomLink } = processLinkData(item);
+              const finalLink = processLinkData(item);
+
               return (
                 <a 
                   key={item.id} href={finalLink} target="_blank" rel="noreferrer"
                   className="block p-2 lg:p-3 hover:bg-blue-50 transition-colors group relative"
-                  title={isCustomLink ? item.title : "Bấm để truy cập trang tin tức của trường"}
+                  title={item.title}
                 >
                   <div className="flex justify-between items-start gap-2">
-                    <p className={`text-xs lg:text-sm font-medium line-clamp-2 leading-snug transition-colors ${isCustomLink ? 'text-[#003375] font-bold' : 'text-gray-700 group-hover:text-[#003375]'}`}>
+                    {/* ĐÃ SỬA: Tiêu đề màu xám đậm, hover mới lên xanh */}
+                    <p className="text-xs lg:text-sm font-medium text-gray-800 group-hover:text-[#003375] line-clamp-2 leading-snug transition-colors">
                       {item.title}
                     </p>
                     {item.is_new && <span className="bg-red-500 text-white text-[8px] lg:text-[9px] px-1 lg:px-1.5 py-0.5 rounded font-bold shrink-0">MỚI</span>}
@@ -169,7 +151,7 @@ const SchoolAnnouncements = () => {
                     <span className="text-[9px] lg:text-[10px] text-gray-400 flex items-center gap-1">
                       {formatDate(item.date)}
                     </span>
-                    <ExternalLink className={`${isCustomLink ? 'text-emerald-500' : 'text-gray-300 group-hover:text-blue-400'} w-3 h-3 lg:w-3 lg:h-3 transition-colors`}/>
+                    <ExternalLink className="text-gray-300 group-hover:text-blue-400 w-3 h-3 lg:w-3 lg:h-3 transition-colors"/>
                   </div>
                 </a>
               );
@@ -177,8 +159,9 @@ const SchoolAnnouncements = () => {
           )}
         </div>
       </div>
-{/* =========================================================
-          MODAL XEM TẤT CẢ (FULL MÀN HÌNH) BẰNG PORTAL
+
+      {/* =========================================================
+          MODAL XEM TẤT CẢ BẰNG PORTAL
           ========================================================= */}
       {isModalOpen && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 pt-16 lg:p-10" onClick={() => setIsModalOpen(false)}>
@@ -196,7 +179,7 @@ const SchoolAnnouncements = () => {
               <button onClick={() => setIsModalOpen(false)} className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all"><X size={20}/></button>
             </div>
 
-            {/* Thanh Tìm kiếm & Lọc (Giữ nguyên) */}
+            {/* Thanh Tìm kiếm & Lọc */}
             <div className="p-4 border-b border-gray-100 bg-gray-50 flex flex-col sm:flex-row gap-3 shrink-0">
               <div className="relative flex-1">
                 <input 
@@ -221,7 +204,7 @@ const SchoolAnnouncements = () => {
               </div>
             </div>
 
-            {/* Danh sách Data Modal (Giữ nguyên) */}
+            {/* Danh sách Data Modal */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-2 sm:p-4 bg-white">
               {isLoadingModal ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
@@ -237,7 +220,8 @@ const SchoolAnnouncements = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {modalNews.map((item) => {
-                    const { finalLink, isCustomLink } = processLinkData(item);
+                    const finalLink = processLinkData(item);
+
                     return (
                       <a 
                         key={item.id} href={finalLink} target="_blank" rel="noreferrer"
@@ -246,16 +230,18 @@ const SchoolAnnouncements = () => {
                         <div>
                           <div className="flex justify-between items-start gap-2 mb-2">
                             {item.is_new && <span className="bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0">MỚI</span>}
-                            <span className="text-[10px] text-gray-400 ml-auto flex items-center gap-1 font-medium bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
+                            <span className={`text-[10px] text-gray-400 flex items-center gap-1 font-medium bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100 ${!item.is_new ? 'ml-auto' : ''}`}>
                                <Calendar size={10}/> {formatDate(item.date)}
                             </span>
                           </div>
-                          <p className={`text-sm font-bold line-clamp-3 leading-snug transition-colors ${isCustomLink ? 'text-[#003375]' : 'text-gray-800 group-hover:text-[#003375]'}`}>
+                          {/* ĐÃ SỬA: Tiêu đề màu xám đậm, hover lên xanh */}
+                          <p className="text-sm font-bold text-gray-800 group-hover:text-[#003375] line-clamp-3 leading-snug transition-colors">
                             {item.title}
                           </p>
                         </div>
                         
-                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
+                        <div className="flex items-center justify-end mt-3 pt-3 border-t border-gray-50">
+                          {/* Giữ màu xanh làm điểm nhấn kêu gọi hành động (CTA) */}
                           <div className="text-[#003375] text-[11px] font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                              Xem chi tiết <ChevronRight size={14}/>
                           </div>
@@ -267,10 +253,10 @@ const SchoolAnnouncements = () => {
               )}
             </div>
 
-            {/* Thanh Phân trang (Pagination) (Giữ nguyên) */}
+            {/* Thanh Phân trang (Pagination) */}
             <div className="p-4 border-t border-gray-100 bg-gray-50 shrink-0 flex flex-col sm:flex-row justify-between items-center gap-3">
               <p className="text-xs text-gray-500 font-medium">
-                Hiển thị <span className="font-bold text-gray-800">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> - <span className="font-bold text-gray-800">{Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}</span> trong tổng số <span className="font-bold text-gray-800">{totalCount}</span> thông báo
+                Hiển thị <span className="font-bold text-gray-800">{totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}</span> - <span className="font-bold text-gray-800">{Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}</span> trong tổng số <span className="font-bold text-gray-800">{totalCount}</span> thông báo
               </p>
               
               <div className="flex items-center gap-2">
@@ -298,7 +284,7 @@ const SchoolAnnouncements = () => {
 
           </div>
         </div>,
-        document.body 
+        document.body
       )}
     </>
   );
