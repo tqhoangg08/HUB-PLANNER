@@ -70,46 +70,6 @@ async function scrapeSource(source) {
               if (title && finalLink) pageResults.push({ title, link: finalLink, date: isoDate, hasRealDate });
             });
           } 
-          else if (source.type === 'library') {
-            const baseOrigin = 'https://library.hub.edu.vn';
-            $('a').each((index, element) => {
-              const rawLink = $(element).attr('href');
-              if (!rawLink || !rawLink.toLowerCase().includes('articleid=')) return;
-
-              let title = $(element).text().replace(/\s+/g, ' ').trim();
-              if (!title || title.length < 15) return; 
-
-              const finalLink = normalizeLink(rawLink, baseOrigin);
-              if (!finalLink) return;
-
-              // 👇 ĐÃ VÁ LỖI TRUY VẾT NGÀY TRANG THƯ VIỆN DỰA VÀO F12 CỦA BẠN 👇
-              let dateFound = null;
-              let ptr = $(element);
-              
-              for (let level = 0; level < 5; level++) {
-                  if (ptr.length === 0) break;
-                  
-                  // Tìm class topic_ngay xung quanh
-                  let dateEl = ptr.find('.topic_ngay');
-                  if (dateEl.length === 0) {
-                      dateEl = ptr.siblings('.topic_ngay'); // Quét thẻ anh em ngang hàng
-                  }
-
-                  if (dateEl.length > 0) {
-                      let text = dateEl.first().text().replace(/\s+/g, ' ').trim();
-                      const match = text.match(/(\d{1,2})[\/\-\.]+(\d{1,2})[\/\-\.]+(\d{4})/);
-                      if (match) {
-                          dateFound = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
-                          break;
-                      }
-                  }
-                  ptr = ptr.parent();
-              }
-
-              let isoDate = dateFound || new Date().toISOString().split('T')[0]; 
-              pageResults.push({ title, link: finalLink, date: isoDate, hasRealDate: !!dateFound });
-            });
-          }
           else if (source.type === 'modern') {
             const urlObj = new URL(source.url);
             const baseOrigin = urlObj.origin;
@@ -129,6 +89,9 @@ async function scrapeSource(source) {
 
               let dateFound = null;
               const cardContainer = $(element).closest('.notification-item, .news-item, article');
+
+              // 👇 VÒNG KIM CÔ CHỐNG ĂN TẠP: NẾU KHÔNG THUỘC KHUNG BÀI VIẾT THÌ VỨT BỎ NGAY 👇
+              if (cardContainer.length === 0) return;
 
               if (cardContainer.length > 0) {
                   const dayEl = cardContainer.find('.date .day');
