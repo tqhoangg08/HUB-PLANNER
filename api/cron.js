@@ -82,12 +82,29 @@ async function scrapeSource(source) {
               const finalLink = normalizeLink(rawLink, baseOrigin);
               if (!finalLink) return;
 
+              // 👇 ĐÃ VÁ LỖI TRUY VẾT NGÀY TRANG THƯ VIỆN DỰA VÀO F12 CỦA BẠN 👇
               let dateFound = null;
-              let container = $(element).closest('div, td, tr');
-              let text = container.text().replace(/\s+/g, ' ').trim();
+              let ptr = $(element);
               
-              const match = text.match(/(\d{1,2})[\/\-\.]+(\d{1,2})[\/\-\.]+(\d{4})/);
-              if (match) dateFound = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+              for (let level = 0; level < 5; level++) {
+                  if (ptr.length === 0) break;
+                  
+                  // Tìm class topic_ngay xung quanh
+                  let dateEl = ptr.find('.topic_ngay');
+                  if (dateEl.length === 0) {
+                      dateEl = ptr.siblings('.topic_ngay'); // Quét thẻ anh em ngang hàng
+                  }
+
+                  if (dateEl.length > 0) {
+                      let text = dateEl.first().text().replace(/\s+/g, ' ').trim();
+                      const match = text.match(/(\d{1,2})[\/\-\.]+(\d{1,2})[\/\-\.]+(\d{4})/);
+                      if (match) {
+                          dateFound = `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+                          break;
+                      }
+                  }
+                  ptr = ptr.parent();
+              }
 
               let isoDate = dateFound || new Date().toISOString().split('T')[0]; 
               pageResults.push({ title, link: finalLink, date: isoDate, hasRealDate: !!dateFound });
@@ -190,7 +207,6 @@ export default async function handler(request, response) {
 
     if (allScrapedData.length === 0) return response.status(200).json({ message: "Không tìm thấy tin nào." });
 
-    // 1. Lọc trùng lặp JS nội bộ
     const uniqueLinks = new Set();
     const uniqueTitles = new Set();
     const finalScrapedData = [];
@@ -204,7 +220,6 @@ export default async function handler(request, response) {
         }
     });
 
-    // 2. Kéo Link & Title từ DB lên để đối chiếu
     const linksToCheck = finalScrapedData.map(item => item.link);
     const titlesToCheck = finalScrapedData.map(item => item.title.trim());
     
@@ -221,7 +236,6 @@ export default async function handler(request, response) {
         if (!error && data) data.forEach(r => existingTitlesSet.add(r.title.trim().toLowerCase().replace(/\s+/g, ' ')));
     }
 
-    // 3. Chuẩn bị dữ liệu an toàn
     const recordsToInsert = [];
     finalScrapedData.forEach(item => {
         const normTitle = item.title.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -235,26 +249,20 @@ export default async function handler(request, response) {
         }
     });
 
-    // 👇 4. CƠ CHẾ LƯU ĐA LUỜNG ĐỘC LẬP (PARALLEL SINGLE INSERTS) 👇
     let actualInsertedCount = 0;
     
     if (recordsToInsert.length > 0) {
-        // Chia thành các lô nhỏ 50 tin để không làm nghẽn cổ chai Supabase
         const insertChunks = chunkArray(recordsToInsert, 50);
-        
         for (const chunk of insertChunks) {
-            // Nhét 50 tin cùng lúc, nhưng tách biệt hoàn toàn. Cái nào vướng Unique Key tự rớt, cái sạch thì chui lọt
             const insertPromises = chunk.map(async (item) => {
                 const { error } = await supabase
                     .from('school_announcements')
-                    .insert(item); // Nhét đúng 1 cái
+                    .insert(item); 
                 
                 if (!error) {
-                    actualInsertedCount++; // Chỉ cộng điểm khi thực sự vào được DB
+                    actualInsertedCount++; 
                 }
             });
-            
-            // Đợi 50 anh em chạy xong mới qua lô tiếp theo
             await Promise.all(insertPromises);
         }
     }
@@ -263,7 +271,7 @@ export default async function handler(request, response) {
 
     return response.status(200).json({ 
         success: true, 
-        message: `Đã quét ${SOURCES.reduce((acc, curr) => acc + curr.maxPages, 0)} trang. Chuẩn bị chèn ${recordsToInsert.length} tin. Đã LƯU THỰC TẾ thành công ${actualInsertedCount} tin vào Database.`,
+        message: `Đã quét ${SOURCES.reduce((acc, curr) => acc + curr.maxPages, 0)} trang. Đã chèn và lưu thực tế thành công ${actualInsertedCount} tin.`,
     });
 
   } catch (error) {
