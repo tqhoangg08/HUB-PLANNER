@@ -190,16 +190,13 @@ export default async function handler(request, response) {
 
     if (allScrapedData.length === 0) return response.status(200).json({ message: "Không tìm thấy tin nào." });
 
-    // 👇 1. BỘ LỌC KÉP TUYỆT ĐỐI TỪ TRONG TRỨNG NƯỚC 👇
+    // 1. Lọc trùng lặp JS nội bộ
     const uniqueLinks = new Set();
     const uniqueTitles = new Set();
     const finalScrapedData = [];
 
     allScrapedData.forEach(item => {
-        // Chuẩn hóa Title để tránh bị lọt do dư khoảng trắng
         const normTitle = item.title.trim().toLowerCase().replace(/\s+/g, ' ');
-        
-        // CHỈ LẤY KHI: Link chưa xuất hiện VÀ Tiêu đề chưa xuất hiện trong lần cào này
         if (!uniqueLinks.has(item.link) && !uniqueTitles.has(normTitle)) {
             uniqueLinks.add(item.link);
             uniqueTitles.add(normTitle);
@@ -207,7 +204,7 @@ export default async function handler(request, response) {
         }
     });
 
-    // 2. Kéo danh sách Link VÀ Title từ DB lên để đối chiếu
+    // 2. Kéo Link & Title từ DB lên để đối chiếu
     const linksToCheck = finalScrapedData.map(item => item.link);
     const titlesToCheck = finalScrapedData.map(item => item.title.trim());
     
@@ -224,11 +221,10 @@ export default async function handler(request, response) {
         if (!error && data) data.forEach(r => existingTitlesSet.add(r.title.trim().toLowerCase().replace(/\s+/g, ' ')));
     }
 
-    // 3. Chuẩn bị dữ liệu (Lọc loại bỏ nếu đã có trong DB)
+    // 3. Chuẩn bị dữ liệu an toàn
     const recordsToInsert = [];
     finalScrapedData.forEach(item => {
         const normTitle = item.title.trim().toLowerCase().replace(/\s+/g, ' ');
-        
         if (!existingLinksSet.has(item.link) && !existingTitlesSet.has(normTitle)) {
             recordsToInsert.push({
                 title: item.title,
@@ -239,28 +235,35 @@ export default async function handler(request, response) {
         }
     });
 
-    // 4. Lưu vào Supabase 
+    // 👇 4. CƠ CHẾ LƯU ĐA LUỜNG ĐỘC LẬP (PARALLEL SINGLE INSERTS) 👇
+    let actualInsertedCount = 0;
+    
     if (recordsToInsert.length > 0) {
-        const insertChunks = chunkArray(recordsToInsert, 300);
+        // Chia thành các lô nhỏ 50 tin để không làm nghẽn cổ chai Supabase
+        const insertChunks = chunkArray(recordsToInsert, 50);
+        
         for (const chunk of insertChunks) {
-            const { error } = await supabase
-                .from('school_announcements')
-                // Dùng Upsert với ignoreDuplicates: true để làm khiên chắn cuối cùng
-                .upsert(chunk, { onConflict: 'link', ignoreDuplicates: true });
+            // Nhét 50 tin cùng lúc, nhưng tách biệt hoàn toàn. Cái nào vướng Unique Key tự rớt, cái sạch thì chui lọt
+            const insertPromises = chunk.map(async (item) => {
+                const { error } = await supabase
+                    .from('school_announcements')
+                    .insert(item); // Nhét đúng 1 cái
+                
+                if (!error) {
+                    actualInsertedCount++; // Chỉ cộng điểm khi thực sự vào được DB
+                }
+            });
             
-            // Nếu vẫn có lỗi văng ra (rất khó xảy ra lúc này), bắt nó lại luôn để API không sập
-            if (error) {
-                logger.error('Lỗi khi lưu 1 lô dữ liệu', { meta: { error: error.message } });
-                console.error("Lỗi bỏ qua lô:", error.message);
-            }
+            // Đợi 50 anh em chạy xong mới qua lô tiếp theo
+            await Promise.all(insertPromises);
         }
     }
 
-    logger.info('Cào dữ liệu hoàn tất', { meta: { newItems: recordsToInsert.length }});
+    logger.info('Cào dữ liệu hoàn tất', { meta: { attempted: recordsToInsert.length, successful: actualInsertedCount }});
 
     return response.status(200).json({ 
         success: true, 
-        message: `Đã quét ${SOURCES.reduce((acc, curr) => acc + curr.maxPages, 0)} trang. Lọc bỏ sạch sẽ thông báo trùng Link VÀ trùng Title. Thêm mới ${recordsToInsert.length} tin.`,
+        message: `Đã quét ${SOURCES.reduce((acc, curr) => acc + curr.maxPages, 0)} trang. Chuẩn bị chèn ${recordsToInsert.length} tin. Đã LƯU THỰC TẾ thành công ${actualInsertedCount} tin vào Database.`,
     });
 
   } catch (error) {
