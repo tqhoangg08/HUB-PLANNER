@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom'; // Dùng Portal để đưa Modal lên lớp cao nhất
 import { X, FileUp, Smartphone, Monitor, Globe, Chrome, HelpCircle } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
@@ -58,8 +59,9 @@ export const ScheduleImportGuideModal: React.FC<Props> = ({ onClose, onFileClick
         }
     };
 
-    return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 animate-fadeIn">
+    // 👇 ĐÃ BỌC TÀN BỘ GIAO DIỆN VÀO createPortal 👇
+    return createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden border border-gray-200 animate-scaleIn">
                 <div className="bg-[#003375] p-4 flex justify-between items-center text-white flex-shrink-0">
                     <div className="flex items-center gap-2">
@@ -107,6 +109,7 @@ export const ScheduleImportGuideModal: React.FC<Props> = ({ onClose, onFileClick
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body // 👈 THÊM DÒNG NÀY ĐỂ ĐẨY NÓ LÊN LỚP CAO NHẤT
     );
 };
