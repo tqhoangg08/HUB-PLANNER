@@ -159,7 +159,6 @@ export default function ScheduleBoard() {
     document.title = "Thời khóa biểu | HUB Planner";
   }, []);
 
-  // 👇 ĐÃ THÊM: STATE KIỂM TRA ĐĂNG NHẬP 👇
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -233,7 +232,6 @@ export default function ScheduleBoard() {
     scrollRef.current.scrollLeft = scrollLeft.current - walk;
   };
 
-  // 👇 ĐÃ THÊM: KIỂM TRA SESSION KHI VÀO TRANG 👇
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -251,7 +249,7 @@ export default function ScheduleBoard() {
   }, []);
 
   useEffect(() => { 
-    if (isAuthenticated) fetchCourses(); // Chỉ fetch khi đã đăng nhập
+    if (isAuthenticated) fetchCourses(); 
   }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated]);
 
   useEffect(() => { 
@@ -534,7 +532,7 @@ export default function ScheduleBoard() {
               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 border border-gray-200 shadow-sm">
                 <Lock size={28} className="text-gray-400" />
               </div>
-              <h3 className="font-bold text-gray-800 text-base mb-2">Thông tin bảo mật</h3>
+              <h3 className="font-bold text-gray-800 text-base mb-2">Thông bảo mật</h3>
               <p className="text-[13px] text-gray-500 mb-6 leading-relaxed max-w-[280px]">
                 Dữ liệu về học phần, phòng học và giảng viên là thông tin nội bộ. Vui lòng đăng nhập bằng tài khoản sinh viên để sử dụng tính năng tra cứu.
               </p>
@@ -629,7 +627,9 @@ export default function ScheduleBoard() {
                   onMouseLeave={handleMouseLeave}
                   onMouseUp={handleMouseUp}
                   onMouseMove={handleMouseMove}
-                  className="flex gap-2 overflow-x-auto pb-3 custom-scrollbar mb-2 cursor-grab select-none" 
+                  // 👇 BỎ pb-3 VÀ THÊM no-scrollbar, THÊM STYLE scrollbarWidth 👇
+                  className="flex gap-2 overflow-x-auto mb-2 cursor-grab select-none no-scrollbar" 
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
                 <button onClick={() => setSelectedWeek(0)} className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border shrink-0 flex justify-center items-center gap-1 ${selectedWeek === 0 ? 'bg-[#003375] text-white border-[#003375] shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>Tổng quát</button>
                 {Array.from({length: 24}, (_, i) => i + 1).map(w => (
@@ -644,7 +644,6 @@ export default function ScheduleBoard() {
               )}
               
               <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-inner overflow-hidden flex flex-col relative">
-                {/* 👇 SỬA Ở ĐÂY: Thay 'custom-scrollbar' bằng 'no-scrollbar' 👇 */}
                 <div className="overflow-x-auto h-full w-full no-scrollbar">
                   <table className="w-full min-w-[700px] border-collapse table-fixed h-full">
                     <thead>
@@ -726,7 +725,9 @@ export default function ScheduleBoard() {
                   onMouseLeave={handleMouseLeave}
                   onMouseUp={handleMouseUp}
                   onMouseMove={handleMouseMove}
-                  className="flex gap-2 overflow-x-auto pb-3 custom-scrollbar mb-2 cursor-grab select-none" 
+                  // 👇 BỎ pb-3 VÀ THÊM no-scrollbar, THÊM STYLE scrollbarWidth 👇
+                  className="flex gap-2 overflow-x-auto mb-2 cursor-grab select-none no-scrollbar" 
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
                 {Array.from({length: 12}, (_, i) => i).map(m => (
                   <button key={m} onClick={() => setSelectedMonthIndex(m)} className={`min-w-[80px] py-1.5 rounded-lg text-sm font-bold transition-all border shrink-0 ${selectedMonthIndex === m ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>Tháng {m + 1}</button>
