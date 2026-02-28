@@ -593,8 +593,8 @@ export default function ScheduleBoard() {
 
       {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
       <div className="w-full lg:w-[72%] bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 p-4 sm:p-6 flex flex-col overflow-hidden h-fit lg:h-full">
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-4">
+        <div className="mb-1">
+          <div className="flex justify-between items-center mb-3">
             <h2 className="text-xl font-bold text-[#003375] flex items-center gap-2">
               <Calendar size={22} className="text-[#990000]" /> Lịch học cá nhân
             </h2>
@@ -609,7 +609,7 @@ export default function ScheduleBoard() {
             </div>
           </div>
           
-          <div className="flex justify-between items-center mb-2">
+          <div className="flex justify-between items-center mb-0">
               {viewMode === 'week' ? (
                  <span className="px-3 py-1 bg-blue-50 text-[#003375] text-xs font-bold rounded-full border border-blue-200">{selectedSemester}</span>
               ) : (
