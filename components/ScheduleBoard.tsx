@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock } from 'lucide-react';
+// ĐÃ THÊM: Import FileUp
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
+// ĐÃ THÊM: Các module xử lý import TKB
+import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
+import { parseSchedulePdf } from '../utils/schedulePdfImport';
 
 interface Course {
   id: string;
@@ -81,7 +85,7 @@ const getExamTime = (shiftStr?: string) => {
 };
 
 // =======================================================================
-// THUẬT TOÁN TÁCH DÒNG & LỌC GHI ĐÈ LỊCH (OVERRIDE LOGIC)
+// THUẬT TOÁN TÁCH DÒNG & LỌC GHI ĐÈ LỊCH
 // =======================================================================
 const splitData = (str?: string) => {
   if (!str) return [];
@@ -159,40 +163,36 @@ export default function ScheduleBoard() {
   }, []);
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
   const [searchTerm, setSearchTerm] = useState('');
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
-  
   const [mySchedule, setMySchedule] = useState<Course[]>([]);
-  
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  
   const [selectedSemester, setSelectedSemester] = useState<string>('HK2_2025_2026');
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
-
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [selectedWeek, setSelectedWeek] = useState<number>(0); 
   const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(new Date().getMonth()); 
-
   const [selectedCourseInfo, setSelectedCourseInfo] = useState<{
     course: Course;
     details?: { day: number, shift: string, room: string, weeks: string };
   } | null>(null);
 
   const [isMyScheduleModalOpen, setIsMyScheduleModalOpen] = useState(false);
-
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [reportData, setReportData] = useState({ course_code: '', subject_name: '', description: '' });
-
   const [isCreateCourseModalOpen, setIsCreateCourseModalOpen] = useState(false);
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
   const [newCourseData, setNewCourseData] = useState({ subject_name: '', course_code: '', instructor: '' });
-
   const currentSemesterSchedule = mySchedule.filter(c => c.semester === selectedSemester);
 
-  // 👇 ================= HỆ THỐNG KÉO THẢ CHUỘT (CẢI TIẾN TOÀN CẦU) ================= 👇
+  // 👇 ================= STATE VÀ REF CHO UPLOAD PDF ================= 👇
+  const [isPdfGuideOpen, setIsPdfGuideOpen] = useState(false);
+  const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Kéo thả ngang
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const startX = useRef(0);
@@ -205,18 +205,15 @@ export default function ScheduleBoard() {
     const walk = (x - startX.current) * 1.5; 
     scrollRef.current.scrollLeft = scrollLeft.current - walk;
   };
-
   const handleWindowMouseUp = () => {
     isDragging.current = false;
     if (scrollRef.current) {
         scrollRef.current.classList.remove('cursor-grabbing');
         scrollRef.current.classList.add('cursor-grab');
     }
-    // Hủy theo dõi chuột khi đã thả tay ra
     window.removeEventListener('mousemove', handleWindowMouseMove);
     window.removeEventListener('mouseup', handleWindowMouseUp);
   };
-
   const handleMouseDown = (e: React.MouseEvent) => {
     isDragging.current = true;
     if (scrollRef.current) {
@@ -225,20 +222,15 @@ export default function ScheduleBoard() {
         startX.current = e.pageX - scrollRef.current.offsetLeft;
         scrollLeft.current = scrollRef.current.scrollLeft;
     }
-    
-    // Gắn "mắt theo dõi" lên toàn bộ trình duyệt thay vì chỉ ở thanh cuộn
     window.addEventListener('mousemove', handleWindowMouseMove);
     window.addEventListener('mouseup', handleWindowMouseUp);
   };
-
-  // Hàm dọn dẹp nếu người dùng thoát trang giữa chừng khi đang kéo
   useEffect(() => {
     return () => {
       window.removeEventListener('mousemove', handleWindowMouseMove);
       window.removeEventListener('mouseup', handleWindowMouseUp);
     };
   }, []);
-  // 👆 ========================================================================= 👆
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -492,6 +484,108 @@ export default function ScheduleBoard() {
     finally { setIsSubmittingCourse(false); }
   };
 
+  // 👇 ================= HÀM XỬ LÝ UPLOAD PDF TKB ================= 👇
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { alert("⚠️ Vui lòng đăng nhập để lưu Thời khóa biểu!"); return; }
+
+    setIsPdfGuideOpen(false);
+    setIsProcessingPdf(true);
+    
+    try {
+        const aiData = await parseSchedulePdf(file);
+        if (!aiData || !aiData.courses || aiData.courses.length === 0) {
+            alert("❌ Không thể đọc được dữ liệu. Vui lòng đảm bảo file PDF là file gốc xuất từ trang trường.");
+            setIsProcessingPdf(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
+
+        let addedCount = 0;
+        let currentSem = aiData.semester || selectedSemester;
+
+        // Chuẩn hóa tên học kỳ để hiển thị đúng
+        if (currentSem.includes('HK02')) currentSem = currentSem.replace('HK02', 'HK2').replace('-', '_');
+        if (currentSem.includes('HK01')) currentSem = currentSem.replace('HK01', 'HK1').replace('-', '_');
+        currentSem = currentSem.replace(/\//g, '_');
+
+        for (const course of aiData.courses) {
+            // 1. Kiểm tra xem môn này đã có trong Database chung chưa (Dò theo mã HP)
+            const { data: existingCourse } = await supabase
+                .from('course_schedules')
+                .select('id')
+                .eq('course_code', course.course_code)
+                .single();
+
+            let targetCourseId = existingCourse?.id;
+
+            // 2. Nếu chưa có -> Đưa vào Database chung với cờ is_user_added
+            if (!targetCourseId) {
+                const { data: newCourse, error: insertErr } = await supabase
+                    .from('course_schedules')
+                    .insert({
+                        course_code: course.course_code,
+                        subject_name: course.subject_name,
+                        credits: course.credits,
+                        instructor: course.instructor,
+                        day_of_week: course.day_of_week,
+                        shift: course.shift,
+                        room: course.room,
+                        campus: course.campus || 'TD', 
+                        weeks: course.weeks || '1-15',
+                        semester: currentSem,
+                        is_user_added: true // Gắn cờ do user thêm
+                    })
+                    .select('id')
+                    .single();
+                
+                if (!insertErr && newCourse) {
+                    targetCourseId = newCourse.id;
+                } else {
+                    console.error("Lỗi thêm môn mới:", insertErr);
+                }
+            }
+
+            // 3. Liên kết môn học vào TKB của User (Kiểm tra tránh trùng lặp)
+            if (targetCourseId) {
+                const { data: checkLink } = await supabase
+                    .from('user_schedules')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .eq('course_id', targetCourseId)
+                    .single();
+
+                if (!checkLink) {
+                    await supabase.from('user_schedules').insert({
+                        user_id: user.id,
+                        course_id: targetCourseId,
+                        semester: currentSem
+                    });
+                    addedCount++;
+                }
+            }
+        }
+        
+        if (addedCount > 0) {
+            alert(`✅ Đã đồng bộ thành công ${addedCount} môn học vào Thời khóa biểu!`);
+            fetchMySchedule(); 
+            setSelectedSemester(currentSem); 
+        } else {
+            alert(`Các môn học trong file đã có sẵn trong Thời khóa biểu của bạn rồi!`);
+        }
+
+    } catch (err) {
+        console.error(err);
+        alert("Có lỗi trong quá trình xử lý file PDF.");
+    } finally {
+        setIsProcessingPdf(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const currentWeekDates = getWeekDates(selectedWeek);
 
   return (
@@ -530,6 +624,19 @@ export default function ScheduleBoard() {
                 <BookPlus size={14} /> Gửi yêu cầu môn mới
               </button>
             </div>
+            
+            {/* 👇 NÚT BẤM NHẬP PDF NẰM Ở ĐÂY 👇 */}
+            <button 
+                disabled={isAuthenticated === false || isProcessingPdf} 
+                onClick={() => setIsPdfGuideOpen(true)} 
+                className={`w-full flex items-center justify-center gap-2 p-2.5 mt-3 rounded-xl font-bold transition-all ${isAuthenticated === false ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-[#003375] to-blue-600 text-white shadow-md hover:shadow-lg active:scale-95'}`}
+            >
+                {isProcessingPdf ? <Zap className="animate-pulse" size={16} /> : <FileUp size={16} />}
+                {isProcessingPdf ? 'Đang nhờ AI phân tích PDF...' : 'Nhập TKB Tự động bằng PDF'}
+            </button>
+            {/* Input ẩn để gọi file */}
+            <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload} />
+
           </div>
           {isSyncing && <p className="absolute top-5 right-5 text-[10px] text-blue-600 font-bold flex items-center gap-1 animate-pulse">Đang đồng bộ...</p>}
         </div>
@@ -632,7 +739,6 @@ export default function ScheduleBoard() {
               <div 
                   ref={scrollRef}
                   onMouseDown={handleMouseDown}
-                  // Đã bỏ các event mouse cục bộ vì Window đã đảm nhận
                   className="flex gap-2 overflow-x-auto mb-2 cursor-grab select-none no-scrollbar" 
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
@@ -942,6 +1048,14 @@ export default function ScheduleBoard() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* 👇 ĐÃ THÊM: MODAL HƯỚNG DẪN IMPORT PDF 👇 */}
+      {isPdfGuideOpen && (
+          <ScheduleImportGuideModal 
+              onClose={() => setIsPdfGuideOpen(false)} 
+              onFileClick={() => fileInputRef.current?.click()} 
+          />
       )}
     </div>
   );
