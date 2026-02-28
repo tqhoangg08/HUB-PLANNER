@@ -1,49 +1,69 @@
 import React, { useState, useRef, useEffect } from 'react';
+// 👇 1. ĐÃ THÊM: Import công cụ điều hướng của React Router
+import { useParams, useNavigate } from 'react-router-dom'; 
 import {
     Search, Phone, Mail, MapPin, Bus, Users, Book, Award, ChevronRight,
     Copy, Check, HelpCircle, ExternalLink, Info, Heart, Facebook, User,
-    MessageSquarePlus, Crown // <--- Đã thêm Crown
+    MessageSquarePlus, Crown 
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { supabase } from '../utils/supabase';
 
-// <--- Đã thêm 'donate' vào Type
-type TabType = 'contacts' | 'bus' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about' | 'feedback' | 'donate';
+type TabType = 'contacts' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about' | 'feedback' | 'donate';
+
+const VALID_TABS: TabType[] = ['contacts', 'clubs', 'scholarships', 'regulations', 'faqs', 'about', 'feedback', 'donate'];
 
 export const Handbook: React.FC = () => {
-    useEffect(() => {
-    document.title = "Cẩm nang | HUB Planner";
-  }, []);
-    const [activeTab, setActiveTab] = useState<TabType>('contacts');
+    // 👇 2. ĐÃ THÊM: Khởi tạo các hook điều hướng
+    const { tab } = useParams<{ tab: string }>(); 
+    const navigate = useNavigate();
+
+    // Set state ban đầu dựa trên link URL (Nếu gõ bậy bạ sẽ tự về contacts)
+    const [activeTab, setActiveTab] = useState<TabType>(() => {
+        if (tab && VALID_TABS.includes(tab as TabType)) {
+            return tab as TabType;
+        }
+        return 'contacts';
+    });
+
     const [searchTerm, setSearchTerm] = useState('');
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // --- STATE GÓP Ý ---
     const [feedbackType, setFeedbackType] = useState<'bug' | 'idea'>('idea');
     const [feedbackContent, setFeedbackContent] = useState('');
     const [contactInfo, setContactInfo] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
-    // --- STATE CHO PHẦN ỦNG HỘ (DONATE) - MỚI THÊM ---
     const [donateForm, setDonateForm] = useState({ name: '', mssv: '', amount: '', message: '' });
     const [isDonating, setIsDonating] = useState(false);
     const [donors, setDonors] = useState<any[]>([]);
     const [loadingDonors, setLoadingDonors] = useState(false);
 
-    // --- MENU CONFIGURATION ---
+    useEffect(() => {
+        document.title = "Cẩm nang | HUB Planner";
+    }, []);
+
+    // 👇 3. ĐÃ THÊM: Lắng nghe sự thay đổi của thanh URL (khi user bấm nút Back/Forward của trình duyệt)
+    useEffect(() => {
+        if (tab && VALID_TABS.includes(tab as TabType)) {
+            setActiveTab(tab as TabType);
+        } else if (!tab) {
+            setActiveTab('contacts'); // Nếu chỉ gõ /handbook thì về mặc định
+        }
+    }, [tab]);
+
     const MENU_ITEMS = [
         { id: 'contacts', label: 'Danh bạ & Khoa', icon: Phone, color: 'bg-[#003375]' },
         { id: 'clubs', label: 'CLB - Đội - Nhóm', icon: Users, color: 'bg-[#990000]' },
         { id: 'scholarships', label: 'Học bổng & Quy chế', icon: Award, color: 'bg-green-600' },
         { id: 'faqs', label: 'FAQs', icon: HelpCircle, color: 'bg-indigo-600' },
         { id: 'feedback', label: 'Góp ý', icon: MessageSquarePlus, color: 'bg-teal-600' },
-        { id: 'donate', label: 'Ủng hộ & Tri ân', icon: Heart, color: 'bg-pink-600' }, // <--- MỚI THÊM
+        { id: 'donate', label: 'Ủng hộ & Tri ân', icon: Heart, color: 'bg-pink-600' }, 
         { id: 'about', label: 'Về chúng mình', icon: Info, color: 'bg-gray-600' },
     ];
 
-    // --- SCROLL TO ACTIVE TAB ON MOBILE ---
     useEffect(() => {
         if (scrollRef.current) {
             const activeElement = scrollRef.current.querySelector(`[data-tab="${activeTab}"]`);
@@ -53,14 +73,13 @@ export const Handbook: React.FC = () => {
         }
     }, [activeTab]);
 
-    // --- LOGIC LẤY DANH SÁCH ỦNG HỘ (MỚI THÊM) ---
     useEffect(() => {
         if (activeTab === 'donate') {
             fetchDonors();
         }
     }, [activeTab]);
 
-const fetchDonors = async () => {
+    const fetchDonors = async () => {
         setLoadingDonors(true);
         const { data, error } = await supabase
             .from('donations')
@@ -73,14 +92,12 @@ const fetchDonors = async () => {
         setLoadingDonors(false);
     };
 
-    // --- LOGIC GỬI FORM ỦNG HỘ (MỚI THÊM) ---
     const handleDonateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!donateForm.name || !donateForm.amount) return;
 
         setIsDonating(true);
         try {
-            // Chỉ lấy số từ chuỗi tiền (ví dụ nhập "50.000" -> 50000)
             const cleanAmount = parseInt(donateForm.amount.replace(/\D/g, '')) || 0;
 
             const { error } = await supabase.from('donations').insert([{
@@ -93,8 +110,8 @@ const fetchDonors = async () => {
             if (error) throw error;
 
             alert("Cảm ơn tấm lòng vàng của bạn! ❤️");
-            setDonateForm({ name: '', mssv: '', amount: '', message: '' }); // Reset form
-            fetchDonors(); // Load lại bảng vàng
+            setDonateForm({ name: '', mssv: '', amount: '', message: '' }); 
+            fetchDonors(); 
         } catch (error) {
             console.error("Lỗi:", error);
             alert("Có lỗi xảy ra, vui lòng thử lại.");
@@ -103,7 +120,6 @@ const fetchDonors = async () => {
         }
     };
 
-    // Hàm format tiền tệ (VND)
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
     };
@@ -132,7 +148,6 @@ const fetchDonors = async () => {
         }
     };
 
-    // --- DATA ---
     const contacts = [
         { name: 'Phòng Đào tạo', email: 'phongdaotao@hub.edu.vn', phone: '028.38.212.430', loc: '56 Hoàng Diệu 2 & 36 Tôn Thất Đạm' },
         { name: 'Phòng Công tác Sinh viên (TT SV&QHDN)', email: 'trungtamsvvaqhdn@hub.edu.vn', phone: '028.38.971.636', loc: '56 Hoàng Diệu 2' },
@@ -240,9 +255,11 @@ const fetchDonors = async () => {
         c.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    // 👇 4. ĐÃ SỬA: Thay vì chỉ set State, bây giờ ta đẩy lên URL
     const handleTabChange = (tab: TabType) => {
         playClick();
-        setActiveTab(tab);
+        setActiveTab(tab); 
+        navigate(`/handbook/${tab}`); // Bắn tham số lên thanh địa chỉ URL
     };
 
     const copyToClipboard = (text: string, id: string) => {
