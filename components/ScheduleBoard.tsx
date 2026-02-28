@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-// ĐÃ THÊM: Import FileUp
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2 } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
-// ĐÃ THÊM: Các module xử lý import TKB
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { parseSchedulePdf } from '../utils/schedulePdfImport';
 
@@ -38,10 +37,8 @@ const getMainShiftType = (shiftStr?: string) => {
   const s = shiftStr.trim().toUpperCase();
   if (s === 'S') return 'S';
   if (s === 'C') return 'C';
-  
   if (/\b(6|7|8|9|10)\b/.test(s)) return 'C'; 
   if (/\b(1|2|3|4|5)\b/.test(s)) return 'S';  
-  
   return '';
 };
 
@@ -155,8 +152,6 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
   return null;
 };
 
-// =======================================================================
-
 export default function ScheduleBoard() {
   useEffect(() => {
     document.title = "Thời khóa biểu | HUB Planner";
@@ -187,12 +182,10 @@ export default function ScheduleBoard() {
   const [newCourseData, setNewCourseData] = useState({ subject_name: '', course_code: '', instructor: '' });
   const currentSemesterSchedule = mySchedule.filter(c => c.semester === selectedSemester);
 
-  // 👇 ================= STATE VÀ REF CHO UPLOAD PDF ================= 👇
   const [isPdfGuideOpen, setIsPdfGuideOpen] = useState(false);
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Kéo thả ngang
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const startX = useRef(0);
@@ -238,11 +231,9 @@ export default function ScheduleBoard() {
       setIsAuthenticated(!!session);
     };
     checkAuth();
-
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       setIsAuthenticated(!!session);
     });
-
     return () => {
       authListener.subscription.unsubscribe();
     };
@@ -266,9 +257,7 @@ export default function ScheduleBoard() {
 
       const res = await fetch(`/api/courses?${params.toString()}`);
       const json = await res.json();
-      
       if (!res.ok) throw new Error(json.error || 'Lỗi tải danh sách môn');
-      
       setAvailableCourses(json.data || []);
     } catch (error) { 
       console.error("Lỗi tải danh sách môn:", error); 
@@ -484,7 +473,7 @@ export default function ScheduleBoard() {
     finally { setIsSubmittingCourse(false); }
   };
 
-  // 👇 ================= HÀM XỬ LÝ UPLOAD PDF TKB ================= 👇
+  // 👇 ================= HÀM XỬ LÝ UPLOAD PDF TKB (ĐÃ CẢI TIẾN) ================= 👇
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -507,27 +496,63 @@ export default function ScheduleBoard() {
         let addedCount = 0;
         let currentSem = aiData.semester || selectedSemester;
 
-        // Chuẩn hóa tên học kỳ để hiển thị đúng
         if (currentSem.includes('HK02')) currentSem = currentSem.replace('HK02', 'HK2').replace('-', '_');
         if (currentSem.includes('HK01')) currentSem = currentSem.replace('HK01', 'HK1').replace('-', '_');
         currentSem = currentSem.replace(/\//g, '_');
 
+        // BƯỚC 1: XÁC ĐỊNH ĐỢT HỌC BẰNG NGÀY BẮT ĐẦU (PHÂN ĐỢT)
+        // Tìm tháng nhỏ nhất trong danh sách các môn
+        let earliestMonth = 12;
+        aiData.courses.forEach((c: any) => {
+            if (c.start_date) {
+                const parts = c.start_date.split('/');
+                if (parts.length >= 2) {
+                    const month = parseInt(parts[1], 10);
+                    if (!isNaN(month) && month < earliestMonth) earliestMonth = month;
+                }
+            }
+        });
+
+        // BƯỚC 2: DUYỆT TỪNG MÔN VÀ GÁN ĐỢT
         for (const course of aiData.courses) {
-            // 1. Kiểm tra xem môn này đã có trong Database chung chưa (Dò theo mã HP)
-            const { data: existingCourse } = await supabase
+            // Chuyển khoảng trắng thành gạch dưới trong mã HP
+            const cleanCode = course.course_code.replace(/\s+/g, '_');
+
+            // Gán đợt: Nếu tháng bắt đầu lớn hơn tháng nhỏ nhất -> Đợt 2, ngược lại Đợt 1
+            let phaseStr = "1";
+            if (course.start_date) {
+                const parts = course.start_date.split('/');
+                if (parts.length >= 2) {
+                    const month = parseInt(parts[1], 10);
+                    if (!isNaN(month) && month > earliestMonth) phaseStr = "2";
+                }
+            }
+
+            // TÁCH MÃ MÔN ĐỂ TÌM KIẾM CHÉO (Ví dụ: MAG318_252_1_D02 -> Tìm theo MAG318 và D02)
+            const codeParts = cleanCode.split('_');
+            const baseCode = codeParts[0]; // MAG318
+            const tailCode = codeParts[codeParts.length - 1]; // D02
+
+            // Dò trong Database bằng ilike
+            const { data: existingCourses } = await supabase
                 .from('course_schedules')
-                .select('id')
-                .eq('course_code', course.course_code)
-                .single();
+                .select('id, course_code')
+                .ilike('course_code', `${baseCode}%`)
+                .ilike('course_code', `%${tailCode}`);
 
-            let targetCourseId = existingCourse?.id;
+            let targetCourseId = null;
 
-            // 2. Nếu chưa có -> Đưa vào Database chung với cờ is_user_added
+            // Nếu tìm thấy 1 môn khớp đoạn đầu và đoạn cuối -> Lấy ID môn đó
+            if (existingCourses && existingCourses.length > 0) {
+                targetCourseId = existingCourses[0].id;
+            }
+
+            // Nếu không tìm thấy, tạo môn mới
             if (!targetCourseId) {
                 const { data: newCourse, error: insertErr } = await supabase
                     .from('course_schedules')
                     .insert({
-                        course_code: course.course_code,
+                        course_code: cleanCode, // Lưu mã gốc
                         subject_name: course.subject_name,
                         credits: course.credits,
                         instructor: course.instructor,
@@ -537,7 +562,8 @@ export default function ScheduleBoard() {
                         campus: course.campus || 'TD', 
                         weeks: course.weeks || '1-15',
                         semester: currentSem,
-                        is_user_added: true // Gắn cờ do user thêm
+                        phase: phaseStr, // Đã gán đợt
+                        is_user_added: true 
                     })
                     .select('id')
                     .single();
@@ -549,7 +575,7 @@ export default function ScheduleBoard() {
                 }
             }
 
-            // 3. Liên kết môn học vào TKB của User (Kiểm tra tránh trùng lặp)
+            // Liên kết vào TKB cá nhân
             if (targetCourseId) {
                 const { data: checkLink } = await supabase
                     .from('user_schedules')
@@ -625,7 +651,6 @@ export default function ScheduleBoard() {
               </button>
             </div>
             
-            {/* 👇 NÚT BẤM NHẬP PDF NẰM Ở ĐÂY 👇 */}
             <button 
                 disabled={isAuthenticated === false || isProcessingPdf} 
                 onClick={() => setIsPdfGuideOpen(true)} 
@@ -634,7 +659,6 @@ export default function ScheduleBoard() {
                 {isProcessingPdf ? <Zap className="animate-pulse" size={16} /> : <FileUp size={16} />}
                 {isProcessingPdf ? 'Đang nhờ AI phân tích PDF...' : 'Nhập TKB Tự động bằng PDF'}
             </button>
-            {/* Input ẩn để gọi file */}
             <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload} />
 
           </div>
@@ -699,7 +723,7 @@ export default function ScheduleBoard() {
       </div>
 
       {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
-      <div className="w-full lg:w-[72%] bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 p-4 sm:p-6 flex flex-col overflow-hidden h-fit lg:h-full">
+      <div className="w-full lg:w-[72%] bg-white/95 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-100 p-4 sm:p-6 flex flex-col overflow-hidden h-fit lg:h-full relative">
         <div className="mb-1">
           <div className="flex justify-between items-center mb-3">
             <h2 className="text-xl font-bold text-[#003375] flex items-center gap-2">
@@ -850,7 +874,6 @@ export default function ScheduleBoard() {
                     {renderMonthDays().map((date, idx) => {
                        if (!date) return <div key={`empty-${idx}`} className="bg-gray-50/50 min-h-[90px] sm:min-h-[110px]" />;
                        
-                       // Kéo TẤT CẢ các môn học và lịch thi trong năm đổ vào từng ngày
                        const dayCourses = getCoursesForDate(date, mySchedule);
                        const dayExams = getExamsForDate(date, mySchedule);
                        const isToday = new Date().toDateString() === date.toDateString();
@@ -878,6 +901,17 @@ export default function ScheduleBoard() {
                  </div>
               </div>
            </>
+        )}
+        
+        {/* 👇 GIAO DIỆN THÔNG BÁO LOADING KHI ĐANG XỬ LÝ PDF 👇 */}
+        {isProcessingPdf && (
+            <div className="absolute bottom-4 right-4 bg-white px-5 py-4 rounded-xl shadow-2xl border border-blue-200 flex items-center gap-4 z-[99] animate-fadeIn">
+                <Loader2 className="animate-spin text-blue-600" size={24} />
+                <div>
+                    <p className="font-bold text-sm text-gray-800">Bạn hãy kiên nhẫn chờ mình một chút nhé!</p>
+                    <p className="text-xs text-gray-500 mt-1">Lịch học của bạn đang được AI bóc tách, đừng thoát khỏi màn hình nhaaa...</p>
+                </div>
+            </div>
         )}
       </div>
 
@@ -941,7 +975,6 @@ export default function ScheduleBoard() {
                   <p className="text-orange-700 text-xs sm:text-sm font-medium">Ngày thi: {course.exam_date || 'Chưa công bố'} • {course.exam_shift || ''}{course.exam_shift && getExamTime(course.exam_shift) ? ` - ${getExamTime(course.exam_shift)}` : ''}</p>
                 </div>
 
-                {/* NÚT BẤM BÁO CÁO NHANH TỪ MODAL */}
                 <button 
                   onClick={() => {
                     setReportData({ course_code: course.course_code, subject_name: course.subject_name, description: '' });
@@ -1050,7 +1083,7 @@ export default function ScheduleBoard() {
         </div>
       )}
 
-      {/* 👇 ĐÃ THÊM: MODAL HƯỚNG DẪN IMPORT PDF 👇 */}
+      {/* MODAL HƯỚNG DẪN IMPORT PDF */}
       {isPdfGuideOpen && (
           <ScheduleImportGuideModal 
               onClose={() => setIsPdfGuideOpen(false)} 

@@ -22,6 +22,7 @@ const checkSpamLimit = (): boolean => {
     return true;
 };
 
+// ĐÃ SỬA: Yêu cầu AI lấy thêm trường start_date
 const SCHEDULE_PROMPT = `
 Bạn là chuyên gia trích xuất Thời khóa biểu đại học từ văn bản.
 Nhiệm vụ: Trích xuất danh sách môn học và trả về JSON hợp lệ.
@@ -31,7 +32,7 @@ CẤU TRÚC JSON BẮT BUỘC:
   "semester": "HK2_2025_2026", // Suy luận từ văn bản (VD: HK02/2025-2026 -> HK2_2025_2026)
   "courses": [
     {
-      "course_code": "string (Mã học phần, đổi dấu cách thành gạch dưới, VD: MAG318_252_1_D02)",
+      "course_code": "string (Mã học phần, VD: MAG318_252_1_D02)",
       "subject_name": "string (Tên học phần, bỏ các ký tự thừa như () ở cuối)",
       "credits": number (Số tín chỉ),
       "instructor": "string (Tên giảng viên)",
@@ -39,7 +40,8 @@ CẤU TRÚC JSON BẮT BUỘC:
       "shift": "string (Nếu 7H00 -> 'S', Nếu 13H00 -> 'C'. Nếu 2 buổi thì 'C\\nC')",
       "room": "string (Tên phòng học, VD: A207. 2 phòng thì 'A207\\nB101')",
       "campus": "string (Nếu chứa 'Hoàng Diệu 2' -> 'TD', nếu 'Tôn Thất Đạm' -> 'Q1')",
-      "weeks": "1-15" // Mặc định luôn điền '1-15'
+      "weeks": "1-15", // Mặc định luôn điền '1-15'
+      "start_date": "string (Ngày bắt đầu học, định dạng dd/mm/yyyy)"
     }
   ]
 }
@@ -47,7 +49,8 @@ CẤU TRÚC JSON BẮT BUỘC:
 QUY TẮC:
 1. Cột "Thông tin" chứa Thứ, Giờ, Phòng, Cơ sở. Hãy tách chính xác.
 2. Một số môn có 2 buổi/tuần (VD: Thứ Sáu 13H00... Thứ Bảy 13H00...). Hãy gộp vào 1 object, các thông tin cách nhau bằng ký tự xuống dòng '\\n'.
-3. Bắt buộc chỉ trả về JSON thuần, KHÔNG giải thích, KHÔNG markdown.
+3. Bắt buộc lấy chính xác cột "Ngày bắt đầu" cho từng môn.
+4. Bắt buộc chỉ trả về JSON thuần, KHÔNG giải thích, KHÔNG markdown.
 `;
 
 export const parseSchedulePdf = async (file: File) => {
@@ -62,7 +65,6 @@ export const parseSchedulePdf = async (file: File) => {
         fullText += textContent.items.map((item: any) => item.str).join(' ') + '\n';
     }
     
-    // Thu gọn bớt khoảng trắng để tiết kiệm token gửi lên AI
     fullText = fullText.replace(/\s+/g, ' ').trim();
 
     try {
