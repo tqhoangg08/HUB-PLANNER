@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-// ĐÃ THÊM: Import FileUp
+import { createPortal } from 'react-dom';
 import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
@@ -1062,13 +1062,14 @@ export default function ScheduleBoard() {
 }
 
 function DetailItem({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) {
-  return (
+  return createPortal(
     <div className="flex gap-2 sm:gap-3 items-start">
       <div className="text-[#003375] bg-blue-50 p-1.5 sm:p-2 rounded-lg mt-0.5">{React.cloneElement(icon as React.ReactElement, { size: 16, strokeWidth: 2.5 })}</div>
       <div>
         <p className="text-[10px] sm:text-[11px] text-gray-500 font-bold uppercase tracking-wide">{label}</p>
         <p className="text-xs sm:text-sm font-semibold text-gray-900 whitespace-pre-line leading-snug mt-0.5">{value}</p>
       </div>
-    </div>
-  );
-}
+    </div>,
+        document.body // 👈 3. THÊM DÒNG NÀY Ở CUỐI CÙNG TRƯỚC DẤU ĐÓNG NGOẶC
+    );
+};
