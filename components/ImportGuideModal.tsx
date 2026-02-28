@@ -224,7 +224,7 @@ export const ImportGuideModal: React.FC<ImportGuideModalProps> = ({ onClose, onF
                     <button 
                         onClick={() => {
                             playClick();
-                            window.open('https://www.facebook.com/hubplannerr', '_blank');
+                            window.open('https://hotrosinhvienhub.id.vn/handbook/feedback', '_blank');
                         }} 
                         className="flex items-center gap-1.5 text-red-500 hover:text-red-700 text-sm font-bold px-2 py-2 rounded-lg hover:bg-red-50 transition-colors"
                         title="Báo cáo nếu file không đọc được"
