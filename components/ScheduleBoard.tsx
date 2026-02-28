@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-// ĐÃ THÊM: Import thêm icon Lock cho giao diện chưa đăng nhập
 import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, Filter, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
@@ -193,10 +192,30 @@ export default function ScheduleBoard() {
 
   const currentSemesterSchedule = mySchedule.filter(c => c.semester === selectedSemester);
 
+  // 👇 ================= HỆ THỐNG KÉO THẢ CHUỘT (CẢI TIẾN TOÀN CẦU) ================= 👇
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const startX = useRef(0);
   const scrollLeft = useRef(0);
+
+  const handleWindowMouseMove = (e: MouseEvent) => {
+    if (!isDragging.current || !scrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - startX.current) * 1.5; 
+    scrollRef.current.scrollLeft = scrollLeft.current - walk;
+  };
+
+  const handleWindowMouseUp = () => {
+    isDragging.current = false;
+    if (scrollRef.current) {
+        scrollRef.current.classList.remove('cursor-grabbing');
+        scrollRef.current.classList.add('cursor-grab');
+    }
+    // Hủy theo dõi chuột khi đã thả tay ra
+    window.removeEventListener('mousemove', handleWindowMouseMove);
+    window.removeEventListener('mouseup', handleWindowMouseUp);
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     isDragging.current = true;
@@ -206,31 +225,20 @@ export default function ScheduleBoard() {
         startX.current = e.pageX - scrollRef.current.offsetLeft;
         scrollLeft.current = scrollRef.current.scrollLeft;
     }
+    
+    // Gắn "mắt theo dõi" lên toàn bộ trình duyệt thay vì chỉ ở thanh cuộn
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('mouseup', handleWindowMouseUp);
   };
 
-  const handleMouseLeave = () => {
-    isDragging.current = false;
-    if (scrollRef.current) {
-        scrollRef.current.classList.remove('cursor-grabbing');
-        scrollRef.current.classList.add('cursor-grab');
-    }
-  };
-
-  const handleMouseUp = () => {
-    isDragging.current = false;
-    if (scrollRef.current) {
-        scrollRef.current.classList.remove('cursor-grabbing');
-        scrollRef.current.classList.add('cursor-grab');
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging.current || !scrollRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - scrollRef.current.offsetLeft;
-    const walk = (x - startX.current) * 1.5; 
-    scrollRef.current.scrollLeft = scrollLeft.current - walk;
-  };
+  // Hàm dọn dẹp nếu người dùng thoát trang giữa chừng khi đang kéo
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+    };
+  }, []);
+  // 👆 ========================================================================= 👆
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -532,7 +540,7 @@ export default function ScheduleBoard() {
               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 border border-gray-200 shadow-sm">
                 <Lock size={28} className="text-gray-400" />
               </div>
-              <h3 className="font-bold text-gray-800 text-base mb-2">Thông bảo mật</h3>
+              <h3 className="font-bold text-gray-800 text-base mb-2">Thông tin bảo mật</h3>
               <p className="text-[13px] text-gray-500 mb-6 leading-relaxed max-w-[280px]">
                 Dữ liệu về học phần, phòng học và giảng viên là thông tin nội bộ. Vui lòng đăng nhập bằng tài khoản sinh viên để sử dụng tính năng tra cứu.
               </p>
@@ -624,10 +632,7 @@ export default function ScheduleBoard() {
               <div 
                   ref={scrollRef}
                   onMouseDown={handleMouseDown}
-                  onMouseLeave={handleMouseLeave}
-                  onMouseUp={handleMouseUp}
-                  onMouseMove={handleMouseMove}
-                  // 👇 BỎ pb-3 VÀ THÊM no-scrollbar, THÊM STYLE scrollbarWidth 👇
+                  // Đã bỏ các event mouse cục bộ vì Window đã đảm nhận
                   className="flex gap-2 overflow-x-auto mb-2 cursor-grab select-none no-scrollbar" 
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
@@ -722,10 +727,6 @@ export default function ScheduleBoard() {
               <div 
                   ref={scrollRef}
                   onMouseDown={handleMouseDown}
-                  onMouseLeave={handleMouseLeave}
-                  onMouseUp={handleMouseUp}
-                  onMouseMove={handleMouseMove}
-                  // 👇 BỎ pb-3 VÀ THÊM no-scrollbar, THÊM STYLE scrollbarWidth 👇
                   className="flex gap-2 overflow-x-auto mb-2 cursor-grab select-none no-scrollbar" 
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
