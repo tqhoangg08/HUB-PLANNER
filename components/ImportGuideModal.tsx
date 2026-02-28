@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, FileUp, Smartphone, Monitor, Globe, Chrome, HelpCircle } from 'lucide-react';
+import { createPortal } from 'react-dom'; // ĐÃ THÊM PORTAL ĐỂ KHÔNG BỊ ĐÈ
+import { X, FileUp, Smartphone, Monitor, Globe, Chrome, HelpCircle, AlertTriangle } from 'lucide-react'; // ĐÃ THÊM AlertTriangle
 import { playClick } from '../utils/audio';
 
 interface ImportGuideModalProps {
@@ -136,8 +137,8 @@ export const ImportGuideModal: React.FC<ImportGuideModalProps> = ({ onClose, onF
         }
     };
 
-    return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn">
+    return createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[85vh] flex flex-col overflow-hidden border border-gray-200 animate-scaleIn">
                 
                 {/* --- HEADER --- */}
@@ -203,7 +204,6 @@ export const ImportGuideModal: React.FC<ImportGuideModalProps> = ({ onClose, onF
                                             />
                                         </div>
                                     )}
-                                    {/* --------------------------------------- */}
                                 </div>
                             </div>
                         ))}
@@ -219,24 +219,38 @@ export const ImportGuideModal: React.FC<ImportGuideModalProps> = ({ onClose, onF
                     </div>
                 </div>
 
-                {/* --- FOOTER --- */}
-                <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-3 flex-shrink-0 z-10">
-                    <button
-                        onClick={() => { playClick(); onClose(); }}
-                        className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition active:scale-95"
+                {/* --- FOOTER ĐÃ THÊM NÚT BÁO LỖI --- */}
+                <div className="p-4 border-t border-gray-200 bg-white flex justify-between items-center flex-shrink-0 z-10">
+                    <button 
+                        onClick={() => {
+                            playClick();
+                            window.open('https://www.facebook.com/hubplannerr', '_blank');
+                        }} 
+                        className="flex items-center gap-1.5 text-red-500 hover:text-red-700 text-sm font-bold px-2 py-2 rounded-lg hover:bg-red-50 transition-colors"
+                        title="Báo cáo nếu file không đọc được"
                     >
-                        Để sau
+                        <AlertTriangle size={16} /> Báo lỗi
                     </button>
-                    <button
-                        onClick={() => { playClick(); onFileClick(); }}
-                        className="px-5 py-2.5 rounded-xl bg-[#990000] text-white font-bold hover:bg-[#7a0000] hover:shadow-lg transition-all flex items-center gap-2 active:scale-95 transform hover:-translate-y-0.5"
-                    >
-                        <FileUp size={18} />
-                        Chọn file PDF
-                    </button>
+
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => { playClick(); onClose(); }}
+                            className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition active:scale-95"
+                        >
+                            Để sau
+                        </button>
+                        <button
+                            onClick={() => { playClick(); onFileClick(); }}
+                            className="px-5 py-2.5 rounded-xl bg-[#990000] text-white font-bold hover:bg-[#7a0000] hover:shadow-lg transition-all flex items-center gap-2 active:scale-95 transform hover:-translate-y-0.5"
+                        >
+                            <FileUp size={18} />
+                            Chọn file PDF
+                        </button>
+                    </div>
                 </div>
                 
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { createPortal } from 'react-dom'; // Dùng Portal để đưa Modal lên lớp cao nhất
-import { X, FileUp, Smartphone, Monitor, Globe, Chrome, HelpCircle } from 'lucide-react';
+import { createPortal } from 'react-dom'; 
+import { X, FileUp, Smartphone, Monitor, Globe, Chrome, HelpCircle, AlertTriangle } from 'lucide-react'; // ĐÃ THÊM AlertTriangle
 import { playClick } from '../utils/audio';
 
 interface Props {
@@ -59,7 +59,6 @@ export const ScheduleImportGuideModal: React.FC<Props> = ({ onClose, onFileClick
         }
     };
 
-    // 👇 ĐÃ BỌC TÀN BỘ GIAO DIỆN VÀO createPortal 👇
     return createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden border border-gray-200 animate-scaleIn">
@@ -102,14 +101,29 @@ export const ScheduleImportGuideModal: React.FC<Props> = ({ onClose, onFileClick
                     </div>
                 </div>
 
-                <div className="p-4 border-t border-gray-200 bg-white flex justify-end gap-3 flex-shrink-0 z-10">
-                    <button onClick={() => { playClick(); onClose(); }} className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition active:scale-95">Để sau</button>
-                    <button onClick={() => { playClick(); onFileClick(); }} className="px-5 py-2.5 rounded-xl bg-[#003375] text-white font-bold hover:bg-[#002855] hover:shadow-lg transition-all flex items-center gap-2 active:scale-95">
-                        <FileUp size={18} /> Chọn file PDF
+                {/* --- FOOTER ĐÃ THÊM NÚT BÁO LỖI --- */}
+                <div className="p-4 border-t border-gray-200 bg-white flex justify-between items-center flex-shrink-0 z-10">
+                    <button 
+                        onClick={() => {
+                            playClick();
+                            window.open('https://www.facebook.com/hubplannerr', '_blank');
+                        }} 
+                        className="flex items-center gap-1.5 text-red-500 hover:text-red-700 text-sm font-bold px-2 py-2 rounded-lg hover:bg-red-50 transition-colors"
+                        title="Báo cáo nếu file không đọc được"
+                    >
+                        <AlertTriangle size={16} /> Báo lỗi
                     </button>
+
+                    <div className="flex gap-3">
+                        <button onClick={() => { playClick(); onClose(); }} className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition active:scale-95">Để sau</button>
+                        <button onClick={() => { playClick(); onFileClick(); }} className="px-5 py-2.5 rounded-xl bg-[#003375] text-white font-bold hover:bg-[#002855] hover:shadow-lg transition-all flex items-center gap-2 active:scale-95">
+                            <FileUp size={18} /> Chọn file PDF
+                        </button>
+                    </div>
                 </div>
+
             </div>
         </div>,
-        document.body // 👈 THÊM DÒNG NÀY ĐỂ ĐẨY NÓ LÊN LỚP CAO NHẤT
+        document.body
     );
 };
