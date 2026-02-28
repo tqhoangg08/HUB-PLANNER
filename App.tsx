@@ -887,7 +887,7 @@ const App: React.FC = () => {
                             <Route path="/schedule" element={<ScheduleBoard />} />
                             <Route path="/events" element={<EventsBoard />} />
                             <Route path="/lost-found" element={<LostFoundBoard />} />
-                            <Route path="/handbook" element={<Handbook />} />
+                            <Route path="/handbook/:tab?" element={<Handbook />} />
                             <Route path="/profile/:id" element={<ProfilePage />} />
                             <Route path="*" element={<Navigate to="/dashboard" replace />} />
                         </Routes>
