@@ -8,7 +8,7 @@ import {
   MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, 
   Save, ToggleLeft, ToggleRight, Settings, Tag, RotateCcw,
   Info, ExternalLink, CalendarClock,
-  Bookmark, BookmarkCheck, ArrowDownUp, AlertTriangle
+  Bookmark, BookmarkCheck, ArrowDownUp, AlertTriangle, CalendarDays
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
@@ -30,8 +30,9 @@ interface HubEvent {
   scope: string;     // DB: location_type
   status: string;
   is_manually_closed: boolean;
-  is_deleted: boolean; // Thêm trường này để xử lý hiển thị
-  created_at: string; // Thêm trường này để sắp xếp
+  is_deleted: boolean; 
+  created_at: string; 
+  event_date: string | null; // 👇 ĐÃ THÊM: Ngày diễn ra sự kiện (Không bắt buộc)
 }
 
 // --- Helper ---
@@ -395,6 +396,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     const [formData, setFormData] = useState({
         title: '',
         deadline: '',
+        event_date: '', // 👇 ĐÃ THÊM TRƯỜNG NGÀY DIỄN RA
         category: 'Hoạt động phong trào',
         criteria: 'III',
         points: '5',
@@ -407,7 +409,6 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     const [submitting, setSubmitting] = useState(false);
     const [isDraftLoaded, setIsDraftLoaded] = useState(false);
 
-    // --- Auto-Restore Draft ---
     useEffect(() => {
         if (isOpen) {
             const savedDraft = localStorage.getItem(DRAFT_KEY);
@@ -424,7 +425,6 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         }
     }, [isOpen]);
 
-    // --- Auto-Save Draft ---
     useEffect(() => {
         if (isOpen) {
             const timeoutId = setTimeout(() => {
@@ -440,6 +440,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             const resetData = {
                 title: '',
                 deadline: '',
+                event_date: '', // 👇 ĐÃ THÊM
                 category: 'Hoạt động phong trào',
                 criteria: 'III',
                 points: '5',
@@ -476,6 +477,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             const payload = {
                 title: formData.title,
                 deadline: formData.deadline || null,
+                event_date: formData.event_date || null, // 👇 ĐÃ THÊM VÀO PAYLOAD
                 category: formData.category, 
                 criteria: formData.criteria, 
                 points: formData.points,
@@ -498,7 +500,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             
             localStorage.removeItem(DRAFT_KEY);
             setFormData({
-                title: '', deadline: '', category: 'Hoạt động phong trào', criteria: 'III', points: '5',
+                title: '', deadline: '', event_date: '', category: 'Hoạt động phong trào', criteria: 'III', points: '5',
                 organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
             });
             onClose();
@@ -549,9 +551,10 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* 👇 ĐÃ THÊM Ô NHẬP NGÀY DIỄN RA VÀ CHIA GRID THÀNH 3 CỘT 👇 */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Thời gian / Deadline</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Hạn đăng ký (Deadline)</label>
                                 <input 
                                     type="date" 
                                     className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]"
@@ -560,7 +563,16 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Phân loại</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra (Tùy chọn)</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]"
+                                    value={formData.event_date} 
+                                    onChange={e => setFormData({...formData, event_date: e.target.value})} 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Phân loại (Loại hình)</label>
                                 <input 
                                     type="text" 
                                     className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]"
@@ -689,11 +701,7 @@ const DiscussionModal = ({ event, onClose }: { event: {id: string, name: string}
     );
 };
 
-// =========================================================================
-// BẢNG BÁO CÁO SAI SÓT SỰ KIỆN (ĐÃ ÉP USER_ID)
-// =========================================================================
 const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boolean; onClose: () => void; event: HubEvent | null; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
-    // 👇 GỌI HOOK NÀY ĐỂ LẤY THÔNG TIN TÀI KHOẢN ĐANG ĐĂNG NHẬP 👇
     const { session } = useUserRole(); 
     
     const [issue, setIssue] = useState('');
@@ -711,10 +719,9 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
         playClick();
 
         try {
-            // Chuẩn bị Data đẩy lên DB (Đã có user_id)
             const payload = {
                 event_id: parseInt(event.id) || null, 
-                user_id: session?.user?.id || null, // 👈 ÉP ID NGƯỜI DÙNG VÀO ĐÂY
+                user_id: session?.user?.id || null, 
                 event_name: event.name,
                 organizer: event.organizer,
                 issue_description: issue,
@@ -802,38 +809,29 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
         </div>, document.body
     );
 };
-// =========================================================================
-
 
 export const EventsBoard: React.FC = () => {
-    useEffect(() => {
+  useEffect(() => {
     document.title = "Sự kiện ĐRL | HUB Planner";
   }, []);
-  // Roles
   const { isAdmin, isCTV, session } = useUserRole();
   const canManage = isAdmin || isCTV;
   
-  // FIX: Khai báo biến today ngay đầu hàm
   const today = new Date();
 
-  // Data State
   const [events, setEvents] = useState<HubEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Filter & Sort State
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [activeScope, setActiveScope] = useState('all');
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest'); // THÊM STATE SẮP XẾP
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest'); 
 
-  // --- NEW: PERSONAL PARTICIPATION STATE (With Sync) ---
   const [participatedEvents, setParticipatedEvents] = useState<string[]>([]);
   
-  // Load Participation Data (FIXED LOGIC)
   useEffect(() => {
       const loadParticipation = async () => {
-          // TH1: Đã đăng nhập (Có Session) -> Ưu tiên lấy từ Supabase
           if (session?.user?.id && supabase) {
               const { data, error } = await supabase
                   .from('user_participations')
@@ -841,17 +839,13 @@ export const EventsBoard: React.FC = () => {
                   .eq('user_id', session.user.id);
               
               if (!error && data) {
-                  // Map ra mảng ID và set state
                   const dbEvents = data.map(item => item.event_id.toString());
                   setParticipatedEvents(dbEvents);
-                  
-                  // Đồng bộ ngược lại LocalStorage để backup (optional)
                   localStorage.setItem('hub_participated_events', JSON.stringify(dbEvents));
               } else {
                   console.error("Lỗi tải data tham gia:", error);
               }
           } 
-          // TH2: Chưa đăng nhập (Khách) -> Lấy từ LocalStorage
           else {
               const saved = localStorage.getItem('hub_participated_events');
               if (saved) {
@@ -864,18 +858,15 @@ export const EventsBoard: React.FC = () => {
           }
       };
 
-      // Chỉ chạy khi session đã được xác định (có thể là null hoặc object user)
       if (session !== undefined) {
           loadParticipation();
       }
   }, [session]);
 
-  // Toggle Function (Sync with DB)
   const toggleParticipation = async (eventId: string) => {
       playClick();
       const isCurrentlyParticipated = participatedEvents.includes(eventId);
       
-      // Update UI Optimistically
       setParticipatedEvents(prev => {
           const newEvents = isCurrentlyParticipated 
               ? prev.filter(id => id !== eventId) 
@@ -884,10 +875,8 @@ export const EventsBoard: React.FC = () => {
           return newEvents;
       });
 
-      // Nếu đã đăng nhập -> Đồng bộ lên Server
       if (session?.user?.id && supabase) {
           if (isCurrentlyParticipated) {
-              // Hủy tham gia -> Xóa DB
               const { error } = await supabase
                   .from('user_participations')
                   .delete()
@@ -895,7 +884,6 @@ export const EventsBoard: React.FC = () => {
               
               if (error) console.error("Lỗi xóa tham gia:", error);
           } else {
-              // Tham gia -> Thêm vào DB
               const { error } = await supabase
                   .from('user_participations')
                   .insert({ user_id: session.user.id, event_id: parseInt(eventId) });
@@ -904,9 +892,7 @@ export const EventsBoard: React.FC = () => {
           }
       }
   };
-  // -----------------------------------------
   
-  // Modals State
   const [showScoreGuide, setShowScoreGuide] = useState(false);
   const [showRecruitModal, setShowRecruitModal] = useState(false);
   const [showContributeModal, setShowContributeModal] = useState(false);
@@ -914,7 +900,6 @@ export const EventsBoard: React.FC = () => {
   const [editingEvent, setEditingEvent] = useState<HubEvent | null>(null);
   const [discussEvent, setDiscussEvent] = useState<{id: string, name: string} | null>(null);
   
-  // STATE MỚI CHO BÁO CÁO SAI SÓT
   const [reportingEvent, setReportingEvent] = useState<HubEvent | null>(null);
 
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -924,15 +909,11 @@ export const EventsBoard: React.FC = () => {
       setTimeout(() => setNotification(null), 4000);
   };
 
-  // =========================================================================
-  // ---> ĐÃ SỬA: HÀM FETCH DATA CHUYỂN QUA GỌI API CỦA VERCEL <---
-  // =========================================================================
   const fetchEvents = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Gọi lên máy chủ Vercel của bạn thay vì gọi thẳng Supabase
       const res = await fetch('/api/events');
       const json = await res.json();
 
@@ -942,7 +923,6 @@ export const EventsBoard: React.FC = () => {
 
       let fetchedData = json.data || [];
 
-      // Nếu KHÔNG PHẢI Admin/CTV -> Lọc bỏ các sự kiện 'pending' (Chờ duyệt)
       if (!canManage) {
         fetchedData = fetchedData.filter((evt: any) => evt.status !== 'pending');
       }
@@ -971,7 +951,8 @@ export const EventsBoard: React.FC = () => {
                   status: row.status || 'Sắp diễn ra',
                   is_manually_closed: row.is_manually_closed || false,
                   is_deleted: row.is_deleted || false,
-                  created_at: row.created_at || new Date().toISOString()
+                  created_at: row.created_at || new Date().toISOString(),
+                  event_date: row.event_date || null // 👇 ĐÃ THÊM MAP TRƯỜNG MỚI TỪ DB
               };
           });
 
@@ -984,13 +965,11 @@ export const EventsBoard: React.FC = () => {
       setLoading(false);
     }
   };
-  // =========================================================================
 
   useEffect(() => {
     fetchEvents();
   }, [canManage]);
 
-  // --- MANAGEMENT ACTIONS ---
   const handleDeleteEvent = async (id: string) => {
       if (!isAdmin) return;
       playClick();
@@ -1042,7 +1021,6 @@ export const EventsBoard: React.FC = () => {
       setShowManageModal(true);
   };
 
-  // --- RENDERING FILTER & SORT LOGIC ---
   const filteredEvents = events.filter(evt => {
     const matchesSearch = evt.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           evt.organizer.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1066,32 +1044,29 @@ export const EventsBoard: React.FC = () => {
                          (activeScope === 'external' && evt.scope === 'Ngoài trường');
     return matchesSearch && matchesTab && matchesScope && isVisible;
   }).sort((a, b) => {
-      // LOGIC SẮP XẾP MỚI THÊM
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
       
       if (sortOrder === 'newest') {
-          return dateB - dateA; // Mới nhất lên trước
+          return dateB - dateA; 
       } else {
-          return dateA - dateB; // Cũ nhất lên trước
+          return dateA - dateB; 
       }
   });
 
-  // --- CLASSIFICATION ---
-  const now = new Date();
   const isSameDay = (d1: Date | null, d2: Date) => {
       if (!d1) return false;
       return d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
   };
 
   const openingEvents = filteredEvents.filter(evt => {
-      const isNotExpired = evt.deadlineDate ? evt.deadlineDate >= now : true;
+      const isNotExpired = evt.deadlineDate ? evt.deadlineDate >= today : true;
       const isOpenStatus = !evt.is_manually_closed && evt.status !== 'Đã kết thúc';
       return isNotExpired && isOpenStatus;
   });
 
   const expiredEvents = filteredEvents.filter(evt => {
-      const isExpiredTime = evt.deadlineDate ? evt.deadlineDate < now : false;
+      const isExpiredTime = evt.deadlineDate ? evt.deadlineDate < today : false;
       const isClosedStatus = evt.is_manually_closed || evt.status === 'Đã kết thúc';
       return isExpiredTime || isClosedStatus;
   });
@@ -1112,13 +1087,13 @@ export const EventsBoard: React.FC = () => {
     );
   };
 
-  // --- Manage Modal Component ---
   const ADMIN_DRAFT_KEY = 'admin_event_draft';
 
   const ManageEventModal = () => {
       const [formData, setFormData] = useState({
           title: editingEvent?.name || '',
           deadline: editingEvent?.deadlineDate ? editingEvent.deadlineDate.toISOString().split('T')[0] : '',
+          event_date: editingEvent?.event_date || '', // 👇 ĐÃ THÊM VÀO MANAGE FORM
           category: editingEvent?.type || 'Hoạt động phong trào',
           classification: editingEvent?.classification || '',
           criteria: editingEvent?.category || 'III',
@@ -1162,7 +1137,7 @@ export const EventsBoard: React.FC = () => {
               playClick();
               localStorage.removeItem(ADMIN_DRAFT_KEY);
               setFormData({
-                  title: '', deadline: '', category: 'Hoạt động phong trào', classification: '',
+                  title: '', deadline: '', event_date: '', category: 'Hoạt động phong trào', classification: '',
                   criteria: 'III', points: '5', organizer: '', link: '', location_type: 'Trong trường',
                   format: 'Offline', status: 'Sắp diễn ra', is_manually_closed: false
               });
@@ -1177,7 +1152,8 @@ export const EventsBoard: React.FC = () => {
           try {
               const payload = {
                   title: formData.title,
-                  deadline: formData.deadline,
+                  deadline: formData.deadline || null,
+                  event_date: formData.event_date || null, // 👇 ĐÃ THÊM VÀO PAYLOAD MANAGE
                   category: formData.category,
                   classification: formData.classification,
                   criteria: formData.criteria,
@@ -1244,10 +1220,16 @@ export const EventsBoard: React.FC = () => {
                         <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
                         <input type="text" required className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+
+                    {/* 👇 ĐÃ THÊM Ô NGÀY DIỄN RA VÀO GRID NÀY 👇 */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Deadline</label>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Hạn đăng ký (Deadline)</label>
                             <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra (Tùy chọn)</label>
+                            <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Trạng thái</label>
@@ -1329,7 +1311,7 @@ export const EventsBoard: React.FC = () => {
     const isActive = evt.status === 'Đang diễn ra';
     const isUpcoming = evt.status === 'Sắp diễn ra';
     const isDeadlineToday = !isStatusClosed && !isPending && isSameDay(evt.deadlineDate, today);
-    const isOverdue = evt.deadlineDate ? evt.deadlineDate < new Date() : false;
+    const isOverdue = evt.deadlineDate ? evt.deadlineDate < today : false;
     const isManualClose = evt.is_manually_closed;
     const isLinkClosed = isStatusClosed || isOverdue || isManualClose; 
 
@@ -1393,15 +1375,25 @@ export const EventsBoard: React.FC = () => {
             <div className="flex items-start gap-2">
                 <Clock size={16} className={`mt-0.5 shrink-0 ${isLinkClosed || evt.is_deleted ? 'text-gray-400' : isDeadlineToday ? 'text-red-500 animate-pulse' : 'text-blue-500'}`} />
                 <div>
-                    <span className={`font-medium ${isDeadlineToday && !isLinkClosed && !evt.is_deleted ? 'text-red-600' : 'text-gray-700'}`}>
+                    <span className={`font-medium ${isDeadlineToday && !isLinkClosed && !evt.is_deleted ? 'text-red-600' : 'text-gray-700'}`} title="Hạn chót đăng ký">
                         {evt.time || 'Chưa cập nhật hạn'}
                     </span>
                 </div>
             </div>
+
+            {/* 👇 HIỂN THỊ NGÀY DIỄN RA (NẾU CÓ) 👇 */}
+            {evt.event_date && (
+                <div className="flex items-start gap-2" title="Ngày diễn ra sự kiện">
+                    <CalendarDays size={16} className="text-emerald-500 mt-0.5 shrink-0" />
+                    <span className="font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-xs border border-emerald-100">
+                        Ngày diễn ra: {formatDateString(evt.event_date)}
+                    </span>
+                </div>
+            )}
+
             <div className="flex items-start gap-2"><MapPin size={16} className="text-gray-400 mt-0.5 shrink-0" /><span className="line-clamp-1">{evt.location}</span></div>
         </div>
 
-        {/* 👇 NÚT BÁO CÁO LỖI (MỚI) 👇 */}
         {!evt.is_deleted && (
             <div className="mb-4 py-1.5 px-3 bg-gray-50/80 border border-gray-100 rounded-lg flex items-center justify-between gap-2 transition-colors hover:bg-orange-50 hover:border-orange-100 group/report">
                 <div className="flex items-center gap-1.5 text-gray-500 group-hover/report:text-orange-600 transition-colors text-[10px] sm:text-xs font-medium">
@@ -1478,7 +1470,6 @@ export const EventsBoard: React.FC = () => {
         <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto items-stretch">
             <div className="relative flex-1 sm:flex-none"><input type="text" placeholder="Tìm tên, BTC, loại hình..." className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none w-full md:w-64 transition-all hover:border-blue-300 h-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /></div>
             
-            {/* START: DROP DOWN KHU VỰC VÀ SẮP XẾP */}
             <div className="flex gap-2 w-full sm:w-auto">
                 <div className="relative flex-1 sm:flex-none">
                     <select value={activeScope} onChange={(e) => { playClick(); setActiveScope(e.target.value); }} className="appearance-none pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none bg-white text-sm font-medium text-gray-700 h-full w-full cursor-pointer hover:border-blue-300 transition-colors">
@@ -1487,7 +1478,6 @@ export const EventsBoard: React.FC = () => {
                     <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                 </div>
                 
-                {/* NÚT SẮP XẾP MỚI THÊM */}
                 <div className="relative flex-1 sm:flex-none">
                     <select value={sortOrder} onChange={(e) => { playClick(); setSortOrder(e.target.value as 'newest' | 'oldest'); }} className="appearance-none pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none bg-white text-sm font-medium text-gray-700 h-full w-full cursor-pointer hover:border-blue-300 transition-colors">
                         <option value="newest">Mới nhất</option>
@@ -1496,7 +1486,6 @@ export const EventsBoard: React.FC = () => {
                     <ArrowDownUp className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                 </div>
             </div>
-            {/* END: DROP DOWN */}
 
             <div className="flex gap-2">
                 <button onClick={() => { playClick(); fetchEvents(); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95 hover:rotate-180 duration-500" title="Làm mới"><RefreshCw size={20} className={loading ? "animate-spin" : ""} /></button>
@@ -1515,7 +1504,6 @@ export const EventsBoard: React.FC = () => {
         </div>
       </div>
 
-      {/* --- NOTIFICATION BANNER --- */}
       <div className="bg-blue-50 border-l-4 border-[#003375] p-4 mb-6 rounded-r-lg shadow-sm animate-fadeIn">
         <div className="flex items-start gap-3">
             <div className="flex-shrink-0 mt-0.5">
@@ -1551,7 +1539,6 @@ export const EventsBoard: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-200 mb-6 overflow-x-auto no-scrollbar snap-x md:flex-wrap">
         {[
             {id:'all',l:'Tất cả'},
@@ -1619,7 +1606,6 @@ export const EventsBoard: React.FC = () => {
       {showScoreGuide && <ScoreGuideModal isOpen={showScoreGuide} onClose={() => setShowScoreGuide(false)} />}
       {showManageModal && <ManageEventModal />}
       
-      {/* Kích hoạt Modal Báo cáo */}
       <ReportEventModal 
           isOpen={!!reportingEvent} 
           onClose={() => setReportingEvent(null)} 
