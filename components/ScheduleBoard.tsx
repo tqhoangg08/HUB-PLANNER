@@ -82,7 +82,7 @@ const getExamTime = (shiftStr?: string) => {
 };
 
 // =======================================================================
-// THUẬT TOÁN TÁCH DÒNG & LỌC GHI ĐÈ LỊCH
+// THUẬT TOÁN TÁCH DÒNG & KIỂM TRA LỊCH HỌC TỪNG Ô (ĐÃ TỐI ƯU LẠI)
 // =======================================================================
 const splitData = (str?: string) => {
   if (!str) return [];
@@ -99,54 +99,38 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
 
   if (weekArr.length === 0) return null;
 
-  if (targetWeek === 0) {
-    for (let i = 0; i < Math.max(dayArr.length, shiftArr.length); i++) {
-      const cDayStr = dayArr[i] !== undefined ? dayArr[i] : (dayArr[dayArr.length - 1] || "");
-      const cShiftStr = shiftArr[i] !== undefined ? shiftArr[i] : (shiftArr[0] || "");
-      const cRoomStr = roomArr[i] !== undefined ? roomArr[i] : (roomArr[0] || "");
-      const cWeekStr = weekArr[i] !== undefined ? weekArr[i] : (weekArr[0] || "");
+  const maxLen = Math.max(weekArr.length, dayArr.length, shiftArr.length);
 
-      const days = cDayStr.replace(/,/g, ' ').trim().split(/\s+/).map(Number);
-      const shiftType = getMainShiftType(cShiftStr);
+  // Quét từ dưới lên trên để lấy dữ liệu. Không còn tự ghi đè nếu học 2 buổi 1 tuần!
+  for (let i = maxLen - 1; i >= 0; i--) {
+    const cDayStr = dayArr[i] !== undefined ? dayArr[i] : (dayArr[dayArr.length - 1] || "");
+    const cShiftStr = shiftArr[i] !== undefined ? shiftArr[i] : (shiftArr[0] || "");
+    const cRoomStr = roomArr[i] !== undefined ? roomArr[i] : (roomArr[0] || "");
+    const cWeekStr = weekArr[i] !== undefined ? weekArr[i] : (weekArr[0] || "");
 
-      if (days.includes(targetDay) && shiftType === targetShiftType) {
-        return { day: targetDay, shift: cShiftStr, room: cRoomStr, weeks: cWeekStr };
-      }
+    // 1. Kiểm tra xem môn học có diễn ra trong tuần này không?
+    let isWeekMatch = false;
+    if (targetWeek === 0) {
+        isWeekMatch = true; 
+    } else {
+        const parsedWks = parseWeeks(cWeekStr);
+        if (parsedWks.includes(targetWeek)) {
+            isWeekMatch = true;
+        }
     }
-    return null;
-  }
 
-  let matchingLines: { index: number, weekStr: string }[] = [];
-  for (let i = 0; i < weekArr.length; i++) {
-    if (parseWeeks(weekArr[i]).includes(targetWeek)) {
-      matchingLines.push({ index: i, weekStr: weekArr[i] });
-    }
-  }
+    if (!isWeekMatch) continue;
 
-  let activeLines: number[] = [];
-  for (let i = 0; i < matchingLines.length; i++) {
-    let isOverridden = false;
-    for (let j = i + 1; j < matchingLines.length; j++) {
-      if (matchingLines[i].weekStr !== matchingLines[j].weekStr) {
-        isOverridden = true;
-        break;
-      }
-    }
-    if (!isOverridden) activeLines.push(matchingLines[i].index);
-  }
-
-  for (let activeIdx of activeLines) {
-    const cDayStr = dayArr[activeIdx] !== undefined ? dayArr[activeIdx] : (dayArr[dayArr.length - 1] || "");
-    const cShiftStr = shiftArr[activeIdx] !== undefined ? shiftArr[activeIdx] : (shiftArr[0] || "");
-    const cRoomStr = roomArr[activeIdx] !== undefined ? roomArr[activeIdx] : (roomArr[0] || "");
-    const cWeekStr = weekArr[activeIdx];
-
+    // 2. Kiểm tra xem có học vào Thứ này không?
     const days = cDayStr.replace(/,/g, ' ').trim().split(/\s+/).map(Number);
-    const shiftType = getMainShiftType(cShiftStr);
+    if (!days.includes(targetDay)) continue;
 
-    if (days.includes(targetDay) && shiftType === targetShiftType) {
-      return { day: targetDay, shift: cShiftStr, room: cRoomStr, weeks: cWeekStr };
-    }
+    // 3. Kiểm tra xem có đúng Ca (Sáng/Chiều) này không?
+    const shiftType = getMainShiftType(cShiftStr);
+    if (shiftType !== targetShiftType) continue;
+
+    // Vượt qua cả 3 bài test -> Chính xác là học ô này!
+    return { day: targetDay, shift: cShiftStr, room: cRoomStr, weeks: cWeekStr };
   }
 
   return null;
