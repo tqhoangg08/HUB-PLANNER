@@ -47,6 +47,7 @@ const formatDateString = (isoDate: string): string => {
     }
 };
 
+// Cắt bỏ phần giây thừa của Time (vd: 14:30:00 -> 14:30) để Input Type Time nhận được
 const formatTimeString = (timeStr: string | null): string => {
     if (!timeStr) return '';
     const parts = timeStr.split(':');
@@ -677,7 +678,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             <textarea 
                                 rows={3}
                                 className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] resize-none"
-                                placeholder="Thông chi tiết khác (nếu có)..."
+                                placeholder="Thông tin chi tiết khác (nếu có)..."
                                 value={formData.description}
                                 onChange={e => setFormData({...formData, description: e.target.value})}
                             ></textarea>
@@ -931,7 +932,14 @@ export const EventsBoard: React.FC = () => {
     setError(null);
 
     try {
-      const res = await fetch('/api/events');
+      // 👇 ĐÃ SỬA: Chống Cache bằng cách thêm tham số thời gian t=...
+      const res = await fetch(`/api/events?t=${new Date().getTime()}`, {
+          headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
+          }
+      });
       const json = await res.json();
 
       if (!res.ok) {
@@ -1112,7 +1120,8 @@ export const EventsBoard: React.FC = () => {
           title: editingEvent?.name || '',
           deadline: editingEvent?.deadlineDate ? editingEvent.deadlineDate.toISOString().split('T')[0] : '',
           event_date: editingEvent?.event_date || '', 
-          event_time: editingEvent?.event_time || '', 
+          // 👇 ĐÃ SỬA: Ép kiểu time về dạng HH:MM để load lên form mượt mà
+          event_time: formatTimeString(editingEvent?.event_time) || '', 
           category: editingEvent?.type || 'Hoạt động phong trào',
           classification: editingEvent?.classification || '',
           criteria: editingEvent?.category || 'III',
@@ -1395,20 +1404,20 @@ export const EventsBoard: React.FC = () => {
         {evt.scope && evt.scope !== 'Khác' && <div className="mb-2"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${evt.scope === 'Trong trường' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-pink-50 text-pink-700 border-pink-100'}`}><Building2 size={10} /> {evt.scope}</span></div>}
 
         <div className="space-y-2 text-sm text-gray-600 mb-4 flex-1">
-            {/* 👇 SỬA LẠI ĐỊNH DẠNG CHỮ DEADLINE 👇 */}
             <div className="flex items-start gap-2">
                 <Clock size={16} className={`mt-0.5 shrink-0 ${isLinkClosed || evt.is_deleted ? 'text-gray-400' : isDeadlineToday ? 'text-red-500 animate-pulse' : 'text-blue-500'}`} />
                 <div>
+                    {/* 👇 ĐÃ SỬA TEXT THÀNH DEADLINE 👇 */}
                     <span className={`font-medium ${isDeadlineToday && !isLinkClosed && !evt.is_deleted ? 'text-red-600' : 'text-gray-700'}`} title="Hạn chót đăng ký">
                         Deadline: {evt.time && evt.time !== 'Chưa cập nhật' ? evt.time : 'Chưa cập nhật'}
                     </span>
                 </div>
             </div>
 
-            {/* 👇 SỬA LẠI ĐỊNH DẠNG CHỮ THỜI GIAN DIỄN RA 👇 */}
             {evt.event_date && (
                 <div className="flex items-start gap-2" title="Thời gian diễn ra sự kiện">
                     <CalendarDays size={16} className="text-emerald-500 mt-0.5 shrink-0" />
+                    {/* 👇 ĐÃ SỬA TEXT THÀNH THỜI GIAN DIỄN RA 👇 */}
                     <span className="font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-xs border border-emerald-100">
                         Thời gian diễn ra: {evt.event_time ? `${formatTimeString(evt.event_time)} ` : ''}{formatDateString(evt.event_date)}
                     </span>
