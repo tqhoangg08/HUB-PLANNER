@@ -485,9 +485,9 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         try {
             const payload = {
                 title: formData.title,
-                deadline: formData.deadline || null,
-                event_date: formData.event_date || null,
-                event_time: formData.event_time || null, 
+                deadline: formData.deadline ? formData.deadline : null,
+                event_date: formData.event_date ? formData.event_date : null,
+                event_time: formData.event_time ? formData.event_time : null,
                 category: formData.category, 
                 criteria: formData.criteria, 
                 points: formData.points,
@@ -1180,9 +1180,9 @@ export const EventsBoard: React.FC = () => {
           try {
               const payload = {
                   title: formData.title,
-                  deadline: formData.deadline || null,
-                  event_date: formData.event_date || null, 
-                  event_time: formData.event_time || null, 
+                deadline: formData.deadline ? formData.deadline : null,
+                  event_date: formData.event_date ? formData.event_date : null, 
+                  event_time: formData.event_time ? formData.event_time : null,
                   category: formData.category,
                   classification: formData.classification,
                   criteria: formData.criteria,
