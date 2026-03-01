@@ -82,7 +82,7 @@ const getExamTime = (shiftStr?: string) => {
 };
 
 // =======================================================================
-// THUẬT TOÁN TÁCH DÒNG & KIỂM TRA LỊCH HỌC TỪNG Ô (ĐÃ TỐI ƯU LẠI)
+// THUẬT TOÁN TÁCH DÒNG & KIỂM TRA LỊCH HỌC TỪNG Ô
 // =======================================================================
 const splitData = (str?: string) => {
   if (!str) return [];
@@ -101,14 +101,12 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
 
   const maxLen = Math.max(weekArr.length, dayArr.length, shiftArr.length);
 
-  // Quét từ dưới lên trên để lấy dữ liệu. Không còn tự ghi đè nếu học 2 buổi 1 tuần!
   for (let i = maxLen - 1; i >= 0; i--) {
     const cDayStr = dayArr[i] !== undefined ? dayArr[i] : (dayArr[dayArr.length - 1] || "");
     const cShiftStr = shiftArr[i] !== undefined ? shiftArr[i] : (shiftArr[0] || "");
     const cRoomStr = roomArr[i] !== undefined ? roomArr[i] : (roomArr[0] || "");
     const cWeekStr = weekArr[i] !== undefined ? weekArr[i] : (weekArr[0] || "");
 
-    // 1. Kiểm tra xem môn học có diễn ra trong tuần này không?
     let isWeekMatch = false;
     if (targetWeek === 0) {
         isWeekMatch = true; 
@@ -121,15 +119,12 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
 
     if (!isWeekMatch) continue;
 
-    // 2. Kiểm tra xem có học vào Thứ này không?
     const days = cDayStr.replace(/,/g, ' ').trim().split(/\s+/).map(Number);
     if (!days.includes(targetDay)) continue;
 
-    // 3. Kiểm tra xem có đúng Ca (Sáng/Chiều) này không?
     const shiftType = getMainShiftType(cShiftStr);
     if (shiftType !== targetShiftType) continue;
 
-    // Vượt qua cả 3 bài test -> Chính xác là học ô này!
     return { day: targetDay, shift: cShiftStr, room: cRoomStr, weeks: cWeekStr };
   }
 
@@ -231,22 +226,43 @@ export default function ScheduleBoard() {
     if (isAuthenticated) fetchMySchedule(); 
   }, [isAuthenticated]);
 
+  // 👇 ================= HÀM TÌM KIẾM THÔNG MINH (SMART SEARCH) ================= 👇
   const fetchCourses = async () => {
     setIsLoading(true);
     try {
-      const params = new URLSearchParams();
-      params.append('semester', selectedSemester);
-      if (selectedPhase !== 'all') params.append('phase', selectedPhase);
-      if (searchTerm) params.append('search', searchTerm);
+        // Kéo toàn bộ dữ liệu của học kỳ về (Tối đa 5000 môn là đủ bao trọn 1 học kỳ)
+        let query = supabase.from('course_schedules').select('*').eq('semester', selectedSemester);
+        if (selectedPhase !== 'all') {
+            query = query.eq('phase', selectedPhase);
+        }
+        
+        const { data, error } = await query.limit(5000);
+        if (error) throw error;
 
-      const res = await fetch(`/api/courses?${params.toString()}`);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Lỗi tải danh sách môn');
-      setAvailableCourses(json.data || []);
+        let results = data || [];
+
+        // Nếu người dùng có gõ tìm kiếm -> Bắt đầu lọc thông minh
+        const term = searchTerm.trim().toLowerCase();
+        if (term) {
+            // Cắt chuỗi tìm kiếm thành các từ khóa nhỏ (Ví dụ: "Luật kinh doanh D06" -> ["luật", "kinh", "doanh", "d06"])
+            const keywords = term.split(/\s+/);
+
+            results = results.filter((course: Course) => {
+                // Gom chung Tên môn, Mã môn và Giảng viên thành 1 chuỗi dài để tìm
+                const searchableText = `${course.subject_name || ''} ${course.course_code || ''} ${course.instructor || ''}`.toLowerCase();
+                
+                // Môn học phải chứa TẤT CẢ các từ khóa thì mới hiện ra
+                return keywords.every(kw => searchableText.includes(kw));
+            });
+        }
+
+        // Chỉ hiển thị 100 kết quả đầu tiên để mượt mà UI
+        setAvailableCourses(results.slice(0, 100));
+
     } catch (error) { 
-      console.error("Lỗi tải danh sách môn:", error); 
+        console.error("Lỗi tải danh sách môn:", error); 
     } finally { 
-      setIsLoading(false); 
+        setIsLoading(false); 
     }
   };
 
@@ -457,7 +473,6 @@ export default function ScheduleBoard() {
     finally { setIsSubmittingCourse(false); }
   };
 
-  // 👇 ================= HÀM XỬ LÝ UPLOAD PDF TKB (ĐÃ CẢI TIẾN) ================= 👇
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -484,8 +499,6 @@ export default function ScheduleBoard() {
         if (currentSem.includes('HK01')) currentSem = currentSem.replace('HK01', 'HK1').replace('-', '_');
         currentSem = currentSem.replace(/\//g, '_');
 
-        // BƯỚC 1: XÁC ĐỊNH ĐỢT HỌC BẰNG NGÀY BẮT ĐẦU (PHÂN ĐỢT)
-        // Tìm tháng nhỏ nhất trong danh sách các môn
         let earliestMonth = 12;
         aiData.courses.forEach((c: any) => {
             if (c.start_date) {
@@ -497,12 +510,9 @@ export default function ScheduleBoard() {
             }
         });
 
-        // BƯỚC 2: DUYỆT TỪNG MÔN VÀ GÁN ĐỢT
         for (const course of aiData.courses) {
-            // Chuyển khoảng trắng thành gạch dưới trong mã HP
             const cleanCode = course.course_code.replace(/\s+/g, '_');
 
-            // Gán đợt: Nếu tháng bắt đầu lớn hơn tháng nhỏ nhất -> Đợt 2, ngược lại Đợt 1
             let phaseStr = "1";
             if (course.start_date) {
                 const parts = course.start_date.split('/');
@@ -512,12 +522,10 @@ export default function ScheduleBoard() {
                 }
             }
 
-            // TÁCH MÃ MÔN ĐỂ TÌM KIẾM CHÉO (Ví dụ: MAG318_252_1_D02 -> Tìm theo MAG318 và D02)
             const codeParts = cleanCode.split('_');
-            const baseCode = codeParts[0]; // MAG318
-            const tailCode = codeParts[codeParts.length - 1]; // D02
+            const baseCode = codeParts[0]; 
+            const tailCode = codeParts[codeParts.length - 1]; 
 
-            // Dò trong Database bằng ilike
             const { data: existingCourses } = await supabase
                 .from('course_schedules')
                 .select('id, course_code')
@@ -526,17 +534,15 @@ export default function ScheduleBoard() {
 
             let targetCourseId = null;
 
-            // Nếu tìm thấy 1 môn khớp đoạn đầu và đoạn cuối -> Lấy ID môn đó
             if (existingCourses && existingCourses.length > 0) {
                 targetCourseId = existingCourses[0].id;
             }
 
-            // Nếu không tìm thấy, tạo môn mới
             if (!targetCourseId) {
                 const { data: newCourse, error: insertErr } = await supabase
                     .from('course_schedules')
                     .insert({
-                        course_code: cleanCode, // Lưu mã gốc
+                        course_code: cleanCode, 
                         subject_name: course.subject_name,
                         credits: course.credits,
                         instructor: course.instructor,
@@ -546,7 +552,7 @@ export default function ScheduleBoard() {
                         campus: course.campus || 'TD', 
                         weeks: course.weeks || '1-15',
                         semester: currentSem,
-                        phase: phaseStr, // Đã gán đợt
+                        phase: phaseStr, 
                         is_user_added: true 
                     })
                     .select('id')
@@ -559,7 +565,6 @@ export default function ScheduleBoard() {
                 }
             }
 
-            // Liên kết vào TKB cá nhân
             if (targetCourseId) {
                 const { data: checkLink } = await supabase
                     .from('user_schedules')
@@ -622,7 +627,8 @@ export default function ScheduleBoard() {
             </div>
 
             <div className="relative">
-              <input disabled={isAuthenticated === false} type="text" placeholder="Nhập tên môn, mã HP, giảng viên..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full pl-11 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#003375] focus:ring-4 focus:ring-blue-500/10 outline-none text-sm font-medium transition-all ${isAuthenticated === false ? 'bg-gray-100 opacity-70 cursor-not-allowed' : 'bg-white'}`}/>
+              {/* 👇 ĐÃ SỬA: Cập nhật placeholder có chữ VD: Luật kinh doanh D06 👇 */}
+              <input disabled={isAuthenticated === false} type="text" placeholder="Tên môn + mã (VD: Luật kinh doanh D06)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full pl-11 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#003375] focus:ring-4 focus:ring-blue-500/10 outline-none text-sm font-medium transition-all ${isAuthenticated === false ? 'bg-gray-100 opacity-70 cursor-not-allowed' : 'bg-white'}`}/>
               <Search className="absolute left-4 top-3.5 text-gray-400" size={18} />
             </div>
 
