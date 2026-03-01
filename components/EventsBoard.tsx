@@ -1198,7 +1198,7 @@ export const EventsBoard: React.FC = () => {
                   const { data, error } = await supabase!
                       .from('events')
                       .update(payload)
-                      .eq('id', parseInt(editingEvent.id))
+                      .eq('id', editingEvent.id)
                       .select();
 
                   if (error) throw error;
