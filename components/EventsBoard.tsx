@@ -17,22 +17,23 @@ import { useUserRole } from '../hooks/useUserRole';
 // --- Types ---
 interface HubEvent {
   id: string;
-  name: string;      // DB: title
-  category: string;  // DB: criteria
-  score: string;     // DB: points
-  location: string;  // DB: format
-  time: string;      // DB: deadline string
+  name: string;      
+  category: string;  
+  score: string;     
+  location: string;  
+  time: string;      
   deadlineDate: Date | null;
   link: string;
   organizer: string;
-  type: string;      // DB: category
-  classification: string; // DB: classification (New)
-  scope: string;     // DB: location_type
+  type: string;      
+  classification: string; 
+  scope: string;     
   status: string;
   is_manually_closed: boolean;
   is_deleted: boolean; 
   created_at: string; 
-  event_date: string | null; // 👇 ĐÃ THÊM: Ngày diễn ra sự kiện (Không bắt buộc)
+  event_date: string | null; 
+  event_time: string | null;
 }
 
 // --- Helper ---
@@ -44,6 +45,13 @@ const formatDateString = (isoDate: string): string => {
     } catch (e) {
         return isoDate;
     }
+};
+
+const formatTimeString = (timeStr: string | null): string => {
+    if (!timeStr) return '';
+    const parts = timeStr.split(':');
+    if (parts.length >= 2) return `${parts[0]}:${parts[1]}`;
+    return timeStr;
 };
 
 // --- Sub-Components (Modals) ---
@@ -155,13 +163,11 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
     return createPortal(
         <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
             <div className="bg-white rounded-xl max-w-4xl w-full h-[90vh] flex flex-col animate-scaleIn relative overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
-                {/* Header */}
                 <div className="p-4 border-b flex justify-between items-center bg-[#003375] text-white shrink-0">
                     <h3 className="text-xl font-bold flex items-center gap-2"><FileText /> Phụ lục Đánh giá Kết quả Rèn luyện</h3>
                     <button onClick={onClose} className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-full transition-colors"><X size={24} /></button>
                 </div>
                 
-                {/* Content */}
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-gray-50">
                     <div className="space-y-8">
                         {sections.map((section) => (
@@ -396,7 +402,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     const [formData, setFormData] = useState({
         title: '',
         deadline: '',
-        event_date: '', // 👇 ĐÃ THÊM TRƯỜNG NGÀY DIỄN RA
+        event_date: '', 
+        event_time: '', 
         category: 'Hoạt động phong trào',
         criteria: 'III',
         points: '5',
@@ -440,7 +447,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             const resetData = {
                 title: '',
                 deadline: '',
-                event_date: '', // 👇 ĐÃ THÊM
+                event_date: '', 
+                event_time: '',
                 category: 'Hoạt động phong trào',
                 criteria: 'III',
                 points: '5',
@@ -477,7 +485,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             const payload = {
                 title: formData.title,
                 deadline: formData.deadline || null,
-                event_date: formData.event_date || null, // 👇 ĐÃ THÊM VÀO PAYLOAD
+                event_date: formData.event_date || null,
+                event_time: formData.event_time || null, 
                 category: formData.category, 
                 criteria: formData.criteria, 
                 points: formData.points,
@@ -500,7 +509,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             
             localStorage.removeItem(DRAFT_KEY);
             setFormData({
-                title: '', deadline: '', event_date: '', category: 'Hoạt động phong trào', criteria: 'III', points: '5',
+                title: '', deadline: '', event_date: '', event_time: '', category: 'Hoạt động phong trào', criteria: 'III', points: '5',
                 organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
             });
             onClose();
@@ -551,10 +560,9 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             />
                         </div>
 
-                        {/* 👇 ĐÃ THÊM Ô NHẬP NGÀY DIỄN RA VÀ CHIA GRID THÀNH 3 CỘT 👇 */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Hạn đăng ký (Deadline)</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Hạn đăng ký</label>
                                 <input 
                                     type="date" 
                                     className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]"
@@ -563,7 +571,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra (Tùy chọn)</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra</label>
                                 <input 
                                     type="date" 
                                     className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]"
@@ -572,11 +580,20 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Phân loại (Loại hình)</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Giờ diễn ra</label>
+                                <input 
+                                    type="time" 
+                                    className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]"
+                                    value={formData.event_time} 
+                                    onChange={e => setFormData({...formData, event_time: e.target.value})} 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Loại hình</label>
                                 <input 
                                     type="text" 
                                     className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]"
-                                    placeholder="VD: Hội thảo, Minigame..."
+                                    placeholder="VD: Hội thảo..."
                                     value={formData.category} 
                                     onChange={e => setFormData({...formData, category: e.target.value})} 
                                 />
@@ -952,7 +969,8 @@ export const EventsBoard: React.FC = () => {
                   is_manually_closed: row.is_manually_closed || false,
                   is_deleted: row.is_deleted || false,
                   created_at: row.created_at || new Date().toISOString(),
-                  event_date: row.event_date || null // 👇 ĐÃ THÊM MAP TRƯỜNG MỚI TỪ DB
+                  event_date: row.event_date || null,
+                  event_time: row.event_time || null 
               };
           });
 
@@ -1093,7 +1111,8 @@ export const EventsBoard: React.FC = () => {
       const [formData, setFormData] = useState({
           title: editingEvent?.name || '',
           deadline: editingEvent?.deadlineDate ? editingEvent.deadlineDate.toISOString().split('T')[0] : '',
-          event_date: editingEvent?.event_date || '', // 👇 ĐÃ THÊM VÀO MANAGE FORM
+          event_date: editingEvent?.event_date || '', 
+          event_time: editingEvent?.event_time || '', 
           category: editingEvent?.type || 'Hoạt động phong trào',
           classification: editingEvent?.classification || '',
           criteria: editingEvent?.category || 'III',
@@ -1137,7 +1156,7 @@ export const EventsBoard: React.FC = () => {
               playClick();
               localStorage.removeItem(ADMIN_DRAFT_KEY);
               setFormData({
-                  title: '', deadline: '', event_date: '', category: 'Hoạt động phong trào', classification: '',
+                  title: '', deadline: '', event_date: '', event_time: '', category: 'Hoạt động phong trào', classification: '',
                   criteria: 'III', points: '5', organizer: '', link: '', location_type: 'Trong trường',
                   format: 'Offline', status: 'Sắp diễn ra', is_manually_closed: false
               });
@@ -1153,7 +1172,8 @@ export const EventsBoard: React.FC = () => {
               const payload = {
                   title: formData.title,
                   deadline: formData.deadline || null,
-                  event_date: formData.event_date || null, // 👇 ĐÃ THÊM VÀO PAYLOAD MANAGE
+                  event_date: formData.event_date || null, 
+                  event_time: formData.event_time || null, 
                   category: formData.category,
                   classification: formData.classification,
                   criteria: formData.criteria,
@@ -1221,15 +1241,18 @@ export const EventsBoard: React.FC = () => {
                         <input type="text" required className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
                     </div>
 
-                    {/* 👇 ĐÃ THÊM Ô NGÀY DIỄN RA VÀO GRID NÀY 👇 */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Hạn đăng ký (Deadline)</label>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Hạn đăng ký</label>
                             <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
                         </div>
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra (Tùy chọn)</label>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra</label>
                             <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Giờ diễn ra</label>
+                            <input type="time" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Trạng thái</label>
@@ -1376,17 +1399,17 @@ export const EventsBoard: React.FC = () => {
                 <Clock size={16} className={`mt-0.5 shrink-0 ${isLinkClosed || evt.is_deleted ? 'text-gray-400' : isDeadlineToday ? 'text-red-500 animate-pulse' : 'text-blue-500'}`} />
                 <div>
                     <span className={`font-medium ${isDeadlineToday && !isLinkClosed && !evt.is_deleted ? 'text-red-600' : 'text-gray-700'}`} title="Hạn chót đăng ký">
-                        {evt.time || 'Chưa cập nhật hạn'}
+                        Deadline: {evt.time && evt.time !== 'Chưa cập nhật' ? evt.time : 'Chưa cập nhật'}
                     </span>
                 </div>
             </div>
 
-            {/* 👇 HIỂN THỊ NGÀY DIỄN RA (NẾU CÓ) 👇 */}
+            {/* 👇 HIỂN THỊ NGÀY VÀ GIỜ DIỄN RA 👇 */}
             {evt.event_date && (
-                <div className="flex items-start gap-2" title="Ngày diễn ra sự kiện">
+                <div className="flex items-start gap-2" title="Thời gian diễn ra sự kiện">
                     <CalendarDays size={16} className="text-emerald-500 mt-0.5 shrink-0" />
                     <span className="font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-xs border border-emerald-100">
-                        Ngày diễn ra: {formatDateString(evt.event_date)}
+                        Thời gian diễn ra: {evt.event_time ? `${formatTimeString(evt.event_time)} ` : ''}{formatDateString(evt.event_date)}
                     </span>
                 </div>
             )}
