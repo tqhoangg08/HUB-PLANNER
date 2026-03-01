@@ -677,7 +677,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             <textarea 
                                 rows={3}
                                 className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] resize-none"
-                                placeholder="Thông tin chi tiết khác (nếu có)..."
+                                placeholder="Thông chi tiết khác (nếu có)..."
                                 value={formData.description}
                                 onChange={e => setFormData({...formData, description: e.target.value})}
                             ></textarea>
@@ -1395,6 +1395,7 @@ export const EventsBoard: React.FC = () => {
         {evt.scope && evt.scope !== 'Khác' && <div className="mb-2"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${evt.scope === 'Trong trường' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-pink-50 text-pink-700 border-pink-100'}`}><Building2 size={10} /> {evt.scope}</span></div>}
 
         <div className="space-y-2 text-sm text-gray-600 mb-4 flex-1">
+            {/* 👇 SỬA LẠI ĐỊNH DẠNG CHỮ DEADLINE 👇 */}
             <div className="flex items-start gap-2">
                 <Clock size={16} className={`mt-0.5 shrink-0 ${isLinkClosed || evt.is_deleted ? 'text-gray-400' : isDeadlineToday ? 'text-red-500 animate-pulse' : 'text-blue-500'}`} />
                 <div>
@@ -1404,7 +1405,7 @@ export const EventsBoard: React.FC = () => {
                 </div>
             </div>
 
-            {/* 👇 HIỂN THỊ NGÀY VÀ GIỜ DIỄN RA 👇 */}
+            {/* 👇 SỬA LẠI ĐỊNH DẠNG CHỮ THỜI GIAN DIỄN RA 👇 */}
             {evt.event_date && (
                 <div className="flex items-start gap-2" title="Thời gian diễn ra sự kiện">
                     <CalendarDays size={16} className="text-emerald-500 mt-0.5 shrink-0" />
