@@ -47,7 +47,6 @@ const formatDateString = (isoDate: string): string => {
     }
 };
 
-// Cắt bỏ phần giây thừa của Time (vd: 14:30:00 -> 14:30) để Input Type Time nhận được
 const formatTimeString = (timeStr: string | null): string => {
     if (!timeStr) return '';
     const parts = timeStr.split(':');
@@ -487,7 +486,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 title: formData.title,
                 deadline: formData.deadline ? formData.deadline : null,
                 event_date: formData.event_date ? formData.event_date : null,
-                event_time: formData.event_time ? formData.event_time : null,
+                event_time: formData.event_time ? formData.event_time : null, 
                 category: formData.category, 
                 criteria: formData.criteria, 
                 points: formData.points,
@@ -609,7 +608,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                     value={formData.criteria} 
                                     onChange={e => setFormData({...formData, criteria: e.target.value})}
                                 >
-                                    <option value="I">Mục I</option><option value="II">Mục II</option><option value="III">Mục III</option><option value="IV">Mục IV</option><option value="V">Mục V</option>
+                                    <option value="I">Mục I</option><option value="II">Mục II</option><option value="III">Mục III</option><option value="IV">IV</option><option value="V">Mục V</option>
                                 </select>
                             </div>
                             <div className="col-span-1">
@@ -932,7 +931,7 @@ export const EventsBoard: React.FC = () => {
     setError(null);
 
     try {
-      // 👇 ĐÃ SỬA: Chống Cache bằng cách thêm tham số thời gian t=...
+      // 👇 CHỐNG CACHE TRÊN VERCEL BẰNG TIMESTAMP 👇
       const res = await fetch(`/api/events?t=${new Date().getTime()}`, {
           headers: {
               'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -1120,8 +1119,7 @@ export const EventsBoard: React.FC = () => {
           title: editingEvent?.name || '',
           deadline: editingEvent?.deadlineDate ? editingEvent.deadlineDate.toISOString().split('T')[0] : '',
           event_date: editingEvent?.event_date || '', 
-          // 👇 ĐÃ SỬA: Ép kiểu time về dạng HH:MM để load lên form mượt mà
-          event_time: formatTimeString(editingEvent?.event_time) || '', 
+          event_time: formatTimeString(editingEvent?.event_time) || '', // Ép cắt chuỗi giây thừa
           category: editingEvent?.type || 'Hoạt động phong trào',
           classification: editingEvent?.classification || '',
           criteria: editingEvent?.category || 'III',
@@ -1180,9 +1178,9 @@ export const EventsBoard: React.FC = () => {
           try {
               const payload = {
                   title: formData.title,
-                deadline: formData.deadline ? formData.deadline : null,
+                  deadline: formData.deadline ? formData.deadline : null,
                   event_date: formData.event_date ? formData.event_date : null, 
-                  event_time: formData.event_time ? formData.event_time : null,
+                  event_time: formData.event_time ? formData.event_time : null, 
                   category: formData.category,
                   classification: formData.classification,
                   criteria: formData.criteria,
@@ -1196,12 +1194,24 @@ export const EventsBoard: React.FC = () => {
               };
 
               if (editingEvent) {
-                  const { error } = await supabase!.from('events').update(payload).eq('id', editingEvent.id);
+                  // 👇 BỌC LẠI .select() ĐỂ PHÁT HIỆN THÀNH CÔNG ẢO DO RLS 👇
+                  const { data, error } = await supabase!
+                      .from('events')
+                      .update(payload)
+                      .eq('id', parseInt(editingEvent.id))
+                      .select();
+
                   if (error) throw error;
+                  if (!data || data.length === 0) {
+                      throw new Error("Bảo mật RLS đang chặn bạn sửa! Vui lòng chạy lệnh SQL để cấp quyền Admin.");
+                  }
                   showToast("Cập nhật thành công!", "success");
               } else {
-                  const { error } = await supabase!.from('events').insert([payload]);
+                  const { data, error } = await supabase!.from('events').insert([payload]).select();
                   if (error) throw error;
+                  if (!data || data.length === 0) {
+                      throw new Error("Bảo mật RLS đang chặn bạn thêm! Vui lòng chạy lệnh SQL để cấp quyền Admin.");
+                  }
                   localStorage.removeItem(ADMIN_DRAFT_KEY);
                   showToast("Thêm sự kiện thành công!", "success");
               }
@@ -1407,7 +1417,6 @@ export const EventsBoard: React.FC = () => {
             <div className="flex items-start gap-2">
                 <Clock size={16} className={`mt-0.5 shrink-0 ${isLinkClosed || evt.is_deleted ? 'text-gray-400' : isDeadlineToday ? 'text-red-500 animate-pulse' : 'text-blue-500'}`} />
                 <div>
-                    {/* 👇 ĐÃ SỬA TEXT THÀNH DEADLINE 👇 */}
                     <span className={`font-medium ${isDeadlineToday && !isLinkClosed && !evt.is_deleted ? 'text-red-600' : 'text-gray-700'}`} title="Hạn chót đăng ký">
                         Deadline: {evt.time && evt.time !== 'Chưa cập nhật' ? evt.time : 'Chưa cập nhật'}
                     </span>
@@ -1417,7 +1426,6 @@ export const EventsBoard: React.FC = () => {
             {evt.event_date && (
                 <div className="flex items-start gap-2" title="Thời gian diễn ra sự kiện">
                     <CalendarDays size={16} className="text-emerald-500 mt-0.5 shrink-0" />
-                    {/* 👇 ĐÃ SỬA TEXT THÀNH THỜI GIAN DIỄN RA 👇 */}
                     <span className="font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-xs border border-emerald-100">
                         Thời gian diễn ra: {evt.event_time ? `${formatTimeString(evt.event_time)} ` : ''}{formatDateString(evt.event_date)}
                     </span>
