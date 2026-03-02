@@ -525,13 +525,23 @@ export default function ScheduleBoard() {
                 }
             }
 
-            // 👇 BẮT ĐẦU THÊM MỚI TỪ ĐÂY: LOGIC ÉP TUẦN CHUẨN THEO ĐỢT 👇
+            // 👇 ĐÃ NÂNG CẤP: LOGIC ÉP TUẦN THEO ĐỢT VÀ SỐ TÍN CHỈ 👇
             let finalWeeks = course.weeks || '1-15';
+            
             // Trừ tuần 2, 3, 4 nghỉ Tết. Nếu AI trả về '1-15' hoặc rỗng thì tự động ép cứng
             if (finalWeeks.includes('1-15') || finalWeeks.trim() === '') {
-                finalWeeks = phaseStr === "1" ? "1, 5-12" : "15-23";
+                // Ép kiểu credits về số để check cho chắc chắn
+                const creditNum = Number(course.credits);
+                
+                if (creditNum === 2) {
+                    // Môn 2 tín chỉ
+                    finalWeeks = phaseStr === "1" ? "1, 5-9" : "15-20";
+                } else {
+                    // Môn 3 tín chỉ (hoặc mặc định)
+                    finalWeeks = phaseStr === "1" ? "1, 5-12" : "15-23";
+                }
             }
-            // 👆 KẾT THÚC THÊM MỚI 👆
+            // 👆 KẾT THÚC LOGIC TUẦN 👆
 
             // TÁCH MÃ MÔN ĐỂ TÌM KIẾM CHÉO (Ví dụ: MAG318_252_1_D02 -> Tìm theo MAG318 và D02)
             const codeParts = cleanCode.split('_');
@@ -565,13 +575,13 @@ export default function ScheduleBoard() {
                         shift: course.shift,
                         room: course.room,
                         campus: course.campus || 'TD', 
-                        weeks: finalWeeks, // 👇 SỬA LẠI DÒNG NÀY: Thay vì course.weeks || '1-15' thì truyền finalWeeks vào 👇
+                        weeks: finalWeeks, // Truyền finalWeeks đã check tín chỉ vào đây
                         semester: currentSem,
                         phase: phaseStr, // Đã gán đợt
                         is_user_added: true 
                     })
                     .select('id')
-                    .single();                
+                    .single();
                 if (!insertErr && newCourse) {
                     targetCourseId = newCourse.id;
                 } else {
