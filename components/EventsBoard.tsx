@@ -1545,37 +1545,45 @@ export const EventsBoard: React.FC = () => {
         </div>
       </div>
 
+{/* --- NOTIFICATION BANNER --- */}
       <div className="bg-blue-50 border-l-4 border-[#003375] p-4 mb-6 rounded-r-lg shadow-sm animate-fadeIn">
         <div className="flex items-start gap-3">
             <div className="flex-shrink-0 mt-0.5">
-            <Info className="h-5 w-5 text-[#003375]" />
+                <Info className="h-5 w-5 text-[#003375]" />
             </div>
             <div className="flex-1 space-y-2">
-            <p className="text-sm text-blue-900 font-medium">
-                📢 <span className="font-bold">Thông báo kiểm dò hoạt động HK1 2025-2026</span>
-            </p>
-            
-            <div className="text-sm text-blue-800 space-y-1">
-                <p>
-                ⏳ <strong>Thời gian kiểm dò:</strong> Từ <span className="font-bold text-red-600">03/02/2026</span> đến <span className="font-bold text-red-600">17h00 ngày 13/02/2026</span>.
+                <p className="text-sm text-[#003375] font-bold uppercase tracking-wide">
+                    📢 THỜI GIAN KIỂM DÒ VÀ BỔ SUNG HOẠT ĐỘNG NGOÀI TRƯỜNG
                 </p>
-                <p>
-                📝 <strong>Cách thực hiện:</strong> Truy cập 
-                <a 
-                    href="https://member.youth.buh.edu.vn/" 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    className="inline-flex items-center gap-1 mx-1 font-bold underline hover:text-[#003375] transition-colors"
-                >
-                    member.youth.buh.edu.vn <ExternalLink size={12} />
-                </a> 
-                ➝ Chọn "Tra cứu" ➝ Nhập MSSV ➝ Kiểm tra hoạt động.
-                </p>
-                <div className="flex items-start gap-2 mt-2 pt-2 border-t border-blue-200 text-blue-700 italic text-xs">
-                <CalendarClock size={14} className="mt-0.5 shrink-0" />
-                <span>Đối với các hoạt động <strong>ngoài Trường</strong>, sinh viên sẽ cập nhật từ ngày <strong>02/3/2026</strong> đến hết ngày <strong>11/3/2026</strong>.</span>
+                
+                <div className="text-sm text-blue-900 space-y-3 mt-2">
+                    <p className="leading-relaxed bg-white/50 p-2.5 rounded-lg border border-blue-100">
+                        🎓 <strong>SV năm 1</strong> <span className="text-[11px] text-gray-600">(sinh viên hệ đại học chính quy chuẩn khóa 41, hệ đại học chính quy chương trình đào tạo tiếng Anh bán phần (CLC) khóa 13, chương trình đào tạo đặc biệt khóa 2 và hệ đại học chính quy chương trình đào tạo quốc tế cấp song bằng khóa 7)</span> và <strong>SV năm 2</strong> <span className="text-[11px] text-gray-600">(ĐH chính quy khóa 40, Chất lượng cao khóa 12, chương trình đào tạo đặc biệt khóa 1 và Quốc tế song bằng khóa 6)</span>:<br/>
+                        👉 Từ ngày <span className="font-bold text-red-600 text-base">02/3</span> đến hết ngày <span className="font-bold text-red-600 text-base">07/3/2026</span>.
+                    </p>
+                    
+                    <p className="leading-relaxed bg-white/50 p-2.5 rounded-lg border border-blue-100">
+                        🎓 <strong>SV năm 3</strong> <span className="text-[11px] text-gray-600">(ĐH chính quy khóa 39, Chất lượng cao khóa 11 và Quốc tế song bằng khóa 5)</span>, <strong>SV năm 4 và các năm còn lại</strong> <span className="text-[11px] text-gray-600">(ĐH chính quy khóa 38, Chất lượng cao khóa 10, Quốc tế song bằng khóa 4 và SV các khóa trước chưa tốt nghiệp)</span>:<br/>
+                        👉 Từ ngày <span className="font-bold text-red-600 text-base">06/3</span> đến hết ngày <span className="font-bold text-red-600 text-base">11/3/2026</span>.
+                    </p>
+
+                    <p className="pt-1">
+                        📝 <strong>Cách thức thực hiện:</strong> Xem hướng dẫn chi tiết tại
+                        <a 
+                            href="https://fileserver2.hub.edu.vn/PHONG.CTSV/DOCUMENT/2026/03/02/20260302090726-1057thong-bao-vv-danh-gia-kqrlsv-va-bo-sung-cac-hoat-dong-ngoai-truong-hk1-nh-2025---2026.pdf" 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="inline-flex items-center gap-1 mx-1 font-bold text-[#003375] underline hover:text-blue-600 transition-colors bg-white px-2 py-0.5 rounded shadow-sm border border-blue-200"
+                        >
+                            Văn bản Thông báo <ExternalLink size={12} />
+                        </a> 
+                    </p>
+
+                    <div className="flex items-start gap-2 mt-3 pt-3 border-t border-blue-200 text-red-700 text-xs">
+                        <AlertTriangle size={16} className="mt-0.5 shrink-0 animate-pulse" />
+                        <span><strong>Lưu ý:</strong> SV kiểm dò và bổ sung hoạt động ngoài Trường theo đúng thời gian quy định. Sau thời gian này, hệ thống sẽ tự động khóa lại và điểm của SV là điểm hệ thống tự chấm.</span>
+                    </div>
                 </div>
-            </div>
             </div>
         </div>
       </div>
