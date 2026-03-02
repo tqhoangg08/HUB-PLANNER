@@ -510,9 +510,12 @@ export default function ScheduleBoard() {
             }
         });
 
+// BƯỚC 2: DUYỆT TỪNG MÔN VÀ GÁN ĐỢT
         for (const course of aiData.courses) {
+            // Chuyển khoảng trắng thành gạch dưới trong mã HP
             const cleanCode = course.course_code.replace(/\s+/g, '_');
 
+            // Gán đợt: Nếu tháng bắt đầu lớn hơn tháng nhỏ nhất -> Đợt 2, ngược lại Đợt 1
             let phaseStr = "1";
             if (course.start_date) {
                 const parts = course.start_date.split('/');
@@ -522,10 +525,20 @@ export default function ScheduleBoard() {
                 }
             }
 
-            const codeParts = cleanCode.split('_');
-            const baseCode = codeParts[0]; 
-            const tailCode = codeParts[codeParts.length - 1]; 
+            // 👇 BẮT ĐẦU THÊM MỚI TỪ ĐÂY: LOGIC ÉP TUẦN CHUẨN THEO ĐỢT 👇
+            let finalWeeks = course.weeks || '1-15';
+            // Trừ tuần 2, 3, 4 nghỉ Tết. Nếu AI trả về '1-15' hoặc rỗng thì tự động ép cứng
+            if (finalWeeks.includes('1-15') || finalWeeks.trim() === '') {
+                finalWeeks = phaseStr === "1" ? "1, 5-12" : "15-23";
+            }
+            // 👆 KẾT THÚC THÊM MỚI 👆
 
+            // TÁCH MÃ MÔN ĐỂ TÌM KIẾM CHÉO (Ví dụ: MAG318_252_1_D02 -> Tìm theo MAG318 và D02)
+            const codeParts = cleanCode.split('_');
+            const baseCode = codeParts[0]; // MAG318
+            const tailCode = codeParts[codeParts.length - 1]; // D02
+
+            // Dò trong Database bằng ilike
             const { data: existingCourses } = await supabase
                 .from('course_schedules')
                 .select('id, course_code')
@@ -534,15 +547,17 @@ export default function ScheduleBoard() {
 
             let targetCourseId = null;
 
+            // Nếu tìm thấy 1 môn khớp đoạn đầu và đoạn cuối -> Lấy ID môn đó
             if (existingCourses && existingCourses.length > 0) {
                 targetCourseId = existingCourses[0].id;
             }
 
+            // Nếu không tìm thấy, tạo môn mới
             if (!targetCourseId) {
                 const { data: newCourse, error: insertErr } = await supabase
                     .from('course_schedules')
                     .insert({
-                        course_code: cleanCode, 
+                        course_code: cleanCode, // Lưu mã gốc
                         subject_name: course.subject_name,
                         credits: course.credits,
                         instructor: course.instructor,
@@ -550,14 +565,13 @@ export default function ScheduleBoard() {
                         shift: course.shift,
                         room: course.room,
                         campus: course.campus || 'TD', 
-                        weeks: course.weeks || '1-15',
+                        weeks: finalWeeks, // 👇 SỬA LẠI DÒNG NÀY: Thay vì course.weeks || '1-15' thì truyền finalWeeks vào 👇
                         semester: currentSem,
-                        phase: phaseStr, 
+                        phase: phaseStr, // Đã gán đợt
                         is_user_added: true 
                     })
                     .select('id')
-                    .single();
-                
+                    .single();                
                 if (!insertErr && newCourse) {
                     targetCourseId = newCourse.id;
                 } else {
