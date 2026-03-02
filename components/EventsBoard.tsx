@@ -1546,42 +1546,66 @@ export const EventsBoard: React.FC = () => {
       </div>
 
 {/* --- NOTIFICATION BANNER --- */}
-      <div className="bg-blue-50 border-l-4 border-[#003375] p-4 mb-6 rounded-r-lg shadow-sm animate-fadeIn">
-        <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 mt-0.5">
-                <Info className="h-5 w-5 text-[#003375]" />
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 sm:p-5 mb-6 rounded-xl shadow-sm animate-fadeIn relative overflow-hidden">
+        {/* Background icon trang trí mờ */}
+        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none hidden sm:block">
+            <CalendarDays size={100} />
+        </div>
+        
+        <div className="flex items-start gap-3.5 relative z-10">
+            <div className="bg-blue-600 text-white p-2 rounded-full shrink-0 shadow-sm mt-0.5">
+                <Info size={20} />
             </div>
-            <div className="flex-1 space-y-2">
-                <p className="text-sm text-[#003375] font-bold uppercase tracking-wide">
-                    📢 THỜI GIAN KIỂM DÒ VÀ BỔ SUNG HOẠT ĐỘNG NGOÀI TRƯỜNG
-                </p>
+            
+            <div className="flex-1 space-y-2.5">
+                <h4 className="font-bold text-blue-900 text-sm sm:text-base uppercase tracking-wide">
+                    Thời gian kiểm dò và bổ sung hoạt động ngoài trường
+                </h4>
                 
-                <div className="text-sm text-blue-900 space-y-3 mt-2">
-                    <p className="leading-relaxed bg-white/50 p-2.5 rounded-lg border border-blue-100">
-                        🎓 <strong>SV năm 1</strong> <span className="text-[11px] text-gray-600">(sinh viên hệ đại học chính quy chuẩn khóa 41, hệ đại học chính quy chương trình đào tạo tiếng Anh bán phần (CLC) khóa 13, chương trình đào tạo đặc biệt khóa 2 và hệ đại học chính quy chương trình đào tạo quốc tế cấp song bằng khóa 7)</span> và <strong>SV năm 2</strong> <span className="text-[11px] text-gray-600">(ĐH chính quy khóa 40, Chất lượng cao khóa 12, chương trình đào tạo đặc biệt khóa 1 và Quốc tế song bằng khóa 6)</span>:<br/>
-                        👉 Từ ngày <span className="font-bold text-red-600 text-base">02/3</span> đến hết ngày <span className="font-bold text-red-600 text-base">07/3/2026</span>.
-                    </p>
+                <div className="text-sm text-gray-800 space-y-2.5">
+                    {/* Nhóm 1 */}
+                    <div className="pl-3 border-l-2 border-blue-400">
+                        <div>
+                            <span className="font-bold text-gray-900">🎓 SV năm 1</span> 
+                            <span className="text-[11px] text-gray-500 font-medium"> (ĐHCQ K41, CLC K13, ĐB K2, QT K7) </span> 
+                            và <span className="font-bold text-gray-900">SV năm 2</span> 
+                            <span className="text-[11px] text-gray-500 font-medium"> (ĐHCQ K40, CLC K12, ĐB K1, QT K6)</span>
+                        </div>
+                        <div className="mt-0.5">
+                            👉 Từ ngày <span className="font-bold text-red-600 text-base">02/03</span> đến hết ngày <span className="font-bold text-red-600 text-base">07/03/2026</span>.
+                        </div>
+                    </div>
                     
-                    <p className="leading-relaxed bg-white/50 p-2.5 rounded-lg border border-blue-100">
-                        🎓 <strong>SV năm 3</strong> <span className="text-[11px] text-gray-600">(ĐH chính quy khóa 39, Chất lượng cao khóa 11 và Quốc tế song bằng khóa 5)</span>, <strong>SV năm 4 và các năm còn lại</strong> <span className="text-[11px] text-gray-600">(ĐH chính quy khóa 38, Chất lượng cao khóa 10, Quốc tế song bằng khóa 4 và SV các khóa trước chưa tốt nghiệp)</span>:<br/>
-                        👉 Từ ngày <span className="font-bold text-red-600 text-base">06/3</span> đến hết ngày <span className="font-bold text-red-600 text-base">11/3/2026</span>.
-                    </p>
+                    {/* Nhóm 2 */}
+                    <div className="pl-3 border-l-2 border-blue-400">
+                        <div>
+                            <span className="font-bold text-gray-900">🎓 SV năm 3</span> 
+                            <span className="text-[11px] text-gray-500 font-medium"> (ĐHCQ K39, CLC K11, QT K5)</span>, 
+                            <span className="font-bold text-gray-900"> SV năm 4 và các năm còn lại</span> 
+                            <span className="text-[11px] text-gray-500 font-medium"> (ĐHCQ K38, CLC K10, QT K4 & SV chưa TN)</span>
+                        </div>
+                        <div className="mt-0.5">
+                            👉 Từ ngày <span className="font-bold text-red-600 text-base">06/03</span> đến hết ngày <span className="font-bold text-red-600 text-base">11/03/2026</span>.
+                        </div>
+                    </div>
+                </div>
 
-                    <p className="pt-1">
-                        📝 <strong>Cách thức thực hiện:</strong> Xem hướng dẫn chi tiết tại
-                        <a 
-                            href="https://fileserver2.hub.edu.vn/PHONG.CTSV/DOCUMENT/2026/03/02/20260302090726-1057thong-bao-vv-danh-gia-kqrlsv-va-bo-sung-cac-hoat-dong-ngoai-truong-hk1-nh-2025---2026.pdf" 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            className="inline-flex items-center gap-1 mx-1 font-bold text-[#003375] underline hover:text-blue-600 transition-colors bg-white px-2 py-0.5 rounded shadow-sm border border-blue-200"
-                        >
-                            Văn bản Thông báo <ExternalLink size={12} />
-                        </a> 
-                    </p>
-
-                    <div className="flex items-start gap-2 mt-3 pt-3 border-t border-blue-200 text-red-700 text-xs">
-                        <AlertTriangle size={16} className="mt-0.5 shrink-0 animate-pulse" />
-                        <span><strong>Lưu ý:</strong> SV kiểm dò và bổ sung hoạt động ngoài Trường theo đúng thời gian quy định. Sau thời gian này, hệ thống sẽ tự động khóa lại và điểm của SV là điểm hệ thống tự chấm.</span>
+                {/* Nút hành động & Cảnh báo */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-3 mt-3 border-t border-blue-200/60">
+                    <a 
+                        href="https://fileserver2.hub.edu.vn/PHONG.CTSV/DOCUMENT/2026/03/02/20260302090726-1057thong-bao-vv-danh-gia-kqrlsv-va-bo-sung-cac-hoat-dong-ngoai-truong-hk1-nh-2025---2026.pdf" 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="inline-flex items-center justify-center gap-1.5 font-bold text-[#003375] bg-white border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-colors px-3 py-2 rounded-lg text-xs shadow-sm w-fit"
+                    >
+                        <FileText size={14} className="text-blue-600" /> Xem Văn bản & Cách thức
+                    </a>
+                    
+                    <div className="flex items-start gap-1.5 text-red-600 text-xs bg-red-50 px-2.5 py-1.5 rounded-lg border border-red-100 flex-1">
+                        <AlertTriangle size={14} className="shrink-0 mt-0.5 animate-pulse" />
+                        <span className="font-medium leading-tight">
+                            <strong>Lưu ý:</strong> Cần thực hiện đúng hạn. Quá hạn hệ thống sẽ tự động khóa và điểm của bạn sẽ là điểm do hệ thống tự chấm.
+                        </span>
                     </div>
                 </div>
             </div>
