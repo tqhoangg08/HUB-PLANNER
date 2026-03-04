@@ -53,7 +53,7 @@ export const useUserRole = () => {
                     .from('user_roles')
                     .select('role')
                     .eq('id', session.user.id)
-                    .single();
+                    .maybeSingle();
 
                 let role: UserRole = 'student';
                 if (data && !error) {

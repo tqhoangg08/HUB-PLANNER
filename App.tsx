@@ -1026,14 +1026,17 @@ return (
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfUse />} />
             <Route path="/login" element={<LoginWrapper setRolePreference={setRolePreference} />} />
-            
-            {/* THÊM MỚI: Trang đích hiển thị đầu tiên */}
-            <Route path="/" element={<LandingPage />} />
-            
-            {/* ĐỔI LINK: Chuyển trang chọn vai trò sang /role */}
             <Route path="/role" element={<RoleSelection onSelect={handleRoleSelect} />} />
-
             <Route path="/guest" element={<GuestWrapper userRolePref={userRolePref} setRolePreference={setRolePreference}>{renderProtectedApp()}</GuestWrapper>} />
+            
+            {/* 👇 ĐÃ SỬA LẠI LOGIC CHỖ NÀY 👇 */}
+            <Route path="/" element={
+                (session || userRolePref === 'student') 
+                    ? <Navigate to="/dashboard" replace /> 
+                    : <LandingPage />
+            } />
+            {/* 👆 ĐÃ SỬA LẠI LOGIC CHỖ NÀY 👆 */}
+
             <Route path="/*" element={(session || userRolePref === 'student') ? renderProtectedApp() : <Navigate to="/" replace />} />
         </Routes>
     );
