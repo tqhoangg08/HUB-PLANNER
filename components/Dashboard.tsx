@@ -824,11 +824,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
 {/* CỘT PHẢI (Chiếm 2 Ô): Nhóm các phần tử còn lại */}
-                {/* 1. Thêm min-h-0 để cột này không bị giãn lố chiều cao cột trái */}
                 <div className="lg:col-span-2 flex flex-col gap-4 min-h-0">
                     
                     {/* Hàng trên của Cột Phải: Donut (1 Ô) + Tổng kết (1 Ô) */}
-                    {/* 2. Thêm shrink-0 để hàng này luôn giữ nguyên kích thước */}
                     <div className="grid grid-cols-2 gap-3 sm:gap-4 shrink-0">
                         
                         {/* Ô Donut Chart */}
@@ -879,13 +877,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     {/* Hàng dưới của Cột Phải: Bảng tin */}
-                    <div className="bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden">
-                        <SchoolAnnouncements />
+                    <div className="bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden flex-1 min-h-0 relative">
+                        <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
+                            <SchoolAnnouncements />
+                        </div>
                     </div>
-
+</div>
                 </div>
-
-            </div>
 
             {/* 👇 KHU VỰC BẢNG ĐIỂM NẰM GỌN BÊN TRONG DASHBOARD 👇 */}
             <div className="pt-2">
