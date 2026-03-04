@@ -1,8 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-// 👇 1. ĐÃ THÊM: Import công cụ điều hướng của React Router
-import { useParams, useNavigate } from 'react-router-dom'; 
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom'; 
 import {
-    Search, Phone, Mail, MapPin, Bus, Users, Book, Award, ChevronRight,
+    Search, Phone, Mail, MapPin, Users, Book, Award,
     Copy, Check, HelpCircle, ExternalLink, Info, Heart, Facebook, User,
     MessageSquarePlus, Crown 
 } from 'lucide-react';
@@ -14,11 +13,8 @@ type TabType = 'contacts' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 
 const VALID_TABS: TabType[] = ['contacts', 'clubs', 'scholarships', 'regulations', 'faqs', 'about', 'feedback', 'donate'];
 
 export const Handbook: React.FC = () => {
-    // 👇 2. ĐÃ THÊM: Khởi tạo các hook điều hướng
     const { tab } = useParams<{ tab: string }>(); 
-    const navigate = useNavigate();
 
-    // Set state ban đầu dựa trên link URL (Nếu gõ bậy bạ sẽ tự về contacts)
     const [activeTab, setActiveTab] = useState<TabType>(() => {
         if (tab && VALID_TABS.includes(tab as TabType)) {
             return tab as TabType;
@@ -28,7 +24,6 @@ export const Handbook: React.FC = () => {
 
     const [searchTerm, setSearchTerm] = useState('');
     const [copiedId, setCopiedId] = useState<string | null>(null);
-    const scrollRef = useRef<HTMLDivElement>(null);
 
     const [feedbackType, setFeedbackType] = useState<'bug' | 'idea'>('idea');
     const [feedbackContent, setFeedbackContent] = useState('');
@@ -45,33 +40,13 @@ export const Handbook: React.FC = () => {
         document.title = "Cẩm nang | HUB Planner";
     }, []);
 
-    // 👇 3. ĐÃ THÊM: Lắng nghe sự thay đổi của thanh URL (khi user bấm nút Back/Forward của trình duyệt)
     useEffect(() => {
         if (tab && VALID_TABS.includes(tab as TabType)) {
             setActiveTab(tab as TabType);
         } else if (!tab) {
-            setActiveTab('contacts'); // Nếu chỉ gõ /handbook thì về mặc định
+            setActiveTab('contacts'); 
         }
     }, [tab]);
-
-    const MENU_ITEMS = [
-        { id: 'contacts', label: 'Danh bạ & Khoa', icon: Phone, color: 'bg-[#003375]' },
-        { id: 'clubs', label: 'CLB - Đội - Nhóm', icon: Users, color: 'bg-[#990000]' },
-        { id: 'scholarships', label: 'Học bổng & Quy chế', icon: Award, color: 'bg-green-600' },
-        { id: 'faqs', label: 'FAQs', icon: HelpCircle, color: 'bg-indigo-600' },
-        { id: 'feedback', label: 'Góp ý', icon: MessageSquarePlus, color: 'bg-teal-600' },
-        { id: 'donate', label: 'Ủng hộ & Tri ân', icon: Heart, color: 'bg-pink-600' }, 
-        { id: 'about', label: 'Về chúng mình', icon: Info, color: 'bg-gray-600' },
-    ];
-
-    useEffect(() => {
-        if (scrollRef.current) {
-            const activeElement = scrollRef.current.querySelector(`[data-tab="${activeTab}"]`);
-            if (activeElement) {
-                activeElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-            }
-        }
-    }, [activeTab]);
 
     useEffect(() => {
         if (activeTab === 'donate') {
@@ -255,13 +230,6 @@ export const Handbook: React.FC = () => {
         c.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // 👇 4. ĐÃ SỬA: Thay vì chỉ set State, bây giờ ta đẩy lên URL
-    const handleTabChange = (tab: TabType) => {
-        playClick();
-        setActiveTab(tab); 
-        navigate(`/handbook/${tab}`); // Bắn tham số lên thanh địa chỉ URL
-    };
-
     const copyToClipboard = (text: string, id: string) => {
         playClick();
         navigator.clipboard.writeText(text);
@@ -269,7 +237,7 @@ export const Handbook: React.FC = () => {
         setTimeout(() => setCopiedId(null), 2000);
     };
 
-    const renderContent = () => {
+const renderContent = () => {
         switch (activeTab) {
             case 'contacts':
                 return (
@@ -278,17 +246,17 @@ export const Handbook: React.FC = () => {
                             <input
                                 type="text"
                                 placeholder="Tìm khoa, phòng ban..."
-                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-[#003375] focus:ring-2 focus:ring-blue-100 transition-all outline-none"
+                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-all outline-none"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                             {filteredContacts.map((c, idx) => (
                                 <div
                                     key={idx}
-                                    className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg cursor-pointer group relative hover:border-blue-200"
+                                    className="bg-white p-4 rounded-xl border border-gray-300 transition-colors duration-200 cursor-pointer group relative hover:border-[#003375]"
                                     onClick={() => copyToClipboard(c.email, `email-${idx}`)}
                                     title="Nhấn để sao chép Email"
                                 >
@@ -299,7 +267,7 @@ export const Handbook: React.FC = () => {
                                     <div className="space-y-1 text-sm text-gray-600">
                                         <div className="flex items-center gap-2"><Mail size={14} className="text-gray-400" /> {c.email}</div>
                                         <div className="flex items-center gap-2"><Phone size={14} className="text-gray-400" /> {c.phone}</div>
-                                        <div className="flex items-center gap-2"><MapPin size={14} className="text-gray-400" /> {c.loc}</div>
+                                        <div className="flex items-center gap-2"><MapPin size={14} className="text-gray-400 shrink-0" /> <span className="truncate">{c.loc}</span></div>
                                     </div>
                                 </div>
                             ))}
@@ -309,7 +277,7 @@ export const Handbook: React.FC = () => {
             case 'clubs':
                 return (
                     <div className="space-y-6 animate-fadeIn">
-                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 mb-4 transition-all duration-300 hover:shadow-md cursor-default hover:-translate-y-1">
+                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 mb-4 cursor-default">
                             <h3 className="font-bold text-[#003375] flex items-center gap-2 mb-1">
                                 <Users size={20} /> Hoạt động Đoàn - Hội
                             </h3>
@@ -317,10 +285,10 @@ export const Handbook: React.FC = () => {
                                 HUB có 41 CLB/Đội/Nhóm. Tham gia để rèn luyện kỹ năng và cộng điểm rèn luyện!
                             </p>
                         </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                             {clubs.map((group, idx) => (
-                                <div key={idx} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:border-blue-200">
-                                    <h4 className="font-bold text-[#990000] border-b pb-2 mb-3">{group.type}</h4>
+                                <div key={idx} className="bg-white p-5 rounded-xl border border-gray-300 transition-colors duration-200 hover:border-[#003375]">
+                                    <h4 className="font-bold text-[#990000] border-b border-gray-200 pb-2 mb-3">{group.type}</h4>
                                     <ul className="space-y-2">
                                         {group.list.map((item, i) => {
                                             let badgeColor = "bg-gray-100 text-gray-600";
@@ -349,7 +317,7 @@ export const Handbook: React.FC = () => {
                                                                 onClick={() => copyToClipboard(item.email, `club-${idx}-${i}`)}
                                                                 title="Sao chép Email"
                                                             >
-                                                                <Mail size={10} /> {item.email}
+                                                                <Mail size={10} /> <span className="truncate max-w-[120px]">{item.email}</span>
                                                                 {copiedId === `club-${idx}-${i}` && <Check size={10} className="text-green-600" />}
                                                             </button>
                                                         )}
@@ -366,12 +334,12 @@ export const Handbook: React.FC = () => {
 
             case 'scholarships':
                 return (
-                    <div className="space-y-4 animate-fadeIn">
+                    <div className="space-y-4 animate-fadeIn max-w-4xl mx-auto">
                         <h3 className="text-lg font-bold text-[#003375] mb-2 flex items-center gap-2">
                             <Award className="text-[#990000]" /> Học bổng Khuyến khích học tập
                         </h3>
 
-                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.01]" onClick={playClick}>
+                        <div className="bg-white rounded-xl border border-gray-300 overflow-hidden transition-colors duration-200 hover:border-[#003375]" onClick={playClick}>
                             <table className="w-full text-sm">
                                 <thead className="bg-[#003375] text-white">
                                     <tr>
@@ -380,7 +348,7 @@ export const Handbook: React.FC = () => {
                                         <th className="p-3 text-center">ĐRL</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y">
+                                <tbody className="divide-y divide-gray-200">
                                     <tr className="hover:bg-gray-50 transition-colors">
                                         <td className="p-3 font-medium">Xuất sắc</td>
                                         <td className="p-3 text-center font-bold text-green-600">3.6 - 4.0</td>
@@ -400,15 +368,15 @@ export const Handbook: React.FC = () => {
                             <Book className="text-[#990000]" /> Chế độ miễn giảm học phí
                         </h3>
                         <div className="grid gap-2">
-                            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm transition-all duration-300 hover:scale-[1.01] hover:shadow-md cursor-pointer hover:border-blue-200" onClick={playClick}>
+                            <div className="p-3 bg-gray-50 rounded-lg border border-gray-300 text-sm transition-colors duration-200 cursor-pointer hover:border-[#003375]" onClick={playClick}>
                                 <span className="font-bold block text-gray-800">Miễn 100% học phí</span>
                                 SV khuyết tật, mồ côi cả cha lẫn mẹ, người dân tộc thiểu số rất ít người vùng khó khăn, con liệt sĩ/thương binh...
                             </div>
-                            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm transition-all duration-300 hover:scale-[1.01] hover:shadow-md cursor-pointer hover:border-blue-200" onClick={playClick}>
+                            <div className="p-3 bg-gray-50 rounded-lg border border-gray-300 text-sm transition-colors duration-200 cursor-pointer hover:border-[#003375]" onClick={playClick}>
                                 <span className="font-bold block text-gray-800">Giảm 70% học phí</span>
                                 SV dân tộc thiểu số ở thôn/bản đặc biệt khó khăn.
                             </div>
-                            <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm transition-all duration-300 hover:scale-[1.01] hover:shadow-md cursor-pointer hover:border-blue-200" onClick={playClick}>
+                            <div className="p-3 bg-gray-50 rounded-lg border border-gray-300 text-sm transition-colors duration-200 cursor-pointer hover:border-[#003375]" onClick={playClick}>
                                 <span className="font-bold block text-gray-800">Giảm 50% học phí</span>
                                 Con của cán bộ CNV chức bị tai nạn lao động, bệnh nghề nghiệp.
                             </div>
@@ -418,8 +386,8 @@ export const Handbook: React.FC = () => {
 
             case 'faqs':
                 return (
-                    <div className="space-y-6 animate-fadeIn">
-                        <div className="bg-gradient-to-r from-[#003375] to-blue-600 p-4 rounded-xl shadow-lg mb-6 text-white flex items-center gap-3">
+                    <div className="space-y-6 animate-fadeIn max-w-4xl mx-auto">
+                        <div className="bg-gradient-to-r from-[#003375] to-blue-600 p-4 rounded-xl mb-6 text-white flex items-center gap-3">
                             <div className="bg-white/20 p-2 rounded-full">
                                 <HelpCircle size={24} className="text-yellow-300" />
                             </div>
@@ -430,11 +398,11 @@ export const Handbook: React.FC = () => {
                         </div>
 
                         {faqs.map((group, idx) => (
-                            <div key={idx} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                            <div key={idx} className="bg-white rounded-xl border border-gray-300 overflow-hidden">
                                 <div className="bg-gray-50 px-4 py-3 text-[#003375] font-bold text-sm uppercase tracking-wide border-b border-gray-200">
                                     {group.group}
                                 </div>
-                                <div className="divide-y divide-gray-100">
+                                <div className="divide-y divide-gray-200">
                                     {group.items.map((item, i) => (
                                         <div key={i} className="p-4 hover:bg-blue-50/30 transition-colors">
                                             <h4 className="font-bold text-gray-800 mb-2 flex gap-2">
@@ -455,8 +423,8 @@ export const Handbook: React.FC = () => {
 
             case 'feedback':
                 return (
-                    <div className="animate-fadeIn space-y-6">
-                        <div className="bg-gradient-to-r from-teal-600 to-emerald-600 p-6 rounded-xl text-white shadow-lg flex items-center gap-4 relative overflow-hidden">
+                    <div className="animate-fadeIn space-y-6 max-w-4xl mx-auto">
+                        <div className="bg-gradient-to-r from-teal-600 to-emerald-600 p-6 rounded-xl text-white flex items-center gap-4 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-48 h-48 bg-white opacity-10 rounded-full -translate-y-1/2 translate-x-1/4"></div>
                             <div className="bg-white/20 p-3 rounded-full relative z-10">
                                 <MessageSquarePlus size={32} className="text-white" />
@@ -467,7 +435,7 @@ export const Handbook: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                        <div className="bg-white p-6 rounded-xl border border-gray-300">
                             {submitStatus === 'success' ? (
                                 <div className="text-center py-10 animate-scaleIn">
                                     <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -490,7 +458,7 @@ export const Handbook: React.FC = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => setFeedbackType('bug')}
-                                                className={`p-4 rounded-lg border flex flex-col items-center gap-2 transition-all ${feedbackType === 'bug' ? 'bg-red-50 border-red-500 text-red-700 ring-1 ring-red-500' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                                                className={`p-4 rounded-lg border flex flex-col items-center gap-2 transition-all ${feedbackType === 'bug' ? 'bg-red-50 border-red-500 text-red-700 ring-1 ring-red-500' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
                                             >
                                                 <div className={`p-2 rounded-full ${feedbackType === 'bug' ? 'bg-red-200' : 'bg-gray-100'}`}>
                                                     <Mail size={20} />
@@ -500,7 +468,7 @@ export const Handbook: React.FC = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => setFeedbackType('idea')}
-                                                className={`p-4 rounded-lg border flex flex-col items-center gap-2 transition-all ${feedbackType === 'idea' ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                                                className={`p-4 rounded-lg border flex flex-col items-center gap-2 transition-all ${feedbackType === 'idea' ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
                                             >
                                                 <div className={`p-2 rounded-full ${feedbackType === 'idea' ? 'bg-blue-200' : 'bg-gray-100'}`}>
                                                     <ExternalLink size={20} />
@@ -518,7 +486,7 @@ export const Handbook: React.FC = () => {
                                             required
                                             rows={4}
                                             placeholder={feedbackType === 'bug' ? "Mô tả lỗi bạn gặp phải (Ví dụ: Không nhập được file PDF, tính sai điểm môn Toán...)" : "Bạn mong muốn có thêm tính năng gì?..."}
-                                            className="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none transition-all"
+                                            className="w-full p-3 rounded-lg border border-gray-300 focus:border-[#003375] outline-none transition-all"
                                             value={feedbackContent}
                                             onChange={(e) => setFeedbackContent(e.target.value)}
                                         ></textarea>
@@ -531,7 +499,7 @@ export const Handbook: React.FC = () => {
                                         <input
                                             type="text"
                                             placeholder="Email hoặc SĐT (để chúng mình liên hệ lại nếu cần)"
-                                            className="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none transition-all"
+                                            className="w-full p-3 rounded-lg border border-gray-300 focus:border-[#003375] outline-none transition-all"
                                             value={contactInfo}
                                             onChange={(e) => setContactInfo(e.target.value)}
                                         />
@@ -546,7 +514,7 @@ export const Handbook: React.FC = () => {
                                     <button
                                         type="submit"
                                         disabled={isSubmitting || !feedbackContent.trim()}
-                                        className="w-full bg-[#003375] hover:bg-[#002855] text-white font-bold py-3 rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                        className="w-full bg-[#003375] hover:bg-[#002855] text-white font-bold py-3 rounded-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         {isSubmitting ? (
                                             <>Đang gửi...</>
@@ -558,17 +526,17 @@ export const Handbook: React.FC = () => {
                             )}
                         </div>
 
-                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-center text-sm text-gray-600">
-                            Bạn cũng có thể liên hệ trực tiếp qua Fanpage <a href="https://www.facebook.com/hubplannerr" target="_blank" rel="noopener noreferrer" className="font-bold text-blue-600 hover:underline">HUB Planner</a>.
+                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-300 text-center text-sm text-gray-600">
+                            Bạn cũng có thể liên hệ trực tiếp qua Fanpage <a href="https://www.facebook.com/hubplannerr" target="_blank" rel="noopener noreferrer" className="font-bold text-[#003375] hover:underline">HUB Planner</a>.
                         </div>
                     </div>
                 );
 
             case 'donate':
                 return (
-                    <div className="animate-fadeIn pb-10">
+                    <div className="animate-fadeIn pb-10 max-w-6xl mx-auto">
                         {/* 1. HEADER KÊU GỌI & QR CODE */}
-                        <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl p-8 text-white shadow-xl mb-10 relative overflow-hidden">
+                        <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl p-8 text-white mb-10 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -translate-y-1/2 translate-x-1/3"></div>
                             
                             <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
@@ -586,7 +554,7 @@ export const Handbook: React.FC = () => {
                                 </div>
 
                                 {/* KHUNG MÃ QR */}
-                                <div className="shrink-0 bg-white p-4 rounded-2xl shadow-2xl transform rotate-2 hover:rotate-0 transition-transform duration-300">
+                                <div className="shrink-0 bg-white p-4 rounded-2xl">
                                     <div className="w-48 h-48 bg-gray-100 rounded-lg overflow-hidden mb-2">
                                         <img src="/qr-code.png" alt="QR Code Momo/Bank" className="w-full h-full object-cover" />
                                     </div>
@@ -597,7 +565,7 @@ export const Handbook: React.FC = () => {
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             {/* 2. FORM XÁC NHẬN ỦNG HỘ */}
-                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-fit">
+                            <div className="bg-white p-6 rounded-xl border border-gray-300 h-fit">
                                 <h3 className="text-xl font-bold text-[#003375] mb-1">Xác nhận ủng hộ</h3>
                                 <p className="text-sm text-gray-500 mb-6">Điền thông tin để chúng mình vinh danh bạn trên Bảng vàng nhé!</p>
                                 
@@ -607,7 +575,7 @@ export const Handbook: React.FC = () => {
                                             <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Họ tên <span className="text-red-500">*</span></label>
                                             <input 
                                                 type="text" required 
-                                                className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 outline-none transition-all"
+                                                className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 outline-none transition-all"
                                                 placeholder="Nguyễn Văn A"
                                                 value={donateForm.name}
                                                 onChange={e => setDonateForm({...donateForm, name: e.target.value})}
@@ -617,7 +585,7 @@ export const Handbook: React.FC = () => {
                                             <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Số tiền <span className="text-red-500">*</span></label>
                                             <input 
                                                 type="text" required 
-                                                className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 outline-none transition-all"
+                                                className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 outline-none transition-all"
                                                 placeholder="Ví dụ: 20.000"
                                                 value={donateForm.amount}
                                                 onChange={e => setDonateForm({...donateForm, amount: e.target.value})}
@@ -629,7 +597,7 @@ export const Handbook: React.FC = () => {
                                         <label className="block text-xs font-bold text-gray-700 uppercase mb-1">MSSV (Tùy chọn)</label>
                                         <input 
                                             type="text" 
-                                            className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 outline-none transition-all"
+                                            className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 outline-none transition-all"
                                             placeholder="Để trống nếu muốn ẩn danh"
                                             value={donateForm.mssv}
                                             onChange={e => setDonateForm({...donateForm, mssv: e.target.value})}
@@ -640,7 +608,7 @@ export const Handbook: React.FC = () => {
                                         <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Lời nhắn gửi</label>
                                         <textarea 
                                             rows={3}
-                                            className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 outline-none transition-all"
+                                            className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 outline-none transition-all"
                                             placeholder="Gửi lời yêu thương đến team..."
                                             value={donateForm.message}
                                             onChange={e => setDonateForm({...donateForm, message: e.target.value})}
@@ -650,7 +618,7 @@ export const Handbook: React.FC = () => {
                                     <button 
                                         type="submit" 
                                         disabled={isDonating}
-                                        className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                                        className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-lg transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                                     >
                                         {isDonating ? 'Đang gửi...' : <><Heart size={18} className="fill-current"/> Gửi thông tin</>}
                                     </button>
@@ -658,15 +626,15 @@ export const Handbook: React.FC = () => {
                             </div>
 
                             {/* 3. BẢNG VÀNG TRI ÂN */}
-                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[500px]">
-                                <div className="bg-yellow-50 p-4 border-b border-yellow-100 flex items-center justify-between">
+                            <div className="bg-white rounded-xl border border-gray-300 overflow-hidden flex flex-col h-[500px]">
+                                <div className="bg-yellow-50 p-4 border-b border-yellow-200 flex items-center justify-between">
                                     <div>
                                         <h3 className="text-lg font-black text-yellow-800 flex items-center gap-2 uppercase tracking-wide">
                                             <Crown size={20} className="fill-yellow-500 text-yellow-600"/> Bảng vàng tri ân
                                         </h3>
                                         <p className="text-xs text-yellow-700 mt-1">Cập nhật realtime từ hệ thống</p>
                                     </div>
-                                    <div className="bg-white px-3 py-1 rounded-full text-xs font-bold text-yellow-700 shadow-sm border border-yellow-100">
+                                    <div className="bg-white px-3 py-1 rounded-full text-xs font-bold text-yellow-700 border border-yellow-200">
                                         {donors.length} lượt ủng hộ
                                     </div>
                                 </div>
@@ -678,8 +646,8 @@ export const Handbook: React.FC = () => {
                                         <div className="text-center py-10 text-gray-400 italic">Chưa có ai, hãy là người đầu tiên! 🥇</div>
                                     ) : (
                                         donors.map((donor, idx) => (
-                                            <div key={idx} className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm flex items-start gap-3 hover:bg-gray-50 transition-colors">
-                                                <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm
+                                            <div key={idx} className="bg-white p-3 rounded-lg border border-gray-300 flex items-start gap-3 hover:bg-gray-50 transition-colors">
+                                                <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm 
                                                     ${idx === 0 ? 'bg-yellow-400 text-white ring-2 ring-yellow-200' : 
                                                       idx === 1 ? 'bg-gray-300 text-white' : 
                                                       idx === 2 ? 'bg-orange-300 text-white' : 'bg-blue-50 text-blue-600'}`}
@@ -689,7 +657,7 @@ export const Handbook: React.FC = () => {
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex justify-between items-start">
                                                         <h4 className="font-bold text-gray-800 text-sm truncate">{donor.name}</h4>
-                                                        <span className="text-green-600 font-bold text-sm bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                                                        <span className="text-green-600 font-bold text-sm bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
                                                             {formatCurrency(donor.amount)}
                                                         </span>
                                                     </div>
@@ -727,9 +695,9 @@ export const Handbook: React.FC = () => {
                 ];
 
                 return (
-                    <div className="animate-fadeIn pb-10">
+                    <div className="animate-fadeIn pb-10 max-w-6xl mx-auto">
                         {/* Hero Section */}
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-10 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
+                        <div className="bg-white rounded-2xl border border-gray-300 p-8 mb-10 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
                             <div className="flex-1 relative z-10">
                                 <div className="inline-block bg-blue-100 text-[#003375] px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 border border-blue-200">
@@ -765,11 +733,11 @@ export const Handbook: React.FC = () => {
                         </div>
 
                         {/* Founder Card */}
-                        <div className="max-w-md mx-auto mb-10 transform hover:-translate-y-2 transition-transform duration-300">
-                            <div className="bg-gradient-to-br from-[#003375] to-[#00509d] rounded-2xl shadow-xl overflow-hidden text-white relative group cursor-default">
+                        <div className="max-w-md mx-auto mb-10">
+                            <div className="bg-gradient-to-br from-[#003375] to-[#00509d] rounded-2xl overflow-hidden text-white relative group cursor-default">
                                 <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
                                 <div className="p-8 text-center relative z-10">
-                                    <div className="w-24 h-24 mx-auto bg-white rounded-full p-1 shadow-lg mb-4 flex items-center justify-center text-[#003375] font-bold text-3xl">
+                                    <div className="w-24 h-24 mx-auto bg-white rounded-full p-1 mb-4 flex items-center justify-center text-[#003375] font-bold text-3xl">
                                         H
                                     </div>
                                     <h4 className="text-2xl font-bold mb-1">{founder.name}</h4>
@@ -777,28 +745,16 @@ export const Handbook: React.FC = () => {
 
                                     <div className="flex justify-center gap-4 mt-6">
                                         {/* Phone */}
-                                        <a href={`tel:${founder.phone}`} className="p-3 bg-white/10 hover:bg-white text-white hover:text-[#003375] rounded-full transition-all active:scale-95 shadow-sm hover:shadow-md backdrop-blur-sm relative group/icon">
+                                        <a href={`tel:${founder.phone}`} className="p-3 bg-white/10 hover:bg-white text-white hover:text-[#003375] rounded-full transition-all active:scale-95 backdrop-blur-sm relative group/icon">
                                             <Phone size={20} />
-                                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-bold text-white bg-black/90 rounded opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                                {founder.phone}
-                                                <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black/90"></span>
-                                            </span>
                                         </a>
                                         {/* Mail */}
-                                        <a href={`mailto:${founder.email}`} className="p-3 bg-white/10 hover:bg-white text-white hover:text-[#990000] rounded-full transition-all active:scale-95 shadow-sm hover:shadow-md backdrop-blur-sm relative group/icon">
+                                        <a href={`mailto:${founder.email}`} className="p-3 bg-white/10 hover:bg-white text-white hover:text-[#990000] rounded-full transition-all active:scale-95 backdrop-blur-sm relative group/icon">
                                             <Mail size={20} />
-                                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-bold text-white bg-black/90 rounded opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                                {founder.email}
-                                                <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black/90"></span>
-                                            </span>
                                         </a>
                                         {/* FB */}
-                                        <a href={founder.fb} target="_blank" rel="noopener noreferrer" className="p-3 bg-white/10 hover:bg-white text-white hover:text-blue-600 rounded-full transition-all active:scale-95 shadow-sm hover:shadow-md backdrop-blur-sm relative group/icon">
+                                        <a href={founder.fb} target="_blank" rel="noopener noreferrer" className="p-3 bg-white/10 hover:bg-white text-white hover:text-blue-600 rounded-full transition-all active:scale-95 backdrop-blur-sm relative group/icon">
                                             <Facebook size={20} />
-                                            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-bold text-white bg-black/90 rounded opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                                                Facebook
-                                                <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black/90"></span>
-                                            </span>
                                         </a>
                                     </div>
                                 </div>
@@ -810,7 +766,7 @@ export const Handbook: React.FC = () => {
                             {collaborators.map((member, idx) => (
                                 <div
                                     key={idx}
-                                    className={`bg-white rounded-xl shadow-sm border p-6 flex flex-col items-center text-center transition-all duration-300 ${member.isPlaceholder ? 'border-dashed border-gray-300 opacity-60' : 'border-gray-100 hover:shadow-lg hover:-translate-y-1 hover:border-blue-100'}`}
+                                    className={`bg-white rounded-xl border p-6 flex flex-col items-center text-center transition-all duration-300 ${member.isPlaceholder ? 'border-dashed border-gray-300 opacity-60' : 'border-gray-300 hover:border-[#003375]'}`}
                                 >
                                     <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 ${member.isPlaceholder ? 'bg-gray-100 text-gray-400' : 'bg-blue-50 text-[#003375]'}`}>
                                         <User size={32} />
@@ -819,32 +775,20 @@ export const Handbook: React.FC = () => {
                                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{member.role}</p>
 
                                     {!member.isPlaceholder && (
-                                        <div className="flex gap-4 mt-auto pt-4 border-t border-gray-100 w-full justify-center">
+                                        <div className="flex gap-4 mt-auto pt-4 border-t border-gray-200 w-full justify-center">
                                             {member.phone && (
-                                                <a href={`tel:${member.phone}`} className="text-gray-400 hover:text-green-600 transition-colors bg-gray-50 p-2 rounded-full hover:bg-green-50 relative group/icon">
+                                                <a href={`tel:${member.phone}`} className="text-gray-400 hover:text-green-600 transition-colors bg-gray-50 p-2 rounded-full hover:bg-green-50">
                                                     <Phone size={18} />
-                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-bold text-white bg-black/80 rounded opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
-                                                        {member.phone}
-                                                        <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black/80"></span>
-                                                    </span>
                                                 </a>
                                             )}
                                             {member.email && (
-                                                <a href={`mailto:${member.email}`} className="text-gray-400 hover:text-[#990000] transition-colors bg-gray-50 p-2 rounded-full hover:bg-red-50 relative group/icon">
+                                                <a href={`mailto:${member.email}`} className="text-gray-400 hover:text-[#990000] transition-colors bg-gray-50 p-2 rounded-full hover:bg-red-50">
                                                     <Mail size={18} />
-                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-bold text-white bg-black/80 rounded opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
-                                                        {member.email}
-                                                        <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black/80"></span>
-                                                    </span>
                                                 </a>
                                             )}
                                             {member.fb && (
-                                                <a href={member.fb} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600 transition-colors bg-gray-50 p-2 rounded-full hover:bg-blue-50 relative group/icon">
+                                                <a href={member.fb} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-600 transition-colors bg-gray-50 p-2 rounded-full hover:bg-blue-50">
                                                     <Facebook size={18} />
-                                                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs font-bold text-white bg-black/80 rounded opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20">
-                                                        Facebook
-                                                        <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-black/80"></span>
-                                                    </span>
                                                 </a>
                                             )}
                                         </div>
@@ -860,59 +804,40 @@ export const Handbook: React.FC = () => {
         }
     };
 
+    // Helper: Định dạng lại tiêu đề Header cho từng Tab
+    const getTabHeaderInfo = (tab: TabType) => {
+        switch (tab) {
+            case 'contacts': return { title: 'Danh bạ & Khoa', sub: 'Thông tin liên hệ các phòng ban' };
+            case 'clubs': return { title: 'CLB - Đội - Nhóm', sub: 'Hoạt động ngoại khóa & Đoàn - Hội' };
+            case 'scholarships': return { title: 'Học bổng & Quy chế', sub: 'Thông tin học vụ & Chế độ' };
+            case 'faqs': return { title: 'Câu hỏi thường gặp', sub: 'Hỗ trợ giải đáp (FAQs)' };
+            case 'feedback': return { title: 'Góp ý & Phản hồi', sub: 'Đóng góp ý tưởng phát triển' };
+            case 'donate': return { title: 'Ủng hộ & Tri ân', sub: 'Đồng hành cùng dự án' };
+            case 'about': return { title: 'Về chúng mình', sub: 'Đội ngũ HUB Planner' };
+            default: return { title: 'Cẩm nang', sub: 'Thông tin sinh viên' };
+        }
+    };
+
+    const headerInfo = getTabHeaderInfo(activeTab);
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {/* --- MENU MOBILE: THANH NGANG SCROLLABLE --- */}
-            <div className="md:hidden sticky top-[64px] z-30 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm -mx-4 px-4 py-2">
-                <div
-                    ref={scrollRef}
-                    className="flex overflow-x-auto gap-2 pb-1 hide-scrollbar snap-x snap-mandatory"
-                >
-                    {MENU_ITEMS.map(item => (
-                        <button
-                            key={item.id}
-                            data-tab={item.id}
-                            onClick={() => handleTabChange(item.id as TabType)}
-                            className={`
-                        snap-center shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all duration-300
-                        ${activeTab === item.id
-                                    ? `${item.color} text-white shadow-md ring-2 ring-offset-1 ring-blue-100`
-                                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                }
-                    `}
-                        >
-                            <item.icon size={16} />
-                            <span>{item.label}</span>
-                        </button>
-                    ))}
+        <div className="w-full pb-10">
+            {/* HEADER CHUẨN DASHBOARD */}
+            <div className="flex flex-col mb-4 sm:mb-6 px-1 overflow-hidden">
+                <h1 className="text-[24px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
+                    {headerInfo.title}
+                </h1>
+                <div className="flex items-center gap-1.5 mt-2 text-[12px] sm:text-[13px] text-gray-500 overflow-x-auto whitespace-nowrap custom-scrollbar pb-1">
+                    <span className="shrink-0">Cẩm nang</span>
+                    <span className="text-gray-300 shrink-0">•</span>
+                    <span className="font-bold text-gray-700 shrink-0">{headerInfo.sub}</span>
                 </div>
             </div>
 
-            {/* --- MENU DESKTOP: DANH SÁCH DỌC --- */}
-            <div className="hidden md:block md:col-span-1">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sticky top-24 z-40 max-h-[calc(100vh-120px)] overflow-y-auto hide-scrollbar transition-all duration-300">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-3 pt-2">Danh mục</h3>
-                    <div className="space-y-1">
-                        {MENU_ITEMS.map(item => (
-                            <button
-                                key={item.id}
-                                onClick={() => handleTabChange(item.id as TabType)}
-                                className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all duration-200 ${activeTab === item.id ? `${item.color} text-white shadow-md` : 'text-gray-600 hover:bg-gray-50 hover:shadow-sm'}`}
-                            >
-                                <item.icon size={20} />
-                                <span className="font-bold">{item.label}</span>
-                                {activeTab === item.id && <ChevronRight size={16} className="ml-auto opacity-70" />}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
-
-            {/* CONTENT AREA */}
-            <div className="md:col-span-3">
+            {/* CONTENT TRÀN FULL MÀN HÌNH */}
+            <div className="w-full">
                 {renderContent()}
             </div>
         </div>
     );
-
 };

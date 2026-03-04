@@ -377,8 +377,8 @@ export const LostFoundBoard: React.FC = () => {
       setTimeout(() => setNotification(null), 5000);
   };
 
-  return (
-    <div className="animate-slideInRight">
+return (
+    <div className="w-full pb-10 animate-slideInRight relative">
       {notification && createPortal(
           <div className={`fixed top-4 right-4 z-[100000] px-4 py-3 rounded-xl shadow-2xl border-l-4 flex items-center gap-3 animate-slideInRight bg-white ${notification.type === 'success' ? 'border-green-500' : 'border-red-500'}`}>
               {notification.type === 'success' ? <CheckCircle2 className="text-green-600"/> : <AlertCircle className="text-red-600"/>}
@@ -386,43 +386,47 @@ export const LostFoundBoard: React.FC = () => {
           </div>, document.body
       )}
 
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-        <div>
-           <h2 className="text-2xl font-bold text-[#003375] flex items-center gap-2"><Search className="text-[#990000]" /> Góc Tìm Đồ Thất Lạc</h2>
-           {/* 👇 ĐÃ THÊM DÒNG NÀY THEO YÊU CẦU 👇 */}
-           <p className="text-xs text-gray-500 mt-1 italic flex items-center gap-1">
-               <Info size={12}/> Đây là khu vực trao đổi thông tin nội bộ hỗ trợ học tập
-           </p>
-           
-           {canManage && (
-               <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-2 border border-blue-100">
-                   <Shield size={10} className="inline mr-1"/>
-                   {isAdmin ? 'Admin Mode: Full Access' : 'CTV Mode: Approve/Edit'}
-               </div>
-           )}
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
-            <div className="relative flex-1 sm:flex-none">
-                <input type="text" placeholder="Tìm tên đồ, địa điểm..." className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none w-full sm:w-64 transition-all hover:border-blue-300" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+      {/* 👇 BỌC TOÀN BỘ KHU VỰC NÀY ĐỂ LÀM STICKY 👇 */}
+      <div className="sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-6 border-b border-gray-200/60 shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+            <div>
+                <h2 className="text-[24px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
+                    Tìm đồ thất lạc</h2>
+                <p className="text-xs text-gray-500 mt-1 italic flex items-center gap-1">
+                    <Info size={12}/> Đây là khu vực trao đổi thông tin nội bộ hỗ trợ học tập
+                </p>
+                
+                {canManage && (
+                    <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-2 border border-blue-100">
+                        <Shield size={10} className="inline mr-1"/>
+                        {isAdmin ? 'Admin Mode: Full Access' : 'CTV Mode: Approve/Edit'}
+                    </div>
+                )}
             </div>
-            <div className="flex gap-2">
-                <button onClick={() => { playClick(); fetchItems(); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95 hover:rotate-180 duration-500" title="Làm mới"><RefreshCw size={20} className={loading ? "animate-spin" : ""} /></button>
-                <button onClick={() => openSubmitModal(activeTab)} className={`px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 font-bold transition-all active:scale-95 hover:shadow-md whitespace-nowrap justify-center flex-1 ${activeTab === 'FOUND' ? 'bg-[#003375] hover:bg-[#002855] text-white' : 'bg-[#990000] hover:bg-[#7a0000] text-white'}`}>
-                    <PlusCircle size={18} /> {activeTab === 'FOUND' ? 'Đăng tin Nhặt được' : 'Đăng tin Báo mất'}
-                </button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto items-stretch">
+                <div className="relative flex-1 sm:flex-none">
+                    <input type="text" placeholder="Tìm tên đồ, địa điểm..." className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none sm:w-64 transition-all hover:border-blue-300 h-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                </div>
+                <div className="flex gap-2">
+                    <button onClick={() => { playClick(); fetchItems(); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95 hover:rotate-180 duration-500" title="Làm mới"><RefreshCw size={20} className={loading ? "animate-spin" : ""} /></button>
+                    <button onClick={() => openSubmitModal(activeTab)} className={`px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 font-bold transition-all active:scale-95 hover:shadow-md whitespace-nowrap justify-center flex-1 ${activeTab === 'FOUND' ? 'bg-[#003375] hover:bg-[#002855] text-white' : 'bg-[#990000] hover:bg-[#7a0000] text-white'}`}>
+                        <PlusCircle size={18} /> {activeTab === 'FOUND' ? 'Đăng tin Nhặt được' : 'Đăng tin Báo mất'}
+                    </button>
+                </div>
             </div>
-        </div>
-      </div>
+          </div>
 
-      <div className="flex gap-4 border-b border-gray-200 mb-6">
-          <button onClick={() => { playClick(); setActiveTab('FOUND'); }} className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 transition-all relative ${activeTab === 'FOUND' ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-700'}`}>
-            <MapPin size={18} /> Tin nhặt được {activeTab === 'FOUND' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#003375] rounded-t-full animate-scaleIn"></div>}
-          </button>
-          <button onClick={() => { playClick(); setActiveTab('LOST'); }} className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 transition-all relative ${activeTab === 'LOST' ? 'text-[#990000]' : 'text-gray-500 hover:text-gray-700'}`}>
-            <Megaphone size={18} /> Tin báo mất {activeTab === 'LOST' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#990000] rounded-t-full animate-scaleIn"></div>}
-          </button>
+          <div className="flex gap-4 border-b border-gray-200">
+              <button onClick={() => { playClick(); setActiveTab('FOUND'); }} className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 transition-all relative ${activeTab === 'FOUND' ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-700'}`}>
+                <MapPin size={18} /> Tin nhặt được {activeTab === 'FOUND' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#003375] rounded-t-full animate-scaleIn"></div>}
+              </button>
+              <button onClick={() => { playClick(); setActiveTab('LOST'); }} className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 transition-all relative ${activeTab === 'LOST' ? 'text-[#990000]' : 'text-gray-500 hover:text-gray-700'}`}>
+                <Megaphone size={18} /> Tin báo mất {activeTab === 'LOST' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#990000] rounded-t-full animate-scaleIn"></div>}
+              </button>
+          </div>
       </div>
+      {/* 👆 KẾT THÚC VÙNG STICKY 👆 */}
 
       {!canManage && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-start sm:items-center gap-3 text-sm text-amber-900 animate-fadeIn">
