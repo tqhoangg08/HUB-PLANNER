@@ -687,10 +687,20 @@ export default function ScheduleBoard() {
                         availableCourses.map((course) => {
                             const color = getColorForCourse(course.id);
                             return (
-                                <div key={course.id} className={`bg-white border border-gray-200 border-l-4 ${color.border} rounded-lg p-3 relative group hover:shadow-md transition-all`}>
+<div 
+                                    key={course.id} 
+                                    className={`bg-white border border-gray-200 border-l-4 ${color.border} rounded-lg p-3 relative group hover:shadow-md transition-all cursor-pointer`}
+                                    onClick={() => setSelectedCourseInfo({ course })}
+                                >
                                     <div className="flex justify-between items-start">
-                                        <h3 className={`font-bold text-xs leading-tight pr-6 line-clamp-2 ${color.text}`}>{course.subject_name}</h3>
-                                        <button onClick={() => addToSchedule(course)} disabled={isSyncing} className="text-gray-300 hover:text-[#003375] p-1 bg-gray-50 hover:bg-blue-50 rounded-md transition-colors"><Plus size={14}/></button>
+                                        <div>
+                                            <h3 className={`font-bold text-xs leading-tight pr-6 line-clamp-2 ${color.text}`}>{course.subject_name}</h3>
+                                            {/* Thêm Mã HP và Đợt ở đây */}
+                                            <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                                                {course.course_code} • Đợt {course.phase || '1'}
+                                            </p>
+                                        </div>
+                                        <button onClick={(e) => { e.stopPropagation(); addToSchedule(course); }} disabled={isSyncing} className="text-gray-300 hover:text-[#003375] p-1 bg-gray-50 hover:bg-blue-50 rounded-md transition-colors"><Plus size={14}/></button>
                                     </div>
                                     <div className="text-[10px] text-gray-500 mt-2 flex items-center gap-1 font-medium"><Clock size={10} className="text-gray-400"/> Thứ {course.day_of_week} ({getShiftDisplay(course.shift)})</div>
                                     <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1 font-medium"><MapPin size={10} className="text-gray-400"/> P. {course.room}</div>
@@ -839,9 +849,12 @@ export default function ScheduleBoard() {
                                                         {slotCourses.map(({course, slotDetails}: any) => {
                                                             const color = getColorForCourse(course.id);
                                                             return (
-                                                                <div key={course.id} onClick={() => setSelectedCourseInfo({ course, details: slotDetails })} className={`border-l-4 ${color.border} ${color.bg} rounded-r-lg p-2.5 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 relative group w-full shrink-0`}>
+                                                            <div key={course.id} onClick={() => setSelectedCourseInfo({ course, details: slotDetails })} className={`border-l-4 ${color.border} ${color.bg} rounded-r-lg p-2.5 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 relative group w-full shrink-0`}>
                                                                     <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="absolute top-1.5 right-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 rounded p-0.5"><X size={14}/></button>
-                                                                    <h4 className={`font-bold ${color.text} text-[11px] sm:text-xs leading-snug line-clamp-2 pr-4 mb-1`}>{course.subject_name}</h4>
+                                                                    <h4 className={`font-bold ${color.text} text-[11px] sm:text-xs leading-snug line-clamp-2 pr-4 mb-0.5`}>{course.subject_name}</h4>
+                                                                    {/* Thêm phần hiển thị Mã HP và Đợt */}
+                                                                    <div className={`text-[9px] ${color.text} opacity-80 font-medium mb-1.5 truncate`}>{course.course_code} • Đợt {course.phase || '1'}</div>
+                                                                    
                                                                     <div className={`text-[10px] ${color.label} font-semibold flex items-center gap-1`}><MapPin size={10}/> P. {slotDetails.room}</div>
                                                                     <div className={`text-[10px] ${color.label} font-medium flex items-center gap-1 mt-0.5`}><Clock size={10}/> {getCourseTimeLabel(slotDetails.shift)}</div>
                                                                 </div>
@@ -1006,12 +1019,12 @@ export default function ScheduleBoard() {
                             </div>
                         ) : (
                             currentSemesterSchedule.map(course => (
-                                <div key={course.id} className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between gap-3 hover:border-blue-300 transition-colors">
+<div key={course.id} className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between gap-3 hover:border-blue-300 transition-colors cursor-pointer" onClick={() => { setIsMyScheduleModalOpen(false); setSelectedCourseInfo({ course }); }}>
                                     <div className="flex-1 min-w-0">
                                         <h4 className="font-bold text-gray-800 text-sm truncate">{course.subject_name}</h4>
-                                        <p className="text-[10px] text-gray-500 mt-0.5">{course.course_code}</p>
+                                        <p className="text-[10px] text-gray-500 mt-0.5 font-medium">{course.course_code} <span className="mx-1">•</span> Đợt {course.phase || '1'}</p>
                                     </div>
-                                    <button onClick={() => removeFromSchedule(course.id)} className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors border border-transparent hover:border-red-100" title="Xóa môn khỏi lịch"><Trash2 size={16}/></button>
+                                    <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors border border-transparent hover:border-red-100" title="Xóa môn khỏi lịch"><Trash2 size={16}/></button>
                                 </div>
                             ))
                         )}
