@@ -613,8 +613,8 @@ export default function ScheduleBoard() {
         {/* LAYOUT CHÍNH */}
         <div className="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-150px)] items-start">
         
-            {/* CỘT TRÁI: SIDEBAR FILTER */}
-            <div className="w-full lg:w-[300px] bg-white rounded-xl border border-gray-300 flex flex-col shrink-0 overflow-hidden h-[500px] lg:h-full shadow-sm">
+{/* CỘT TRÁI: SIDEBAR FILTER */}
+            <div className="w-full lg:w-[300px] bg-white rounded-xl border border-gray-200 flex flex-col shrink-0 overflow-hidden h-auto lg:h-[calc(100vh-150px)] shadow-sm">
                 <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-[#f8fafc]">
                     <h2 className="text-base font-bold text-[#003375] flex items-center gap-2">
                         <Search size={18} className="text-[#990000]" /> Tìm kiếm & Lọc
