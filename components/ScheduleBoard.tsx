@@ -613,8 +613,8 @@ export default function ScheduleBoard() {
         {/* LAYOUT CHÍNH */}
         <div className="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-150px)] items-start">
         
-{/* CỘT TRÁI: SIDEBAR FILTER */}
-            <div className="w-full lg:w-[300px] bg-white rounded-xl border border-gray-200 flex flex-col shrink-0 overflow-hidden h-auto lg:h-[calc(100vh-150px)] shadow-sm">
+            {/* CỘT TRÁI: SIDEBAR FILTER */}
+            <div className="w-full lg:w-[300px] bg-white rounded-xl border border-gray-300 flex flex-col shrink-0 overflow-hidden h-[500px] lg:h-full shadow-sm">
                 <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-[#f8fafc]">
                     <h2 className="text-base font-bold text-[#003375] flex items-center gap-2">
                         <Search size={18} className="text-[#990000]" /> Tìm kiếm & Lọc
@@ -712,9 +712,8 @@ export default function ScheduleBoard() {
                 </div>
             </div>
 
-            {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
-            <div className="flex-1 bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden h-[600px] lg:h-full w-full shadow-sm">
-                
+{/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
+            <div className="flex-1 bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden min-h-[600px] lg:min-h-0 lg:h-full w-full shadow-sm relative">
                 {/* TOOLBAR LỊCH */}
                 <div className="flex flex-col sm:flex-row items-center justify-between p-3 sm:p-4 border-b border-gray-100 gap-3 bg-white shrink-0">
                     <div className="flex items-center gap-3">
