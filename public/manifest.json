@@ -1,0 +1,20 @@
+{
+  "short_name": "HUB Planner",
+  "name": "HUB Planner - Hỗ trợ sinh viên",
+  "icons": [
+    {
+      "src": "/logoapp.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/logoapp.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#003375",
+  "background_color": "#F8FAFC"
+}
