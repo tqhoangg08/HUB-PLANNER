@@ -28,9 +28,9 @@ export const calculateSubjectAverage = (s: Subject): number | null => {
   if (s.scoreCC === null || s.scoreProcess === null || s.scoreMid === null || s.scoreFinal === null) {
     return null;
   }
-  // Formula: 10% + 20% + 20% + 50%
+  // Thêm Number.EPSILON để sửa lỗi sai số phẩy động
   const avg = (s.scoreCC * 0.1) + (s.scoreProcess * 0.2) + (s.scoreMid * 0.2) + (s.scoreFinal * 0.5);
-  return Math.round(avg * 10) / 10; // Round to 1 decimal
+  return Math.round((avg + Number.EPSILON) * 10) / 10; 
 };
 
 export const getSubjectStatus = (score10: number | null): GradeStatus => {
@@ -66,17 +66,16 @@ export const calculateSemesterStats = (subjects: Subject[]) => {
   
   // 1. Calculate RAW (Exact) values for internal calculations (Prediction)
   // Tính chính xác không làm tròn để dùng cho hàm dự báo
-  const rawGPA4 = totalCredits > 0 ? totalScore4 / totalCredits : 0;
+const rawGPA4 = totalCredits > 0 ? totalScore4 / totalCredits : 0;
 
-  // 2. Calculate Display values (Rounded)
-  // Làm tròn 1 chữ số thập phân để hiển thị UI (VD: 3.15 -> 3.2)
-const gpa10 = totalCredits > 0 ? Math.round(((totalScore10 / totalCredits) + Number.EPSILON) * 10) / 10 : 0;
+  // Thêm Number.EPSILON vào các dòng làm tròn
+  const gpa10 = totalCredits > 0 ? Math.round(((totalScore10 / totalCredits) + Number.EPSILON) * 10) / 10 : 0;
   const gpa4 = totalCredits > 0 ? Math.round((rawGPA4 + Number.EPSILON) * 10) / 10 : 0;
 
   return {
     gpa10,
-    gpa4,      // Dùng để hiển thị
-    rawGPA4,   // Dùng để tính toán dự báo (MỚI THÊM)
+    gpa4,      
+    rawGPA4,   
     totalCredits,
     passedCredits,
     hasData: totalCredits > 0
