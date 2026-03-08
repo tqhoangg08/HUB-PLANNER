@@ -2,8 +2,7 @@ import { Subject, GradeStatus, Semester } from '../types';
 
 // HUB Specific Grade Scale based on user provided image
 export const getGradeDetails = (score10: number) => {
-  // Round score10 to 1 decimal place before checking ranges to ensure accuracy
-  const score = Math.round(score10 * 10) / 10;
+  const score = Math.round((score10 + 0.000001) * 10) / 10;
 
   if (score >= 9.5) return { scale4: 4.0, letter: 'A+' };
   if (score >= 9.0) return { scale4: 3.7, letter: 'A' };
@@ -25,12 +24,9 @@ export const convertToScale4 = (score10: number): number => {
 };
 
 export const calculateSubjectAverage = (s: Subject): number | null => {
-  if (s.scoreCC === null || s.scoreProcess === null || s.scoreMid === null || s.scoreFinal === null) {
-    return null;
-  }
-  // Thêm Number.EPSILON để sửa lỗi sai số phẩy động
+  if (s.scoreCC === null || s.scoreProcess === null || s.scoreMid === null || s.scoreFinal === null) return null;
   const avg = (s.scoreCC * 0.1) + (s.scoreProcess * 0.2) + (s.scoreMid * 0.2) + (s.scoreFinal * 0.5);
-  return Math.round((avg + Number.EPSILON) * 10) / 10; 
+  return Math.round((avg + 0.000001) * 10) / 10; 
 };
 
 export const getSubjectStatus = (score10: number | null): GradeStatus => {
@@ -69,8 +65,8 @@ export const calculateSemesterStats = (subjects: Subject[]) => {
 const rawGPA4 = totalCredits > 0 ? totalScore4 / totalCredits : 0;
 
   // Thêm Number.EPSILON vào các dòng làm tròn
-  const gpa10 = totalCredits > 0 ? Math.round(((totalScore10 / totalCredits) + Number.EPSILON) * 10) / 10 : 0;
-  const gpa4 = totalCredits > 0 ? Math.round((rawGPA4 + Number.EPSILON) * 10) / 10 : 0;
+const gpa10 = totalCredits > 0 ? Math.round(((totalScore10 / totalCredits) + 0.000001) * 10) / 10 : 0;
+  const gpa4 = totalCredits > 0 ? Math.round((rawGPA4 + 0.000001) * 10) / 10 : 0;
 
   return {
     gpa10,
