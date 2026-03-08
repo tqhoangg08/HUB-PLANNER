@@ -70,8 +70,8 @@ export const calculateSemesterStats = (subjects: Subject[]) => {
 
   // 2. Calculate Display values (Rounded)
   // Làm tròn 1 chữ số thập phân để hiển thị UI (VD: 3.15 -> 3.2)
-  const gpa10 = totalCredits > 0 ? Math.round((totalScore10 / totalCredits) * 10) / 10 : 0;
-  const gpa4 = totalCredits > 0 ? Math.round(rawGPA4 * 10) / 10 : 0;
+  const gpa10 = totalCredits > 0 ? Math.round(((totalScore10 / totalCredits) + Number.EPSILON) * 10) / 10 : 0;
+  const gpa4 = totalCredits > 0 ? Math.round((rawGPA4 + Number.EPSILON) * 10) / 10 : 0;
 
   return {
     gpa10,
