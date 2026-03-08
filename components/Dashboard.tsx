@@ -242,8 +242,8 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
       }
   });
 
-  const semGPA4 = semTotalCredits ? Math.round((semWeightedScore4 / semTotalCredits) * 10) / 10 : 0;
-  const semGPA10 = semTotalCredits ? Math.round((semWeightedScore10 / semTotalCredits) * 10) / 10 : 0;
+  const semGPA4 = semTotalCredits ? Math.round(((semWeightedScore4 / semTotalCredits) + Number.EPSILON) * 10) / 10 : 0;
+  const semGPA10 = semTotalCredits ? Math.round(((semWeightedScore10 / semTotalCredits) + Number.EPSILON) * 10) / 10 : 0;
    
   const classification = hasData ? getDegreeClassification(semGPA4) : '---';
   const scholarshipStatus = (() => {
