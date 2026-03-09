@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom'; 
+import { supabase } from '../utils/supabase';
 import { SubjectRankingModal } from './SubjectRankingModal';
 import { UserData, GradeStatus, Subject, Semester } from '../types';
 import {
@@ -20,6 +21,99 @@ import { AdsBanner } from './AdsBanner';
 import SchoolAnnouncements from './SchoolAnnouncements';
 import { mapIdToDisplay } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
+
+// ============================================================================
+// MODAL: BÁO LỖI HỆ THỐNG
+// ============================================================================
+const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
+    const [location, setLocation] = useState('');
+    const [description, setDescription] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [statusMsg, setStatusMsg] = useState<{text: string, type: 'success'|'error'} | null>(null);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!location.trim() || !description.trim()) {
+            setStatusMsg({text: 'Vui lòng điền đầy đủ thông tin.', type: 'error'});
+            return;
+        }
+        setSubmitting(true);
+        playClick();
+        try {
+            if (!supabase) throw new Error("Chưa cấu hình database.");
+            
+            // Giả sử có session, nếu không có user_id sẽ là null
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            const { error } = await supabase.from('bug_reports').insert([{
+                user_id: session?.user?.id || null,
+                error_location: location,
+                description: description
+            }]);
+
+            if (error) throw error;
+            setStatusMsg({text: 'Đã gửi báo cáo thành công. Cảm ơn bạn!', type: 'success'});
+            setTimeout(() => {
+                onClose();
+                setLocation('');
+                setDescription('');
+                setStatusMsg(null);
+            }, 2000);
+        } catch (err: any) {
+            setStatusMsg({text: err.message || 'Có lỗi xảy ra, vui lòng thử lại.', type: 'error'});
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return createPortal(
+        <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+            <div className="bg-white rounded-xl w-full max-w-md p-0 overflow-hidden animate-scaleIn shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="bg-red-600 p-4 flex justify-between items-center text-white shrink-0">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        <AlertTriangle size={20}/> Báo cáo lỗi / Góp ý
+                    </h3>
+                    <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
+                </div>
+                <div className="p-6">
+                    {statusMsg && (
+                        <div className={`p-3 mb-4 rounded-lg text-sm font-medium ${statusMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                            {statusMsg.text}
+                        </div>
+                    )}
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Lỗi ở đâu? (Tính năng/Khu vực) <span className="text-red-500">*</span></label>
+                            <input 
+                                type="text" required
+                                className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-red-500 transition-all text-sm"
+                                placeholder="VD: Tính điểm hệ 4, Nhập PDF, Bảng xếp hạng..."
+                                value={location} onChange={e => setLocation(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Mô tả chi tiết <span className="text-red-500">*</span></label>
+                            <textarea 
+                                rows={4} required
+                                className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-red-500 resize-none text-sm transition-all"
+                                placeholder="Mô tả chi tiết vấn đề bạn đang gặp phải hoặc góp ý của bạn..."
+                                value={description} onChange={e => setDescription(e.target.value)}
+                            ></textarea>
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                            <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all">Hủy</button>
+                            <button type="submit" disabled={submitting} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
+                                {submitting ? <Loader2 className="animate-spin" size={18}/> : null} Gửi báo cáo
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>, document.body
+    );
+};
 
 // ============================================================================
 // 1. MODAL: MÔN CHƯA ĐẠT
@@ -242,9 +336,8 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
       }
   });
 
-// Thêm Number.EPSILON vào đây
-const semGPA4 = semTotalCredits ? Math.round(((semWeightedScore4 / semTotalCredits) + 0.000001) * 10) / 10 : 0;
-  const semGPA10 = semTotalCredits ? Math.round(((semWeightedScore10 / semTotalCredits) + 0.000001) * 10) / 10 : 0;
+  const semGPA4 = semTotalCredits ? Math.round(((semWeightedScore4 / semTotalCredits) + Number.EPSILON) * 10) / 10 : 0;
+  const semGPA10 = semTotalCredits ? Math.round(((semWeightedScore10 / semTotalCredits) + Number.EPSILON) * 10) / 10 : 0;
    
   const classification = hasData ? getDegreeClassification(semGPA4) : '---';
   const scholarshipStatus = (() => {
@@ -561,6 +654,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [showRankingModal, setShowRankingModal] = useState(false);
     const [showFailedModal, setShowFailedModal] = useState(false);
     const [showYearlyModal, setShowYearlyModal] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false);
 
     const stats = calculateCumulativeStats(data.semesters);
     const yearlyStats = calculateYearlyStats(data.semesters);
@@ -893,6 +987,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                     <div className="flex items-center gap-1.5 sm:gap-3">
                         <button
+                            onClick={() => { playClick(); setShowReportModal(true); }}
+                            className="text-red-600 bg-red-50 border border-red-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-red-100 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
+                        >
+                            <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
+                            <span className="hidden sm:inline">Báo lỗi</span>
+                            <span className="sm:hidden">Lỗi</span>
+                        </button>
+                        
+                        <button
                             onClick={onExportPDF}
                             className="text-gray-600 bg-white border border-gray-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
                         >
@@ -954,6 +1057,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {showRankingModal && <SubjectRankingModal subjects={validSubjects} onClose={() => setShowRankingModal(false)} />}
         {showFailedModal && <FailedSubjectsModal subjects={failedSubjectsList} onClose={() => setShowFailedModal(false)} />}
         {showYearlyModal && <YearlyStatsModal stats={yearlyStats} onClose={() => setShowYearlyModal(false)} />}
+        {showReportModal && <ReportErrorModal isOpen={showReportModal} onClose={() => setShowReportModal(false)} />}
     </div>
   );
 };
