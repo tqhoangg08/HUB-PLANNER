@@ -480,6 +480,11 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             return;
         }
 
+        if (!formData.link.trim()) {
+            onShowToast("Vui lòng nhập link tham gia!", "error");
+            return;
+        }
+
         if (!supabase) {
             onShowToast("Lỗi kết nối Server.", "error");
             return;
@@ -699,11 +704,12 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Link tham gia</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Link tham gia <span className="text-red-500">*</span></label>
                                 <div className="relative">
                                     <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16}/>
                                     <input 
                                         type="text" 
+                                        required
                                         className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#003375]"
                                         placeholder="https://..."
                                         value={formData.link} 
@@ -884,7 +890,7 @@ export const EventsBoard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [activeScope, setActiveScope] = useState('all');
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest'); 
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'expiring_soon'>('newest'); 
 
   const [participatedEvents, setParticipatedEvents] = useState<string[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -1171,6 +1177,18 @@ export const EventsBoard: React.FC = () => {
                          (activeScope === 'external' && evt.scope === 'Ngoài trường');
     return matchesSearch && matchesTab && matchesScope && isVisible;
   }).sort((a, b) => {
+      if (sortOrder === 'expiring_soon') {
+          const now = today.getTime();
+          const getScore = (evt: HubEvent) => {
+              if (evt.is_manually_closed || evt.status === 'Đã kết thúc' || evt.is_deleted) return Infinity;
+              if (!evt.deadlineDate) return Infinity - 1;
+              const diff = evt.deadlineDate.getTime() - now;
+              if (diff < 0) return Infinity; 
+              return diff;
+          };
+          return getScore(a) - getScore(b);
+      }
+
       const dateA = new Date(a.created_at).getTime();
       const dateB = new Date(b.created_at).getTime();
       
@@ -1197,6 +1215,20 @@ export const EventsBoard: React.FC = () => {
       const isClosedStatus = evt.is_manually_closed || evt.status === 'Đã kết thúc';
       return isExpiredTime || isClosedStatus;
   });
+
+  const participatedStats = useMemo(() => {
+      if (activeTab !== 'participated') return null;
+      const stats: Record<string, number> = { 'I': 0, 'II': 0, 'III': 0, 'IV': 0, 'V': 0 };
+      events.forEach(evt => {
+          if (participatedEvents.includes(evt.id) && !evt.is_deleted) {
+              const cat = evt.category;
+              if (stats[cat] !== undefined) {
+                  stats[cat]++;
+              }
+          }
+      });
+      return stats;
+  }, [events, participatedEvents, activeTab]);
 
   const NotificationToast = () => {
     if (!notification) return null;
@@ -1556,6 +1588,11 @@ const renderEventCard = (evt: HubEvent) => {
         </h3>
 
         <div className="flex flex-wrap gap-2 mb-4">
+            {evt.classification && (
+                <span className="bg-purple-50 text-purple-600 border border-purple-200 text-[10px] font-medium px-2 py-0.5 rounded flex items-center gap-1">
+                    <Tag size={10}/> {evt.classification}
+                </span>
+            )}
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${isLinkClosed || evt.is_deleted ? 'bg-gray-50 text-gray-500 border-gray-200' : 'bg-red-50 text-[#990000] border-red-100'}`}>
                 <Award size={10}/> {evt.score.includes('+') ? evt.score : `+${evt.score}`}
             </span>
@@ -1660,9 +1697,10 @@ return (
                     </div>
                     
                     <div className="relative flex-1 sm:flex-none">
-                        <select value={sortOrder} onChange={(e) => { playClick(); setSortOrder(e.target.value as 'newest' | 'oldest'); }} className="appearance-none pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none bg-white text-sm font-medium text-gray-700 h-full w-full cursor-pointer hover:border-blue-300 transition-colors">
+                        <select value={sortOrder} onChange={(e) => { playClick(); setSortOrder(e.target.value as 'newest' | 'oldest' | 'expiring_soon'); }} className="appearance-none pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none bg-white text-sm font-medium text-gray-700 h-full w-full cursor-pointer hover:border-blue-300 transition-colors">
                             <option value="newest">Mới nhất</option>
                             <option value="oldest">Cũ nhất</option>
+                            <option value="expiring_soon">Gần hết hạn</option>
                         </select>
                         <ArrowDownUp className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                     </div>
@@ -1729,6 +1767,22 @@ return (
         <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn"><p className="font-bold mb-2">Đã xảy ra lỗi</p><p>{error}</p></div>
       ) : (
         <div className="space-y-8 animate-fadeIn">
+            {activeTab === 'participated' && participatedStats && (
+                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <span className="font-bold text-[#003375] flex items-center gap-2">
+                        <BookmarkCheck size={18} /> Thống kê đã tham gia:
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                        {['I', 'II', 'III', 'IV', 'V'].map(cat => (
+                            <div key={cat} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">
+                                <span className="text-xs text-gray-600 font-semibold">Mục {cat}:</span>
+                                <span className="text-sm font-bold text-[#003375]">{participatedStats[cat]}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {openingEvents.length > 0 && (
                 <div>
                     <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
