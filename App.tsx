@@ -163,11 +163,12 @@ const App: React.FC = () => {
     const [viewingUser, setViewingUser] = useState<{ id: string, mssv: string, name: string } | null>(null);
     const [isSearchingUser, setIsSearchingUser] = useState(false);
     const dataOwnerIdRef = useRef<string | null>(null);
-    const handleAdminSearchUser = async (e?: React.FormEvent) => {
+const handleAdminSearchUser = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         if (!adminSearchMssv.trim() || !supabase) return;
         setIsSearchingUser(true);
         playClick();
+        
         try {
             const { data: userProfile, error } = await supabase
                 .from(STUDENT_PROFILE_TABLE)
@@ -178,13 +179,17 @@ const App: React.FC = () => {
             if (error || !userProfile) {
                 alert("Không tìm thấy sinh viên có MSSV này trong hệ thống!");
                 setViewingUser(null);
+                setData(INITIAL_DATA); // 👈 Ép reset UI nếu lỗi
             } else {
+                // 👇 QUAN TRỌNG NHẤT: Ép giao diện xóa sạch điểm cũ của Admin về 0.0 trước khi load
+                setData(INITIAL_DATA); 
+                
                 setViewingUser({
                     id: userProfile.id,
                     mssv: userProfile.student_code,
                     name: userProfile.full_name || 'Chưa cập nhật tên'
                 });
-                alert(`Đã chuyển sang chế độ xem dữ liệu của sinh viên: ${userProfile.full_name || userProfile.student_code}`);
+                alert(`Đã chuyển sang xem dữ liệu của sinh viên: ${userProfile.student_code}`);
             }
         } catch (err) {
             console.error(err);
@@ -329,7 +334,7 @@ useEffect(() => {
         return () => {
             isActive = false;
         };
-    }, [storageKey, session?.user?.id, userRolePref, isAdmin, viewingUser]);
+   }, [storageKey, session?.user?.id, userRolePref, isAdmin, viewingUser]);
 
 useEffect(() => {
         if (isLoaded && !viewingUser) {
@@ -906,8 +911,13 @@ useEffect(() => {
                 />
                 <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-400" />
             </div>
-            {viewingUser ? (
-                <button type="button" onClick={() => { setViewingUser(null); setAdminSearchMssv(''); playClick(); }} className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-md hover:bg-red-600 transition-colors whitespace-nowrap">
+{viewingUser ? (
+                <button type="button" onClick={() => { 
+                    setViewingUser(null); 
+                    setAdminSearchMssv(''); 
+                    setData(INITIAL_DATA); // 👈 THÊM DÒNG NÀY ĐỂ ÉP RESET VỀ ĐIỂM ADMIN
+                    playClick(); 
+                }} className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-md hover:bg-red-600 transition-colors whitespace-nowrap">
                     Thoát Xem
                 </button>
             ) : (
