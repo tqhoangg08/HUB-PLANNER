@@ -254,9 +254,10 @@ useEffect(() => {
         if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
 
         const loadData = async () => {
-            if (userRolePref === 'school' && session?.user?.id && supabase) {
+            // 👇 ĐÃ SỬA: Cho phép cả 'school' và 'admin' vượt qua chốt chặn
+            if ((userRolePref === 'school' || userRolePref === 'admin') && session?.user?.id && supabase) {
                 
-                // 1. NẾU ADMIN ĐANG XEM SINH VIÊN KHÁC (CẤM ĐỌC LOCALSTORAGE)
+                // 1. NẾU ADMIN ĐANG XEM SINH VIÊN KHÁC
                 if (isAdmin && viewingUser) {
                     const { data: profileData } = await supabase
                         .from(STUDENT_PROFILE_TABLE)
@@ -266,7 +267,7 @@ useEffect(() => {
 
                     if (!isActive) return;
 
-                    // Nếu trên Database có điểm thì lấy, nếu bạn đã xóa (null) thì lập tức ép về 0.0
+                    // Lấy điểm trên DB, nếu trống thì ép về 0.0
                     if (profileData && profileData.data) {
                         setData({ ...INITIAL_DATA, ...profileData.data });
                     } else {
@@ -275,10 +276,10 @@ useEffect(() => {
                     
                     dataOwnerIdRef.current = viewingUser.id;
                     setIsLoaded(true);
-                    return; // Dừng tại đây, tuyệt đối không chạy xuống dưới
+                    return; // Dừng tại đây
                 }
 
-                // 2. NẾU LÀ BẠN ĐANG TỰ XEM CHÍNH MÌNH (LOAD BÌNH THƯỜNG)
+                // 2. NẾU ĐANG TỰ XEM CHÍNH MÌNH
                 const { data: profileData } = await supabase
                     .from(STUDENT_PROFILE_TABLE)
                     .select('data, full_name, avatar_url')
@@ -297,7 +298,6 @@ useEffect(() => {
                     return;
                 }
 
-                // Nếu bạn tự xem bạn mà DB trống, lúc này mới cho phép lấy từ LocalStorage
                 const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
                 const metaAvatar = session.user.user_metadata.avatar_url || session.user.user_metadata.picture || '';
                 setProfileFullName(metaName);
@@ -315,8 +315,11 @@ useEffect(() => {
                 return;
             }
 
-            // Logic cho khách vãng lai (Guest)
-            if (userRolePref !== 'school') { setProfileFullName(''); setProfileAvatarUrl(''); }
+            // Logic cho khách vãng lai
+            if (userRolePref !== 'school' && userRolePref !== 'admin') { 
+                setProfileFullName(''); 
+                setProfileAvatarUrl(''); 
+            }
             const saved = localStorage.getItem(storageKey);
             if (saved) {
                 try { setData({ ...INITIAL_DATA, ...JSON.parse(saved) }); } 
@@ -338,32 +341,25 @@ useEffect(() => {
 
 useEffect(() => {
         if (!isLoaded) return;
-        if (userRolePref !== 'school' || !session?.user?.id || !supabase) return;
+        // 👇 ĐÃ SỬA: Cho phép Admin vượt qua chốt chặn Auto-save
+        if ((userRolePref !== 'school' && userRolePref !== 'admin') || !session?.user?.id || !supabase) return;
 
         if (saveTimeoutRef.current) {
             window.clearTimeout(saveTimeoutRef.current);
         }
 
         saveTimeoutRef.current = window.setTimeout(async () => {
-            const targetUserId = (isAdmin && viewingUser) ? viewingUser.id : session.user.id;
-
-            // 👇 BỨC TƯỜNG LỬA CHỐNG GHI ĐÈ NHẦM 👇
-            // Chỉ cho phép Auto-save chạy nếu data hiện tại thực sự là của targetUserId
-            if (dataOwnerIdRef.current !== targetUserId) return;
-
+            // 👇 BỨC TƯỜNG LỬA THÉP 👇
+            // Admin đang soi user khác -> CẤM TUYỆT ĐỐI AUTO-SAVE LÊN DB.
+            // Nếu Admin muốn sửa điểm cho user đó thì dùng tính năng "Nhập PDF"
             if (isAdmin && viewingUser) {
-                // Admin đang soi và sửa data của sinh viên -> Update im lặng vào DB sinh viên
-                await supabase
-                    .from(STUDENT_PROFILE_TABLE)
-                    .update({
-                        data: data,
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', targetUserId);
-                return;
+                return; 
             }
 
-            // Lưu bình thường cho chính bản thân Admin
+            // Chỉ lưu khi Admin/Sinh viên đang tự xem bảng điểm của CHÍNH MÌNH
+            const targetUserId = session.user.id;
+            if (dataOwnerIdRef.current !== targetUserId) return;
+
             const userEmail = session.user.email || '';
             const studentCode = userEmail.split('@')[0];
             const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
