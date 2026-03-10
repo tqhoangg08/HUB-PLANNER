@@ -231,12 +231,13 @@ const App: React.FC = () => {
         detectRetina: true,
     }), []);
 
-    const storageKey = useMemo(() => {
+const storageKey = useMemo(() => {
         if (userRolePref === 'school' && session?.user?.id) {
-            return `${STORAGE_KEY}:${session.user.id}`;
+            const targetId = (isAdmin && viewingUser) ? viewingUser.id : session.user.id;
+            return `${STORAGE_KEY}:${targetId}`;
         }
         return STORAGE_KEY;
-    }, [session?.user?.id, userRolePref]);
+    }, [session?.user?.id, userRolePref, isAdmin, viewingUser]);
 
     const saveTimeoutRef = useRef<number | null>(null);
 
@@ -336,14 +337,17 @@ const loadData = async () => {
             window.clearTimeout(saveTimeoutRef.current);
         }
 
-        saveTimeoutRef.current = window.setTimeout(async () => {
+saveTimeoutRef.current = window.setTimeout(async () => {
+            // 👇 XÁC ĐỊNH ID CẦN LƯU VÀO
+            const targetUserId = (isAdmin && viewingUser) ? viewingUser.id : session.user.id;
+
             const userEmail = session.user.email || '';
             const studentCode = userEmail.split('@')[0];
             const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
             const nameToSave = profileFullName || metaName;
 
             const payload = {
-                id: session.user.id,
+                id: targetUserId, // 👈 SỬA THÀNH targetUserId (Thay vì session.user.id)
                 email: userEmail,
                 student_code: studentCode,
                 full_name: nameToSave,

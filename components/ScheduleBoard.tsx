@@ -138,8 +138,8 @@ const getColorForCourse = (id: string) => {
     return colorPalette[Math.abs(hash) % colorPalette.length];
 };
 
-export default function ScheduleBoard() {
-  useEffect(() => { document.title = "Thời khóa biểu | HUB Planner"; }, []);
+export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
+      useEffect(() => { document.title = "Thời khóa biểu | HUB Planner"; }, []);
 
   const { session } = useUserRole();
   const isAuthenticated = session !== null;
@@ -256,18 +256,20 @@ export default function ScheduleBoard() {
 
   useEffect(() => { if (isAuthenticated) fetchCourses(); }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated]);
 
+// Tìm hàm này và sửa lại thành như sau:
   const fetchMySchedule = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return; 
+        const targetId = viewUserId || user.id;
+
     try {
-      const { data, error } = await supabase.from('user_schedules').select(`course_id, semester, course_schedules (*)`).eq('user_id', user.id); 
+      const { data, error } = await supabase.from('user_schedules').select(`course_id, semester, course_schedules (*)`).eq('user_id', targetId); // Đổi user.id thành targetId
       if (!error && data) {
         setMySchedule(data.map((item: any) => item.course_schedules).filter(Boolean));
       }
     } catch (error) { console.error("Lỗi kéo TKB:", error); }
   };
-
-  useEffect(() => { if (isAuthenticated) fetchMySchedule(); }, [isAuthenticated]);
+  useEffect(() => { if (isAuthenticated) fetchMySchedule(); }, [isAuthenticated, viewUserId]);
 
   const isExamInShift = (examShift: string, currentShift: string) => {
     if (!examShift) return false;

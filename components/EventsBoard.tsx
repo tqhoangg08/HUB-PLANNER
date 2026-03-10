@@ -874,8 +874,8 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
     );
 };
 
-export const EventsBoard: React.FC = () => {
-  useEffect(() => {
+export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) => {
+      useEffect(() => {
     document.title = "Sự kiện ĐRL | HUB Planner";
   }, []);
   const { isAdmin, isCTV, session } = useUserRole();
@@ -927,12 +927,14 @@ export const EventsBoard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-      const loadParticipation = async () => {
+const loadParticipation = async () => {
           if (session?.user?.id && supabase) {
+              const targetId = viewUserId || session.user.id;
+
               const { data, error } = await supabase
                   .from('user_participations')
                   .select('event_id')
-                  .eq('user_id', session.user.id);
+                  .eq('user_id', targetId); 
               
               if (!error && data) {
                   const dbEvents = data.map(item => item.event_id.toString());
@@ -957,7 +959,7 @@ export const EventsBoard: React.FC = () => {
       if (session !== undefined) {
           loadParticipation();
       }
-  }, [session]);
+ }, [session, viewUserId]);
 
   const toggleParticipation = async (eventId: string) => {
       playClick();
