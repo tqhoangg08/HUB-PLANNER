@@ -6,12 +6,14 @@ import { playClick } from '../utils/audio';
 interface ImportGuideModalProps {
     onClose: () => void;
     onFileClick: () => void;
+    onFileDrop?: (file: File) => void; // Thêm prop để nhận file khi kéo thả
 }
 
 type DeviceType = 'ios-safari' | 'ios-chrome' | 'android-chrome' | 'windows-chrome';
 
-export const ImportGuideModal: React.FC<ImportGuideModalProps> = ({ onClose, onFileClick }) => {
+export const ImportGuideModal: React.FC<ImportGuideModalProps> = ({ onClose, onFileClick, onFileDrop }) => {
     const [activeTab, setActiveTab] = useState<DeviceType>('windows-chrome');
+    const [isDragging, setIsDragging] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -19,6 +21,34 @@ export const ImportGuideModal: React.FC<ImportGuideModalProps> = ({ onClose, onF
             contentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
         }
     }, [activeTab]);
+
+    // Xử lý sự kiện kéo thả file
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            if (file.type === 'application/pdf') {
+                if (onFileDrop) onFileDrop(file);
+                else onFileClick(); // Fallback mở hộp thoại chọn file nếu cha chưa implement onFileDrop
+            } else {
+                alert("Vui lòng chọn file PDF hợp lệ!");
+            }
+        }
+    };
 
     const guides: Record<DeviceType, { 
         label: string; 
@@ -153,6 +183,38 @@ export const ImportGuideModal: React.FC<ImportGuideModalProps> = ({ onClose, onF
                     >
                         <X size={20} />
                     </button>
+                </div>
+
+                {/* --- DRAG & DROP ZONE TƯƠNG TỰ NOTEBOOKLM --- */}
+                <div className="flex-shrink-0 bg-white pt-5 pb-2 px-5">
+                    <div 
+                        className={`py-6 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer ${
+                            isDragging 
+                                ? 'border-blue-500 bg-blue-50/50 scale-[1.01]' 
+                                : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50/50'
+                        }`}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        onClick={() => { playClick(); onFileClick(); }}
+                    >
+                        <p className="text-gray-700 text-[17px] font-medium mb-1">
+                            hoặc thả tệp của bạn
+                        </p>
+                        <p className="text-gray-400 text-[13px] mb-5 underline decoration-gray-300 underline-offset-4 hover:text-gray-500">
+                            định dạng hỗ trợ: pdf
+                        </p>
+                        
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); playClick(); onFileClick(); }}
+                                className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-200 bg-white shadow-sm hover:shadow hover:bg-gray-50 transition-all text-sm font-bold text-gray-700 active:scale-95"
+                            >
+                                <FileUp size={16} />
+                                Tải tệp lên
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* --- TABS --- */}
