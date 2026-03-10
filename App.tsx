@@ -965,7 +965,23 @@ const App: React.FC = () => {
                     </div>
                 )}
 
-                {showImportGuide && <ImportGuideModal onClose={() => setShowImportGuide(false)} onFileClick={() => fileInputRef.current?.click()} />}
+{showImportGuide && (
+    <ImportGuideModal 
+        onClose={() => setShowImportGuide(false)} 
+        onFileClick={() => fileInputRef.current?.click()} 
+        onFileDrop={(file) => {
+            setShowImportGuide(false); 
+            if (fileInputRef.current) {
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInputRef.current.files = dataTransfer.files;
+                
+                const event = new Event('change', { bubbles: true });
+                fileInputRef.current.dispatchEvent(event);
+            }
+        }}
+    />
+)}
                 {showGuide && <UserGuideModal onClose={() => setShowGuide(false)} />}
                 {showActivityLog && <ActivityLogModal onClose={() => setShowActivityLog(false)} />}
                 
