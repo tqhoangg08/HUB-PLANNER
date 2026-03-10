@@ -159,6 +159,39 @@ const App: React.FC = () => {
     });
 
     const [data, setData] = useState<UserData>(INITIAL_DATA);
+    const [adminSearchMssv, setAdminSearchMssv] = useState('');
+    const [viewingUser, setViewingUser] = useState<{ id: string, mssv: string, name: string } | null>(null);
+    const [isSearchingUser, setIsSearchingUser] = useState(false);
+    const handleAdminSearchUser = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!adminSearchMssv.trim() || !supabase) return;
+        setIsSearchingUser(true);
+        playClick();
+        try {
+            const { data: userProfile, error } = await supabase
+                .from(STUDENT_PROFILE_TABLE)
+                .select('id, student_code, full_name')
+                .eq('student_code', adminSearchMssv.trim())
+                .single();
+
+            if (error || !userProfile) {
+                alert("Không tìm thấy sinh viên có MSSV này trong hệ thống!");
+                setViewingUser(null);
+            } else {
+                setViewingUser({
+                    id: userProfile.id,
+                    mssv: userProfile.student_code,
+                    name: userProfile.full_name || 'Chưa cập nhật tên'
+                });
+                alert(`Đã chuyển sang chế độ xem dữ liệu của sinh viên: ${userProfile.full_name || userProfile.student_code}`);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Lỗi khi tìm kiếm sinh viên!");
+        } finally {
+            setIsSearchingUser(false);
+        }
+    };
     const [isLoaded, setIsLoaded] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const [showImportGuide, setShowImportGuide] = useState(false);
@@ -214,12 +247,15 @@ const App: React.FC = () => {
             window.clearTimeout(saveTimeoutRef.current);
         }
 
-        const loadData = async () => {
+const loadData = async () => {
             if (userRolePref === 'school' && session?.user?.id && supabase) {
+                // 👇 XÁC ĐỊNH ID CẦN LOAD (Của mình, hoặc của người đang bị Admin soi) 👇
+                const targetUserId = (isAdmin && viewingUser) ? viewingUser.id : session.user.id;
+
                 const { data: profileData, error } = await supabase
                     .from(STUDENT_PROFILE_TABLE)
                     .select('data, full_name, avatar_url')
-                    .eq('id', session.user.id)
+                    .eq('id', targetUserId) // Đổi từ session.user.id thành targetUserId
                     .maybeSingle();
 
                 if (!isActive) return;
@@ -230,13 +266,14 @@ const App: React.FC = () => {
 
                 if (profileData?.data) {
                     setData({ ...INITIAL_DATA, ...profileData.data });
-                    setProfileFullName(profileData.full_name || ''); 
-                    setProfileAvatarUrl(profileData.avatar_url || ''); 
-                    localStorage.setItem(storageKey, JSON.stringify(profileData.data));
+                    if (!viewingUser) {
+                        setProfileFullName(profileData.full_name || ''); 
+                        setProfileAvatarUrl(profileData.avatar_url || ''); 
+                        localStorage.setItem(storageKey, JSON.stringify(profileData.data));
+                    }
                     setIsLoaded(true);
                     return;
                 }
-
                 const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
                 const metaAvatar = session.user.user_metadata.avatar_url || session.user.user_metadata.picture || '';
                 
@@ -283,7 +320,7 @@ const App: React.FC = () => {
         return () => {
             isActive = false;
         };
-    }, [storageKey, session?.user?.id, userRolePref]);
+    }, [storageKey, session?.user?.id, userRolePref, isAdmin, viewingUser]); 
 
     useEffect(() => {
         if (isLoaded) {
@@ -833,8 +870,31 @@ const App: React.FC = () => {
                             />
                         </nav>
 
-                        <div className="hidden sm:flex items-center gap-3 shrink-0 lg:pl-4 lg:border-l border-gray-200">
-                            <button onClick={() => { playClick(); setShowGuide(true); }} className="text-gray-400 hover:text-gray-900 transition-colors hidden sm:block" title="Hướng dẫn">
+ <div className="hidden sm:flex items-center gap-3 shrink-0 lg:pl-4 lg:border-l border-gray-200">
+        {isAdmin && (
+        <form onSubmit={handleAdminSearchUser} className="flex items-center gap-2 mr-2 bg-purple-50 p-1 rounded-lg border border-purple-200 shadow-inner">
+            <div className="relative">
+                <input 
+                    type="text" 
+                    placeholder="Admin: Tìm MSSV..." 
+                    value={adminSearchMssv}
+                    onChange={(e) => setAdminSearchMssv(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 text-xs w-40 rounded-md border border-purple-200 outline-none focus:ring-1 focus:ring-purple-500 bg-white"
+                />
+                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-400" />
+            </div>
+            {viewingUser ? (
+                <button type="button" onClick={() => { setViewingUser(null); setAdminSearchMssv(''); playClick(); }} className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-md hover:bg-red-600 transition-colors whitespace-nowrap">
+                    Thoát Xem
+                </button>
+            ) : (
+                <button type="submit" disabled={isSearchingUser} className="px-3 py-1.5 bg-purple-600 text-white text-xs font-bold rounded-md hover:bg-purple-700 transition-colors whitespace-nowrap">
+                    {isSearchingUser ? '...' : 'Xem'}
+                </button>
+            )}
+        </form>
+    )}
+    <button onClick={() => { playClick(); setShowGuide(true); }} className="text-gray-400 hover:text-gray-900 transition-colors hidden sm:block" title="Hướng dẫn">
                                 <HelpCircle size={18} />
                             </button>
                             
@@ -920,8 +980,8 @@ const App: React.FC = () => {
                                     </div>
                                 } />
 
-                                <Route path="/schedule" element={<ScheduleBoard />} />
-                                <Route path="/events" element={<EventsBoard />} />
+                                <Route path="/schedule" element={<ScheduleBoard viewUserId={viewingUser?.id} />} />
+                                <Route path="/events" element={<EventsBoard viewUserId={viewingUser?.id} />} />
                                 <Route path="/lost-found" element={<LostFoundBoard />} />
                                 <Route path="/handbook/:tab?" element={<Handbook />} />
                                 <Route path="/profile/:id" element={<ProfilePage />} />
