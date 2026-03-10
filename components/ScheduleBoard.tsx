@@ -598,8 +598,7 @@ export default function ScheduleBoard() {
   return (
     <div className="w-full pb-10">
         {/* HEADER CHUẨN DASHBOARD */}
-        <div className="sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-gray-200/60 shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
-            <div className="flex flex-col px-1 overflow-hidden shrink-0">
+<div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">            <div className="flex flex-col px-1 overflow-hidden shrink-0">
                 <h1 className="text-[24px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
                     Thời khóa biểu
                 </h1>

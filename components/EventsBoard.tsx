@@ -1671,8 +1671,7 @@ const renderEventCard = (evt: HubEvent) => {
 
 return (
     <div className="animate-slideInRight">
-      <div className="sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-gray-200/60 shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+<div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div>
                 <h2 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
                 Sự kiện Điểm Rèn Luyện
