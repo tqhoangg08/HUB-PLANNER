@@ -162,6 +162,7 @@ const App: React.FC = () => {
     const [adminSearchMssv, setAdminSearchMssv] = useState('');
     const [viewingUser, setViewingUser] = useState<{ id: string, mssv: string, name: string } | null>(null);
     const [isSearchingUser, setIsSearchingUser] = useState(false);
+    const dataOwnerIdRef = useRef<string | null>(null);
     const handleAdminSearchUser = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         if (!adminSearchMssv.trim() || !supabase) return;
@@ -241,32 +242,29 @@ const storageKey = useMemo(() => {
 
     const saveTimeoutRef = useRef<number | null>(null);
 
-    useEffect(() => {
+useEffect(() => {
         let isActive = true;
         setIsLoaded(false);
         if (saveTimeoutRef.current) {
             window.clearTimeout(saveTimeoutRef.current);
         }
 
-const loadData = async () => {
+        const loadData = async () => {
             if (userRolePref === 'school' && session?.user?.id && supabase) {
-                // 👇 XÁC ĐỊNH ID CẦN LOAD (Của mình, hoặc của người đang bị Admin soi) 👇
                 const targetUserId = (isAdmin && viewingUser) ? viewingUser.id : session.user.id;
 
                 const { data: profileData, error } = await supabase
                     .from(STUDENT_PROFILE_TABLE)
                     .select('data, full_name, avatar_url')
-                    .eq('id', targetUserId) // Đổi từ session.user.id thành targetUserId
+                    .eq('id', targetUserId)
                     .maybeSingle();
 
                 if (!isActive) return;
 
-                if (error) {
-                    console.error('Failed to load profile data:', error);
-                }
-
                 if (profileData?.data) {
                     setData({ ...INITIAL_DATA, ...profileData.data });
+                    dataOwnerIdRef.current = targetUserId; // CHỐT CHỦ SỞ HỮU DATA
+
                     if (!viewingUser) {
                         setProfileFullName(profileData.full_name || ''); 
                         setProfileAvatarUrl(profileData.avatar_url || ''); 
@@ -275,6 +273,15 @@ const loadData = async () => {
                     setIsLoaded(true);
                     return;
                 }
+
+                // Nếu đang soi user khác mà họ chưa có điểm -> Trả về rỗng
+                if (viewingUser) {
+                    setData(INITIAL_DATA);
+                    dataOwnerIdRef.current = targetUserId; // CHỐT CHỦ SỞ HỮU DATA
+                    setIsLoaded(true);
+                    return;
+                }
+
                 const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
                 const metaAvatar = session.user.user_metadata.avatar_url || session.user.user_metadata.picture || '';
                 
@@ -292,6 +299,7 @@ const loadData = async () => {
                 } else {
                     setData(INITIAL_DATA);
                 }
+                dataOwnerIdRef.current = session.user.id; // CHỐT CHỦ SỞ HỮU
                 setIsLoaded(true);
                 return;
             }
@@ -307,12 +315,12 @@ const loadData = async () => {
                     const parsed = JSON.parse(saved);
                     setData({ ...INITIAL_DATA, ...parsed });
                 } catch (e) {
-                    console.error("Failed to load data", e);
                     setData(INITIAL_DATA);
                 }
             } else {
                 setData(INITIAL_DATA);
             }
+            dataOwnerIdRef.current = 'guest';
             setIsLoaded(true);
         };
 
@@ -321,15 +329,15 @@ const loadData = async () => {
         return () => {
             isActive = false;
         };
-    }, [storageKey, session?.user?.id, userRolePref, isAdmin, viewingUser]); 
+    }, [storageKey, session?.user?.id, userRolePref, isAdmin, viewingUser]);
 
-    useEffect(() => {
-        if (isLoaded) {
+useEffect(() => {
+        if (isLoaded && !viewingUser) {
             localStorage.setItem(storageKey, JSON.stringify(data));
         }
-    }, [data, isLoaded, storageKey]);
+    }, [data, isLoaded, storageKey, viewingUser]);
 
-    useEffect(() => {
+useEffect(() => {
         if (!isLoaded) return;
         if (userRolePref !== 'school' || !session?.user?.id || !supabase) return;
 
@@ -337,17 +345,33 @@ const loadData = async () => {
             window.clearTimeout(saveTimeoutRef.current);
         }
 
-saveTimeoutRef.current = window.setTimeout(async () => {
-            // 👇 XÁC ĐỊNH ID CẦN LƯU VÀO
+        saveTimeoutRef.current = window.setTimeout(async () => {
             const targetUserId = (isAdmin && viewingUser) ? viewingUser.id : session.user.id;
 
+            // 👇 BỨC TƯỜNG LỬA CHỐNG GHI ĐÈ NHẦM 👇
+            // Chỉ cho phép Auto-save chạy nếu data hiện tại thực sự là của targetUserId
+            if (dataOwnerIdRef.current !== targetUserId) return;
+
+            if (isAdmin && viewingUser) {
+                // Admin đang soi và sửa data của sinh viên -> Update im lặng vào DB sinh viên
+                await supabase
+                    .from(STUDENT_PROFILE_TABLE)
+                    .update({
+                        data: data,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', targetUserId);
+                return;
+            }
+
+            // Lưu bình thường cho chính bản thân Admin
             const userEmail = session.user.email || '';
             const studentCode = userEmail.split('@')[0];
             const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
             const nameToSave = profileFullName || metaName;
 
             const payload = {
-                id: targetUserId, // 👈 SỬA THÀNH targetUserId (Thay vì session.user.id)
+                id: session.user.id,
                 email: userEmail,
                 student_code: studentCode,
                 full_name: nameToSave,
@@ -360,12 +384,8 @@ saveTimeoutRef.current = window.setTimeout(async () => {
                 .from(STUDENT_PROFILE_TABLE)
                 .upsert(payload, { onConflict: 'id' });
 
-            if (error) {
-                console.error('Failed to save profile data:', error);
-            } else {
-                if (!profileFullName && nameToSave) {
-                    setProfileFullName(nameToSave);
-                }
+            if (!error && !profileFullName && nameToSave) {
+                setProfileFullName(nameToSave);
             }
         }, 600);
 
@@ -374,8 +394,7 @@ saveTimeoutRef.current = window.setTimeout(async () => {
                 window.clearTimeout(saveTimeoutRef.current);
             }
         };
-    }, [data, isLoaded, session?.user?.id, userRolePref, profileFullName, profileAvatarUrl]);
-
+    }, [data, isLoaded, session?.user?.id, userRolePref, profileFullName, profileAvatarUrl, isAdmin, viewingUser]);
     useEffect(() => {
         if (showAccountSettings) {
             setDraftFullName(profileFullName);
