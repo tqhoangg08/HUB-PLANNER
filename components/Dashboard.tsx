@@ -255,7 +255,7 @@ interface SemesterTableProps {
 const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
-   
+    
   const { 
       fetchRank, result: rankingResult, loading: rankingLoading, error: rankingError, resetResult,
       fetchAvailableSemesters, availableSemesters, loadingSemesters, prepareSemesterRanks,
@@ -264,7 +264,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
   const [showRankMenu, setShowRankMenu] = useState(false);
   const rankMenuRef = useRef<HTMLDivElement>(null);
-   
+    
   const handleSubjectChange = (subjectId: string, field: keyof Subject, value: any) => {
     const updatedSubjects = semester.subjects.map(sub => {
       if (sub.id === subjectId) return { ...sub, [field]: value };
@@ -338,7 +338,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
   const semGPA4 = semTotalCredits ? Math.round(((semWeightedScore4 / semTotalCredits) + Number.EPSILON) * 10) / 10 : 0;
   const semGPA10 = semTotalCredits ? Math.round(((semWeightedScore10 / semTotalCredits) + Number.EPSILON) * 10) / 10 : 0;
-   
+    
   const classification = hasData ? getDegreeClassification(semGPA4) : '---';
   const scholarshipStatus = (() => {
     const drl = semester.trainingScore ?? 0;
@@ -847,7 +847,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="truncate">Hiện tại:</span>
-                            <span className="font-bold text-gray-900">{stats.gpa4.toFixed(2)}</span>
+                            <span className="font-bold text-gray-900">{(Math.floor(stats.rawGPA4 * 100) / 100).toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="truncate">Trung bình một tín:</span>
@@ -911,7 +911,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 </button>
                             ) : (
                                 <div className="w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[11px] sm:text-xs font-bold">
-                                    <CheckCircle2 size={14} /> Không nợ môn
+                                    <span className="flex items-center gap-1.5"><CheckCircle2 size={14} /> Không nợ môn</span>
                                 </div>
                             )}
                         </div>
