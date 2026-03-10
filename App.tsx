@@ -179,10 +179,11 @@ const handleAdminSearchUser = async (e?: React.FormEvent) => {
             if (error || !userProfile) {
                 alert("Không tìm thấy sinh viên có MSSV này trong hệ thống!");
                 setViewingUser(null);
-                setData(INITIAL_DATA); // 👈 Ép reset UI nếu lỗi
+                dataOwnerIdRef.current = session?.user?.id || null;
             } else {
-                // 👇 QUAN TRỌNG NHẤT: Ép giao diện xóa sạch điểm cũ của Admin về 0.0 trước khi load
-                setData(INITIAL_DATA); 
+                // 👇 CÚ CHỐT: Xóa sạch dữ liệu Admin trên màn hình về 0.0 TRƯỚC KHI tải dữ liệu sinh viên
+                setData(INITIAL_DATA);
+                dataOwnerIdRef.current = userProfile.id; // Khóa Auto-save lập tức
                 
                 setViewingUser({
                     id: userProfile.id,
@@ -250,91 +251,84 @@ const storageKey = useMemo(() => {
 useEffect(() => {
         let isActive = true;
         setIsLoaded(false);
-        if (saveTimeoutRef.current) {
-            window.clearTimeout(saveTimeoutRef.current);
-        }
+        if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
 
         const loadData = async () => {
             if (userRolePref === 'school' && session?.user?.id && supabase) {
-                const targetUserId = (isAdmin && viewingUser) ? viewingUser.id : session.user.id;
+                
+                // 1. NẾU ADMIN ĐANG XEM SINH VIÊN KHÁC (CẤM ĐỌC LOCALSTORAGE)
+                if (isAdmin && viewingUser) {
+                    const { data: profileData } = await supabase
+                        .from(STUDENT_PROFILE_TABLE)
+                        .select('data')
+                        .eq('id', viewingUser.id)
+                        .maybeSingle();
 
-                const { data: profileData, error } = await supabase
+                    if (!isActive) return;
+
+                    // Nếu trên Database có điểm thì lấy, nếu bạn đã xóa (null) thì lập tức ép về 0.0
+                    if (profileData && profileData.data) {
+                        setData({ ...INITIAL_DATA, ...profileData.data });
+                    } else {
+                        setData(INITIAL_DATA); 
+                    }
+                    
+                    dataOwnerIdRef.current = viewingUser.id;
+                    setIsLoaded(true);
+                    return; // Dừng tại đây, tuyệt đối không chạy xuống dưới
+                }
+
+                // 2. NẾU LÀ BẠN ĐANG TỰ XEM CHÍNH MÌNH (LOAD BÌNH THƯỜNG)
+                const { data: profileData } = await supabase
                     .from(STUDENT_PROFILE_TABLE)
                     .select('data, full_name, avatar_url')
-                    .eq('id', targetUserId)
+                    .eq('id', session.user.id)
                     .maybeSingle();
 
                 if (!isActive) return;
 
                 if (profileData?.data) {
                     setData({ ...INITIAL_DATA, ...profileData.data });
-                    dataOwnerIdRef.current = targetUserId; // CHỐT CHỦ SỞ HỮU DATA
-
-                    if (!viewingUser) {
-                        setProfileFullName(profileData.full_name || ''); 
-                        setProfileAvatarUrl(profileData.avatar_url || ''); 
-                        localStorage.setItem(storageKey, JSON.stringify(profileData.data));
-                    }
+                    setProfileFullName(profileData.full_name || ''); 
+                    setProfileAvatarUrl(profileData.avatar_url || ''); 
+                    localStorage.setItem(storageKey, JSON.stringify(profileData.data));
+                    dataOwnerIdRef.current = session.user.id;
                     setIsLoaded(true);
                     return;
                 }
 
-                // Nếu đang soi user khác mà họ chưa có điểm -> Trả về rỗng
-                if (viewingUser) {
-                    setData(INITIAL_DATA);
-                    dataOwnerIdRef.current = targetUserId; // CHỐT CHỦ SỞ HỮU DATA
-                    setIsLoaded(true);
-                    return;
-                }
-
+                // Nếu bạn tự xem bạn mà DB trống, lúc này mới cho phép lấy từ LocalStorage
                 const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
                 const metaAvatar = session.user.user_metadata.avatar_url || session.user.user_metadata.picture || '';
-                
                 setProfileFullName(metaName);
                 setProfileAvatarUrl(metaAvatar);
                 
                 const saved = localStorage.getItem(storageKey);
                 if (saved) {
-                    try {
-                        const parsed = JSON.parse(saved);
-                        setData({ ...INITIAL_DATA, ...parsed });
-                    } catch (e) {
-                        setData(INITIAL_DATA);
-                    }
+                    try { setData({ ...INITIAL_DATA, ...JSON.parse(saved) }); } 
+                    catch (e) { setData(INITIAL_DATA); }
                 } else {
                     setData(INITIAL_DATA);
                 }
-                dataOwnerIdRef.current = session.user.id; // CHỐT CHỦ SỞ HỮU
+                dataOwnerIdRef.current = session.user.id;
                 setIsLoaded(true);
                 return;
             }
 
-            if (userRolePref !== 'school') {
-                setProfileFullName('');
-                setProfileAvatarUrl('');
-            }
-
+            // Logic cho khách vãng lai (Guest)
+            if (userRolePref !== 'school') { setProfileFullName(''); setProfileAvatarUrl(''); }
             const saved = localStorage.getItem(storageKey);
             if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-                    setData({ ...INITIAL_DATA, ...parsed });
-                } catch (e) {
-                    setData(INITIAL_DATA);
-                }
-            } else {
-                setData(INITIAL_DATA);
-            }
+                try { setData({ ...INITIAL_DATA, ...JSON.parse(saved) }); } 
+                catch (e) { setData(INITIAL_DATA); }
+            } else { setData(INITIAL_DATA); }
             dataOwnerIdRef.current = 'guest';
             setIsLoaded(true);
         };
 
         loadData();
-
-        return () => {
-            isActive = false;
-        };
-   }, [storageKey, session?.user?.id, userRolePref, isAdmin, viewingUser]);
+        return () => { isActive = false; };
+    }, [storageKey, session?.user?.id, userRolePref, isAdmin, viewingUser]);
 
 useEffect(() => {
         if (isLoaded && !viewingUser) {
