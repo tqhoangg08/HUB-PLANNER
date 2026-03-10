@@ -1216,11 +1216,12 @@ export const EventsBoard: React.FC = () => {
       return isExpiredTime || isClosedStatus;
   });
 
-  const participatedStats = useMemo(() => {
+const participatedStats = useMemo(() => {
       if (activeTab !== 'participated') return null;
       const stats: Record<string, number> = { 'I': 0, 'II': 0, 'III': 0, 'IV': 0, 'V': 0 };
       events.forEach(evt => {
-          if (participatedEvents.includes(evt.id) && !evt.is_deleted) {
+          // Bỏ điều kiện is_deleted để tính toàn bộ sự kiện đã tham gia
+          if (participatedEvents.includes(evt.id)) { 
               const cat = evt.category;
               if (stats[cat] !== undefined) {
                   stats[cat]++;
