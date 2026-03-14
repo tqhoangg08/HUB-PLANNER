@@ -1032,7 +1032,15 @@ const App: React.FC = () => {
             </div>
         );
     };
-
+// 👇 THÊM ĐOẠN NÀY ĐỂ ĐỢI SUPABASE ĐỌC TOKEN TỪ GOOGLE TRẢ VỀ 👇
+    if (loadingRole) {
+        return (
+            <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-[#F8FAFC]">
+                <Loader2 className="animate-spin text-[#003375] mb-4" size={40} />
+                <p className="text-sm font-bold text-[#003375] animate-pulse">Đang đồng bộ tài khoản...</p>
+            </div>
+        );
+    }
     return (
         <Routes>
             <Route path="/privacy" element={<PrivacyPolicy />} />
