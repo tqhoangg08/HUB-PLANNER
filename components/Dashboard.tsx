@@ -779,13 +779,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-2">
                     Học tập
                 </h1>
+                
+                {/* 👇 CẬP NHẬT TIÊU ĐỀ THEO CHUỖI MỚI 👇 */}
                 <div className="flex flex-wrap items-center gap-1.5 text-[12px] sm:text-[13px] text-gray-500 font-medium mb-3">
                     <span className="font-bold text-gray-700">Tổng quan lộ trình</span>
                     <span className="text-gray-300">•</span>
+                    <span>{data.studentName || 'Chưa cập nhật tên'}</span>
+                    <span className="text-gray-300">•</span>
+                    <span>{data.programName || 'Chưa cập nhật hệ'}</span>
+                    <span className="text-gray-300">•</span>
                     <span>{data.cohort || 'Chưa cập nhật khóa'}</span>
                     <span className="text-gray-300">•</span>
-                    <span>{data.majorName || 'Chưa cập nhật ngành'}</span>
+                    <span>{data.specializationName || 'Chưa cập nhật chuyên ngành'}</span>
                 </div>
+                {/* 👆 KẾT THÚC CẬP NHẬT TIÊU ĐỀ 👆 */}
 
                 {/* 👇 BANNER CHO KHÁCH ẨN DANH 👇 */}
                 {isGuest && (
@@ -793,7 +800,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="flex items-center gap-2 text-[#003375] text-sm font-medium">
                             <Info size={18} className="shrink-0" />
                             {isLocked ? (
-                                <p>Bạn đang ở chế độ xem trước. <strong>Tính năng biểu đồ đã bị khóa.</strong></p>
+                                <p>Bạn đang ở chế độ xem trước. <strong>Một số tính năng đang bị khóa, vui lòng cập nhật thông tin hoặc đăng nhập để có thể trải nghiệm trọn vẹn nhất.</strong></p>
                             ) : (
                                 <p>Bạn đang dùng thử với tư cách khách. <strong>Đăng nhập để lưu dữ liệu vĩnh viễn.</strong></p>
                             )}
@@ -847,7 +854,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 {/* Thẻ 3: Môn cao điểm nhất */}
-                <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between group cursor-pointer" onClick={() => { if(!isLocked) { playClick(); setShowRankingModal(true); } }}>
+                <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between cursor-pointer relative overflow-hidden" onClick={() => { if(!isLocked) { playClick(); setShowRankingModal(true); } }}>
                     <div className="flex justify-between items-start mb-1">
                         <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">BXH môn học</span>
                         <Trophy size={16} className="text-yellow-500 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -855,16 +862,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     
                     <div className="relative flex-1 flex flex-col justify-center">
                         {isLocked && (
-                            <div className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/40 backdrop-blur-[3px] z-20 flex items-center justify-center flex-col text-center rounded-lg shadow-[inset_0_0_10px_rgba(255,255,255,0.6)]">
-                                <div className="bg-white/90 px-3 py-1.5 rounded-xl shadow-sm border border-white flex flex-col items-center">
+                            <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/40 backdrop-blur-[3px] z-20 flex items-center justify-center flex-col text-center rounded-lg shadow-[inset_0_0_10px_rgba(255,255,255,0.6)] cursor-pointer group hover:bg-white/50 transition-colors">
+                                <div className="bg-white/90 px-3 py-1.5 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                     <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
-                                    <p className="text-[10px] font-bold text-[#003375]">Cập nhật để xem</p>
+                                    <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
                                 </div>
-                            </div>
+                            </Link>
                         )}
                         {highestSubject ? (
                             <div className="mt-1">
-                                <span className="text-[11px] sm:text-sm font-bold text-[#003375] line-clamp-1 leading-tight group-hover:underline">{highestSubject.name}</span>
+                                <span className="text-[11px] sm:text-sm font-bold text-[#003375] line-clamp-1 leading-tight">{highestSubject.name}</span>
                                 <div className="mt-1 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
                                     <span className="text-sm sm:text-[15px] font-extrabold text-gray-900 leading-none">{highestSubject.avg.toFixed(1)}</span>
                                     <span className="text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 whitespace-nowrap">Điểm {highestSubject.letter}</span>
@@ -877,7 +884,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 {/* Thẻ 4: Dự báo mục tiêu */}
-                <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between">
+                <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between relative overflow-hidden">
                     <div className="flex justify-between items-start mb-1">
                         <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dự báo mục tiêu</span>
                         <Target size={16} className="text-[#003375] shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -885,12 +892,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                     <div className="relative flex-1 flex flex-col justify-center">
                         {isLocked && (
-                            <div className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/40 backdrop-blur-[3px] z-20 flex items-center justify-center flex-col text-center rounded-lg shadow-[inset_0_0_10px_rgba(255,255,255,0.6)]">
-                                <div className="bg-white/90 px-3 py-1.5 rounded-xl shadow-sm border border-white flex flex-col items-center">
+                            <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/40 backdrop-blur-[3px] z-20 flex items-center justify-center flex-col text-center rounded-lg shadow-[inset_0_0_10px_rgba(255,255,255,0.6)] cursor-pointer group hover:bg-white/50 transition-colors">
+                                <div className="bg-white/90 px-3 py-1.5 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                     <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
-                                    <p className="text-[10px] font-bold text-[#003375]">Cập nhật để xem</p>
+                                    <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
                                 </div>
-                            </div>
+                            </Link>
                         )}
                         <div className="flex flex-col gap-1 sm:gap-1 text-[9px] sm:text-[11px] text-gray-600 mt-1">
                             <div className="flex justify-between items-center">
@@ -939,13 +946,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         
                         <div className="flex-1 w-full -ml-5 sm:-ml-4 relative min-h-[100px]">
                             {isLocked && (
-                                <div className="absolute inset-0 bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl ml-5 sm:ml-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.7)]">
-                                    <div className="bg-white/90 p-4 rounded-2xl shadow-sm border border-white flex flex-col items-center">
+                                <Link to="/login" onClick={playClick} className="absolute inset-0 bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl ml-5 sm:ml-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.7)] hover:bg-white/50 transition-colors cursor-pointer group">
+                                    <div className="bg-white/90 p-4 rounded-2xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                         <Shield className="text-[#003375] mb-2 opacity-90" size={28} />
                                         <p className="text-sm font-bold text-[#003375]">Biểu đồ đã bị khóa</p>
-                                        <p className="text-[11px] text-gray-500 mt-1 max-w-[200px]">Hãy cập nhật thông tin khóa, ngành để hệ thống mở khóa tính năng này.</p>
+                                        <p className="text-[11px] text-gray-500 mt-1 max-w-[200px]">Click để đăng nhập và mở khóa tính năng này.</p>
                                     </div>
-                                </div>
+                                </Link>
                             )}
 
                             {trendData.length > 0 ? (
@@ -995,17 +1002,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div className="grid grid-cols-2 gap-3 sm:gap-4 shrink-0">
                         
                         {/* Ô Donut Chart */}
-                        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col">
+                        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                             <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight mb-2 uppercase truncate">Phân bố điểm</h3>
                             
                             <div className="h-[100px] sm:h-[130px] w-full relative flex flex-col items-center justify-center shrink-0">
                                 {isLocked && (
-                                    <div className="absolute inset-[-8px] bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)]">
-                                        <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center">
+                                    <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
+                                        <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                             <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
-                                            <p className="text-[10px] font-bold text-[#003375]">Cập nhật để xem</p>
+                                            <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
                                         </div>
-                                    </div>
+                                    </Link>
                                 )}
                                 {pieData.length > 0 ? (
                                     <ResponsiveContainer width="100%" height="100%">
@@ -1025,22 +1032,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
 
                         {/* Ô Tổng kết năm */}
-                        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col">
+                        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                             <div className="flex justify-between items-center mb-2 sm:mb-3">
                                 <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 uppercase truncate">Tổng kết năm</h3>
-                                {yearlyStats.length > 3 && (
+                                {yearlyStats.length > 3 && !isLocked && (
                                     <button onClick={() => { playClick(); setShowYearlyModal(true); }} className="text-[9px] sm:text-[10px] font-bold text-[#003375] hover:underline shrink-0 ml-1">Chi tiết</button>
                                 )}
                             </div>
                             
                             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 relative">
                                 {isLocked && (
-                                    <div className="absolute inset-[-8px] bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)]">
-                                        <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center">
+                                    <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
+                                        <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                             <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
-                                            <p className="text-[10px] font-bold text-[#003375]">Cập nhật để xem</p>
+                                            <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
                                         </div>
-                                    </div>
+                                    </Link>
                                 )}
                                 <div className="grid grid-cols-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
                                     <span className="col-span-2">Năm</span>
