@@ -26,8 +26,17 @@ import Particles from "react-particles";
 import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
 
+// Import dữ liệu Ngành/Khóa học
+import { ACADEMIC_PROGRAMS, Program, Major, Specialization, getMajors } from './utils/programs';
+
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
+
+const COHORT_OPTIONS: Record<string, string[]> = {
+    'standard': ['K38', 'K39', 'K40', 'K41'],
+    'tabp': ['CLCK10', 'CLCK11', 'CLCK12', 'CLCK13'],
+    'special': ['CTDBK1', 'CTDBK2']
+};
 
 const generateStandardCurriculum = (): Semester[] => {
     const semesters: Semester[] = [];
@@ -169,13 +178,17 @@ const App: React.FC = () => {
     const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
     const [draftFullName, setDraftFullName] = useState('');
     const [draftAvatarUrl, setDraftAvatarUrl] = useState('');
-    const [draftStudentName, setDraftStudentName] = useState('');
-    const [draftCohort, setDraftCohort] = useState('');
-    const [draftMajor, setDraftMajor] = useState('');
     const [draftAvatarFile, setDraftAvatarFile] = useState<File | null>(null);
     const [draftAvatarPreview, setDraftAvatarPreview] = useState('');
     const [profileSaving, setProfileSaving] = useState(false);
     const [profileError, setProfileError] = useState<string | null>(null);
+
+    // --- STATES CHO FORM THÔNG TIN HỌC TẬP MỚI ---
+    const [draftStudentName, setDraftStudentName] = useState('');
+    const [draftProgram, setDraftProgram] = useState<Program | null>(null);
+    const [draftCohort, setDraftCohort] = useState('');
+    const [draftMajor, setDraftMajor] = useState<Major | null>(null);
+    const [draftSpecialization, setDraftSpecialization] = useState<Specialization | null>(null);
 
     // --- STATES CHO RESET OTP ---
     const [showResetModal, setShowResetModal] = useState(false);
@@ -360,9 +373,30 @@ const App: React.FC = () => {
             setDraftAvatarFile(null);
             setDraftAvatarPreview('');
             setProfileError(null);
+            
+            // Đổ tên sinh viên
             setDraftStudentName(data.studentName || '');
+            
+            // Dò tìm tự động Chương trình -> Khóa -> Ngành -> Chuyên ngành từ Data cũ
+            const prog = ACADEMIC_PROGRAMS.find(p => p.name === data.programName) || null;
+            setDraftProgram(prog);
             setDraftCohort(data.cohort || '');
-            setDraftMajor(data.majorName || '');
+            
+            if (prog && data.cohort) {
+                const majors = getMajors(prog.id, data.cohort);
+                const maj = majors.find(m => m.name === data.majorName) || null;
+                setDraftMajor(maj);
+                
+                if (maj) {
+                    const spec = maj.specializations.find(s => s.name === data.specializationName) || null;
+                    setDraftSpecialization(spec);
+                } else {
+                    setDraftSpecialization(null);
+                }
+            } else {
+                setDraftMajor(null);
+                setDraftSpecialization(null);
+            }
         }
     }, [showAccountSettings, profileFullName, profileAvatarUrl, data]);
 
@@ -443,13 +477,11 @@ const App: React.FC = () => {
             expireTime.setMinutes(expireTime.getMinutes() + 15);
             const timeString = expireTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
-            // 🔴 DÁN CÁI LINK GOOGLE SCRIPT BẠN COPY Ở BƯỚC 2 VÀO ĐÂY
+            // GỌI API BẰNG GOOGLE APPS SCRIPT
             const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwaK82dfCEA7Qq4XufD_98dpaTS2C5KSLLzUxL_7FNt8x9jpyqfdZVqop1Efqf1TqLpGA/exec'; 
 
-            // Gọi API bằng Fetch (Chuẩn của trình duyệt)
             const response = await fetch(GOOGLE_SCRIPT_URL, {
                 method: 'POST',
-                // Mẹo cực hay: Dùng text/plain để né lỗi CORS của trình duyệt khi gọi API Google
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({
                     email: session?.user?.email,
@@ -561,15 +593,18 @@ const App: React.FC = () => {
             URL.revokeObjectURL(draftAvatarPreview);
             setDraftAvatarPreview('');
         }
+
+        // CẬP NHẬT TÊN VÀ LỘ TRÌNH VÀO DATA GỐC
         setData(prev => ({
             ...prev,
             studentName: draftStudentName.trim(),
-            cohort: draftCohort.trim(),
-            majorName: draftMajor.trim()
+            programName: draftProgram?.name || prev.programName,
+            cohort: draftCohort || prev.cohort,
+            majorName: draftMajor?.name || prev.majorName,
+            specializationName: draftSpecialization?.name || prev.specializationName,
+            totalCreditsRequired: draftSpecialization?.credits || prev.totalCreditsRequired
         }));
 
-        setProfileSaving(false);
-        setShowAccountSettings(false);
         setProfileSaving(false);
         setShowAccountSettings(false);
     };
@@ -775,7 +810,7 @@ const App: React.FC = () => {
                                         {isUserMenuOpen && (
                                             <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
                                                 <button type="button" onClick={() => { const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
-                                                <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt hiển thị</button>
+                                                <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
                                                 <button type="button" onClick={handleRequestReset} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
                                                 <button type="button" onClick={handleMenuLogout} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
                                             </div>
@@ -783,7 +818,7 @@ const App: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                        </div> {/* 👈 CHÍNH LÀ THẺ DIV BỊ THIẾU NÀY ĐÂY! */}
+                        </div>
 
                         {(!isGuest) && (
                             <div className="hidden md:block flex-1 max-w-sm">
@@ -966,7 +1001,7 @@ const App: React.FC = () => {
                                     {isUserMenuOpen && (
                                         <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
                                             <button type="button" onClick={() => { const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
-                                            <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt hiển thị</button>
+                                            <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
                                             <button type="button" onClick={handleRequestReset} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
                                             <button type="button" onClick={handleMenuLogout} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
                                         </div>
@@ -1114,12 +1149,12 @@ const App: React.FC = () => {
                                                     maxLength={6}
                                                     autoFocus
                                                     value={otpInput} 
-onChange={e => { 
-    // Lọc lấy số và ÉP BUỘC cắt đúng 6 ký tự đầu tiên
-    const cleanValue = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
-    setOtpInput(cleanValue); 
-    setOtpError(''); 
-}}                                                    className="w-full pl-10 pr-4 py-3 text-center text-2xl tracking-[0.3em] font-black text-gray-900 bg-gray-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
+                                                    onChange={e => { 
+                                                        const cleanValue = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
+                                                        setOtpInput(cleanValue); 
+                                                        setOtpError(''); 
+                                                    }} 
+                                                    className="w-full pl-10 pr-4 py-3 text-center text-2xl tracking-[0.3em] font-black text-gray-900 bg-gray-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
                                                     placeholder="------"
                                                 />
                                             </div>
@@ -1180,25 +1215,99 @@ onChange={e => {
                                     <h4 className="text-xs font-black text-[#003375] uppercase tracking-wider mb-3 border-b border-gray-100 pb-1">2. Thông tin lộ trình</h4>
                                     <div className="space-y-4">
                                         <div className="space-y-1.5">
-                                            <label className="text-xs font-bold text-gray-500">Tên sinh viên</label>
+                                            <label className="text-xs font-bold text-gray-500">Tên sinh viên (Tùy chọn)</label>
                                             <input type="text" value={draftStudentName} onChange={(e) => setDraftStudentName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="Ví dụ: Nguyễn Văn A..." />
                                         </div>
+                                        
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-bold text-gray-500">Chương trình đào tạo <span className="text-red-500">*</span></label>
+                                            <select 
+                                                value={draftProgram?.id || ''} 
+                                                onChange={(e) => {
+                                                    const prog = ACADEMIC_PROGRAMS.find(p => p.id === e.target.value) || null;
+                                                    setDraftProgram(prog);
+                                                    setDraftCohort('');
+                                                    setDraftMajor(null);
+                                                    setDraftSpecialization(null);
+                                                }}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-sm bg-white"
+                                            >
+                                                <option value="" disabled>Chọn chương trình</option>
+                                                {ACADEMIC_PROGRAMS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                            </select>
+                                        </div>
+
                                         <div className="flex gap-3">
                                             <div className="space-y-1.5 flex-1">
-                                                <label className="text-xs font-bold text-gray-500">Khóa</label>
-                                                <input type="text" value={draftCohort} onChange={(e) => setDraftCohort(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="VD: K39" />
+                                                <label className="text-xs font-bold text-gray-500">Khóa <span className="text-red-500">*</span></label>
+                                                <select 
+                                                    value={draftCohort} 
+                                                    onChange={(e) => {
+                                                        setDraftCohort(e.target.value);
+                                                        setDraftMajor(null);
+                                                        setDraftSpecialization(null);
+                                                    }}
+                                                    disabled={!draftProgram}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                                                >
+                                                    <option value="" disabled>Chọn khóa</option>
+                                                    {draftProgram && (COHORT_OPTIONS[draftProgram.id] || []).map(c => <option key={c} value={c}>{c}</option>)}
+                                                </select>
                                             </div>
                                             <div className="space-y-1.5 flex-[2]">
-                                                <label className="text-xs font-bold text-gray-500">Ngành học</label>
-                                                <input type="text" value={draftMajor} onChange={(e) => setDraftMajor(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="VD: Kinh doanh quốc tế" />
+                                                <label className="text-xs font-bold text-gray-500">Ngành học <span className="text-red-500">*</span></label>
+                                                <select 
+                                                    value={draftMajor?.code || ''} 
+                                                    onChange={(e) => {
+                                                        const majors = draftProgram && draftCohort ? getMajors(draftProgram.id, draftCohort) : [];
+                                                        const maj = majors.find(m => m.code === e.target.value) || null;
+                                                        setDraftMajor(maj);
+                                                        if (maj && maj.specializations.length === 1) {
+                                                            setDraftSpecialization(maj.specializations[0]);
+                                                        } else {
+                                                            setDraftSpecialization(null);
+                                                        }
+                                                    }}
+                                                    disabled={!draftCohort}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                                                >
+                                                    <option value="" disabled>Chọn ngành</option>
+                                                    {draftProgram && draftCohort && getMajors(draftProgram.id, draftCohort).map(m => (
+                                                        <option key={m.code} value={m.code}>{m.name}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                         </div>
+
+                                        {draftMajor && draftMajor.specializations.length > 1 && (
+                                            <div className="space-y-1.5 animate-fadeIn">
+                                                <label className="text-xs font-bold text-gray-500">Chuyên ngành <span className="text-red-500">*</span></label>
+                                                <select 
+                                                    value={draftSpecialization?.name || ''} 
+                                                    onChange={(e) => {
+                                                        const spec = draftMajor.specializations.find(s => s.name === e.target.value) || null;
+                                                        setDraftSpecialization(spec);
+                                                    }}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-sm bg-white border-blue-200 ring-2 ring-blue-50"
+                                                >
+                                                    <option value="" disabled>Chọn chuyên ngành</option>
+                                                    {draftMajor.specializations.map(s => (
+                                                        <option key={s.name} value={s.name}>{s.name} ({s.credits} TC)</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
+                            
                             <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-2 shrink-0">
                                 <button onClick={() => setShowAccountSettings(false)} className="flex-1 py-2 rounded-lg border border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-100 transition-colors">Hủy</button>
-                                <button onClick={handleSaveProfile} disabled={profileSaving} className="flex-[2] py-2 rounded-lg bg-[#003375] text-white font-bold text-sm hover:bg-[#002855] transition-colors flex items-center justify-center gap-2">
+                                <button 
+                                    onClick={handleSaveProfile} 
+                                    disabled={profileSaving || !draftProgram || !draftCohort || !draftMajor || !draftSpecialization} 
+                                    className="flex-[2] py-2 rounded-lg bg-[#003375] text-white font-bold text-sm hover:bg-[#002855] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
                                     {profileSaving ? <Loader2 className="animate-spin" size={14} /> : null} Lưu thông tin
                                 </button>
                             </div>
