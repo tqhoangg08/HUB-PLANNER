@@ -233,25 +233,34 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     setIsLoading(true);
     try {
         let query = supabase.from('course_schedules').select('*').eq('semester', selectedSemester);
+        
         if (selectedPhase !== 'all') {
             query = query.eq('phase', selectedPhase);
         }
         
-        const { data, error } = await query.limit(5000);
-        if (error) throw error;
-
-        let results = data || [];
-        const term = searchTerm.trim().toLowerCase();
+        // CHUYỂN LOGIC TÌM KIẾM XUỐNG MÁY CHỦ SUPABASE
+        const term = searchTerm.trim();
         if (term) {
+            // Tách từ khóa (Ví dụ: "Lượng L29" -> ["Lượng", "L29"])
             const keywords = term.split(/\s+/);
-            results = results.filter((course: Course) => {
-                const searchableText = `${course.subject_name || ''} ${course.course_code || ''} ${course.instructor || ''}`.toLowerCase();
-                return keywords.every(kw => searchableText.includes(kw));
+            
+            // Ép Supabase phải tìm TẤT CẢ các từ khóa này trên Database
+            keywords.forEach(kw => {
+                // Dùng .ilike để tìm kiếm không phân biệt chữ hoa/thường ở cả 3 cột
+                query = query.or(`subject_name.ilike.%${kw}%,course_code.ilike.%${kw}%,instructor.ilike.%${kw}%`);
             });
         }
-        setAvailableCourses(results.slice(0, 100));
-    } catch (error) { console.error("Lỗi tải danh sách môn:", error); } 
-    finally { setIsLoading(false); }
+        
+        // Lấy 100 kết quả trả về là quá đủ để hiển thị, web sẽ cực kỳ mượt!
+        const { data, error } = await query.limit(100);
+        if (error) throw error;
+
+        setAvailableCourses(data || []);
+    } catch (error) { 
+        console.error("Lỗi tải danh sách môn:", error); 
+    } finally { 
+        setIsLoading(false); 
+    }
   };
 
   useEffect(() => { if (isAuthenticated) fetchCourses(); }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated]);
