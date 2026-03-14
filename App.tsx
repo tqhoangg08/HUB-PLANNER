@@ -744,20 +744,31 @@ const App: React.FC = () => {
                                 )}
                                 
                                 {!isGuest && !isAdmin && (
-                                    <button onClick={() => setIsUserMenuOpen(prev => !prev)} className="flex items-center focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
-                                        {profileAvatarUrl ? (
-                                            isColorAvatar ? (
-                                                <span className="h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm" style={{ backgroundColor: profileAvatarUrl }}>{avatarSeed}</span>
+                                    <div className="relative">
+                                        <button onClick={() => setIsUserMenuOpen(prev => !prev)} className="flex items-center focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
+                                            {profileAvatarUrl ? (
+                                                isColorAvatar ? (
+                                                    <span className="h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm" style={{ backgroundColor: profileAvatarUrl }}>{avatarSeed}</span>
+                                                ) : (
+                                                    <img src={profileAvatarUrl} alt="Avatar" className="h-8 w-8 rounded-full object-cover shadow-sm border border-gray-200" />
+                                                )
                                             ) : (
-                                                <img src={profileAvatarUrl} alt="Avatar" className="h-8 w-8 rounded-full object-cover shadow-sm border border-gray-200" />
-                                            )
-                                        ) : (
-                                            <span className="h-8 w-8 rounded-full bg-[#003375] text-white flex items-center justify-center text-sm font-bold shadow-sm">{avatarSeed}</span>
+                                                <span className="h-8 w-8 rounded-full bg-[#003375] text-white flex items-center justify-center text-sm font-bold shadow-sm">{avatarSeed}</span>
+                                            )}
+                                        </button>
+
+                                        {isUserMenuOpen && (
+                                            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
+                                                <button type="button" onClick={() => { const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
+                                                <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt hiển thị</button>
+                                                <button type="button" onClick={handleRequestReset} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
+                                                <button type="button" onClick={handleMenuLogout} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
+                                            </div>
                                         )}
-                                    </button>
+                                    </div>
                                 )}
                             </div>
-                        </div>
+                        </div> {/* 👈 CHÍNH LÀ THẺ DIV BỊ THIẾU NÀY ĐÂY! */}
 
                         {(!isGuest) && (
                             <div className="hidden md:block flex-1 max-w-sm">
