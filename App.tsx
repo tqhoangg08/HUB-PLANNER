@@ -9,7 +9,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { ActivityLogModal } from './components/ActivityLogModal';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfUse } from './components/TermsOfUse';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, KeyRound } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
@@ -26,6 +26,7 @@ import ScheduleBoard from './components/ScheduleBoard';
 import Particles from "react-particles";
 import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
+import emailjs from '@emailjs/browser';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
@@ -175,6 +176,14 @@ const App: React.FC = () => {
     const [profileSaving, setProfileSaving] = useState(false);
     const [profileError, setProfileError] = useState<string | null>(null);
 
+    // --- STATES CHO RESET OTP ---
+    const [showResetModal, setShowResetModal] = useState(false);
+    const [resetStep, setResetStep] = useState<1 | 2>(1);
+    const [generatedOtp, setGeneratedOtp] = useState('');
+    const [otpInput, setOtpInput] = useState('');
+    const [isSendingOtp, setIsSendingOtp] = useState(false);
+    const [otpError, setOtpError] = useState('');
+
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const particlesInit = useCallback(async (engine: Engine) => {
@@ -245,7 +254,6 @@ const App: React.FC = () => {
                 if (!isActive) return;
 
                 if (profileData?.data) {
-                    // Đã có data trên DB
                     setData({ ...INITIAL_DATA, ...profileData.data });
                     setProfileFullName(profileData.full_name || ''); 
                     setProfileAvatarUrl(profileData.avatar_url || ''); 
@@ -255,7 +263,6 @@ const App: React.FC = () => {
                     return;
                 }
 
-                // CHƯA CÓ DATA DB -> LOG IN LẦN ĐẦU -> SỬ DỤNG DATA ẨN DANH (NẾU CÓ)
                 const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
                 const metaAvatar = session.user.user_metadata.avatar_url || session.user.user_metadata.picture || '';
                 setProfileFullName(metaName);
@@ -263,7 +270,6 @@ const App: React.FC = () => {
                 
                 let saved = localStorage.getItem(storageKey);
                 if (!saved) {
-                    // Lấy data guest từ key chung nếu key cá nhân chưa có
                     saved = localStorage.getItem(STORAGE_KEY);
                 }
 
@@ -310,12 +316,8 @@ const App: React.FC = () => {
         }
 
         saveTimeoutRef.current = window.setTimeout(async () => {
-            // Admin đang soi user khác -> CẤM AUTO-SAVE LÊN DB
-            if (isAdmin && viewingUser) {
-                return; 
-            }
+            if (isAdmin && viewingUser) return; 
 
-            // Chỉ lưu khi đang tự xem bảng điểm của CHÍNH MÌNH
             const targetUserId = session.user.id;
             if (dataOwnerIdRef.current !== targetUserId) return;
 
@@ -368,27 +370,24 @@ const App: React.FC = () => {
         };
     }, [draftAvatarPreview]);
 
-        useEffect(() => {
+    useEffect(() => {
         const ensureSchoolDomain = async () => {
-            // 1. Bắt lỗi từ thanh URL (Khi Google/Supabase chặn và đá về web)
             const searchParams = new URLSearchParams(window.location.search);
             const authError = searchParams.get('error');
             
             if (authError) {
                 setIsAccessDenied(true);
-                setDeniedEmail('Ngoài hệ thống HUB (VD: @gmail.com)'); // Báo lỗi chung
-                // Xóa đoạn mã lỗi loằng ngoằng trên thanh URL cho web sạch đẹp
+                setDeniedEmail('Ngoài hệ thống HUB (VD: @gmail.com)');
                 window.history.replaceState({}, document.title, window.location.pathname);
                 return;
             }
 
-            // 2. Logic kiểm tra tên miền cho user đã đăng nhập thành công
             if (isGuest || isAdmin || isCTV || !session?.user?.email) return;
             
             const emailDomain = session.user.email.split('@')[1];
             if (emailDomain !== SCHOOL_DOMAIN) {
                 setIsAccessDenied(true);
-                setDeniedEmail(session.user.email); // Hiện email thật bị sai
+                setDeniedEmail(session.user.email);
             } else {
                 setIsAccessDenied(false);
             }
@@ -396,11 +395,12 @@ const App: React.FC = () => {
 
         ensureSchoolDomain();
     }, [session, isGuest, isAdmin, isCTV]);
+
     const handleLogout = async () => {
         playClick();
         if (window.confirm("Đăng xuất khỏi hệ thống?")) {
             await supabase?.auth.signOut();
-            navigate('/');
+            window.location.href = '/';
         }
     };
 
@@ -408,6 +408,84 @@ const App: React.FC = () => {
         setIsUserMenuOpen(false);
         await handleLogout();
     };
+
+    // ==========================================
+    // LOGIC RESET DỮ LIỆU & GỬI OTP (EMAILJS)
+    // ==========================================
+    const handleRequestReset = () => {
+        playClick();
+        if (isGuest) {
+            if (window.confirm("Xóa toàn bộ dữ liệu dùng thử?")) {
+                executeResetData();
+            }
+        } else {
+            setShowResetModal(true);
+            setResetStep(1);
+            setOtpInput('');
+            setOtpError('');
+            setIsUserMenuOpen(false);
+        }
+    };
+
+    const sendOtpEmail = async () => {
+        setIsSendingOtp(true);
+        setOtpError('');
+        try {
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            setGeneratedOtp(otp);
+
+            await emailjs.send(
+                'service_abcd123',     // THAY BẰNG SERVICE ID CỦA BẠN
+                'template_mjds19l',    // THAY BẰNG TEMPLATE ID CỦA BẠN
+                {
+                    user_email: session?.user?.email,
+                    otp_code: otp,
+                },
+                'jY2D7qRBppKz4TKFq'      // THAY BẰNG PUBLIC KEY CỦA BẠN
+            );
+
+            setResetStep(2);
+        } catch (error) {
+            console.error('Lỗi gửi mail:', error);
+            setOtpError('Hệ thống mail đang bận. Vui lòng thử lại sau.');
+        } finally {
+            setIsSendingOtp(false);
+        }
+    };
+
+    const verifyOtpAndReset = () => {
+        playClick();
+        if (otpInput === generatedOtp) {
+            executeResetData();
+        } else {
+            setOtpError('Mã xác nhận không chính xác!');
+        }
+    };
+
+    const executeResetData = async () => {
+        try {
+            if (!isGuest && session?.user?.id && supabase) {
+                const { data: listFiles } = await supabase.storage.from('avatars').list(session.user.id);
+                if (listFiles && listFiles.length > 0) {
+                    const filesToRemove = listFiles.map(x => `${session.user.id}/${x.name}`);
+                    await supabase.storage.from('avatars').remove(filesToRemove);
+                }
+                const { error: dbError } = await supabase.from(STUDENT_PROFILE_TABLE).delete().eq('id', session.user.id);
+                if (dbError) {
+                    alert("Không thể xóa dữ liệu trên máy chủ. Vui lòng thử lại.");
+                    return; 
+                }
+            }
+            setData(INITIAL_DATA);
+            localStorage.clear();
+            if (supabase) await supabase.auth.signOut();
+        } catch (error) {
+            console.error("Lỗi khi reset:", error);
+        } finally {
+            window.location.href = '/';
+        }
+    };
+    // ==========================================
 
     const handleSaveProfile = async () => {
         if (!session?.user?.id || !supabase) return;
@@ -480,7 +558,6 @@ const App: React.FC = () => {
     const isColorAvatar = profileAvatarUrl?.startsWith('#');
     const studentId = session?.user?.email?.split('@')[0] ?? '';
 
-    // 👇 CÁC HÀM XỬ LÝ BẢNG ĐIỂM 👇
     const addSemester = () => {
         playClick();
         const newSem: Semester = {
@@ -503,53 +580,6 @@ const App: React.FC = () => {
         if (window.confirm("Bạn có chắc muốn xóa học kỳ này không?")) {
             const newSemesters = data.semesters.filter((_, i) => i !== index);
             setData(prev => ({ ...prev, semesters: newSemesters }));
-        }
-    };
-
-    const resetData = async () => {
-        playClick();
-        if (!window.confirm("CẢNH BÁO CỰC MẠNH: Hành động này sẽ xóa VĨNH VIỄN toàn bộ dữ liệu trên máy. Bạn có chắc chắn không?")) {
-            return;
-        }
-
-        try {
-            if (!isGuest && session?.user?.id && supabase) {
-                const { data: listFiles } = await supabase.storage
-                    .from('avatars')
-                    .list(session.user.id);
-
-                if (listFiles && listFiles.length > 0) {
-                    const filesToRemove = listFiles.map(x => `${session.user.id}/${x.name}`);
-                    await supabase.storage
-                        .from('avatars')
-                        .remove(filesToRemove);
-                }
-
-                const { error: dbError } = await supabase
-                    .from(STUDENT_PROFILE_TABLE)
-                    .delete()
-                    .eq('id', session.user.id);
-                
-                if (dbError) {
-                    console.error("Lỗi xóa DB:", dbError);
-                    alert("Không thể xóa dữ liệu trên máy chủ. Vui lòng thử lại.");
-                    return; 
-                }
-            }
-
-            setData(INITIAL_DATA);
-            localStorage.clear();
-
-            if (supabase) {
-                await supabase.auth.signOut();
-            }
-
-        } catch (error) {
-            console.error("Lỗi khi reset:", error);
-            alert("Có lỗi xảy ra. Dữ liệu có thể chưa được xóa hết.");
-        } finally {
-            navigate('/');
-            window.location.reload(); 
         }
     };
 
@@ -632,7 +662,7 @@ const App: React.FC = () => {
     const renderProtectedApp = () => {
         if (!isLoaded) return null;
 
-if (isAccessDenied && !isAdmin && !isCTV) {
+        if (isAccessDenied && !isAdmin && !isCTV) {
             return (
                 <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#F8FAFC] animate-fadeIn">
                     <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 max-w-md text-center">
@@ -642,20 +672,18 @@ if (isAccessDenied && !isAdmin && !isCTV) {
                         <h2 className="text-2xl font-bold text-gray-900 mb-2">Truy cập bị từ chối</h2>
                         <p className="text-gray-500 mb-6 text-sm">
                             Hệ thống phát hiện bạn đang sử dụng tài khoản email: <br /> 
-                            {/* Sửa dòng này để hiển thị email lấy từ state */}
                             <strong className="text-gray-800">{deniedEmail}</strong>
                         </p>
                         <div className="bg-red-50 text-red-700 p-4 rounded-xl text-sm mb-8 text-left border border-red-100">
                             <p className="font-bold flex items-center gap-2 mb-1"><AlertTriangle size={16} /> Yêu cầu bắt buộc:</p>
                             <p>Vui lòng đăng nhập bằng email sinh viên trường ĐH Ngân hàng TP.HCM có đuôi tên miền là <strong>@{SCHOOL_DOMAIN}</strong></p>
                         </div>
-                        {/* Sửa logic nút bấm để xóa sạch session rác và quay lại login */}
                         <button 
                             onClick={async () => { 
                                 playClick(); 
                                 await supabase?.auth.signOut(); 
                                 setIsAccessDenied(false); 
-                                window.location.href = '/login'; // Sửa navigate thành window.location.href
+                                window.location.href = '/login'; 
                             }} 
                             className="w-full bg-[#003375] text-white font-bold py-3 rounded-xl hover:bg-[#002855] transition-colors flex items-center justify-center gap-2 shadow-sm"
                         >
@@ -665,6 +693,7 @@ if (isAccessDenied && !isAdmin && !isCTV) {
                 </div>
             )
         }
+
         if ((session && !data.hasOnboarded) || forceGuestOnboarding) {
             return <Onboarding onComplete={(onboardingData) => {
                 handleOnboardingComplete(onboardingData);
@@ -897,20 +926,19 @@ if (isAccessDenied && !isAdmin && !isCTV) {
                                         <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
                                             <button type="button" onClick={() => { const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
                                             <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt hiển thị</button>
-                                            <button type="button" onClick={() => { setIsUserMenuOpen(false); resetData(); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
+                                            <button type="button" onClick={handleRequestReset} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
                                             <button type="button" onClick={handleMenuLogout} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
                                         </div>
                                     )}
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-1.5 border-l border-gray-200 pl-2">
-                                    <button onClick={resetData} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors" title="Xóa dữ liệu dùng thử">
+                                    <button onClick={handleRequestReset} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors" title="Xóa dữ liệu dùng thử">
                                         <RotateCcw size={16} />
                                         <span className="text-xs font-bold hidden md:block">Reset dữ liệu</span>
                                     </button>
-                                    <Link to="/login" onClick={playClick} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#003375] text-white hover:bg-[#002855] transition-colors shadow-sm">
-                                        <User size={16} />
-                                        <span className="text-xs font-bold hidden md:block">Đăng nhập</span>
+                                    <Link to="/login" onClick={playClick} className="flex items-center gap-1.5 px-4 py-1.5 bg-[#003375] text-white text-sm font-bold rounded-lg hover:bg-[#002855] transition-colors shadow-sm">
+                                        <User size={16} /> Đăng nhập
                                     </Link>
                                 </div>
                             )}
@@ -1006,6 +1034,63 @@ if (isAccessDenied && !isAdmin && !isCTV) {
                 {showGuide && <UserGuideModal onClose={() => setShowGuide(false)} />}
                 {showActivityLog && <ActivityLogModal onClose={() => setShowActivityLog(false)} />}
                 
+                {/* MODAL XÁC NHẬN OTP ĐỂ RESET DATA */}
+                {showResetModal && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-fadeIn">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn border border-gray-200">
+                            <div className="bg-red-50 p-6 flex flex-col items-center text-center border-b border-red-100 relative">
+                                <button onClick={() => setShowResetModal(false)} className="absolute top-4 right-4 text-red-400 hover:text-red-600 bg-white rounded-full p-1 transition-colors"><X size={18} /></button>
+                                <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-sm mb-3 text-red-600 border border-red-100">
+                                    <ShieldAlert size={28} />
+                                </div>
+                                <h3 className="text-xl font-bold text-red-700">Cảnh báo xóa dữ liệu</h3>
+                                <p className="text-sm text-red-600/80 font-medium mt-1">Hành động này không thể hoàn tác.</p>
+                            </div>
+                            
+                            <div className="p-6">
+                                {resetStep === 1 ? (
+                                    <div className="space-y-4 animate-fadeIn">
+                                        <p className="text-sm text-gray-600 text-center leading-relaxed">
+                                            Toàn bộ bảng điểm, môn học và thông tin cá nhân của bạn trên hệ thống sẽ bị xóa vĩnh viễn. Để đảm bảo an toàn, chúng tôi sẽ gửi một mã xác nhận đến email:
+                                        </p>
+                                        <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 text-center font-bold text-[#003375]">
+                                            {session?.user.email}
+                                        </div>
+                                        {otpError && <p className="text-xs text-red-500 text-center font-bold">{otpError}</p>}
+                                        <button onClick={sendOtpEmail} disabled={isSendingOtp} className="w-full mt-2 bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70">
+                                            {isSendingOtp ? <Loader2 className="animate-spin" size={18} /> : <Mail size={18} />} 
+                                            {isSendingOtp ? 'Đang gửi mã...' : 'Gửi mã xác nhận'}
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-5 animate-slideInRight">
+                                        <div className="text-center">
+                                            <p className="text-sm text-gray-600 mb-3">Nhập mã 6 chữ số vừa được gửi đến email của bạn.</p>
+                                            <div className="relative max-w-[200px] mx-auto">
+                                                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                                <input 
+                                                    type="text" 
+                                                    maxLength={6}
+                                                    autoFocus
+                                                    value={otpInput} 
+                                                    onChange={e => { setOtpInput(e.target.value.replace(/[^0-9]/g, '')); setOtpError(''); }} 
+                                                    className="w-full pl-10 pr-4 py-3 text-center text-2xl tracking-[0.3em] font-black text-gray-900 bg-gray-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
+                                                    placeholder="------"
+                                                />
+                                            </div>
+                                            {otpError && <p className="text-xs text-red-600 font-bold mt-2 animate-shake">{otpError}</p>}
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <button onClick={() => setResetStep(1)} className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-colors text-sm">Hủy</button>
+                                            <button onClick={verifyOtpAndReset} disabled={otpInput.length !== 6} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm">Xác nhận Xóa</button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {showAccountSettings && (
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-fadeIn">
                         <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-scaleIn border border-gray-200">
@@ -1057,7 +1142,7 @@ if (isAccessDenied && !isAdmin && !isCTV) {
             </div>
         );
     };
-// 👇 THÊM ĐOẠN NÀY ĐỂ ĐỢI SUPABASE ĐỌC TOKEN TỪ GOOGLE TRẢ VỀ 👇
+
     if (loadingRole) {
         return (
             <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-[#F8FAFC]">
@@ -1066,13 +1151,13 @@ if (isAccessDenied && !isAdmin && !isCTV) {
             </div>
         );
     }
+
     return (
         <Routes>
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfUse />} />
             <Route path="/login" element={<LoginScreen />} />
             
-            {/* Vào thẳng web luôn */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/*" element={renderProtectedApp()} />
         </Routes>
