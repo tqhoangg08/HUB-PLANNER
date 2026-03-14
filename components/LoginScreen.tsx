@@ -53,15 +53,16 @@ export const LoginScreen: React.FC = () => {
         setLoading(false);
     };
 
-    const handleGoogleLogin = async () => {
-        if (!agreed) return; // Bảo mật 2 lớp
+const handleGoogleLogin = async () => {
+        if (!agreed) return; 
         if (!supabase) return setError("Chưa cấu hình kết nối Database.");
         setLoading(true); setError(null); playClick();
 
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin,
+                // 👇 Chỉ thẳng vào trang dashboard để không bị chuyển hướng làm rớt token
+                redirectTo: `${window.location.origin}/dashboard`,
                 queryParams: { hd: SCHOOL_DOMAIN, prompt: 'select_account' },
             },
         });

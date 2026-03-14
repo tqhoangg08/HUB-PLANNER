@@ -367,9 +367,10 @@ const App: React.FC = () => {
         };
     }, [draftAvatarPreview]);
 
-    useEffect(() => {
+useEffect(() => {
         const ensureSchoolDomain = async () => {
-            if (isGuest || isAdmin || !session?.user?.email) return;
+            // Thêm isCTV vào đây để miễn kiểm tra đuôi email cho Editor
+            if (isGuest || isAdmin || isCTV || !session?.user?.email) return;
             const emailDomain = session.user.email.split('@')[1];
             if (emailDomain !== SCHOOL_DOMAIN) {
                 setIsAccessDenied(true);
@@ -379,7 +380,7 @@ const App: React.FC = () => {
         };
 
         ensureSchoolDomain();
-    }, [session, isGuest, isAdmin]);
+    }, [session, isGuest, isAdmin, isCTV]); 
 
     const handleLogout = async () => {
         playClick();
@@ -617,7 +618,7 @@ const App: React.FC = () => {
     const renderProtectedApp = () => {
         if (!isLoaded) return null;
 
-        if (isAccessDenied && !isAdmin) {
+        if (isAccessDenied && !isAdmin && !isCTV) {
             return (
                 <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#F8FAFC] animate-fadeIn">
                     <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 max-w-md text-center">
