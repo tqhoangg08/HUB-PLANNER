@@ -1081,8 +1081,12 @@ const App: React.FC = () => {
                                                     maxLength={6}
                                                     autoFocus
                                                     value={otpInput} 
-                                                    onChange={e => { setOtpInput(e.target.value.replace(/[^0-9]/g, '')); setOtpError(''); }} 
-                                                    className="w-full pl-10 pr-4 py-3 text-center text-2xl tracking-[0.3em] font-black text-gray-900 bg-gray-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
+onChange={e => { 
+    // Lọc lấy số và ÉP BUỘC cắt đúng 6 ký tự đầu tiên
+    const cleanValue = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
+    setOtpInput(cleanValue); 
+    setOtpError(''); 
+}}                                                    className="w-full pl-10 pr-4 py-3 text-center text-2xl tracking-[0.3em] font-black text-gray-900 bg-gray-50 border border-gray-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
                                                     placeholder="------"
                                                 />
                                             </div>
