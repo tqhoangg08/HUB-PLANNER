@@ -1,10 +1,9 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
-import { User, Key, ArrowLeft, Loader2, Shield, AlertCircle } from 'lucide-react';
+import { User, Key, ArrowLeft, Loader2, Shield, AlertCircle, GraduationCap, Mail, Lock, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
-// --- Imports cho hiệu ứng hạt ---
 import Particles from "react-particles";
 import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
@@ -13,15 +12,12 @@ const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 
 export const LoginScreen: React.FC = () => {
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
-    const role = searchParams.get('role');
-    const isAdmin = role === 'admin';
+    const [activeTab, setActiveTab] = useState<'student' | 'admin'>('student');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // --- Cấu hình hiệu ứng hạt chuẩn (Tone Xanh/Trắng) ---
     const particlesInit = useCallback(async (engine: Engine) => {
         await loadSlim(engine);
     }, []);
@@ -30,86 +26,40 @@ export const LoginScreen: React.FC = () => {
         fullScreen: { enable: false },
         fpsLimit: 60,
         particles: {
-            number: { value: 25, density: { enable: true, area: 800 } },
+            number: { value: 20, density: { enable: true, area: 800 } },
             color: { value: ["#003375", "#93C5FD", "#E2E8F0"] },
             shape: { type: "circle" },
             opacity: {
                 value: { min: 0.1, max: 0.4 },
                 animation: { enable: true, speed: 0.5, minimumValue: 0.1, sync: false }
             },
-            size: { value: { min: 2, max: 4 } },
-            move: {
-                enable: true,
-                speed: { min: 0.5, max: 1.5 },
-                direction: "top-right",
-                straight: false,
-                outModes: { default: "out" },
-                random: true,
-            },
+            size: { value: { min: 2, max: 5 } },
+            move: { enable: true, speed: { min: 0.5, max: 1.5 }, direction: "top", random: true, outModes: { default: "out" } },
         },
         detectRetina: true,
     }), []);
 
-    const titleContent = useMemo(() => {
-        if (!isAdmin) {
-            return {
-                title: 'Đăng nhập sinh viên',
-                subtitle: `Sử dụng tài khoản @${SCHOOL_DOMAIN}`,
-            };
-        }
-        return {
-            title: 'Cổng Quản Trị (Admin)',
-            subtitle: 'Đăng nhập bằng tài khoản nội bộ',
-        };
-    }, [isAdmin]);
-
     const handleAdminLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!supabase) {
-            const message = "Chưa cấu hình kết nối Database.";
-            setError(message);
-            alert(message);
-            return;
-        }
+        if (!supabase) return setError("Chưa cấu hình kết nối Database.");
+        setLoading(true); setError(null); playClick();
 
-        setLoading(true);
-        setError(null);
-        playClick();
-
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-
-        if (error) {
-            setError("Thông tin đăng nhập không chính xác.");
-        }
-
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) setError("Thông tin đăng nhập không chính xác.");
+        else navigate('/');
+        
         setLoading(false);
-
-        if (!error) {
-            navigate('/');
-        }
     };
 
     const handleGoogleLogin = async () => {
-        if (!supabase) {
-            setError("Chưa cấu hình kết nối Database.");
-            return;
-        }
-
-        setLoading(true);
-        setError(null);
-        playClick();
+        if (!supabase) return setError("Chưa cấu hình kết nối Database.");
+        setLoading(true); setError(null); playClick();
 
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
                 redirectTo: window.location.origin,
-                queryParams: {
-                    hd: SCHOOL_DOMAIN,
-                    prompt: 'select_account',
-                },
+                queryParams: { hd: SCHOOL_DOMAIN, prompt: 'select_account' },
             },
         });
 
@@ -120,82 +70,95 @@ export const LoginScreen: React.FC = () => {
     };
 
     return (
-        // 60% Nền Trắng/Xám nhạt
-        <div className="min-h-[100dvh] w-full relative overflow-hidden flex flex-col items-center justify-center p-4 bg-[#F8FAFC]">
+        // Ép cứng h-[100dvh] thay vì min-h để không bao giờ bị cuộn trang
+        <div className="h-[100dvh] w-full relative flex flex-col items-center justify-center p-4 bg-[#F8FAFC] overflow-hidden">
             
-            <Particles
-                id="tsparticles-login"
-                init={particlesInit}
-                options={particlesOptions}
-                className="absolute inset-0 z-1 pointer-events-none"
-            />
+            {/* Background Decor */}
+            <div className="absolute top-[-10%] left-[-10%] w-72 h-72 bg-blue-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob"></div>
+            <div className="absolute top-[20%] right-[-10%] w-72 h-72 bg-purple-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-blob animation-delay-2000"></div>
+            <div className="absolute bottom-[-10%] left-[20%] w-72 h-72 bg-[#003375] rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-blob animation-delay-4000"></div>
 
-            {/* Nút quay lại */}
-            <button
-                onClick={() => { playClick(); navigate('/'); }}
-                className="absolute top-6 left-6 flex items-center gap-2 text-gray-500 hover:text-gray-900 font-bold transition-colors z-30 bg-white p-2 sm:px-4 sm:py-2.5 rounded-xl shadow-sm border border-gray-200 hover:bg-gray-50"
-            >
+            <Particles id="tsparticles-login" init={particlesInit} options={particlesOptions} className="absolute inset-0 z-0 pointer-events-none" />
+
+            {/* Nút quay lại (Thu nhỏ padding) */}
+            <button onClick={() => { playClick(); navigate('/'); }} className="absolute top-6 left-6 flex items-center gap-2 text-gray-500 hover:text-[#003375] font-bold transition-all z-30 bg-white/80 backdrop-blur-md p-2.5 sm:px-4 sm:py-2 rounded-xl shadow-sm border border-gray-200/50 hover:shadow-md hover:-translate-y-0.5">
                 <ArrowLeft size={18} /> <span className="hidden sm:inline text-sm">Trở về</span>
             </button>
 
-            {/* Form đăng nhập chính */}
-            <div className="relative z-30 bg-white rounded-[1.5rem] shadow-xl w-full max-w-[420px] overflow-hidden border border-gray-200 animate-scaleIn">
+            {/* Khung Đăng Nhập Chính - Thu gọn padding (p-8 thay vì p-10) */}
+            <div className="relative z-30 bg-white/90 backdrop-blur-xl rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.08)] w-full max-w-[420px] border border-white p-6 sm:p-8 animate-scaleIn flex flex-col">
                 
-                {/* Header Card: Điểm nhấn 10% (Xanh cho SV, Đỏ cho Admin) */}
-                <div className={`p-6 text-center border-b border-gray-100 ${isAdmin ? 'bg-red-50/50' : 'bg-blue-50/50'}`}>
-                    <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border ${isAdmin ? 'bg-white border-red-100 text-[#990000]' : 'bg-white border-blue-100 text-[#003375]'}`}>
-                        <Shield size={28} />
+                {/* Header & Logo - Giảm khoảng cách */}
+                <div className="text-center mb-6">
+                    <div className="inline-flex items-center justify-center bg-white p-3 rounded-2xl shadow-sm mb-3 border border-gray-100">
+                        <img src="logo.png" alt="HUB Logo" className="h-10 w-10 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="h-10 w-10 bg-[#003375] rounded-xl flex items-center justify-center text-white font-black text-sm">HUB</div>'; }} />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900">{titleContent.title}</h2>
-                    <p className="text-gray-500 text-xs font-medium mt-1">{titleContent.subtitle}</p>
+                    <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Chào mừng trở lại</h2>
+                    <p className="text-sm text-gray-500 font-medium mt-1">Vui lòng đăng nhập để tiếp tục</p>
                 </div>
 
-                <div className="p-6 sm:p-8 space-y-6">
+                {/* Tab Switcher - Thu nhỏ padding */}
+                <div className="flex p-1 bg-gray-100/80 rounded-xl mb-6 relative">
+                    <button 
+                        onClick={() => { setActiveTab('student'); setError(null); playClick(); }} 
+                        className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 relative z-10 ${activeTab === 'student' ? 'text-[#003375] shadow-sm bg-white' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <GraduationCap size={18} /> Sinh viên
+                    </button>
+                    <button 
+                        onClick={() => { setActiveTab('admin'); setError(null); playClick(); }} 
+                        className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 relative z-10 ${activeTab === 'admin' ? 'text-[#990000] shadow-sm bg-white' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <ShieldCheck size={18} /> Quản trị
+                    </button>
+                </div>
+
+                {/* Nội dung Form - Xóa min-h cố định để khung tự co giãn */}
+                <div className="w-full">
                     {error && (
-                        <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-start gap-2 border border-red-100 animate-shake">
+                        <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm flex items-start gap-2 border border-red-100 mb-5 animate-shake">
                             <AlertCircle size={18} className="shrink-0 mt-0.5" /> 
-                            <span className="leading-snug font-medium">{error}</span>
+                            <span className="leading-snug font-semibold">{error}</span>
                         </div>
                     )}
 
-                    {isAdmin ? (
-                        <form onSubmit={handleAdminLogin} className="space-y-5">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1">Email quản trị</label>
-                                <div className="relative">
-                                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                    <input
-                                        type="email" required
-                                        className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#990000] focus:border-[#990000] outline-none transition-all placeholder-gray-400 font-medium text-gray-900"
-                                        placeholder="admin@domain.com"
-                                        value={email} onChange={e => setEmail(e.target.value)}
-                                        autoFocus
+                    {activeTab === 'admin' ? (
+                        <form onSubmit={handleAdminLogin} className="space-y-4 animate-fadeIn">
+                            <div className="space-y-1">
+                                <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider ml-1">Email quản trị</label>
+                                <div className="relative group">
+                                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#990000] transition-colors" size={18} />
+                                    <input 
+                                        type="email" required 
+                                        className="w-full pl-10 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#990000]/20 focus:border-[#990000] outline-none transition-all text-sm text-gray-900 font-medium placeholder-gray-400" 
+                                        placeholder="admin@domain.com" 
+                                        value={email} onChange={e => setEmail(e.target.value)} 
                                     />
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 ml-1">Mật khẩu</label>
-                                <div className="relative">
-                                    <Key className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                    <input
-                                        type="password" required
-                                        className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#990000] focus:border-[#990000] outline-none transition-all placeholder-gray-400 font-medium text-gray-900"
-                                        placeholder="••••••••"
-                                        value={password} onChange={e => setPassword(e.target.value)}
+                            <div className="space-y-1">
+                                <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider ml-1">Mật khẩu</label>
+                                <div className="relative group">
+                                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#990000] transition-colors" size={18} />
+                                    <input 
+                                        type="password" required 
+                                        className="w-full pl-10 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#990000]/20 focus:border-[#990000] outline-none transition-all text-sm text-gray-900 font-medium placeholder-gray-400" 
+                                        placeholder="••••••••" 
+                                        value={password} onChange={e => setPassword(e.target.value)} 
                                     />
                                 </div>
                             </div>
-                            <button type="submit" disabled={loading} className="w-full bg-[#990000] text-white font-bold py-3.5 rounded-xl hover:bg-[#7a0000] transition-all active:scale-95 flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:opacity-70 disabled:active:scale-100">
-                                {loading ? <Loader2 className="animate-spin" size={20} /> : 'Đăng nhập hệ thống'}
+                            <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-[#990000] to-[#7a0000] text-white font-bold py-3 rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex justify-center items-center gap-2 disabled:opacity-70 disabled:hover:translate-y-0 mt-1">
+                                {loading ? <Loader2 className="animate-spin" size={18} /> : 'Đăng nhập'}
                             </button>
                         </form>
                     ) : (
-                        <div className="space-y-5">
-                            <button
-                                type="button"
-                                onClick={handleGoogleLogin}
-                                disabled={loading}
-                                className="w-full bg-white border-2 border-gray-200 text-gray-800 font-bold py-3.5 rounded-xl hover:bg-gray-50 hover:border-blue-300 transition-all active:scale-95 flex items-center justify-center gap-3 shadow-sm group"
+                        <div className="space-y-4 animate-fadeIn">
+                            <button 
+                                type="button" 
+                                onClick={handleGoogleLogin} 
+                                disabled={loading} 
+                                className="w-full bg-white border border-gray-200 text-gray-800 font-bold py-3.5 rounded-xl hover:bg-gray-50 hover:border-blue-300 hover:shadow-md transition-all duration-200 flex justify-center items-center gap-3 group"
                             >
                                 <svg className="w-5 h-5 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
                                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -203,30 +166,31 @@ export const LoginScreen: React.FC = () => {
                                     <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.24.81-.6z" fill="#FBBC05" />
                                     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                                 </svg>
-                                {loading ? <Loader2 className="animate-spin text-gray-500" /> : 'Tiếp tục với Google'}
+                                <span className="text-sm">{loading ? 'Đang kết nối...' : 'Tiếp tục với Google'}</span>
+                                {loading && <Loader2 className="animate-spin text-gray-500 absolute right-6" size={18} />}
                             </button>
-                            <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                                <p className="text-[13px] text-gray-600 text-center leading-relaxed">
-                                    Vui lòng đảm bảo bạn chọn tài khoản email do trường ĐH Ngân Hàng cấp (<strong className="text-[#003375]">@{SCHOOL_DOMAIN}</strong>).
-                                </p>
+                            
+                            <div className="bg-blue-50/70 p-3.5 rounded-xl border border-blue-100 flex gap-2.5 items-start">
+                                <CheckCircle2 className="text-[#003375] shrink-0 mt-0.5" size={16} />
+                                <div className="text-[11px] text-gray-600 leading-relaxed">
+                                    <p className="font-bold text-[#003375] mb-0.5">Dành cho sinh viên HUB</p>
+                                    Chỉ hỗ trợ tài khoản email có đuôi <strong className="text-[#003375]">@{SCHOOL_DOMAIN}</strong>.
+                                </div>
                             </div>
                         </div>
                     )}
                 </div>
             </div>
             
-{/* Footer Text & Links */}
-            <div className="absolute bottom-6 flex flex-col items-center gap-2 text-center px-4 w-full animate-fadeIn delay-200 z-10">
-                <p className="text-xs text-gray-400 font-medium">
-                    Một sản phẩm hỗ trợ học tập dành riêng cho sinh viên HUB.
-                </p>
-                <div className="flex items-center justify-center gap-3 text-[10px] sm:text-xs font-semibold tracking-wide text-gray-400">
+            {/* Footer Links - Rút gọn khoảng cách */}
+            <div className="absolute bottom-6 flex flex-col items-center gap-1.5 w-full z-10">
+                <div className="flex items-center gap-3 text-[11px] font-semibold text-gray-500">
                     <Link to="/privacy" className="hover:text-[#003375] transition-colors">Chính sách bảo mật</Link>
-                    <span>•</span>
+                    <span className="w-1 h-1 rounded-full bg-gray-300"></span>
                     <Link to="/terms" className="hover:text-[#003375] transition-colors">Điều khoản sử dụng</Link>
                 </div>
+                <p className="text-[10px] text-gray-400">© {new Date().getFullYear()} HUB Planner. All rights reserved.</p>
             </div>
-                    
         </div>
     );
 };

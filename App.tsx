@@ -1,74 +1,31 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { UserData, Semester, STORAGE_KEY } from './types';
-// 👇 Chỉ import Dashboard, không còn SemesterTable nữa
 import { Dashboard } from './components/Dashboard'; 
 import { Onboarding } from './components/Onboarding';
 import { Handbook } from './components/Handbook';
 import { EventsBoard } from './components/EventsBoard';
 import { LostFoundBoard } from './components/LostFoundBoard';
-import { RoleSelection } from './components/RoleSelection';
 import { LoginScreen } from './components/LoginScreen';
 import { ActivityLogModal } from './components/ActivityLogModal';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfUse } from './components/TermsOfUse';
-import { AIAdvisor } from './components/AIAdvisor';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { supabase } from './utils/supabase';
-import { Link, Navigate, Route, Routes, useNavigate, useSearchParams, NavLink, useLocation } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { ImportGuideModal } from './components/ImportGuideModal';
 import { UserGuideModal } from './components/UserGuideModal';
 import ProfilePage from './pages/ProfilePage';
 import UserSearch from './components/UserSearch';
 import NotificationBell from './components/NotificationBell';
 import ScheduleBoard from './components/ScheduleBoard';
-import { LandingPage } from './components/LandingPage';
 
 import Particles from "react-particles";
 import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
-
-const LoginWrapper: React.FC<{ setRolePreference: (role: 'student' | 'admin' | 'school') => void }> = ({ setRolePreference }) => {
-    const [searchParams] = useSearchParams();
-    const role = searchParams.get('role');
-
-    useEffect(() => {
-        if (role === 'admin') {
-            setRolePreference('admin');
-        }
-
-        if (role === 'student') {
-            setRolePreference('school');
-        }
-    }, [role, setRolePreference]);
-
-    return <LoginScreen />;
-};
-
-const GuestWrapper: React.FC<{
-    userRolePref: string,
-    setRolePreference: (role: 'student' | 'admin' | 'school') => void,
-    children: React.ReactNode
-}> = ({ userRolePref, setRolePreference, children }) => {
-    useEffect(() => {
-        if (userRolePref !== 'student') {
-            setRolePreference('student');
-        }
-    }, [userRolePref, setRolePreference]);
-
-    if (userRolePref !== 'student') {
-        return (
-            <div className="h-screen flex items-center justify-center">
-                <Loader2 className="animate-spin text-[#003375]" size={40} />
-            </div>
-        );
-    }
-
-    return <>{children}</>;
-};
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
@@ -110,6 +67,10 @@ const App: React.FC = () => {
     const { isAdmin, isCTV, session, loading: loadingRole } = useUserRole();
     const navigate = useNavigate();
     const location = useLocation();
+
+    // Xác định chế độ khách
+    const isGuest = !session;
+    const [forceGuestOnboarding, setForceGuestOnboarding] = useState(false);
 
     // --- STATE CHO MENU CẨM NANG ---
     const [isHandbookMenuOpen, setIsHandbookMenuOpen] = useState(false);
@@ -153,17 +114,13 @@ const App: React.FC = () => {
         return () => window.removeEventListener('resize', updateNavIndicator);
     }, [location.pathname, isHandbookMenuOpen]);
 
-    const [userRolePref, setUserRolePref] = useState<'unknown' | 'student' | 'admin' | 'school'>(() => {
-        const savedRole = localStorage.getItem('user_role_preference');
-        return (savedRole === 'student' || savedRole === 'admin' || savedRole === 'school') ? savedRole : 'unknown';
-    });
-
     const [data, setData] = useState<UserData>(INITIAL_DATA);
     const [adminSearchMssv, setAdminSearchMssv] = useState('');
     const [viewingUser, setViewingUser] = useState<{ id: string, mssv: string, name: string } | null>(null);
     const [isSearchingUser, setIsSearchingUser] = useState(false);
     const dataOwnerIdRef = useRef<string | null>(null);
-const handleAdminSearchUser = async (e?: React.FormEvent) => {
+
+    const handleAdminSearchUser = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         if (!adminSearchMssv.trim() || !supabase) return;
         setIsSearchingUser(true);
@@ -181,9 +138,8 @@ const handleAdminSearchUser = async (e?: React.FormEvent) => {
                 setViewingUser(null);
                 dataOwnerIdRef.current = session?.user?.id || null;
             } else {
-                // 👇 CÚ CHỐT: Xóa sạch dữ liệu Admin trên màn hình về 0.0 TRƯỚC KHI tải dữ liệu sinh viên
                 setData(INITIAL_DATA);
-                dataOwnerIdRef.current = userProfile.id; // Khóa Auto-save lập tức
+                dataOwnerIdRef.current = userProfile.id; 
                 
                 setViewingUser({
                     id: userProfile.id,
@@ -199,6 +155,7 @@ const handleAdminSearchUser = async (e?: React.FormEvent) => {
             setIsSearchingUser(false);
         }
     };
+
     const [isLoaded, setIsLoaded] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const [showImportGuide, setShowImportGuide] = useState(false);
@@ -238,24 +195,23 @@ const handleAdminSearchUser = async (e?: React.FormEvent) => {
         detectRetina: true,
     }), []);
 
-const storageKey = useMemo(() => {
-        if (userRolePref === 'school' && session?.user?.id) {
+    const storageKey = useMemo(() => {
+        if (!isGuest && session?.user?.id) {
             const targetId = (isAdmin && viewingUser) ? viewingUser.id : session.user.id;
             return `${STORAGE_KEY}:${targetId}`;
         }
         return STORAGE_KEY;
-    }, [session?.user?.id, userRolePref, isAdmin, viewingUser]);
+    }, [session?.user?.id, isGuest, isAdmin, viewingUser]);
 
     const saveTimeoutRef = useRef<number | null>(null);
 
-useEffect(() => {
+    useEffect(() => {
         let isActive = true;
         setIsLoaded(false);
         if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
 
         const loadData = async () => {
-            // 👇 ĐÃ SỬA: Cho phép cả 'school' và 'admin' vượt qua chốt chặn
-            if ((userRolePref === 'school' || userRolePref === 'admin') && session?.user?.id && supabase) {
+            if (!isGuest && session?.user?.id && supabase) {
                 
                 // 1. NẾU ADMIN ĐANG XEM SINH VIÊN KHÁC
                 if (isAdmin && viewingUser) {
@@ -267,7 +223,6 @@ useEffect(() => {
 
                     if (!isActive) return;
 
-                    // Lấy điểm trên DB, nếu trống thì ép về 0.0
                     if (profileData && profileData.data) {
                         setData({ ...INITIAL_DATA, ...profileData.data });
                     } else {
@@ -276,10 +231,10 @@ useEffect(() => {
                     
                     dataOwnerIdRef.current = viewingUser.id;
                     setIsLoaded(true);
-                    return; // Dừng tại đây
+                    return; 
                 }
 
-                // 2. NẾU ĐANG TỰ XEM CHÍNH MÌNH
+                // 2. NẾU ĐANG TỰ XEM CHÍNH MÌNH (Đã Login)
                 const { data: profileData } = await supabase
                     .from(STUDENT_PROFILE_TABLE)
                     .select('data, full_name, avatar_url')
@@ -289,6 +244,7 @@ useEffect(() => {
                 if (!isActive) return;
 
                 if (profileData?.data) {
+                    // Đã có data trên DB
                     setData({ ...INITIAL_DATA, ...profileData.data });
                     setProfileFullName(profileData.full_name || ''); 
                     setProfileAvatarUrl(profileData.avatar_url || ''); 
@@ -298,12 +254,18 @@ useEffect(() => {
                     return;
                 }
 
+                // CHƯA CÓ DATA DB -> LOG IN LẦN ĐẦU -> SỬ DỤNG DATA ẨN DANH (NẾU CÓ)
                 const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
                 const metaAvatar = session.user.user_metadata.avatar_url || session.user.user_metadata.picture || '';
                 setProfileFullName(metaName);
                 setProfileAvatarUrl(metaAvatar);
                 
-                const saved = localStorage.getItem(storageKey);
+                let saved = localStorage.getItem(storageKey);
+                if (!saved) {
+                    // Lấy data guest từ key chung nếu key cá nhân chưa có
+                    saved = localStorage.getItem(STORAGE_KEY);
+                }
+
                 if (saved) {
                     try { setData({ ...INITIAL_DATA, ...JSON.parse(saved) }); } 
                     catch (e) { setData(INITIAL_DATA); }
@@ -315,12 +277,11 @@ useEffect(() => {
                 return;
             }
 
-            // Logic cho khách vãng lai
-            if (userRolePref !== 'school' && userRolePref !== 'admin') { 
-                setProfileFullName(''); 
-                setProfileAvatarUrl(''); 
-            }
-            const saved = localStorage.getItem(storageKey);
+            // Logic cho khách vãng lai (Guest)
+            setProfileFullName(''); 
+            setProfileAvatarUrl(''); 
+            
+            const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
                 try { setData({ ...INITIAL_DATA, ...JSON.parse(saved) }); } 
                 catch (e) { setData(INITIAL_DATA); }
@@ -331,32 +292,29 @@ useEffect(() => {
 
         loadData();
         return () => { isActive = false; };
-    }, [storageKey, session?.user?.id, userRolePref, isAdmin, viewingUser]);
+    }, [storageKey, session?.user?.id, isGuest, isAdmin, viewingUser]);
 
-useEffect(() => {
+    useEffect(() => {
         if (isLoaded && !viewingUser) {
             localStorage.setItem(storageKey, JSON.stringify(data));
         }
     }, [data, isLoaded, storageKey, viewingUser]);
 
-useEffect(() => {
+    useEffect(() => {
         if (!isLoaded) return;
-        // 👇 ĐÃ SỬA: Cho phép Admin vượt qua chốt chặn Auto-save
-        if ((userRolePref !== 'school' && userRolePref !== 'admin') || !session?.user?.id || !supabase) return;
+        if (isGuest || !session?.user?.id || !supabase) return;
 
         if (saveTimeoutRef.current) {
             window.clearTimeout(saveTimeoutRef.current);
         }
 
         saveTimeoutRef.current = window.setTimeout(async () => {
-            // 👇 BỨC TƯỜNG LỬA THÉP 👇
-            // Admin đang soi user khác -> CẤM TUYỆT ĐỐI AUTO-SAVE LÊN DB.
-            // Nếu Admin muốn sửa điểm cho user đó thì dùng tính năng "Nhập PDF"
+            // Admin đang soi user khác -> CẤM AUTO-SAVE LÊN DB
             if (isAdmin && viewingUser) {
                 return; 
             }
 
-            // Chỉ lưu khi Admin/Sinh viên đang tự xem bảng điểm của CHÍNH MÌNH
+            // Chỉ lưu khi đang tự xem bảng điểm của CHÍNH MÌNH
             const targetUserId = session.user.id;
             if (dataOwnerIdRef.current !== targetUserId) return;
 
@@ -389,7 +347,8 @@ useEffect(() => {
                 window.clearTimeout(saveTimeoutRef.current);
             }
         };
-    }, [data, isLoaded, session?.user?.id, userRolePref, profileFullName, profileAvatarUrl, isAdmin, viewingUser]);
+    }, [data, isLoaded, session?.user?.id, isGuest, profileFullName, profileAvatarUrl, isAdmin, viewingUser]);
+
     useEffect(() => {
         if (showAccountSettings) {
             setDraftFullName(profileFullName);
@@ -410,7 +369,7 @@ useEffect(() => {
 
     useEffect(() => {
         const ensureSchoolDomain = async () => {
-            if (userRolePref !== 'school' || !session?.user?.email) return;
+            if (isGuest || isAdmin || !session?.user?.email) return;
             const emailDomain = session.user.email.split('@')[1];
             if (emailDomain !== SCHOOL_DOMAIN) {
                 setIsAccessDenied(true);
@@ -420,35 +379,11 @@ useEffect(() => {
         };
 
         ensureSchoolDomain();
-    }, [session, userRolePref]);
-
-    const setRolePreference = useCallback((role: 'student' | 'admin' | 'school') => {
-        localStorage.setItem('user_role_preference', role);
-        setUserRolePref(role);
-    }, []);
-
-    const handleRoleSelect = (role: 'student' | 'admin' | 'school') => {
-        setRolePreference(role);
-    };
+    }, [session, isGuest, isAdmin]);
 
     const handleLogout = async () => {
-        const isGuest = userRolePref === 'student' && !session;
-        if (isGuest) {
-            localStorage.removeItem('user_role_preference');
-            setUserRolePref('unknown');
-            navigate('/');
-            return;
-        }
         playClick();
-        if (window.confirm("Đăng xuất khỏi tài khoản quản trị?")) {
-            await supabase?.auth.signOut();
-            navigate('/');
-        }
-    };
-
-    const handleSchoolLogout = async () => {
-        playClick();
-        if (window.confirm("Đăng xuất khỏi tài khoản HUB?")) {
+        if (window.confirm("Đăng xuất khỏi hệ thống?")) {
             await supabase?.auth.signOut();
             navigate('/');
         }
@@ -456,7 +391,7 @@ useEffect(() => {
 
     const handleMenuLogout = async () => {
         setIsUserMenuOpen(false);
-        await handleSchoolLogout();
+        await handleLogout();
     };
 
     const handleSaveProfile = async () => {
@@ -558,12 +493,12 @@ useEffect(() => {
 
     const resetData = async () => {
         playClick();
-        if (!window.confirm("CẢNH BÁO CỰC MẠNH: Hành động này sẽ xóa VĨNH VIỄN toàn bộ dữ liệu trên máy và máy chủ. Bạn có chắc chắn không?")) {
+        if (!window.confirm("CẢNH BÁO CỰC MẠNH: Hành động này sẽ xóa VĨNH VIỄN toàn bộ dữ liệu trên máy. Bạn có chắc chắn không?")) {
             return;
         }
 
         try {
-            if (userRolePref === 'school' && session?.user?.id && supabase) {
+            if (!isGuest && session?.user?.id && supabase) {
                 const { data: listFiles } = await supabase.storage
                     .from('avatars')
                     .list(session.user.id);
@@ -598,8 +533,6 @@ useEffect(() => {
             console.error("Lỗi khi reset:", error);
             alert("Có lỗi xảy ra. Dữ liệu có thể chưa được xóa hết.");
         } finally {
-            localStorage.removeItem('user_role_preference');
-            setUserRolePref('unknown');
             navigate('/');
             window.location.reload(); 
         }
@@ -684,7 +617,7 @@ useEffect(() => {
     const renderProtectedApp = () => {
         if (!isLoaded) return null;
 
-        if (isAccessDenied && userRolePref === 'school') {
+        if (isAccessDenied && !isAdmin) {
             return (
                 <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#F8FAFC] animate-fadeIn">
                     <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 max-w-md text-center">
@@ -699,7 +632,7 @@ useEffect(() => {
                             <p className="font-bold flex items-center gap-2 mb-1"><AlertTriangle size={16} /> Yêu cầu bắt buộc:</p>
                             <p>Vui lòng đăng nhập bằng email sinh viên trường ĐH Ngân hàng TP.HCM có đuôi tên miền là <strong>@{SCHOOL_DOMAIN}</strong></p>
                         </div>
-                        <button onClick={handleSchoolLogout} className="w-full bg-[#003375] text-white font-bold py-3 rounded-xl hover:bg-[#002855] transition-colors flex items-center justify-center gap-2 shadow-sm">
+                        <button onClick={handleLogout} className="w-full bg-[#003375] text-white font-bold py-3 rounded-xl hover:bg-[#002855] transition-colors flex items-center justify-center gap-2 shadow-sm">
                             <LogOut size={18} /> Đăng xuất & Thử lại
                         </button>
                     </div>
@@ -707,22 +640,11 @@ useEffect(() => {
             )
         }
 
-        if (userRolePref === 'unknown' && !session) {
-            return <RoleSelection onSelect={handleRoleSelect} />;
-        }
-
-        if (userRolePref === 'admin') {
-            if (loadingRole) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#003375]" size={40} /></div>;
-            if (!session) return <LoginScreen />;
-        }
-
-        if (userRolePref === 'school') {
-            if (loadingRole) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#003375]" size={40} /></div>;
-            if (!session) return <LoginScreen />;
-        }
-
-        if ((userRolePref === 'student' || userRolePref === 'school') && !data.hasOnboarded) {
-            return <Onboarding onComplete={handleOnboardingComplete} />;
+        if ((session && !data.hasOnboarded) || forceGuestOnboarding) {
+            return <Onboarding onComplete={(onboardingData) => {
+                handleOnboardingComplete(onboardingData);
+                setForceGuestOnboarding(false);
+            }} />;
         }
 
         return (
@@ -748,11 +670,11 @@ useEffect(() => {
                             </div>
                             
                             <div className="flex items-center gap-3 shrink-0 sm:hidden">
-                                {(userRolePref === 'school' && session?.user?.id) && (
+                                {(!isGuest) && (
                                     <NotificationBell currentUserId={session.user.id} />
                                 )}
                                 
-                                {userRolePref === 'school' && (
+                                {!isGuest && !isAdmin && (
                                     <button onClick={() => setIsUserMenuOpen(prev => !prev)} className="flex items-center focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
                                         {profileAvatarUrl ? (
                                             isColorAvatar ? (
@@ -765,16 +687,10 @@ useEffect(() => {
                                         )}
                                     </button>
                                 )}
-                                
-                                {userRolePref !== 'admin' && userRolePref !== 'school' && (
-                                    <button onClick={handleLogout} className="text-gray-400 hover:text-[#003375] transition-colors" title="Thoát">
-                                        <Shield size={18} />
-                                    </button>
-                                )}
                             </div>
                         </div>
 
-                        {(userRolePref === 'school' || userRolePref === 'student') && (
+                        {(!isGuest) && (
                             <div className="hidden md:block flex-1 max-w-sm">
                                 <UserSearch />
                             </div>
@@ -888,55 +804,54 @@ useEffect(() => {
                             />
                         </nav>
 
- <div className="hidden sm:flex items-center gap-3 shrink-0 lg:pl-4 lg:border-l border-gray-200">
-        {isAdmin && (
-        <form onSubmit={handleAdminSearchUser} className="flex items-center gap-2 mr-2 bg-purple-50 p-1 rounded-lg border border-purple-200 shadow-inner">
-            <div className="relative">
-                <input 
-                    type="text" 
-                    placeholder="Admin: Tìm MSSV..." 
-                    value={adminSearchMssv}
-                    onChange={(e) => setAdminSearchMssv(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 text-xs w-40 rounded-md border border-purple-200 outline-none focus:ring-1 focus:ring-purple-500 bg-white"
-                />
-                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-400" />
-            </div>
-{viewingUser ? (
-                <button type="button" onClick={() => { 
-                    setViewingUser(null); 
-                    setAdminSearchMssv(''); 
-                    setData(INITIAL_DATA); // 👈 THÊM DÒNG NÀY ĐỂ ÉP RESET VỀ ĐIỂM ADMIN
-                    playClick(); 
-                }} className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-md hover:bg-red-600 transition-colors whitespace-nowrap">
-                    Thoát Xem
-                </button>
-            ) : (
-                <button type="submit" disabled={isSearchingUser} className="px-3 py-1.5 bg-purple-600 text-white text-xs font-bold rounded-md hover:bg-purple-700 transition-colors whitespace-nowrap">
-                    {isSearchingUser ? '...' : 'Xem'}
-                </button>
-            )}
-        </form>
-    )}
-    <button onClick={() => { playClick(); setShowGuide(true); }} className="text-gray-400 hover:text-gray-900 transition-colors hidden sm:block" title="Hướng dẫn">
+                        <div className="hidden sm:flex items-center gap-3 shrink-0 lg:pl-4 lg:border-l border-gray-200">
+                            {isAdmin && (
+                            <form onSubmit={handleAdminSearchUser} className="flex items-center gap-2 mr-2 bg-purple-50 p-1 rounded-lg border border-purple-200 shadow-inner">
+                                <div className="relative">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Admin: Tìm MSSV..." 
+                                        value={adminSearchMssv}
+                                        onChange={(e) => setAdminSearchMssv(e.target.value)}
+                                        className="pl-8 pr-3 py-1.5 text-xs w-40 rounded-md border border-purple-200 outline-none focus:ring-1 focus:ring-purple-500 bg-white"
+                                    />
+                                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-400" />
+                                </div>
+                                {viewingUser ? (
+                                    <button type="button" onClick={() => { 
+                                        setViewingUser(null); 
+                                        setAdminSearchMssv(''); 
+                                        setData(INITIAL_DATA); 
+                                        playClick(); 
+                                    }} className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-md hover:bg-red-600 transition-colors whitespace-nowrap">
+                                        Thoát Xem
+                                    </button>
+                                ) : (
+                                    <button type="submit" disabled={isSearchingUser} className="px-3 py-1.5 bg-purple-600 text-white text-xs font-bold rounded-md hover:bg-purple-700 transition-colors whitespace-nowrap">
+                                        {isSearchingUser ? '...' : 'Xem'}
+                                    </button>
+                                )}
+                            </form>
+                            )}
+
+                            <button onClick={() => { playClick(); setShowGuide(true); }} className="text-gray-400 hover:text-gray-900 transition-colors hidden sm:block" title="Hướng dẫn">
                                 <HelpCircle size={18} />
                             </button>
                             
-                            {(userRolePref === 'school' && session?.user?.id) && (
+                            {!isGuest && (
                                 <NotificationBell currentUserId={session.user.id} />
                             )}
                             
-                            {userRolePref === 'admin' ? (
+                            {isAdmin ? (
                                 <div className="flex items-center gap-3 border-l border-gray-200 pl-3">
-                                    {isAdmin && (
-                                        <button onClick={() => { playClick(); setShowActivityLog(true); }} className="text-gray-400 hover:text-[#003375] transition-colors" title="Lịch sử hoạt động">
-                                            <Clock size={18} />
-                                        </button>
-                                    )}
+                                    <button onClick={() => { playClick(); setShowActivityLog(true); }} className="text-gray-400 hover:text-[#003375] transition-colors" title="Lịch sử hoạt động">
+                                        <Clock size={18} />
+                                    </button>
                                     <button onClick={handleLogout} className="text-gray-400 hover:text-red-600 transition-colors" title="Đăng xuất">
                                         <LogOut size={18} />
                                     </button>
                                 </div>
-                            ) : userRolePref === 'school' ? (
+                            ) : session ? (
                                 <div className="relative flex items-center gap-3">
                                     <div className="hidden lg:flex flex-col items-end justify-center">
                                         <span className="text-xs font-bold text-gray-700 uppercase tracking-wide leading-none">{displayName}</span>
@@ -962,17 +877,16 @@ useEffect(() => {
                                         </div>
                                     )}
                                 </div>
-) : (
-                                // 👇 NÚT LÀM MỚI VÀ NÚT THOÁT CHO TÀI KHOẢN ẨN DANH 👇
+                            ) : (
                                 <div className="flex items-center gap-1.5 border-l border-gray-200 pl-2">
                                     <button onClick={resetData} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors" title="Xóa dữ liệu dùng thử">
                                         <RotateCcw size={16} />
                                         <span className="text-xs font-bold hidden md:block">Reset dữ liệu</span>
                                     </button>
-                                    <button onClick={handleLogout} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-[#003375] hover:bg-blue-50 transition-colors" title="Thoát chế độ ẩn danh">
-                                        <LogOut size={16} />
-                                        <span className="text-xs font-bold hidden md:block">Thoát</span>
-                                    </button>
+                                    <Link to="/login" onClick={playClick} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#003375] text-white hover:bg-[#002855] transition-colors shadow-sm">
+                                        <User size={16} />
+                                        <span className="text-xs font-bold hidden md:block">Đăng nhập</span>
+                                    </Link>
                                 </div>
                             )}
                         </div>
@@ -980,15 +894,17 @@ useEffect(() => {
                 </header>
 
                 <div className="flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10">
-<main className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-2 sm:pt-3 min-h-full flex flex-col">                        <div className="flex-1">
+                    <main className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-2 sm:pt-3 min-h-full flex flex-col">
+                        <div className="flex-1">
                             <Routes>
                                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                                 
-                                {/* 👇 ROUTE DASHBOARD ĐÃ ĐƯỢC DỌN DẸP SẠCH SẼ VÀ KẾT NỐI HÀM 👇 */}
                                 <Route path="/dashboard" element={
                                     <div className="animate-fadeIn">
                                         <Dashboard
                                             data={data}
+                                            isGuest={isGuest}
+                                            onRequireOnboarding={() => setForceGuestOnboarding(true)}
                                             onTargetChange={(newTarget) => setData(prev => ({ ...prev, targetGPA: newTarget }))}
                                             showSecurityNotice={!session}
                                             onUpdateSemester={updateSemester} 
@@ -1035,10 +951,6 @@ useEffect(() => {
                     </a>
                 </div>
 
-                {/* {(userRolePref === 'student' || userRolePref === 'school') && (
-                    <AIAdvisor data={data} />
-                )} */}
-
                 {showImportLoadingToast && (
                     <div className="fixed bottom-6 right-6 bg-white shadow-xl p-4 rounded-xl border border-gray-200 flex items-start gap-3 z-[100] animate-slideInRight max-w-xs">
                         <Loader2 className="animate-spin text-[#003375] shrink-0 mt-0.5" />
@@ -1048,23 +960,24 @@ useEffect(() => {
                     </div>
                 )}
 
-{showImportGuide && (
-    <ImportGuideModal 
-        onClose={() => setShowImportGuide(false)} 
-        onFileClick={() => fileInputRef.current?.click()} 
-        onFileDrop={(file) => {
-            setShowImportGuide(false); 
-            if (fileInputRef.current) {
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                fileInputRef.current.files = dataTransfer.files;
+                {showImportGuide && (
+                    <ImportGuideModal 
+                        onClose={() => setShowImportGuide(false)} 
+                        onFileClick={() => fileInputRef.current?.click()} 
+                        onFileDrop={(file) => {
+                            setShowImportGuide(false); 
+                            if (fileInputRef.current) {
+                                const dataTransfer = new DataTransfer();
+                                dataTransfer.items.add(file);
+                                fileInputRef.current.files = dataTransfer.files;
+                                
+                                const event = new Event('change', { bubbles: true });
+                                fileInputRef.current.dispatchEvent(event);
+                            }
+                        }}
+                    />
+                )}
                 
-                const event = new Event('change', { bubbles: true });
-                fileInputRef.current.dispatchEvent(event);
-            }
-        }}
-    />
-)}
                 {showGuide && <UserGuideModal onClose={() => setShowGuide(false)} />}
                 {showActivityLog && <ActivityLogModal onClose={() => setShowActivityLog(false)} />}
                 
@@ -1120,23 +1033,15 @@ useEffect(() => {
         );
     };
 
-return (
+    return (
         <Routes>
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfUse />} />
-            <Route path="/login" element={<LoginWrapper setRolePreference={setRolePreference} />} />
-            <Route path="/role" element={<RoleSelection onSelect={handleRoleSelect} />} />
-            <Route path="/guest" element={<GuestWrapper userRolePref={userRolePref} setRolePreference={setRolePreference}>{renderProtectedApp()}</GuestWrapper>} />
+            <Route path="/login" element={<LoginScreen />} />
             
-            {/* 👇 ĐÃ SỬA LẠI LOGIC CHỖ NÀY 👇 */}
-            <Route path="/" element={
-                (session || userRolePref === 'student') 
-                    ? <Navigate to="/dashboard" replace /> 
-                    : <LandingPage />
-            } />
-            {/* 👆 ĐÃ SỬA LẠI LOGIC CHỖ NÀY 👆 */}
-
-            <Route path="/*" element={(session || userRolePref === 'student') ? renderProtectedApp() : <Navigate to="/" replace />} />
+            {/* Vào thẳng web luôn */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/*" element={renderProtectedApp()} />
         </Routes>
     );
 };

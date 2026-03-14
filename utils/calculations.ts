@@ -65,8 +65,16 @@ export const calculateSemesterStats = (subjects: Subject[]) => {
 const rawGPA4 = totalCredits > 0 ? totalScore4 / totalCredits : 0;
 
   // Thêm Number.EPSILON vào các dòng làm tròn
-const gpa10 = totalCredits > 0 ? Math.round(((totalScore10 / totalCredits) + 0.000001) * 10) / 10 : 0;
-  const gpa4 = totalCredits > 0 ? Math.round((rawGPA4 + 0.000001) * 10) / 10 : 0;
+let gpa10 = 0;
+  let gpa4 = 0;
+  if (totalCredits > 0) {
+      const raw10 = totalScore10 / totalCredits;
+      const step1_10 = Math.round((raw10 + 0.000001) * 100) / 100;
+      gpa10 = Math.round((step1_10 + 0.000001) * 10) / 10;
+
+      const step1_4 = Math.round((rawGPA4 + 0.000001) * 100) / 100;
+      gpa4 = Math.round((step1_4 + 0.000001) * 10) / 10;
+  }
 
   return {
     gpa10,
