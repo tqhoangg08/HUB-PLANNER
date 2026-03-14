@@ -169,6 +169,9 @@ const App: React.FC = () => {
     const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
     const [draftFullName, setDraftFullName] = useState('');
     const [draftAvatarUrl, setDraftAvatarUrl] = useState('');
+    const [draftStudentName, setDraftStudentName] = useState('');
+    const [draftCohort, setDraftCohort] = useState('');
+    const [draftMajor, setDraftMajor] = useState('');
     const [draftAvatarFile, setDraftAvatarFile] = useState<File | null>(null);
     const [draftAvatarPreview, setDraftAvatarPreview] = useState('');
     const [profileSaving, setProfileSaving] = useState(false);
@@ -357,8 +360,11 @@ const App: React.FC = () => {
             setDraftAvatarFile(null);
             setDraftAvatarPreview('');
             setProfileError(null);
+            setDraftStudentName(data.studentName || '');
+            setDraftCohort(data.cohort || '');
+            setDraftMajor(data.majorName || '');
         }
-    }, [showAccountSettings, profileFullName, profileAvatarUrl]);
+    }, [showAccountSettings, profileFullName, profileAvatarUrl, data]);
 
     useEffect(() => {
         return () => {
@@ -555,6 +561,15 @@ const App: React.FC = () => {
             URL.revokeObjectURL(draftAvatarPreview);
             setDraftAvatarPreview('');
         }
+        setData(prev => ({
+            ...prev,
+            studentName: draftStudentName.trim(),
+            cohort: draftCohort.trim(),
+            majorName: draftMajor.trim()
+        }));
+
+        setProfileSaving(false);
+        setShowAccountSettings(false);
         setProfileSaving(false);
         setShowAccountSettings(false);
     };
@@ -1123,47 +1138,68 @@ onChange={e => {
 
                 {showAccountSettings && (
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-fadeIn">
-                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-scaleIn border border-gray-200">
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn border border-gray-200">
                             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                                <h3 className="font-bold text-gray-900 text-base">Cài đặt tài khoản</h3>
+                                <h3 className="font-bold text-gray-900 text-base">Cài đặt thông tin</h3>
                                 <button onClick={() => setShowAccountSettings(false)} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors"><X size={18} /></button>
                             </div>
-                            <div className="p-5 space-y-5">
+                            <div className="p-5 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
                                 {profileError && (
                                     <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100">
                                         {profileError}
                                     </div>
                                 )}
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Tên hiển thị</label>
-                                    <input type="text" value={draftFullName} onChange={(e) => setDraftFullName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="Nhập tên..." />
+                                
+                                {/* Section 1: Thông tin hiển thị */}
+                                <div>
+                                    <h4 className="text-xs font-black text-[#003375] uppercase tracking-wider mb-3 border-b border-gray-100 pb-1">1. Thông tin hiển thị</h4>
+                                    <div className="space-y-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-bold text-gray-500">Tên hiển thị (Góc phải)</label>
+                                            <input type="text" value={draftFullName} onChange={(e) => setDraftFullName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="Nhập tên..." />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold text-gray-500">Màu Avatar</label>
+                                            <div className="flex gap-3">
+                                                {avatarColors.map((color) => (
+                                                    <button
+                                                        key={color}
+                                                        type="button"
+                                                        onClick={() => setDraftAvatarUrl(color)}
+                                                        className={`h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 ${draftAvatarUrl === color ? 'border-gray-900 scale-110' : 'border-transparent'}`}
+                                                        style={{ backgroundColor: color }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Màu Avatar</label>
-                                    <div className="flex gap-3">
-                                        {avatarColors.map((color) => (
-                                            <button
-                                                key={color}
-                                                type="button"
-                                                onClick={() => {
-                                                    if (draftAvatarPreview) {
-                                                        URL.revokeObjectURL(draftAvatarPreview);
-                                                        setDraftAvatarPreview('');
-                                                    }
-                                                    setDraftAvatarFile(null);
-                                                    setDraftAvatarUrl(color);
-                                                }}
-                                                className={`h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 ${draftAvatarUrl === color ? 'border-gray-900 scale-110' : 'border-transparent'}`}
-                                                style={{ backgroundColor: color }}
-                                            />
-                                        ))}
+
+                                {/* Section 2: Thông tin học tập */}
+                                <div>
+                                    <h4 className="text-xs font-black text-[#003375] uppercase tracking-wider mb-3 border-b border-gray-100 pb-1">2. Thông tin lộ trình</h4>
+                                    <div className="space-y-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-bold text-gray-500">Tên sinh viên</label>
+                                            <input type="text" value={draftStudentName} onChange={(e) => setDraftStudentName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="Ví dụ: Nguyễn Văn A..." />
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <div className="space-y-1.5 flex-1">
+                                                <label className="text-xs font-bold text-gray-500">Khóa</label>
+                                                <input type="text" value={draftCohort} onChange={(e) => setDraftCohort(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="VD: K39" />
+                                            </div>
+                                            <div className="space-y-1.5 flex-[2]">
+                                                <label className="text-xs font-bold text-gray-500">Ngành học</label>
+                                                <input type="text" value={draftMajor} onChange={(e) => setDraftMajor(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="VD: Kinh doanh quốc tế" />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-2">
+                            <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-2 shrink-0">
                                 <button onClick={() => setShowAccountSettings(false)} className="flex-1 py-2 rounded-lg border border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-100 transition-colors">Hủy</button>
-                                <button onClick={handleSaveProfile} disabled={profileSaving} className="flex-1 py-2 rounded-lg bg-[#003375] text-white font-bold text-sm hover:bg-[#002855] transition-colors flex items-center justify-center gap-2">
-                                    {profileSaving ? <Loader2 className="animate-spin" size={14} /> : null} Lưu thay đổi
+                                <button onClick={handleSaveProfile} disabled={profileSaving} className="flex-[2] py-2 rounded-lg bg-[#003375] text-white font-bold text-sm hover:bg-[#002855] transition-colors flex items-center justify-center gap-2">
+                                    {profileSaving ? <Loader2 className="animate-spin" size={14} /> : null} Lưu thông tin
                                 </button>
                             </div>
                         </div>
