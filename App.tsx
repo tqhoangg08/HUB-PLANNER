@@ -431,17 +431,25 @@ const App: React.FC = () => {
         setIsSendingOtp(true);
         setOtpError('');
         try {
+            // Tạo mã OTP 6 số ngẫu nhiên
             const otp = Math.floor(100000 + Math.random() * 900000).toString();
             setGeneratedOtp(otp);
 
+            // Tính thời gian 15 phút sau để báo trong mail
+            const expireTime = new Date();
+            expireTime.setMinutes(expireTime.getMinutes() + 15);
+            const timeString = expireTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+            // GỌI API GỬI MAIL CỦA EMAILJS
             await emailjs.send(
-                'service_abcd123',     // THAY BẰNG SERVICE ID CỦA BẠN
-                'template_mjds19l',    // THAY BẰNG TEMPLATE ID CỦA BẠN
+                'service_abcd123',     // 🔴 Giữ nguyên Service ID của bạn
+                'template_mjds19l',    // 🔴 Giữ nguyên Template ID của bạn
                 {
-                    user_email: session?.user?.email,
-                    otp_code: otp,
+                    user_email: session?.user?.email, // Biến này để bỏ vào ô "To Email" trên EmailJS
+                    passcode: otp,                    // Khớp với chữ {{passcode}} trong template của bạn
+                    time: timeString                  // Khớp với chữ {{time}} trong template của bạn
                 },
-                'jY2D7qRBppKz4TKFq'      // THAY BẰNG PUBLIC KEY CỦA BẠN
+                'jY2D7qRBppKz4TKFq'      // 🔴 Giữ nguyên Public Key của bạn
             );
 
             setResetStep(2);
