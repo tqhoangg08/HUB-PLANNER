@@ -22,11 +22,9 @@ import ProfilePage from './pages/ProfilePage';
 import UserSearch from './components/UserSearch';
 import NotificationBell from './components/NotificationBell';
 import ScheduleBoard from './components/ScheduleBoard';
-
 import Particles from "react-particles";
 import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
-import emailjs from '@emailjs/browser';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
@@ -431,28 +429,37 @@ const App: React.FC = () => {
         setIsSendingOtp(true);
         setOtpError('');
         try {
-            // Tạo mã OTP 6 số ngẫu nhiên
+            // Tạo mã OTP 6 số
             const otp = Math.floor(100000 + Math.random() * 900000).toString();
             setGeneratedOtp(otp);
 
-            // Tính thời gian 15 phút sau để báo trong mail
             const expireTime = new Date();
             expireTime.setMinutes(expireTime.getMinutes() + 15);
             const timeString = expireTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
-            // GỌI API GỬI MAIL CỦA EMAILJS
-            await emailjs.send(
-                'service_abcd123',     // 🔴 Giữ nguyên Service ID của bạn
-                'template_mjds19l',    // 🔴 Giữ nguyên Template ID của bạn
-                {
-                    email: session?.user?.email, // Biến này để bỏ vào ô "To Email" trên EmailJS
-                    passcode: otp,                    // Khớp với chữ {{passcode}} trong template của bạn
-                    time: timeString                  // Khớp với chữ {{time}} trong template của bạn
-                },
-                'jY2D7qRBppKz4TKFq'      // 🔴 Giữ nguyên Public Key của bạn
-            );
+            // 🔴 DÁN CÁI LINK GOOGLE SCRIPT BẠN COPY Ở BƯỚC 2 VÀO ĐÂY
+            const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwaK82dfCEA7Qq4XufD_98dpaTS2C5KSLLzUxL_7FNt8x9jpyqfdZVqop1Efqf1TqLpGA/exec'; 
 
-            setResetStep(2);
+            // Gọi API bằng Fetch (Chuẩn của trình duyệt)
+            const response = await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                // Mẹo cực hay: Dùng text/plain để né lỗi CORS của trình duyệt khi gọi API Google
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    email: session?.user?.email,
+                    passcode: otp,
+                    time: timeString
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.status === 'success') {
+                setResetStep(2);
+            } else {
+                throw new Error("Lỗi từ Google Script");
+            }
+
         } catch (error) {
             console.error('Lỗi gửi mail:', error);
             setOtpError('Hệ thống mail đang bận. Vui lòng thử lại sau.');
