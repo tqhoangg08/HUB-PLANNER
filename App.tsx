@@ -445,7 +445,7 @@ const App: React.FC = () => {
                 'service_abcd123',     // 🔴 Giữ nguyên Service ID của bạn
                 'template_mjds19l',    // 🔴 Giữ nguyên Template ID của bạn
                 {
-                    user_email: session?.user?.email, // Biến này để bỏ vào ô "To Email" trên EmailJS
+                    email: session?.user?.email,, // Biến này để bỏ vào ô "To Email" trên EmailJS
                     passcode: otp,                    // Khớp với chữ {{passcode}} trong template của bạn
                     time: timeString                  // Khớp với chữ {{time}} trong template của bạn
                 },
