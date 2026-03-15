@@ -9,7 +9,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { ActivityLogModal } from './components/ActivityLogModal';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfUse } from './components/TermsOfUse';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, KeyRound, ArrowLeft } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, KeyRound, ArrowLeft, HeartCrack } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
@@ -192,19 +192,23 @@ const App: React.FC = () => {
 
     // --- STATES CHO RESET OTP ---
     const [showResetModal, setShowResetModal] = useState(false);
-    const [resetStep, setResetStep] = useState<1 | 2>(1);
+    const [resetStep, setResetStep] = useState<1 | 2 | 3 | 4>(1); 
     const [generatedOtp, setGeneratedOtp] = useState('');
     const [otpInput, setOtpInput] = useState('');
     const [isSendingOtp, setIsSendingOtp] = useState(false);
     const [otpError, setOtpError] = useState('');
+    
+    // --- TIMER ĐẾM NGƯỢC ---
     const [resendCountdown, setResendCountdown] = useState(0);
-useEffect(() => {
+
+    useEffect(() => {
         let timer: ReturnType<typeof setTimeout>;
         if (resendCountdown > 0) {
             timer = setTimeout(() => setResendCountdown(prev => prev - 1), 1000);
         }
         return () => clearTimeout(timer);
     }, [resendCountdown]);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const particlesInit = useCallback(async (engine: Engine) => {
@@ -465,7 +469,7 @@ useEffect(() => {
             }
         } else {
             setShowResetModal(true);
-            setResetStep(1);
+            setResetStep(1); // Bắt đầu từ Màn hình níu kéo
             setOtpInput('');
             setOtpError('');
             setIsUserMenuOpen(false);
@@ -499,11 +503,9 @@ useEffect(() => {
                 throw new Error("Lỗi từ máy chủ Backend");
             }
 
-            setResetStep(2);
+            setResetStep(3); // Bước 3 là nhập mã OTP
             setOtpInput(''); // Reset ô nhập khi gửi lại mã
-            
-            // THÊM DÒNG NÀY: Bắt đầu đếm ngược 5 phút (300 giây)
-            setResendCountdown(300);
+            setResendCountdown(300); // 300 giây đếm ngược chống spam
 
         } catch (error) {
             console.error('Lỗi gửi mail:', error);
@@ -516,7 +518,9 @@ useEffect(() => {
     const verifyOtpAndReset = () => {
         playClick();
         if (otpInput === generatedOtp) {
-            executeResetData();
+            setOtpError('');
+            setResetStep(4); // Chuyển sang Bước 4 (Tạm biệt)
+            executeResetData(); // Chạy ngầm dọn dẹp
         } else {
             setOtpError('Mã xác nhận không chính xác!');
         }
@@ -525,37 +529,35 @@ useEffect(() => {
     const executeResetData = async () => {
         try {
             if (!isGuest && session?.user?.id && supabase) {
-                // 1. Xóa Avatar trên Storage
+                // 1. Xóa Avatar
                 const { data: listFiles } = await supabase.storage.from('avatars').list(session.user.id);
                 if (listFiles && listFiles.length > 0) {
                     const filesToRemove = listFiles.map(x => `${session.user.id}/${x.name}`);
                     await supabase.storage.from('avatars').remove(filesToRemove);
                 }
 
-                // 2. DỌN DẸP DỮ LIỆU Ở CÁC BẢNG KHÁC
-                // ⚠️ LƯU Ý: Bạn hãy kiểm tra lại xem tên các bảng này đã ĐÚNG với tên bảng thật trong Database Supabase của bạn chưa nhé (Ví dụ: 'schedules', 'events')!
+                // 2. Dọn bảng phụ (schedules, events)
                 await supabase.from('schedules').delete().eq('user_id', session.user.id);
                 await supabase.from('events').delete().eq('user_id', session.user.id);
-                // Nếu bạn có thêm bảng nào khác lưu dữ liệu của user, hãy copy thêm 1 dòng tương tự ở đây...
 
-                // 3. Xóa bảng Profile
+                // 3. Xóa Profile
                 const { error: dbError } = await supabase.from(STUDENT_PROFILE_TABLE).delete().eq('id', session.user.id);
                 if (dbError) {
                     console.error("Không thể dọn dẹp bảng profiles:", dbError);
                 }
 
-                // 4. BẤM NÚT HỦY DIỆT: Xóa tận gốc User ID khỏi hệ thống Authentication
+                // 4. Xóa tài khoản gốc
                 await supabase.rpc('delete_my_account');
             }
-            
-            // 5. Xóa sạch bộ nhớ cục bộ và đăng xuất
+
+            // Đợi 3 giây để user kịp nhìn thấy màn hình "Tạm biệt"
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
             setData(INITIAL_DATA);
             localStorage.clear();
             if (supabase) await supabase.auth.signOut();
-            
         } catch (error) {
-            console.error("Lỗi hệ thống khi reset:", error);
-            alert("Đã xảy ra lỗi khi xóa dữ liệu. Vui lòng kiểm tra lại kết nối mạng!");
+            console.error("Lỗi khi reset:", error);
         } finally {
             window.location.href = '/';
         }
@@ -1136,8 +1138,30 @@ useEffect(() => {
                 {showResetModal && (
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-fadeIn">
                         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn border border-gray-200">
+                            
                             {resetStep === 1 ? (
-                                <>
+                                <div className="p-8 sm:p-10 animate-fadeIn text-center relative">
+                                    <button onClick={() => setShowResetModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-full p-1.5 transition-colors"><X size={18} /></button>
+                                    <div className="w-20 h-20 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-6">
+                                        <HeartCrack size={40} />
+                                    </div>
+                                    <h3 className="text-2xl font-black text-gray-900 mb-3">Khoan đã... 🥺</h3>
+                                    <p className="text-gray-600 text-sm leading-relaxed mb-8 px-2">
+                                        Bạn đã dành rất nhiều thời gian để xây dựng lộ trình học tập trên HUB Planner. Nếu xóa tài khoản, <strong className="text-red-600">toàn bộ dữ liệu, bảng điểm và sự kiện</strong> sẽ biến mất vĩnh viễn.
+                                        <br/><br/>
+                                        Thay vì xóa, bạn có muốn tạm thời <strong>Đăng xuất</strong> để nghỉ ngơi không?
+                                    </p>
+                                    <div className="flex flex-col gap-3">
+                                        <button onClick={() => setShowResetModal(false)} className="w-full py-3.5 bg-[#003375] text-white font-bold rounded-xl hover:bg-[#002855] transition-all shadow-md active:scale-95 flex items-center justify-center gap-2">
+                                            Thôi, mình ở lại! 💙
+                                        </button>
+                                        <button onClick={() => setResetStep(2)} className="w-full py-3 bg-transparent text-gray-500 font-bold rounded-xl hover:bg-gray-50 hover:text-red-600 transition-all text-sm">
+                                            Mình đã quyết định, tiếp tục xóa
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : resetStep === 2 ? (
+                                <div className="animate-slideInRight">
                                     <div className="bg-red-50 p-6 flex flex-col items-center text-center border-b border-red-100 relative">
                                         <button onClick={() => setShowResetModal(false)} className="absolute top-4 right-4 text-red-400 hover:text-red-600 bg-white rounded-full p-1 transition-colors"><X size={18} /></button>
                                         <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-sm mb-3 text-red-600 border border-red-100">
@@ -1148,26 +1172,31 @@ useEffect(() => {
                                     </div>
                                     
                                     <div className="p-6">
-                                        <div className="space-y-4 animate-fadeIn">
+                                        <div className="space-y-4">
                                             <p className="text-sm text-gray-600 text-center leading-relaxed">
-                                                Toàn bộ bảng điểm, môn học và thông tin cá nhân của bạn trên hệ thống sẽ bị xóa vĩnh viễn. Để đảm bảo an toàn, chúng tôi sẽ gửi một mã xác nhận đến email:
+                                                Để đảm bảo an toàn, chúng tôi sẽ gửi một mã xác nhận đến email:
                                             </p>
                                             <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 text-center font-bold text-[#003375]">
                                                 {session?.user.email}
                                             </div>
                                             {otpError && <p className="text-xs text-red-500 text-center font-bold">{otpError}</p>}
-                                            <button onClick={sendOtpEmail} disabled={isSendingOtp} className="w-full mt-2 bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70">
-                                                {isSendingOtp ? <Loader2 className="animate-spin" size={18} /> : <Mail size={18} />} 
-                                                {isSendingOtp ? 'Đang gửi mã...' : 'Gửi mã xác nhận'}
-                                            </button>
+                                            
+                                            <div className="flex flex-col gap-2 mt-4">
+                                                <button onClick={sendOtpEmail} disabled={isSendingOtp} className="w-full bg-red-600 text-white font-bold py-3.5 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-md">
+                                                    {isSendingOtp ? <Loader2 className="animate-spin" size={18} /> : <Mail size={18} />} 
+                                                    {isSendingOtp ? 'Đang gửi mã...' : 'Xác nhận gửi mã'}
+                                                </button>
+                                                <button onClick={() => setResetStep(1)} className="w-full py-3 text-sm text-gray-500 font-bold hover:text-gray-900 transition-colors">
+                                                    Quay lại
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </>
-                            ) : (
+                                </div>
+                            ) : resetStep === 3 ? (
                                 <div className="relative p-6 sm:p-8 animate-slideInRight">
                                     <button onClick={() => setShowResetModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-full p-1.5 transition-colors"><X size={18} /></button>
                                     <div className="flex flex-col items-center">
-                                        {/* 1. Khu vực Logo & Tiêu đề */}
                                         <div className="flex flex-col items-center justify-center mb-6">
                                             <div className="h-14 w-14 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center mb-4">
                                                 <img src="/logo.png" alt="HUB Logo" className="h-10 w-10 object-contain" />
@@ -1179,7 +1208,6 @@ useEffect(() => {
                                             </p>
                                         </div>
 
-                                        {/* 2. Khu vực 6 Ô nhập OTP */}
                                         <div className="flex justify-center gap-2 sm:gap-3 mb-2 w-full px-1">
                                             {[...Array(6)].map((_, index) => (
                                                 <input
@@ -1195,13 +1223,11 @@ useEffect(() => {
                                                         setOtpInput(newOtp.join(''));
                                                         setOtpError('');
 
-                                                        // Tự động nhảy sang ô tiếp theo
                                                         if (value && index < 5) {
                                                             document.getElementById(`otp-input-${index + 1}`)?.focus();
                                                         }
                                                     }}
                                                     onKeyDown={(e) => {
-                                                        // Nhấn Backspace tự động lùi về ô trước
                                                         if (e.key === 'Backspace' && !otpInput[index] && index > 0) {
                                                             document.getElementById(`otp-input-${index - 1}`)?.focus();
                                                         }
@@ -1212,21 +1238,18 @@ useEffect(() => {
                                             ))}
                                         </div>
                                         
-                                        {/* Hiển thị lỗi nếu nhập sai */}
                                         <div className="h-6 mt-1 mb-4 w-full">
                                             {otpError && <p className="text-xs text-red-600 font-bold animate-shake text-center">{otpError}</p>}
                                         </div>
 
-                                        {/* 3. Nút Xác nhận */}
                                         <button 
                                             onClick={verifyOtpAndReset} 
                                             disabled={otpInput.length !== 6} 
                                             className="w-full py-3.5 bg-[#003375] text-white font-bold rounded-xl hover:bg-[#002855] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-md hover:shadow-lg mb-6 flex items-center justify-center gap-2 active:scale-[0.98]"
                                         >
-                                            Xác nhận 
+                                            Xác nhận xóa vĩnh viễn
                                         </button>
 
-                                        {/* 4. Các link đính kèm (Gửi lại mã / Trở về) */}
                                         <div className="flex flex-col items-center gap-5 w-full border-t border-gray-100 pt-5">
                                             <p className="text-sm text-gray-500">
                                                 Bạn chưa nhận được mã?{' '}
@@ -1246,19 +1269,34 @@ useEffect(() => {
                                             
                                             <button 
                                                 onClick={() => {
-                                                    setResetStep(1);
+                                                    setResetStep(2); 
                                                     setOtpInput('');
                                                     setOtpError('');
-                                                    // Lưu ý: Cố tình KHÔNG reset bộ đếm ở đây để user không thể "lách luật" spam bằng cách bấm Trở về
                                                 }} 
                                                 className="text-sm text-gray-500 font-semibold hover:text-gray-900 transition-colors flex items-center gap-1.5"
                                             >
-                                                <ArrowLeft size={16} /> Trở về
+                                                <ArrowLeft size={16} /> Quay lại
                                             </button>
                                         </div>
                                     </div>
                                 </div>
+                            ) : (
+                                <div className="p-8 sm:p-12 animate-scaleIn flex flex-col items-center justify-center text-center">
+                                    <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mb-6 animate-bounce">
+                                        <span className="text-5xl">👋</span>
+                                    </div>
+                                    <h3 className="text-2xl font-black text-[#003375] mb-4">Tạm biệt bạn nhé!</h3>
+                                    <p className="text-gray-600 text-sm leading-relaxed mb-8 px-2">
+                                        Dữ liệu của bạn trên hệ thống đã được xóa sạch hoàn toàn. <br/><br/>
+                                        Cảm ơn bạn đã tin tưởng và đồng hành cùng <strong>HUB Planner</strong>. Chúc bạn luôn thành công và rạng rỡ trên con đường học tập tại giảng đường đại học!
+                                    </p>
+                                    <div className="flex items-center justify-center gap-2 text-xs font-bold text-gray-400 bg-gray-50 px-4 py-2 rounded-full">
+                                        <Loader2 className="animate-spin text-[#003375]" size={14} />
+                                        Đang đưa bạn về trang chủ...
+                                    </div>
+                                </div>
                             )}
+
                         </div>
                     </div>
                 )}
