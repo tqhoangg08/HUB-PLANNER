@@ -525,22 +525,37 @@ useEffect(() => {
     const executeResetData = async () => {
         try {
             if (!isGuest && session?.user?.id && supabase) {
+                // 1. Xóa Avatar trên Storage
                 const { data: listFiles } = await supabase.storage.from('avatars').list(session.user.id);
                 if (listFiles && listFiles.length > 0) {
                     const filesToRemove = listFiles.map(x => `${session.user.id}/${x.name}`);
                     await supabase.storage.from('avatars').remove(filesToRemove);
                 }
+
+                // 2. DỌN DẸP DỮ LIỆU Ở CÁC BẢNG KHÁC
+                // ⚠️ LƯU Ý: Bạn hãy kiểm tra lại xem tên các bảng này đã ĐÚNG với tên bảng thật trong Database Supabase của bạn chưa nhé (Ví dụ: 'schedules', 'events')!
+                await supabase.from('schedules').delete().eq('user_id', session.user.id);
+                await supabase.from('events').delete().eq('user_id', session.user.id);
+                // Nếu bạn có thêm bảng nào khác lưu dữ liệu của user, hãy copy thêm 1 dòng tương tự ở đây...
+
+                // 3. Xóa bảng Profile
                 const { error: dbError } = await supabase.from(STUDENT_PROFILE_TABLE).delete().eq('id', session.user.id);
                 if (dbError) {
-                    alert("Không thể xóa dữ liệu trên máy chủ. Vui lòng thử lại.");
-                    return; 
+                    console.error("Không thể dọn dẹp bảng profiles:", dbError);
                 }
+
+                // 4. BẤM NÚT HỦY DIỆT: Xóa tận gốc User ID khỏi hệ thống Authentication
+                await supabase.rpc('delete_my_account');
             }
+            
+            // 5. Xóa sạch bộ nhớ cục bộ và đăng xuất
             setData(INITIAL_DATA);
             localStorage.clear();
             if (supabase) await supabase.auth.signOut();
+            
         } catch (error) {
-            console.error("Lỗi khi reset:", error);
+            console.error("Lỗi hệ thống khi reset:", error);
+            alert("Đã xảy ra lỗi khi xóa dữ liệu. Vui lòng kiểm tra lại kết nối mạng!");
         } finally {
             window.location.href = '/';
         }
