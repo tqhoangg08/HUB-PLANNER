@@ -31,10 +31,7 @@ serve(async (req) => {
     // 🛡️ LỚP 1: RATE LIMITING (Chống Spam API Gửi Mail)
     // ============================================================
     if (ratelimit) {
-      // Lấy IP thật của người dùng (Supabase giấu trong header x-forwarded-for)
       const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
-      
-      // Prefix 'otp_' để tách biệt giới hạn này với giới hạn OCR PDF của bạn
       const { success, limit, remaining } = await ratelimit.limit(`otp_${ip}`);
 
       if (!success) {
@@ -58,10 +55,14 @@ serve(async (req) => {
     }
 
     // ============================================================
-    // ✉️ LỚP 2: GỬI EMAIL QUA RESEND
+    // ✉️ LỚP 2: GỬI EMAIL QUA RESEND VỚI TEMPLATE MỚI
     // ============================================================
     const { email, passcode, time } = await req.json()
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+    
+    // Tách tên người dùng từ email (Ví dụ: 030839230074)
+    const studentId = email.split('@')[0];
+    const currentYear = new Date().getFullYear();
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -72,16 +73,63 @@ serve(async (req) => {
       body: JSON.stringify({
         from: 'HUB Planner <noreply@hotrosinhvienhub.id.vn>',
         to: [email],
-        subject: '[HUB Planner] Mã xác nhận xóa dữ liệu',
+        subject: `${passcode} là mã xác nhận HUB Planner của bạn`,
         html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px; margin: 0 auto;">
-            <h2 style="color: #003375; text-align: center;">HUB PLANNER</h2>
-            <p>Chào bạn,</p>
-            <p>Bạn vừa yêu cầu xóa vĩnh viễn dữ liệu trên hệ thống.</p>
-            <p>Mã OTP xác nhận của bạn là: <strong style="font-size: 24px; color: #990000; letter-spacing: 3px;">${passcode}</strong></p>
-            <p>Mã này sẽ có hiệu lực trong 15 phút (đến <strong>${time}</strong>).</p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-            <p style="font-size: 12px; color: #777;">Tuyệt đối không chia sẻ mã này cho bất kỳ ai. Nếu bạn không yêu cầu, vui lòng phớt lờ email này.</p>
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f9f9f9; padding: 40px 0; margin: 0;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+              
+              <p style="font-size: 16px; color: #333333; margin-top: 0;">Xin chào <strong>${studentId}</strong>,</p>
+              
+              <p style="font-size: 15px; color: #333333; line-height: 1.6;">
+                Cảm ơn bạn đã sử dụng HUB Planner. Dưới đây là mã xác nhận để tiến hành xóa dữ liệu của bạn trên hệ thống:
+              </p>
+
+              <div style="font-size: 38px; font-weight: bold; color: #000000; letter-spacing: 2px; margin: 25px 0;">
+                ${passcode}
+              </div>
+              
+              <p style="font-size: 14px; color: #666666;">
+                Mã này sẽ hết hạn vào lúc <strong>${time}</strong>.
+              </p>
+
+              <p style="font-size: 14px; color: #333333; margin-bottom: 30px;">
+                Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email này.
+              </p>
+
+              <p style="font-size: 15px; color: #333333; margin-bottom: 5px;">Trân trọng,</p>
+              <p style="font-size: 15px; font-weight: bold; color: #333333; margin-top: 0;">Đội ngũ HUB Planner</p>
+
+              <hr style="border: none; border-top: 1px solid #eaeaea; margin: 30px 0 20px 0;" />
+
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="left" valign="middle">
+                    <a href="https://hotrosinhvienhub.id.vn" target="_blank" style="text-decoration: none;">
+                      <span style="font-size: 20px; font-weight: 900; color: #003375; letter-spacing: -0.5px;">HUB PLANNER</span>
+                    </a>
+                  </td>
+                  <td align="right" valign="middle">
+                    <a href="https://www.facebook.com/hubplannerr" target="_blank" style="text-decoration: none; margin-left: 12px;">
+                      <img src="https://cdn-icons-png.flaticon.com/512/733/733547.png" width="20" height="20" alt="Facebook" style="display: inline-block; filter: grayscale(100%); opacity: 0.6;" />
+                    </a>
+                    <a href="https://hotrosinhvienhub.id.vn" target="_blank" style="text-decoration: none; margin-left: 12px;">
+                      <img src="https://cdn-icons-png.flaticon.com/512/1006/1006771.png" width="20" height="20" alt="Website" style="display: inline-block; filter: grayscale(100%); opacity: 0.6;" />
+                    </a>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="padding-top: 12px; font-size: 13px; color: #555555;">
+                    Hệ thống quản lý lộ trình học tập & hỗ trợ sinh viên
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2" align="center" style="padding-top: 30px; font-size: 12px; color: #999999;">
+                    © ${currentYear} HUB Planner. Bảo lưu mọi quyền.
+                  </td>
+                </tr>
+              </table>
+
+            </div>
           </div>
         `
       })
