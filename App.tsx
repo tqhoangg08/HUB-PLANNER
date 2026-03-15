@@ -197,7 +197,14 @@ const App: React.FC = () => {
     const [otpInput, setOtpInput] = useState('');
     const [isSendingOtp, setIsSendingOtp] = useState(false);
     const [otpError, setOtpError] = useState('');
-
+    const [resendCountdown, setResendCountdown] = useState(0);
+useEffect(() => {
+        let timer: ReturnType<typeof setTimeout>;
+        if (resendCountdown > 0) {
+            timer = setTimeout(() => setResendCountdown(prev => prev - 1), 1000);
+        }
+        return () => clearTimeout(timer);
+    }, [resendCountdown]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const particlesInit = useCallback(async (engine: Engine) => {
@@ -494,6 +501,9 @@ const App: React.FC = () => {
 
             setResetStep(2);
             setOtpInput(''); // Reset ô nhập khi gửi lại mã
+            
+            // THÊM DÒNG NÀY: Bắt đầu đếm ngược 5 phút (300 giây)
+            setResendCountdown(300);
 
         } catch (error) {
             console.error('Lỗi gửi mail:', error);
@@ -1207,10 +1217,15 @@ const App: React.FC = () => {
                                                 Bạn chưa nhận được mã?{' '}
                                                 <button 
                                                     onClick={sendOtpEmail} 
-                                                    disabled={isSendingOtp}
-                                                    className="text-[#003375] font-bold hover:underline transition-all disabled:opacity-50 disabled:no-underline"
+                                                    disabled={isSendingOtp || resendCountdown > 0}
+                                                    className="text-[#003375] font-bold hover:underline transition-all disabled:opacity-50 disabled:no-underline disabled:text-gray-400"
                                                 >
-                                                    {isSendingOtp ? 'Đang gửi lại...' : 'Gửi lại mã'}
+                                                    {isSendingOtp 
+                                                        ? 'Đang gửi lại...' 
+                                                        : resendCountdown > 0 
+                                                            ? `Gửi lại mã sau ${Math.floor(resendCountdown / 60)}:${String(resendCountdown % 60).padStart(2, '0')}` 
+                                                            : 'Gửi lại mã'
+                                                    }
                                                 </button>
                                             </p>
                                             
@@ -1219,6 +1234,7 @@ const App: React.FC = () => {
                                                     setResetStep(1);
                                                     setOtpInput('');
                                                     setOtpError('');
+                                                    // Lưu ý: Cố tình KHÔNG reset bộ đếm ở đây để user không thể "lách luật" spam bằng cách bấm Trở về
                                                 }} 
                                                 className="text-sm text-gray-500 font-semibold hover:text-gray-900 transition-colors flex items-center gap-1.5"
                                             >
