@@ -477,26 +477,22 @@ const App: React.FC = () => {
             expireTime.setMinutes(expireTime.getMinutes() + 15);
             const timeString = expireTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
-            // GỌI API BẰNG GOOGLE APPS SCRIPT
-            const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwaK82dfCEA7Qq4XufD_98dpaTS2C5KSLLzUxL_7FNt8x9jpyqfdZVqop1Efqf1TqLpGA/exec'; 
-
-            const response = await fetch(GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({
-                    email: session?.user?.email,
-                    passcode: otp,
-                    time: timeString
-                })
+            // GỌI XUỐNG BACKEND SUPABASE (Thay vì gọi thẳng dịch vụ mail)
+            const { data, error } = await supabase.functions.invoke('send-otp-email', {
+                body: { 
+                    email: session?.user?.email, 
+                    passcode: otp, 
+                    time: timeString 
+                }
             });
 
-            const result = await response.json();
-            
-            if (result.status === 'success') {
-                setResetStep(2);
-            } else {
-                throw new Error("Lỗi từ Google Script");
+            // API Resend sẽ trả về object chứa 'id' của bức thư nếu gửi thành công
+            if (error || !data || data.error) {
+                console.error("Chi tiết lỗi từ Edge Function:", error || data?.error);
+                throw new Error("Lỗi từ máy chủ Backend");
             }
+
+            setResetStep(2);
 
         } catch (error) {
             console.error('Lỗi gửi mail:', error);
