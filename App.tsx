@@ -1005,6 +1005,65 @@ const App: React.FC = () => {
                             
                             {isAdmin ? (
                                 <div className="flex items-center gap-3 border-l border-gray-200 pl-3">
+                                    
+                                    {/* 👇 THÊM NÚT ĐỒNG BỘ ẨN NÀY VÀO 👇 */}
+                                    <button 
+                                        onClick={async () => {
+                                            if (!window.confirm("Bắt đầu đồng bộ tự động toàn bộ Database sang định dạng mới?")) return;
+                                            playClick();
+                                            try {
+                                                const { data: profiles, error } = await supabase.from('profiles').select('id, data');
+                                                if (error) throw error;
+
+                                                let updatedCount = 0;
+
+                                                for (const profile of profiles) {
+                                                    let pData = profile.data;
+                                                    if (!pData || !pData.semesters) continue;
+
+                                                    let needsUpdate = false;
+                                                    let baseYear = 2024; // Mặc định 
+                                                    const cohortStr = String(pData.cohort || "");
+
+                                                    // Suy luận năm nhập học từ Khóa
+                                                    if (cohortStr.includes("K38") || cohortStr.includes("CK10")) baseYear = 2022;
+                                                    else if (cohortStr.includes("K39") || cohortStr.includes("CK11")) baseYear = 2023;
+                                                    else if (cohortStr.includes("K40") || cohortStr.includes("CK12") || cohortStr.includes("BK1")) baseYear = 2024;
+                                                    else if (cohortStr.includes("K41") || cohortStr.includes("CK13") || cohortStr.includes("BK2")) baseYear = 2025;
+
+                                                    const newSemesters = pData.semesters.map((sem: any) => {
+                                                        const match = sem.name.match(/Năm (\d+) - Học kỳ (\d+)/);
+                                                        if (match) {
+                                                            needsUpdate = true;
+                                                            const namHoc = parseInt(match[1]);
+                                                            const kyHoc = parseInt(match[2]);
+                                                            // Tính toán năm học chính xác
+                                                            const targetYear = baseYear + (namHoc - 1);
+                                                            return { ...sem, name: `Học kỳ ${kyHoc} Năm học ${targetYear}-${targetYear + 1}` };
+                                                        }
+                                                        return sem;
+                                                    });
+
+                                                    if (needsUpdate) {
+                                                        pData.semesters = newSemesters;
+                                                        await supabase.from('profiles').update({ data: pData }).eq('id', profile.id);
+                                                        updatedCount++;
+                                                    }
+                                                }
+                                                alert(`✅ Đã đồng bộ hoàn tất! Cập nhật thành công ${updatedCount} tài khoản.`);
+                                                window.location.reload(); // Load lại trang để thấy thay đổi
+                                            } catch (err) {
+                                                console.error(err);
+                                                alert("❌ Có lỗi xảy ra trong quá trình đồng bộ!");
+                                            }
+                                        }} 
+                                        className="text-xs bg-orange-100 text-orange-700 font-bold px-3 py-1.5 rounded-lg hover:bg-orange-200 transition-colors shadow-sm" 
+                                        title="Chạy Tool Đồng Bộ Cũ -> Mới"
+                                    >
+                                        🛠 Đồng bộ DB
+                                    </button>
+                                    {/* 👆 KẾT THÚC THÊM NÚT 👆 */}
+
                                     <button onClick={() => { playClick(); setShowActivityLog(true); }} className="text-gray-400 hover:text-[#003375] transition-colors" title="Lịch sử hoạt động">
                                         <Clock size={18} />
                                     </button>
