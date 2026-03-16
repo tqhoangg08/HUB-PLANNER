@@ -1006,28 +1006,28 @@ const App: React.FC = () => {
                             {isAdmin ? (
                                 <div className="flex items-center gap-3 border-l border-gray-200 pl-3">
                                     
-                                    {/* 👇 NÚT ĐỒNG BỘ NÂNG CẤP V2 (HIỂN THỊ LOG TRỰC TIẾP) 👇 */}
+                                    {/* 👇 NÚT ĐỒNG BỘ NÂNG CẤP V3 (CHỐNG LAG + HIỆN LOG VÀNG) 👇 */}
                                     <button 
                                         onClick={async (e) => {
                                             if (!window.confirm("Bắt đầu đồng bộ? Đảm bảo bạn đã chạy lệnh DISABLE ROW LEVEL SECURITY trên Supabase nhé!")) return;
                                             playClick();
                                             
-                                            // Đổi giao diện nút bấm để báo hiệu đang chạy
+                                            // Đổi giao diện nút bấm
                                             const btn = e.currentTarget;
-                                            const originalText = btn.innerText;
                                             btn.innerText = "⏳ Đang chạy... Mở F12 xem log";
                                             btn.disabled = true;
 
                                             try {
                                                 let hasMore = true;
                                                 let page = 0;
-                                                const pageSize = 500;
+                                                const pageSize = 100; // GIẢM XUỐNG 100 ĐỂ KHÔNG BỊ TREO MẠNG
                                                 let updatedCount = 0;
                                                 
-                                                console.log("🚀 BẮT ĐẦU TIẾN TRÌNH ĐỒNG BỘ DATA...");
+                                                // DÙNG WARN ĐỂ ÉP TRÌNH DUYỆT HIỆN CHỮ MÀU VÀNG
+                                                console.warn("🚀 [BƯỚC 1] BẮT ĐẦU TIẾN TRÌNH ĐỒNG BỘ DATA...");
 
                                                 while (hasMore) {
-                                                    console.log(`⏳ Đang tải nhóm ${pageSize} tài khoản ở trang ${page + 1}...`);
+                                                    console.warn(`⏳ [BƯỚC 2] Đang tải nhóm ${pageSize} tài khoản ở trang ${page + 1}...`);
                                                     const { data: profiles, error } = await supabase
                                                         .from('profiles')
                                                         .select('id, data')
@@ -1039,30 +1039,28 @@ const App: React.FC = () => {
                                                     }
                                                     
                                                     if (!profiles || profiles.length === 0) {
-                                                        console.log("✅ Đã quét đến cuối Database.");
+                                                        console.warn("✅ Đã quét đến cuối Database.");
                                                         hasMore = false;
                                                         break;
                                                     }
 
-                                                    console.log(`🔍 Đang quét ${profiles.length} tài khoản (Trang ${page + 1})...`);
+                                                    console.warn(`🔍 Đang quét ${profiles.length} tài khoản (Trang ${page + 1})...`);
 
                                                     for (const profile of profiles) {
                                                         let pData = profile.data;
-                                                        // Bỏ qua nếu không có data hoặc không phải mảng
                                                         if (!pData || !pData.semesters || !Array.isArray(pData.semesters)) continue;
 
                                                         let needsUpdate = false;
-                                                        let baseYear = 2024; // Mặc định nếu user chưa nhập khóa
+                                                        let baseYear = 2024; 
                                                         const cohortStr = String(pData.cohort || "").toUpperCase();
 
-                                                        // Logic phân tích khóa (Cohort)
+                                                        // Logic cập nhật khóa chuẩn của bạn
                                                         if (cohortStr.includes("K38") || cohortStr.includes("CLCK10")) baseYear = 2022;
                                                         else if (cohortStr.includes("K39") || cohortStr.includes("CLCK11")) baseYear = 2023;
                                                         else if (cohortStr.includes("K40") || cohortStr.includes("CLCK12") || cohortStr.includes("CTDBK1")) baseYear = 2024;
                                                         else if (cohortStr.includes("K41") || cohortStr.includes("CLCK13") || cohortStr.includes("CTDBK2")) baseYear = 2025;
 
                                                         const newSemesters = pData.semesters.map((sem: any) => {
-                                                            // Bắt định dạng cũ: "Năm 1 - Học kỳ 1", "Năm 2 - Học kỳ Hè"...
                                                             const match = sem.name ? sem.name.match(/Năm (\d+) - Học kỳ (1|2|3|Hè)/) : null;
                                                             if (match) {
                                                                 needsUpdate = true;
@@ -1078,11 +1076,11 @@ const App: React.FC = () => {
                                                             pData.semesters = newSemesters;
                                                             await supabase.from('profiles').update({ data: pData }).eq('id', profile.id);
                                                             updatedCount++;
-                                                            console.log(`👉 Đã sửa thành công 1 bảng điểm của tài khoản ID: ${profile.id}`);
+                                                            console.warn(`👉 Đã sửa thành công bảng điểm ID: ${profile.id}`);
                                                         }
                                                     }
                                                     
-                                                    console.log(`✅ Quét xong trang ${page + 1}. Tổng số đã cập nhật hiện tại: ${updatedCount}`);
+                                                    console.warn(`✅ Xong trang ${page + 1}. Tổng đã sửa: ${updatedCount}`);
                                                     page++;
                                                 }
                                                 
@@ -1092,7 +1090,6 @@ const App: React.FC = () => {
                                                 console.error(err);
                                                 alert("❌ Có lỗi xảy ra trong quá trình đồng bộ! (Xem Console)");
                                             } finally {
-                                                // Khôi phục nút
                                                 btn.innerText = "🛠 Đồng bộ DB";
                                                 btn.disabled = false;
                                             }
@@ -1102,7 +1099,7 @@ const App: React.FC = () => {
                                     >
                                         🛠 Đồng bộ DB
                                     </button>
-                                    {/* 👆 KẾT THÚC NÚT ĐỒNG BỘ V2 👆 */}
+                                    {/* 👆 KẾT THÚC NÚT ĐỒNG BỘ V3 👆 */}
 
                                     <button onClick={() => { playClick(); setShowActivityLog(true); }} className="text-gray-400 hover:text-[#003375] transition-colors" title="Lịch sử hoạt động">
                                         <Clock size={18} />
