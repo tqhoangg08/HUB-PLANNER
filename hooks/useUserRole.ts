@@ -40,6 +40,9 @@ export const useUserRole = () => {
                 return;
             }
 
+            // Bảo vệ an toàn: Nếu supabase chưa sẵn sàng thì khoan hãy check DB
+            if (!supabase) return;
+
             // Trường hợp 2: Có đăng nhập -> Chạy vào DB check xem có phải Admin không
             try {
                 const { data, error } = await supabase
@@ -75,20 +78,30 @@ export const useUserRole = () => {
             }
         };
 
-        // 1. Lấy phiên tức thì khi vừa F5
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            fetchRole(session);
-        });
+        // BẢO VỆ AN TOÀN TRƯỚC KHI GỌI AUTH
+        if (supabase && supabase.auth) {
+            // 1. Lấy phiên tức thì khi vừa F5
+            supabase.auth.getSession().then(({ data: { session } }) => {
+                fetchRole(session);
+            }).catch(err => {
+                console.error("Lỗi getSession:", err);
+                if (isMounted) setState(prev => ({ ...prev, loading: false }));
+            });
 
-        // 2. Lắng nghe mọi biến động (Hết hạn token, bị đá ra, v.v...)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            fetchRole(session);
-        });
+            // 2. Lắng nghe mọi biến động (Hết hạn token, bị đá ra, v.v...)
+            const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+                fetchRole(session);
+            });
 
-        return () => {
-            isMounted = false;
-            subscription?.unsubscribe();
-        };
+            return () => {
+                isMounted = false;
+                subscription?.unsubscribe();
+            };
+        } else {
+            // Nếu không có Supabase, buộc phải tắt loading để tránh treo app
+            if (isMounted) setState(prev => ({ ...prev, loading: false }));
+            return () => { isMounted = false; };
+        }
     }, []);
 
     return state;

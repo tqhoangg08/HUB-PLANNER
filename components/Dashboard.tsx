@@ -15,7 +15,7 @@ import {
     calculateRequiredGPA,
     getGradeDetails
 } from '../utils/calculations';
-import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown } from 'lucide-react';
+import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { playClick } from '../utils/audio';
 import { AdsBanner } from './AdsBanner';
@@ -252,7 +252,7 @@ interface SemesterTableProps {
   onRemoveSemester: () => void;
   allSemesterOptions: string[];
   usedSemesterNames: string[];
-  onCascadeUpdate: (newName: string) => void; // Hàm mới xử lý hiệu ứng Domino
+  onCascadeUpdate: (newName: string) => void; 
 }
 
 const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester, allSemesterOptions, usedSemesterNames, onCascadeUpdate }) => {
@@ -268,6 +268,11 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   const [showRankMenu, setShowRankMenu] = useState(false);
   const rankMenuRef = useRef<HTMLDivElement>(null);
     
+  // 👇 KIỂM TRA TÊN HỌC KỲ HỢP LỆ (Mới thêm) 👇
+  // Form chuẩn phải là "Học kỳ 1 Năm học 202x-202y" hoặc "Học kỳ Hè..."
+  const isValidFormat = /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(semester.name);
+  // 👆 KẾT THÚC KIỂM TRA 👆
+
   const handleSubjectChange = (subjectId: string, field: keyof Subject, value: any) => {
     const updatedSubjects = semester.subjects.map(sub => {
       if (sub.id === subjectId) return { ...sub, [field]: value };
@@ -278,7 +283,6 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
   const handleNameChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     playClick();
-    // Thay vì chỉ update ô này, gọi hàm Domino Cascade để update toàn bộ các ô bên dưới
     onCascadeUpdate(e.target.value);
   };
 
@@ -327,19 +331,22 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   let hasData = false;
   let totalRegisteredCredits = 0; 
 
-  semester.subjects.forEach(s => {
-      if(!s.isNonGPA && s.credits) {
-        totalRegisteredCredits += s.credits;
-        const avg10 = calculateSubjectAverage(s);
-        if(avg10 !== null) {
-            const { scale4 } = getGradeDetails(avg10);
-            semTotalCredits += s.credits;
-            semWeightedScore4 += scale4 * s.credits;
-            semWeightedScore10 += avg10 * s.credits;
-            hasData = true;
-        }
-      }
-  });
+  // Chỉ tính toán nếu tên học kỳ hợp lệ
+  if (isValidFormat) {
+      semester.subjects.forEach(s => {
+          if(!s.isNonGPA && s.credits) {
+            totalRegisteredCredits += s.credits;
+            const avg10 = calculateSubjectAverage(s);
+            if(avg10 !== null) {
+                const { scale4 } = getGradeDetails(avg10);
+                semTotalCredits += s.credits;
+                semWeightedScore4 += scale4 * s.credits;
+                semWeightedScore10 += avg10 * s.credits;
+                hasData = true;
+            }
+          }
+      });
+  }
 
   let semGPA4 = 0;
   let semGPA10 = 0;
@@ -398,24 +405,28 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   }, [semester.subjects, searchTerm, sortOrder]);
 
   return (
-    <div className={`mb-5 sm:mb-8 bg-white rounded-xl border overflow-visible ${hasData || semester.name !== '' ? 'border-gray-300 shadow-sm' : 'border-red-300 shadow-sm'}`}>
-      <div className={`px-3 py-3 sm:px-6 sm:py-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 ${headerColor} rounded-t-xl`}>
+    <div className={`mb-5 sm:mb-8 bg-white rounded-xl border overflow-visible ${hasData || isValidFormat ? 'border-gray-300 shadow-sm' : 'border-red-300 shadow-md ring-1 ring-red-100'}`}>
+      <div className={`px-3 py-3 sm:px-6 sm:py-4 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 ${isValidFormat ? headerColor : 'bg-red-50/30 border-red-200'} rounded-t-xl ${isValidFormat ? 'border-b' : 'border-b-0'}`}>
         <div className="flex items-center gap-2 sm:gap-4 flex-1">
             <div className="relative group flex-1 max-w-md flex items-center">
                 <select 
-                    value={semester.name}
+                    value={isValidFormat ? semester.name : ''}
                     onChange={handleNameChange}
                     className={`text-base sm:text-lg font-bold bg-transparent border-b border-dashed focus:outline-none transition-all w-full py-0.5 sm:py-1 appearance-none cursor-pointer pr-6 ${
-                        !semester.name 
-                        ? 'text-red-500 border-red-500 hover:border-red-600' 
+                        !isValidFormat
+                        ? 'text-red-600 border-red-400 hover:border-red-600' 
                         : 'text-[#003375] border-transparent hover:border-[#003375]/50 focus:border-[#003375]'
                     }`}
                 >
-                    {!allSemesterOptions.includes(semester.name) && semester.name !== '' && (
+                    {/* Giữ lại option cho các kỳ học do AI trích xuất (Ví dụ: Học kỳ Hè) */}
+                    {!allSemesterOptions.includes(semester.name) && isValidFormat && (
                         <option value={semester.name} disabled className="hidden">{semester.name}</option>
                     )}
                     
-                    <option value="" disabled>👉 Vui lòng chọn học kỳ</option>
+                    {/* Option khi sai định dạng (vd: Năm 1 - Học kỳ 1) */}
+                    {!isValidFormat && (
+                         <option value="" disabled className="text-red-500 font-bold">👉 Vui lòng chọn lại tên học kỳ (Sai định dạng)</option>
+                    )}
                     
                     {allSemesterOptions.map(opt => {
                         const isUsed = usedSemesterNames.includes(opt) && opt !== semester.name;
@@ -426,9 +437,9 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                         )
                     })}
                 </select>
-                <ChevronDown className={`absolute right-1 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none w-4 h-4 ${!semester.name ? 'text-red-500' : 'text-[#003375]'}`} />
+                <ChevronDown className={`absolute right-1 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none w-4 h-4 ${!isValidFormat ? 'text-red-500' : 'text-[#003375]'}`} />
             </div>
-            {hasData && (
+            {hasData && isValidFormat && (
                 <span className={`text-[10px] sm:text-xs px-2 py-0.5 sm:py-1 rounded-full font-bold border bg-white/60 border-current shadow-sm text-gray-700 whitespace-nowrap`}>
                     {classification}
                 </span>
@@ -436,7 +447,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-4 text-[11px] sm:text-sm relative z-10">
-              {hasData && (
+              {hasData && isValidFormat && (
                   <div className="relative" ref={rankMenuRef}>
                       <button 
                           onClick={handleOpenRankMenu}
@@ -447,24 +458,22 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                           <span className="font-bold text-[#003375]">Xếp hạng 👑</span>
                       </button>
 
+                      {/* Rank Menu giữ nguyên */}
                       {showRankMenu && (
                           <div className="absolute top-full left-0 md:left-auto md:right-0 mt-2 w-72 sm:w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-[60] overflow-hidden animate-fadeIn origin-top-left md:origin-top-right">
                               <div className="bg-[#003375] px-4 py-3 text-white flex justify-between items-center shrink-0">
                                   <h4 className="font-bold text-sm flex items-center gap-2"><BarChart2 size={16}/> Xếp Hạng Dự Báo</h4>
                                   <button onClick={() => { setShowRankMenu(false); resetSemesterRanks(); }} className="hover:bg-white/20 p-1 rounded-full transition-colors"><X size={14}/></button>
                               </div>
-                              
                               <div className="p-0">
                                   {rankingLoading ? (
                                       <div className="flex flex-col items-center justify-center py-8 text-[#003375]">
                                           <Loader2 size={32} className="animate-spin mb-2"/>
-                                          <span className="text-xs font-medium">Đang tính toán thứ hạng...</span>
+                                          <span className="text-xs font-medium">Đang tính toán...</span>
                                       </div>
                                   ) : rankingResult ? (
                                       <div className="p-4 bg-gradient-to-b from-blue-50 to-white">
-                                          <button onClick={() => resetResult()} className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#003375] mb-3 transition-colors">
-                                              <ChevronLeft size={14}/> Chọn kỳ khác
-                                          </button>
+                                          <button onClick={() => resetResult()} className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#003375] mb-3 transition-colors"><ChevronLeft size={14}/> Chọn kỳ khác</button>
                                           <div className="text-center space-y-4">
                                               <p className="text-xs text-gray-500 uppercase tracking-wide">So sánh với: <span className="font-bold text-[#003375]">{mapIdToDisplay(rankingResult.semesterId)}</span></p>
                                               <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
@@ -480,14 +489,14 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                       </div>
                                   ) : (
                                       <div className="flex flex-col max-h-[300px]">
-                                          <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 italic">Chọn nguồn dữ liệu (Kỳ học cũ) để so sánh với GPA hiện tại của bạn ({semGPA4.toFixed(2)}). So sánh dựa trên tiêu chí: (1) loại học bổng; (2) GPA thang 4; (3) Điểm rèn luyện; (4) Tổng số tín chỉ.</div>
+                                          <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 italic">Chọn nguồn dữ liệu (Kỳ học cũ)...</div>
                                           <div className="overflow-y-auto custom-scrollbar p-2 space-y-1">
                                               {loadingSemesters ? (
-                                                  <div className="py-4 text-center text-xs text-gray-400">Đang tải danh sách kỳ...</div>
+                                                  <div className="py-4 text-center text-xs text-gray-400">Đang tải...</div>
                                               ) : availableSemesters.length > 0 ? (
                                                   availableSemesters.map((semId) => {
                                                       const semesterRank = semesterRanks[semId];
-                                                      const rankLabel = Number.isFinite(semesterRank) ? `Hạng #${semesterRank}` : loadingSemesterRanks ? 'Đang tải hạng...' : 'Chưa có hạng';
+                                                      const rankLabel = Number.isFinite(semesterRank) ? `Hạng #${semesterRank}` : loadingSemesterRanks ? 'Đang tải...' : 'Chưa có hạng';
                                                       return (
                                                       <button key={semId} onClick={() => handleSelectReferenceSemester(semId)} className="w-full text-left px-3 py-2.5 hover:bg-blue-50 hover:text-[#003375] rounded-lg transition-all text-sm font-medium text-gray-700 flex justify-between items-center group">
                                                           <span>Dữ liệu {mapIdToDisplay(semId)} - {rankLabel}</span>
@@ -496,7 +505,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                                       );
                                                   })
                                               ) : (
-                                                  <div className="py-6 text-center"><p className="text-xs text-gray-400 mb-2">Chưa có dữ liệu xếp hạng nào.</p></div>
+                                                  <div className="py-6 text-center"><p className="text-xs text-gray-400 mb-2">Chưa có dữ liệu.</p></div>
                                               )}
                                           </div>
                                           {rankingError && <div className="p-2 bg-red-50 text-red-600 text-xs text-center border-t border-red-100 flex items-center justify-center gap-1"><AlertCircle size={12}/> {rankingError}</div>}
@@ -510,33 +519,34 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
             <div className="flex items-center gap-1 sm:gap-2 bg-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 shadow-sm transition-transform hover:scale-105">
                 <span className="text-gray-500 font-medium flex items-center gap-1"><BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">TC:</span></span>
-                <span className="font-bold text-gray-800">{totalRegisteredCredits} <span className="sm:hidden font-medium text-[10px] text-gray-500">TC</span></span>
+                <span className="font-bold text-gray-800">{isValidFormat ? totalRegisteredCredits : '-'} <span className="sm:hidden font-medium text-[10px] text-gray-500">TC</span></span>
             </div>
 
             <div className="flex items-center gap-1 sm:gap-2 bg-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 shadow-sm transition-transform hover:scale-105">
                 <span className="text-gray-500 font-medium">GPA(4):</span>
-                <span className="font-bold text-[#003375]">{hasData ? semGPA4.toFixed(2) : '-'}</span>
+                <span className="font-bold text-[#003375]">{hasData && isValidFormat ? semGPA4.toFixed(2) : '-'}</span>
             </div>
 
             <div className="flex items-center gap-1 sm:gap-2 bg-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-gray-200 shadow-sm transition-transform hover:scale-105">
                 <span className="text-gray-500 font-medium">GPA(10):</span>
-                <span className="font-bold text-[#990000]">{hasData ? semGPA10.toFixed(2) : '-'}</span>
+                <span className="font-bold text-[#990000]">{hasData && isValidFormat ? semGPA10.toFixed(2) : '-'}</span>
             </div>
 
             <div className="flex items-center gap-1 sm:gap-2 bg-white pl-2 pr-1 py-0.5 sm:pl-3 sm:pr-1 sm:py-1 rounded-lg border border-gray-200 shadow-sm transition-transform hover:scale-105">
                 <span className="text-gray-500 font-medium flex items-center gap-1"><Star className="text-yellow-500 fill-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">ĐRL:</span></span>
                 <input 
                     type="number" min="0" max="100" placeholder="0"
-                    className="w-7 sm:w-10 text-center font-bold text-gray-800 outline-none border-b border-transparent focus:border-blue-400 focus:bg-gray-50 rounded transition-colors bg-transparent"
+                    disabled={!isValidFormat}
+                    className="w-7 sm:w-10 text-center font-bold text-gray-800 outline-none border-b border-transparent focus:border-blue-400 focus:bg-gray-50 rounded transition-colors bg-transparent disabled:opacity-50"
                     value={semester.trainingScore ?? ''}
                     onChange={(e) => handleTrainingScoreChange(e.target.value)}
                     onKeyDown={(e) => { if (["e", "E", "+", "-"].includes(e.key)) e.preventDefault(); }}
                 />
             </div>
 
-            <div className={`flex items-center gap-1 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border shadow-sm text-[11px] sm:text-sm font-bold ${scholarshipStatus.className}`}>
+            <div className={`flex items-center gap-1 sm:gap-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border shadow-sm text-[11px] sm:text-sm font-bold ${isValidFormat ? scholarshipStatus.className : 'bg-gray-100 text-gray-400'}`}>
                 <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span>{scholarshipStatus.label}</span>
+                <span>{isValidFormat ? scholarshipStatus.label : '---'}</span>
             </div>
             
              <button onClick={onRemoveSemester} className="ml-auto md:ml-0 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all p-1.5 sm:p-2 rounded-full active:scale-90 hover:shadow-md" title="Xóa học kỳ">
@@ -545,105 +555,117 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
         </div>
       </div>
 
-      {semester.subjects.length > 0 && (
-          <div className="px-3 py-2 sm:px-6 sm:py-2 bg-gray-50/50 border-b border-gray-100 flex flex-row gap-2 justify-between sm:justify-end items-center">
-            <button onClick={handleSortToggle} className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg border text-[11px] sm:text-sm font-medium transition-all active:scale-95 ${sortOrder ? 'bg-blue-50 border-blue-200 text-[#003375] shadow-sm' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`} title="Sắp xếp theo điểm">
-                {sortOrder === 'desc' ? (<><ArrowDown className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Cao ➝ Thấp</span></>) : sortOrder === 'asc' ? (<><ArrowUp className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Thấp ➝ Cao</span></>) : (<><ListFilter className="w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Sắp xếp</span></>)}
-            </button>
+      {/* 👇 CHỈ HIỂN THỊ NỘI DUNG KHI TÊN HỌC KỲ ĐÚNG CHUẨN 👇 */}
+      {isValidFormat ? (
+        <>
+            {semester.subjects.length > 0 && (
+                <div className="px-3 py-2 sm:px-6 sm:py-2 bg-gray-50/50 border-b border-gray-100 flex flex-row gap-2 justify-between sm:justify-end items-center">
+                    <button onClick={handleSortToggle} className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg border text-[11px] sm:text-sm font-medium transition-all active:scale-95 ${sortOrder ? 'bg-blue-50 border-blue-200 text-[#003375] shadow-sm' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`} title="Sắp xếp theo điểm">
+                        {sortOrder === 'desc' ? (<><ArrowDown className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Cao ➝ Thấp</span></>) : sortOrder === 'asc' ? (<><ArrowUp className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Thấp ➝ Cao</span></>) : (<><ListFilter className="w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Sắp xếp</span></>)}
+                    </button>
 
-            <div className="relative flex-1 sm:w-64 sm:flex-none">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <input type="text" placeholder="Tìm môn học..." className="w-full pl-8 pr-7 py-1.5 text-[11px] sm:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow hover:border-blue-300" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                {searchTerm && (<button onClick={() => { playClick(); setSearchTerm(''); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:scale-110 transition-transform"><X className="w-3 h-3 sm:w-3.5 sm:h-3.5" /></button>)}
+                    <div className="relative flex-1 sm:w-64 sm:flex-none">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <input type="text" placeholder="Tìm môn học..." className="w-full pl-8 pr-7 py-1.5 text-[11px] sm:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow hover:border-blue-300" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        {searchTerm && (<button onClick={() => { playClick(); setSearchTerm(''); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:scale-110 transition-transform"><X className="w-3 h-3 sm:w-3.5 sm:h-3.5" /></button>)}
+                    </div>
+                </div>
+            )}
+
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                <thead className="text-xs text-white uppercase bg-[#003375]">
+                    <tr>
+                    <th className="px-3 py-3 w-10 text-center">STT</th>
+                    <th className="px-2 py-3 w-14 text-center">10%</th>
+                    <th className="px-2 py-3 w-14 text-center">20%</th>
+                    <th className="px-2 py-3 w-14 text-center">20%</th>
+                    <th className="px-2 py-3 w-14 text-center">50%</th>
+                    <th className="px-3 py-3 min-w-[180px]">Môn học</th>
+                    <th className="px-2 py-3 w-12 text-center">TC</th>
+                    <th className="px-2 py-3 w-14 text-center">TB(10)</th>
+                    <th className="px-2 py-3 w-14 text-center">Chữ</th>
+                    <th className="px-2 py-3 w-14 text-center">TB(4)</th>
+                    <th className="px-3 py-3 w-20 text-center">Trạng thái</th>
+                    <th className="px-2 py-3 w-8"></th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                    {processedSubjects.length > 0 ? (
+                        processedSubjects.map((subject, sIdx) => {
+                        const avg10 = calculateSubjectAverage(subject);
+                        const { scale4: avg4, letter } = avg10 !== null ? getGradeDetails(avg10) : { scale4: null, letter: '-' };
+                        const status = getSubjectStatus(avg10);
+                        
+                        let statusClass = "text-gray-400";
+                        let statusText = "-";
+                        let rowClass = "hover:bg-blue-50/30";
+
+                        if (status === GradeStatus.FAIL) {
+                            statusClass = "bg-red-100 text-[#990000] font-bold";
+                            statusText = "Rớt";
+                            rowClass = "bg-red-50/50 hover:bg-red-100/50";
+                        } else if (status === GradeStatus.IMPROVE) {
+                            statusClass = "bg-yellow-100 text-yellow-700";
+                            statusText = "Đạt";
+                        } else if (status === GradeStatus.PASS) {
+                            statusClass = "bg-green-100 text-green-700 font-bold";
+                            statusText = "Đạt";
+                        }
+
+                        return (
+                            <tr key={subject.id} className={`${rowClass} transition-colors duration-150 group`}>
+                            <td className="px-3 py-2 text-center text-gray-500">{sIdx + 1}</td>
+                            
+                            {['scoreCC', 'scoreProcess', 'scoreMid', 'scoreFinal'].map((key) => (
+                                <td key={key} className="px-1 py-2">
+                                <ScoreInput value={subject[key as keyof Subject] as number | null} onChange={(val) => handleSubjectChange(subject.id, key as keyof Subject, val)} />
+                                </td>
+                            ))}
+
+                            <td className="px-3 py-2">
+                                <input type="text" className="w-full bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375]" value={subject.name} onChange={(e) => handleSubjectChange(subject.id, 'name', e.target.value)} />
+                                <div className="flex items-center gap-2 mt-1">
+                                    <label className="text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
+                                        <input type="checkbox" checked={subject.isNonGPA} onChange={(e) => { playClick(); handleSubjectChange(subject.id, 'isNonGPA', e.target.checked); }} className="rounded text-[#003375] focus:ring-[#003375] w-3 h-3 mr-1" />
+                                        Không tính GPA
+                                    </label>
+                                </div>
+                            </td>
+                            
+                            <td className="px-1 py-2">
+                                <input type="number" className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300" value={subject.credits} onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
+                            </td>
+                            
+                            <td className="px-2 py-2 text-center font-bold text-[#990000]">{avg10 !== null ? avg10.toFixed(1) : '-'}</td>
+                            <td className="px-2 py-2 text-center font-bold text-gray-700">{letter}</td>
+                            <td className="px-2 py-2 text-center font-bold text-[#003375]">{avg4 !== null ? avg4.toFixed(1) : '-'}</td>
+                            <td className="px-3 py-2 text-center"><span className={`px-2 py-1 rounded text-xs block w-full text-center shadow-sm ${statusClass}`}>{statusText}</span></td>
+                            <td className="px-2 py-2 text-center">
+                                <button onClick={() => removeSubject(subject.id)} className="text-gray-300 hover:text-red-500 transition-all hover:scale-110 p-1 active:scale-90" title="Xóa môn"><Trash2 size={16} /></button>
+                            </td>
+                            </tr>
+                        );
+                        })
+                    ) : (
+                        <tr><td colSpan={12} className="py-8 text-center text-gray-500">Không tìm thấy môn học nào phù hợp với "{searchTerm}"</td></tr>
+                    )}
+                </tbody>
+                </table>
             </div>
+            
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 rounded-b-xl flex justify-between items-center">
+                <button onClick={addSubject} className="flex items-center gap-1 text-sm font-medium text-[#003375] hover:text-blue-700 transition-all hover:translate-x-1 p-1 active:scale-95"><Plus size={16} /> Thêm môn học</button>
+            </div>
+        </>
+      ) : (
+          <div className="p-8 text-center bg-red-50/40 border-t border-red-100 flex flex-col items-center justify-center rounded-b-xl">
+              <ShieldAlert className="text-red-400 mb-2 w-10 h-10 animate-pulse" />
+              <p className="text-red-600 font-bold mb-1">Nội dung học kỳ đang bị khóa</p>
+              <p className="text-red-500/80 text-xs max-w-sm">Tên học kỳ không hợp lệ. Vui lòng chọn một tên học kỳ có sẵn trong danh sách phía trên để mở khóa tính năng nhập điểm!</p>
           </div>
       )}
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead className="text-xs text-white uppercase bg-[#003375]">
-            <tr>
-              <th className="px-3 py-3 w-10 text-center">STT</th>
-              <th className="px-2 py-3 w-14 text-center">10%</th>
-              <th className="px-2 py-3 w-14 text-center">20%</th>
-              <th className="px-2 py-3 w-14 text-center">20%</th>
-              <th className="px-2 py-3 w-14 text-center">50%</th>
-              <th className="px-3 py-3 min-w-[180px]">Môn học</th>
-              <th className="px-2 py-3 w-12 text-center">TC</th>
-              <th className="px-2 py-3 w-14 text-center">TB(10)</th>
-              <th className="px-2 py-3 w-14 text-center">Chữ</th>
-              <th className="px-2 py-3 w-14 text-center">TB(4)</th>
-              <th className="px-3 py-3 w-20 text-center">Trạng thái</th>
-              <th className="px-2 py-3 w-8"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {processedSubjects.length > 0 ? (
-                processedSubjects.map((subject, sIdx) => {
-                const avg10 = calculateSubjectAverage(subject);
-                const { scale4: avg4, letter } = avg10 !== null ? getGradeDetails(avg10) : { scale4: null, letter: '-' };
-                const status = getSubjectStatus(avg10);
-                
-                let statusClass = "text-gray-400";
-                let statusText = "-";
-                let rowClass = "hover:bg-blue-50/30";
-
-                if (status === GradeStatus.FAIL) {
-                    statusClass = "bg-red-100 text-[#990000] font-bold";
-                    statusText = "Rớt";
-                    rowClass = "bg-red-50/50 hover:bg-red-100/50";
-                } else if (status === GradeStatus.IMPROVE) {
-                    statusClass = "bg-yellow-100 text-yellow-700";
-                    statusText = "Đạt";
-                } else if (status === GradeStatus.PASS) {
-                    statusClass = "bg-green-100 text-green-700 font-bold";
-                    statusText = "Đạt";
-                }
-
-                return (
-                    <tr key={subject.id} className={`${rowClass} transition-colors duration-150 group`}>
-                    <td className="px-3 py-2 text-center text-gray-500">{sIdx + 1}</td>
-                    
-                    {['scoreCC', 'scoreProcess', 'scoreMid', 'scoreFinal'].map((key) => (
-                        <td key={key} className="px-1 py-2">
-                        <ScoreInput value={subject[key as keyof Subject] as number | null} onChange={(val) => handleSubjectChange(subject.id, key as keyof Subject, val)} />
-                        </td>
-                    ))}
-
-                    <td className="px-3 py-2">
-                        <input type="text" className="w-full bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375]" value={subject.name} onChange={(e) => handleSubjectChange(subject.id, 'name', e.target.value)} />
-                        <div className="flex items-center gap-2 mt-1">
-                            <label className="text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
-                                <input type="checkbox" checked={subject.isNonGPA} onChange={(e) => { playClick(); handleSubjectChange(subject.id, 'isNonGPA', e.target.checked); }} className="rounded text-[#003375] focus:ring-[#003375] w-3 h-3 mr-1" />
-                                Không tính GPA
-                            </label>
-                        </div>
-                    </td>
-                    
-                    <td className="px-1 py-2">
-                        <input type="number" className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300" value={subject.credits} onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
-                    </td>
-                    
-                    <td className="px-2 py-2 text-center font-bold text-[#990000]">{avg10 !== null ? avg10.toFixed(1) : '-'}</td>
-                    <td className="px-2 py-2 text-center font-bold text-gray-700">{letter}</td>
-                    <td className="px-2 py-2 text-center font-bold text-[#003375]">{avg4 !== null ? avg4.toFixed(1) : '-'}</td>
-                    <td className="px-3 py-2 text-center"><span className={`px-2 py-1 rounded text-xs block w-full text-center shadow-sm ${statusClass}`}>{statusText}</span></td>
-                    <td className="px-2 py-2 text-center">
-                        <button onClick={() => removeSubject(subject.id)} className="text-gray-300 hover:text-red-500 transition-all hover:scale-110 p-1 active:scale-90" title="Xóa môn"><Trash2 size={16} /></button>
-                    </td>
-                    </tr>
-                );
-                })
-            ) : (
-                <tr><td colSpan={12} className="py-8 text-center text-gray-500">Không tìm thấy môn học nào phù hợp với "{searchTerm}"</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      
-      <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 rounded-b-xl">
-        <button onClick={addSubject} className="flex items-center gap-1 text-sm font-medium text-[#003375] hover:text-blue-700 transition-all hover:translate-x-1 p-1 active:scale-95"><Plus size={16} /> Thêm môn học</button>
-      </div>
+      {/* 👆 KẾT THÚC KHÓA NỘI DUNG 👆 */}
     </div>
   );
 };
@@ -703,7 +725,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         return options;
     }, []);
 
-    // DOMINO EFFECT: Khi chọn 1 học kỳ, tự động tính toán tiến/lùi cho toàn bộ các kỳ còn lại
+    // DOMINO EFFECT TÍNH TOÁN 2 CHIỀU (TRƯỚC VÀ SAU)
     const handleCascadeUpdate = (targetIndex: number, newName: string) => {
         const match = newName.match(/Học kỳ (1|2) Năm học (\d{4})-(\d{4})/);
         if (!match) {
@@ -714,23 +736,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
         const targetHk = parseInt(match[1]);
         const targetYear = parseInt(match[2]);
         
-        // Quy đổi năm và kỳ thành 1 trục số tuyệt đối (Giúp dễ cộng trừ tiến lùi)
-        // VD: 2023 HK1 -> 2023*2 + 0 = 4046
+        // Quy đổi về trục số tuyệt đối
         const targetAbs = targetYear * 2 + (targetHk - 1);
 
-        // Nếu mảng chỉ có 1 phần tử rỗng (lúc mới khởi tạo), bung luôn 8 kỳ
         const isFirstSpawn = data.semesters.length === 1 && data.semesters[0].name === '';
         const targetLength = isFirstSpawn ? 8 : data.semesters.length;
 
         const newSemesters = [...data.semesters];
 
-        // Vòng lặp càn quét TOÀN BỘ mảng (Từ 0 đến độ dài mảng)
+        // Quét lại toàn bộ mảng và đặt lại tên theo khoảng cách tương đối
         for (let i = 0; i < targetLength; i++) {
-            // Khoảng cách của ô hiện tại so với ô vừa bị sửa
             const offset = i - targetIndex; 
-            
-            // Tính ngược lại ra Năm và Kỳ học tương ứng
             const currentAbs = targetAbs + offset;
+            
             const currentYear = Math.floor(currentAbs / 2);
             const currentHk = (currentAbs % 2) + 1;
 
@@ -748,11 +766,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
             }
         }
 
-        // Cập nhật lại toàn bộ bảng
         onSetSemesters(newSemesters);
     };
 
-    // SẮP XẾP BẢNG ĐIỂM (CŨ NHẤT Ở TRÊN)
+    // SẮP XẾP BẢNG ĐIỂM
     const sortedSemesters = useMemo(() => {
         const getWeight = (name: string) => {
             if (!name) return 999999;
@@ -765,19 +782,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
         return [...data.semesters].sort((a, b) => getWeight(a.name) - getWeight(b.name));
     }, [data.semesters]);
 
-    // KIỂM TRA TRẠNG THÁI KHỞI TẠO ĐỂ ẨN ĐI CÁC BẢNG TRỐNG
-    const isInitialState = data.semesters.length > 0 && data.semesters.every(s => !s.name);
+    const isInitialState = data.semesters.length > 0 && data.semesters.every(s => !s.name || !ALL_SEMESTERS.includes(s.name));
     const semestersToRender = isInitialState ? [data.semesters[0]] : sortedSemesters;
-
     const usedSemesterNames = data.semesters.map(s => s.name);
-
     const isLocked = isGuest && !data.hasOnboarded;
 
-    const stats = calculateCumulativeStats(data.semesters);
-    const yearlyStats = calculateYearlyStats(data.semesters);
-    const trendAnalysis = analyzeTrend(data.semesters);
+    // Tính toán số liệu thống kê (Chỉ tính các học kỳ hợp lệ)
+    const validDataSemesters = data.semesters.filter(s => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
 
-    const validSubjects = data.semesters.flatMap(s => s.subjects)
+    const stats = calculateCumulativeStats(validDataSemesters);
+    const yearlyStats = calculateYearlyStats(validDataSemesters);
+    const trendAnalysis = analyzeTrend(validDataSemesters);
+
+    const validSubjects = validDataSemesters.flatMap(s => s.subjects)
         .filter(s => !s.isNonGPA)
         .map(s => {
             const avg = calculateSubjectAverage(s);
@@ -788,11 +805,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         .sort((a, b) => b.avg - a.avg);
 
     const highestSubject = validSubjects.length > 0 ? validSubjects[0] : null;
-
-    const semesterPerfs = data.semesters.map(s => {
-        const semStats = calculateSemesterStats(s.subjects);
-        return { name: s.name, gpa: semStats.gpa4, hasData: semStats.hasData };
-    }).filter(s => s.hasData).sort((a, b) => b.gpa - a.gpa);
 
     const gradeDist = validSubjects.reduce((acc, curr) => {
         const group = curr.letter.charAt(0);
@@ -807,7 +819,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         { name: 'Yếu/Rớt (D, F)', value: (gradeDist['D'] || 0) + (gradeDist['F'] || 0), color: '#EF4444' }, 
     ].filter(d => d.value > 0);
 
-    const trendData = data.semesters.map(sem => {
+    const trendData = validDataSemesters.map(sem => {
         const semStats = calculateSemesterStats(sem.subjects);
         let shortName = sem.name;
         if (shortName.includes('Học kỳ')) {
@@ -827,7 +839,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         };
     }).filter(item => item.gpa4 !== null);
 
-    const allSubjects = data.semesters.flatMap(s => s.subjects);
+    const allSubjects = validDataSemesters.flatMap(s => s.subjects);
     
     const failedSubjectsList = allSubjects.filter(s => {
         const avg = calculateSubjectAverage(s);
@@ -1221,7 +1233,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     )}
                     
-                    {/* Chỉ hiển thị nút Add khi không ở trạng thái Initial (trống rỗng) */}
+                    {/* Chỉ hiển thị nút Add khi không ở trạng thái Initial (trống rỗng hoặc sai format cũ) */}
                     {!isInitialState && data.semesters.length > 0 && data.semesters.length < ALL_SEMESTERS.length && (
                         <button onClick={onAddSemester} className="w-full py-4 border-2 border-dashed border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-400 hover:bg-gray-50 rounded-xl font-semibold flex justify-center items-center gap-2 transition-all">
                             <Plus size={18}/> Thêm học kỳ mới

@@ -1022,16 +1022,17 @@ const App: React.FC = () => {
                                                     if (!pData || !pData.semesters) continue;
 
                                                     let needsUpdate = false;
-                                                    let baseYear = 2024; // Mặc định 
-                                                    const cohortStr = String(pData.cohort || "");
+                                                    let baseYear = 2024; // Mặc định nếu không bắt được khóa
+                                                    const cohortStr = String(pData.cohort || "").toUpperCase();
 
-                                                    // Suy luận năm nhập học từ Khóa
-                                                    if (cohortStr.includes("K38") || cohortStr.includes("CK10")) baseYear = 2022;
-                                                    else if (cohortStr.includes("K39") || cohortStr.includes("CK11")) baseYear = 2023;
-                                                    else if (cohortStr.includes("K40") || cohortStr.includes("CK12") || cohortStr.includes("BK1")) baseYear = 2024;
-                                                    else if (cohortStr.includes("K41") || cohortStr.includes("CK13") || cohortStr.includes("BK2")) baseYear = 2025;
+                                                    // Suy luận năm nhập học từ Khóa cực chuẩn
+                                                    if (cohortStr.includes("K38") || cohortStr.includes("CK10") || cohortStr === "10") baseYear = 2022;
+                                                    else if (cohortStr.includes("K39") || cohortStr.includes("CK11") || cohortStr === "11") baseYear = 2023;
+                                                    else if (cohortStr.includes("K40") || cohortStr.includes("CK12") || cohortStr.includes("CTDBK1")) baseYear = 2024;
+                                                    else if (cohortStr.includes("K41") || cohortStr.includes("CK13") || cohortStr.includes("CTDBK2")) baseYear = 2025;
 
                                                     const newSemesters = pData.semesters.map((sem: any) => {
+                                                        // Bắt định dạng cũ "Năm 1 - Học kỳ 2"
                                                         const match = sem.name.match(/Năm (\d+) - Học kỳ (\d+)/);
                                                         if (match) {
                                                             needsUpdate = true;
