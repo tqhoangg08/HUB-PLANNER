@@ -1006,43 +1006,58 @@ const App: React.FC = () => {
                             {isAdmin ? (
                                 <div className="flex items-center gap-3 border-l border-gray-200 pl-3">
                                     
-                                    {/* 👇 NÚT ĐỒNG BỘ NÂNG CẤP 👇 */}
+                                    {/* 👇 NÚT ĐỒNG BỘ NÂNG CẤP V2 (HIỂN THỊ LOG TRỰC TIẾP) 👇 */}
                                     <button 
-                                        onClick={async () => {
+                                        onClick={async (e) => {
                                             if (!window.confirm("Bắt đầu đồng bộ? Đảm bảo bạn đã chạy lệnh DISABLE ROW LEVEL SECURITY trên Supabase nhé!")) return;
                                             playClick();
+                                            
+                                            // Đổi giao diện nút bấm để báo hiệu đang chạy
+                                            const btn = e.currentTarget;
+                                            const originalText = btn.innerText;
+                                            btn.innerText = "⏳ Đang chạy... Mở F12 xem log";
+                                            btn.disabled = true;
+
                                             try {
                                                 let hasMore = true;
                                                 let page = 0;
                                                 const pageSize = 500;
                                                 let updatedCount = 0;
                                                 
-                                                alert("Đang chạy đồng bộ ngầm... Quá trình này quét gần 3000 tài khoản nên sẽ mất khoảng 1-2 phút. VUI LÒNG KHÔNG ĐÓNG TRANG! (Mở F12 > Console để xem tiến trình).");
+                                                console.log("🚀 BẮT ĐẦU TIẾN TRÌNH ĐỒNG BỘ DATA...");
 
                                                 while (hasMore) {
-                                                    // Chia nhỏ để lấy dữ liệu, tránh bị Supabase chặn
+                                                    console.log(`⏳ Đang tải nhóm ${pageSize} tài khoản ở trang ${page + 1}...`);
                                                     const { data: profiles, error } = await supabase
                                                         .from('profiles')
                                                         .select('id, data')
                                                         .range(page * pageSize, (page + 1) * pageSize - 1);
 
-                                                    if (error) throw error;
+                                                    if (error) {
+                                                        console.error("❌ Lỗi lấy data từ Supabase:", error);
+                                                        throw error;
+                                                    }
+                                                    
                                                     if (!profiles || profiles.length === 0) {
+                                                        console.log("✅ Đã quét đến cuối Database.");
                                                         hasMore = false;
                                                         break;
                                                     }
 
+                                                    console.log(`🔍 Đang quét ${profiles.length} tài khoản (Trang ${page + 1})...`);
+
                                                     for (const profile of profiles) {
                                                         let pData = profile.data;
-                                                        if (!pData || !pData.semesters) continue;
+                                                        // Bỏ qua nếu không có data hoặc không phải mảng
+                                                        if (!pData || !pData.semesters || !Array.isArray(pData.semesters)) continue;
 
                                                         let needsUpdate = false;
                                                         let baseYear = 2024; // Mặc định nếu user chưa nhập khóa
                                                         const cohortStr = String(pData.cohort || "").toUpperCase();
 
-                                                        // Logic phân tích khóa (Cohort) siêu việt
-                                                        if (cohortStr.includes("K38") || cohortStr.includes("CLCK10") ) baseYear = 2022;
-                                                        else if (cohortStr.includes("K39") || cohortStr.includes("CLCK11") ) baseYear = 2023;
+                                                        // Logic phân tích khóa (Cohort)
+                                                        if (cohortStr.includes("K38") || cohortStr.includes("CLCK10")) baseYear = 2022;
+                                                        else if (cohortStr.includes("K39") || cohortStr.includes("CLCK11")) baseYear = 2023;
                                                         else if (cohortStr.includes("K40") || cohortStr.includes("CLCK12") || cohortStr.includes("CTDBK1")) baseYear = 2024;
                                                         else if (cohortStr.includes("K41") || cohortStr.includes("CLCK13") || cohortStr.includes("CTDBK2")) baseYear = 2025;
 
@@ -1053,7 +1068,6 @@ const App: React.FC = () => {
                                                                 needsUpdate = true;
                                                                 const namHoc = parseInt(match[1]);
                                                                 const kyHoc = match[2];
-                                                                // Công thức: Năm học thực tế = Năm nhập học + (Năm thứ x - 1)
                                                                 const targetYear = baseYear + (namHoc - 1);
                                                                 return { ...sem, name: `Học kỳ ${kyHoc} Năm học ${targetYear}-${targetYear + 1}` };
                                                             }
@@ -1062,29 +1076,33 @@ const App: React.FC = () => {
 
                                                         if (needsUpdate) {
                                                             pData.semesters = newSemesters;
-                                                            // Bắn API update lại dòng này
                                                             await supabase.from('profiles').update({ data: pData }).eq('id', profile.id);
                                                             updatedCount++;
+                                                            console.log(`👉 Đã sửa thành công 1 bảng điểm của tài khoản ID: ${profile.id}`);
                                                         }
                                                     }
                                                     
-                                                    console.log(`Đã quét xong phần ${page + 1}, cập nhật được tổng cộng ${updatedCount} tài khoản...`);
+                                                    console.log(`✅ Quét xong trang ${page + 1}. Tổng số đã cập nhật hiện tại: ${updatedCount}`);
                                                     page++;
                                                 }
                                                 
-                                                alert(`✅ ĐÃ ĐỒNG BỘ HOÀN TẤT! Cập nhật thành công ${updatedCount} tài khoản.`);
+                                                alert(`🎉 ĐÃ ĐỒNG BỘ HOÀN TẤT! Cập nhật thành công ${updatedCount} tài khoản.`);
                                                 window.location.reload(); 
                                             } catch (err) {
                                                 console.error(err);
                                                 alert("❌ Có lỗi xảy ra trong quá trình đồng bộ! (Xem Console)");
+                                            } finally {
+                                                // Khôi phục nút
+                                                btn.innerText = "🛠 Đồng bộ DB";
+                                                btn.disabled = false;
                                             }
                                         }} 
-                                        className="text-xs bg-orange-100 text-orange-700 font-bold px-3 py-1.5 rounded-lg hover:bg-orange-200 transition-colors shadow-sm" 
+                                        className="text-xs bg-orange-100 text-orange-700 font-bold px-3 py-1.5 rounded-lg hover:bg-orange-200 transition-colors shadow-sm disabled:opacity-50" 
                                         title="Chạy Tool Đồng Bộ Cũ -> Mới"
                                     >
                                         🛠 Đồng bộ DB
                                     </button>
-                                    {/* 👆 KẾT THÚC NÚT ĐỒNG BỘ 👆 */}
+                                    {/* 👆 KẾT THÚC NÚT ĐỒNG BỘ V2 👆 */}
 
                                     <button onClick={() => { playClick(); setShowActivityLog(true); }} className="text-gray-400 hover:text-[#003375] transition-colors" title="Lịch sử hoạt động">
                                         <Clock size={18} />
