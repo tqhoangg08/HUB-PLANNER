@@ -444,20 +444,19 @@ const App: React.FC = () => {
     const handleLogout = async () => {
         playClick();
         if (window.confirm("Đăng xuất khỏi hệ thống?")) {
-            // 1. Dọn dẹp sạch sẽ bộ nhớ trước để Khách (Guest) không bị dính dữ liệu cũ
-            setData(INITIAL_DATA);
-            localStorage.clear();
-            sessionStorage.clear();
-
-            // 2. Gọi hàm đăng xuất ngầm của Supabase (Bọc try-catch để lỡ lỗi mạng cũng không bị kẹt)
+            // 1. Đăng xuất Supabase trước tiên
             try {
                 if (supabase) await supabase.auth.signOut();
             } catch (e) {
                 console.error("Lỗi khi đăng xuất Supabase:", e);
             }
             
-            // 3. Ép trình duyệt văng thẳng ra trang Đăng nhập (thay vì trang chủ '/')
-            window.location.replace('/login');
+            // 2. Dọn dẹp sạch sẽ bộ nhớ trình duyệt
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            // 3. Ép trình duyệt văng thẳng ra trang Đăng nhập và làm mới
+            window.location.href = '/login';
         }
     };
 
@@ -561,15 +560,17 @@ const App: React.FC = () => {
         } catch (error) {
             console.error("Lỗi khi reset:", error);
         } finally {
-            setData(INITIAL_DATA);
-            localStorage.clear();
-            sessionStorage.clear();
-            
+            // Đăng xuất khỏi Supabase
             try {
                 if (supabase) await supabase.auth.signOut();
             } catch(e) {}
+
+            // Xóa sạch mọi dấu vết
+            localStorage.clear();
+            sessionStorage.clear();
             
-            window.location.replace('/login');
+            // Bay thẳng ra trang đăng nhập
+            window.location.href = '/login';
         }
     };
 
