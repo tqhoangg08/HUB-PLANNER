@@ -1041,10 +1041,10 @@ const App: React.FC = () => {
                                                         const cohortStr = String(pData.cohort || "").toUpperCase();
 
                                                         // Logic phân tích khóa (Cohort) siêu việt
-                                                        if (cohortStr.includes("K38") || cohortStr.includes("CK10") || cohortStr === "10") baseYear = 2022;
-                                                        else if (cohortStr.includes("K39") || cohortStr.includes("CK11") || cohortStr === "11") baseYear = 2023;
-                                                        else if (cohortStr.includes("K40") || cohortStr.includes("CK12") || cohortStr.includes("CTDBK1")) baseYear = 2024;
-                                                        else if (cohortStr.includes("K41") || cohortStr.includes("CK13") || cohortStr.includes("CTDBK2")) baseYear = 2025;
+                                                        if (cohortStr.includes("K38") || cohortStr.includes("CLCK10") ) baseYear = 2022;
+                                                        else if (cohortStr.includes("K39") || cohortStr.includes("CLCK11") ) baseYear = 2023;
+                                                        else if (cohortStr.includes("K40") || cohortStr.includes("CLCK12") || cohortStr.includes("CTDBK1")) baseYear = 2024;
+                                                        else if (cohortStr.includes("K41") || cohortStr.includes("CLCK13") || cohortStr.includes("CTDBK2")) baseYear = 2025;
 
                                                         const newSemesters = pData.semesters.map((sem: any) => {
                                                             // Bắt định dạng cũ: "Năm 1 - Học kỳ 1", "Năm 2 - Học kỳ Hè"...
