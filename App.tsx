@@ -444,8 +444,20 @@ const App: React.FC = () => {
     const handleLogout = async () => {
         playClick();
         if (window.confirm("Đăng xuất khỏi hệ thống?")) {
-            await supabase?.auth.signOut();
-            window.location.href = '/';
+            // 1. Dọn dẹp sạch sẽ bộ nhớ trước để Khách (Guest) không bị dính dữ liệu cũ
+            setData(INITIAL_DATA);
+            localStorage.clear();
+            sessionStorage.clear();
+
+            // 2. Gọi hàm đăng xuất ngầm của Supabase (Bọc try-catch để lỡ lỗi mạng cũng không bị kẹt)
+            try {
+                if (supabase) await supabase.auth.signOut();
+            } catch (e) {
+                console.error("Lỗi khi đăng xuất Supabase:", e);
+            }
+            
+            // 3. Ép trình duyệt văng thẳng ra trang Đăng nhập (thay vì trang chủ '/')
+            window.location.replace('/login');
         }
     };
 
