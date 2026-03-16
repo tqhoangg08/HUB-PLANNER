@@ -694,12 +694,8 @@ const App: React.FC = () => {
             const result = await parseHubPdf(file);
             setData(prev => {
                 const newData = { ...prev };
-                if (!newData.studentName && result.studentInfo.studentName) {
-                    newData.studentName = result.studentInfo.studentName!;
-                }
-                if (!newData.majorName && result.studentInfo.majorName) {
-                    newData.majorName = result.studentInfo.majorName!;
-                }
+                
+                // ❌ ĐÃ XÓA TÍNH NĂNG TỰ ĐỘNG LẤY TÊN VÀ NGÀNH HỌC Ở ĐÂY ĐỂ TRÁNH MỞ KHÓA BẬY BẠ
 
                 let startYear = new Date().getFullYear();
                 if (result.yearRanges.length > 0) {
@@ -732,7 +728,8 @@ const App: React.FC = () => {
                 const leftOvers = importedSemesters.filter(s => !standardIds.includes(s.id));
                 reconstructSemesters.push(...leftOvers);
 
-                return { ...newData, semesters: reconstructSemesters, hasOnboarded: true };
+                // ✅ CHỈ CẬP NHẬT BẢNG ĐIỂM, KHÔNG ÉP "hasOnboarded: true" NỮA
+                return { ...newData, semesters: reconstructSemesters };
             });
             alert(`Đã nhập thành công và sắp xếp lại lộ trình học tập từ năm ${result.yearRanges[0]?.start || '...'}`);
         } catch (error) {
