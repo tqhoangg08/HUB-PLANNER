@@ -20,77 +20,92 @@ export const useUserRole = () => {
         isAdmin: false,
         isCTV: false,
         isStudent: true,
-        loading: true, // Bắt đầu với trạng thái loading để chờ check DB
+        loading: true, // Bắt đầu luôn khóa màn hình
         userEmail: null,
         session: null
     });
 
     useEffect(() => {
-        // Nguyên tắc 2: Hàm fetch quyền trực tiếp từ Database
-        const checkRole = async (currentSession: Session | null) => {
+        let isMounted = true;
+
+        const updateRoleState = async (currentSession: Session | null) => {
             if (!supabase) {
-                setState(prev => ({ ...prev, loading: false }));
+                if (isMounted) setState(prev => ({ ...prev, loading: false }));
                 return;
             }
 
-            // Nếu không có session (chưa đăng nhập hoặc là khách)
+            // Nếu không có ai đăng nhập, lập tức mở khóa màn hình
             if (!currentSession) {
-                setState({
-                    role: 'student',
-                    isAdmin: false,
-                    isCTV: false,
-                    isStudent: true,
-                    loading: false,
-                    userEmail: null,
-                    session: null
-                });
+                if (isMounted) {
+                    setState({
+                        role: 'student', isAdmin: false, isCTV: false, isStudent: true,
+                        loading: false, userEmail: null, session: null
+                    });
+                }
                 return;
             }
 
             try {
-                // SỬA QUAN TRỌNG: Dùng cột 'user_id' để query thay vì 'id' 
-                // (Khớp với cấu trúc bảng user_roles và RLS đã tạo)
                 const { data, error } = await supabase
                     .from('user_roles')
                     .select('role')
                     .eq('user_id', currentSession.user.id)
                     .maybeSingle();
 
-                let role: UserRole = 'student';
-                // Nếu tìm thấy trong bảng user_roles thì cập nhật quyền
-                if (data && !error) {
-                    role = data.role as UserRole;
+                const role: UserRole = (data && !error) ? (data.role as UserRole) : 'student';
+
+                if (isMounted) {
+                    setState({
+                        role,
+                        isAdmin: role === 'admin',
+                        isCTV: role === 'editor',
+                        isStudent: role !== 'admin' && role !== 'editor',
+                        loading: false,
+                        userEmail: currentSession.user.email || null,
+                        session: currentSession
+                    });
                 }
-
-                // Cập nhật State (Nguyên tắc 1: Lưu quyền vào State/Memory, không lưu LocalStorage)
-                setState({
-                    role,
-                    isAdmin: role === 'admin',
-                    isCTV: role === 'editor',
-                    isStudent: role !== 'admin' && role !== 'editor',
-                    loading: false,
-                    userEmail: currentSession.user.email || null,
-                    session: currentSession
-                });
-
             } catch (err) {
-                console.error("Lỗi khi lấy phân quyền:", err);
-                setState(prev => ({ ...prev, loading: false }));
+                console.error("Lỗi phân quyền:", err);
+                if (isMounted) setState(prev => ({ ...prev, loading: false }));
             }
         };
 
-        // 1. Kiểm tra quyền ngay khi trang vừa load xong
-        supabase?.auth.getSession().then(({ data: { session } }) => {
-            checkRole(session);
-        });
+        // 🛡️ LƯỚI BẢO VỆ CUỐI CÙNG (FAILSAFE): 
+        // Sau 2.5 giây, nếu Supabase vẫn bị treo thì ép ứng dụng mở khóa.
+        const failsafeTimer = setTimeout(() => {
+            if (isMounted) {
+                setState(prev => {
+                    if (prev.loading) {
+                        console.warn("Supabase phản hồi quá chậm! Đã ép mở khóa màn hình.");
+                        return { ...prev, loading: false };
+                    }
+                    return prev;
+                });
+            }
+        }, 2500);
 
-        // 2. Lắng nghe mọi biến động (Đăng nhập, Đăng xuất, Token hết hạn/làm mới)
-        const { data: { subscription } } = supabase?.auth.onAuthStateChange((_event, session) => {
-            // Mỗi lần có thay đổi auth, gọi lại checkRole để xác minh Database ngay lập tức
-            checkRole(session);
+        // 1. CHỦ ĐỘNG ĐỌC SESSION BỌC TRONG TRY/CATCH
+        const initSession = async () => {
+            try {
+                if (!supabase) throw new Error("Chưa kết nối Supabase");
+                const { data: { session } } = await supabase.auth.getSession();
+                await updateRoleState(session);
+            } catch (error) {
+                console.error("Lỗi khởi tạo Auth:", error);
+                if (isMounted) setState(prev => ({ ...prev, loading: false }));
+            }
+        };
+        initSession();
+
+        // 2. NGỒI CANH SỰ KIỆN AUTH TỪ SUPABASE
+        const { data: { subscription } } = supabase?.auth.onAuthStateChange(async (_event, session) => {
+            if (isMounted) await updateRoleState(session);
         }) || { data: { subscription: { unsubscribe: () => {} } } };
 
         return () => {
+            isMounted = false;
+            clearTimeout(failsafeTimer); // Dọn dẹp bộ đếm
             subscription?.unsubscribe();
         };
     }, []);

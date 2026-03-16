@@ -15,7 +15,7 @@ import {
     calculateRequiredGPA,
     getGradeDetails
 } from '../utils/calculations';
-import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield } from 'lucide-react';
+import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { playClick } from '../utils/audio';
 import { AdsBanner } from './AdsBanner';
@@ -250,9 +250,12 @@ interface SemesterTableProps {
   index: number;
   onUpdateSemester: (updatedSemester: Semester) => void;
   onRemoveSemester: () => void;
+  allSemesterOptions: string[];
+  usedSemesterNames: string[];
+  onCascadeUpdate: (newName: string) => void; // Hàm mới xử lý hiệu ứng Domino
 }
 
-const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester }) => {
+const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester, allSemesterOptions, usedSemesterNames, onCascadeUpdate }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
     
@@ -273,8 +276,10 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
     onUpdateSemester({ ...semester, subjects: updatedSubjects });
   };
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onUpdateSemester({ ...semester, name: e.target.value });
+  const handleNameChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    playClick();
+    // Thay vì chỉ update ô này, gọi hàm Domino Cascade để update toàn bộ các ô bên dưới
+    onCascadeUpdate(e.target.value);
   };
 
   const handleTrainingScoreChange = (val: string) => {
@@ -336,7 +341,6 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
       }
   });
 
-  // LOGIC LÀM TRÒN PSC HUB: Làm tròn 2 chữ số thập phân rồi mới làm tròn tiếp 1 chữ số
   let semGPA4 = 0;
   let semGPA10 = 0;
   if (semTotalCredits > 0) {
@@ -394,18 +398,35 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   }, [semester.subjects, searchTerm, sortOrder]);
 
   return (
-    <div className={`mb-5 sm:mb-8 bg-white rounded-xl border border-gray-300 overflow-visible ${hasData ? 'border-opacity-100' : 'border-gray-300'}`}>
+    <div className={`mb-5 sm:mb-8 bg-white rounded-xl border overflow-visible ${hasData || semester.name !== '' ? 'border-gray-300 shadow-sm' : 'border-red-300 shadow-sm'}`}>
       <div className={`px-3 py-3 sm:px-6 sm:py-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 ${headerColor} rounded-t-xl`}>
         <div className="flex items-center gap-2 sm:gap-4 flex-1">
-            <div className="relative group flex-1 max-w-md">
-                <input 
-                    type="text" 
+            <div className="relative group flex-1 max-w-md flex items-center">
+                <select 
                     value={semester.name}
                     onChange={handleNameChange}
-                    className="text-base sm:text-lg font-bold text-[#003375] bg-transparent border-b border-dashed border-transparent hover:border-[#003375]/50 focus:border-[#003375] focus:outline-none transition-all w-full py-0.5 sm:py-1 placeholder-[#003375]/50"
-                    placeholder="Tên học kỳ..."
-                />
-                <Pencil className="text-gray-400 absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    className={`text-base sm:text-lg font-bold bg-transparent border-b border-dashed focus:outline-none transition-all w-full py-0.5 sm:py-1 appearance-none cursor-pointer pr-6 ${
+                        !semester.name 
+                        ? 'text-red-500 border-red-500 hover:border-red-600' 
+                        : 'text-[#003375] border-transparent hover:border-[#003375]/50 focus:border-[#003375]'
+                    }`}
+                >
+                    {!allSemesterOptions.includes(semester.name) && semester.name !== '' && (
+                        <option value={semester.name} disabled className="hidden">{semester.name}</option>
+                    )}
+                    
+                    <option value="" disabled>👉 Vui lòng chọn học kỳ</option>
+                    
+                    {allSemesterOptions.map(opt => {
+                        const isUsed = usedSemesterNames.includes(opt) && opt !== semester.name;
+                        return (
+                            <option key={opt} value={opt} disabled={isUsed} className={isUsed ? 'text-gray-400 bg-gray-100' : 'text-gray-900'}>
+                                {opt} {isUsed ? '(Đã thêm)' : ''}
+                            </option>
+                        )
+                    })}
+                </select>
+                <ChevronDown className={`absolute right-1 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none w-4 h-4 ${!semester.name ? 'text-red-500' : 'text-[#003375]'}`} />
             </div>
             {hasData && (
                 <span className={`text-[10px] sm:text-xs px-2 py-0.5 sm:py-1 rounded-full font-bold border bg-white/60 border-current shadow-sm text-gray-700 whitespace-nowrap`}>
@@ -633,6 +654,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 // ============================================================================
 interface DashboardProps {
     data: UserData;
+    onSetSemesters: (semesters: Semester[]) => void;
     onTargetChange: (newTarget: number) => void;
     showSecurityNotice: boolean;
     onUpdateSemester: (index: number, updatedSem: Semester) => void;
@@ -649,6 +671,7 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ 
     data, 
+    onSetSemesters,
     onTargetChange, 
     showSecurityNotice,
     onUpdateSemester,
@@ -670,7 +693,84 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [showYearlyModal, setShowYearlyModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
 
-    // Xác định điều kiện khóa biểu đồ: Chỉ khóa nếu là Guest VÀ chưa cập nhật thông tin
+    // TẠO DANH SÁCH 100% CÁC HỌC KỲ TỪ 2020 - 2026 (Loại bỏ Học kỳ Hè)
+    const ALL_SEMESTERS = useMemo(() => {
+        const options = [];
+        for (let y = 2020; y <= 2026; y++) {
+            options.push(`Học kỳ 1 Năm học ${y}-${y+1}`);
+            options.push(`Học kỳ 2 Năm học ${y}-${y+1}`);
+        }
+        return options;
+    }, []);
+
+    // DOMINO EFFECT: Khi chọn 1 học kỳ, tự động tính toán tiến/lùi cho toàn bộ các kỳ còn lại
+    const handleCascadeUpdate = (targetIndex: number, newName: string) => {
+        const match = newName.match(/Học kỳ (1|2) Năm học (\d{4})-(\d{4})/);
+        if (!match) {
+            onUpdateSemester(targetIndex, { ...data.semesters[targetIndex], name: newName });
+            return;
+        }
+
+        const targetHk = parseInt(match[1]);
+        const targetYear = parseInt(match[2]);
+        
+        // Quy đổi năm và kỳ thành 1 trục số tuyệt đối (Giúp dễ cộng trừ tiến lùi)
+        // VD: 2023 HK1 -> 2023*2 + 0 = 4046
+        const targetAbs = targetYear * 2 + (targetHk - 1);
+
+        // Nếu mảng chỉ có 1 phần tử rỗng (lúc mới khởi tạo), bung luôn 8 kỳ
+        const isFirstSpawn = data.semesters.length === 1 && data.semesters[0].name === '';
+        const targetLength = isFirstSpawn ? 8 : data.semesters.length;
+
+        const newSemesters = [...data.semesters];
+
+        // Vòng lặp càn quét TOÀN BỘ mảng (Từ 0 đến độ dài mảng)
+        for (let i = 0; i < targetLength; i++) {
+            // Khoảng cách của ô hiện tại so với ô vừa bị sửa
+            const offset = i - targetIndex; 
+            
+            // Tính ngược lại ra Năm và Kỳ học tương ứng
+            const currentAbs = targetAbs + offset;
+            const currentYear = Math.floor(currentAbs / 2);
+            const currentHk = (currentAbs % 2) + 1;
+
+            const seqName = `Học kỳ ${currentHk} Năm học ${currentYear}-${currentYear + 1}`;
+
+            if (newSemesters[i]) {
+                newSemesters[i] = { ...newSemesters[i], name: seqName };
+            } else {
+                newSemesters.push({
+                    id: Date.now().toString() + i,
+                    name: seqName,
+                    subjects: [],
+                    trainingScore: null
+                });
+            }
+        }
+
+        // Cập nhật lại toàn bộ bảng
+        onSetSemesters(newSemesters);
+    };
+
+    // SẮP XẾP BẢNG ĐIỂM (CŨ NHẤT Ở TRÊN)
+    const sortedSemesters = useMemo(() => {
+        const getWeight = (name: string) => {
+            if (!name) return 999999;
+            const match = name.match(/Học kỳ (1|2|3|Hè) Năm học (\d{4})-(\d{4})/);
+            if (!match) return 999998; 
+            const hk = match[1] === 'Hè' ? 3 : parseInt(match[1]);
+            const year = parseInt(match[2]);
+            return year * 10 + hk;
+        };
+        return [...data.semesters].sort((a, b) => getWeight(a.name) - getWeight(b.name));
+    }, [data.semesters]);
+
+    // KIỂM TRA TRẠNG THÁI KHỞI TẠO ĐỂ ẨN ĐI CÁC BẢNG TRỐNG
+    const isInitialState = data.semesters.length > 0 && data.semesters.every(s => !s.name);
+    const semestersToRender = isInitialState ? [data.semesters[0]] : sortedSemesters;
+
+    const usedSemesterNames = data.semesters.map(s => s.name);
+
     const isLocked = isGuest && !data.hasOnboarded;
 
     const stats = calculateCumulativeStats(data.semesters);
@@ -714,8 +814,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
             const parts = shortName.split('-');
             if (sem.name.includes('Năm học')) {
                 const yearPart = sem.name.match(/(\d{4})/);
-                const hkPart = sem.name.match(/Học kỳ (\d)/);
-                if (yearPart && hkPart) shortName = `${hkPart[1]}/${yearPart[1].slice(2)}`;
+                const hkPart = sem.name.match(/Học kỳ (1|2|3|Hè)/);
+                if (yearPart && hkPart) shortName = `HK${hkPart[1]}/${yearPart[1].slice(2)}`;
             } else {
                 shortName = sem.name.replace('Năm ', 'N').replace(' - Học kỳ ', '.HK').replace('Học kỳ Hè', 'Hè');
             }
@@ -774,13 +874,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <AdsBanner />
 
         <div className="w-full space-y-4 pt-1">
-            {/* THẺ DIV STICKY CỐ ĐỊNH TIÊU ĐỀ DASHBOARD */}
             <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
                 <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-2">
                     Học tập
                 </h1>
                 
-                {/* 👇 CẬP NHẬT TIÊU ĐỀ THEO CHUỖI MỚI 👇 */}
                 <div className="flex flex-wrap items-center gap-1.5 text-[12px] sm:text-[13px] text-gray-500 font-medium mb-3">
                     <span className="font-bold text-gray-700">Tổng quan lộ trình</span>
                     <span className="text-gray-300">•</span>
@@ -792,9 +890,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <span className="text-gray-300">•</span>
                     <span>{data.specializationName || 'Chưa cập nhật chuyên ngành'}</span>
                 </div>
-                {/* 👆 KẾT THÚC CẬP NHẬT TIÊU ĐỀ 👆 */}
 
-                {/* 👇 BANNER CHO KHÁCH ẨN DANH 👇 */}
                 {isGuest && (
                     <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fadeIn">
                         <div className="flex items-center gap-2 text-[#003375] text-sm font-medium">
@@ -817,13 +913,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     </div>
                 )}
-                {/* 👆 KẾT THÚC BANNER 👆 */}
             </div>
 
-            {/* HÀNG 1: 4 THẺ TỔNG QUAN */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                
-                {/* Thẻ 1: GPA */}
                 <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between">
                     <div className="flex justify-between items-start mb-1">
                         <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng GPA tích lũy</span>
@@ -838,7 +930,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                {/* Thẻ 2: Tín chỉ */}
                 <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between">
                     <div className="flex justify-between items-start mb-1">
                         <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng TC tích lũy</span>
@@ -853,7 +944,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                {/* Thẻ 3: Môn cao điểm nhất */}
                 <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between cursor-pointer relative overflow-hidden" onClick={() => { if(!isLocked) { playClick(); setShowRankingModal(true); } }}>
                     <div className="flex justify-between items-start mb-1">
                         <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">BXH môn học</span>
@@ -883,7 +973,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                {/* Thẻ 4: Dự báo mục tiêu */}
                 <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between relative overflow-hidden">
                     <div className="flex justify-between items-start mb-1">
                         <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dự báo mục tiêu</span>
@@ -928,13 +1017,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
 
-            {/* HÀNG 2 & 3: BỐ CỤC CHUẨN MẪU (2 - 1 - 1) */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                
-                {/* CỘT TRÁI (Chiếm 2 Ô): Line Chart + Cảnh báo */}
                 <div className="lg:col-span-2 flex flex-col gap-3 sm:gap-4">
-                    
-                    {/* Ô Line Chart */}
                     <div className="bg-white p-3 sm:p-5 rounded-xl border border-gray-300 flex flex-col h-[240px] sm:h-auto sm:min-h-[340px]">
                         <div className="flex justify-between items-center mb-2 sm:mb-6">
                             <h3 className="text-[12px] sm:text-[15px] font-bold text-gray-900 tracking-tight">Xu hướng học tập</h3>
@@ -972,7 +1056,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     </div>
 
-                    {/* Nút cảnh báo nợ môn nằm gọn dưới Line Chart */}
                     <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 relative overflow-hidden">
                         <div className="flex-1 w-full">
                             <h3 className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
@@ -995,13 +1078,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                {/* CỘT PHẢI (Chiếm 2 Ô): Nhóm các phần tử còn lại */}
                 <div className="lg:col-span-2 flex flex-col gap-4 min-h-0">
-                    
-                    {/* Hàng trên của Cột Phải: Donut (1 Ô) + Tổng kết (1 Ô) */}
                     <div className="grid grid-cols-2 gap-3 sm:gap-4 shrink-0">
-                        
-                        {/* Ô Donut Chart */}
                         <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                             <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight mb-2 uppercase truncate">Phân bố điểm</h3>
                             
@@ -1031,7 +1109,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </div>
 
-                        {/* Ô Tổng kết năm */}
                         <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                             <div className="flex justify-between items-center mb-2 sm:mb-3">
                                 <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 uppercase truncate">Tổng kết năm</h3>
@@ -1066,7 +1143,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                     </div>
 
-                    {/* Hàng dưới của Cột Phải: Bảng tin */}
                     <div className="bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden flex-1 min-h-0 relative">
                         <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
                             <SchoolAnnouncements />
@@ -1075,7 +1151,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
 
-            {/* 👇 KHU VỰC BẢNG ĐIỂM NẰM GỌN BÊN TRONG DASHBOARD 👇 */}
             <div className="pt-2">
                 <div className="flex flex-row justify-between items-center mb-3 sm:mb-4 gap-2 border-t border-gray-200 pt-4 sm:pt-5 mt-2">
                     <h2 className="text-[15px] sm:text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Chi tiết bảng điểm</h2>
@@ -1118,16 +1193,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 <div className="space-y-4">
-                    {data.semesters.map((sem, idx) => (
-                        <SemesterTable
-                            key={sem.id}
-                            semester={sem}
-                            index={idx}
-                            onUpdateSemester={(updated) => onUpdateSemester(idx, updated)}
-                            onRemoveSemester={() => onRemoveSemester(idx)}
-                        />
-                    ))}
+                    {semestersToRender.map((sem) => {
+                        // Tìm index nguyên thủy để hàm update/remove không bị loạn
+                        const originalIndex = data.semesters.findIndex(s => s.id === sem.id);
 
+                        return (
+                            <SemesterTable
+                                key={sem.id}
+                                semester={sem}
+                                index={originalIndex}
+                                onUpdateSemester={(updated) => onUpdateSemester(originalIndex, updated)}
+                                onRemoveSemester={() => onRemoveSemester(originalIndex)}
+                                allSemesterOptions={ALL_SEMESTERS}
+                                usedSemesterNames={usedSemesterNames}
+                                onCascadeUpdate={(newName) => handleCascadeUpdate(originalIndex, newName)}
+                            />
+                        )
+                    })}
+
+                    {/* Hiển thị Nút Tạo thủ công nếu xóa hết sạch bảng điểm */}
                     {data.semesters.length === 0 && (
                         <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
                             <p className="text-gray-500 mb-4 text-sm font-medium">Bạn chưa có học kỳ nào.</p>
@@ -1137,14 +1221,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     )}
                     
-                    {data.semesters.length > 0 && (
+                    {/* Chỉ hiển thị nút Add khi không ở trạng thái Initial (trống rỗng) */}
+                    {!isInitialState && data.semesters.length > 0 && data.semesters.length < ALL_SEMESTERS.length && (
                         <button onClick={onAddSemester} className="w-full py-4 border-2 border-dashed border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-400 hover:bg-gray-50 rounded-xl font-semibold flex justify-center items-center gap-2 transition-all">
                             <Plus size={18}/> Thêm học kỳ mới
                         </button>
                     )}
                 </div>
             </div>
-            {/* 👆 KẾT THÚC VÙNG BẢNG ĐIỂM 👆 */}
             
         </div>
 

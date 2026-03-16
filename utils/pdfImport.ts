@@ -11,7 +11,7 @@ interface ParsedResult {
 }
 
 // ==========================================
-// 🛡️ PHẦN 1: BỘ LỌC CHỐNG SPAM (ĐÃ SỬA)
+// 🛡️ PHẦN 1: BỘ LỌC CHỐNG SPAM
 // ==========================================
 const checkSpamLimit = (): boolean => {
     const LIMIT_CONFIG = {
@@ -33,9 +33,7 @@ const checkSpamLimit = (): boolean => {
 
     // Chặn nếu quá giới hạn
     if (data.count >= LIMIT_CONFIG.MAX_REQUESTS) {
-        // Tính thời gian còn lại (phút)
         const waitMinutes = Math.ceil((data.startTime + LIMIT_CONFIG.TIME_WINDOW - now) / 60000);
-        // Đổi sang giờ cho dễ nhìn nếu số phút quá lớn
         const waitHours = (waitMinutes / 60).toFixed(1);
 
         alert(`⚠️ ĐÃ ĐẠT GIỚI HẠN TRONG NGÀY!\n\nĐể tiết kiệm tài nguyên, hệ thống giới hạn mỗi người chỉ được dùng 2 lần/giờ.\n\nVui lòng quay lại sau khoảng ${waitHours} giờ nữa (hoặc ${waitMinutes} phút).`);
@@ -49,7 +47,7 @@ const checkSpamLimit = (): boolean => {
 };
 
 // ==========================================
-// 🤖 PHẦN 2: CẤU HÌNH AI (PROMPT)
+// 🤖 PHẦN 2: CẤU HÌNH AI (PROMPT NÂNG CẤP)
 // ==========================================
 const AI_SYSTEM_PROMPT = `
 Bạn là chuyên gia OCR xử lý bảng điểm đại học.
@@ -66,7 +64,7 @@ CẤU TRÚC JSON YÊU CẦU (Bắt buộc tuân thủ):
     {
       "nam_bat_dau": number,
       "nam_ket_thuc": number,
-      "hoc_ky_so": number,
+      "hoc_ky_so": number hoặc string (Chỉ được trả về: 1, 2, hoặc "Hè"),
       "diem_ren_luyen": number,
       "mon_hoc": [
         {
@@ -82,12 +80,13 @@ CẤU TRÚC JSON YÊU CẦU (Bắt buộc tuân thủ):
 QUY TẮC QUAN TRỌNG:
 1. Tìm tất cả các học kỳ.
 2. Tự động sửa lỗi dính chữ.
-3. Nếu điểm là "M", "Đạt" hoặc môn thể chất/quốc phòng -> ghi vào "diem_so".
-4. Chỉ trả về JSON thuần.
+3. Nếu là học kỳ Hè/Học kỳ phụ, ở trường "hoc_ky_so" bắt buộc ghi là "Hè" hoặc 3.
+4. Nếu điểm là "M", "Đạt" hoặc môn thể chất/quốc phòng -> ghi vào "diem_so".
+5. Chỉ trả về JSON thuần.
 `;
 
 // ==========================================
-// 📡 PHẦN 3: GỌI API (ONE-SHOT)
+// 📡 PHẦN 3: GỌI API
 // ==========================================
 const extractFullTranscriptWithAI = async (text: string): Promise<any> => {
     try {
@@ -119,14 +118,10 @@ const extractFullTranscriptWithAI = async (text: string): Promise<any> => {
 export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     const result: ParsedResult = { studentInfo: {}, semesters: [], yearRanges: [] };
 
-    // --- BƯỚC 0: KIỂM TRA SPAM NGAY ĐẦU VÀO ---
-    // Nếu bị chặn, hàm sẽ trả về kết quả rỗng ngay lập tức
     if (!checkSpamLimit()) {
         return result; 
     }
-    // -------------------------------------------
 
-    // A. Đọc PDF
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     let fullText = '';
@@ -137,13 +132,11 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     }
     fullText = fullText.replace(/\s+/g, ' ');
 
-    // B. Gọi AI
     console.log("Đang gửi toàn bộ bảng điểm lên AI...");
     const aiResult = await extractFullTranscriptWithAI(fullText);
 
     if (!aiResult) return result;
 
-    // C. Map dữ liệu
     if (aiResult.sinh_vien) {
         result.studentInfo = {
             studentName: aiResult.sinh_vien.ho_ten,
@@ -156,7 +149,10 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
         result.semesters = aiResult.hoc_ky.map((hk: any, index: number) => {
             const y1 = hk.nam_bat_dau;
             const y2 = hk.nam_ket_thuc;
-            const hky = hk.hoc_ky_so;
+            
+            // Xử lý chuẩn hóa tên Học kỳ (1, 2, Hè)
+            let hkVal = hk.hoc_ky_so;
+            const hky = (hkVal === 3 || hkVal === "3" || hkVal?.toString().toLowerCase() === "hè") ? "Hè" : hkVal;
             
             if (!result.yearRanges.some(y => y.start === y1)) {
                 result.yearRanges.push({ start: y1, end: y2 });
@@ -198,4 +194,3 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
 
     return result;
 };
-

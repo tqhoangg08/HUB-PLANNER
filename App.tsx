@@ -9,7 +9,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { ActivityLogModal } from './components/ActivityLogModal';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfUse } from './components/TermsOfUse';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, ExternalLink, AlertTriangle, Zap, Download, Search, HelpCircle, BookOpen, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, KeyRound, ArrowLeft, HeartCrack } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, HeartCrack, ArrowLeft } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
@@ -25,6 +25,13 @@ import ScheduleBoard from './components/ScheduleBoard';
 import Particles from "react-particles";
 import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
+import { getDegreeClassification, calculateSubjectAverage, getSubjectStatus, calculateYearlyStats, calculateSemesterStats, analyzeTrend, calculateRequiredGPA, getGradeDetails, calculateCumulativeStats } from './utils/calculations';
+import { GradeStatus, Subject } from './types';
+import { SubjectRankingModal } from './components/SubjectRankingModal';
+import { mapIdToDisplay } from './utils/rankingData';
+import { useForecastRank } from './hooks/useForecastRank';
+import { AdsBanner } from './components/AdsBanner';
+import SchoolAnnouncements from './components/SchoolAnnouncements';
 
 // Import dữ liệu Ngành/Khóa học
 import { ACADEMIC_PROGRAMS, Program, Major, Specialization, getMajors } from './utils/programs';
@@ -38,6 +45,7 @@ const COHORT_OPTIONS: Record<string, string[]> = {
     'special': ['CTDBK1', 'CTDBK2']
 };
 
+// Sửa lại: Mặc định để rỗng tên học kỳ để ép người dùng phải chọn
 const generateStandardCurriculum = (): Semester[] => {
     const semesters: Semester[] = [];
     const years = 4;
@@ -45,13 +53,13 @@ const generateStandardCurriculum = (): Semester[] => {
     for (let y = 1; y <= years; y++) {
         semesters.push({
             id: `y${y}_hk1`,
-            name: `Năm ${y} - Học kỳ 1`,
+            name: ``, 
             subjects: [],
             trainingScore: null
         });
         semesters.push({
             id: `y${y}_hk2`,
-            name: `Năm ${y} - Học kỳ 2`,
+            name: ``, 
             subjects: [],
             trainingScore: null
         });
@@ -76,11 +84,9 @@ const App: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Xác định chế độ khách
     const isGuest = !session;
     const [forceGuestOnboarding, setForceGuestOnboarding] = useState(false);
 
-    // --- STATE CHO MENU CẨM NANG ---
     const [isHandbookMenuOpen, setIsHandbookMenuOpen] = useState(false);
     const handbookMenuRef = useRef<HTMLDivElement>(null);
     const navRefs = useRef<(HTMLAnchorElement | HTMLDivElement | null)[]>([]);
@@ -183,22 +189,18 @@ const App: React.FC = () => {
     const [profileSaving, setProfileSaving] = useState(false);
     const [profileError, setProfileError] = useState<string | null>(null);
 
-    // --- STATES CHO FORM THÔNG TIN HỌC TẬP MỚI ---
     const [draftStudentName, setDraftStudentName] = useState('');
     const [draftProgram, setDraftProgram] = useState<Program | null>(null);
     const [draftCohort, setDraftCohort] = useState('');
     const [draftMajor, setDraftMajor] = useState<Major | null>(null);
     const [draftSpecialization, setDraftSpecialization] = useState<Specialization | null>(null);
 
-    // --- STATES CHO RESET OTP ---
     const [showResetModal, setShowResetModal] = useState(false);
     const [resetStep, setResetStep] = useState<1 | 2 | 3 | 4>(1); 
     const [generatedOtp, setGeneratedOtp] = useState('');
     const [otpInput, setOtpInput] = useState('');
     const [isSendingOtp, setIsSendingOtp] = useState(false);
     const [otpError, setOtpError] = useState('');
-    
-    // --- TIMER ĐẾM NGƯỢC ---
     const [resendCountdown, setResendCountdown] = useState(0);
 
     useEffect(() => {
@@ -247,8 +249,6 @@ const App: React.FC = () => {
 
         const loadData = async () => {
             if (!isGuest && session?.user?.id && supabase) {
-                
-                // 1. NẾU ADMIN ĐANG XEM SINH VIÊN KHÁC
                 if (isAdmin && viewingUser) {
                     const { data: profileData } = await supabase
                         .from(STUDENT_PROFILE_TABLE)
@@ -269,7 +269,6 @@ const App: React.FC = () => {
                     return; 
                 }
 
-                // 2. NẾU ĐANG TỰ XEM CHÍNH MÌNH (Đã Login)
                 const { data: profileData } = await supabase
                     .from(STUDENT_PROFILE_TABLE)
                     .select('data, full_name, avatar_url')
@@ -309,7 +308,6 @@ const App: React.FC = () => {
                 return;
             }
 
-            // Logic cho khách vãng lai (Guest)
             setProfileFullName(''); 
             setProfileAvatarUrl(''); 
             
@@ -385,10 +383,8 @@ const App: React.FC = () => {
             setDraftAvatarPreview('');
             setProfileError(null);
             
-            // Đổ tên sinh viên
             setDraftStudentName(data.studentName || '');
             
-            // Dò tìm tự động Chương trình -> Khóa -> Ngành -> Chuyên ngành từ Data cũ
             const prog = ACADEMIC_PROGRAMS.find(p => p.name === data.programName) || null;
             setDraftProgram(prog);
             setDraftCohort(data.cohort || '');
@@ -458,9 +454,6 @@ const App: React.FC = () => {
         await handleLogout();
     };
 
-    // ==========================================
-    // LOGIC RESET DỮ LIỆU & GỬI OTP
-    // ==========================================
     const handleRequestReset = () => {
         playClick();
         if (isGuest) {
@@ -469,7 +462,7 @@ const App: React.FC = () => {
             }
         } else {
             setShowResetModal(true);
-            setResetStep(1); // Bắt đầu từ Màn hình níu kéo
+            setResetStep(1); 
             setOtpInput('');
             setOtpError('');
             setIsUserMenuOpen(false);
@@ -480,7 +473,6 @@ const App: React.FC = () => {
         setIsSendingOtp(true);
         setOtpError('');
         try {
-            // Tạo mã OTP 6 số
             const otp = Math.floor(100000 + Math.random() * 900000).toString();
             setGeneratedOtp(otp);
 
@@ -488,7 +480,6 @@ const App: React.FC = () => {
             expireTime.setMinutes(expireTime.getMinutes() + 15);
             const timeString = expireTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
-            // GỌI XUỐNG BACKEND SUPABASE
             const { data, error } = await supabase.functions.invoke('send-otp-email', {
                 body: { 
                     email: session?.user?.email, 
@@ -497,15 +488,14 @@ const App: React.FC = () => {
                 }
             });
 
-            // API Resend sẽ trả về object chứa 'id' của bức thư nếu gửi thành công
             if (error || !data || data.error) {
                 console.error("Chi tiết lỗi từ Edge Function:", error || data?.error);
                 throw new Error("Lỗi từ máy chủ Backend");
             }
 
-            setResetStep(3); // Bước 3 là nhập mã OTP
-            setOtpInput(''); // Reset ô nhập khi gửi lại mã
-            setResendCountdown(300); // 300 giây đếm ngược chống spam
+            setResetStep(3); 
+            setOtpInput(''); 
+            setResendCountdown(300); 
 
         } catch (error) {
             console.error('Lỗi gửi mail:', error);
@@ -519,8 +509,8 @@ const App: React.FC = () => {
         playClick();
         if (otpInput === generatedOtp) {
             setOtpError('');
-            setResetStep(4); // Chuyển sang Bước 4 (Tạm biệt)
-            executeResetData(); // Chạy ngầm dọn dẹp
+            setResetStep(4); 
+            executeResetData(); 
         } else {
             setOtpError('Mã xác nhận không chính xác!');
         }
@@ -529,41 +519,47 @@ const App: React.FC = () => {
     const executeResetData = async () => {
         try {
             if (!isGuest && session?.user?.id && supabase) {
-                // 1. Xóa Avatar
-                const { data: listFiles } = await supabase.storage.from('avatars').list(session.user.id);
-                if (listFiles && listFiles.length > 0) {
-                    const filesToRemove = listFiles.map(x => `${session.user.id}/${x.name}`);
-                    await supabase.storage.from('avatars').remove(filesToRemove);
+                try {
+                    const { data: listFiles } = await supabase.storage.from('avatars').list(session.user.id);
+                    if (listFiles && listFiles.length > 0) {
+                        const filesToRemove = listFiles.map(x => `${session.user.id}/${x.name}`);
+                        await supabase.storage.from('avatars').remove(filesToRemove);
+                    }
+                } catch (e) { console.error("Lỗi xóa Avatar:", e); }
+
+                const tables = ['user_schedules', 'user_participations', 'notifications', 'profiles'];
+                for (const table of tables) {
+                    try {
+                        const col = table === 'profiles' ? 'id' : 'user_id';
+                        await supabase.from(table).delete().eq(col, session.user.id);
+                    } catch (e) {
+                        console.error(`Bỏ qua lỗi dọn dẹp bảng ${table}:`, e);
+                    }
                 }
 
-                // 2. DỌN DẸP SẠCH SẼ (Đã loại bỏ user_course_requests)
-                // ⚠️ LƯU Ý: Nếu ở Bước 1 bảng nào không dùng 'user_id' mà dùng 'id', thì ở đây bạn cũng phải sửa chữ 'user_id' thành chữ đó nha!
-                await Promise.all([
-                    supabase.from('user_schedules').delete().eq('user_id', session.user.id),
-                    supabase.from('user_participations').delete().eq('user_id', session.user.id),
-                    supabase.from('notifications').delete().eq('user_id', session.user.id),
-                    supabase.from('profiles').delete().eq('id', session.user.id)
-                ]);
-
-                // 3. Bấm Nút Hủy Diệt Tài Khoản Gốc
-                const { error: rpcError } = await supabase.rpc('delete_my_account');
-                if (rpcError) throw rpcError;
+                try {
+                    await supabase.rpc('delete_my_account');
+                } catch (e) {
+                    console.error("Lỗi xóa tài khoản Auth:", e);
+                }
             }
 
-            // Đợi 3 giây để user kịp nhìn thấy màn hình "Tạm biệt"
             await new Promise(resolve => setTimeout(resolve, 3000));
 
-            // Xóa LocalStorage và văng ra ngoài
-            setData(INITIAL_DATA);
-            localStorage.clear();
-            if (supabase) await supabase.auth.signOut();
         } catch (error) {
             console.error("Lỗi khi reset:", error);
         } finally {
-            window.location.href = '/';
+            setData(INITIAL_DATA);
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            try {
+                if (supabase) await supabase.auth.signOut();
+            } catch(e) {}
+            
+            window.location.replace('/login');
         }
     };
-    // ==========================================
 
     const handleSaveProfile = async () => {
         if (!session?.user?.id || !supabase) return;
@@ -619,7 +615,6 @@ const App: React.FC = () => {
             setDraftAvatarPreview('');
         }
 
-        // CẬP NHẬT TÊN VÀ LỘ TRÌNH VÀO DATA GỐC
         setData(prev => ({
             ...prev,
             studentName: draftStudentName.trim(),
@@ -648,11 +643,12 @@ const App: React.FC = () => {
     const isColorAvatar = profileAvatarUrl?.startsWith('#');
     const studentId = session?.user?.email?.split('@')[0] ?? '';
 
+    // Sửa lại: Tên mặc định khi Add Semester là rỗng
     const addSemester = () => {
         playClick();
         const newSem: Semester = {
             id: Date.now().toString(),
-            name: `Học kỳ Mới`,
+            name: ``, // Bỏ chữ Học kỳ Mới
             subjects: [],
             trainingScore: null
         };
@@ -721,12 +717,12 @@ const App: React.FC = () => {
                     const sem1Id = `imported_${curStart}_${curEnd}_hk1`;
                     const importedSem1 = importedSemesters.find(s => s.id === sem1Id);
                     if (importedSem1) reconstructSemesters.push(importedSem1);
-                    else reconstructSemesters.push({ id: `generated_${curStart}_hk1`, name: `${yearLabel} - Học kỳ 1`, subjects: [], trainingScore: null });
+                    else reconstructSemesters.push({ id: `generated_${curStart}_hk1`, name: `Học kỳ 1 ${yearLabel}`, subjects: [], trainingScore: null });
 
                     const sem2Id = `imported_${curStart}_${curEnd}_hk2`;
                     const importedSem2 = importedSemesters.find(s => s.id === sem2Id);
                     if (importedSem2) reconstructSemesters.push(importedSem2);
-                    else reconstructSemesters.push({ id: `generated_${curStart}_hk2`, name: `${yearLabel} - Học kỳ 2`, subjects: [], trainingScore: null });
+                    else reconstructSemesters.push({ id: `generated_${curStart}_hk2`, name: `Học kỳ 2 ${yearLabel}`, subjects: [], trainingScore: null });
 
                     const otherSems = importedSemesters.filter(s => s.id.startsWith(`imported_${curStart}_${curEnd}`) && !s.id.endsWith('hk1') && !s.id.endsWith('hk2'));
                     if (otherSems.length > 0) reconstructSemesters.push(...otherSems);
@@ -1057,6 +1053,7 @@ const App: React.FC = () => {
                                     <div className="animate-fadeIn">
                                         <Dashboard
                                             data={data}
+                                            onSetSemesters={(sems) => setData(prev => ({ ...prev, semesters: sems }))}
                                             isGuest={isGuest}
                                             onRequireOnboarding={() => setForceGuestOnboarding(true)}
                                             onTargetChange={(newTarget) => setData(prev => ({ ...prev, targetGPA: newTarget }))}
@@ -1143,7 +1140,7 @@ const App: React.FC = () => {
                             {resetStep === 1 ? (
                                 <div className="p-8 sm:p-10 animate-fadeIn text-center relative">
                                     <button onClick={() => setShowResetModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-full p-1.5 transition-colors"><X size={18} /></button>
-                                    <div className="w-20 h-20 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <div className="w-20 h-20 bg-blue-50 tex    t-[#003375] rounded-full flex items-center justify-center mx-auto mb-6">
                                         <HeartCrack size={40} />
                                     </div>
                                     <h3 className="text-2xl font-black text-gray-900 mb-3">Khoan đã... 🥺</h3>
@@ -1316,7 +1313,6 @@ const App: React.FC = () => {
                                     </div>
                                 )}
                                 
-                                {/* Section 1: Thông tin hiển thị */}
                                 <div>
                                     <h4 className="text-xs font-black text-[#003375] uppercase tracking-wider mb-3 border-b border-gray-100 pb-1">1. Thông tin hiển thị</h4>
                                     <div className="space-y-4">
@@ -1341,7 +1337,6 @@ const App: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {/* Section 2: Thông tin học tập */}
                                 <div>
                                     <h4 className="text-xs font-black text-[#003375] uppercase tracking-wider mb-3 border-b border-gray-100 pb-1">2. Thông tin lộ trình</h4>
                                     <div className="space-y-4">
