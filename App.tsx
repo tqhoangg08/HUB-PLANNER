@@ -536,23 +536,24 @@ const App: React.FC = () => {
                     await supabase.storage.from('avatars').remove(filesToRemove);
                 }
 
-                // 2. Dọn bảng phụ (schedules, events)
-                await supabase.from('schedules').delete().eq('user_id', session.user.id);
-                await supabase.from('events').delete().eq('user_id', session.user.id);
+                // 2. DỌN DẸP SẠCH SẼ (Đã loại bỏ user_course_requests)
+                // ⚠️ LƯU Ý: Nếu ở Bước 1 bảng nào không dùng 'user_id' mà dùng 'id', thì ở đây bạn cũng phải sửa chữ 'user_id' thành chữ đó nha!
+                await Promise.all([
+                    supabase.from('user_schedules').delete().eq('user_id', session.user.id),
+                    supabase.from('user_participations').delete().eq('user_id', session.user.id),
+                    supabase.from('notifications').delete().eq('user_id', session.user.id),
+                    supabase.from('profiles').delete().eq('id', session.user.id)
+                ]);
 
-                // 3. Xóa Profile
-                const { error: dbError } = await supabase.from(STUDENT_PROFILE_TABLE).delete().eq('id', session.user.id);
-                if (dbError) {
-                    console.error("Không thể dọn dẹp bảng profiles:", dbError);
-                }
-
-                // 4. Xóa tài khoản gốc
-                await supabase.rpc('delete_my_account');
+                // 3. Bấm Nút Hủy Diệt Tài Khoản Gốc
+                const { error: rpcError } = await supabase.rpc('delete_my_account');
+                if (rpcError) throw rpcError;
             }
 
             // Đợi 3 giây để user kịp nhìn thấy màn hình "Tạm biệt"
             await new Promise(resolve => setTimeout(resolve, 3000));
 
+            // Xóa LocalStorage và văng ra ngoài
             setData(INITIAL_DATA);
             localStorage.clear();
             if (supabase) await supabase.auth.signOut();
