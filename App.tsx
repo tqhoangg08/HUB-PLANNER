@@ -1006,56 +1006,77 @@ const App: React.FC = () => {
                             {isAdmin ? (
                                 <div className="flex items-center gap-3 border-l border-gray-200 pl-3">
                                     
-                                    {/* 👇 THÊM NÚT ĐỒNG BỘ ẨN NÀY VÀO 👇 */}
+                                    {/* 👇 NÚT ĐỒNG BỘ NÂNG CẤP 👇 */}
                                     <button 
                                         onClick={async () => {
-                                            if (!window.confirm("Bắt đầu đồng bộ tự động toàn bộ Database sang định dạng mới?")) return;
+                                            if (!window.confirm("Bắt đầu đồng bộ? Đảm bảo bạn đã chạy lệnh DISABLE ROW LEVEL SECURITY trên Supabase nhé!")) return;
                                             playClick();
                                             try {
-                                                const { data: profiles, error } = await supabase.from('profiles').select('id, data');
-                                                if (error) throw error;
-
+                                                let hasMore = true;
+                                                let page = 0;
+                                                const pageSize = 500;
                                                 let updatedCount = 0;
+                                                
+                                                alert("Đang chạy đồng bộ ngầm... Quá trình này quét gần 3000 tài khoản nên sẽ mất khoảng 1-2 phút. VUI LÒNG KHÔNG ĐÓNG TRANG! (Mở F12 > Console để xem tiến trình).");
 
-                                                for (const profile of profiles) {
-                                                    let pData = profile.data;
-                                                    if (!pData || !pData.semesters) continue;
+                                                while (hasMore) {
+                                                    // Chia nhỏ để lấy dữ liệu, tránh bị Supabase chặn
+                                                    const { data: profiles, error } = await supabase
+                                                        .from('profiles')
+                                                        .select('id, data')
+                                                        .range(page * pageSize, (page + 1) * pageSize - 1);
 
-                                                    let needsUpdate = false;
-                                                    let baseYear = 2024; // Mặc định nếu không bắt được khóa
-                                                    const cohortStr = String(pData.cohort || "").toUpperCase();
-
-                                                    // Suy luận năm nhập học từ Khóa cực chuẩn
-                                                    if (cohortStr.includes("K38") || cohortStr.includes("CK10") || cohortStr === "10") baseYear = 2022;
-                                                    else if (cohortStr.includes("K39") || cohortStr.includes("CK11") || cohortStr === "11") baseYear = 2023;
-                                                    else if (cohortStr.includes("K40") || cohortStr.includes("CK12") || cohortStr.includes("CTDBK1")) baseYear = 2024;
-                                                    else if (cohortStr.includes("K41") || cohortStr.includes("CK13") || cohortStr.includes("CTDBK2")) baseYear = 2025;
-
-                                                    const newSemesters = pData.semesters.map((sem: any) => {
-                                                        // Bắt định dạng cũ "Năm 1 - Học kỳ 2"
-                                                        const match = sem.name.match(/Năm (\d+) - Học kỳ (\d+)/);
-                                                        if (match) {
-                                                            needsUpdate = true;
-                                                            const namHoc = parseInt(match[1]);
-                                                            const kyHoc = parseInt(match[2]);
-                                                            // Tính toán năm học chính xác
-                                                            const targetYear = baseYear + (namHoc - 1);
-                                                            return { ...sem, name: `Học kỳ ${kyHoc} Năm học ${targetYear}-${targetYear + 1}` };
-                                                        }
-                                                        return sem;
-                                                    });
-
-                                                    if (needsUpdate) {
-                                                        pData.semesters = newSemesters;
-                                                        await supabase.from('profiles').update({ data: pData }).eq('id', profile.id);
-                                                        updatedCount++;
+                                                    if (error) throw error;
+                                                    if (!profiles || profiles.length === 0) {
+                                                        hasMore = false;
+                                                        break;
                                                     }
+
+                                                    for (const profile of profiles) {
+                                                        let pData = profile.data;
+                                                        if (!pData || !pData.semesters) continue;
+
+                                                        let needsUpdate = false;
+                                                        let baseYear = 2024; // Mặc định nếu user chưa nhập khóa
+                                                        const cohortStr = String(pData.cohort || "").toUpperCase();
+
+                                                        // Logic phân tích khóa (Cohort) siêu việt
+                                                        if (cohortStr.includes("K38") || cohortStr.includes("CK10") || cohortStr === "10") baseYear = 2022;
+                                                        else if (cohortStr.includes("K39") || cohortStr.includes("CK11") || cohortStr === "11") baseYear = 2023;
+                                                        else if (cohortStr.includes("K40") || cohortStr.includes("CK12") || cohortStr.includes("CTDBK1")) baseYear = 2024;
+                                                        else if (cohortStr.includes("K41") || cohortStr.includes("CK13") || cohortStr.includes("CTDBK2")) baseYear = 2025;
+
+                                                        const newSemesters = pData.semesters.map((sem: any) => {
+                                                            // Bắt định dạng cũ: "Năm 1 - Học kỳ 1", "Năm 2 - Học kỳ Hè"...
+                                                            const match = sem.name ? sem.name.match(/Năm (\d+) - Học kỳ (1|2|3|Hè)/) : null;
+                                                            if (match) {
+                                                                needsUpdate = true;
+                                                                const namHoc = parseInt(match[1]);
+                                                                const kyHoc = match[2];
+                                                                // Công thức: Năm học thực tế = Năm nhập học + (Năm thứ x - 1)
+                                                                const targetYear = baseYear + (namHoc - 1);
+                                                                return { ...sem, name: `Học kỳ ${kyHoc} Năm học ${targetYear}-${targetYear + 1}` };
+                                                            }
+                                                            return sem;
+                                                        });
+
+                                                        if (needsUpdate) {
+                                                            pData.semesters = newSemesters;
+                                                            // Bắn API update lại dòng này
+                                                            await supabase.from('profiles').update({ data: pData }).eq('id', profile.id);
+                                                            updatedCount++;
+                                                        }
+                                                    }
+                                                    
+                                                    console.log(`Đã quét xong phần ${page + 1}, cập nhật được tổng cộng ${updatedCount} tài khoản...`);
+                                                    page++;
                                                 }
-                                                alert(`✅ Đã đồng bộ hoàn tất! Cập nhật thành công ${updatedCount} tài khoản.`);
-                                                window.location.reload(); // Load lại trang để thấy thay đổi
+                                                
+                                                alert(`✅ ĐÃ ĐỒNG BỘ HOÀN TẤT! Cập nhật thành công ${updatedCount} tài khoản.`);
+                                                window.location.reload(); 
                                             } catch (err) {
                                                 console.error(err);
-                                                alert("❌ Có lỗi xảy ra trong quá trình đồng bộ!");
+                                                alert("❌ Có lỗi xảy ra trong quá trình đồng bộ! (Xem Console)");
                                             }
                                         }} 
                                         className="text-xs bg-orange-100 text-orange-700 font-bold px-3 py-1.5 rounded-lg hover:bg-orange-200 transition-colors shadow-sm" 
@@ -1063,7 +1084,7 @@ const App: React.FC = () => {
                                     >
                                         🛠 Đồng bộ DB
                                     </button>
-                                    {/* 👆 KẾT THÚC THÊM NÚT 👆 */}
+                                    {/* 👆 KẾT THÚC NÚT ĐỒNG BỘ 👆 */}
 
                                     <button onClick={() => { playClick(); setShowActivityLog(true); }} className="text-gray-400 hover:text-[#003375] transition-colors" title="Lịch sử hoạt động">
                                         <Clock size={18} />
