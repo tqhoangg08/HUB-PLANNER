@@ -9,7 +9,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { ActivityLogModal } from './components/ActivityLogModal';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfUse } from './components/TermsOfUse';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, HeartCrack, ArrowLeft } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, HeartCrack, ArrowLeft, RefreshCw } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
@@ -19,19 +19,11 @@ import { Link, Navigate, Route, Routes, useNavigate, NavLink, useLocation } from
 import { ImportGuideModal } from './components/ImportGuideModal';
 import { UserGuideModal } from './components/UserGuideModal';
 import ProfilePage from './pages/ProfilePage';
-import UserSearch from './components/UserSearch';
 import NotificationBell from './components/NotificationBell';
 import ScheduleBoard from './components/ScheduleBoard';
 import Particles from "react-particles";
 import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
-import { getDegreeClassification, calculateSubjectAverage, getSubjectStatus, calculateYearlyStats, calculateSemesterStats, analyzeTrend, calculateRequiredGPA, getGradeDetails, calculateCumulativeStats } from './utils/calculations';
-import { GradeStatus, Subject } from './types';
-import { SubjectRankingModal } from './components/SubjectRankingModal';
-import { mapIdToDisplay } from './utils/rankingData';
-import { useForecastRank } from './hooks/useForecastRank';
-import { AdsBanner } from './components/AdsBanner';
-import SchoolAnnouncements from './components/SchoolAnnouncements';
 
 // Import dữ liệu Ngành/Khóa học
 import { ACADEMIC_PROGRAMS, Program, Major, Specialization, getMajors } from './utils/programs';
@@ -809,7 +801,6 @@ const App: React.FC = () => {
                                 </div>
                             </div>
                             
-                            {/* 👇 ĐÃ FIX: TRẢ LẠI NÚT ĐĂNG XUẤT, RESET CHO MOBILE 👇 */}
                             <div className="flex items-center gap-2 sm:hidden shrink-0">
                                 {(!isGuest) && (
                                     <NotificationBell currentUserId={session.user.id} />
@@ -851,17 +842,10 @@ const App: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                            {/* 👆 KẾT THÚC MOBILE ICONS 👆 */}
-
                         </div>
 
-                        {(!isGuest) && (
-                            <div className="hidden md:block flex-1 max-w-sm">
-                                <UserSearch />
-                            </div>
-                        )}
+                        {/* Đã xóa UserSearch ở đây theo yêu cầu */}
 
-                        {/* 👇 ĐÃ FIX: TRẢ LẠI CHUẨN MENU GỐC CHỐNG LỖI NHẢY CẨM NANG 👇 */}
                         <nav className="flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
                             
                             <NavLink 
@@ -969,19 +953,17 @@ const App: React.FC = () => {
                                 }}
                             />
                         </nav>
-                        {/* 👆 KẾT THÚC NAV CHỐNG NHẢY CẨM NANG 👆 */}
 
-                        {/* 👇 ĐÃ FIX: CHỐNG CHÈN ÉP NÚT CHO DESKTOP 👇 */}
                         <div className="hidden sm:flex items-center gap-1.5 lg:gap-3 shrink-0 pl-2 lg:pl-4 border-l border-gray-200">
                             {isAdmin && (
                             <form onSubmit={handleAdminSearchUser} className="flex items-center gap-1 lg:gap-2 mr-1 lg:mr-2 bg-purple-50 p-1 rounded-lg border border-purple-200 shadow-inner">
                                 <div className="relative">
                                     <input 
                                         type="text" 
-                                        placeholder="Admin: Tìm MSSV..." 
+                                        placeholder="Admin: Tìm..." 
                                         value={adminSearchMssv}
                                         onChange={(e) => setAdminSearchMssv(e.target.value)}
-                                        className="pl-7 pr-2 py-1.5 text-[11px] lg:text-xs w-28 lg:w-40 rounded-md border border-purple-200 outline-none focus:ring-1 focus:ring-purple-500 bg-white"
+                                        className="pl-7 pr-2 py-1.5 text-[11px] lg:text-xs w-20 lg:w-28 rounded-md border border-purple-200 outline-none focus:ring-1 focus:ring-purple-500 bg-white"
                                     />
                                     <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-400" />
                                 </div>
@@ -1013,14 +995,15 @@ const App: React.FC = () => {
                             {isAdmin ? (
                                 <div className="flex items-center gap-1.5 lg:gap-3 border-l border-gray-200 pl-1.5 lg:pl-3">
                                     
-                                    {/* NÚT ĐỒNG BỘ DB */}
+                                    {/* NÚT ĐỒNG BỘ DB MỚI BẰNG ICON */}
                                     <button 
                                         onClick={async (e) => {
                                             if (!window.confirm("Bắt đầu đồng bộ? Đảm bảo bạn đã chạy lệnh DISABLE ROW LEVEL SECURITY trên Supabase nhé!")) return;
                                             playClick();
                                             
                                             const btn = e.currentTarget;
-                                            btn.innerText = "⏳ Đang chạy... Mở F12 xem log";
+                                            const originalHTML = btn.innerHTML; // Lưu icon gốc lại
+                                            btn.innerHTML = "⏳";
                                             btn.disabled = true;
 
                                             try {
@@ -1094,14 +1077,14 @@ const App: React.FC = () => {
                                                 console.error(err);
                                                 alert("❌ Có lỗi xảy ra trong quá trình đồng bộ! (Xem Console)");
                                             } finally {
-                                                btn.innerText = "Đồng bộ";
+                                                btn.innerHTML = originalHTML; // Trả lại icon ban đầu
                                                 btn.disabled = false;
                                             }
                                         }} 
-                                        className="text-[10px] lg:text-xs bg-orange-100 text-orange-700 font-bold px-2 py-1 lg:px-3 lg:py-1.5 rounded-lg hover:bg-orange-200 transition-colors shadow-sm disabled:opacity-50 whitespace-nowrap" 
-                                        title="Chạy Tool Đồng Bộ Cũ -> Mới"
+                                        className="p-1.5 lg:p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center" 
+                                        title="Đồng bộ DB Cũ -> Mới"
                                     >
-                                        Đồng bộ
+                                        <RefreshCw size={16} />
                                     </button>
 
                                     <button onClick={() => { playClick(); setShowActivityLog(true); }} className="text-gray-400 hover:text-[#003375] transition-colors p-1" title="Lịch sử hoạt động">
