@@ -45,7 +45,6 @@ const COHORT_OPTIONS: Record<string, string[]> = {
     'special': ['CTDBK1', 'CTDBK2']
 };
 
-// Sửa lại: Mặc định để rỗng tên học kỳ để ép người dùng phải chọn
 const generateStandardCurriculum = (): Semester[] => {
     const semesters: Semester[] = [];
     const years = 4;
@@ -150,6 +149,7 @@ const App: React.FC = () => {
             if (error || !userProfile) {
                 alert("Không tìm thấy sinh viên có MSSV này trong hệ thống!");
                 setViewingUser(null);
+                setData(INITIAL_DATA);
                 dataOwnerIdRef.current = session?.user?.id || null;
             } else {
                 setData(INITIAL_DATA);
@@ -203,6 +203,8 @@ const App: React.FC = () => {
     const [otpError, setOtpError] = useState('');
     const [resendCountdown, setResendCountdown] = useState(0);
 
+    const userRolePref: 'guest' | 'school' | 'admin' = session ? (isAdmin ? 'admin' : 'school') : 'guest';
+
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout>;
         if (resendCountdown > 0) {
@@ -248,7 +250,8 @@ const App: React.FC = () => {
         if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
 
         const loadData = async () => {
-            if (!isGuest && session?.user?.id && supabase) {
+            if ((userRolePref === 'school' || userRolePref === 'admin') && session?.user?.id && supabase) {
+                
                 if (isAdmin && viewingUser) {
                     const { data: profileData } = await supabase
                         .from(STUDENT_PROFILE_TABLE)
@@ -292,11 +295,7 @@ const App: React.FC = () => {
                 setProfileFullName(metaName);
                 setProfileAvatarUrl(metaAvatar);
                 
-                let saved = localStorage.getItem(storageKey);
-                if (!saved) {
-                    saved = localStorage.getItem(STORAGE_KEY);
-                }
-
+                const saved = localStorage.getItem(storageKey);
                 if (saved) {
                     try { setData({ ...INITIAL_DATA, ...JSON.parse(saved) }); } 
                     catch (e) { setData(INITIAL_DATA); }
@@ -308,10 +307,11 @@ const App: React.FC = () => {
                 return;
             }
 
-            setProfileFullName(''); 
-            setProfileAvatarUrl(''); 
-            
-            const saved = localStorage.getItem(STORAGE_KEY);
+            if (userRolePref !== 'school' && userRolePref !== 'admin') { 
+                setProfileFullName(''); 
+                setProfileAvatarUrl(''); 
+            }
+            const saved = localStorage.getItem(storageKey);
             if (saved) {
                 try { setData({ ...INITIAL_DATA, ...JSON.parse(saved) }); } 
                 catch (e) { setData(INITIAL_DATA); }
@@ -322,7 +322,7 @@ const App: React.FC = () => {
 
         loadData();
         return () => { isActive = false; };
-    }, [storageKey, session?.user?.id, isGuest, isAdmin, viewingUser]);
+    }, [storageKey, session?.user?.id, userRolePref, isAdmin, viewingUser, isGuest]);
 
     useEffect(() => {
         if (isLoaded && !viewingUser) {
@@ -332,7 +332,7 @@ const App: React.FC = () => {
 
     useEffect(() => {
         if (!isLoaded) return;
-        if (isGuest || !session?.user?.id || !supabase) return;
+        if ((userRolePref !== 'school' && userRolePref !== 'admin') || !session?.user?.id || !supabase) return;
 
         if (saveTimeoutRef.current) {
             window.clearTimeout(saveTimeoutRef.current);
@@ -373,7 +373,7 @@ const App: React.FC = () => {
                 window.clearTimeout(saveTimeoutRef.current);
             }
         };
-    }, [data, isLoaded, session?.user?.id, isGuest, profileFullName, profileAvatarUrl, isAdmin, viewingUser]);
+    }, [data, isLoaded, session?.user?.id, userRolePref, profileFullName, profileAvatarUrl, isAdmin, viewingUser]);
 
     useEffect(() => {
         if (showAccountSettings) {
@@ -444,18 +444,15 @@ const App: React.FC = () => {
     const handleLogout = async () => {
         playClick();
         if (window.confirm("Đăng xuất khỏi hệ thống?")) {
-            // 1. Đăng xuất Supabase trước tiên
             try {
                 if (supabase) await supabase.auth.signOut();
             } catch (e) {
                 console.error("Lỗi khi đăng xuất Supabase:", e);
             }
             
-            // 2. Dọn dẹp sạch sẽ bộ nhớ trình duyệt
             localStorage.clear();
             sessionStorage.clear();
             
-            // 3. Ép trình duyệt văng thẳng ra trang Đăng nhập và làm mới
             window.location.href = '/login';
         }
     };
@@ -560,16 +557,13 @@ const App: React.FC = () => {
         } catch (error) {
             console.error("Lỗi khi reset:", error);
         } finally {
-            // Đăng xuất khỏi Supabase
             try {
                 if (supabase) await supabase.auth.signOut();
             } catch(e) {}
 
-            // Xóa sạch mọi dấu vết
             localStorage.clear();
             sessionStorage.clear();
             
-            // Bay thẳng ra trang đăng nhập
             window.location.href = '/login';
         }
     };
@@ -656,12 +650,11 @@ const App: React.FC = () => {
     const isColorAvatar = profileAvatarUrl?.startsWith('#');
     const studentId = session?.user?.email?.split('@')[0] ?? '';
 
-    // Sửa lại: Tên mặc định khi Add Semester là rỗng
     const addSemester = () => {
         playClick();
         const newSem: Semester = {
             id: Date.now().toString(),
-            name: ``, // Bỏ chữ Học kỳ Mới
+            name: ``, 
             subjects: [],
             trainingScore: null
         };
@@ -708,8 +701,6 @@ const App: React.FC = () => {
             setData(prev => {
                 const newData = { ...prev };
                 
-                // ❌ ĐÃ XÓA TÍNH NĂNG TỰ ĐỘNG LẤY TÊN VÀ NGÀNH HỌC Ở ĐÂY ĐỂ TRÁNH MỞ KHÓA BẬY BẠ
-
                 let startYear = new Date().getFullYear();
                 if (result.yearRanges.length > 0) {
                     startYear = Math.min(...result.yearRanges.map(y => y.start));
@@ -741,7 +732,6 @@ const App: React.FC = () => {
                 const leftOvers = importedSemesters.filter(s => !standardIds.includes(s.id));
                 reconstructSemesters.push(...leftOvers);
 
-                // ✅ CHỈ CẬP NHẬT BẢNG ĐIỂM, KHÔNG ÉP "hasOnboarded: true" NỮA
                 return { ...newData, semesters: reconstructSemesters };
             });
             alert(`Đã nhập thành công và sắp xếp lại lộ trình học tập từ năm ${result.yearRanges[0]?.start || '...'}`);
@@ -819,11 +809,23 @@ const App: React.FC = () => {
                                 </div>
                             </div>
                             
-                            <div className="flex items-center gap-3 shrink-0 sm:hidden">
+                            {/* 👇 ĐÃ FIX: TRẢ LẠI NÚT ĐĂNG XUẤT, RESET CHO MOBILE 👇 */}
+                            <div className="flex items-center gap-2 sm:hidden shrink-0">
                                 {(!isGuest) && (
                                     <NotificationBell currentUserId={session.user.id} />
                                 )}
                                 
+                                {isGuest && (
+                                    <div className="flex items-center gap-1.5">
+                                        <button onClick={handleRequestReset} className="p-1.5 bg-red-50 text-red-600 rounded-md border border-red-100" title="Reset dữ liệu"><RotateCcw size={16}/></button>
+                                        <Link to="/login" onClick={playClick} className="px-2 py-1.5 bg-[#003375] text-white rounded-md text-xs font-bold shadow-sm">Đăng nhập</Link>
+                                    </div>
+                                )}
+
+                                {isAdmin && (
+                                     <button onClick={handleLogout} className="p-1.5 bg-red-50 text-red-600 rounded-md border border-red-100" title="Đăng xuất"><LogOut size={16}/></button>
+                                )}
+
                                 {!isGuest && !isAdmin && (
                                     <div className="relative">
                                         <button onClick={() => setIsUserMenuOpen(prev => !prev)} className="flex items-center focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
@@ -849,6 +851,8 @@ const App: React.FC = () => {
                                     </div>
                                 )}
                             </div>
+                            {/* 👆 KẾT THÚC MOBILE ICONS 👆 */}
+
                         </div>
 
                         {(!isGuest) && (
@@ -857,7 +861,8 @@ const App: React.FC = () => {
                             </div>
                         )}
 
-                        <nav className="flex items-center justify-between sm:justify-end flex-1 gap-1 sm:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
+                        {/* 👇 ĐÃ FIX: TRẢ LẠI CHUẨN MENU GỐC CHỐNG LỖI NHẢY CẨM NANG 👇 */}
+                        <nav className="flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
                             
                             <NavLink 
                                 to="/dashboard" 
@@ -964,19 +969,21 @@ const App: React.FC = () => {
                                 }}
                             />
                         </nav>
+                        {/* 👆 KẾT THÚC NAV CHỐNG NHẢY CẨM NANG 👆 */}
 
-                        <div className="hidden sm:flex items-center gap-3 shrink-0 lg:pl-4 lg:border-l border-gray-200">
+                        {/* 👇 ĐÃ FIX: CHỐNG CHÈN ÉP NÚT CHO DESKTOP 👇 */}
+                        <div className="hidden sm:flex items-center gap-1.5 lg:gap-3 shrink-0 pl-2 lg:pl-4 border-l border-gray-200">
                             {isAdmin && (
-                            <form onSubmit={handleAdminSearchUser} className="flex items-center gap-2 mr-2 bg-purple-50 p-1 rounded-lg border border-purple-200 shadow-inner">
+                            <form onSubmit={handleAdminSearchUser} className="flex items-center gap-1 lg:gap-2 mr-1 lg:mr-2 bg-purple-50 p-1 rounded-lg border border-purple-200 shadow-inner">
                                 <div className="relative">
                                     <input 
                                         type="text" 
                                         placeholder="Admin: Tìm MSSV..." 
                                         value={adminSearchMssv}
                                         onChange={(e) => setAdminSearchMssv(e.target.value)}
-                                        className="pl-8 pr-3 py-1.5 text-xs w-40 rounded-md border border-purple-200 outline-none focus:ring-1 focus:ring-purple-500 bg-white"
+                                        className="pl-7 pr-2 py-1.5 text-[11px] lg:text-xs w-28 lg:w-40 rounded-md border border-purple-200 outline-none focus:ring-1 focus:ring-purple-500 bg-white"
                                     />
-                                    <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-400" />
+                                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-400" />
                                 </div>
                                 {viewingUser ? (
                                     <button type="button" onClick={() => { 
@@ -984,11 +991,11 @@ const App: React.FC = () => {
                                         setAdminSearchMssv(''); 
                                         setData(INITIAL_DATA); 
                                         playClick(); 
-                                    }} className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-md hover:bg-red-600 transition-colors whitespace-nowrap">
-                                        Thoát Xem
+                                    }} className="px-2 py-1 lg:px-3 lg:py-1.5 bg-red-500 text-white text-[11px] lg:text-xs font-bold rounded-md hover:bg-red-600 transition-colors whitespace-nowrap">
+                                        Thoát
                                     </button>
                                 ) : (
-                                    <button type="submit" disabled={isSearchingUser} className="px-3 py-1.5 bg-purple-600 text-white text-xs font-bold rounded-md hover:bg-purple-700 transition-colors whitespace-nowrap">
+                                    <button type="submit" disabled={isSearchingUser} className="px-2 py-1 lg:px-3 lg:py-1.5 bg-purple-600 text-white text-[11px] lg:text-xs font-bold rounded-md hover:bg-purple-700 transition-colors whitespace-nowrap">
                                         {isSearchingUser ? '...' : 'Xem'}
                                     </button>
                                 )}
@@ -1004,15 +1011,14 @@ const App: React.FC = () => {
                             )}
                             
                             {isAdmin ? (
-                                <div className="flex items-center gap-3 border-l border-gray-200 pl-3">
+                                <div className="flex items-center gap-1.5 lg:gap-3 border-l border-gray-200 pl-1.5 lg:pl-3">
                                     
-                                    {/* 👇 NÚT ĐỒNG BỘ NÂNG CẤP V3 (CHỐNG LAG + HIỆN LOG VÀNG) 👇 */}
+                                    {/* NÚT ĐỒNG BỘ DB */}
                                     <button 
                                         onClick={async (e) => {
                                             if (!window.confirm("Bắt đầu đồng bộ? Đảm bảo bạn đã chạy lệnh DISABLE ROW LEVEL SECURITY trên Supabase nhé!")) return;
                                             playClick();
                                             
-                                            // Đổi giao diện nút bấm
                                             const btn = e.currentTarget;
                                             btn.innerText = "⏳ Đang chạy... Mở F12 xem log";
                                             btn.disabled = true;
@@ -1020,10 +1026,9 @@ const App: React.FC = () => {
                                             try {
                                                 let hasMore = true;
                                                 let page = 0;
-                                                const pageSize = 100; // GIẢM XUỐNG 100 ĐỂ KHÔNG BỊ TREO MẠNG
+                                                const pageSize = 100;
                                                 let updatedCount = 0;
                                                 
-                                                // DÙNG WARN ĐỂ ÉP TRÌNH DUYỆT HIỆN CHỮ MÀU VÀNG
                                                 console.warn("🚀 [BƯỚC 1] BẮT ĐẦU TIẾN TRÌNH ĐỒNG BỘ DATA...");
 
                                                 while (hasMore) {
@@ -1054,7 +1059,6 @@ const App: React.FC = () => {
                                                         let baseYear = 2024; 
                                                         const cohortStr = String(pData.cohort || "").toUpperCase();
 
-                                                        // Logic cập nhật khóa chuẩn của bạn
                                                         if (cohortStr.includes("K38") || cohortStr.includes("CLCK10")) baseYear = 2022;
                                                         else if (cohortStr.includes("K39") || cohortStr.includes("CLCK11")) baseYear = 2023;
                                                         else if (cohortStr.includes("K40") || cohortStr.includes("CLCK12") || cohortStr.includes("CTDBK1")) baseYear = 2024;
@@ -1090,39 +1094,38 @@ const App: React.FC = () => {
                                                 console.error(err);
                                                 alert("❌ Có lỗi xảy ra trong quá trình đồng bộ! (Xem Console)");
                                             } finally {
-                                                btn.innerText = "🛠 Đồng bộ DB";
+                                                btn.innerText = "Đồng bộ";
                                                 btn.disabled = false;
                                             }
                                         }} 
-                                        className="text-xs bg-orange-100 text-orange-700 font-bold px-3 py-1.5 rounded-lg hover:bg-orange-200 transition-colors shadow-sm disabled:opacity-50" 
+                                        className="text-[10px] lg:text-xs bg-orange-100 text-orange-700 font-bold px-2 py-1 lg:px-3 lg:py-1.5 rounded-lg hover:bg-orange-200 transition-colors shadow-sm disabled:opacity-50 whitespace-nowrap" 
                                         title="Chạy Tool Đồng Bộ Cũ -> Mới"
                                     >
-                                        🛠 Đồng bộ DB
+                                        Đồng bộ
                                     </button>
-                                    {/* 👆 KẾT THÚC NÚT ĐỒNG BỘ V3 👆 */}
 
-                                    <button onClick={() => { playClick(); setShowActivityLog(true); }} className="text-gray-400 hover:text-[#003375] transition-colors" title="Lịch sử hoạt động">
-                                        <Clock size={18} />
+                                    <button onClick={() => { playClick(); setShowActivityLog(true); }} className="text-gray-400 hover:text-[#003375] transition-colors p-1" title="Lịch sử hoạt động">
+                                        <Clock size={16} className="lg:w-[18px] lg:h-[18px]" />
                                     </button>
-                                    <button onClick={handleLogout} className="text-gray-400 hover:text-red-600 transition-colors" title="Đăng xuất">
-                                        <LogOut size={18} />
+                                    <button onClick={handleLogout} className="text-gray-400 hover:text-red-600 transition-colors p-1" title="Đăng xuất">
+                                        <LogOut size={16} className="lg:w-[18px] lg:h-[18px]" />
                                     </button>
                                 </div>
                             ) : session ? (
-                                <div className="relative flex items-center gap-3">
-                                    <div className="hidden lg:flex flex-col items-end justify-center">
-                                        <span className="text-xs font-bold text-gray-700 uppercase tracking-wide leading-none">{displayName}</span>
+                                <div className="relative flex items-center gap-2 lg:gap-3 border-l border-gray-200 pl-2 lg:pl-3">
+                                    <div className="hidden md:flex flex-col items-end justify-center">
+                                        <span className="text-[11px] lg:text-xs font-bold text-gray-700 uppercase tracking-wide leading-none truncate max-w-[100px] lg:max-w-[150px]">{displayName}</span>
                                         <span className="text-[10px] text-gray-400 font-medium leading-none mt-1">{studentId}</span>
                                     </div>
                                     <button onClick={() => setIsUserMenuOpen(prev => !prev)} className="flex items-center gap-2 focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
                                         {profileAvatarUrl ? (
                                             isColorAvatar ? (
-                                                <span className="h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm" style={{ backgroundColor: profileAvatarUrl }}>{avatarSeed}</span>
+                                                <span className="h-7 w-7 lg:h-8 lg:w-8 rounded-full flex items-center justify-center text-white text-xs lg:text-sm font-bold shadow-sm" style={{ backgroundColor: profileAvatarUrl }}>{avatarSeed}</span>
                                             ) : (
-                                                <img src={profileAvatarUrl} alt="Avatar" className="h-8 w-8 rounded-full object-cover shadow-sm border border-gray-200" />
+                                                <img src={profileAvatarUrl} alt="Avatar" className="h-7 w-7 lg:h-8 lg:w-8 rounded-full object-cover shadow-sm border border-gray-200" />
                                             )
                                         ) : (
-                                            <span className="h-8 w-8 rounded-full bg-[#003375] text-white flex items-center justify-center text-sm font-bold shadow-sm">{avatarSeed}</span>
+                                            <span className="h-7 w-7 lg:h-8 lg:w-8 rounded-full bg-[#003375] text-white flex items-center justify-center text-xs lg:text-sm font-bold shadow-sm">{avatarSeed}</span>
                                         )}
                                     </button>
                                     {isUserMenuOpen && (
@@ -1135,13 +1138,13 @@ const App: React.FC = () => {
                                     )}
                                 </div>
                             ) : (
-                                <div className="flex items-center gap-1.5 border-l border-gray-200 pl-2">
-                                    <button onClick={handleRequestReset} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors" title="Xóa dữ liệu dùng thử">
-                                        <RotateCcw size={16} />
-                                        <span className="text-xs font-bold hidden md:block">Reset dữ liệu</span>
+                                <div className="flex items-center gap-1.5 lg:gap-2 border-l border-gray-200 pl-1.5 lg:pl-3">
+                                    <button onClick={handleRequestReset} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors" title="Xóa dữ liệu dùng thử">
+                                        <RotateCcw size={14} className="lg:w-4 lg:h-4" />
+                                        <span className="text-[10px] lg:text-xs font-bold hidden md:block">Reset</span>
                                     </button>
-                                    <Link to="/login" onClick={playClick} className="flex items-center gap-1.5 px-4 py-1.5 bg-[#003375] text-white text-sm font-bold rounded-lg hover:bg-[#002855] transition-colors shadow-sm">
-                                        <User size={16} /> Đăng nhập
+                                    <Link to="/login" onClick={playClick} className="flex items-center gap-1 px-2 lg:px-4 py-1.5 bg-[#003375] text-white text-[10px] lg:text-sm font-bold rounded-lg hover:bg-[#002855] transition-colors shadow-sm whitespace-nowrap">
+                                        <User size={14} className="lg:w-4 lg:h-4" /> <span className="hidden md:block">Đăng nhập</span>
                                     </Link>
                                 </div>
                             )}
@@ -1246,7 +1249,7 @@ const App: React.FC = () => {
                             {resetStep === 1 ? (
                                 <div className="p-8 sm:p-10 animate-fadeIn text-center relative">
                                     <button onClick={() => setShowResetModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-full p-1.5 transition-colors"><X size={18} /></button>
-                                    <div className="w-20 h-20 bg-blue-50 tex    t-[#003375] rounded-full flex items-center justify-center mx-auto mb-6">
+                                    <div className="w-20 h-20 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-6">
                                         <HeartCrack size={40} />
                                     </div>
                                     <h3 className="text-2xl font-black text-gray-900 mb-3">Khoan đã... 🥺</h3>

@@ -268,10 +268,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   const [showRankMenu, setShowRankMenu] = useState(false);
   const rankMenuRef = useRef<HTMLDivElement>(null);
     
-  // 👇 KIỂM TRA TÊN HỌC KỲ HỢP LỆ (Mới thêm) 👇
-  // Form chuẩn phải là "Học kỳ 1 Năm học 202x-202y" hoặc "Học kỳ Hè..."
   const isValidFormat = /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(semester.name);
-  // 👆 KẾT THÚC KIỂM TRA 👆
 
   const handleSubjectChange = (subjectId: string, field: keyof Subject, value: any) => {
     const updatedSubjects = semester.subjects.map(sub => {
@@ -331,7 +328,6 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   let hasData = false;
   let totalRegisteredCredits = 0; 
 
-  // Chỉ tính toán nếu tên học kỳ hợp lệ
   if (isValidFormat) {
       semester.subjects.forEach(s => {
           if(!s.isNonGPA && s.credits) {
@@ -407,23 +403,21 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   return (
     <div className={`mb-5 sm:mb-8 bg-white rounded-xl border overflow-visible ${hasData || isValidFormat ? 'border-gray-300 shadow-sm' : 'border-red-300 shadow-md ring-1 ring-red-100'}`}>
       <div className={`px-3 py-3 sm:px-6 sm:py-4 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 ${isValidFormat ? headerColor : 'bg-red-50/30 border-red-200'} rounded-t-xl ${isValidFormat ? 'border-b' : 'border-b-0'}`}>
-        <div className="flex items-center gap-2 sm:gap-4 flex-1">
-            <div className="relative group flex-1 max-w-md flex items-center">
+        <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+            <div className="relative group flex-1 max-w-md flex items-center min-w-0">
                 <select 
                     value={isValidFormat ? semester.name : ''}
                     onChange={handleNameChange}
-                    className={`text-base sm:text-lg font-bold bg-transparent border-b border-dashed focus:outline-none transition-all w-full py-0.5 sm:py-1 appearance-none cursor-pointer pr-6 ${
+                    className={`text-base sm:text-lg font-bold bg-transparent border-b border-dashed focus:outline-none transition-all w-full py-0.5 sm:py-1 appearance-none cursor-pointer pr-6 truncate ${
                         !isValidFormat
                         ? 'text-red-600 border-red-400 hover:border-red-600' 
                         : 'text-[#003375] border-transparent hover:border-[#003375]/50 focus:border-[#003375]'
                     }`}
                 >
-                    {/* Giữ lại option cho các kỳ học do AI trích xuất (Ví dụ: Học kỳ Hè) */}
                     {!allSemesterOptions.includes(semester.name) && isValidFormat && (
                         <option value={semester.name} disabled className="hidden">{semester.name}</option>
                     )}
                     
-                    {/* Option khi sai định dạng (vd: Năm 1 - Học kỳ 1) */}
                     {!isValidFormat && (
                          <option value="" disabled className="text-red-500 font-bold">👉 Vui lòng chọn lại tên học kỳ (Sai định dạng)</option>
                     )}
@@ -440,7 +434,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 <ChevronDown className={`absolute right-1 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none w-4 h-4 ${!isValidFormat ? 'text-red-500' : 'text-[#003375]'}`} />
             </div>
             {hasData && isValidFormat && (
-                <span className={`text-[10px] sm:text-xs px-2 py-0.5 sm:py-1 rounded-full font-bold border bg-white/60 border-current shadow-sm text-gray-700 whitespace-nowrap`}>
+                <span className={`text-[10px] sm:text-xs px-2 py-0.5 sm:py-1 rounded-full font-bold border bg-white/60 border-current shadow-sm text-gray-700 whitespace-nowrap shrink-0`}>
                     {classification}
                 </span>
             )}
@@ -458,7 +452,6 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                           <span className="font-bold text-[#003375]">Xếp hạng 👑</span>
                       </button>
 
-                      {/* Rank Menu giữ nguyên */}
                       {showRankMenu && (
                           <div className="absolute top-full left-0 md:left-auto md:right-0 mt-2 w-72 sm:w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-[60] overflow-hidden animate-fadeIn origin-top-left md:origin-top-right">
                               <div className="bg-[#003375] px-4 py-3 text-white flex justify-between items-center shrink-0">
@@ -665,7 +658,6 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
               <p className="text-red-500/80 text-xs max-w-sm">Tên học kỳ không hợp lệ. Vui lòng chọn một tên học kỳ có sẵn trong danh sách phía trên để mở khóa tính năng nhập điểm!</p>
           </div>
       )}
-      {/* 👆 KẾT THÚC KHÓA NỘI DUNG 👆 */}
     </div>
   );
 };
@@ -715,7 +707,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [showYearlyModal, setShowYearlyModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
 
-    // TẠO DANH SÁCH 100% CÁC HỌC KỲ TỪ 2020 - 2026 (Loại bỏ Học kỳ Hè)
     const ALL_SEMESTERS = useMemo(() => {
         const options = [];
         for (let y = 2020; y <= 2026; y++) {
@@ -725,7 +716,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         return options;
     }, []);
 
-    // DOMINO EFFECT TÍNH TOÁN 2 CHIỀU (TRƯỚC VÀ SAU)
     const handleCascadeUpdate = (targetIndex: number, newName: string) => {
         const match = newName.match(/Học kỳ (1|2) Năm học (\d{4})-(\d{4})/);
         if (!match) {
@@ -735,8 +725,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         const targetHk = parseInt(match[1]);
         const targetYear = parseInt(match[2]);
-        
-        // Quy đổi về trục số tuyệt đối
         const targetAbs = targetYear * 2 + (targetHk - 1);
 
         const isFirstSpawn = data.semesters.length === 1 && data.semesters[0].name === '';
@@ -744,7 +732,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         const newSemesters = [...data.semesters];
 
-        // Quét lại toàn bộ mảng và đặt lại tên theo khoảng cách tương đối
         for (let i = 0; i < targetLength; i++) {
             const offset = i - targetIndex; 
             const currentAbs = targetAbs + offset;
@@ -769,7 +756,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         onSetSemesters(newSemesters);
     };
 
-    // SẮP XẾP BẢNG ĐIỂM
     const sortedSemesters = useMemo(() => {
         const getWeight = (name: string) => {
             if (!name) return 999999;
@@ -787,7 +773,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const usedSemesterNames = data.semesters.map(s => s.name);
     const isLocked = isGuest && !data.hasOnboarded;
 
-    // Tính toán số liệu thống kê (Chỉ tính các học kỳ hợp lệ)
     const validDataSemesters = data.semesters.filter(s => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
 
     const stats = calculateCumulativeStats(validDataSemesters);
@@ -985,7 +970,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between relative overflow-hidden">
+                <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col justify-between relative overflow-hidden">
                     <div className="flex justify-between items-start mb-1">
                         <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dự báo mục tiêu</span>
                         <Target size={16} className="text-[#003375] shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -1155,7 +1140,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                     </div>
 
-                    <div className="bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden flex-1 min-h-0 relative">
+                    {/* 👇 ĐÃ FIX: CHỐNG ÉP DẸP KHUNG THÔNG BÁO TRÊN ĐIỆN THOẠI 👇 */}
+                    <div className="bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden flex-1 min-h-[300px] lg:min-h-0 relative">
                         <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
                             <SchoolAnnouncements />
                         </div>
@@ -1164,10 +1150,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             <div className="pt-2">
-                <div className="flex flex-row justify-between items-center mb-3 sm:mb-4 gap-2 border-t border-gray-200 pt-4 sm:pt-5 mt-2">
+                {/* 👇 ĐÃ FIX: NHÓM NÚT BẢNG ĐIỂM TỰ RỚT DÒNG KHI MÀN HÌNH HẸP 👇 */}
+                <div className="flex flex-row justify-between items-center flex-wrap mb-3 sm:mb-4 gap-2 border-t border-gray-200 pt-4 sm:pt-5 mt-2">
                     <h2 className="text-[15px] sm:text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Chi tiết bảng điểm</h2>
 
-                    <div className="flex items-center gap-1.5 sm:gap-3">
+                    <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
                         <button
                             onClick={() => { playClick(); setShowReportModal(true); }}
                             className="text-red-600 bg-red-50 border border-red-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-red-100 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
@@ -1206,7 +1193,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                 <div className="space-y-4">
                     {semestersToRender.map((sem) => {
-                        // Tìm index nguyên thủy để hàm update/remove không bị loạn
                         const originalIndex = data.semesters.findIndex(s => s.id === sem.id);
 
                         return (
@@ -1223,7 +1209,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         )
                     })}
 
-                    {/* Hiển thị Nút Tạo thủ công nếu xóa hết sạch bảng điểm */}
                     {data.semesters.length === 0 && (
                         <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
                             <p className="text-gray-500 mb-4 text-sm font-medium">Bạn chưa có học kỳ nào.</p>
@@ -1233,7 +1218,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     )}
                     
-                    {/* Chỉ hiển thị nút Add khi không ở trạng thái Initial (trống rỗng hoặc sai format cũ) */}
                     {!isInitialState && data.semesters.length > 0 && data.semesters.length < ALL_SEMESTERS.length && (
                         <button onClick={onAddSemester} className="w-full py-4 border-2 border-dashed border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-400 hover:bg-gray-50 rounded-xl font-semibold flex justify-center items-center gap-2 transition-all">
                             <Plus size={18}/> Thêm học kỳ mới
