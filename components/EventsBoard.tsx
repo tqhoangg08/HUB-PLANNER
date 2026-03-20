@@ -57,6 +57,25 @@ const formatTimeString = (timeStr: string | null): string => {
     return timeStr;
 };
 
+// Hàm kiểm tra sự kiện đã quá hạn chưa (Bao gồm cả xét Ngày diễn ra nếu Đóng khi đủ số lượng)
+const checkIsOverdue = (evt: HubEvent, currentDay: Date) => {
+    if (evt.deadlineDate) {
+        return evt.deadlineDate < currentDay;
+    }
+    // Nếu sự kiện thiết lập Đóng khi đủ số lượng và có Ngày diễn ra
+    if (evt.close_on_full && evt.event_date) {
+        const evtDate = new Date(evt.event_date);
+        evtDate.setHours(0, 0, 0, 0);
+        
+        const todayStart = new Date(currentDay);
+        todayStart.setHours(0, 0, 0, 0);
+        
+        // Nếu hôm nay đã tới (hoặc qua) ngày diễn ra thì xem như quá hạn
+        return todayStart >= evtDate; 
+    }
+    return false;
+};
+
 // --- Sub-Components (Modals) ---
 const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
     if (!isOpen) return null;
@@ -1183,10 +1202,19 @@ const loadParticipation = async () => {
           const now = today.getTime();
           const getScore = (evt: HubEvent) => {
               if (evt.is_manually_closed || evt.status === 'Đã kết thúc' || evt.is_deleted) return Infinity;
-              if (!evt.deadlineDate) return Infinity - 1;
-              const diff = evt.deadlineDate.getTime() - now;
-              if (diff < 0) return Infinity; 
-              return diff;
+              
+              if (evt.deadlineDate) {
+                  const diff = evt.deadlineDate.getTime() - now;
+                  if (diff < 0) return Infinity; 
+                  return diff;
+              } else if (evt.close_on_full && evt.event_date) {
+                  const evtDate = new Date(evt.event_date);
+                  evtDate.setHours(23, 59, 59, 999);
+                  const diff = evtDate.getTime() - now;
+                  if (diff < 0) return Infinity;
+                  return diff;
+              }
+              return Infinity - 1;
           };
           return getScore(a) - getScore(b);
       }
@@ -1207,13 +1235,13 @@ const loadParticipation = async () => {
   };
 
   const openingEvents = filteredEvents.filter(evt => {
-      const isNotExpired = evt.deadlineDate ? evt.deadlineDate >= today : true;
+      const isNotExpired = !checkIsOverdue(evt, today);
       const isOpenStatus = !evt.is_manually_closed && evt.status !== 'Đã kết thúc';
       return isNotExpired && isOpenStatus;
   });
 
   const expiredEvents = filteredEvents.filter(evt => {
-      const isExpiredTime = evt.deadlineDate ? evt.deadlineDate < today : false;
+      const isExpiredTime = checkIsOverdue(evt, today);
       const isClosedStatus = evt.is_manually_closed || evt.status === 'Đã kết thúc';
       return isExpiredTime || isClosedStatus;
   });
@@ -1523,13 +1551,14 @@ const participatedStats = useMemo(() => {
       );
   };
 
-const renderEventCard = (evt: HubEvent) => {
+  const renderEventCard = (evt: HubEvent) => {
     const isPending = evt.status === 'pending';
     const isStatusClosed = evt.status === 'Đã kết thúc';
     const isActive = evt.status === 'Đang diễn ra';
-    const isUpcoming = evt.status === 'Sắp diễn ra';
+    
+    // Đã thay đổi logic lấy isOverdue sử dụng helper function để hỗ trợ Đóng khi đủ số lượng
+    const isOverdue = checkIsOverdue(evt, today);
     const isDeadlineToday = !isStatusClosed && !isPending && isSameDay(evt.deadlineDate, today);
-    const isOverdue = evt.deadlineDate ? evt.deadlineDate < today : false;
     const isManualClose = evt.is_manually_closed;
     const isLinkClosed = isStatusClosed || isOverdue || isManualClose; 
 
@@ -1676,17 +1705,19 @@ return (
     <div className="animate-slideInRight">
 <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div>
-                <h2 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
-                Sự kiện Điểm Rèn Luyện
-                </h2>
-                {canManage && (
-                    <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-1 border border-blue-100">
-                        <Settings size={10} className="inline mr-1"/>
-                        {isAdmin ? 'Chế độ Admin: Toàn quyền' : 'Chế độ CTV: Sửa/Đóng đơn'}
-                    </div>
-                )}
-                {!canManage && <p className="text-sm text-gray-500 mt-1">Một số sự kiện có thể được cập nhật trễ</p>}
-            </div>
+    <h2 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
+        Sự kiện Điểm Rèn Luyện
+    </h2>
+    {canManage && (
+        <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-1 mb-1 border border-blue-100">
+            <Settings size={10} className="inline mr-1"/>
+            {isAdmin ? 'Chế độ Admin: Toàn quyền' : 'Chế độ CTV: Sửa/Đóng đơn'}
+        </div>
+    )}
+    <p className="text-[11px] sm:text-xs text-gray-500 italic mt-1.5 max-w-xl leading-relaxed">
+        *Lưu ý: Các thông tin sự kiện, phân loại mục và điểm cộng được tổng hợp từ cộng đồng nên chỉ mang tính tham khảo và có thể có sai sót. Bạn vui lòng đối chiếu lại với thông báo chính thức từ BTC nhé.
+    </p>
+</div>
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto items-stretch">
                 <div className="relative flex-1 sm:flex-none"><input type="text" placeholder="Tìm tên, BTC, loại hình..." className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none w-full md:w-64 transition-all hover:border-blue-300 h-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /></div>
                 
