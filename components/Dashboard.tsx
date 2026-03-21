@@ -714,8 +714,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [showYearlyModal, setShowYearlyModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
 
-    const isViewingStudentFromHeader = Boolean(data.studentName || data.cohort);
-    const showAdminPanel = isAdmin && !isViewingStudentFromHeader && !selectedUserOverview;
+    const [adminMode, setAdminMode] = useState<'list' | 'detail'>('list');
+
+const prevStudentNameRef = useRef(data.studentName);
+useEffect(() => {
+    if (isAdmin && data.studentName !== prevStudentNameRef.current) {
+        setAdminMode('detail'); // Tự động mở hồ sơ nếu Admin tìm kiếm trên Header
+    }
+    prevStudentNameRef.current = data.studentName;
+}, [data.studentName, isAdmin]);
+
+const showAdminPanel = isAdmin && adminMode === 'list';
 
     useEffect(() => {
         if (showAdminPanel) {
@@ -967,7 +976,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white"
                                 />
                             </div>
-                            <button onClick={() => { playClick(); setSelectedUserOverview(data); }} className="px-4 py-2 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] rounded-lg shadow-sm whitespace-nowrap transition-colors">
+                            <button onClick={() => { playClick(); setSelectedUserOverview(null); setAdminMode('detail'); }} className="px-4 py-2 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] rounded-lg shadow-sm whitespace-nowrap transition-colors">
                                 Hồ sơ của tôi
                             </button>
                         </div>
@@ -1004,7 +1013,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
                                             
                                             return (
-                                                <tr key={user.id} onClick={() => { playClick(); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
+                                                <tr key={user.id} onClick={() => { playClick(); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
                                                     <td className="px-4 py-3 font-bold text-[#003375]">{user.student_code || '-'}</td>
                                                     <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#003375] transition-colors">{user.full_name || user.data?.studentName || 'Chưa cập nhật'}</td>
                                                     <td className="px-4 py-3 text-gray-600">{user.data?.programName || '-'} / {user.data?.cohort || '-'}</td>
@@ -1026,11 +1035,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         ) : (
             <div className="w-full space-y-4 pt-1 animate-fadeIn">
                 <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
-                    {selectedUserOverview && (
-                        <button 
-                            onClick={() => { playClick(); setSelectedUserOverview(null); }}
-                            className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
-                        >
+                    {isAdmin && (
+    <button 
+        onClick={() => { playClick(); setSelectedUserOverview(null); setAdminMode('list'); }}
+        className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
+    >
                             <ChevronLeft size={16} /> Quay lại danh sách quản lý
                         </button>
                     )}
