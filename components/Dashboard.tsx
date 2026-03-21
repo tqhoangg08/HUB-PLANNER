@@ -708,7 +708,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [loadingAdmin, setLoadingAdmin] = useState(false);
     const [selectedUserOverview, setSelectedUserOverview] = useState<UserData | null>(null);
     const [adminSearch, setAdminSearch] = useState('');
-
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 20; 
+    useEffect(() => { setCurrentPage(1); }, [adminSearch]);
     const [showRankingModal, setShowRankingModal] = useState(false);
     const [showFailedModal, setShowFailedModal] = useState(false);
     const [showYearlyModal, setShowYearlyModal] = useState(false);
@@ -729,16 +731,15 @@ const showAdminPanel = isAdmin && adminMode === 'list';
     useEffect(() => {
         if (showAdminPanel) {
             const fetchAdminData = async () => {
-                setLoadingAdmin(true);
-                const { data: profiles, error } = await supabase
-                    .from('profiles')
-                    .select('id, student_code, full_name, updated_at, data')
-                    .order('updated_at', { ascending: false })
-                    .limit(100);
-                
-                if (profiles) setAdminUsers(profiles);
-                setLoadingAdmin(false);
-            };
+        setLoadingAdmin(true);
+        const { data: profiles, error } = await supabase
+            .from('profiles')
+            .select('id, student_code, full_name, updated_at, data')
+            .order('updated_at', { ascending: false });
+        
+        if (profiles) setAdminUsers(profiles);
+        setLoadingAdmin(false);
+    };
             fetchAdminData();
         }
     }, [showAdminPanel]);
@@ -999,15 +1000,19 @@ const showAdminPanel = isAdmin && adminMode === 'list';
                             <tbody className="divide-y divide-gray-100">
                                 {loadingAdmin ? (
                                     <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/> <span className="text-gray-500">Đang tải danh sách...</span></td></tr>
-                                ) : (() => {
+                                    ) : (() => {
                                     const filteredUsers = adminUsers.filter(u => 
                                         (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) ||
                                         (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) ||
                                         (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))
                                     );
 
-                                    return filteredUsers.length > 0 ? (
-                                        filteredUsers.map(user => {
+                                    // Lấy dữ liệu của trang hiện tại
+                                    const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+                                    const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+                                    return paginatedUsers.length > 0 ? (
+                                        paginatedUsers.map(user => {
                                             const validSems = (user.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
                                             const uStats = calculateCumulativeStats(validSems);
                                             const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
@@ -1030,20 +1035,50 @@ const showAdminPanel = isAdmin && adminMode === 'list';
                             </tbody>
                         </table>
                     </div>
-                </div>
-            </div>
-        ) : (
-            <div className="w-full space-y-4 pt-1 animate-fadeIn">
-                <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
-                    {isAdmin && (
-    <button 
-        onClick={() => { playClick(); setSelectedUserOverview(null); setAdminMode('list'); }}
-        className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
-    >
-                            <ChevronLeft size={16} /> Quay lại danh sách quản lý
-                        </button>
+
+                    {/* THANH CHUYỂN TRANG */}
+                    {adminUsers.length > 0 && (
+                        <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 gap-3">
+                            <span className="text-xs sm:text-sm text-gray-500">
+                                Đang xem <span className="font-bold text-gray-700">{(currentPage - 1) * itemsPerPage + 1}</span> đến <span className="font-bold text-gray-700">{Math.min(currentPage * itemsPerPage, adminUsers.filter(u => (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) || (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) || (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))).length)}</span> trong tổng số <span className="font-bold text-gray-900">{adminUsers.filter(u => (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) || (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) || (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))).length}</span> sinh viên
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={() => { playClick(); setCurrentPage(p => Math.max(1, p - 1)); }} 
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    Trước
+                                </button>
+                                <span className="text-xs font-bold text-[#003375] bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100">Trang {currentPage}</span>
+                                <button 
+                                    onClick={() => { 
+                                        playClick(); 
+                                        const filteredLen = adminUsers.filter(u => (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) || (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) || (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))).length;
+                                        setCurrentPage(p => Math.min(Math.ceil(filteredLen / itemsPerPage), p + 1)); 
+                                    }} 
+                                    disabled={currentPage === Math.ceil(adminUsers.filter(u => (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) || (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) || (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))).length / itemsPerPage) || adminUsers.filter(u => (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) || (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) || (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))).length === 0}
+                                    className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    Sau
+                                </button>
+                            </div>
+                        </div>
                     )}
-                    
+                    </div>
+                </div>
+            ) : (
+                <div className="w-full space-y-4 pt-1 animate-fadeIn">
+                    <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
+                        {isAdmin && (
+        <button 
+            onClick={() => { playClick(); setSelectedUserOverview(null); setAdminMode('list'); }}
+            className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
+        >
+                                <ChevronLeft size={16} /> Quay lại danh sách quản lý
+                            </button>
+                        )}
+                        
                     <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-2">
                         Học tập {selectedUserOverview && <span className="text-sm text-gray-400 font-medium ml-2 uppercase tracking-wide border border-gray-200 bg-white px-2 py-0.5 rounded-md align-middle">(Chế độ xem của Admin)</span>}
                     </h1>
