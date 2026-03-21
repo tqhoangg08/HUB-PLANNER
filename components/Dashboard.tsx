@@ -708,38 +708,69 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [loadingAdmin, setLoadingAdmin] = useState(false);
     const [selectedUserOverview, setSelectedUserOverview] = useState<UserData | null>(null);
     const [adminSearch, setAdminSearch] = useState('');
+    const [adminMode, setAdminMode] = useState<'list' | 'detail'>('list');
+    
+    // Thêm state phân trang
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 20; 
-    useEffect(() => { setCurrentPage(1); }, [adminSearch]);
+    const [pageInput, setPageInput] = useState('1');
+    const itemsPerPage = 20;
+
+    useEffect(() => { 
+        setCurrentPage(1); 
+        setPageInput('1'); 
+    }, [adminSearch]);
+
+    const prevStudentNameRef = useRef(data.studentName);
+    useEffect(() => {
+        if (isAdmin && data.studentName !== prevStudentNameRef.current) {
+            setAdminMode('detail');
+        }
+        prevStudentNameRef.current = data.studentName;
+    }, [data.studentName, isAdmin]);
+
     const [showRankingModal, setShowRankingModal] = useState(false);
     const [showFailedModal, setShowFailedModal] = useState(false);
     const [showYearlyModal, setShowYearlyModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
 
-    const [adminMode, setAdminMode] = useState<'list' | 'detail'>('list');
-
-const prevStudentNameRef = useRef(data.studentName);
-useEffect(() => {
-    if (isAdmin && data.studentName !== prevStudentNameRef.current) {
-        setAdminMode('detail'); // Tự động mở hồ sơ nếu Admin tìm kiếm trên Header
-    }
-    prevStudentNameRef.current = data.studentName;
-}, [data.studentName, isAdmin]);
-
-const showAdminPanel = isAdmin && adminMode === 'list';
+    const showAdminPanel = isAdmin && adminMode === 'list';
 
     useEffect(() => {
         if (showAdminPanel) {
             const fetchAdminData = async () => {
-        setLoadingAdmin(true);
-        const { data: profiles, error } = await supabase
-            .from('profiles')
-            .select('id, student_code, full_name, updated_at, data')
-            .order('updated_at', { ascending: false });
-        
-        if (profiles) setAdminUsers(profiles);
-        setLoadingAdmin(false);
-    };
+                setLoadingAdmin(true);
+                let allProfiles: any[] = [];
+                let hasMore = true;
+                let page = 0;
+                const pageSize = 1000;
+
+                while (hasMore) {
+                    const { data: profiles, error } = await supabase
+                        .from('profiles')
+                        .select('id, student_code, full_name, updated_at, data')
+                        .order('updated_at', { ascending: false })
+                        .range(page * pageSize, (page + 1) * pageSize - 1);
+                    
+                    if (error) {
+                        console.error(error);
+                        break;
+                    }
+                    
+                    if (profiles && profiles.length > 0) {
+                        allProfiles = [...allProfiles, ...profiles];
+                        if (profiles.length < pageSize) {
+                            hasMore = false; 
+                        } else {
+                            page++; 
+                        }
+                    } else {
+                        hasMore = false;
+                    }
+                }
+                
+                setAdminUsers(allProfiles);
+                setLoadingAdmin(false);
+            };
             fetchAdminData();
         }
     }, [showAdminPanel]);
@@ -977,7 +1008,7 @@ const showAdminPanel = isAdmin && adminMode === 'list';
                                     className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white"
                                 />
                             </div>
-                            <button onClick={() => { playClick(); setSelectedUserOverview(null); setAdminMode('detail'); }} className="px-4 py-2 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] rounded-lg shadow-sm whitespace-nowrap transition-colors">
+                            <button onClick={() => { playClick(); setSelectedUserOverview(data); setAdminMode('detail'); }} className="px-4 py-2 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] rounded-lg shadow-sm whitespace-nowrap transition-colors">
                                 Hồ sơ của tôi
                             </button>
                         </div>
@@ -999,16 +1030,14 @@ const showAdminPanel = isAdmin && adminMode === 'list';
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {loadingAdmin ? (
-                                    <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/> <span className="text-gray-500">Đang tải danh sách...</span></td></tr>
-                                    ) : (() => {
+                                    <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/> <span className="text-gray-500">Đang tải toàn bộ dữ liệu ({adminUsers.length}+)...</span></td></tr>
+                                ) : (() => {
                                     const filteredUsers = adminUsers.filter(u => 
                                         (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) ||
                                         (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) ||
                                         (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))
                                     );
 
-                                    // Lấy dữ liệu của trang hiện tại
-                                    const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
                                     const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
                                     return paginatedUsers.length > 0 ? (
@@ -1036,49 +1065,78 @@ const showAdminPanel = isAdmin && adminMode === 'list';
                         </table>
                     </div>
 
-                    {/* THANH CHUYỂN TRANG */}
-                    {adminUsers.length > 0 && (
-                        <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 gap-3">
-                            <span className="text-xs sm:text-sm text-gray-500">
-                                Đang xem <span className="font-bold text-gray-700">{(currentPage - 1) * itemsPerPage + 1}</span> đến <span className="font-bold text-gray-700">{Math.min(currentPage * itemsPerPage, adminUsers.filter(u => (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) || (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) || (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))).length)}</span> trong tổng số <span className="font-bold text-gray-900">{adminUsers.filter(u => (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) || (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) || (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))).length}</span> sinh viên
-                            </span>
-                            <div className="flex items-center gap-2">
-                                <button 
-                                    onClick={() => { playClick(); setCurrentPage(p => Math.max(1, p - 1)); }} 
-                                    disabled={currentPage === 1}
-                                    className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    Trước
-                                </button>
-                                <span className="text-xs font-bold text-[#003375] bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100">Trang {currentPage}</span>
-                                <button 
-                                    onClick={() => { 
-                                        playClick(); 
-                                        const filteredLen = adminUsers.filter(u => (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) || (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) || (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))).length;
-                                        setCurrentPage(p => Math.min(Math.ceil(filteredLen / itemsPerPage), p + 1)); 
-                                    }} 
-                                    disabled={currentPage === Math.ceil(adminUsers.filter(u => (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) || (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) || (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))).length / itemsPerPage) || adminUsers.filter(u => (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) || (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) || (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))).length === 0}
-                                    className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    Sau
-                                </button>
+                    {/* THANH CHUYỂN TRANG THÔNG MINH */}
+                    {!loadingAdmin && adminUsers.length > 0 && (() => {
+                        const filteredUsers = adminUsers.filter(u => 
+                            (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) ||
+                            (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) ||
+                            (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))
+                        );
+                        const totalPages = Math.ceil(filteredUsers.length / itemsPerPage) || 1;
+
+                        return (
+                            <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 gap-3">
+                                <span className="text-xs sm:text-sm text-gray-500">
+                                    Đang xem <span className="font-bold text-gray-700">{filteredUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> đến <span className="font-bold text-gray-700">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> trong tổng số <span className="font-bold text-gray-900">{filteredUsers.length}</span> sinh viên
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <button 
+                                        onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.max(1, p - 1); setPageInput(newP.toString()); return newP; }); }} 
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        Trước
+                                    </button>
+                                    
+                                    <div className="flex items-center gap-1.5 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100 text-xs font-bold text-[#003375]">
+                                        <span>Trang</span>
+                                        <input 
+                                            type="number"
+                                            min={1}
+                                            max={totalPages}
+                                            value={pageInput}
+                                            onChange={(e) => setPageInput(e.target.value)}
+                                            onBlur={(e) => {
+                                                let newPage = parseInt(e.target.value);
+                                                if (isNaN(newPage) || newPage < 1) newPage = 1;
+                                                if (newPage > totalPages) newPage = totalPages;
+                                                setCurrentPage(newPage);
+                                                setPageInput(newPage.toString());
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') e.currentTarget.blur();
+                                            }}
+                                            className="w-10 text-center bg-white border border-blue-200 text-[#003375] rounded outline-none focus:ring-2 focus:ring-[#003375] transition-all"
+                                            style={{ MozAppearance: 'textfield' }}
+                                        />
+                                        <span>/ {totalPages}</span>
+                                    </div>
+
+                                    <button 
+                                        onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.min(totalPages, p + 1); setPageInput(newP.toString()); return newP; }); }} 
+                                        disabled={currentPage === totalPages || filteredUsers.length === 0}
+                                        className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        Sau
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    )}
-                    </div>
+                        );
+                    })()}
                 </div>
-            ) : (
-                <div className="w-full space-y-4 pt-1 animate-fadeIn">
-                    <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
-                        {isAdmin && (
-        <button 
-            onClick={() => { playClick(); setSelectedUserOverview(null); setAdminMode('list'); }}
-            className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
-        >
-                                <ChevronLeft size={16} /> Quay lại danh sách quản lý
-                            </button>
-                        )}
-                        
+            </div>
+        ) : (
+            <div className="w-full space-y-4 pt-1 animate-fadeIn">
+                <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
+                    {isAdmin && (
+                        <button 
+                            onClick={() => { playClick(); setSelectedUserOverview(null); setAdminMode('list'); }}
+                            className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
+                        >
+                            <ChevronLeft size={16} /> Quay lại danh sách quản lý
+                        </button>
+                    )}
+                    
                     <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-2">
                         Học tập {selectedUserOverview && <span className="text-sm text-gray-400 font-medium ml-2 uppercase tracking-wide border border-gray-200 bg-white px-2 py-0.5 rounded-md align-middle">(Chế độ xem của Admin)</span>}
                     </h1>
