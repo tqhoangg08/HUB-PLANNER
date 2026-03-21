@@ -22,6 +22,7 @@ import { AdsBanner } from './AdsBanner';
 import SchoolAnnouncements from './SchoolAnnouncements';
 import { mapIdToDisplay } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
+import { useUserRole } from '../hooks/useUserRole';
 
 // ============================================================================
 // MODAL: BÁO LỖI HỆ THỐNG
@@ -548,7 +549,6 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
         </div>
       </div>
 
-      {/* 👇 CHỈ HIỂN THỊ NỘI DUNG KHI TÊN HỌC KỲ ĐÚNG CHUẨN 👇 */}
       {isValidFormat ? (
         <>
             {semester.subjects.length > 0 && (
@@ -702,10 +702,86 @@ export const Dashboard: React.FC<DashboardProps> = ({
     useEffect(() => {
         document.title = "Tổng quan | HUB Planner";
     }, []);
+
+    const { isAdmin } = useUserRole();
+    const [adminUsers, setAdminUsers] = useState<any[]>([]);
+    const [loadingAdmin, setLoadingAdmin] = useState(false);
+    const [selectedUserOverview, setSelectedUserOverview] = useState<UserData | null>(null);
+    const [adminSearch, setAdminSearch] = useState('');
+
     const [showRankingModal, setShowRankingModal] = useState(false);
     const [showFailedModal, setShowFailedModal] = useState(false);
     const [showYearlyModal, setShowYearlyModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
+
+    const isViewingStudentFromHeader = Boolean(data.studentName || data.cohort);
+    const showAdminPanel = isAdmin && !isViewingStudentFromHeader && !selectedUserOverview;
+
+    useEffect(() => {
+        if (showAdminPanel) {
+            const fetchAdminData = async () => {
+                setLoadingAdmin(true);
+                const { data: profiles, error } = await supabase
+                    .from('profiles')
+                    .select('id, student_code, full_name, updated_at, data')
+                    .order('updated_at', { ascending: false })
+                    .limit(100);
+                
+                if (profiles) setAdminUsers(profiles);
+                setLoadingAdmin(false);
+            };
+            fetchAdminData();
+        }
+    }, [showAdminPanel]);
+
+    const activeData = useMemo(() => {
+        if (selectedUserOverview) {
+            return {
+                ...data,
+                ...selectedUserOverview,
+                semesters: selectedUserOverview.semesters || []
+            };
+        }
+        return data;
+    }, [selectedUserOverview, data]);
+
+    const handleLocalSetSemesters = (semesters: Semester[]) => {
+        if (selectedUserOverview) setSelectedUserOverview({ ...activeData, semesters });
+        else onSetSemesters(semesters);
+    };
+
+    const handleLocalTargetChange = (newTarget: number) => {
+        if (selectedUserOverview) setSelectedUserOverview({ ...activeData, targetGPA: newTarget });
+        else onTargetChange(newTarget);
+    };
+
+    const handleLocalUpdateSemester = (index: number, updatedSem: Semester) => {
+        if (selectedUserOverview) {
+            const newSems = [...activeData.semesters];
+            newSems[index] = updatedSem;
+            setSelectedUserOverview({ ...activeData, semesters: newSems });
+        } else {
+            onUpdateSemester(index, updatedSem);
+        }
+    };
+
+    const handleLocalRemoveSemester = (index: number) => {
+        if (selectedUserOverview) {
+            const newSems = activeData.semesters.filter((_, i) => i !== index);
+            setSelectedUserOverview({ ...activeData, semesters: newSems });
+        } else {
+            onRemoveSemester(index);
+        }
+    };
+
+    const handleLocalAddSemester = () => {
+        if (selectedUserOverview) {
+            const newSem: Semester = { id: Date.now().toString(), name: '', subjects: [], trainingScore: null };
+            setSelectedUserOverview({ ...activeData, semesters: [...activeData.semesters, newSem] });
+        } else {
+            onAddSemester();
+        }
+    };
 
     const ALL_SEMESTERS = useMemo(() => {
         const options = [];
@@ -719,7 +795,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const handleCascadeUpdate = (targetIndex: number, newName: string) => {
         const match = newName.match(/Học kỳ (1|2) Năm học (\d{4})-(\d{4})/);
         if (!match) {
-            onUpdateSemester(targetIndex, { ...data.semesters[targetIndex], name: newName });
+            handleLocalUpdateSemester(targetIndex, { ...activeData.semesters[targetIndex], name: newName });
             return;
         }
 
@@ -727,10 +803,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
         const targetYear = parseInt(match[2]);
         const targetAbs = targetYear * 2 + (targetHk - 1);
 
-        const isFirstSpawn = data.semesters.length === 1 && data.semesters[0].name === '';
-        const targetLength = isFirstSpawn ? 8 : data.semesters.length;
+        const isFirstSpawn = activeData.semesters.length === 1 && activeData.semesters[0].name === '';
+        const targetLength = isFirstSpawn ? 8 : activeData.semesters.length;
 
-        const newSemesters = [...data.semesters];
+        const newSemesters = [...activeData.semesters];
 
         for (let i = 0; i < targetLength; i++) {
             const offset = i - targetIndex; 
@@ -753,7 +829,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             }
         }
 
-        onSetSemesters(newSemesters);
+        handleLocalSetSemesters(newSemesters);
     };
 
     const sortedSemesters = useMemo(() => {
@@ -765,15 +841,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
             const year = parseInt(match[2]);
             return year * 10 + hk;
         };
-        return [...data.semesters].sort((a, b) => getWeight(a.name) - getWeight(b.name));
-    }, [data.semesters]);
+        return [...activeData.semesters].sort((a, b) => getWeight(a.name) - getWeight(b.name));
+    }, [activeData.semesters]);
 
-    const isInitialState = data.semesters.length > 0 && data.semesters.every(s => !s.name || !ALL_SEMESTERS.includes(s.name));
-    const semestersToRender = isInitialState ? [data.semesters[0]] : sortedSemesters;
-    const usedSemesterNames = data.semesters.map(s => s.name);
-    const isLocked = isGuest && !data.hasOnboarded;
+    const isInitialState = activeData.semesters.length > 0 && activeData.semesters.every(s => !s.name || !ALL_SEMESTERS.includes(s.name));
+    const semestersToRender = isInitialState ? [activeData.semesters[0]] : sortedSemesters;
+    const usedSemesterNames = activeData.semesters.map(s => s.name);
+    const isLocked = isGuest && !activeData.hasOnboarded;
 
-    const validDataSemesters = data.semesters.filter(s => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
+    const validDataSemesters = activeData.semesters.filter(s => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
 
     const stats = calculateCumulativeStats(validDataSemesters);
     const yearlyStats = calculateYearlyStats(validDataSemesters);
@@ -832,13 +908,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
     });
     
     const failedCount = failedSubjectsList.length;
-    const totalCreditsRequired = data.totalCreditsRequired || 125;
+    const totalCreditsRequired = activeData.totalCreditsRequired || 125;
     
     const requiredAnalysis = calculateRequiredGPA(
         stats.rawGPA4, 
         stats.passedCredits,
         totalCreditsRequired,
-        data.targetGPA
+        activeData.targetGPA
     );
 
     let difficultyColor = "text-[#003375] bg-blue-50";
@@ -870,363 +946,449 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="w-full pb-10">
         <AdsBanner />
 
-        <div className="w-full space-y-4 pt-1">
-            <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
-                <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-2">
-                    Học tập
-                </h1>
-                
-                <div className="flex flex-wrap items-center gap-1.5 text-[12px] sm:text-[13px] text-gray-500 font-medium mb-3">
-                    <span className="font-bold text-gray-700">Tổng quan lộ trình</span>
-                    <span className="text-gray-300">•</span>
-                    <span>{data.studentName || 'Chưa cập nhật tên'}</span>
-                    <span className="text-gray-300">•</span>
-                    <span>{data.programName || 'Chưa cập nhật hệ'}</span>
-                    <span className="text-gray-300">•</span>
-                    <span>{data.cohort || 'Chưa cập nhật khóa'}</span>
-                    <span className="text-gray-300">•</span>
-                    <span>{data.specializationName || 'Chưa cập nhật chuyên ngành'}</span>
-                </div>
-
-                {isGuest && (
-                    <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fadeIn">
-                        <div className="flex items-center gap-2 text-[#003375] text-sm font-medium">
-                            <Info size={18} className="shrink-0" />
-                            {isLocked ? (
-                                <p>Bạn đang ở chế độ xem trước. <strong>Một số tính năng đang bị khóa, vui lòng cập nhật thông tin hoặc đăng nhập để có thể trải nghiệm trọn vẹn nhất.</strong></p>
-                            ) : (
-                                <p>Bạn đang dùng thử với tư cách khách. <strong>Đăng nhập để lưu dữ liệu vĩnh viễn.</strong></p>
-                            )}
+        {showAdminPanel ? (
+            <div className="w-full space-y-4 pt-1 animate-fadeIn">
+                <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-2">
+                                Quản lý Sinh viên
+                            </h1>
+                            <p className="text-sm text-gray-500">Xem và theo dõi tiến độ học tập của sinh viên toàn trường</p>
                         </div>
-                        <div className="flex gap-2 w-full sm:w-auto">
-                            {isLocked && (
-                                <button onClick={() => onRequireOnboarding && onRequireOnboarding()} className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-[#003375] text-[#003375] text-xs font-bold rounded-lg hover:bg-blue-100 transition-colors">
-                                    Cập nhật thông tin
-                                </button>
-                            )}
-                            <Link to="/login" onClick={playClick} className="flex-1 sm:flex-none px-3 py-1.5 bg-[#003375] text-white text-xs font-bold rounded-lg hover:bg-[#002855] transition-colors text-center shadow-sm">
-                                Đăng nhập ngay
-                            </Link>
+                        <div className="flex gap-2 w-full md:w-auto">
+                            <div className="relative flex-1 md:w-64">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <input 
+                                    type="text" 
+                                    placeholder="Tìm MSSV hoặc Tên..." 
+                                    value={adminSearch}
+                                    onChange={e => setAdminSearch(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white"
+                                />
+                            </div>
+                            <button onClick={() => { playClick(); setSelectedUserOverview(data); }} className="px-4 py-2 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] rounded-lg shadow-sm whitespace-nowrap transition-colors">
+                                Hồ sơ của tôi
+                            </button>
                         </div>
                     </div>
-                )}
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto custom-scrollbar max-h-[65vh]">
+                        <table className="w-full text-sm text-left relative">
+                            <thead className="bg-gray-50 text-gray-600 border-b border-gray-200 sticky top-0 z-10">
+                                <tr>
+                                    <th className="px-4 py-3 font-bold">MSSV</th>
+                                    <th className="px-4 py-3 font-bold">Họ và Tên</th>
+                                    <th className="px-4 py-3 font-bold">Hệ / Khóa</th>
+                                    <th className="px-4 py-3 font-bold text-center">GPA Hiện tại</th>
+                                    <th className="px-4 py-3 font-bold text-center">Tín chỉ</th>
+                                    <th className="px-4 py-3 font-bold text-right">Cập nhật lúc</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {loadingAdmin ? (
+                                    <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/> <span className="text-gray-500">Đang tải danh sách...</span></td></tr>
+                                ) : (() => {
+                                    const filteredUsers = adminUsers.filter(u => 
+                                        (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) ||
+                                        (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) ||
+                                        (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))
+                                    );
+
+                                    return filteredUsers.length > 0 ? (
+                                        filteredUsers.map(user => {
+                                            const validSems = (user.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
+                                            const uStats = calculateCumulativeStats(validSems);
+                                            const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
+                                            
+                                            return (
+                                                <tr key={user.id} onClick={() => { playClick(); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
+                                                    <td className="px-4 py-3 font-bold text-[#003375]">{user.student_code || '-'}</td>
+                                                    <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#003375] transition-colors">{user.full_name || user.data?.studentName || 'Chưa cập nhật'}</td>
+                                                    <td className="px-4 py-3 text-gray-600">{user.data?.programName || '-'} / {user.data?.cohort || '-'}</td>
+                                                    <td className="px-4 py-3 text-center font-bold text-emerald-600">{uStats.rawGPA4 > 0 ? uStats.rawGPA4.toFixed(2) : '-'}</td>
+                                                    <td className="px-4 py-3 text-center text-gray-600">{uStats.passedCredits || 0}</td>
+                                                    <td className="px-4 py-3 text-right text-xs text-gray-500">{updateDate}</td>
+                                                </tr>
+                                            )
+                                        })
+                                    ) : (
+                                        <tr><td colSpan={6} className="py-8 text-center text-gray-500">Không tìm thấy sinh viên nào phù hợp</td></tr>
+                                    )
+                                })()}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between">
-                    <div className="flex justify-between items-start mb-1">
-                        <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng GPA tích lũy</span>
-                        <GraduationCap size={16} className="text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </div>
-                    <div className="flex items-baseline gap-1 mt-1">
-                        <span className="text-2xl sm:text-[28px] font-extrabold text-gray-900 leading-none">{stats.gpa4.toFixed(2)}</span>
-                        <span className="text-[10px] sm:text-sm font-bold text-gray-400">/ 4.0</span>
-                    </div>
-                    <div className="text-[10px] sm:text-[11px] text-gray-500 mt-1.5 sm:mt-2 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#990000] shrink-0"></span> <span className="truncate">Hệ 10: <span className="font-bold text-gray-700">{stats.gpa10.toFixed(2)}</span></span>
-                    </div>
-                </div>
-
-                <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between">
-                    <div className="flex justify-between items-start mb-1">
-                        <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng TC tích lũy</span>
-                        <BookOpen size={16} className="text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </div>
-                    <div className="flex items-baseline gap-1 mt-1">
-                        <span className="text-2xl sm:text-[28px] font-extrabold text-gray-900 leading-none">{stats.passedCredits}</span>
-                        <span className="text-[10px] sm:text-[13px] font-bold text-gray-500">TC</span>
-                    </div>
-                    <div className="text-[10px] sm:text-[11px] text-gray-500 mt-1.5 sm:mt-2 truncate">
-                        Mục tiêu: <span className="font-bold text-gray-700">{totalCreditsRequired}</span>
-                    </div>
-                </div>
-
-                <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between cursor-pointer relative overflow-hidden" onClick={() => { if(!isLocked) { playClick(); setShowRankingModal(true); } }}>
-                    <div className="flex justify-between items-start mb-1">
-                        <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">BXH môn học</span>
-                        <Trophy size={16} className="text-yellow-500 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </div>
+        ) : (
+            <div className="w-full space-y-4 pt-1 animate-fadeIn">
+                <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
+                    {selectedUserOverview && (
+                        <button 
+                            onClick={() => { playClick(); setSelectedUserOverview(null); }}
+                            className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
+                        >
+                            <ChevronLeft size={16} /> Quay lại danh sách quản lý
+                        </button>
+                    )}
                     
-                    <div className="relative flex-1 flex flex-col justify-center">
-                        {isLocked && (
-                            <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/40 backdrop-blur-[3px] z-20 flex items-center justify-center flex-col text-center rounded-lg shadow-[inset_0_0_10px_rgba(255,255,255,0.6)] cursor-pointer group hover:bg-white/50 transition-colors">
-                                <div className="bg-white/90 px-3 py-1.5 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
-                                    <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
-                                    <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
-                                </div>
-                            </Link>
-                        )}
-                        {highestSubject ? (
-                            <div className="mt-1">
-                                <span className="text-[11px] sm:text-sm font-bold text-[#003375] line-clamp-1 leading-tight">{highestSubject.name}</span>
-                                <div className="mt-1 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
-                                    <span className="text-sm sm:text-[15px] font-extrabold text-gray-900 leading-none">{highestSubject.avg.toFixed(1)}</span>
-                                    <span className="text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 whitespace-nowrap">Điểm {highestSubject.letter}</span>
-                                </div>
-                            </div>
-                        ) : (
-                            <p className="text-[10px] sm:text-xs text-gray-400 italic mt-1.5 sm:mt-2">Chưa có dữ liệu</p>
-                        )}
-                    </div>
-                </div>
-
-                <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col justify-between relative overflow-hidden">
-                    <div className="flex justify-between items-start mb-1">
-                        <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dự báo mục tiêu</span>
-                        <Target size={16} className="text-[#003375] shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-2">
+                        Học tập {selectedUserOverview && <span className="text-sm text-gray-400 font-medium ml-2 uppercase tracking-wide border border-gray-200 bg-white px-2 py-0.5 rounded-md align-middle">(Chế độ xem của Admin)</span>}
+                    </h1>
+                    
+                    <div className="flex flex-wrap items-center gap-1.5 text-[12px] sm:text-[13px] text-gray-500 font-medium mb-3">
+                        <span className="font-bold text-gray-700">Tổng quan lộ trình</span>
+                        <span className="text-gray-300">•</span>
+                        <span>{activeData.studentName || 'Chưa cập nhật tên'}</span>
+                        <span className="text-gray-300">•</span>
+                        <span>{activeData.programName || 'Chưa cập nhật hệ'}</span>
+                        <span className="text-gray-300">•</span>
+                        <span>{activeData.cohort || 'Chưa cập nhật khóa'}</span>
+                        <span className="text-gray-300">•</span>
+                        <span>{activeData.specializationName || 'Chưa cập nhật chuyên ngành'}</span>
                     </div>
 
-                    <div className="relative flex-1 flex flex-col justify-center">
-                        {isLocked && (
-                            <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/40 backdrop-blur-[3px] z-20 flex items-center justify-center flex-col text-center rounded-lg shadow-[inset_0_0_10px_rgba(255,255,255,0.6)] cursor-pointer group hover:bg-white/50 transition-colors">
-                                <div className="bg-white/90 px-3 py-1.5 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
-                                    <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
-                                    <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
-                                </div>
-                            </Link>
-                        )}
-                        <div className="flex flex-col gap-1 sm:gap-1 text-[9px] sm:text-[11px] text-gray-600 mt-1">
-                            <div className="flex justify-between items-center">
-                                <span className="truncate">Mục tiêu:</span>
-                                <div className="flex items-center group relative cursor-pointer border-b border-dashed border-gray-300 hover:border-[#003375]">
-                                    <input
-                                        type="number" min="0" max="4" step="0.1"
-                                        value={data.targetGPA}
-                                        onChange={(e) => onTargetChange(parseFloat(e.target.value) || 0)}
-                                        className="w-6 sm:w-12 font-bold text-[#003375] bg-transparent text-right focus:outline-none z-10 p-0 m-0"
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="truncate">Hiện tại:</span>
-                                <span className="font-bold text-gray-900">{(Math.floor(stats.rawGPA4 * 100) / 100).toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="truncate">Trung bình một tín:</span>
-                                {requiredAnalysis && requiredAnalysis.isPossible ? (
-                                    <span className={`font-bold ${scoreClass}`}>{Math.max(0, requiredAnalysis.requiredGPA).toFixed(2)}</span>
+                    {isGuest && (
+                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fadeIn">
+                            <div className="flex items-center gap-2 text-[#003375] text-sm font-medium">
+                                <Info size={18} className="shrink-0" />
+                                {isLocked ? (
+                                    <p>Bạn đang ở chế độ xem trước. <strong>Một số tính năng đang bị khóa, vui lòng cập nhật thông tin hoặc đăng nhập để có thể trải nghiệm trọn vẹn nhất.</strong></p>
                                 ) : (
-                                    <span className="font-bold text-[#990000]">Không thể</span>
+                                    <p>Bạn đang dùng thử với tư cách khách. <strong>Đăng nhập để lưu dữ liệu vĩnh viễn.</strong></p>
                                 )}
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                <div className="lg:col-span-2 flex flex-col gap-3 sm:gap-4">
-                    <div className="bg-white p-3 sm:p-5 rounded-xl border border-gray-300 flex flex-col h-[240px] sm:h-auto sm:min-h-[340px]">
-                        <div className="flex justify-between items-center mb-2 sm:mb-6">
-                            <h3 className="text-[12px] sm:text-[15px] font-bold text-gray-900 tracking-tight">Xu hướng học tập</h3>
-                            <div className="flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[11px] font-bold text-gray-600">
-                                <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#003375]"></span>Hệ 4</span>
-                                <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#990000]"></span>Hệ 10</span>
+                            <div className="flex gap-2 w-full sm:w-auto">
+                                {isLocked && (
+                                    <button onClick={() => onRequireOnboarding && onRequireOnboarding()} className="flex-1 sm:flex-none px-3 py-1.5 bg-white border border-[#003375] text-[#003375] text-xs font-bold rounded-lg hover:bg-blue-100 transition-colors">
+                                        Cập nhật thông tin
+                                    </button>
+                                )}
+                                <Link to="/login" onClick={playClick} className="flex-1 sm:flex-none px-3 py-1.5 bg-[#003375] text-white text-xs font-bold rounded-lg hover:bg-[#002855] transition-colors text-center shadow-sm">
+                                    Đăng nhập ngay
+                                </Link>
                             </div>
                         </div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between">
+                        <div className="flex justify-between items-start mb-1">
+                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng GPA tích lũy</span>
+                            <GraduationCap size={16} className="text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        </div>
+                        <div className="flex items-baseline gap-1 mt-1">
+                            <span className="text-2xl sm:text-[28px] font-extrabold text-gray-900 leading-none">{stats.gpa4.toFixed(2)}</span>
+                            <span className="text-[10px] sm:text-sm font-bold text-gray-400">/ 4.0</span>
+                        </div>
+                        <div className="text-[10px] sm:text-[11px] text-gray-500 mt-1.5 sm:mt-2 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#990000] shrink-0"></span> <span className="truncate">Hệ 10: <span className="font-bold text-gray-700">{stats.gpa10.toFixed(2)}</span></span>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between">
+                        <div className="flex justify-between items-start mb-1">
+                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng TC tích lũy</span>
+                            <BookOpen size={16} className="text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        </div>
+                        <div className="flex items-baseline gap-1 mt-1">
+                            <span className="text-2xl sm:text-[28px] font-extrabold text-gray-900 leading-none">{stats.passedCredits}</span>
+                            <span className="text-[10px] sm:text-[13px] font-bold text-gray-500">TC</span>
+                        </div>
+                        <div className="text-[10px] sm:text-[11px] text-gray-500 mt-1.5 sm:mt-2 truncate">
+                            Mục tiêu: <span className="font-bold text-gray-700">{totalCreditsRequired}</span>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between cursor-pointer relative overflow-hidden" onClick={() => { if(!isLocked) { playClick(); setShowRankingModal(true); } }}>
+                        <div className="flex justify-between items-start mb-1">
+                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">BXH môn học</span>
+                            <Trophy size={16} className="text-yellow-500 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        </div>
                         
-                        <div className="flex-1 w-full -ml-5 sm:-ml-4 relative min-h-[100px]">
+                        <div className="relative flex-1 flex flex-col justify-center">
                             {isLocked && (
-                                <Link to="/login" onClick={playClick} className="absolute inset-0 bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl ml-5 sm:ml-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.7)] hover:bg-white/50 transition-colors cursor-pointer group">
-                                    <div className="bg-white/90 p-4 rounded-2xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
-                                        <Shield className="text-[#003375] mb-2 opacity-90" size={28} />
-                                        <p className="text-sm font-bold text-[#003375]">Biểu đồ đã bị khóa</p>
-                                        <p className="text-[11px] text-gray-500 mt-1 max-w-[200px]">Click để đăng nhập và mở khóa tính năng này.</p>
+                                <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/40 backdrop-blur-[3px] z-20 flex items-center justify-center flex-col text-center rounded-lg shadow-[inset_0_0_10px_rgba(255,255,255,0.6)] cursor-pointer group hover:bg-white/50 transition-colors">
+                                    <div className="bg-white/90 px-3 py-1.5 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
+                                        <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
+                                        <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
                                     </div>
                                 </Link>
                             )}
-
-                            {trendData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={trendData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                                        <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#6B7280', fontWeight: 500 }} axisLine={false} tickLine={false} dy={10} />
-                                        <YAxis domain={[0, 10]} tickCount={6} tick={{ fontSize: 9, fill: '#6B7280', fontWeight: 500 }} axisLine={false} tickLine={false} />
-                                        <RechartsTooltip contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', fontSize: '11px', padding: '6px 10px' }} cursor={{ stroke: '#9CA3AF', strokeWidth: 1, strokeDasharray: '4 4' }} />
-                                        <Line type="monotone" dataKey="gpa4" name="Hệ 4" stroke="#003375" strokeWidth={2} dot={{ r: 3, fill: '#fff', stroke: '#003375', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#003375', stroke: '#fff', strokeWidth: 2 }} />
-                                        <Line type="monotone" dataKey="gpa10" name="Hệ 10" stroke="#990000" strokeWidth={2} dot={{ r: 3, fill: '#fff', stroke: '#990000', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#990000', stroke: '#fff', strokeWidth: 2 }} />
-                                    </LineChart>
-                                </ResponsiveContainer>
+                            {highestSubject ? (
+                                <div className="mt-1">
+                                    <span className="text-[11px] sm:text-sm font-bold text-[#003375] line-clamp-1 leading-tight">{highestSubject.name}</span>
+                                    <div className="mt-1 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
+                                        <span className="text-sm sm:text-[15px] font-extrabold text-gray-900 leading-none">{highestSubject.avg.toFixed(1)}</span>
+                                        <span className="text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 whitespace-nowrap">Điểm {highestSubject.letter}</span>
+                                    </div>
+                                </div>
                             ) : (
-                                <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs border border-dashed border-gray-300 rounded-xl ml-5 sm:ml-4">Chưa có dữ liệu học kỳ</div>
+                                <p className="text-[10px] sm:text-xs text-gray-400 italic mt-1.5 sm:mt-2">Chưa có dữ liệu</p>
                             )}
                         </div>
                     </div>
 
-                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 relative overflow-hidden">
-                        <div className="flex-1 w-full">
-                            <h3 className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                                <BarChart3 size={14} className="text-[#003375] sm:w-4 sm:h-4"/> Đánh giá hệ thống
-                            </h3>
-                            <p className="text-[10px] sm:text-xs text-gray-500 font-medium leading-snug">"{trendAnalysis}"</p>
+                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col justify-between relative overflow-hidden">
+                        <div className="flex justify-between items-start mb-1">
+                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dự báo mục tiêu</span>
+                            <Target size={16} className="text-[#003375] shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
-                        <div className="shrink-0 w-full sm:w-auto mt-1 sm:mt-0">
-                            {failedCount > 0 ? (
-                                <button onClick={() => { playClick(); setShowFailedModal(true); }} className="w-full sm:w-auto flex items-center justify-between gap-3 px-3 py-2 bg-red-50 text-[#990000] border border-red-100 rounded-lg text-[11px] sm:text-xs font-bold hover:bg-red-100 transition-colors group">
-                                    <span className="flex items-center gap-1.5"><AlertTriangle size={14} /> Tồn đọng {failedCount} môn nợ</span>
-                                    <ChevronRight size={14} className="opacity-50 group-hover:opacity-100 transition-opacity" />
-                                </button>
-                            ) : (
-                                <div className="w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[11px] sm:text-xs font-bold">
-                                    <span className="flex items-center gap-1.5"><CheckCircle2 size={14} /> Không nợ môn</span>
-                                </div>
+
+                        <div className="relative flex-1 flex flex-col justify-center">
+                            {isLocked && (
+                                <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/40 backdrop-blur-[3px] z-20 flex items-center justify-center flex-col text-center rounded-lg shadow-[inset_0_0_10px_rgba(255,255,255,0.6)] cursor-pointer group hover:bg-white/50 transition-colors">
+                                    <div className="bg-white/90 px-3 py-1.5 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
+                                        <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
+                                        <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
+                                    </div>
+                                </Link>
                             )}
+                            <div className="flex flex-col gap-1 sm:gap-1 text-[9px] sm:text-[11px] text-gray-600 mt-1">
+                                <div className="flex justify-between items-center">
+                                    <span className="truncate">Mục tiêu:</span>
+                                    <div className="flex items-center group relative cursor-pointer border-b border-dashed border-gray-300 hover:border-[#003375]">
+                                        <input
+                                            type="number" min="0" max="4" step="0.1"
+                                            value={activeData.targetGPA}
+                                            onChange={(e) => handleLocalTargetChange(parseFloat(e.target.value) || 0)}
+                                            className="w-6 sm:w-12 font-bold text-[#003375] bg-transparent text-right focus:outline-none z-10 p-0 m-0"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="truncate">Hiện tại:</span>
+                                    <span className="font-bold text-gray-900">{(Math.floor(stats.rawGPA4 * 100) / 100).toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="truncate">Trung bình một tín:</span>
+                                    {requiredAnalysis && requiredAnalysis.isPossible ? (
+                                        <span className={`font-bold ${scoreClass}`}>{Math.max(0, requiredAnalysis.requiredGPA).toFixed(2)}</span>
+                                    ) : (
+                                        <span className="font-bold text-[#990000]">Không thể</span>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="lg:col-span-2 flex flex-col gap-4 min-h-0">
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4 shrink-0">
-                        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
-                            <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight mb-2 uppercase truncate">Phân bố điểm</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                    <div className="lg:col-span-2 flex flex-col gap-3 sm:gap-4">
+                        <div className="bg-white p-3 sm:p-5 rounded-xl border border-gray-300 flex flex-col h-[240px] sm:h-auto sm:min-h-[340px]">
+                            <div className="flex justify-between items-center mb-2 sm:mb-6">
+                                <h3 className="text-[12px] sm:text-[15px] font-bold text-gray-900 tracking-tight">Xu hướng học tập</h3>
+                                <div className="flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[11px] font-bold text-gray-600">
+                                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#003375]"></span>Hệ 4</span>
+                                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#990000]"></span>Hệ 10</span>
+                                </div>
+                            </div>
                             
-                            <div className="h-[100px] sm:h-[130px] w-full relative flex flex-col items-center justify-center shrink-0">
+                            <div className="flex-1 w-full -ml-5 sm:-ml-4 relative min-h-[100px]">
                                 {isLocked && (
-                                    <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
-                                        <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
-                                            <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
-                                            <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
+                                    <Link to="/login" onClick={playClick} className="absolute inset-0 bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl ml-5 sm:ml-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.7)] hover:bg-white/50 transition-colors cursor-pointer group">
+                                        <div className="bg-white/90 p-4 rounded-2xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
+                                            <Shield className="text-[#003375] mb-2 opacity-90" size={28} />
+                                            <p className="text-sm font-bold text-[#003375]">Biểu đồ đã bị khóa</p>
+                                            <p className="text-[11px] text-gray-500 mt-1 max-w-[200px]">Click để đăng nhập và mở khóa tính năng này.</p>
                                         </div>
                                     </Link>
                                 )}
-                                {pieData.length > 0 ? (
+
+                                {trendData.length > 0 ? (
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie data={pieData} cx="50%" cy="50%" innerRadius="55%" outerRadius="90%" paddingAngle={2} dataKey="value" stroke="none">
-                                                {pieData.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                                ))}
-                                            </Pie>
-                                            <RechartsTooltip contentStyle={{ borderRadius: '8px', fontSize: '11px', border: '1px solid #E5E7EB', padding: '4px 8px' }} itemStyle={{ padding: 0 }} />
-                                        </PieChart>
+                                        <LineChart data={trendData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                                            <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#6B7280', fontWeight: 500 }} axisLine={false} tickLine={false} dy={10} />
+                                            <YAxis domain={[0, 10]} tickCount={6} tick={{ fontSize: 9, fill: '#6B7280', fontWeight: 500 }} axisLine={false} tickLine={false} />
+                                            <RechartsTooltip contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', fontSize: '11px', padding: '6px 10px' }} cursor={{ stroke: '#9CA3AF', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                                            <Line type="monotone" dataKey="gpa4" name="Hệ 4" stroke="#003375" strokeWidth={2} dot={{ r: 3, fill: '#fff', stroke: '#003375', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#003375', stroke: '#fff', strokeWidth: 2 }} />
+                                            <Line type="monotone" dataKey="gpa10" name="Hệ 10" stroke="#990000" strokeWidth={2} dot={{ r: 3, fill: '#fff', stroke: '#990000', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#990000', stroke: '#fff', strokeWidth: 2 }} />
+                                        </LineChart>
                                     </ResponsiveContainer>
                                 ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">Chưa có dữ liệu</div>
+                                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs border border-dashed border-gray-300 rounded-xl ml-5 sm:ml-4">Chưa có dữ liệu học kỳ</div>
                                 )}
                             </div>
                         </div>
 
-                        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
-                            <div className="flex justify-between items-center mb-2 sm:mb-3">
-                                <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 uppercase truncate">Tổng kết năm</h3>
-                                {yearlyStats.length > 3 && !isLocked && (
-                                    <button onClick={() => { playClick(); setShowYearlyModal(true); }} className="text-[9px] sm:text-[10px] font-bold text-[#003375] hover:underline shrink-0 ml-1">Chi tiết</button>
-                                )}
+                        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 relative overflow-hidden">
+                            <div className="flex-1 w-full">
+                                <h3 className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
+                                    <BarChart3 size={14} className="text-[#003375] sm:w-4 sm:h-4"/> Đánh giá hệ thống
+                                </h3>
+                                <p className="text-[10px] sm:text-xs text-gray-500 font-medium leading-snug">"{trendAnalysis}"</p>
                             </div>
-                            
-                            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 relative">
-                                {isLocked && (
-                                    <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
-                                        <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
-                                            <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
-                                            <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
-                                        </div>
-                                    </Link>
-                                )}
-                                <div className="grid grid-cols-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
-                                    <span className="col-span-2">Năm</span>
-                                    <span className="text-center">TC</span>
-                                    <span className="text-right">GPA</span>
-                                </div>
-                                {yearlyStats.slice(0, 4).map((year) => (
-                                    <div key={year.yearId} className="grid grid-cols-4 text-[10px] sm:text-xs items-center py-1 hover:bg-gray-50 rounded px-0.5 sm:px-1 transition-colors">
-                                        <span className="col-span-2 font-medium text-gray-700 truncate pr-1" title={year.label}>{year.label.replace('Năm học ', 'NH ')}</span>
-                                        <span className="text-center text-gray-500">{year.hasData ? year.totalCredits : '-'}</span>
-                                        <span className="text-right font-extrabold text-[#003375]">{year.hasData ? year.gpa4.toFixed(2) : '-'}</span>
+                            <div className="shrink-0 w-full sm:w-auto mt-1 sm:mt-0">
+                                {failedCount > 0 ? (
+                                    <button onClick={() => { playClick(); setShowFailedModal(true); }} className="w-full sm:w-auto flex items-center justify-between gap-3 px-3 py-2 bg-red-50 text-[#990000] border border-red-100 rounded-lg text-[11px] sm:text-xs font-bold hover:bg-red-100 transition-colors group">
+                                        <span className="flex items-center gap-1.5"><AlertTriangle size={14} /> Tồn đọng {failedCount} môn nợ</span>
+                                        <ChevronRight size={14} className="opacity-50 group-hover:opacity-100 transition-opacity" />
+                                    </button>
+                                ) : (
+                                    <div className="w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[11px] sm:text-xs font-bold">
+                                        <span className="flex items-center gap-1.5"><CheckCircle2 size={14} /> Không nợ môn</span>
                                     </div>
-                                ))}
+                                )}
                             </div>
                         </div>
-
                     </div>
 
-                    {/* 👇 ĐÃ FIX: CHỐNG ÉP DẸP KHUNG THÔNG BÁO TRÊN ĐIỆN THOẠI 👇 */}
-                    <div className="bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden flex-1 min-h-[300px] lg:min-h-0 relative">
-                        <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
-                            <SchoolAnnouncements />
+                    <div className="lg:col-span-2 flex flex-col gap-4 min-h-0">
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4 shrink-0">
+                            <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
+                                <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight mb-2 uppercase truncate">Phân bố điểm</h3>
+                                
+                                <div className="h-[100px] sm:h-[130px] w-full relative flex flex-col items-center justify-center shrink-0">
+                                    {isLocked && (
+                                        <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
+                                            <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
+                                                <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
+                                                <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
+                                            </div>
+                                        </Link>
+                                    )}
+                                    {pieData.length > 0 ? (
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie data={pieData} cx="50%" cy="50%" innerRadius="55%" outerRadius="90%" paddingAngle={2} dataKey="value" stroke="none">
+                                                    {pieData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                                    ))}
+                                                </Pie>
+                                                <RechartsTooltip contentStyle={{ borderRadius: '8px', fontSize: '11px', border: '1px solid #E5E7EB', padding: '4px 8px' }} itemStyle={{ padding: 0 }} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    ) : (
+                                        <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">Chưa có dữ liệu</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
+                                <div className="flex justify-between items-center mb-2 sm:mb-3">
+                                    <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 uppercase truncate">Tổng kết năm</h3>
+                                    {yearlyStats.length > 3 && !isLocked && (
+                                        <button onClick={() => { playClick(); setShowYearlyModal(true); }} className="text-[9px] sm:text-[10px] font-bold text-[#003375] hover:underline shrink-0 ml-1">Chi tiết</button>
+                                    )}
+                                </div>
+                                
+                                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 relative">
+                                    {isLocked && (
+                                        <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
+                                            <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
+                                                <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
+                                                <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
+                                            </div>
+                                        </Link>
+                                    )}
+                                    <div className="grid grid-cols-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
+                                        <span className="col-span-2">Năm</span>
+                                        <span className="text-center">TC</span>
+                                        <span className="text-right">GPA</span>
+                                    </div>
+                                    {yearlyStats.slice(0, 4).map((year) => (
+                                        <div key={year.yearId} className="grid grid-cols-4 text-[10px] sm:text-xs items-center py-1 hover:bg-gray-50 rounded px-0.5 sm:px-1 transition-colors">
+                                            <span className="col-span-2 font-medium text-gray-700 truncate pr-1" title={year.label}>{year.label.replace('Năm học ', 'NH ')}</span>
+                                            <span className="text-center text-gray-500">{year.hasData ? year.totalCredits : '-'}</span>
+                                            <span className="text-right font-extrabold text-[#003375]">{year.hasData ? year.gpa4.toFixed(2) : '-'}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div className="bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden flex-1 min-h-[300px] lg:min-h-0 relative">
+                            <div className="absolute inset-0 overflow-y-auto custom-scrollbar">
+                                <SchoolAnnouncements />
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div className="pt-2">
-                {/* 👇 ĐÃ FIX: NHÓM NÚT BẢNG ĐIỂM TỰ RỚT DÒNG KHI MÀN HÌNH HẸP 👇 */}
-                <div className="flex flex-row justify-between items-center flex-wrap mb-3 sm:mb-4 gap-2 border-t border-gray-200 pt-4 sm:pt-5 mt-2">
-                    <h2 className="text-[15px] sm:text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Chi tiết bảng điểm</h2>
+                <div className="pt-2">
+                    <div className="flex flex-row justify-between items-center flex-wrap mb-3 sm:mb-4 gap-2 border-t border-gray-200 pt-4 sm:pt-5 mt-2">
+                        <h2 className="text-[15px] sm:text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Chi tiết bảng điểm</h2>
 
-                    <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
-                        <button
-                            onClick={() => { playClick(); setShowReportModal(true); }}
-                            className="text-red-600 bg-red-50 border border-red-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-red-100 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
-                        >
-                            <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
-                            <span className="hidden sm:inline">Báo lỗi</span>
-                            <span className="sm:hidden">Lỗi</span>
-                        </button>
-                        
-                        <button
-                            onClick={onExportPDF}
-                            className="text-gray-600 bg-white border border-gray-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
-                        >
-                            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
-                            <span className="hidden sm:inline">Xuất PDF</span>
-                            <span className="sm:hidden">Xuất</span>
-                        </button>
-
-                        <div>
-                            <input
-                                type="file" accept=".pdf" ref={fileInputRef} className="hidden"
-                                onChange={onFileUpload}
-                            />
+                        <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
                             <button
-                                onClick={onImportPDF}
-                                disabled={isImporting}
-                                className="bg-white text-[#003375] border border-gray-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:border-[#003375] hover:bg-blue-50 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm disabled:opacity-70 active:scale-95"
+                                onClick={() => { playClick(); setShowReportModal(true); }}
+                                className="text-red-600 bg-red-50 border border-red-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-red-100 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
                             >
-                                {isImporting ? <Loader2 className="animate-spin w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <FileUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                                <span className="hidden sm:inline">Nhập điểm PDF</span>
-                                <span className="sm:hidden">Nhập</span>
+                                <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
+                                <span className="hidden sm:inline">Báo lỗi</span>
+                                <span className="sm:hidden">Lỗi</span>
                             </button>
+                            
+                            <button
+                                onClick={onExportPDF}
+                                className="text-gray-600 bg-white border border-gray-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
+                            >
+                                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
+                                <span className="hidden sm:inline">Xuất PDF</span>
+                                <span className="sm:hidden">Xuất</span>
+                            </button>
+
+                            <div>
+                                <input
+                                    type="file" accept=".pdf" ref={fileInputRef} className="hidden"
+                                    onChange={onFileUpload}
+                                />
+                                <button
+                                    onClick={onImportPDF}
+                                    disabled={isImporting}
+                                    className="bg-white text-[#003375] border border-gray-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:border-[#003375] hover:bg-blue-50 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm disabled:opacity-70 active:scale-95"
+                                >
+                                    {isImporting ? <Loader2 className="animate-spin w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <FileUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                                    <span className="hidden sm:inline">Nhập điểm PDF</span>
+                                    <span className="sm:hidden">Nhập</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div className="space-y-4">
-                    {semestersToRender.map((sem) => {
-                        const originalIndex = data.semesters.findIndex(s => s.id === sem.id);
+                    <div className="space-y-4">
+                        {semestersToRender.map((sem) => {
+                            const originalIndex = activeData.semesters.findIndex(s => s.id === sem.id);
 
-                        return (
-                            <SemesterTable
-                                key={sem.id}
-                                semester={sem}
-                                index={originalIndex}
-                                onUpdateSemester={(updated) => onUpdateSemester(originalIndex, updated)}
-                                onRemoveSemester={() => onRemoveSemester(originalIndex)}
-                                allSemesterOptions={ALL_SEMESTERS}
-                                usedSemesterNames={usedSemesterNames}
-                                onCascadeUpdate={(newName) => handleCascadeUpdate(originalIndex, newName)}
-                            />
-                        )
-                    })}
+                            return (
+                                <SemesterTable
+                                    key={sem.id}
+                                    semester={sem}
+                                    index={originalIndex}
+                                    onUpdateSemester={(updated) => handleLocalUpdateSemester(originalIndex, updated)}
+                                    onRemoveSemester={() => handleLocalRemoveSemester(originalIndex)}
+                                    allSemesterOptions={ALL_SEMESTERS}
+                                    usedSemesterNames={usedSemesterNames}
+                                    onCascadeUpdate={(newName) => handleCascadeUpdate(originalIndex, newName)}
+                                />
+                            )
+                        })}
 
-                    {data.semesters.length === 0 && (
-                        <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-                            <p className="text-gray-500 mb-4 text-sm font-medium">Bạn chưa có học kỳ nào.</p>
-                            <button onClick={onAddSemester} className="text-[#003375] font-bold hover:underline flex items-center justify-center gap-1 mx-auto text-sm transition-colors">
-                                <Plus size={16} /> Tạo thủ công
+                        {activeData.semesters.length === 0 && (
+                            <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
+                                <p className="text-gray-500 mb-4 text-sm font-medium">Bạn chưa có học kỳ nào.</p>
+                                <button onClick={handleLocalAddSemester} className="text-[#003375] font-bold hover:underline flex items-center justify-center gap-1 mx-auto text-sm transition-colors">
+                                    <Plus size={16} /> Tạo thủ công
+                                </button>
+                            </div>
+                        )}
+                        
+                        {!isInitialState && activeData.semesters.length > 0 && activeData.semesters.length < ALL_SEMESTERS.length && (
+                            <button onClick={handleLocalAddSemester} className="w-full py-4 border-2 border-dashed border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-400 hover:bg-gray-50 rounded-xl font-semibold flex justify-center items-center gap-2 transition-all">
+                                <Plus size={18}/> Thêm học kỳ mới
                             </button>
-                        </div>
-                    )}
-                    
-                    {!isInitialState && data.semesters.length > 0 && data.semesters.length < ALL_SEMESTERS.length && (
-                        <button onClick={onAddSemester} className="w-full py-4 border-2 border-dashed border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-400 hover:bg-gray-50 rounded-xl font-semibold flex justify-center items-center gap-2 transition-all">
-                            <Plus size={18}/> Thêm học kỳ mới
-                        </button>
-                    )}
+                        )}
+                    </div>
                 </div>
+                
             </div>
-            
-        </div>
+        )}
 
         {/* Các Modal */}
         {showRankingModal && <SubjectRankingModal subjects={validSubjects} onClose={() => setShowRankingModal(false)} />}
