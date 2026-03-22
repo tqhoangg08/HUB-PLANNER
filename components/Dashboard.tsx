@@ -15,7 +15,7 @@ import {
     calculateRequiredGPA,
     getGradeDetails
 } from '../utils/calculations';
-import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert } from 'lucide-react';
+import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { playClick } from '../utils/audio';
 import { AdsBanner } from './AdsBanner';
@@ -710,15 +710,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [adminSearch, setAdminSearch] = useState('');
     const [adminMode, setAdminMode] = useState<'list' | 'detail'>('list');
     
-    // Thêm state phân trang
+    // State phân trang và sắp xếp cho Admin
     const [currentPage, setCurrentPage] = useState(1);
     const [pageInput, setPageInput] = useState('1');
+    const [adminSort, setAdminSort] = useState<'newest' | 'gpa_desc' | 'credits_desc'>('newest');
+    
+    // State Lọc cho Admin
+    const [adminFilterCohort, setAdminFilterCohort] = useState<string>('all');
+    const [adminFilterMajor, setAdminFilterMajor] = useState<string>('all');
+
     const itemsPerPage = 20;
 
     useEffect(() => { 
         setCurrentPage(1); 
         setPageInput('1'); 
-    }, [adminSearch]);
+    }, [adminSearch, adminSort, adminFilterCohort, adminFilterMajor]);
 
     const prevStudentNameRef = useRef(data.studentName);
     useEffect(() => {
@@ -735,45 +741,123 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const showAdminPanel = isAdmin && adminMode === 'list';
 
+    // Tách hàm fetch ra để có thể làm nút Refresh
+    const fetchAdminData = async () => {
+        setLoadingAdmin(true);
+        let allProfiles: any[] = [];
+        let hasMore = true;
+        let page = 0;
+        const pageSize = 1000;
+
+        while (hasMore) {
+            const { data: profiles, error } = await supabase
+                .from('profiles')
+                .select('id, student_code, full_name, updated_at, data')
+                .order('updated_at', { ascending: false })
+                .range(page * pageSize, (page + 1) * pageSize - 1);
+            
+            if (error) {
+                console.error(error);
+                break;
+            }
+            
+            if (profiles && profiles.length > 0) {
+                allProfiles = [...allProfiles, ...profiles];
+                if (profiles.length < pageSize) {
+                    hasMore = false; 
+                } else {
+                    page++; 
+                }
+            } else {
+                hasMore = false;
+            }
+        }
+        
+        setAdminUsers(allProfiles);
+        setLoadingAdmin(false);
+        setCurrentPage(1);
+        setPageInput('1');
+    };
+
     useEffect(() => {
         if (showAdminPanel) {
-            const fetchAdminData = async () => {
-                setLoadingAdmin(true);
-                let allProfiles: any[] = [];
-                let hasMore = true;
-                let page = 0;
-                const pageSize = 1000;
-
-                while (hasMore) {
-                    const { data: profiles, error } = await supabase
-                        .from('profiles')
-                        .select('id, student_code, full_name, updated_at, data')
-                        .order('updated_at', { ascending: false })
-                        .range(page * pageSize, (page + 1) * pageSize - 1);
-                    
-                    if (error) {
-                        console.error(error);
-                        break;
-                    }
-                    
-                    if (profiles && profiles.length > 0) {
-                        allProfiles = [...allProfiles, ...profiles];
-                        if (profiles.length < pageSize) {
-                            hasMore = false; 
-                        } else {
-                            page++; 
-                        }
-                    } else {
-                        hasMore = false;
-                    }
-                }
-                
-                setAdminUsers(allProfiles);
-                setLoadingAdmin(false);
-            };
             fetchAdminData();
         }
     }, [showAdminPanel]);
+
+    // Tạo danh sách Khóa và Ngành động từ dữ liệu thực tế
+    const { adminCohorts, adminMajors } = useMemo(() => {
+        const cSet = new Set<string>();
+        const mSet = new Set<string>();
+        adminUsers.forEach(u => {
+            if (u.data?.cohort) cSet.add(u.data.cohort);
+            if (u.data?.majorName) mSet.add(u.data.majorName);
+        });
+        return {
+            adminCohorts: Array.from(cSet).sort(),
+            adminMajors: Array.from(mSet).sort()
+        };
+    }, [adminUsers]);
+
+    // Lọc và Sắp xếp danh sách Admin
+    const processedAdminUsers = useMemo(() => {
+        let result = adminUsers.filter(u => {
+            const matchSearch = (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) ||
+                (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) ||
+                (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()));
+            
+            const matchCohort = adminFilterCohort === 'all' || u.data?.cohort === adminFilterCohort;
+            const matchMajor = adminFilterMajor === 'all' || u.data?.majorName === adminFilterMajor;
+
+            return matchSearch && matchCohort && matchMajor;
+        });
+
+        if (adminSort !== 'newest') {
+            result.sort((a, b) => {
+                const semsA = (a.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
+                const semsB = (b.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
+                const statsA = calculateCumulativeStats(semsA);
+                const statsB = calculateCumulativeStats(semsB);
+
+                if (adminSort === 'gpa_desc') {
+                    return statsB.rawGPA4 - statsA.rawGPA4;
+                } else if (adminSort === 'credits_desc') {
+                    return statsB.passedCredits - statsA.passedCredits;
+                }
+                return 0;
+            });
+        }
+        return result;
+    }, [adminUsers, adminSearch, adminSort, adminFilterCohort, adminFilterMajor]);
+
+    // Thống kê tổng quan cho Admin
+    const adminSummary = useMemo(() => {
+        if (processedAdminUsers.length === 0) return { total: 0, avgGPA: 0, warning: 0, excellent: 0 };
+        let sumGPA = 0;
+        let countGPA = 0;
+        let warning = 0;
+        let excellent = 0;
+
+        processedAdminUsers.forEach(u => {
+            const validSems = (u.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
+            if (validSems.length > 0) {
+                const stats = calculateCumulativeStats(validSems);
+                if (stats.rawGPA4 > 0) {
+                    sumGPA += stats.rawGPA4;
+                    countGPA++;
+                    if (stats.rawGPA4 < 2.0) warning++;
+                    if (stats.rawGPA4 >= 3.6) excellent++;
+                }
+            }
+        });
+
+        return {
+            total: processedAdminUsers.length,
+            avgGPA: countGPA > 0 ? (sumGPA / countGPA).toFixed(2) : 0,
+            warning,
+            excellent
+        };
+    }, [processedAdminUsers]);
 
     const activeData = useMemo(() => {
         if (selectedUserOverview) {
@@ -989,16 +1073,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {showAdminPanel ? (
             <div className="w-full space-y-4 pt-1 animate-fadeIn">
-                <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-2">
-                                Quản lý Sinh viên
-                            </h1>
-                            <p className="text-sm text-gray-500">Xem và theo dõi tiến độ học tập của sinh viên toàn trường</p>
+                <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)] flex flex-col md:flex-row justify-between items-start md:items-end gap-4">                
+                    <div>
+                        <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-2">
+                            Quản lý Sinh viên
+                        </h1>
+                        <p className="text-sm text-gray-500">Xem và theo dõi tiến độ học tập của sinh viên toàn trường</p>
+                    </div>
+                    
+                    <div className="flex flex-col gap-2 w-full md:w-auto items-end">
+                        <div className="flex gap-2 w-full md:w-auto justify-end">
+                            <button 
+                                onClick={() => { playClick(); fetchAdminData(); }} 
+                                disabled={loadingAdmin}
+                                className="p-2 bg-white text-gray-500 border border-gray-300 hover:text-[#003375] hover:border-[#003375] hover:bg-blue-50 rounded-lg shadow-sm transition-colors disabled:opacity-50"
+                                title="Làm mới danh sách"
+                            >
+                                <RefreshCw size={20} className={loadingAdmin ? "animate-spin" : ""} />
+                            </button>
+                            <button onClick={() => { playClick(); setSelectedUserOverview(data); setAdminMode('detail'); }} className="px-4 py-2 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] rounded-lg shadow-sm whitespace-nowrap transition-colors">
+                                Hồ sơ của tôi
+                            </button>
                         </div>
-                        <div className="flex gap-2 w-full md:w-auto">
-                            <div className="relative flex-1 md:w-64">
+                        
+                        <div className="flex flex-wrap gap-2 w-full md:w-auto items-center justify-end">
+                            <div className="relative flex-1 min-w-[200px] md:w-56">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                                 <input 
                                     type="text" 
@@ -1008,15 +1107,83 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white"
                                 />
                             </div>
-                            <button onClick={() => { playClick(); setSelectedUserOverview(data); setAdminMode('detail'); }} className="px-4 py-2 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] rounded-lg shadow-sm whitespace-nowrap transition-colors">
-                                Hồ sơ của tôi
-                            </button>
+                            
+                            <div className="relative">
+                                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                                <select 
+                                    value={adminFilterCohort}
+                                    onChange={(e) => setAdminFilterCohort(e.target.value)}
+                                    className="appearance-none pl-8 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full md:w-auto min-w-[100px]"
+                                >
+                                    <option value="all">Tất cả Khóa</option>
+                                    {adminCohorts.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                            </div>
+
+                            <div className="relative">
+                                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                                <select 
+                                    value={adminFilterMajor}
+                                    onChange={(e) => setAdminFilterMajor(e.target.value)}
+                                    className="appearance-none pl-8 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full md:w-auto max-w-[200px] truncate"
+                                >
+                                    <option value="all">Tất cả Ngành</option>
+                                    {adminMajors.map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                            </div>
+
+                            <div className="relative">
+                                <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                                <select 
+                                    value={adminSort}
+                                    onChange={(e) => setAdminSort(e.target.value as any)}
+                                    className="appearance-none pl-8 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full md:w-auto"
+                                >
+                                    <option value="newest">Mới cập nhật</option>
+                                    <option value="gpa_desc">GPA Cao nhất</option>
+                                    <option value="credits_desc">Nhiều Tín nhất</option>
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                            </div>
                         </div>
                     </div>
                 </div>
 
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Tổng sinh viên</span>
+                            <Users size={16} className="text-gray-400" />
+                        </div>
+                        <div className="text-2xl font-black text-gray-900">{adminSummary.total}</div>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Trung bình GPA</span>
+                            <BarChart3 size={16} className="text-blue-500" />
+                        </div>
+                        <div className="text-2xl font-black text-[#003375]">{adminSummary.avgGPA} <span className="text-xs font-semibold text-gray-400">/ 4.0</span></div>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Cảnh báo (&lt;2.0)</span>
+                            <AlertTriangle size={16} className="text-red-500" />
+                        </div>
+                        <div className="text-2xl font-black text-red-600">{adminSummary.warning} <span className="text-xs font-semibold text-gray-400 font-normal">sinh viên</span></div>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Xuất sắc (&gt;3.6)</span>
+                            <Crown size={16} className="text-yellow-500" />
+                        </div>
+                        <div className="text-2xl font-black text-yellow-600">{adminSummary.excellent} <span className="text-xs font-semibold text-gray-400 font-normal">sinh viên</span></div>
+                    </div>
+                </div>
+
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto custom-scrollbar max-h-[65vh]">
+                    <div className="overflow-x-auto custom-scrollbar max-h-[55vh]">
                         <table className="w-full text-sm text-left relative">
                             <thead className="bg-gray-50 text-gray-600 border-b border-gray-200 sticky top-0 z-10">
                                 <tr>
@@ -1032,13 +1199,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 {loadingAdmin ? (
                                     <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/> <span className="text-gray-500">Đang tải toàn bộ dữ liệu ({adminUsers.length}+)...</span></td></tr>
                                 ) : (() => {
-                                    const filteredUsers = adminUsers.filter(u => 
-                                        (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) ||
-                                        (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) ||
-                                        (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))
-                                    );
-
-                                    const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+                                    const totalPages = Math.ceil(processedAdminUsers.length / itemsPerPage) || 1;
+                                    const paginatedUsers = processedAdminUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
                                     return paginatedUsers.length > 0 ? (
                                         paginatedUsers.map(user => {
@@ -1066,18 +1228,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     {/* THANH CHUYỂN TRANG THÔNG MINH */}
-                    {!loadingAdmin && adminUsers.length > 0 && (() => {
-                        const filteredUsers = adminUsers.filter(u => 
-                            (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) ||
-                            (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) ||
-                            (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()))
-                        );
-                        const totalPages = Math.ceil(filteredUsers.length / itemsPerPage) || 1;
+                    {!loadingAdmin && processedAdminUsers.length > 0 && (() => {
+                        const totalPages = Math.ceil(processedAdminUsers.length / itemsPerPage) || 1;
 
                         return (
                             <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 gap-3">
                                 <span className="text-xs sm:text-sm text-gray-500">
-                                    Đang xem <span className="font-bold text-gray-700">{filteredUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> đến <span className="font-bold text-gray-700">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> trong tổng số <span className="font-bold text-gray-900">{filteredUsers.length}</span> sinh viên
+                                    Đang xem <span className="font-bold text-gray-700">{processedAdminUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> đến <span className="font-bold text-gray-700">{Math.min(currentPage * itemsPerPage, processedAdminUsers.length)}</span> trong tổng số <span className="font-bold text-gray-900">{processedAdminUsers.length}</span> sinh viên
                                 </span>
                                 <div className="flex items-center gap-2">
                                     <button 
@@ -1114,7 +1271,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                                     <button 
                                         onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.min(totalPages, p + 1); setPageInput(newP.toString()); return newP; }); }} 
-                                        disabled={currentPage === totalPages || filteredUsers.length === 0}
+                                        disabled={currentPage === totalPages || processedAdminUsers.length === 0}
                                         className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
                                         Sau
