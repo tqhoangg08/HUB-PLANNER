@@ -719,13 +719,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [adminFilterCohort, setAdminFilterCohort] = useState<string>('all');
     const [adminFilterMajor, setAdminFilterMajor] = useState<string>('all');
     const [adminFilterGpa, setAdminFilterGpa] = useState<'all' | 'warning' | 'excellent'>('all');
+    const [adminFilterSemester, setAdminFilterSemester] = useState<string>('all');
 
     const itemsPerPage = 20;
 
     useEffect(() => { 
         setCurrentPage(1); 
         setPageInput('1'); 
-    }, [adminSearch, adminSort, adminFilterCohort, adminFilterMajor, adminFilterGpa]);
+    }, [adminSearch, adminSort, adminFilterCohort, adminFilterMajor, adminFilterGpa, adminFilterSemester]);
 
     const prevStudentNameRef = useRef(data.studentName);
     useEffect(() => {
@@ -786,25 +787,53 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
     }, [showAdminPanel]);
 
-    // Tạo danh sách Khóa và Ngành động từ dữ liệu thực tế
-    const { adminCohorts, adminMajors } = useMemo(() => {
+    // Tạo danh sách Khóa, Ngành, và Học kỳ động từ dữ liệu thực tế
+    const { adminCohorts, adminMajors, adminSemesters } = useMemo(() => {
         const cSet = new Set<string>();
         const mSet = new Set<string>();
+        const sSet = new Set<string>();
+
         adminUsers.forEach(u => {
             if (u.data?.cohort) cSet.add(u.data.cohort);
             if (u.data?.majorName) mSet.add(u.data.majorName);
+            if (u.data?.semesters) {
+                u.data.semesters.forEach((sem: any) => {
+                    if (/^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(sem.name)) {
+                        sSet.add(sem.name);
+                    }
+                });
+            }
         });
+
+        const sortedSems = Array.from(sSet).sort((a, b) => {
+            const getW = (name: string) => {
+                const match = name.match(/Học kỳ (1|2|3|Hè) Năm học (\d{4})-(\d{4})/);
+                if (!match) return 0;
+                const hk = match[1] === 'Hè' ? 3 : parseInt(match[1]);
+                const year = parseInt(match[2]);
+                return year * 10 + hk;
+            };
+            return getW(b) - getW(a); 
+        });
+
         return {
             adminCohorts: Array.from(cSet).sort(),
-            adminMajors: Array.from(mSet).sort()
+            adminMajors: Array.from(mSet).sort(),
+            adminSemesters: sortedSems
         };
     }, [adminUsers]);
 
-    // TỐI ƯU HÓA: Tính toán GPA và Tín chỉ một lần duy nhất để tránh lag khi lọc/sắp xếp
+    // TỐI ƯU HÓA: Tính toán GPA và Tín chỉ theo Học kỳ đã chọn
     const baseFilteredUsers = useMemo(() => {
         return adminUsers
             .map(u => {
-                 const validSems = (u.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
+                 let validSems = (u.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
+
+                 // LỌC THEO HỌC KỲ NẾU CÓ CHỌN
+                 if (adminFilterSemester !== 'all') {
+                     validSems = validSems.filter((s: any) => s.name === adminFilterSemester);
+                 }
+
                  const stats = calculateCumulativeStats(validSems);
                  return { ...u, _computedGpa: stats.rawGPA4, _computedCredits: stats.passedCredits };
             })
@@ -815,12 +844,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 
                 const matchCohort = adminFilterCohort === 'all' || u.data?.cohort === adminFilterCohort;
                 const matchMajor = adminFilterMajor === 'all' || u.data?.majorName === adminFilterMajor;
+                
+                // NẾU CÓ LỌC THEO HỌC KỲ, CHỈ HIỂN THỊ SINH VIÊN CÓ DỮ LIỆU ĐIỂM Ở HỌC KỲ ĐÓ
+                const matchSemester = adminFilterSemester === 'all' || u._computedCredits > 0;
 
-                return matchSearch && matchCohort && matchMajor;
+                return matchSearch && matchCohort && matchMajor && matchSemester;
             });
-    }, [adminUsers, adminSearch, adminFilterCohort, adminFilterMajor]);
+    }, [adminUsers, adminSearch, adminFilterCohort, adminFilterMajor, adminFilterSemester]);
 
-    // Thống kê tổng quan cho Admin (dựa trên baseFilteredUsers để không bị sai số khi click vào thẻ)
+    // Thống kê tổng quan cho Admin (dựa trên baseFilteredUsers)
     const adminSummary = useMemo(() => {
         if (baseFilteredUsers.length === 0) return { total: 0, avgGPA: 0, warning: 0, excellent: 0 };
         let sumGPA = 0;
@@ -1138,10 +1170,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 <select 
                                     value={adminFilterMajor}
                                     onChange={(e) => setAdminFilterMajor(e.target.value)}
-                                    className="appearance-none pl-8 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full md:w-auto max-w-[200px] truncate"
+                                    className="appearance-none pl-8 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full md:w-auto max-w-[150px] truncate"
                                 >
                                     <option value="all">Tất cả Ngành</option>
                                     {adminMajors.map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                            </div>
+
+                            {/* BỘ LỌC MỚI: HỌC KỲ */}
+                            <div className="relative">
+                                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                                <select 
+                                    value={adminFilterSemester}
+                                    onChange={(e) => setAdminFilterSemester(e.target.value)}
+                                    className="appearance-none pl-8 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full md:w-auto min-w-[180px] truncate"
+                                >
+                                    <option value="all">Tích lũy toàn khóa</option>
+                                    {adminSemesters.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                             </div>
@@ -1214,7 +1260,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     <th className="px-4 py-3 font-bold">MSSV</th>
                                     <th className="px-4 py-3 font-bold">Họ và Tên</th>
                                     <th className="px-4 py-3 font-bold">Hệ / Khóa</th>
-                                    <th className="px-4 py-3 font-bold text-center">GPA Hiện tại</th>
+                                    <th className="px-4 py-3 font-bold text-center">{adminFilterSemester === 'all' ? 'GPA Tích lũy' : 'GPA Học kỳ'}</th>
                                     <th className="px-4 py-3 font-bold text-center">Tín chỉ</th>
                                     <th className="px-4 py-3 font-bold text-right">Cập nhật lúc</th>
                                 </tr>
