@@ -718,13 +718,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
     // State Lọc cho Admin
     const [adminFilterCohort, setAdminFilterCohort] = useState<string>('all');
     const [adminFilterMajor, setAdminFilterMajor] = useState<string>('all');
+    const [adminFilterGpa, setAdminFilterGpa] = useState<'all' | 'warning' | 'excellent'>('all');
 
     const itemsPerPage = 20;
 
     useEffect(() => { 
         setCurrentPage(1); 
         setPageInput('1'); 
-    }, [adminSearch, adminSort, adminFilterCohort, adminFilterMajor]);
+    }, [adminSearch, adminSort, adminFilterCohort, adminFilterMajor, adminFilterGpa]);
 
     const prevStudentNameRef = useRef(data.studentName);
     useEffect(() => {
@@ -799,65 +800,76 @@ export const Dashboard: React.FC<DashboardProps> = ({
         };
     }, [adminUsers]);
 
-    // Lọc và Sắp xếp danh sách Admin
-    const processedAdminUsers = useMemo(() => {
-        let result = adminUsers.filter(u => {
-            const matchSearch = (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) ||
-                (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) ||
-                (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()));
-            
-            const matchCohort = adminFilterCohort === 'all' || u.data?.cohort === adminFilterCohort;
-            const matchMajor = adminFilterMajor === 'all' || u.data?.majorName === adminFilterMajor;
+    // TỐI ƯU HÓA: Tính toán GPA và Tín chỉ một lần duy nhất để tránh lag khi lọc/sắp xếp
+    const baseFilteredUsers = useMemo(() => {
+        return adminUsers
+            .map(u => {
+                 const validSems = (u.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
+                 const stats = calculateCumulativeStats(validSems);
+                 return { ...u, _computedGpa: stats.rawGPA4, _computedCredits: stats.passedCredits };
+            })
+            .filter(u => {
+                const matchSearch = (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) ||
+                    (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) ||
+                    (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()));
+                
+                const matchCohort = adminFilterCohort === 'all' || u.data?.cohort === adminFilterCohort;
+                const matchMajor = adminFilterMajor === 'all' || u.data?.majorName === adminFilterMajor;
 
-            return matchSearch && matchCohort && matchMajor;
-        });
-
-        if (adminSort !== 'newest') {
-            result.sort((a, b) => {
-                const semsA = (a.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
-                const semsB = (b.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
-                const statsA = calculateCumulativeStats(semsA);
-                const statsB = calculateCumulativeStats(semsB);
-
-                if (adminSort === 'gpa_desc') {
-                    return statsB.rawGPA4 - statsA.rawGPA4;
-                } else if (adminSort === 'credits_desc') {
-                    return statsB.passedCredits - statsA.passedCredits;
-                }
-                return 0;
+                return matchSearch && matchCohort && matchMajor;
             });
-        }
-        return result;
-    }, [adminUsers, adminSearch, adminSort, adminFilterCohort, adminFilterMajor]);
+    }, [adminUsers, adminSearch, adminFilterCohort, adminFilterMajor]);
 
-    // Thống kê tổng quan cho Admin
+    // Thống kê tổng quan cho Admin (dựa trên baseFilteredUsers để không bị sai số khi click vào thẻ)
     const adminSummary = useMemo(() => {
-        if (processedAdminUsers.length === 0) return { total: 0, avgGPA: 0, warning: 0, excellent: 0 };
+        if (baseFilteredUsers.length === 0) return { total: 0, avgGPA: 0, warning: 0, excellent: 0 };
         let sumGPA = 0;
         let countGPA = 0;
         let warning = 0;
         let excellent = 0;
 
-        processedAdminUsers.forEach(u => {
-            const validSems = (u.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
-            if (validSems.length > 0) {
-                const stats = calculateCumulativeStats(validSems);
-                if (stats.rawGPA4 > 0) {
-                    sumGPA += stats.rawGPA4;
-                    countGPA++;
-                    if (stats.rawGPA4 < 2.0) warning++;
-                    if (stats.rawGPA4 >= 3.6) excellent++;
-                }
+        baseFilteredUsers.forEach(u => {
+            if (u._computedGpa > 0) {
+                sumGPA += u._computedGpa;
+                countGPA++;
+                if (u._computedGpa < 2.0) warning++;
+                if (u._computedGpa >= 3.6) excellent++;
             }
         });
 
         return {
-            total: processedAdminUsers.length,
+            total: baseFilteredUsers.length,
             avgGPA: countGPA > 0 ? (sumGPA / countGPA).toFixed(2) : 0,
             warning,
             excellent
         };
-    }, [processedAdminUsers]);
+    }, [baseFilteredUsers]);
+
+    // Lọc và Sắp xếp danh sách Admin cuối cùng
+    const processedAdminUsers = useMemo(() => {
+        let result = [...baseFilteredUsers];
+
+        if (adminFilterGpa !== 'all') {
+            if (adminFilterGpa === 'warning') {
+                result = result.filter(u => u._computedGpa > 0 && u._computedGpa < 2.0);
+            } else if (adminFilterGpa === 'excellent') {
+                result = result.filter(u => u._computedGpa >= 3.6);
+            }
+        }
+
+        if (adminSort !== 'newest') {
+            result.sort((a, b) => {
+                if (adminSort === 'gpa_desc') {
+                    return b._computedGpa - a._computedGpa;
+                } else if (adminSort === 'credits_desc') {
+                    return b._computedCredits - a._computedCredits;
+                }
+                return 0;
+            });
+        }
+        return result;
+    }, [baseFilteredUsers, adminSort, adminFilterGpa]);
+
 
     const activeData = useMemo(() => {
         if (selectedUserOverview) {
@@ -1152,34 +1164,46 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-                        <div className="flex justify-between items-center mb-2">
+                    <button 
+                        onClick={() => { playClick(); setAdminFilterGpa('all'); }}
+                        className={`bg-white p-4 rounded-xl border shadow-sm flex flex-col justify-between text-left transition-all ${adminFilterGpa === 'all' ? 'border-[#003375] ring-2 ring-[#003375]/20' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                    >
+                        <div className="flex justify-between items-center mb-2 w-full">
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Tổng sinh viên</span>
                             <Users size={16} className="text-gray-400" />
                         </div>
                         <div className="text-2xl font-black text-gray-900">{adminSummary.total}</div>
-                    </div>
+                    </button>
+
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-                        <div className="flex justify-between items-center mb-2">
+                        <div className="flex justify-between items-center mb-2 w-full">
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Trung bình GPA</span>
                             <BarChart3 size={16} className="text-blue-500" />
                         </div>
                         <div className="text-2xl font-black text-[#003375]">{adminSummary.avgGPA} <span className="text-xs font-semibold text-gray-400">/ 4.0</span></div>
                     </div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-                        <div className="flex justify-between items-center mb-2">
+
+                    <button 
+                        onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'warning' ? 'all' : 'warning'); }}
+                        className={`bg-white p-4 rounded-xl border shadow-sm flex flex-col justify-between text-left transition-all ${adminFilterGpa === 'warning' ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200 hover:border-red-200 hover:bg-red-50/30'}`}
+                    >
+                        <div className="flex justify-between items-center mb-2 w-full">
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Cảnh báo (&lt;2.0)</span>
                             <AlertTriangle size={16} className="text-red-500" />
                         </div>
                         <div className="text-2xl font-black text-red-600">{adminSummary.warning} <span className="text-xs font-semibold text-gray-400 font-normal">sinh viên</span></div>
-                    </div>
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-                        <div className="flex justify-between items-center mb-2">
+                    </button>
+
+                    <button 
+                        onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'excellent' ? 'all' : 'excellent'); }}
+                        className={`bg-white p-4 rounded-xl border shadow-sm flex flex-col justify-between text-left transition-all ${adminFilterGpa === 'excellent' ? 'border-yellow-500 ring-2 ring-yellow-500/20 bg-yellow-50/30' : 'border-gray-200 hover:border-yellow-200 hover:bg-yellow-50/30'}`}
+                    >
+                        <div className="flex justify-between items-center mb-2 w-full">
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Xuất sắc (&gt;3.6)</span>
                             <Crown size={16} className="text-yellow-500" />
                         </div>
                         <div className="text-2xl font-black text-yellow-600">{adminSummary.excellent} <span className="text-xs font-semibold text-gray-400 font-normal">sinh viên</span></div>
-                    </div>
+                    </button>
                 </div>
 
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -1204,8 +1228,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                                     return paginatedUsers.length > 0 ? (
                                         paginatedUsers.map(user => {
-                                            const validSems = (user.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
-                                            const uStats = calculateCumulativeStats(validSems);
                                             const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
                                             
                                             return (
@@ -1213,8 +1235,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                                     <td className="px-4 py-3 font-bold text-[#003375]">{user.student_code || '-'}</td>
                                                     <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#003375] transition-colors">{user.full_name || user.data?.studentName || 'Chưa cập nhật'}</td>
                                                     <td className="px-4 py-3 text-gray-600">{user.data?.programName || '-'} / {user.data?.cohort || '-'}</td>
-                                                    <td className="px-4 py-3 text-center font-bold text-emerald-600">{uStats.rawGPA4 > 0 ? uStats.rawGPA4.toFixed(2) : '-'}</td>
-                                                    <td className="px-4 py-3 text-center text-gray-600">{uStats.passedCredits || 0}</td>
+                                                    <td className="px-4 py-3 text-center font-bold text-emerald-600">{user._computedGpa > 0 ? user._computedGpa.toFixed(2) : '-'}</td>
+                                                    <td className="px-4 py-3 text-center text-gray-600">{user._computedCredits || 0}</td>
                                                     <td className="px-4 py-3 text-right text-xs text-gray-500">{updateDate}</td>
                                                 </tr>
                                             )
