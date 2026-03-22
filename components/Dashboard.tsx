@@ -852,7 +852,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             });
     }, [adminUsers, adminSearch, adminFilterCohort, adminFilterMajor, adminFilterSemester]);
 
-    // Thống kê tổng quan cho Admin (dựa trên baseFilteredUsers)
+    // Thống kê tổng quan cho Admin (dựa trên baseFilteredUsers để không bị sai số khi click vào thẻ)
     const adminSummary = useMemo(() => {
         if (baseFilteredUsers.length === 0) return { total: 0, avgGPA: 0, warning: 0, excellent: 0 };
         let sumGPA = 0;
@@ -1117,93 +1117,95 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         {showAdminPanel ? (
             <div className="w-full space-y-4 pt-1 animate-fadeIn">
-                <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)] flex flex-col md:flex-row justify-between items-start md:items-end gap-4">                
-                    <div>
-                        <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-2">
-                            Quản lý Sinh viên
-                        </h1>
-                        <p className="text-sm text-gray-500">Xem và theo dõi tiến độ học tập của sinh viên toàn trường</p>
-                    </div>
-                    
-                    <div className="flex flex-col gap-2 w-full md:w-auto items-end">
-                        <div className="flex gap-2 w-full md:w-auto justify-end">
-                            <button 
-                                onClick={() => { playClick(); fetchAdminData(); }} 
-                                disabled={loadingAdmin}
-                                className="p-2 bg-white text-gray-500 border border-gray-300 hover:text-[#003375] hover:border-[#003375] hover:bg-blue-50 rounded-lg shadow-sm transition-colors disabled:opacity-50"
-                                title="Làm mới danh sách"
-                            >
-                                <RefreshCw size={20} className={loadingAdmin ? "animate-spin" : ""} />
-                            </button>
-                            <button onClick={() => { playClick(); setSelectedUserOverview(data); setAdminMode('detail'); }} className="px-4 py-2 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] rounded-lg shadow-sm whitespace-nowrap transition-colors">
-                                Hồ sơ của tôi
-                            </button>
+                <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-3 -mt-2 mb-4 border-b border-gray-200/60 md:shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">                
+                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
+                        <div>
+                            <h1 className="text-[24px] sm:text-[28px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
+                                Quản lý Sinh viên
+                            </h1>
+                            <p className="text-xs text-gray-500">Xem và theo dõi tiến độ học tập toàn trường</p>
                         </div>
                         
-                        <div className="flex flex-wrap gap-2 w-full md:w-auto items-center justify-end">
-                            <div className="relative flex-1 min-w-[200px] md:w-56">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                                <input 
-                                    type="text" 
-                                    placeholder="Tìm MSSV hoặc Tên..." 
-                                    value={adminSearch}
-                                    onChange={e => setAdminSearch(e.target.value)}
-                                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white"
-                                />
+                        <div className="flex flex-col w-full lg:w-auto gap-2">
+                            <div className="flex flex-nowrap items-center gap-2 w-full justify-end">
+                                <div className="relative flex-1 lg:w-64 max-w-sm">
+                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Tìm MSSV hoặc Tên..." 
+                                        value={adminSearch}
+                                        onChange={e => setAdminSearch(e.target.value)}
+                                        className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-sm bg-white"
+                                    />
+                                </div>
+                                
+                                <button 
+                                    onClick={() => { playClick(); fetchAdminData(); }} 
+                                    disabled={loadingAdmin}
+                                    className="p-1.5 bg-white text-gray-500 border border-gray-300 hover:text-[#003375] hover:bg-blue-50 rounded-lg shadow-sm transition-colors disabled:opacity-50 shrink-0"
+                                    title="Làm mới danh sách"
+                                >
+                                    <RefreshCw size={18} className={loadingAdmin ? "animate-spin" : ""} />
+                                </button>
+
+                                <button onClick={() => { playClick(); setSelectedUserOverview(data); setAdminMode('detail'); }} className="px-3 py-1.5 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] hover:bg-blue-50 rounded-lg shadow-sm whitespace-nowrap transition-colors shrink-0">
+                                    Hồ sơ của tôi
+                                </button>
                             </div>
                             
-                            <div className="relative">
-                                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                                <select 
-                                    value={adminFilterCohort}
-                                    onChange={(e) => setAdminFilterCohort(e.target.value)}
-                                    className="appearance-none pl-8 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full md:w-auto min-w-[100px]"
-                                >
-                                    <option value="all">Tất cả Khóa</option>
-                                    {adminCohorts.map(c => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
-                            </div>
+                            <div className="flex flex-wrap items-center gap-2 w-full justify-end">
+                                <div className="relative">
+                                    <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                                    <select 
+                                        value={adminFilterCohort}
+                                        onChange={(e) => setAdminFilterCohort(e.target.value)}
+                                        className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full"
+                                    >
+                                        <option value="all">Tất cả Khóa</option>
+                                        {adminCohorts.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                                </div>
 
-                            <div className="relative">
-                                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                                <select 
-                                    value={adminFilterMajor}
-                                    onChange={(e) => setAdminFilterMajor(e.target.value)}
-                                    className="appearance-none pl-8 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full md:w-auto max-w-[150px] truncate"
-                                >
-                                    <option value="all">Tất cả Ngành</option>
-                                    {adminMajors.map(m => <option key={m} value={m}>{m}</option>)}
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
-                            </div>
+                                <div className="relative">
+                                    <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                                    <select 
+                                        value={adminFilterMajor}
+                                        onChange={(e) => setAdminFilterMajor(e.target.value)}
+                                        className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[140px] truncate"
+                                    >
+                                        <option value="all">Tất cả Ngành</option>
+                                        {adminMajors.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
+                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                                </div>
 
-                            {/* BỘ LỌC MỚI: HỌC KỲ */}
-                            <div className="relative">
-                                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                                <select 
-                                    value={adminFilterSemester}
-                                    onChange={(e) => setAdminFilterSemester(e.target.value)}
-                                    className="appearance-none pl-8 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full md:w-auto min-w-[180px] truncate"
-                                >
-                                    <option value="all">Tích lũy toàn khóa</option>
-                                    {adminSemesters.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
-                            </div>
+                                <div className="relative">
+                                    <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                                    <select 
+                                        value={adminFilterSemester}
+                                        onChange={(e) => setAdminFilterSemester(e.target.value)}
+                                        className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[150px] truncate"
+                                    >
+                                        <option value="all">Tích lũy toàn khóa</option>
+                                        {adminSemesters.map(s => <option key={s} value={s}>{s.replace('Học kỳ ', 'HK').replace(' Năm học ', ' ')}</option>)}
+                                    </select>
+                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                                </div>
 
-                            <div className="relative">
-                                <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                                <select 
-                                    value={adminSort}
-                                    onChange={(e) => setAdminSort(e.target.value as any)}
-                                    className="appearance-none pl-8 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none text-sm bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full md:w-auto"
-                                >
-                                    <option value="newest">Mới cập nhật</option>
-                                    <option value="gpa_desc">GPA Cao nhất</option>
-                                    <option value="credits_desc">Nhiều Tín nhất</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                                <div className="relative">
+                                    <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                                    <select 
+                                        value={adminSort}
+                                        onChange={(e) => setAdminSort(e.target.value as any)}
+                                        className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full"
+                                    >
+                                        <option value="newest">Mới cập nhật</option>
+                                        <option value="gpa_desc">GPA Cao nhất</option>
+                                        <option value="credits_desc">Nhiều Tín nhất</option>
+                                    </select>
+                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
+                                </div>
                             </div>
                         </div>
                     </div>
