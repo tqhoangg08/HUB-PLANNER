@@ -9,7 +9,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { ActivityLogModal } from './components/ActivityLogModal';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfUse } from './components/TermsOfUse';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, HeartCrack, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, HeartCrack, ArrowLeft, RefreshCw, ClipboardList } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
@@ -24,6 +24,7 @@ import ScheduleBoard from './components/ScheduleBoard';
 import Particles from "react-particles";
 import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
+import { AdminReports } from './components/AdminReports';
 
 // Import dữ liệu Ngành/Khóa học
 import { ACADEMIC_PROGRAMS, Program, Major, Specialization, getMajors } from './utils/programs';
@@ -100,7 +101,7 @@ const App: React.FC = () => {
             else if (location.pathname.includes('/schedule')) activeIndex = 1;
             else if (location.pathname.includes('/events')) activeIndex = 2;
             else if (location.pathname.includes('/lost-found')) activeIndex = 3;
-            else if (location.pathname.includes('/handbook') || isHandbookMenuOpen) activeIndex = 4;
+            else if (location.pathname.includes('/handbook') || isHandbookMenuOpen || location.pathname.includes('/admin-reports')) activeIndex = 4;
 
             if (activeIndex !== -1 && navRefs.current[activeIndex]) {
                 const el = navRefs.current[activeIndex];
@@ -844,8 +845,6 @@ const App: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Đã xóa UserSearch ở đây theo yêu cầu */}
-
                         <nav className="flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
                             
                             <NavLink 
@@ -885,64 +884,76 @@ const App: React.FC = () => {
                                 <span className="hidden sm:block">Tìm đồ thất lạc</span>
                             </NavLink>
 
-                            <div 
-                                className="relative flex items-center justify-center sm:h-full shrink-0 z-10" 
-                                ref={el => {
-                                    handbookMenuRef.current = el; 
-                                    navRefs.current[4] = el; 
-                                }}
-                                onMouseEnter={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(true)}
-                                onMouseLeave={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(false)}
-                            >
-                                <button 
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        playClick();
-                                        setIsHandbookMenuOpen(!isHandbookMenuOpen);
-                                    }}
-                                    className={`flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none ${
-                                        location.pathname.includes('/handbook') || isHandbookMenuOpen
-                                            ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' 
-                                            : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'
-                                    }`}
+                            {isAdmin ? (
+                                <NavLink 
+                                    to="/admin-reports" 
+                                    ref={el => navRefs.current[4] = el}
+                                    onClick={playClick} 
+                                    className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-red-600' : 'text-gray-400 sm:text-red-500/80 hover:text-red-600'}`}
                                 >
-                                    <Book size={20} className="sm:hidden" />
-                                    <span className="hidden sm:flex items-center gap-1">
-                                        Cẩm nang <ChevronDown size={14} className={`transition-transform duration-200 ${isHandbookMenuOpen ? 'rotate-180' : ''}`}/>
-                                    </span>
-                                </button>
+                                    <ClipboardList size={20} className="sm:hidden" />
+                                    <span className="hidden sm:block">Xử lý báo cáo</span>
+                                </NavLink>
+                            ) : (
+                                <div 
+                                    className="relative flex items-center justify-center sm:h-full shrink-0 z-10" 
+                                    ref={el => {
+                                        handbookMenuRef.current = el; 
+                                        navRefs.current[4] = el; 
+                                    }}
+                                    onMouseEnter={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(true)}
+                                    onMouseLeave={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(false)}
+                                >
+                                    <button 
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            playClick();
+                                            setIsHandbookMenuOpen(!isHandbookMenuOpen);
+                                        }}
+                                        className={`flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none ${
+                                            location.pathname.includes('/handbook') || isHandbookMenuOpen
+                                                ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' 
+                                                : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'
+                                        }`}
+                                    >
+                                        <Book size={20} className="sm:hidden" />
+                                        <span className="hidden sm:flex items-center gap-1">
+                                            Cẩm nang <ChevronDown size={14} className={`transition-transform duration-200 ${isHandbookMenuOpen ? 'rotate-180' : ''}`}/>
+                                        </span>
+                                    </button>
 
-                                {isHandbookMenuOpen && (
-                                    <div className="fixed sm:absolute top-[105px] sm:top-full right-4 sm:right-0 sm:pt-2 w-64 z-[999] animate-fadeIn">
-                                        <div className="bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
-                                            <div className="p-2 flex flex-col gap-0.5">
-                                                <Link to="/handbook/contacts" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-[#003375] rounded-lg transition-colors group">
-                                                    <div className="bg-[#003375]/10 p-1.5 rounded-lg text-[#003375] group-hover:bg-[#003375] group-hover:text-white transition-colors"><Phone size={16} /></div> Danh bạ & Khoa
-                                                </Link>
-                                                <Link to="/handbook/clubs" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-[#990000] rounded-lg transition-colors group">
-                                                    <div className="bg-[#990000]/10 p-1.5 rounded-lg text-[#990000] group-hover:bg-[#990000] group-hover:text-white transition-colors"><Users size={16} /></div> CLB - Đội - Nhóm
-                                                </Link>
-                                                <Link to="/handbook/scholarships" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-green-600 rounded-lg transition-colors group">
-                                                    <div className="bg-green-100 p-1.5 rounded-lg text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors"><Award size={16} /></div> Học bổng & Quy chế
-                                                </Link>
-                                                <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                                                <Link to="/handbook/faqs" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-indigo-600 rounded-lg transition-colors group">
-                                                    <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors"><HelpCircle size={16} /></div> FAQs
-                                                </Link>
-                                                <Link to="/handbook/feedback" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-teal-600 rounded-lg transition-colors group">
-                                                    <div className="bg-teal-100 p-1.5 rounded-lg text-teal-600 group-hover:bg-teal-600 group-hover:text-white transition-colors"><MessageSquarePlus size={16} /></div> Góp ý
-                                                </Link>
-                                                <Link to="/handbook/donate" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-pink-600 rounded-lg transition-colors group">
-                                                    <div className="bg-pink-100 p-1.5 rounded-lg text-pink-600 group-hover:bg-pink-600 group-hover:text-white transition-colors"><Heart size={16} /></div> Ủng hộ & Tri ân
-                                                </Link>
-                                                <Link to="/handbook/about" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-800 rounded-lg transition-colors group">
-                                                    <div className="bg-gray-200 p-1.5 rounded-lg text-gray-600 group-hover:bg-gray-600 group-hover:text-white transition-colors"><Info size={16} /></div> Về chúng mình
-                                                </Link>
+                                    {isHandbookMenuOpen && (
+                                        <div className="fixed sm:absolute top-[105px] sm:top-full right-4 sm:right-0 sm:pt-2 w-64 z-[999] animate-fadeIn">
+                                            <div className="bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
+                                                <div className="p-2 flex flex-col gap-0.5">
+                                                    <Link to="/handbook/contacts" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-[#003375] rounded-lg transition-colors group">
+                                                        <div className="bg-[#003375]/10 p-1.5 rounded-lg text-[#003375] group-hover:bg-[#003375] group-hover:text-white transition-colors"><Phone size={16} /></div> Danh bạ & Khoa
+                                                    </Link>
+                                                    <Link to="/handbook/clubs" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-[#990000] rounded-lg transition-colors group">
+                                                        <div className="bg-[#990000]/10 p-1.5 rounded-lg text-[#990000] group-hover:bg-[#990000] group-hover:text-white transition-colors"><Users size={16} /></div> CLB - Đội - Nhóm
+                                                    </Link>
+                                                    <Link to="/handbook/scholarships" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-green-600 rounded-lg transition-colors group">
+                                                        <div className="bg-green-100 p-1.5 rounded-lg text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors"><Award size={16} /></div> Học bổng & Quy chế
+                                                    </Link>
+                                                    <div className="h-px bg-gray-100 my-1 mx-2"></div>
+                                                    <Link to="/handbook/faqs" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-indigo-600 rounded-lg transition-colors group">
+                                                        <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors"><HelpCircle size={16} /></div> FAQs
+                                                    </Link>
+                                                    <Link to="/handbook/feedback" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-teal-600 rounded-lg transition-colors group">
+                                                        <div className="bg-teal-100 p-1.5 rounded-lg text-teal-600 group-hover:bg-teal-600 group-hover:text-white transition-colors"><MessageSquarePlus size={16} /></div> Góp ý
+                                                    </Link>
+                                                    <Link to="/handbook/donate" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-pink-600 rounded-lg transition-colors group">
+                                                        <div className="bg-pink-100 p-1.5 rounded-lg text-pink-600 group-hover:bg-pink-600 group-hover:text-white transition-colors"><Heart size={16} /></div> Ủng hộ & Tri ân
+                                                    </Link>
+                                                    <Link to="/handbook/about" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-800 rounded-lg transition-colors group">
+                                                        <div className="bg-gray-200 p-1.5 rounded-lg text-gray-600 group-hover:bg-gray-600 group-hover:text-white transition-colors"><Info size={16} /></div> Về chúng mình
+                                                    </Link>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
+                                </div>
+                            )}
 
                             <div 
                                 className="hidden sm:block absolute bottom-0 h-[2px] bg-[#003375] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-20 rounded-t-full"
@@ -1167,6 +1178,7 @@ const App: React.FC = () => {
                                 <Route path="/lost-found" element={<LostFoundBoard />} />
                                 <Route path="/handbook/:tab?" element={<Handbook />} />
                                 <Route path="/profile/:id" element={<ProfilePage />} />
+                                <Route path="/admin-reports" element={isAdmin ? <AdminReports /> : <Navigate to="/dashboard" replace />} />
                                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
                             </Routes>
                         </div>
