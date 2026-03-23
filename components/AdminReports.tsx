@@ -3,7 +3,7 @@ import { supabase } from '../utils/supabase';
 import { Loader2, CheckCircle2, AlertTriangle, Bug, BookOpen, UserPlus, CalendarDays, MessageSquare, Trash2, Calendar } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
-type TabType = 'bug_reports' | 'course_reports' | 'ctv_requests' | 'event_reports' | 'feedback';
+type TabType = 'course_reports' | 'bug_reports' | 'ctv_requests' | 'event_reports' | 'feedback';
 
 interface ReportData {
     id: any;
@@ -15,21 +15,22 @@ interface ReportData {
         student_code?: string;
         email?: string;
     } | null;
-    [key: string]: any; // Catch all for specific fields like 'error_location', 'content', etc.
+    [key: string]: any; 
 }
 
 export const AdminReports: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<TabType>('bug_reports');
+    const [activeTab, setActiveTab] = useState<TabType>('course_reports');
     const [reports, setReports] = useState<ReportData[]>([]);
     const [loading, setLoading] = useState(false);
     const [updatingId, setUpdatingId] = useState<any>(null);
 
+    // Cập nhật lại danh sách các tab theo đúng yêu cầu
     const tabs = [
-        { id: 'bug_reports', label: 'Lỗi Hệ thống', icon: Bug, color: 'text-red-600', bg: 'bg-red-50' },
-        { id: 'course_reports', label: 'Lỗi Bảng điểm', icon: BookOpen, color: 'text-orange-600', bg: 'bg-orange-50' },
-        { id: 'event_reports', label: 'Lỗi Sự kiện', icon: CalendarDays, color: 'text-purple-600', bg: 'bg-purple-50' },
+        { id: 'course_reports', label: 'Lỗi môn học', icon: BookOpen, color: 'text-orange-600', bg: 'bg-orange-50' },
+        { id: 'bug_reports', label: 'Lỗi bảng điểm', icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50' },
         { id: 'ctv_requests', label: 'Đơn xin CTV', icon: UserPlus, color: 'text-blue-600', bg: 'bg-blue-50' },
-        { id: 'feedback', label: 'Góp ý', icon: MessageSquare, color: 'text-emerald-600', bg: 'bg-emerald-50' }
+        { id: 'event_reports', label: 'Lỗi sự kiện', icon: CalendarDays, color: 'text-purple-600', bg: 'bg-purple-50' },
+        { id: 'feedback', label: 'Lỗi web', icon: Bug, color: 'text-emerald-600', bg: 'bg-emerald-50' }
     ] as const;
 
     const fetchReports = async () => {
@@ -46,7 +47,7 @@ export const AdminReports: React.FC = () => {
             if (reportError) throw reportError;
 
             if (reportData && reportData.length > 0) {
-                // Gom tất cả user_id duy nhất để query profile 1 lần (Tối ưu performance và an toàn RLS/FK)
+                // Gom tất cả user_id duy nhất để query profile 1 lần
                 const userIds = [...new Set(reportData.map(item => item.user_id).filter(Boolean))] as string[];
                 
                 let profilesMap: Record<string, any> = {};
@@ -99,7 +100,6 @@ export const AdminReports: React.FC = () => {
 
             if (error) throw error;
             
-            // Cập nhật lại UI sau khi update database thành công
             setReports(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
         } catch (error) {
             console.error("Lỗi update status:", error);
@@ -132,7 +132,7 @@ export const AdminReports: React.FC = () => {
         }
     };
 
-    // Hàm render card tương ứng với từng loại bảng
+    // Render nội dung tương ứng theo bảng
     const renderReportCard = (item: ReportData) => {
         const dateStr = new Date(item.created_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
         const isResolved = item.status === 'ok' || item.status === 'resolved';
@@ -140,11 +140,11 @@ export const AdminReports: React.FC = () => {
         return (
             <div key={item.id} className={`bg-white rounded-xl border ${isResolved ? 'border-green-200 bg-green-50/20' : 'border-gray-200'} p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col gap-4 relative`}>
                 
-                {/* Header Card */}
+                {/* Header */}
                 <div className="flex justify-between items-start border-b border-gray-100 pb-3">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-[#003375] font-bold text-lg border border-gray-200">
-                            {item.profile?.full_name ? item.profile.full_name.charAt(0).toUpperCase() : '?'}
+                            {item.profile?.full_name ? item.profile.full_name.charAt(0).toUpperCase() : (item.full_name ? item.full_name.charAt(0).toUpperCase() : '?')}
                         </div>
                         <div>
                             <p className="font-bold text-gray-900 text-sm">{item.profile?.full_name || item.full_name || 'Người dùng ẩn danh'}</p>
@@ -161,30 +161,34 @@ export const AdminReports: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Nội dung Card (Render động theo ActiveTab) */}
+                {/* Nội dung chi tiết */}
                 <div className="flex-1 text-sm text-gray-800 space-y-2">
+                    {/* course_reports */}
+                    {activeTab === 'course_reports' && (
+                        <>
+                            <p><strong className="text-gray-600">Môn học:</strong> <span className="font-bold">{item.subject_name}</span> ({item.course_code})</p>
+                            <p><strong className="text-gray-600">Lỗi:</strong> <span className="whitespace-pre-line bg-orange-50 text-orange-800 px-2 py-1 rounded inline-block w-full mt-1 border border-orange-100">{item.error_description}</span></p>
+                        </>
+                    )}
+
+                    {/* bug_reports */}
                     {activeTab === 'bug_reports' && (
                         <>
-                            <p><strong className="text-gray-600">Vị trí lỗi:</strong> <span className="bg-red-50 text-red-700 px-2 py-0.5 rounded font-medium">{item.error_location}</span></p>
+                            <p><strong className="text-gray-600">Vị trí lỗi (Bảng điểm):</strong> <span className="bg-red-50 text-red-700 px-2 py-0.5 rounded font-medium">{item.error_location}</span></p>
                             <p><strong className="text-gray-600">Mô tả:</strong> <span className="whitespace-pre-line">{item.description}</span></p>
                         </>
                     )}
                     
-                    {activeTab === 'course_reports' && (
-                        <>
-                            <p><strong className="text-gray-600">Môn học:</strong> <span className="font-bold">{item.subject_name}</span> ({item.course_code})</p>
-                            <p><strong className="text-gray-600">Vấn đề:</strong> <span className="whitespace-pre-line bg-orange-50 text-orange-800 px-2 py-1 rounded inline-block w-full mt-1 border border-orange-100">{item.error_description}</span></p>
-                        </>
-                    )}
-                    
+                    {/* event_reports */}
                     {activeTab === 'event_reports' && (
                         <>
                             <p><strong className="text-gray-600">Sự kiện:</strong> <span className="font-bold text-[#003375]">{item.event_name}</span> (ID: {item.event_id})</p>
                             <p><strong className="text-gray-600">BTC:</strong> {item.organizer}</p>
-                            <p><strong className="text-gray-600">Báo cáo sai sót:</strong> <span className="whitespace-pre-line text-red-600 font-medium">{item.issue_description}</span></p>
+                            <p><strong className="text-gray-600">Chi tiết sai sót:</strong> <span className="whitespace-pre-line text-red-600 font-medium">{item.issue_description}</span></p>
                         </>
                     )}
 
+                    {/* ctv_requests */}
                     {activeTab === 'ctv_requests' && (
                         <div className="grid grid-cols-2 gap-2 bg-blue-50/50 p-3 rounded-lg border border-blue-100">
                             <p><strong className="text-gray-600">Khóa:</strong> {item.student_batch}</p>
@@ -193,6 +197,7 @@ export const AdminReports: React.FC = () => {
                         </div>
                     )}
 
+                    {/* feedback */}
                     {activeTab === 'feedback' && (
                         <>
                             <p><strong className="text-gray-600">Phân loại:</strong> <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded uppercase text-[10px] font-bold">{item.type}</span></p>
