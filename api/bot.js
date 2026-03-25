@@ -63,8 +63,7 @@ NGUYÊN TẮC:
     formattedHistory.push({ role: 'user', parts: [{ text: question }] });
 
     // 4. GỌI GEMINI 3.1 FLASH LITE (Tối ưu tốc độ & Rate limit 250k TPM)
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${GEMINI_API_KEY}`, {        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             system_instruction: { parts: [{ text: systemInstruction }] },
