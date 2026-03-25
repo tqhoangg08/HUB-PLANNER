@@ -1,10 +1,8 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-// Key API từ Dify.ai
 const DIFY_API_KEY = process.env.DIFY_API_KEY;
 
-// Chống spam (Giữ nguyên của bạn)
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 const redis = (UPSTASH_URL && UPSTASH_TOKEN) ? new Redis({ url: UPSTASH_URL, token: UPSTASH_TOKEN }) : null;
@@ -29,16 +27,7 @@ export default async function handler(req, res) {
 
     const { question, context, userId } = req.body;
 
-    // Trộn thông tin sinh viên vào câu hỏi để Dify hiểu
-    const finalQuery = `
-[THÔNG TIN BẢNG ĐIỂM/CÁ NHÂN CỦA TÔI]:
-${context || "Chưa có thông tin"}
-
-[CÂU HỎI]: 
-${question}
-`;
-
-    // GỌI DIFY API
+    // GỌI DIFY API CHUẨN XÁC
     const response = await fetch('https://api.dify.ai/v1/chat-messages', {
         method: 'POST',
         headers: {
@@ -46,10 +35,14 @@ ${question}
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            inputs: {}, // Có thể truyền biến phụ vào đây nếu set trên Dify
-            query: finalQuery,
-            response_mode: "blocking", // Nhận kết quả một lần (giống cách code React của bạn đang xử lý)
-            user: userId || "hub_student_default" // Bắt buộc phải có user ID cho Dify
+            // 1. Nhét thông tin sinh viên vào biến độc lập
+            inputs: {
+                student_info: context || "Chưa có thông tin"
+            },
+            // 2. Trả lại câu hỏi TINH GỌN để Dify quét PDF chính xác 100%
+            query: question, 
+            response_mode: "blocking", 
+            user: userId || "hub_student_default"
         }),
     });
 
@@ -60,7 +53,6 @@ ${question}
         throw new Error(data.message || 'Lỗi khi gọi AI');
     }
 
-    // Trả kết quả về cho web của bạn
     return res.status(200).json({ reply: data.answer });
 
   } catch (error) {
