@@ -25,7 +25,6 @@ import Particles from "react-particles";
 import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
 import { AdminReports } from './components/AdminReports';
-import { AIAdvisor } from './components/AIAdvisor';
 
 // Import dữ liệu Ngành/Khóa học
 import { ACADEMIC_PROGRAMS, Program, Major, Specialization, getMajors } from './utils/programs';
@@ -1206,16 +1205,7 @@ const App: React.FC = () => {
                         Zalo
                     </a>
                 </div>
-                <AIAdvisor data={data} />
-
-                {showImportLoadingToast && (
-                    <div className="fixed bottom-6 right-6 bg-white shadow-xl p-4 rounded-xl border border-gray-200 flex items-start gap-3 z-[100] animate-slideInRight max-w-xs">
-                        <Loader2 className="animate-spin text-[#003375] shrink-0 mt-0.5" />
-                        <p className="text-sm font-medium text-gray-700 leading-snug">
-                            Đang xử lý PDF của bạn, vui lòng đợi giây lát...
-                        </p>
-                    </div>
-                )}
+              
 
                 {showImportLoadingToast && (
                     <div className="fixed bottom-6 right-6 bg-white shadow-xl p-4 rounded-xl border border-gray-200 flex items-start gap-3 z-[100] animate-slideInRight max-w-xs">
