@@ -34,7 +34,8 @@ export default async function handler(req, res) {
       if (!success) return res.status(429).json({ reply: "Chat chậm lại xíu bạn ơi! ⏳" });
     }
 
-    const { question, context, history } = req.body;
+    // NHẬN THÊM BIẾN userId ĐỂ GHI LOG
+    const { question, context, history, userId } = req.body;
 
     // 1. KÉO NGUYÊN CUỐN CẨM NANG TỪ SUPABASE
     const { data: kbData } = await supabase.from('system_knowledge').select('content').eq('id', 1).single();
@@ -62,8 +63,9 @@ NGUYÊN TẮC:
     }));
     formattedHistory.push({ role: 'user', parts: [{ text: question }] });
 
-    // 4. GỌI GEMINI 3.1 FLASH LITE (Tối ưu tốc độ & Rate limit 250k TPM)
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${GEMINI_API_KEY}`, {        method: 'POST',
+    // 4. GỌI GEMINI 3.1 FLASH LITE PREVIEW
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             system_instruction: { parts: [{ text: systemInstruction }] },
@@ -81,7 +83,27 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
 
     const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Mình đang xử lý hơi lâu, bạn hỏi lại nha!";
 
-    return res.status(200).json({ reply: replyText });
+    // ==========================================
+    // ✨ ĐOẠN CODE GHI LOG VÀO BẢNG AI_CHAT_LOGS ✨
+    // ==========================================
+    let logId = null;
+    if (supabase && userId) {
+        const { data: logData, error: logError } = await supabase.from('ai_chat_logs').insert([{
+            user_id: userId,
+            user_message: question,
+            bot_reply: replyText
+        }]).select('id').single();
+        
+        if (logData) {
+            logId = logData.id;
+        }
+        if (logError) {
+            console.error("Lỗi ghi log lên Supabase:", logError);
+        }
+    }
+
+    // TRẢ VỀ CẢ LỜI ĐÁP VÀ LOG ID
+    return res.status(200).json({ reply: replyText, logId: logId });
 
   } catch (error) {
     console.error("❌ SERVER ERROR:", error);
