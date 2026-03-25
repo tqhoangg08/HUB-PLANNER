@@ -11,7 +11,7 @@ interface AIAdvisorProps {
 }
 
 interface ChatMessage {
-    role: string;
+    role: 'user' | 'assistant' | 'system';
     content: string;
     logId?: number; 
     rating?: 'up' | 'down' | null; 
@@ -33,75 +33,59 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
     }
   }, [chatHistory, loading]);
 
-  const handleAdvice = async (isFirstTime = false) => {
-    if (!customPrompt.trim() && !isFirstTime) return;
+  // Đóng gói dữ liệu sinh viên để gửi lên cho AI hiểu ngữ cảnh
+  const getStudentContext = () => {
+      const stats = calculateCumulativeStats(data.semesters);
+      const degree = getDegreeClassification(stats.gpa4);
+      const failedSubjects = data.semesters.flatMap(sem => sem.subjects)
+        .filter(s => {
+            const avg = calculateSubjectAverage(s);
+            return avg !== null && avg < 4.0 && !s.isNonGPA;
+        }).map(s => s.name);
+
+      return `
+[NGỮ CẢNH SINH VIÊN ĐANG CHAT]
+- Tên: ${data.studentName || "Sinh viên"} | Khóa: ${data.cohort || "Chưa rõ"}
+- Ngành: ${data.majorName || "Chưa cập nhật"}
+- GPA: ${stats.gpa4.toFixed(2)} (${degree})
+- Môn nợ: ${failedSubjects.length > 0 ? failedSubjects.join(', ') : 'Không có'}
+- Mục tiêu GPA: ${data.targetGPA || 3.2}`;
+  };
+
+  const handleAdvice = async (isFirstTime = false, presetQuestion = "") => {
+    const questionToAsk = presetQuestion || customPrompt;
+    if (!questionToAsk.trim() && !isFirstTime) return;
 
     playClick();
     
-    const userQuestion = customPrompt || "Hãy phân tích bảng điểm của tôi và đưa ra lời khuyên.";
-    
     if (!isFirstTime) {
-        setChatHistory(prev => [...prev, { role: "user", content: userQuestion }]);
+        setChatHistory(prev => [...prev, { role: "user", content: questionToAsk }]);
         setCustomPrompt(""); 
     }
 
     setLoading(true);
 
     try {
-      let contextPrefix = "";
+      const studentContext = getStudentContext();
       
-      if (chatHistory.length === 0) {
-          const stats = calculateCumulativeStats(data.semesters);
-          const degree = getDegreeClassification(stats.gpa4);
-          
-          const failedSubjects = data.semesters.flatMap(sem => sem.subjects)
-            .filter(s => {
-                const avg = calculateSubjectAverage(s);
-                return avg !== null && avg < 4.0 && !s.isNonGPA;
-            })
-            .map(s => s.name);
-
-          const filledTrainingScores = data.semesters
-            .map(s => s.trainingScore)
-            .filter((s): s is number => s !== null && s !== undefined);
-          
-          const avgTrainingScore = filledTrainingScores.length > 0
-            ? Math.round(filledTrainingScores.reduce((a, b) => a + b, 0) / filledTrainingScores.length)
-            : 0;
-
-          contextPrefix = `
-          DƯỚI ĐÂY LÀ DỮ LIỆU HỌC TẬP CỦA TÔI (Hãy đọc để tư vấn, không cần tóm tắt lại nếu không được hỏi):
-          - Sinh viên: ${data.studentName || "Bạn"} | Khóa: ${data.cohort || "?"}
-          - Ngành: ${data.majorName || "N/A"}
-          - GPA hệ 4: ${stats.gpa4.toFixed(2)} (${degree})
-          - GPA hệ 10: ${stats.gpa10.toFixed(2)}
-          - Tín chỉ đã đạt: ${stats.passedCredits}/${data.totalCreditsRequired || 125}
-          - Môn nợ (Rớt): ${failedSubjects.length > 0 ? failedSubjects.join(', ') : 'Không có'}
-          - ĐRL trung bình: ${avgTrainingScore}
-          - Mục tiêu GPA: ${data.targetGPA || 3.2}
-          
-          CÂU HỎI CỦA TÔI: `;
-      }
-
+      // Gửi lịch sử chat, câu hỏi và thông tin sinh viên lên Backend
       const res = await fetch('/api/bot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-            message: contextPrefix + userQuestion,
-            history: chatHistory 
+            question: questionToAsk,
+            history: chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
+            context: studentContext
         })
       });
 
-      if (!res.ok) {
-          if (res.status === 429) throw new Error("Bot đang quá tải, đợi xíu nhé!");
-          throw new Error(`Lỗi Server: ${res.status}`);
-      }
+      if (!res.ok) throw new Error("Máy chủ AI đang bận hoặc mất kết nối.");
 
       const resData = await res.json();
-      const botReply = resData.reply || "Xin lỗi, mình đang mất kết nối.";
-      const logId = resData.logId; 
+      const botReply = resData.reply || "Xin lỗi, mình không có câu trả lời.";
+      const mockLogId = Date.now(); 
 
-      setChatHistory(prev => [...prev, { role: "assistant", content: botReply, logId: logId }]);
+      setChatHistory(prev => [...prev, { role: "assistant", content: botReply, logId: mockLogId }]);
 
     } catch (error: any) {
       console.error(error);
@@ -115,41 +99,24 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
       const msg = chatHistory[index];
       playClick();
 
-      // Cập nhật giao diện ngay lập tức
       const newHistory = [...chatHistory];
       newHistory[index].rating = isHelpful ? 'up' : 'down';
       setChatHistory(newHistory);
 
-      // Chỉ gửi lên server nếu tin nhắn có logId
       if (msg.logId && supabase) {
         try {
-            await supabase
-                .from('ai_chat_logs')
-                .update({ is_helpful: isHelpful })
-                .eq('id', msg.logId);
-        } catch (err) {
-            console.error("Lỗi đánh giá:", err);
-        }
+            await supabase.from('ai_chat_logs').update({ is_helpful: isHelpful }).eq('id', msg.logId);
+        } catch (err) {}
       }
   };
 
   return (
     <>
       <style>{`
-        @keyframes messageIn {
-          from { opacity: 0; transform: translateY(10px) scale(0.98); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .animate-message {
-          animation: messageIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-5px); }
-        }
-        .typing-dot {
-          animation: bounce 1.4s infinite ease-in-out both;
-        }
+        @keyframes messageIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .animate-message { animation: messageIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .typing-dot { animation: bounce 1.4s infinite ease-in-out both; }
         .typing-dot:nth-child(1) { animation-delay: -0.32s; }
         .typing-dot:nth-child(2) { animation-delay: -0.16s; }
       `}</style>
@@ -170,10 +137,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
                 <Sparkles size={20} className="text-yellow-300" />
                 Trợ lý Học tập HUB
               </h3>
-              <button 
-                onClick={() => { playClick(); setIsOpen(false); }} 
-                className="hover:bg-white/20 p-2 rounded-full transition-colors active:scale-90"
-              >
+              <button onClick={() => { playClick(); setIsOpen(false); }} className="hover:bg-white/20 p-2 rounded-full transition-colors active:scale-90">
                 <X size={20} />
               </button>
             </div>
@@ -185,14 +149,14 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
                       <MessageSquare size={32} className="text-[#003375]" />
                   </div>
                   <p className="font-medium text-gray-700">Chào {data.studentName || 'bạn'}!</p>
-                  <p className="text-sm mt-1 max-w-xs">Mình là AI Cố vấn. Mình đã đọc bảng điểm của bạn. Bạn muốn mình tư vấn gì nào?</p>
+                  <p className="text-sm mt-1 max-w-xs">Mình là AI Cố vấn. Mình đã đọc tài liệu trường và hồ sơ của bạn. Cần hỏi gì cứ nhắn mình nhé!</p>
                   
                   <div className="mt-6 flex flex-wrap justify-center gap-2">
-                      <button onClick={() => { setCustomPrompt("Đánh giá tổng quan kết quả học tập của mình"); handleAdvice(true); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition hover:shadow-sm hover:-translate-y-0.5 active:scale-95">
+                      <button onClick={() => { handleAdvice(false, "Đánh giá tổng quan kết quả học tập của mình"); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition hover:shadow-sm hover:-translate-y-0.5 active:scale-95">
                           📊 Đánh giá bảng điểm
                       </button>
-                      <button onClick={() => { setCustomPrompt("Mình cần cải thiện những môn nào?"); handleAdvice(true); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition hover:shadow-sm hover:-translate-y-0.5 active:scale-95">
-                          ⚠️ Môn cần cải thiện
+                      <button onClick={() => { handleAdvice(false, "Điều kiện để đạt học bổng xuất sắc là gì?"); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition hover:shadow-sm hover:-translate-y-0.5 active:scale-95">
+                          🎓 Điều kiện học bổng
                       </button>
                   </div>
                 </div>
@@ -200,37 +164,18 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
                 chatHistory.map((msg, idx) => (
                   <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-message`}>
                     <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
-                        msg.role === 'user' 
-                        ? 'bg-[#003375] text-white rounded-br-none' 
-                        : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
+                        msg.role === 'user' ? 'bg-[#003375] text-white rounded-br-none' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
                     }`}>
                       {msg.role === 'assistant' ? (
-                          <div 
-                            className="prose prose-sm max-w-none"
-                            dangerouslySetInnerHTML={{ 
-                                __html: DOMPurify.sanitize(msg.content.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')) 
-                            }} 
-                          />
-                      ) : (
-                          <p>{msg.content}</p>
-                      )}
+                          <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')) }} />
+                      ) : ( <p>{msg.content}</p> )}
                     </div>
-
-                    {/* 👇 ĐÃ SỬA: Luôn hiện nút Like/Dislike nếu là tin nhắn của Assistant */}
                     {msg.role === 'assistant' && (
                         <div className="flex gap-2 mt-1 ml-2">
-                            <button 
-                                onClick={() => handleRate(idx, true)}
-                                className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'up' ? 'text-green-600' : 'text-gray-400'}`}
-                                title="Hữu ích"
-                            >
+                            <button onClick={() => handleRate(idx, true)} className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'up' ? 'text-green-600' : 'text-gray-400'}`}>
                                 <ThumbsUp size={14} className={msg.rating === 'up' ? 'fill-current' : ''} />
                             </button>
-                            <button 
-                                onClick={() => handleRate(idx, false)}
-                                className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'down' ? 'text-red-600' : 'text-gray-400'}`}
-                                title="Không hữu ích"
-                            >
+                            <button onClick={() => handleRate(idx, false)} className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'down' ? 'text-red-600' : 'text-gray-400'}`}>
                                 <ThumbsDown size={14} className={msg.rating === 'down' ? 'fill-current' : ''} />
                             </button>
                         </div>
@@ -251,29 +196,18 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
             </div>
 
             <div className="p-4 border-t bg-white rounded-b-xl">
-              <form
-                onSubmit={(e) => { e.preventDefault(); handleAdvice(); }}
-                className="flex gap-2 relative"
-              >
+              <form onSubmit={(e) => { e.preventDefault(); handleAdvice(); }} className="flex gap-2 relative">
                 <input
-                  type="text"
-                  placeholder="Nhập câu hỏi..."
+                  type="text" placeholder="Nhập câu hỏi..."
                   className="flex-1 border border-gray-300 rounded-full px-5 py-3 focus:ring-2 focus:ring-[#003375] focus:outline-none bg-gray-50 pr-12 transition-all"
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  disabled={loading}
+                  value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} disabled={loading}
                 />
-                <button
-                  type="submit"
-                  disabled={loading || !customPrompt.trim()}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#003375] text-white p-2 rounded-full hover:bg-[#002855] disabled:opacity-50 transition-all active:scale-95"
-                >
+                <button type="submit" disabled={loading || !customPrompt.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#003375] text-white p-2 rounded-full hover:bg-[#002855] disabled:opacity-50 transition-all active:scale-95">
                   {loading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} className={loading ? 'opacity-0' : 'opacity-100'} />}
                 </button>
               </form>
-              
               <p className="text-[10px] text-center text-gray-400 mt-2 italic">
-                HUB Planner AI có thể mắc sai sót, vì vậy, nhớ xác minh câu trả lời của HUB Planner AI.
+                HUB Planner AI lấy dữ liệu từ Sổ tay Sinh viên. Hãy xác minh lại thông tin quan trọng.
               </p>
             </div>
           </div>
