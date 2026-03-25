@@ -106,7 +106,7 @@ if (supabase && logId) {
             .update({ bot_reply: replyText })
             .eq('id', logId);
     }
-    // TRẢ VỀ LỜI ĐÁP VÀ LOG ID. Frontend vẫn nhận được logId để like/dislike.
+    // TRẢ VỀ LỜI ĐÁP VÀ LOG ID. ontend vẫn nhận được logId để like/dislike.
     return res.status(200).json({ reply: replyText, logId: logId });
 
   } catch (error) {
