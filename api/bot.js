@@ -40,11 +40,9 @@ export default async function handler(req, res) {
     // ✨ GHI LOG PARTIAL LÊN SUPABASE NGAY LẬP TỨC ✨
     // ===========================================
     let logId = null;
-    if (supabase && userId) {
-        // Chúng ta lưu log CHỈ VỚI CÂU HỎI của user
-        // Đặt bot_reply là placeholder. Cái này mất ~100ms. Rất an toàn, không sợ timeout.
+    if (supabase) {
         const { data: logData, error: logError } = await supabase.from('ai_chat_logs').insert([{
-            user_id: userId,
+            user_id: userId || null, // ✨ NẾU CÓ USER ID THÌ LƯU, GUEST THÌ ĐỂ NULL
             user_message: question,
             bot_reply: '⏳ Đang xử lý (Chờ cập nhật trên web)'
         }]).select('id').single();

@@ -1206,7 +1206,7 @@ const App: React.FC = () => {
                         Zalo
                     </a>
                 </div>
-                <AIAdvisor data={data} />
+                <AIAdvisor data={data} userId={session?.user?.id} />
 
                 {showImportLoadingToast && (
                     <div className="fixed bottom-6 right-6 bg-white shadow-xl p-4 rounded-xl border border-gray-200 flex items-start gap-3 z-[100] animate-slideInRight max-w-xs">

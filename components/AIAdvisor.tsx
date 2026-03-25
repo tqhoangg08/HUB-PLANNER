@@ -8,6 +8,7 @@ import DOMPurify from 'dompurify';
 
 interface AIAdvisorProps {
   data: UserData;
+  userId?: string;
 }
 
 interface ChatMessage {
@@ -17,7 +18,7 @@ interface ChatMessage {
     rating?: 'up' | 'down' | null; 
 }
 
-export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
+export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -75,7 +76,8 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data }) => {
         body: JSON.stringify({ 
             question: questionToAsk,
             history: chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
-            context: studentContext
+            context: studentContext,
+            userId: userId
         })
       });
 
