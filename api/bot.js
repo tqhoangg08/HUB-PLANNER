@@ -101,7 +101,11 @@ NGUYÊN TẮC BẮT BUỘC:
     }
 
     const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Mình đang xử lý hơi lâu, bạn hỏi lại nha!";
-
+if (supabase && logId) {
+        await supabase.from('ai_chat_logs')
+            .update({ bot_reply: replyText })
+            .eq('id', logId);
+    }
     // TRẢ VỀ LỜI ĐÁP VÀ LOG ID. Frontend vẫn nhận được logId để like/dislike.
     return res.status(200).json({ reply: replyText, logId: logId });
 
