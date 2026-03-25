@@ -34,7 +34,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
     }
   }, [chatHistory, loading]);
 
-  // Đóng gói dữ liệu sinh viên để gửi lên cho AI hiểu ngữ cảnh
+  // Đóng gói dữ liệu sinh viên đ AI hiểu ngữ cảnh
   const getStudentContext = () => {
       const stats = calculateCumulativeStats(data.semesters);
       const degree = getDegreeClassification(stats.gpa4);
