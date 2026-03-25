@@ -11,7 +11,7 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_S
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Chống spam 
+// Chống spam bằng Upstash Redis (Giữ nguyên của bạn)
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 const redis = (UPSTASH_URL && UPSTASH_TOKEN) ? new Redis({ url: UPSTASH_URL, token: UPSTASH_TOKEN }) : null;
@@ -34,36 +34,57 @@ export default async function handler(req, res) {
       if (!success) return res.status(429).json({ reply: "Chat chậm lại xíu bạn ơi! ⏳" });
     }
 
-    // NHẬN THÊM BIẾN userId ĐỂ GHI LOG
     const { question, context, history, userId } = req.body;
 
-    // 1. KÉO NGUYÊN CUỐN CẨM NANG TỪ SUPABASE
+    // ===========================================
+    // ✨ GHI LOG PARTIAL LÊN SUPABASE NGAY LẬP TỨC ✨
+    // ===========================================
+    let logId = null;
+    if (supabase && userId) {
+        // Chúng ta lưu log CHỈ VỚI CÂU HỎI của user
+        // Đặt bot_reply là placeholder. Cái này mất ~100ms. Rất an toàn, không sợ timeout.
+        const { data: logData, error: logError } = await supabase.from('ai_chat_logs').insert([{
+            user_id: userId,
+            user_message: question,
+            bot_reply: '⏳ Đang xử lý (Chờ cập nhật trên web)'
+        }]).select('id').single();
+        
+        if (logData) {
+            logId = logData.id;
+        }
+        if (logError) {
+            console.error("Lỗi ghi log partial lên Supabase:", logError);
+        }
+    }
+
+    // 1. KÉO NGUYÊN CUỐN CẨM NANG TỪ SUPABASE TRONG 1 GIÂY
     const { data: kbData } = await supabase.from('system_knowledge').select('content').eq('id', 1).single();
     const handbookText = kbData?.content || "Không tìm thấy dữ liệu cẩm nang.";
 
-    // 2. GOM VÀO SYSTEM PROMPT 
-    const systemInstruction = `Bạn là AI Cố vấn học tập của Đại học Ngân hàng TP.HCM (HUB).
-Nhiệm vụ: Tư vấn cho sinh viên DỰA TRÊN "CẨM NANG TRƯỜNG". 
+    // 2. GOM TẤT CẢ VÀO MỘT SYSTEM PROMPT "THÉP"
+    const systemInstruction = `Bạn là AI Cố vấn học tập của website HUB Planner.
+Nhiệm vụ: Tư vấn cho sinh viên DỰA TRÊN "CẨM NANG SINH VIÊN" dưới đây. 
 
 [THÔNG TIN SINH VIÊN HIỆN TẠI]:
 ${context || "Chưa có thông tin."}
 
-[CẨM NANG TRƯỜNG]:
+[CẨM NANG TRƯỜNG (TOÀN BỘ)]:
 ${handbookText}
 
-NGUYÊN TẮC:
-1. Trả lời chuẩn xác 100% dựa vào CẨM NANG TRƯỜNG. Không tự ý bịa điểm, bịa quy chế.
-2. Nếu câu hỏi không có trong Cẩm nang, nói: "Thông tin này mình chưa rõ, bạn liên hệ Phòng Đào tạo nhé!".
+NGUYÊN TẮC BẮT BUỘC:
+1. Trả lời chuẩn xác 100% dựa vào CẨM NANG SINH VIÊN. Không tự ý bịa điểm, bịa quy chế.
+2. Nếu câu hỏi không có trong Cẩm nang, bắt buộc nói: "Dạ thông tin này mình chưa rõ, bạn liên hệ Phòng Đào tạo nhé!".
 3. Trả lời bằng Markdown rõ ràng, dễ đọc, xưng "mình" gọi "bạn".`;
 
-    // 3. Format lịch sử chat cho Gemini
+    // 3. Chuẩn bị lịch sử chat cho Gemini
     const formattedHistory = (history || []).slice(-4).map(msg => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: msg.content.substring(0, 500) }]
     }));
     formattedHistory.push({ role: 'user', parts: [{ text: question }] });
 
-    // 4. GỌI GEMINI 3.1 FLASH LITE PREVIEW
+    // 4. GỌI GEMINI 3.1 FLASH LITE PREVIEW (Model không băm tài liệu)
+    // Code sẽ bị nghẽn ở dòng này >10 giây, Vercel sẽ kill function.
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,26 +104,7 @@ NGUYÊN TẮC:
 
     const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Mình đang xử lý hơi lâu, bạn hỏi lại nha!";
 
-    // ==========================================
-    // ✨ ĐOẠN CODE GHI LOG VÀO BẢNG AI_CHAT_LOGS ✨
-    // ==========================================
-    let logId = null;
-    if (supabase && userId) {
-        const { data: logData, error: logError } = await supabase.from('ai_chat_logs').insert([{
-            user_id: userId,
-            user_message: question,
-            bot_reply: replyText
-        }]).select('id').single();
-        
-        if (logData) {
-            logId = logData.id;
-        }
-        if (logError) {
-            console.error("Lỗi ghi log lên Supabase:", logError);
-        }
-    }
-
-    // TRẢ VỀ CẢ LỜI ĐÁP VÀ LOG ID
+    // TRẢ VỀ LỜI ĐÁP VÀ LOG ID. Frontend vẫn nhận được logId để like/dislike.
     return res.status(200).json({ reply: replyText, logId: logId });
 
   } catch (error) {
