@@ -6,8 +6,7 @@ import { Redis } from "@upstash/redis";
 // Key của Groq và Supabase lấy từ Vercel
 const GROQ_API_KEY = process.env.GROQ_CHAT_KEY || process.env.GROQ_API_KEY;
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.VITE_SUPABASE_KEY || process.env.SUPABASE_ANON_KEY;
-
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Chống spam bằng Upstash Redis (Giữ nguyên của bạn)
