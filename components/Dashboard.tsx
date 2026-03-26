@@ -709,7 +709,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [selectedUserOverview, setSelectedUserOverview] = useState<UserData | null>(null);
 const [selectedAdminUserId, setSelectedAdminUserId] = useState<string | null>(null); // ✨ Lưu ID sinh viên đang soi
 
-// ✨ Hàm lưu thẳng xuống Supabase dành riêng cho Admin
+// ✨ Hàm lưu thẳng xuống Supabase dành riêng cho Admin + Cập nhật Local
 const saveAdminUserUpdate = async (newData: UserData) => {
     if (!selectedAdminUserId) return;
     try {
@@ -717,6 +717,12 @@ const saveAdminUserUpdate = async (newData: UserData) => {
             data: newData,
             updated_at: new Date().toISOString()
         }).eq('id', selectedAdminUserId);
+
+        // ✨ CẬP NHẬT NGAY LẬP TỨC RA BẢNG DANH SÁCH (Không cần tải lại)
+        setAdminUsers(prevUsers => prevUsers.map(u => 
+            u.id === selectedAdminUserId ? { ...u, data: newData, updated_at: new Date().toISOString() } : u
+        ));
+        
     } catch (error) {
         console.error("Lỗi cập nhật user:", error);
     }
@@ -796,10 +802,11 @@ const saveAdminUserUpdate = async (newData: UserData) => {
     };
 
     useEffect(() => {
-        if (showAdminPanel) {
+        // ✨ CHỈ TẢI DATA 1 LẦN NẾU DANH SÁCH TRỐNG
+        if (showAdminPanel && adminUsers.length === 0) {
             fetchAdminData();
         }
-    }, [showAdminPanel]);
+    }, [showAdminPanel]); // (Xóa dòng này nếu bạn muốn copy đè)
 
     // Tạo danh sách Khóa, Ngành, và Học kỳ động từ dữ liệu thực tế
     const { adminCohorts, adminMajors, adminSemesters } = useMemo(() => {
@@ -1377,7 +1384,7 @@ const saveAdminUserUpdate = async (newData: UserData) => {
                 <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
                     {isAdmin && (
                         <button 
-    onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('list'); fetchAdminData(); }}
+    onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('list'); }}
     className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
 >
     <ChevronLeft size={16} /> Quay lại danh sách quản lý
