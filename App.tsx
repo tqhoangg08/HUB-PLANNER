@@ -80,6 +80,30 @@ const App: React.FC = () => {
     const isGuest = !session;
     const [forceGuestOnboarding, setForceGuestOnboarding] = useState(false);
 
+    // ==========================================
+    // ✨ THÊM LOGIC BONG BÓNG CHAT Ở ĐÂY ✨
+    // ==========================================
+    const [showBubble, setShowBubble] = useState(false);
+
+    useEffect(() => {
+        // Vừa vào trang 2s thì hiện bong bóng chào
+        const initialTimeout = setTimeout(() => setShowBubble(true), 2000);
+
+        // Sau đó cứ lặp lại chu kỳ 10s: Hiện 5s rồi tắt 5s
+        const interval = setInterval(() => {
+            setShowBubble(true);
+            setTimeout(() => {
+                setShowBubble(false);
+            }, 5000);
+        }, 10000);
+
+        return () => {
+            clearTimeout(initialTimeout);
+            clearInterval(interval);
+        };
+    }, []);
+    // ==========================================
+
     const [isHandbookMenuOpen, setIsHandbookMenuOpen] = useState(false);
     const handbookMenuRef = useRef<HTMLDivElement>(null);
     const navRefs = useRef<(HTMLAnchorElement | HTMLDivElement | null)[]>([]);
@@ -1206,7 +1230,23 @@ const App: React.FC = () => {
                         Zalo
                     </a>
                 </div>
+
+                {/* ========================================== */}
+                {/* ✨ GIAO DIỆN BONG BÓNG CHAT VÀ COMPONENT ✨ */}
+                {/* ========================================== */}
+                <div className="fixed bottom-[85px] right-6 z-50 flex flex-col items-end pointer-events-none">
+                    <div
+                        className={`relative w-60 bg-white text-gray-800 text-sm font-medium p-3 rounded-2xl shadow-xl border border-blue-100 transition-all duration-500 ease-in-out transform origin-bottom-right ${
+                            showBubble ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-50 translate-y-4'
+                        }`}
+                    >
+                        <p>✨ Tèn ten! Trợ lý AI HUB Planner đã sẵn sàng hỗ trợ bạn học tập rồi nè! Thử ngay nha 💖</p>
+                        <div className="absolute -bottom-2 right-4 w-4 h-4 bg-white transform rotate-45 border-b border-r border-blue-100"></div>
+                    </div>
+                </div>
+
                 <AIAdvisor data={data} userId={session?.user?.id} />
+                {/* ========================================== */}
 
                 {showImportLoadingToast && (
                     <div className="fixed bottom-6 right-6 bg-white shadow-xl p-4 rounded-xl border border-gray-200 flex items-start gap-3 z-[100] animate-slideInRight max-w-xs">
