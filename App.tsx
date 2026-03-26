@@ -357,34 +357,51 @@ const App: React.FC = () => {
         }
 
         saveTimeoutRef.current = window.setTimeout(async () => {
-            if (isAdmin && viewingUser) return; 
-
-            const targetUserId = session.user.id;
+            // Xác định ID của người đang được thao tác dữ liệu (Là Admin đang soi, hay là User tự sửa)
+            const targetUserId = (isAdmin && viewingUser) ? viewingUser.id : session.user.id;
+            
+            // Đảm bảo data đang giữ đúng là của người đó (chống cross-save)
             if (dataOwnerIdRef.current !== targetUserId) return;
 
-            const userEmail = session.user.email || '';
-            const studentCode = userEmail.split('@')[0];
-            const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
-            const nameToSave = profileFullName || metaName;
+            // NẾU LÀ ADMIN ĐANG SỬA GIÙM SINH VIÊN
+            if (isAdmin && viewingUser) {
+                // CHỈ CẬP NHẬT CỘT 'data' (tránh lưu đè tên/avatar của Admin vào nick sinh viên)
+                const { error } = await supabase
+                    .from(STUDENT_PROFILE_TABLE)
+                    .update({ 
+                        data: data,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', targetUserId);
+                
+                if (error) console.error("Lỗi Admin update data user:", error);
+            } 
+            // NẾU LÀ TỰ SỬA CHO CHÍNH MÌNH (User bình thường)
+            else {
+                const userEmail = session.user.email || '';
+                const studentCode = userEmail.split('@')[0];
+                const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
+                const nameToSave = profileFullName || metaName;
 
-            const payload = {
-                id: session.user.id,
-                email: userEmail,
-                student_code: studentCode,
-                full_name: nameToSave,
-                avatar_url: profileAvatarUrl,
-                data,
-                updated_at: new Date().toISOString(),
-            };
+                const payload = {
+                    id: session.user.id,
+                    email: userEmail,
+                    student_code: studentCode,
+                    full_name: nameToSave,
+                    avatar_url: profileAvatarUrl,
+                    data,
+                    updated_at: new Date().toISOString(),
+                };
 
-            const { error } = await supabase
-                .from(STUDENT_PROFILE_TABLE)
-                .upsert(payload, { onConflict: 'id' });
+                const { error } = await supabase
+                    .from(STUDENT_PROFILE_TABLE)
+                    .upsert(payload, { onConflict: 'id' });
 
-            if (!error && !profileFullName && nameToSave) {
-                setProfileFullName(nameToSave);
+                if (!error && !profileFullName && nameToSave) {
+                    setProfileFullName(nameToSave);
+                }
             }
-        }, 600);
+        }, 600); 
 
         return () => {
             if (saveTimeoutRef.current) {
