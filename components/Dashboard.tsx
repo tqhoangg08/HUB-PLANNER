@@ -729,7 +729,12 @@ const saveAdminUserUpdate = async (newData: UserData) => {
 };
     const [adminSearch, setAdminSearch] = useState('');
     const [adminMode, setAdminMode] = useState<'list' | 'detail'>('list');
-    
+    // ✨ Tự động đổi URL khi bật tắt chế độ Admin
+    useEffect(() => {
+        if (isAdmin && adminMode === 'list') {
+            window.history.replaceState(null, '', '/dashboard/admin');
+        }
+    }, [isAdmin, adminMode]);
     // State phân trang và sắp xếp cho Admin
     const [currentPage, setCurrentPage] = useState(1);
     const [pageInput, setPageInput] = useState('1');
@@ -1175,7 +1180,7 @@ const saveAdminUserUpdate = async (newData: UserData) => {
                                     <RefreshCw size={18} className={loadingAdmin ? "animate-spin" : ""} />
                                 </button>
 
-                                <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); }} className="px-3 py-1.5 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] hover:bg-blue-50 rounded-lg shadow-sm whitespace-nowrap transition-colors shrink-0">
+                                <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="px-3 py-1.5 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] hover:bg-blue-50 rounded-lg shadow-sm whitespace-nowrap transition-colors shrink-0">
     Hồ sơ của tôi
 </button>
                             </div>
@@ -1306,7 +1311,7 @@ const saveAdminUserUpdate = async (newData: UserData) => {
                                             const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
                                             
                                             return (
-                                                <tr key={user.id} onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
+                                                <tr key={user.id} onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
                                                     <td className="px-4 py-3 font-bold text-[#003375]">{user.student_code || '-'}</td>
                                                     <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#003375] transition-colors">{user.full_name || user.data?.studentName || 'Chưa cập nhật'}</td>
                                                     <td className="px-4 py-3 text-gray-600">{user.data?.programName || '-'} / {user.data?.cohort || '-'}</td>
@@ -1384,7 +1389,7 @@ const saveAdminUserUpdate = async (newData: UserData) => {
                 <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
                     {isAdmin && (
                         <button 
-    onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('list'); }}
+    onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('list'); window.history.pushState(null, '', '/dashboard/admin'); }}
     className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
 >
     <ChevronLeft size={16} /> Quay lại danh sách quản lý
