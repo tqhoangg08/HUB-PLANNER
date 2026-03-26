@@ -688,8 +688,6 @@ const renderContent = () => {
 
                 const collaborators = [
                     { name: 'Nguyễn Hoàng Khiêm', role: 'Cộng tác viên', phone: '0932142577', email: 'khiempisces2@gmail.com', fb: 'https://www.facebook.com/nguyen.hoang.khiem.975396' },
-                    { name: 'Nguyễn Thị Kiều My', role: 'Cộng tác viên', phone: '0376744258', email: 'nmy56358@gmail.com', fb: 'https://www.facebook.com/n.t.kieu.my.573292' },
-                    { name: 'Đoàn Trâm', role: 'Cộng tác viên', phone: '0968719370', email: 'doantram0728@gmail.com', fb: 'https://www.facebook.com/oantram.668591' },
                     { name: 'Nguyễn Thùy Thương', role: 'Cộng tác viên', phone: '0385234814', email: 'nguyenthuythuong12032006@gmail.com', fb: 'https://www.facebook.com/thuong.nguyen.197154' },
                     { name: 'Đang cập nhật...', role: 'Đang cập nhật', isPlaceholder: true },
                 ];
