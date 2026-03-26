@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Sparkles, X, Send, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react'; 
+import { MessageSquare, Sparkles, X, Send, Loader2, ThumbsUp, ThumbsDown, Lock } from 'lucide-react'; 
+import { Link } from 'react-router-dom';
 import { UserData } from '../types';
 import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
 import { playClick } from '../utils/audio';
@@ -34,7 +35,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
     }
   }, [chatHistory, loading]);
 
-  // Đóng gói dữ liệu sinh viên đ AI hiểu ngữ cảnh
+  // Đóng gói dữ liệu sinh viên để AI hiểu ngữ cảnh
   const getStudentContext = () => {
       const stats = calculateCumulativeStats(data.semesters);
       const degree = getDegreeClassification(stats.gpa4);
@@ -144,74 +145,99 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-gray-50" ref={scrollRef}>
-              {chatHistory.length === 0 ? (
-                <div className="text-center text-gray-500 py-10 flex flex-col items-center animate-message">
-                  <div className="bg-blue-100 p-4 rounded-full mb-4">
-                      <MessageSquare size={32} className="text-[#003375]" />
-                  </div>
-                  <p className="font-medium text-gray-700">Chào {data.studentName || 'bạn'}!</p>
-                  <p className="text-sm mt-1 max-w-xs">Mình là AI Cố vấn. Mình đã đọc tài liệu trường và hồ sơ của bạn. Cần hỏi gì cứ nhắn mình nhé!</p>
-                  
-                  <div className="mt-6 flex flex-wrap justify-center gap-2">
-                      <button onClick={() => { handleAdvice(false, "Đánh giá tổng quan kết quả học tập của mình"); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition hover:shadow-sm hover:-translate-y-0.5 active:scale-95">
-                          📊 Đánh giá bảng điểm
-                      </button>
-                      <button onClick={() => { handleAdvice(false, "Điều kiện để đạt học bổng xuất sắc là gì?"); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition hover:shadow-sm hover:-translate-y-0.5 active:scale-95">
-                          🎓 Điều kiện học bổng
-                      </button>
-                  </div>
+            {/* KIỂM TRA ĐĂNG NHẬP Ở ĐÂY */}
+            {!userId ? (
+                // 1. MÀN HÌNH KHÓA KHI CHƯA ĐĂNG NHẬP
+                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-gray-50 rounded-b-xl">
+                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4 border border-gray-200">
+                        <Lock size={28} className="text-[#003375]" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Yêu cầu đăng nhập</h3>
+                    <p className="text-sm text-gray-500 mb-6 leading-relaxed px-4 max-w-md">
+                        Trợ lý AI cần biết bạn là ai để có thể đọc bảng điểm và tư vấn chính xác lộ trình cá nhân của bạn.
+                    </p>
+                    <Link 
+                        to="/login" 
+                        onClick={() => { playClick(); setIsOpen(false); }} 
+                        className="bg-[#003375] text-white px-6 py-2.5 rounded-xl font-bold shadow-md hover:bg-[#002855] transition-colors flex items-center gap-2 active:scale-95"
+                    >
+                        Đăng nhập ngay
+                    </Link>
                 </div>
-              ) : (
-                chatHistory.map((msg, idx) => (
-                  <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-message`}>
-                    <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
-                        msg.role === 'user' ? 'bg-[#003375] text-white rounded-br-none' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
-                    }`}>
-                      {msg.role === 'assistant' ? (
-                          <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')) }} />
-                      ) : ( <p>{msg.content}</p> )}
-                    </div>
-                    {msg.role === 'assistant' && (
-                        <div className="flex gap-2 mt-1 ml-2">
-                            <button onClick={() => handleRate(idx, true)} className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'up' ? 'text-green-600' : 'text-gray-400'}`}>
-                                <ThumbsUp size={14} className={msg.rating === 'up' ? 'fill-current' : ''} />
-                            </button>
-                            <button onClick={() => handleRate(idx, false)} className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'down' ? 'text-red-600' : 'text-gray-400'}`}>
-                                <ThumbsDown size={14} className={msg.rating === 'down' ? 'fill-current' : ''} />
-                            </button>
+            ) : (
+                // 2. MÀN HÌNH CHAT BÌNH THƯỜNG KHI ĐÃ ĐĂNG NHẬP
+                <>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-gray-50" ref={scrollRef}>
+                      {chatHistory.length === 0 ? (
+                        <div className="text-center text-gray-500 py-10 flex flex-col items-center animate-message">
+                          <div className="bg-blue-100 p-4 rounded-full mb-4">
+                              <MessageSquare size={32} className="text-[#003375]" />
+                          </div>
+                          <p className="font-medium text-gray-700">Chào {data.studentName || 'bạn'}!</p>
+                          <p className="text-sm mt-1 max-w-xs">Mình là AI Cố vấn. Mình đã đọc tài liệu trường và hồ sơ của bạn. Cần hỏi gì cứ nhắn mình nhé!</p>
+                          
+                          <div className="mt-6 flex flex-wrap justify-center gap-2">
+                              <button onClick={() => { handleAdvice(false, "Đánh giá tổng quan kết quả học tập của mình"); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition hover:shadow-sm hover:-translate-y-0.5 active:scale-95">
+                                  📊 Đánh giá bảng điểm
+                              </button>
+                              <button onClick={() => { handleAdvice(false, "Điều kiện để đạt học bổng xuất sắc là gì?"); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition hover:shadow-sm hover:-translate-y-0.5 active:scale-95">
+                                  🎓 Điều kiện học bổng
+                              </button>
+                          </div>
                         </div>
-                    )}
-                  </div>
-                ))
-              )}
-              
-              {loading && (
-                  <div className="flex justify-start animate-message">
-                    <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-none px-4 py-4 flex items-center gap-1.5 shadow-sm">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                      ) : (
+                        chatHistory.map((msg, idx) => (
+                          <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-message`}>
+                            <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
+                                msg.role === 'user' ? 'bg-[#003375] text-white rounded-br-none' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
+                            }`}>
+                              {msg.role === 'assistant' ? (
+                                  <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')) }} />
+                              ) : ( <p>{msg.content}</p> )}
+                            </div>
+                            {msg.role === 'assistant' && (
+                                <div className="flex gap-2 mt-1 ml-2">
+                                    <button onClick={() => handleRate(idx, true)} className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'up' ? 'text-green-600' : 'text-gray-400'}`}>
+                                        <ThumbsUp size={14} className={msg.rating === 'up' ? 'fill-current' : ''} />
+                                    </button>
+                                    <button onClick={() => handleRate(idx, false)} className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'down' ? 'text-red-600' : 'text-gray-400'}`}>
+                                        <ThumbsDown size={14} className={msg.rating === 'down' ? 'fill-current' : ''} />
+                                    </button>
+                                </div>
+                            )}
+                          </div>
+                        ))
+                      )}
+                      
+                      {loading && (
+                          <div className="flex justify-start animate-message">
+                            <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-none px-4 py-4 flex items-center gap-1.5 shadow-sm">
+                                <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                            </div>
+                          </div>
+                      )}
                     </div>
-                  </div>
-              )}
-            </div>
 
-            <div className="p-4 border-t bg-white rounded-b-xl">
-              <form onSubmit={(e) => { e.preventDefault(); handleAdvice(); }} className="flex gap-2 relative">
-                <input
-                  type="text" placeholder="Nhập câu hỏi..."
-                  className="flex-1 border border-gray-300 rounded-full px-5 py-3 focus:ring-2 focus:ring-[#003375] focus:outline-none bg-gray-50 pr-12 transition-all"
-                  value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} disabled={loading}
-                />
-                <button type="submit" disabled={loading || !customPrompt.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#003375] text-white p-2 rounded-full hover:bg-[#002855] disabled:opacity-50 transition-all active:scale-95">
-                  {loading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} className={loading ? 'opacity-0' : 'opacity-100'} />}
-                </button>
-              </form>
-              <p className="text-[10px] text-center text-gray-400 mt-2 italic">
-                HUB Planner AI lấy dữ liệu từ Sổ tay Sinh viên. Hãy xác minh lại thông tin quan trọng.
-              </p>
-            </div>
+                    <div className="p-4 border-t bg-white rounded-b-xl">
+                      <form onSubmit={(e) => { e.preventDefault(); handleAdvice(); }} className="flex gap-2 relative">
+                        <input
+                          type="text" placeholder="Nhập câu hỏi..."
+                          className="flex-1 border border-gray-300 rounded-full px-5 py-3 focus:ring-2 focus:ring-[#003375] focus:outline-none bg-gray-50 pr-12 transition-all"
+                          value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} disabled={loading}
+                        />
+                        <button type="submit" disabled={loading || !customPrompt.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#003375] text-white p-2 rounded-full hover:bg-[#002855] disabled:opacity-50 transition-all active:scale-95">
+                          {loading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} className={loading ? 'opacity-0' : 'opacity-100'} />}
+                        </button>
+                      </form>
+                      <p className="text-[10px] text-center text-gray-400 mt-2 italic">
+                        HUB Planner AI lấy dữ liệu từ Sổ tay Sinh viên. Hãy xác minh lại thông tin quan trọng.
+                      </p>
+                    </div>
+                </>
+            )}
+
           </div>
         </div>
       )}
