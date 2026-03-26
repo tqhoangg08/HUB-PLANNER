@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw } from 'lucide-react';
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { parseSchedulePdf } from '../utils/schedulePdfImport';
 import { useUserRole } from '../hooks/useUserRole';
+import { playClick } from '../utils/audio';
 
 interface Course {
   id: string;
@@ -25,6 +26,7 @@ interface Course {
   phase: string;      
   semester: string;   
   instructor?: string; 
+  is_user_added?: boolean; // Thêm trường này để quản lý tab Admin
 }
 
 const HK_START_DATE = new Date('2026-02-02T00:00:00');
@@ -139,9 +141,9 @@ const getColorForCourse = (id: string) => {
 };
 
 export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
-      useEffect(() => { document.title = "Thời khóa biểu | HUB Planner"; }, []);
+  useEffect(() => { document.title = "Thời khóa biểu | HUB Planner"; }, []);
 
-  const { session } = useUserRole();
+  const { session, isAdmin } = useUserRole();
   const isAuthenticated = session !== null;
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -176,6 +178,15 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isPdfGuideOpen, setIsPdfGuideOpen] = useState(false);
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ==========================================
+  // STATE CHO TÍNH NĂNG ADMIN MỚI
+  // ==========================================
+  const [isAdminView, setIsAdminView] = useState(false);
+  const [adminTab, setAdminTab] = useState<'system' | 'user'>('system');
+  const [isAdminEditModalOpen, setIsAdminEditModalOpen] = useState(false);
+  const [adminEditData, setAdminEditData] = useState<Partial<Course>>({});
+  const [isSavingAdminCourse, setIsSavingAdminCourse] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -238,21 +249,16 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             query = query.eq('phase', selectedPhase);
         }
         
-        // CHUYỂN LOGIC TÌM KIẾM XUỐNG MÁY CHỦ SUPABASE
         const term = searchTerm.trim();
         if (term) {
-            // Tách từ khóa (Ví dụ: "Lượng L29" -> ["Lượng", "L29"])
             const keywords = term.split(/\s+/);
-            
-            // Ép Supabase phải tìm TẤT CẢ các từ khóa này trên Database
             keywords.forEach(kw => {
-                // Dùng .ilike để tìm kiếm không phân biệt chữ hoa/thường ở cả 3 cột
                 query = query.or(`subject_name.ilike.%${kw}%,course_code.ilike.%${kw}%,instructor.ilike.%${kw}%`);
             });
         }
         
-        // Lấy 100 kết quả trả về là quá đủ để hiển thị, web sẽ cực kỳ mượt!
-        const { data, error } = await query.limit(100);
+        // Mở rộng giới hạn cho Admin để dễ quản lý hơn
+        const { data, error } = await query.limit(isAdminView ? 1000 : 100);
         if (error) throw error;
 
         setAvailableCourses(data || []);
@@ -263,16 +269,15 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     }
   };
 
-  useEffect(() => { if (isAuthenticated) fetchCourses(); }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated]);
+  useEffect(() => { if (isAuthenticated) fetchCourses(); }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated, isAdminView]);
 
-// Tìm hàm này và sửa lại thành như sau:
   const fetchMySchedule = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return; 
-        const targetId = viewUserId || user.id;
+    const targetId = viewUserId || user.id;
 
     try {
-      const { data, error } = await supabase.from('user_schedules').select(`course_id, semester, course_schedules (*)`).eq('user_id', targetId); // Đổi user.id thành targetId
+      const { data, error } = await supabase.from('user_schedules').select(`course_id, semester, course_schedules (*)`).eq('user_id', targetId);
       if (!error && data) {
         setMySchedule(data.map((item: any) => item.course_schedules).filter(Boolean));
       }
@@ -349,6 +354,56 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       const { error } = await supabase.from('user_schedules').delete().eq('user_id', user.id).eq('course_id', courseId);
       if (error) setMySchedule(backup);
     } catch (err) { setMySchedule(backup); }
+  };
+
+  // ==========================================
+  // HÀM XỬ LÝ CHUẨN ADMIN
+  // ==========================================
+  const handleAdminSaveCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminEditData.subject_name || !adminEditData.course_code) {
+        alert("Vui lòng nhập Tên môn và Mã môn!");
+        return;
+    }
+
+    setIsSavingAdminCourse(true);
+    try {
+        const payload = {
+            ...adminEditData,
+            semester: selectedSemester,
+            is_user_added: adminEditData.is_user_added ?? (adminTab === 'user')
+        };
+
+        if (payload.id) {
+            const { error } = await supabase.from('course_schedules').update(payload).eq('id', payload.id);
+            if (error) throw error;
+            alert("Cập nhật môn học thành công!");
+        } else {
+            const { error } = await supabase.from('course_schedules').insert(payload);
+            if (error) throw error;
+            alert("Thêm môn mới thành công!");
+        }
+        setIsAdminEditModalOpen(false);
+        fetchCourses();
+    } catch (err) {
+        console.error(err);
+        alert("Có lỗi xảy ra khi lưu môn học.");
+    } finally {
+        setIsSavingAdminCourse(false);
+    }
+  };
+
+  const handleAdminDeleteCourse = async (id: string) => {
+      if (!window.confirm("BẠN CÓ CHẮC CHẮN MUỐN XÓA?\nHành động này sẽ xóa môn học khỏi cơ sở dữ liệu và tự động xóa khỏi Thời khóa biểu của tất cả sinh viên đang lưu môn này!")) return;
+      
+      try {
+          const { error } = await supabase.from('course_schedules').delete().eq('id', id);
+          if (error) throw error;
+          fetchCourses();
+      } catch (err) {
+          console.error(err);
+          alert("Lỗi khi xóa môn học.");
+      }
   };
 
   const getWeekDates = (weekNum: number) => {
@@ -455,7 +510,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         weeks: finalWeeks, 
                         semester: currentSem,
                         phase: phaseStr, 
-                        is_user_added: true 
+                        is_user_added: false // Ghi chú: Có thể để mặc định là hệ thống sinh ra
                     })
                     .select('id')
                     .single();
@@ -606,340 +661,450 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const prevMonth = () => setSelectedMonthIndex(prev => prev > 0 ? prev - 1 : 0);
   const nextMonth = () => setSelectedMonthIndex(prev => prev < 11 ? prev + 1 : 11);
 
+  // Lọc dữ liệu dành cho Admin Table
+  const filteredAdminCourses = availableCourses.filter(c => adminTab === 'system' ? !c.is_user_added : c.is_user_added);
+
   return (
     <div className="w-full pb-10">
         {/* HEADER CHUẨN DASHBOARD */}
-<div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">            <div className="flex flex-col px-1 overflow-hidden shrink-0">
-                <h1 className="text-[24px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
-                    Thời khóa biểu
-                </h1>
-                <div className="flex items-center gap-1.5 mt-2 text-[12px] sm:text-[13px] text-gray-500 overflow-x-auto whitespace-nowrap custom-scrollbar pb-1">
-                    <span className="shrink-0">Quản lý học tập</span>
-                    <span className="text-gray-300 shrink-0">•</span>
-                    <span className="font-bold text-gray-700 shrink-0">Lịch học & Thi</span>
+        <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
+            <div className="flex flex-row justify-between items-end px-1 overflow-hidden shrink-0">
+                <div className="flex flex-col">
+                    <h1 className="text-[24px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
+                        Thời khóa biểu
+                    </h1>
+                    <div className="flex items-center gap-1.5 mt-2 text-[12px] sm:text-[13px] text-gray-500 overflow-x-auto whitespace-nowrap custom-scrollbar pb-1">
+                        <span className="shrink-0">Quản lý học tập</span>
+                        <span className="text-gray-300 shrink-0">•</span>
+                        <span className="font-bold text-gray-700 shrink-0">Lịch học & Thi</span>
+                    </div>
                 </div>
+                {/* NÚT TOGGLE ADMIN MODE */}
+                {isAdmin && (
+                    <button 
+                        onClick={() => { playClick(); setIsAdminView(!isAdminView); }}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-purple-100 text-purple-700 font-bold rounded-lg hover:bg-purple-200 transition-colors shadow-sm text-xs sm:text-sm active:scale-95"
+                    >
+                        <Settings size={16}/> 
+                        <span className="hidden sm:inline">{isAdminView ? 'Về giao diện Sinh viên' : 'Quản lý Môn học'}</span>
+                        <span className="sm:hidden">Admin</span>
+                    </button>
+                )}
             </div>
         </div>
-        {/* LAYOUT CHÍNH */}
-        <div className="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-150px)] items-start">
-        
-            {/* CỘT TRÁI: SIDEBAR FILTER */}
-            <div className="w-full lg:w-[300px] bg-white rounded-xl border border-gray-300 flex flex-col shrink-0 overflow-hidden h-[500px] lg:h-full shadow-sm">
-                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-[#f8fafc]">
-                    <h2 className="text-base font-bold text-[#003375] flex items-center gap-2">
-                        <Search size={18} className="text-[#990000]" /> Tìm kiếm & Lọc
-                    </h2>
-                    {isSyncing ? (
-                        <Loader2 size={16} className="text-blue-500 animate-spin" />
-                    ) : (
-                        <button onClick={fetchCourses} className="text-gray-400 hover:text-[#003375] transition-colors" title="Làm mới"><RefreshCw size={14}/></button>
-                    )}
-                </div>
-                
-                <div className="p-4 space-y-4 border-b border-gray-100">
-                    <div className="flex gap-2">
-                        <div className="flex-1">
-                            <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 outline-none text-sm font-bold text-[#003375] bg-white hover:border-gray-300 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
-                                <option value="HK2_2025_2026">HK2 (2025-2026)</option>
-                                <option value="HK1_2025_2026">HK1 (2025-2026)</option>
-                            </select>
-                        </div>
-                        <div className="w-[35%]">
-                            <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 outline-none text-sm font-bold text-gray-700 bg-white hover:border-gray-300 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
-                                <option value="all">Mọi đợt</option>
-                                <option value="1">Đợt 1</option>
-                                <option value="2">Đợt 2</option>
-                            </select>
-                        </div>
-                    </div>
 
-                    <div className="relative">
-                        <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 outline-none text-sm transition-all hover:border-gray-300 focus:border-[#003375] focus:ring-1 focus:ring-[#003375] disabled:bg-gray-50 disabled:cursor-not-allowed"/>
-                        <Search className="absolute left-3 top-3 text-gray-400" size={16} />
-                    </div>
-
-                    <div className="flex gap-2">
-                        <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '' }); setIsReportModalOpen(true); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] sm:text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                            <AlertTriangle size={14} /> Báo lỗi môn
-                        </button>
-                        <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                            <BookPlus size={14} /> Yêu cầu thêm
-                        </button>
-                    </div>
-
-                    <button 
-                        disabled={!isAuthenticated || isProcessingPdf} 
-                        onClick={() => setIsPdfGuideOpen(true)} 
-                        className="w-full flex items-center justify-center gap-2 p-2.5 mt-2 rounded-lg bg-[#003375] text-white hover:bg-[#002855] shadow-md hover:shadow-lg font-bold text-sm transition-all active:scale-95 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none disabled:cursor-not-allowed"
-                    >
-                        {isProcessingPdf ? <Loader2 className="animate-spin" size={16} /> : <FileUp size={16} />}
-                        {isProcessingPdf ? 'Đang phân tích PDF...' : 'Nhập TKB từ PDF'}
-                    </button>
-                    <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload} />
-                </div>
-
-                {/* Danh sách môn học gợi ý */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50 custom-scrollbar relative">
-                    {!isAuthenticated ? (
-                        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6 bg-white/80 backdrop-blur-sm animate-fadeIn">
-                            <div className="w-14 h-14 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mb-3 shadow-sm border border-blue-100">
-                                <Lock size={24} />
-                            </div>
-                            <p className="text-xs text-gray-600 font-medium leading-relaxed">Đăng nhập bằng tài khoản sinh viên để xem lịch học.</p>
-                        </div>
-                    ) : isLoading ? (
-                        <p className="text-center text-xs text-gray-400 mt-10 animate-pulse font-medium">Đang tải dữ liệu...</p>
-                    ) : availableCourses.length === 0 ? (
-                        <div className="text-center mt-8">
-                            <p className="text-gray-500 text-xs mb-3 font-medium">Không tìm thấy môn học.</p>
-                        </div>
-                    ) : (
-                        availableCourses.map((course) => {
-                            const color = getColorForCourse(course.id);
-                            return (
-<div 
-                                    key={course.id} 
-                                    className={`bg-white border border-gray-200 border-l-4 ${color.border} rounded-lg p-3 relative group hover:shadow-md transition-all cursor-pointer`}
-                                    onClick={() => setSelectedCourseInfo({ course })}
-                                >
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <h3 className={`font-bold text-xs leading-tight pr-6 line-clamp-2 ${color.text}`}>{course.subject_name}</h3>
-                                            {/* Thêm Mã HP và Đợt ở đây */}
-                                            <p className="text-[10px] text-gray-500 font-medium mt-0.5">
-                                                {course.course_code} • Đợt {course.phase || '1'}
-                                            </p>
-                                        </div>
-                                        <button onClick={(e) => { e.stopPropagation(); addToSchedule(course); }} disabled={isSyncing} className="text-gray-300 hover:text-[#003375] p-1 bg-gray-50 hover:bg-blue-50 rounded-md transition-colors"><Plus size={14}/></button>
-                                    </div>
-                                    <div className="text-[10px] text-gray-500 mt-2 flex items-center gap-1 font-medium"><Clock size={10} className="text-gray-400"/> Thứ {course.day_of_week} ({getShiftDisplay(course.shift)})</div>
-                                    <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1 font-medium"><MapPin size={10} className="text-gray-400"/> P. {course.room}</div>
-                                    <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1 font-medium"><User size={10} className="text-gray-400"/> {course.instructor || 'Chưa cập nhật'}</div>
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
-            </div>
-
-{/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
-            <div className="flex-1 bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden min-h-[600px] lg:min-h-0 lg:h-full w-full shadow-sm relative">
-                {/* TOOLBAR LỊCH */}
-                <div className="flex flex-col sm:flex-row items-center justify-between p-3 sm:p-4 border-b border-gray-100 gap-3 bg-white shrink-0">
+        {/* LAYOUT CHÍNH HOẶC ADMIN VIEW */}
+        {isAdminView ? (
+            <div className="w-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[calc(100vh-150px)]">
+                {/* THANH CÔNG CỤ ADMIN */}
+                <div className="p-4 border-b border-gray-100 bg-[#f8fafc] flex flex-wrap gap-4 items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <h2 className="text-lg font-extrabold text-[#003375] flex items-center gap-2">
-                            <Calendar size={20} className="text-[#990000]" /> Lịch cá nhân
-                        </h2>
-                        {selectedWeek !== 0 && viewMode === 'week' && (
-                            <span className="hidden sm:flex text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded-md items-center gap-1.5">
-                                <CalendarDays size={12}/>
-                                {weekStartStr} - {weekEndStr}
-                            </span>
-                        )}
+                        <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-200 outline-none text-sm font-bold text-[#003375] bg-white hover:border-gray-300 transition-colors cursor-pointer">
+                            <option value="HK2_2025_2026">HK2 (2025-2026)</option>
+                            <option value="HK1_2025_2026">HK1 (2025-2026)</option>
+                        </select>
+                        <select value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-200 outline-none text-sm font-bold text-gray-700 bg-white hover:border-gray-300 transition-colors cursor-pointer">
+                            <option value="all">Mọi đợt</option>
+                            <option value="1">Đợt 1</option>
+                            <option value="2">Đợt 2</option>
+                        </select>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1">
-                            <button onClick={() => setViewMode('week')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Tuần</button>
-                            <button onClick={() => setViewMode('month')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Tháng</button>
+                    <div className="flex flex-1 max-w-md items-center gap-2">
+                        <div className="relative flex-1">
+                            <input type="text" placeholder="Tìm môn học, mã HP, GV..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-200 outline-none text-sm transition-all hover:border-gray-300 focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"/>
+                            <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
                         </div>
-                        
-                        {viewMode === 'week' ? (
-                            <div className="flex items-center gap-1.5">
-                                <div className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                                    <button onClick={prevWeek} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-200"><ChevronLeft size={16}/></button>
-                                    <button onClick={nextWeek} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
-                                </div>
-                                
-                                <div className="relative">
-                                    <button onClick={(e) => { e.stopPropagation(); setIsWeekDropdownOpen(!isWeekDropdownOpen); setIsMonthDropdownOpen(false); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50 shadow-sm">
-                                        {selectedWeek === 0 ? 'Tổng quát' : `Tuần ${selectedWeek}`}
-                                        <ChevronDown size={14} className="text-gray-400"/>
-                                    </button>
-                                    {isWeekDropdownOpen && (
-                                        <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 shadow-xl rounded-xl max-h-[300px] overflow-y-auto z-50 py-1">
-                                            <button onClick={() => { setSelectedWeek(0); setIsWeekDropdownOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 font-bold text-gray-700 border-b border-gray-100">Hiển thị Tổng quát</button>
-                                            {Array.from({length: 24}, (_, i) => i + 1).map(w => {
-                                                const wDates = getWeekDates(w);
-                                                return (
-                                                    <button key={w} onClick={() => { setSelectedWeek(w); setIsWeekDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedWeek === w ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
-                                                        Tuần {w} <span className="text-xs text-gray-400 ml-1 font-normal">({wDates[0]} - {wDates[6]})</span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-1.5">
-                                <div className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                                    <button onClick={prevMonth} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-200"><ChevronLeft size={16}/></button>
-                                    <button onClick={nextMonth} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
-                                </div>
-                                <div className="relative">
-                                    <button onClick={(e) => { e.stopPropagation(); setIsMonthDropdownOpen(!isMonthDropdownOpen); setIsWeekDropdownOpen(false); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50 shadow-sm">
-                                        Tháng {selectedMonthIndex + 1}
-                                        <ChevronDown size={14} className="text-gray-400"/>
-                                    </button>
-                                    {isMonthDropdownOpen && (
-                                        <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 shadow-xl rounded-xl max-h-[300px] overflow-y-auto z-50 py-1">
-                                            {Array.from({length: 12}, (_, i) => i).map(m => (
-                                                <button key={m} onClick={() => { setSelectedMonthIndex(m); setIsMonthDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedMonthIndex === m ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
-                                                    Tháng {m + 1}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
+                        <button onClick={fetchCourses} className="p-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors" title="Làm mới">
+                            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
+                        </button>
+                        <button 
+                            onClick={() => { setAdminEditData({ is_user_added: adminTab === 'user' }); setIsAdminEditModalOpen(true); }}
+                            className="flex items-center gap-1.5 px-4 py-2 bg-[#003375] text-white font-bold rounded-lg hover:bg-[#002855] shadow-sm transition-colors text-sm whitespace-nowrap"
+                        >
+                            <Plus size={16}/> Thêm môn
+                        </button>
                     </div>
                 </div>
 
-                {/* LƯỚI LỊCH (GRID) */}
-                <div className="flex-1 overflow-auto custom-scrollbar relative bg-white">
-                    {HOLIDAY_WEEKS.includes(selectedWeek) && viewMode === 'week' && (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 backdrop-blur-sm">
-                            <div className="bg-red-50 text-red-600 px-6 py-3 rounded-full font-bold text-sm border border-red-200 shadow-lg flex items-center gap-2 animate-bounce">
-                                <Zap size={18} className="fill-current"/> Tuần nghỉ Lễ/Tết, không có lịch học!
-                            </div>
-                        </div>
-                    )}
-                    
-                    {viewMode === 'week' ? (
-                        <table className="w-full min-w-[700px] border-collapse table-fixed h-full">
-                            <thead>
-                                <tr>
-                                    <th className="w-[60px] border-b-2 border-r border-gray-200 bg-[#f8fafc]"></th>
-                                    {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
-                                        const isTodayCol = selectedWeek !== 0 && currentWeekDates[index] === todayStr;
+                {/* TABS ADMIN */}
+                <div className="px-4 pt-4 border-b border-gray-200 flex gap-6 bg-white shrink-0">
+                    <button onClick={() => setAdminTab('system')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'system' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>
+                        Môn hệ thống gốc
+                    </button>
+                    <button onClick={() => setAdminTab('user')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'user' ? 'border-b-2 border-purple-600 text-purple-700' : 'text-gray-500 hover:text-gray-800'}`}>
+                        Môn sinh viên thêm
+                    </button>
+                </div>
 
-                                        return (
-                                        <th key={day} className={`py-2 border-b-2 border-r border-gray-200 transition-colors ${isTodayCol ? 'bg-[#F0F9FF]' : 'bg-[#f8fafc]'}`}>
-                                            <div className={`flex flex-col items-center gap-0.5 ${isTodayCol ? 'text-[#003375]' : 'text-gray-700'}`}>
-                                                <span className="font-extrabold text-xs uppercase tracking-wide">Thứ {day === 8 ? 'CN' : day}</span>
-                                                {selectedWeek !== 0 && (
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${isTodayCol ? 'bg-[#003375] text-white font-bold shadow-sm' : 'text-gray-500 font-medium'}`}>
-                                                        {currentWeekDates[index]}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </th>
-                                        );
-                                    })}
+                {/* BẢNG DỮ LIỆU ADMIN */}
+                <div className="flex-1 overflow-auto custom-scrollbar bg-white">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center h-full text-gray-500 gap-2"><Loader2 className="animate-spin" size={20}/> Đang tải dữ liệu...</div>
+                    ) : filteredAdminCourses.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                            <Search size={40} className="mb-3 text-gray-300"/>
+                            <p>Không có dữ liệu trong mục này.</p>
+                        </div>
+                    ) : (
+                        <table className="w-full text-left border-collapse text-sm min-w-[900px]">
+                            <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10 shadow-sm">
+                                <tr>
+                                    <th className="p-3 border-b font-bold whitespace-nowrap">Mã Học Phần</th>
+                                    <th className="p-3 border-b font-bold">Tên Môn Học</th>
+                                    <th className="p-3 border-b font-bold text-center">TC</th>
+                                    <th className="p-3 border-b font-bold text-center">Đợt</th>
+                                    <th className="p-3 border-b font-bold">Giảng Viên</th>
+                                    <th className="p-3 border-b font-bold">Lịch Học & Phòng</th>
+                                    <th className="p-3 border-b font-bold text-center w-28">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {['S', 'C'].map((shift) => (
-                                    <tr key={shift}>
-                                        <td className="border-r border-b border-gray-200 text-center align-middle bg-[#f8fafc] py-2">
-                                            <span className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${shift === 'S' ? 'text-orange-500' : 'text-indigo-500'}`}>{shift === 'S' ? 'Sáng' : 'Chiều'}</span>
-                                            <span className="text-[9px] font-bold text-gray-400 whitespace-pre-line leading-tight">{shift === 'S' ? '07:00\n|\n11:05' : '13:00\n|\n17:05'}</span>
+                                {filteredAdminCourses.map(c => (
+                                    <tr key={c.id} className="border-b hover:bg-blue-50/30 transition-colors group">
+                                        <td className="p-3 font-semibold text-[#003375] whitespace-nowrap">{c.course_code}</td>
+                                        <td className="p-3 font-bold text-gray-800">{c.subject_name}</td>
+                                        <td className="p-3 text-center font-medium">{c.credits}</td>
+                                        <td className="p-3 text-center"><span className="px-2 py-0.5 bg-gray-100 rounded text-xs font-bold text-gray-600">{c.phase || '1'}</span></td>
+                                        <td className="p-3 text-gray-600 font-medium">{c.instructor || '-'}</td>
+                                        <td className="p-3 text-xs text-gray-600 leading-relaxed">
+                                            <span className="font-bold text-gray-800">Thứ {c.day_of_week} ({c.shift})</span> • P.{c.room}<br/>
+                                            Tuần: {c.weeks}
                                         </td>
-                                        
-                                        {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
-                                            const isTodayCol = selectedWeek !== 0 && currentWeekDates[index] === todayStr;
-
-                                            const slotCourses = currentSemesterSchedule.map(c => {
-                                                const details = getCourseDetailsForSlot(c, day, selectedWeek, shift);
-                                                return details ? { course: c, slotDetails: details } : null;
-                                            }).filter(Boolean);
-
-                                            const slotExams = currentSemesterSchedule.filter(c => {
-                                                if (!c.exam_date || !c.exam_shift || selectedWeek === 0) return false; 
-                                                const examDM = getExamDayMonth(c.exam_date);
-                                                return examDM === currentWeekDates[index] && isExamInShift(c.exam_shift, shift);
-                                            });
-                                            
-                                            return (
-                                                <td key={`${shift}-${day}`} className={`border-r border-b border-gray-100 align-top p-1.5 h-[160px] transition-colors ${isTodayCol ? 'bg-[#F0F9FF]' : 'bg-white hover:bg-gray-50/30'}`}>
-                                                    <div className="flex flex-col gap-2 w-full h-full">
-                                                        {slotCourses.map(({course, slotDetails}: any) => {
-                                                            const color = getColorForCourse(course.id);
-                                                            return (
-                                                            <div key={course.id} onClick={() => setSelectedCourseInfo({ course, details: slotDetails })} className={`border-l-4 ${color.border} ${color.bg} rounded-r-lg p-2.5 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 relative group w-full shrink-0`}>
-                                                                <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="absolute top-1.5 right-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 rounded p-0.5"><X size={14}/></button>
-                                                                <h4 className={`font-bold ${color.text} text-[11px] sm:text-xs leading-snug line-clamp-2 pr-4 mb-0.5`}>{course.subject_name}</h4>
-                                                                {/* Thêm phần hiển thị Mã HP và Đợt */}
-                                                                <div className={`text-[9px] ${color.text} opacity-80 font-medium mb-1.5 truncate`}>{course.course_code} • Đợt {course.phase || '1'}</div>
-                                                                
-                                                                <div className={`text-[10px] ${color.label} font-semibold flex items-center gap-1`}><MapPin size={10}/> P. {slotDetails.room}</div>
-                                                                <div className={`text-[10px] ${color.label} font-medium flex items-center gap-1 mt-0.5`}><Clock size={10}/> {getCourseTimeLabel(slotDetails.shift)}</div>
-                                                            </div>
-                                                            );
-                                                        })}
-
-                                                        {slotExams.map(exam => (
-                                                            <div key={`exam-${exam.id}`} onClick={() => setSelectedCourseInfo({ course: exam })} className="border-l-4 border-l-red-500 bg-red-50 rounded-r-lg p-2.5 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 relative group w-full shrink-0">
-                                                                <div className="text-[9px] font-black text-red-600 uppercase mb-1 tracking-wider flex items-center gap-1 bg-red-100 w-fit px-1.5 py-0.5 rounded"><Zap size={10} className="fill-current"/> Lịch thi</div>
-                                                                <h4 className="font-bold text-red-900 text-[11px] sm:text-xs leading-snug line-clamp-2 mb-1">{exam.subject_name}</h4>
-                                                                <div className="text-[10px] text-red-700 font-bold flex items-center gap-1"><Clock size={10}/> {exam.exam_shift} {getExamTime(exam.exam_shift) ? `(${getExamTime(exam.exam_shift)})` : ''}</div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </td>
-                                            );
-                                        })}
+                                        <td className="p-3 text-center">
+                                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => { setAdminEditData(c); setIsAdminEditModalOpen(true); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Chỉnh sửa"><Edit size={16}/></button>
+                                                <button onClick={() => handleAdminDeleteCourse(c.id)} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors" title="Xóa vĩnh viễn"><Trash2 size={16}/></button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
-) : (
-                        // LỊCH THÁNG
-                        <div className="flex flex-col h-full bg-white">
-                            {/* Trả lại padding chuẩn, xóa bỏ pb-24 gây ra khoảng trống */}
-                            <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4">
-                                {/* Thêm min-h-full để lưới tự động kéo dài xuống tận đáy màn hình */}
-                                <div className="grid grid-cols-7 gap-px bg-gray-200 rounded-xl border border-gray-200 shadow-sm min-h-full">
-                                    {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => (
-                                        <div key={d} className="bg-[#f8fafc] text-center text-[11px] font-bold py-2.5 text-[#003375] uppercase border-b border-gray-200">{d}</div>
-                                    ))}
-                                    
-                                    {renderMonthDays().map((date, idx) => {
-                                        if (!date) return <div key={`empty-${idx}`} className="bg-gray-50/30 min-h-[90px]" />;
-                                        
-                                        const dayCourses = getCoursesForDate(date, mySchedule);
-                                        const dayExams = getExamsForDate(date, mySchedule);
-                                        const isToday = new Date().toDateString() === date.toDateString();
-                                        
-                                        return (
-                                            <div key={date.toISOString()} className={`bg-white min-h-[90px] p-1.5 transition-colors hover:bg-gray-50/50 ${isToday ? 'bg-[#F0F9FF]' : ''}`}>
-                                                <div className={`text-[11px] font-bold text-center mb-1.5 ${isToday ? 'bg-[#003375] text-white rounded-full w-5 h-5 mx-auto flex items-center justify-center shadow-sm' : 'text-gray-600'}`}>
-                                                    {date.getDate()}
-                                                </div>
-                                                <div className="flex flex-col gap-1 overflow-hidden px-0.5">
-                                                    {dayCourses.map((item: any, i: number) => {
-                                                        const color = getColorForCourse(item.course.id);
-                                                        return (
-                                                            <div key={i} onClick={() => setSelectedCourseInfo({course: item.course, details: item.details})} className={`text-[9px] px-1.5 py-1 rounded truncate cursor-pointer font-semibold ${color.bg} ${color.text} border-l-2 ${color.border} hover:opacity-80 transition-opacity`}>
-                                                                {item.course.subject_name}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    {dayExams.map((exam: any, i: number) => (
-                                                        <div key={`exam-${i}`} onClick={() => setSelectedCourseInfo({course: exam})} className="text-[9px] px-1.5 py-1 rounded truncate cursor-pointer bg-red-50 text-red-700 border-l-2 border-l-red-500 font-bold hover:bg-red-100 flex items-center gap-1">
-                                                            <Zap size={8}/> Thi: {exam.subject_name}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        </div>
                     )}
                 </div>
-                
-                {/* NÚT THÊM MÔN (FAB Nằm trong khung lịch) */}
-                <div className="absolute bottom-4 right-4 flex gap-2">
-                    <button onClick={() => setIsMyScheduleModalOpen(true)} className="bg-white border border-gray-200 text-gray-700 hover:text-[#003375] hover:bg-gray-50 px-4 py-2.5 rounded-full font-bold text-sm shadow-lg flex items-center gap-2 transition-transform active:scale-95">
-                        <List size={16}/> Đã lưu ({currentSemesterSchedule.length})
-                    </button>
+            </div>
+        ) : (
+            <div className="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-150px)] items-start">
+            
+                {/* CỘT TRÁI: SIDEBAR FILTER */}
+                <div className="w-full lg:w-[300px] bg-white rounded-xl border border-gray-300 flex flex-col shrink-0 overflow-hidden h-[500px] lg:h-full shadow-sm">
+                    <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-[#f8fafc]">
+                        <h2 className="text-base font-bold text-[#003375] flex items-center gap-2">
+                            <Search size={18} className="text-[#990000]" /> Tìm kiếm & Lọc
+                        </h2>
+                        {isSyncing ? (
+                            <Loader2 size={16} className="text-blue-500 animate-spin" />
+                        ) : (
+                            <button onClick={fetchCourses} className="text-gray-400 hover:text-[#003375] transition-colors" title="Làm mới"><RefreshCw size={14}/></button>
+                        )}
+                    </div>
+                    
+                    <div className="p-4 space-y-4 border-b border-gray-100">
+                        <div className="flex gap-2">
+                            <div className="flex-1">
+                                <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 outline-none text-sm font-bold text-[#003375] bg-white hover:border-gray-300 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
+                                    <option value="HK2_2025_2026">HK2 (2025-2026)</option>
+                                    <option value="HK1_2025_2026">HK1 (2025-2026)</option>
+                                </select>
+                            </div>
+                            <div className="w-[35%]">
+                                <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 outline-none text-sm font-bold text-gray-700 bg-white hover:border-gray-300 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
+                                    <option value="all">Mọi đợt</option>
+                                    <option value="1">Đợt 1</option>
+                                    <option value="2">Đợt 2</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="relative">
+                            <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 outline-none text-sm transition-all hover:border-gray-300 focus:border-[#003375] focus:ring-1 focus:ring-[#003375] disabled:bg-gray-50 disabled:cursor-not-allowed"/>
+                            <Search className="absolute left-3 top-3 text-gray-400" size={16} />
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '' }); setIsReportModalOpen(true); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] sm:text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                <AlertTriangle size={14} /> Báo lỗi môn
+                            </button>
+                            <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                <BookPlus size={14} /> Yêu cầu thêm
+                            </button>
+                        </div>
+
+                        <button 
+                            disabled={!isAuthenticated || isProcessingPdf} 
+                            onClick={() => setIsPdfGuideOpen(true)} 
+                            className="w-full flex items-center justify-center gap-2 p-2.5 mt-2 rounded-lg bg-[#003375] text-white hover:bg-[#002855] shadow-md hover:shadow-lg font-bold text-sm transition-all active:scale-95 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none disabled:cursor-not-allowed"
+                        >
+                            {isProcessingPdf ? <Loader2 className="animate-spin" size={16} /> : <FileUp size={16} />}
+                            {isProcessingPdf ? 'Đang phân tích PDF...' : 'Nhập TKB từ PDF'}
+                        </button>
+                        <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload} />
+                    </div>
+
+                    {/* Danh sách môn học gợi ý */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50 custom-scrollbar relative">
+                        {!isAuthenticated ? (
+                            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6 bg-white/80 backdrop-blur-sm animate-fadeIn">
+                                <div className="w-14 h-14 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mb-3 shadow-sm border border-blue-100">
+                                    <Lock size={24} />
+                                </div>
+                                <p className="text-xs text-gray-600 font-medium leading-relaxed">Đăng nhập bằng tài khoản sinh viên để xem lịch học.</p>
+                            </div>
+                        ) : isLoading ? (
+                            <p className="text-center text-xs text-gray-400 mt-10 animate-pulse font-medium">Đang tải dữ liệu...</p>
+                        ) : availableCourses.length === 0 ? (
+                            <div className="text-center mt-8">
+                                <p className="text-gray-500 text-xs mb-3 font-medium">Không tìm thấy môn học.</p>
+                            </div>
+                        ) : (
+                            availableCourses.map((course) => {
+                                const color = getColorForCourse(course.id);
+                                return (
+                                    <div 
+                                        key={course.id} 
+                                        className={`bg-white border border-gray-200 border-l-4 ${color.border} rounded-lg p-3 relative group hover:shadow-md transition-all cursor-pointer`}
+                                        onClick={() => setSelectedCourseInfo({ course })}
+                                    >
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h3 className={`font-bold text-xs leading-tight pr-6 line-clamp-2 ${color.text}`}>{course.subject_name}</h3>
+                                                {/* Thêm Mã HP và Đợt ở đây */}
+                                                <p className="text-[10px] text-gray-500 font-medium mt-0.5">
+                                                    {course.course_code} • Đợt {course.phase || '1'}
+                                                </p>
+                                            </div>
+                                            <button onClick={(e) => { e.stopPropagation(); addToSchedule(course); }} disabled={isSyncing} className="text-gray-300 hover:text-[#003375] p-1 bg-gray-50 hover:bg-blue-50 rounded-md transition-colors"><Plus size={14}/></button>
+                                        </div>
+                                        <div className="text-[10px] text-gray-500 mt-2 flex items-center gap-1 font-medium"><Clock size={10} className="text-gray-400"/> Thứ {course.day_of_week} ({getShiftDisplay(course.shift)})</div>
+                                        <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1 font-medium"><MapPin size={10} className="text-gray-400"/> P. {course.room}</div>
+                                        <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1 font-medium"><User size={10} className="text-gray-400"/> {course.instructor || 'Chưa cập nhật'}</div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+
+                {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
+                <div className="flex-1 bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden min-h-[600px] lg:min-h-0 lg:h-full w-full shadow-sm relative">
+                    {/* TOOLBAR LỊCH */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between p-3 sm:p-4 border-b border-gray-100 gap-3 bg-white shrink-0">
+                        <div className="flex items-center gap-3">
+                            <h2 className="text-lg font-extrabold text-[#003375] flex items-center gap-2">
+                                <Calendar size={20} className="text-[#990000]" /> Lịch cá nhân
+                            </h2>
+                            {selectedWeek !== 0 && viewMode === 'week' && (
+                                <span className="hidden sm:flex text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded-md items-center gap-1.5">
+                                    <CalendarDays size={12}/>
+                                    {weekStartStr} - {weekEndStr}
+                                </span>
+                            )}
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1">
+                                <button onClick={() => setViewMode('week')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Tuần</button>
+                                <button onClick={() => setViewMode('month')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Tháng</button>
+                            </div>
+                            
+                            {viewMode === 'week' ? (
+                                <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                                        <button onClick={prevWeek} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-200"><ChevronLeft size={16}/></button>
+                                        <button onClick={nextWeek} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
+                                    </div>
+                                    
+                                    <div className="relative">
+                                        <button onClick={(e) => { e.stopPropagation(); setIsWeekDropdownOpen(!isWeekDropdownOpen); setIsMonthDropdownOpen(false); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50 shadow-sm">
+                                            {selectedWeek === 0 ? 'Tổng quát' : `Tuần ${selectedWeek}`}
+                                            <ChevronDown size={14} className="text-gray-400"/>
+                                        </button>
+                                        {isWeekDropdownOpen && (
+                                            <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 shadow-xl rounded-xl max-h-[300px] overflow-y-auto z-50 py-1">
+                                                <button onClick={() => { setSelectedWeek(0); setIsWeekDropdownOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 font-bold text-gray-700 border-b border-gray-100">Hiển thị Tổng quát</button>
+                                                {Array.from({length: 24}, (_, i) => i + 1).map(w => {
+                                                    const wDates = getWeekDates(w);
+                                                    return (
+                                                        <button key={w} onClick={() => { setSelectedWeek(w); setIsWeekDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedWeek === w ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
+                                                            Tuần {w} <span className="text-xs text-gray-400 ml-1 font-normal">({wDates[0]} - {wDates[6]})</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                                        <button onClick={prevMonth} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-200"><ChevronLeft size={16}/></button>
+                                        <button onClick={nextMonth} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
+                                    </div>
+                                    <div className="relative">
+                                        <button onClick={(e) => { e.stopPropagation(); setIsMonthDropdownOpen(!isMonthDropdownOpen); setIsWeekDropdownOpen(false); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50 shadow-sm">
+                                            Tháng {selectedMonthIndex + 1}
+                                            <ChevronDown size={14} className="text-gray-400"/>
+                                        </button>
+                                        {isMonthDropdownOpen && (
+                                            <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 shadow-xl rounded-xl max-h-[300px] overflow-y-auto z-50 py-1">
+                                                {Array.from({length: 12}, (_, i) => i).map(m => (
+                                                    <button key={m} onClick={() => { setSelectedMonthIndex(m); setIsMonthDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedMonthIndex === m ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
+                                                        Tháng {m + 1}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* LƯỚI LỊCH (GRID) */}
+                    <div className="flex-1 overflow-auto custom-scrollbar relative bg-white">
+                        {HOLIDAY_WEEKS.includes(selectedWeek) && viewMode === 'week' && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 backdrop-blur-sm">
+                                <div className="bg-red-50 text-red-600 px-6 py-3 rounded-full font-bold text-sm border border-red-200 shadow-lg flex items-center gap-2 animate-bounce">
+                                    <Zap size={18} className="fill-current"/> Tuần nghỉ Lễ/Tết, không có lịch học!
+                                </div>
+                            </div>
+                        )}
+                        
+                        {viewMode === 'week' ? (
+                            <table className="w-full min-w-[700px] border-collapse table-fixed h-full">
+                                <thead>
+                                    <tr>
+                                        <th className="w-[60px] border-b-2 border-r border-gray-200 bg-[#f8fafc]"></th>
+                                        {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
+                                            const isTodayCol = selectedWeek !== 0 && currentWeekDates[index] === todayStr;
+
+                                            return (
+                                            <th key={day} className={`py-2 border-b-2 border-r border-gray-200 transition-colors ${isTodayCol ? 'bg-[#F0F9FF]' : 'bg-[#f8fafc]'}`}>
+                                                <div className={`flex flex-col items-center gap-0.5 ${isTodayCol ? 'text-[#003375]' : 'text-gray-700'}`}>
+                                                    <span className="font-extrabold text-xs uppercase tracking-wide">Thứ {day === 8 ? 'CN' : day}</span>
+                                                    {selectedWeek !== 0 && (
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${isTodayCol ? 'bg-[#003375] text-white font-bold shadow-sm' : 'text-gray-500 font-medium'}`}>
+                                                            {currentWeekDates[index]}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </th>
+                                            );
+                                        })}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {['S', 'C'].map((shift) => (
+                                        <tr key={shift}>
+                                            <td className="border-r border-b border-gray-200 text-center align-middle bg-[#f8fafc] py-2">
+                                                <span className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${shift === 'S' ? 'text-orange-500' : 'text-indigo-500'}`}>{shift === 'S' ? 'Sáng' : 'Chiều'}</span>
+                                                <span className="text-[9px] font-bold text-gray-400 whitespace-pre-line leading-tight">{shift === 'S' ? '07:00\n|\n11:05' : '13:00\n|\n17:05'}</span>
+                                            </td>
+                                            
+                                            {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
+                                                const isTodayCol = selectedWeek !== 0 && currentWeekDates[index] === todayStr;
+
+                                                const slotCourses = currentSemesterSchedule.map(c => {
+                                                    const details = getCourseDetailsForSlot(c, day, selectedWeek, shift);
+                                                    return details ? { course: c, slotDetails: details } : null;
+                                                }).filter(Boolean);
+
+                                                const slotExams = currentSemesterSchedule.filter(c => {
+                                                    if (!c.exam_date || !c.exam_shift || selectedWeek === 0) return false; 
+                                                    const examDM = getExamDayMonth(c.exam_date);
+                                                    return examDM === currentWeekDates[index] && isExamInShift(c.exam_shift, shift);
+                                                });
+                                                
+                                                return (
+                                                    <td key={`${shift}-${day}`} className={`border-r border-b border-gray-100 align-top p-1.5 h-[160px] transition-colors ${isTodayCol ? 'bg-[#F0F9FF]' : 'bg-white hover:bg-gray-50/30'}`}>
+                                                        <div className="flex flex-col gap-2 w-full h-full">
+                                                            {slotCourses.map(({course, slotDetails}: any) => {
+                                                                const color = getColorForCourse(course.id);
+                                                                return (
+                                                                <div key={course.id} onClick={() => setSelectedCourseInfo({ course, details: slotDetails })} className={`border-l-4 ${color.border} ${color.bg} rounded-r-lg p-2.5 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 relative group w-full shrink-0`}>
+                                                                    <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="absolute top-1.5 right-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 rounded p-0.5"><X size={14}/></button>
+                                                                    <h4 className={`font-bold ${color.text} text-[11px] sm:text-xs leading-snug line-clamp-2 pr-4 mb-0.5`}>{course.subject_name}</h4>
+                                                                    {/* Thêm phần hiển thị Mã HP và Đợt */}
+                                                                    <div className={`text-[9px] ${color.text} opacity-80 font-medium mb-1.5 truncate`}>{course.course_code} • Đợt {course.phase || '1'}</div>
+                                                                    
+                                                                    <div className={`text-[10px] ${color.label} font-semibold flex items-center gap-1`}><MapPin size={10}/> P. {slotDetails.room}</div>
+                                                                    <div className={`text-[10px] ${color.label} font-medium flex items-center gap-1 mt-0.5`}><Clock size={10}/> {getCourseTimeLabel(slotDetails.shift)}</div>
+                                                                </div>
+                                                                );
+                                                            })}
+
+                                                            {slotExams.map(exam => (
+                                                                <div key={`exam-${exam.id}`} onClick={() => setSelectedCourseInfo({ course: exam })} className="border-l-4 border-l-red-500 bg-red-50 rounded-r-lg p-2.5 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 relative group w-full shrink-0">
+                                                                    <div className="text-[9px] font-black text-red-600 uppercase mb-1 tracking-wider flex items-center gap-1 bg-red-100 w-fit px-1.5 py-0.5 rounded"><Zap size={10} className="fill-current"/> Lịch thi</div>
+                                                                    <h4 className="font-bold text-red-900 text-[11px] sm:text-xs leading-snug line-clamp-2 mb-1">{exam.subject_name}</h4>
+                                                                    <div className="text-[10px] text-red-700 font-bold flex items-center gap-1"><Clock size={10}/> {exam.exam_shift} {getExamTime(exam.exam_shift) ? `(${getExamTime(exam.exam_shift)})` : ''}</div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+    ) : (
+                            // LỊCH THÁNG
+                            <div className="flex flex-col h-full bg-white">
+                                {/* Trả lại padding chuẩn, xóa bỏ pb-24 gây ra khoảng trống */}
+                                <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4">
+                                    {/* Thêm min-h-full để lưới tự động kéo dài xuống tận đáy màn hình */}
+                                    <div className="grid grid-cols-7 gap-px bg-gray-200 rounded-xl border border-gray-200 shadow-sm min-h-full">
+                                        {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => (
+                                            <div key={d} className="bg-[#f8fafc] text-center text-[11px] font-bold py-2.5 text-[#003375] uppercase border-b border-gray-200">{d}</div>
+                                        ))}
+                                        
+                                        {renderMonthDays().map((date, idx) => {
+                                            if (!date) return <div key={`empty-${idx}`} className="bg-gray-50/30 min-h-[90px]" />;
+                                            
+                                            const dayCourses = getCoursesForDate(date, mySchedule);
+                                            const dayExams = getExamsForDate(date, mySchedule);
+                                            const isToday = new Date().toDateString() === date.toDateString();
+                                            
+                                            return (
+                                                <div key={date.toISOString()} className={`bg-white min-h-[90px] p-1.5 transition-colors hover:bg-gray-50/50 ${isToday ? 'bg-[#F0F9FF]' : ''}`}>
+                                                    <div className={`text-[11px] font-bold text-center mb-1.5 ${isToday ? 'bg-[#003375] text-white rounded-full w-5 h-5 mx-auto flex items-center justify-center shadow-sm' : 'text-gray-600'}`}>
+                                                        {date.getDate()}
+                                                    </div>
+                                                    <div className="flex flex-col gap-1 overflow-hidden px-0.5">
+                                                        {dayCourses.map((item: any, i: number) => {
+                                                            const color = getColorForCourse(item.course.id);
+                                                            return (
+                                                                <div key={i} onClick={() => setSelectedCourseInfo({course: item.course, details: item.details})} className={`text-[9px] px-1.5 py-1 rounded truncate cursor-pointer font-semibold ${color.bg} ${color.text} border-l-2 ${color.border} hover:opacity-80 transition-opacity`}>
+                                                                    {item.course.subject_name}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                        {dayExams.map((exam: any, i: number) => (
+                                                            <div key={`exam-${i}`} onClick={() => setSelectedCourseInfo({course: exam})} className="text-[9px] px-1.5 py-1 rounded truncate cursor-pointer bg-red-50 text-red-700 border-l-2 border-l-red-500 font-bold hover:bg-red-100 flex items-center gap-1">
+                                                                <Zap size={8}/> Thi: {exam.subject_name}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* NÚT THÊM MÔN (FAB Nằm trong khung lịch) */}
+                    <div className="absolute bottom-4 right-4 flex gap-2">
+                        <button onClick={() => setIsMyScheduleModalOpen(true)} className="bg-white border border-gray-200 text-gray-700 hover:text-[#003375] hover:bg-gray-50 px-4 py-2.5 rounded-full font-bold text-sm shadow-lg flex items-center gap-2 transition-transform active:scale-95">
+                            <List size={16}/> Đã lưu ({currentSemesterSchedule.length})
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+        )}
 
         {/* MODAL CHI TIẾT MÔN HỌC */}
         {selectedCourseInfo && (() => {
@@ -1042,7 +1207,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             </div>
                         ) : (
                             currentSemesterSchedule.map(course => (
-<div key={course.id} className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between gap-3 hover:border-blue-300 transition-colors cursor-pointer" onClick={() => { setIsMyScheduleModalOpen(false); setSelectedCourseInfo({ course }); }}>
+                                <div key={course.id} className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between gap-3 hover:border-blue-300 transition-colors cursor-pointer" onClick={() => { setIsMyScheduleModalOpen(false); setSelectedCourseInfo({ course }); }}>
                                     <div className="flex-1 min-w-0">
                                         <h4 className="font-bold text-gray-800 text-sm truncate">{course.subject_name}</h4>
                                         <p className="text-[10px] text-gray-500 mt-0.5 font-medium">{course.course_code} <span className="mx-1">•</span> Đợt {course.phase || '1'}</p>
@@ -1074,7 +1239,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             </div>
         )}
 
-        {/* MODAL THÊM MÔN MỚI */}
+        {/* MODAL THÊM MÔN MỚI DÀNH CHO USER */}
         {isCreateCourseModalOpen && (
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[99999] flex items-center justify-center p-4" onClick={() => setIsCreateCourseModalOpen(false)}>
                 <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl animate-scaleIn border border-gray-100 overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
@@ -1089,6 +1254,72 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         <div><input type="text" placeholder="Giảng viên (Tùy chọn)" value={newCourseData.instructor} onChange={e => setNewCourseData({...newCourseData, instructor: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-colors"/></div>
                         <button type="submit" disabled={isSubmittingCourse} className="w-full py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-colors shadow-md">{isSubmittingCourse ? 'Đang gửi...' : 'Gửi yêu cầu'}</button>
                     </form>
+                </div>
+            </div>
+        )}
+
+        {/* MODAL ADMIN: THÊM / SỬA MÔN HỌC */}
+        {isAdminEditModalOpen && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999] flex items-center justify-center p-4" onClick={() => setIsAdminEditModalOpen(false)}>
+                <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                    <div className="p-4 border-b border-gray-100 bg-[#003375] text-white flex justify-between items-center rounded-t-xl shrink-0">
+                        <h2 className="font-bold text-lg flex items-center gap-2"><Edit size={18} /> {adminEditData.id ? 'Sửa thông tin môn học' : 'Thêm môn học mới'}</h2>
+                        <button onClick={() => setIsAdminEditModalOpen(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
+                    </div>
+                    <div className="p-5 overflow-y-auto custom-scrollbar flex-1 bg-gray-50">
+                        <form id="adminCourseForm" onSubmit={handleAdminSaveCourse} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Tên môn học *</label>
+                                <input required type="text" value={adminEditData.subject_name || ''} onChange={e => setAdminEditData({...adminEditData, subject_name: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Mã học phần *</label>
+                                <input required type="text" value={adminEditData.course_code || ''} onChange={e => setAdminEditData({...adminEditData, course_code: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Số Tín Chỉ</label>
+                                <input type="number" min="1" max="10" value={adminEditData.credits || ''} onChange={e => setAdminEditData({...adminEditData, credits: parseInt(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Giảng viên</label>
+                                <input type="text" value={adminEditData.instructor || ''} onChange={e => setAdminEditData({...adminEditData, instructor: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Ngày học (VD: 2, 4, 6)</label>
+                                <input type="text" value={adminEditData.day_of_week || ''} onChange={e => setAdminEditData({...adminEditData, day_of_week: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Ca học (S, C, S C)</label>
+                                <input type="text" value={adminEditData.shift || ''} onChange={e => setAdminEditData({...adminEditData, shift: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Phòng học (VD: B1.101, C301)</label>
+                                <input type="text" value={adminEditData.room || ''} onChange={e => setAdminEditData({...adminEditData, room: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Tuần học (VD: 1, 5-15)</label>
+                                <input type="text" value={adminEditData.weeks || ''} onChange={e => setAdminEditData({...adminEditData, weeks: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Đợt (1, 2)</label>
+                                <input type="text" value={adminEditData.phase || ''} onChange={e => setAdminEditData({...adminEditData, phase: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Ngày thi (VD: 15/07/2026)</label>
+                                <input type="text" value={adminEditData.exam_date || ''} onChange={e => setAdminEditData({...adminEditData, exam_date: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Ca thi (1, 2, 3...)</label>
+                                <input type="text" value={adminEditData.exam_shift || ''} onChange={e => setAdminEditData({...adminEditData, exam_shift: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                        </form>
+                    </div>
+                    <div className="p-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0 rounded-b-xl">
+                        <button type="button" onClick={() => setIsAdminEditModalOpen(false)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors text-sm">Hủy bỏ</button>
+                        <button type="submit" form="adminCourseForm" disabled={isSavingAdminCourse} className="px-6 py-2 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-lg shadow-md transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
+                            {isSavingAdminCourse ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} Lưu Thông Tin
+                        </button>
+                    </div>
                 </div>
             </div>
         )}
