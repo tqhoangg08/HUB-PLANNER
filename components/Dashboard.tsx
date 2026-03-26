@@ -743,7 +743,7 @@ const saveAdminUserUpdate = async (newData: UserData) => {
     // State Lọc cho Admin
     const [adminFilterCohort, setAdminFilterCohort] = useState<string>('all');
     const [adminFilterMajor, setAdminFilterMajor] = useState<string>('all');
-    const [adminFilterGpa, setAdminFilterGpa] = useState<'all' | 'warning' | 'excellent'>('all');
+    const [adminFilterGpa, setAdminFilterGpa] = useState<'all' | 'warning' | 'excellent' | 'nogpa'>('all');
     const [adminFilterSemester, setAdminFilterSemester] = useState<string>('all');
 
     const itemsPerPage = 20;
@@ -912,6 +912,9 @@ const saveAdminUserUpdate = async (newData: UserData) => {
                 result = result.filter(u => u._computedGpa > 0 && u._computedGpa < 2.0);
             } else if (adminFilterGpa === 'excellent') {
                 result = result.filter(u => u._computedGpa >= 3.6);
+            } else if (adminFilterGpa === 'nogpa') {
+                // ✨ Nếu lọc "Chưa có điểm", lấy những bạn có Tín chỉ = 0
+                result = result.filter(u => !u._computedCredits || u._computedCredits === 0);
             }
         }
 
@@ -1186,15 +1189,18 @@ const saveAdminUserUpdate = async (newData: UserData) => {
                             </div>
                             
                             <div className="flex flex-wrap items-center gap-2 w-full justify-end">
+                                {/* ✨ BỘ LỌC MỨC ĐIỂM (MỚI THÊM) */}
                                 <div className="relative">
                                     <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
                                     <select 
-                                        value={adminFilterCohort}
-                                        onChange={(e) => setAdminFilterCohort(e.target.value)}
-                                        className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full"
+                                        value={adminFilterGpa}
+                                        onChange={(e) => setAdminFilterGpa(e.target.value as any)}
+                                        className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[140px] truncate"
                                     >
-                                        <option value="all">Tất cả Khóa</option>
-                                        {adminCohorts.map(c => <option key={c} value={c}>{c}</option>)}
+                                        <option value="all">Mọi mức điểm</option>
+                                        <option value="excellent">Xuất sắc (&gt;3.6)</option>
+                                        <option value="warning">Cảnh báo (&lt;2.0)</option>
+                                        <option value="nogpa">Chưa có điểm</option>
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                                 </div>
