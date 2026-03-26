@@ -915,12 +915,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }, [selectedUserOverview, data]);
 
     const handleLocalSetSemesters = (semesters: Semester[]) => {
-        if (selectedUserOverview) setSelectedUserOverview({ ...activeData, semesters });
+        if (selectedUserOverview) {
+            setSelectedUserOverview({ ...activeData, semesters });
+            onSetSemesters(semesters); // ✨ Thêm dòng này: Báo cho App.tsx lưu
+        }
         else onSetSemesters(semesters);
     };
 
     const handleLocalTargetChange = (newTarget: number) => {
-        if (selectedUserOverview) setSelectedUserOverview({ ...activeData, targetGPA: newTarget });
+        if (selectedUserOverview) {
+            setSelectedUserOverview({ ...activeData, targetGPA: newTarget });
+            onTargetChange(newTarget); // ✨ Thêm dòng này: Báo cho App.tsx lưu
+        }
         else onTargetChange(newTarget);
     };
 
@@ -929,6 +935,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             const newSems = [...activeData.semesters];
             newSems[index] = updatedSem;
             setSelectedUserOverview({ ...activeData, semesters: newSems });
+            onUpdateSemester(index, updatedSem); // ✨ Thêm dòng này: Báo cho App.tsx lưu
         } else {
             onUpdateSemester(index, updatedSem);
         }
@@ -938,6 +945,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         if (selectedUserOverview) {
             const newSems = activeData.semesters.filter((_, i) => i !== index);
             setSelectedUserOverview({ ...activeData, semesters: newSems });
+            onRemoveSemester(index); // ✨ Thêm dòng này: Báo cho App.tsx lưu
         } else {
             onRemoveSemester(index);
         }
@@ -947,6 +955,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         if (selectedUserOverview) {
             const newSem: Semester = { id: Date.now().toString(), name: '', subjects: [], trainingScore: null };
             setSelectedUserOverview({ ...activeData, semesters: [...activeData.semesters, newSem] });
+            onAddSemester(); // ✨ Thêm dòng này: Báo cho App.tsx lưu
         } else {
             onAddSemester();
         }
