@@ -654,7 +654,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     </div>
 
                     <div className="relative">
-                        <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Kế toán)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 outline-none text-sm transition-all hover:border-gray-300 focus:border-[#003375] focus:ring-1 focus:ring-[#003375] disabled:bg-gray-50 disabled:cursor-not-allowed"/>
+                        <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 outline-none text-sm transition-all hover:border-gray-300 focus:border-[#003375] focus:ring-1 focus:ring-[#003375] disabled:bg-gray-50 disabled:cursor-not-allowed"/>
                         <Search className="absolute left-3 top-3 text-gray-400" size={16} />
                     </div>
 
