@@ -859,14 +859,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                             const color = getColorForCourse(course.id);
                                                             return (
                                                             <div key={course.id} onClick={() => setSelectedCourseInfo({ course, details: slotDetails })} className={`border-l-4 ${color.border} ${color.bg} rounded-r-lg p-2.5 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 relative group w-full shrink-0`}>
-                                                                    <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="absolute top-1.5 right-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 rounded p-0.5"><X size={14}/></button>
-                                                                    <h4 className={`font-bold ${color.text} text-[11px] sm:text-xs leading-snug line-clamp-2 pr-4 mb-0.5`}>{course.subject_name}</h4>
-                                                                    {/* Thêm phần hiển thị Mã HP và Đợt */}
-                                                                    <div className={`text-[9px] ${color.text} opacity-80 font-medium mb-1.5 truncate`}>{course.course_code} • Đợt {course.phase || '1'}</div>
-                                                                    
-                                                                    <div className={`text-[10px] ${color.label} font-semibold flex items-center gap-1`}><MapPin size={10}/> P. {slotDetails.room}</div>
-                                                                    <div className={`text-[10px] ${color.label} font-medium flex items-center gap-1 mt-0.5`}><Clock size={10}/> {getCourseTimeLabel(slotDetails.shift)}</div>
-                                                                </div>
+                                                                <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="absolute top-1.5 right-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 rounded p-0.5"><X size={14}/></button>
+                                                                <h4 className={`font-bold ${color.text} text-[11px] sm:text-xs leading-snug line-clamp-2 pr-4 mb-0.5`}>{course.subject_name}</h4>
+                                                                {/* Thêm phần hiển thị Mã HP và Đợt */}
+                                                                <div className={`text-[9px] ${color.text} opacity-80 font-medium mb-1.5 truncate`}>{course.course_code} • Đợt {course.phase || '1'}</div>
+                                                                
+                                                                <div className={`text-[10px] ${color.label} font-semibold flex items-center gap-1`}><MapPin size={10}/> P. {slotDetails.room}</div>
+                                                                <div className={`text-[10px] ${color.label} font-medium flex items-center gap-1 mt-0.5`}><Clock size={10}/> {getCourseTimeLabel(slotDetails.shift)}</div>
+                                                            </div>
                                                             );
                                                         })}
 
@@ -887,7 +887,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </table>
 ) : (
                         // LỊCH THÁNG
-// LỊCH THÁNG
                         <div className="flex flex-col h-full bg-white">
                             {/* Trả lại padding chuẩn, xóa bỏ pb-24 gây ra khoảng trống */}
                             <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4">
@@ -996,6 +995,21 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     <p className="text-sm font-bold text-gray-900">{course.instructor || 'Đang cập nhật...'}</p>
                                 </div>
                             </div>
+
+                            {/* ✨ THÊM LỊCH THI VÀO ĐÂY ✨ */}
+                            {(course.exam_date || course.exam_shift) && (
+                                <div className="flex items-start gap-3">
+                                    <div className="bg-purple-50 p-2 rounded-lg text-purple-600"><CalendarDays size={16} /></div>
+                                    <div>
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide mb-0.5">Lịch thi dự kiến</p>
+                                        <p className="text-sm font-bold text-gray-900">{course.exam_date || 'Đang cập nhật...'}</p>
+                                        {course.exam_shift && (
+                                            <p className="text-xs text-gray-500 mt-1 font-medium">Ca thi: {course.exam_shift} {getExamTime(course.exam_shift) ? `(${getExamTime(course.exam_shift)})` : ''}</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                         </div>
                         <div className="p-4 bg-white border-t border-gray-100 flex gap-2">
                             <button onClick={() => { setReportData({ course_code: course.course_code, subject_name: course.subject_name, description: '' }); setIsReportModalOpen(true); setSelectedCourseInfo(null); }} className="px-3 py-2.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors" title="Báo lỗi thông tin">
