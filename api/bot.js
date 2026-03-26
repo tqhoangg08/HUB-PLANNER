@@ -61,9 +61,19 @@ export default async function handler(req, res) {
         }
     }
 
-    // 1. KÉO NGUYÊN CUỐN CẨM NANG TỪ SUPABASE TRONG 1 GIÂY
-    const { data: kbData } = await supabase.from('system_knowledge').select('content').eq('id', 1).single();
-    const handbookText = kbData?.content || "Không tìm thấy dữ liệu cẩm nang.";
+    // 1. KÉO TẤT CẢ CÁC GÓI KIẾN THỨC TỪ SUPABASE (ID 1, 2, 3, 4...)
+    const { data: kbData, error: kbError } = await supabase
+        .from('system_knowledge')
+        .select('id, content')
+        .order('id', { ascending: true }); // Kéo tất cả và xếp theo thứ tự ID
+        
+    let handbookText = "";
+    if (kbData && kbData.length > 0) {
+        // Gom tất cả các hàng lại, ngăn cách nhau bằng dấu gạch ngang để AI dễ đọc
+        handbookText = kbData.map(row => `--- TÀI LIỆU PHẦN ${row.id} ---\n${row.content}`).join('\n\n');
+    } else {
+        handbookText = "Không tìm thấy dữ liệu kiến thức.";
+    }
 
     // 2. GOM TẤT CẢ VÀO MỘT SYSTEM PROMPT "THÉP"
     const systemInstruction = `Bạn là AI Cố vấn học tập của website HUB Planner.
