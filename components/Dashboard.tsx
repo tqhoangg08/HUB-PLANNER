@@ -707,6 +707,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [adminUsers, setAdminUsers] = useState<any[]>([]);
     const [loadingAdmin, setLoadingAdmin] = useState(false);
     const [selectedUserOverview, setSelectedUserOverview] = useState<UserData | null>(null);
+const [selectedAdminUserId, setSelectedAdminUserId] = useState<string | null>(null); // ✨ Lưu ID sinh viên đang soi
+
+// ✨ Hàm lưu thẳng xuống Supabase dành riêng cho Admin
+const saveAdminUserUpdate = async (newData: UserData) => {
+    if (!selectedAdminUserId) return;
+    try {
+        await supabase.from('profiles').update({
+            data: newData,
+            updated_at: new Date().toISOString()
+        }).eq('id', selectedAdminUserId);
+    } catch (error) {
+        console.error("Lỗi cập nhật user:", error);
+    }
+};
     const [adminSearch, setAdminSearch] = useState('');
     const [adminMode, setAdminMode] = useState<'list' | 'detail'>('list');
     
@@ -916,49 +930,46 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const handleLocalSetSemesters = (semesters: Semester[]) => {
         if (selectedUserOverview) {
-            setSelectedUserOverview({ ...activeData, semesters });
-            onSetSemesters(semesters); // ✨ Thêm dòng này: Báo cho App.tsx lưu
-        }
-        else onSetSemesters(semesters);
+            const newData = { ...activeData, semesters };
+            setSelectedUserOverview(newData);
+            saveAdminUserUpdate(newData); // ✨ Lưu thẳng lên Supabase
+        } else onSetSemesters(semesters);
     };
 
     const handleLocalTargetChange = (newTarget: number) => {
         if (selectedUserOverview) {
-            setSelectedUserOverview({ ...activeData, targetGPA: newTarget });
-            onTargetChange(newTarget); // ✨ Thêm dòng này: Báo cho App.tsx lưu
-        }
-        else onTargetChange(newTarget);
+            const newData = { ...activeData, targetGPA: newTarget };
+            setSelectedUserOverview(newData);
+            saveAdminUserUpdate(newData); // ✨ Lưu thẳng lên Supabase
+        } else onTargetChange(newTarget);
     };
 
     const handleLocalUpdateSemester = (index: number, updatedSem: Semester) => {
         if (selectedUserOverview) {
             const newSems = [...activeData.semesters];
             newSems[index] = updatedSem;
-            setSelectedUserOverview({ ...activeData, semesters: newSems });
-            onUpdateSemester(index, updatedSem); // ✨ Thêm dòng này: Báo cho App.tsx lưu
-        } else {
-            onUpdateSemester(index, updatedSem);
-        }
+            const newData = { ...activeData, semesters: newSems };
+            setSelectedUserOverview(newData);
+            saveAdminUserUpdate(newData); // ✨ Lưu thẳng lên Supabase
+        } else onUpdateSemester(index, updatedSem);
     };
 
     const handleLocalRemoveSemester = (index: number) => {
         if (selectedUserOverview) {
             const newSems = activeData.semesters.filter((_, i) => i !== index);
-            setSelectedUserOverview({ ...activeData, semesters: newSems });
-            onRemoveSemester(index); // ✨ Thêm dòng này: Báo cho App.tsx lưu
-        } else {
-            onRemoveSemester(index);
-        }
+            const newData = { ...activeData, semesters: newSems };
+            setSelectedUserOverview(newData);
+            saveAdminUserUpdate(newData); // ✨ Lưu thẳng lên Supabase
+        } else onRemoveSemester(index);
     };
 
     const handleLocalAddSemester = () => {
         if (selectedUserOverview) {
             const newSem: Semester = { id: Date.now().toString(), name: '', subjects: [], trainingScore: null };
-            setSelectedUserOverview({ ...activeData, semesters: [...activeData.semesters, newSem] });
-            onAddSemester(); // ✨ Thêm dòng này: Báo cho App.tsx lưu
-        } else {
-            onAddSemester();
-        }
+            const newData = { ...activeData, semesters: [...activeData.semesters, newSem] };
+            setSelectedUserOverview(newData);
+            saveAdminUserUpdate(newData); // ✨ Lưu thẳng lên Supabase
+        } else onAddSemester();
     };
 
     const ALL_SEMESTERS = useMemo(() => {
@@ -1157,9 +1168,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     <RefreshCw size={18} className={loadingAdmin ? "animate-spin" : ""} />
                                 </button>
 
-                                <button onClick={() => { playClick(); setSelectedUserOverview(data); setAdminMode('detail'); }} className="px-3 py-1.5 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] hover:bg-blue-50 rounded-lg shadow-sm whitespace-nowrap transition-colors shrink-0">
-                                    Hồ sơ của tôi
-                                </button>
+                                <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); }} className="px-3 py-1.5 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] hover:bg-blue-50 rounded-lg shadow-sm whitespace-nowrap transition-colors shrink-0">
+    Hồ sơ của tôi
+</button>
                             </div>
                             
                             <div className="flex flex-wrap items-center gap-2 w-full justify-end">
@@ -1288,7 +1299,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
                                             
                                             return (
-                                                <tr key={user.id} onClick={() => { playClick(); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
+                                                <tr key={user.id} onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
                                                     <td className="px-4 py-3 font-bold text-[#003375]">{user.student_code || '-'}</td>
                                                     <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#003375] transition-colors">{user.full_name || user.data?.studentName || 'Chưa cập nhật'}</td>
                                                     <td className="px-4 py-3 text-gray-600">{user.data?.programName || '-'} / {user.data?.cohort || '-'}</td>
@@ -1366,11 +1377,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
                     {isAdmin && (
                         <button 
-                            onClick={() => { playClick(); setSelectedUserOverview(null); setAdminMode('list'); }}
-                            className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
-                        >
-                            <ChevronLeft size={16} /> Quay lại danh sách quản lý
-                        </button>
+    onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('list'); fetchAdminData(); }}
+    className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
+>
+    <ChevronLeft size={16} /> Quay lại danh sách quản lý
+</button>
                     )}
                     
                     <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-2">
