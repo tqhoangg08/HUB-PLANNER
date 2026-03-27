@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Sparkles, X, Send, Loader2, ThumbsUp, ThumbsDown, Lock, History, Menu, Plus, MessageCircle } from 'lucide-react'; 
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { MessageSquare, Sparkles, X, Send, Loader2, ThumbsUp, ThumbsDown, Lock, History, Menu, Plus, MessageCircle, MoreVertical, Pin, PinOff, Edit3, Trash2, Check } from 'lucide-react'; 
 import { Link } from 'react-router-dom';
 import { UserData } from '../types';
 import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
@@ -26,11 +26,13 @@ interface ChatSessionLog {
     bot_reply: string;
     created_at: string;
     is_helpful: boolean | null;
+    title?: string | null;
+    is_deleted?: boolean;
+    is_pinned?: boolean;
 }
 
 export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   const [isOpen, setIsOpen] = useState(false);
-  // ✨ ĐÃ SỬA: Mặc định mở Sidebar trên máy tính (width >= 768px), ẩn trên mobile
   const [showSidebar, setShowSidebar] = useState(window.innerWidth >= 768); 
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -38,8 +40,20 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [savedSessions, setSavedSessions] = useState<ChatSessionLog[]>([]); 
   
+  // ✨ State cho tính năng quản lý lịch sử
+  const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
+  const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+
   const [customPrompt, setCustomPrompt] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Đóng dropdown khi click ra ngoài
+  useEffect(() => {
+      const handleClickOutside = () => setActiveDropdown(null);
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   // Kéo danh sách lịch sử chat từ Supabase khi mở cửa sổ AI
   useEffect(() => {
@@ -136,7 +150,9 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
           user_message: questionToAsk,
           bot_reply: botReply,
           created_at: new Date().toISOString(),
-          is_helpful: null
+          is_helpful: null,
+          is_pinned: false,
+          is_deleted: false
       };
       setSavedSessions(prev => [newSessionLog, ...prev]);
 
@@ -184,6 +200,61 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       ]);
       if (window.innerWidth < 768) setShowSidebar(false); 
   };
+
+  // ✨ CÁC HÀM XỬ LÝ OPTIONS CỦA LỊCH SỬ
+  const togglePin = async (session: ChatSessionLog) => {
+      playClick();
+      const newPinStatus = !session.is_pinned;
+      setSavedSessions(prev => prev.map(s => s.id === session.id ? { ...s, is_pinned: newPinStatus } : s));
+      setActiveDropdown(null);
+      if (supabase) {
+          await supabase.from('ai_chat_logs').update({ is_pinned: newPinStatus }).eq('id', session.id);
+      }
+  };
+
+  const deleteSession = async (id: number) => {
+      playClick();
+      if(!window.confirm("Xóa cuộc trò chuyện này khỏi danh sách?")) return;
+      setSavedSessions(prev => prev.map(s => s.id === id ? { ...s, is_deleted: true } : s));
+      setActiveDropdown(null);
+      
+      // Nếu đang xem session này thì clear chat
+      if (chatHistory.length > 0 && chatHistory.some(m => m.logId === id)) {
+          setChatHistory([]);
+      }
+      
+      if (supabase) {
+          await supabase.from('ai_chat_logs').update({ is_deleted: true }).eq('id', id);
+      }
+  };
+
+  const startRename = (session: ChatSessionLog) => {
+      playClick();
+      setEditingSessionId(session.id);
+      setEditingTitle(session.title || session.user_message);
+      setActiveDropdown(null);
+  };
+
+  const saveRename = async (id: number) => {
+      playClick();
+      const finalTitle = editingTitle.trim();
+      setSavedSessions(prev => prev.map(s => s.id === id ? { ...s, title: finalTitle } : s));
+      setEditingSessionId(null);
+      if (supabase && finalTitle) {
+          await supabase.from('ai_chat_logs').update({ title: finalTitle }).eq('id', id);
+      }
+  };
+
+  // Lọc và Sắp xếp danh sách: Gim lên đầu, sau đó mới tới mới nhất
+  const sortedSessions = useMemo(() => {
+      return savedSessions
+          .filter(s => !s.is_deleted)
+          .sort((a, b) => {
+              if (a.is_pinned && !b.is_pinned) return -1;
+              if (!a.is_pinned && b.is_pinned) return 1;
+              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          });
+  }, [savedSessions]);
 
   return (
     <>
@@ -245,39 +316,88 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                 </div>
             ) : (
                 <div className="flex flex-1 overflow-hidden relative bg-white">
-                    <div className={`absolute md:relative z-10 h-full bg-[#F8FAFC] border-r border-gray-200 flex flex-col transition-all duration-300 overflow-hidden ${showSidebar ? 'w-64 md:w-72 translate-x-0' : 'w-64 md:w-0 -translate-x-full md:translate-x-0 shrink-0'}`}>
+                    {/* SIDEBAR */}
+                    <div className={`absolute md:relative z-20 h-full bg-[#F8FAFC] border-r border-gray-200 flex flex-col transition-all duration-300 overflow-visible ${showSidebar ? 'w-64 md:w-72 translate-x-0' : 'w-64 md:w-0 -translate-x-full md:translate-x-0 shrink-0'}`}>
                         <div className="p-3 border-b border-gray-200 shrink-0">
                             <button onClick={clearHistory} className="w-full flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 shadow-sm rounded-lg hover:bg-gray-50 hover:border-gray-300 text-sm font-bold text-[#003375] transition-all active:scale-95">
                                 <Plus size={16}/> Cuộc trò chuyện mới
                             </button>
                         </div>
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1 relative">
                             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 py-2 mt-1">Lịch sử gần đây</div>
                             {loadingHistory ? (
                                 <div className="p-4 text-center text-xs text-gray-500 flex justify-center"><Loader2 size={16} className="animate-spin"/></div>
-                            ) : savedSessions.length === 0 ? (
+                            ) : sortedSessions.length === 0 ? (
                                 <div className="p-4 text-center text-xs text-gray-400 italic">Chưa có lịch sử trò chuyện.</div>
                             ) : (
-                                savedSessions.map(session => (
-                                    <button 
-                                        key={session.id} 
-                                        onClick={() => loadPastSession(session)} 
-                                        className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-200/50 text-sm text-gray-700 transition-colors flex items-start gap-2 group"
-                                        title={session.user_message}
-                                    >
-                                        <MessageCircle size={14} className="shrink-0 mt-0.5 opacity-40 group-hover:text-[#003375] group-hover:opacity-100 transition-colors" />
-                                        <span className="truncate flex-1 font-medium">{session.user_message}</span>
-                                    </button>
+                                sortedSessions.map(session => (
+                                    <div key={session.id} className="relative group flex items-center justify-between w-full rounded-lg hover:bg-gray-200/50 transition-colors">
+                                        {editingSessionId === session.id ? (
+                                            // Chế độ Edit Tên
+                                            <div className="flex-1 flex items-center px-2 py-1.5 gap-1 bg-white border border-blue-300 rounded-lg shadow-sm">
+                                                <input 
+                                                    autoFocus
+                                                    type="text" 
+                                                    value={editingTitle} 
+                                                    onChange={(e) => setEditingTitle(e.target.value)}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') saveRename(session.id); else if (e.key === 'Escape') setEditingSessionId(null); }}
+                                                    className="flex-1 text-sm bg-transparent px-1 py-1 outline-none font-medium text-[#003375]"
+                                                />
+                                                <button onClick={() => saveRename(session.id)} className="p-1.5 text-green-600 hover:bg-green-100 rounded-md"><Check size={14}/></button>
+                                                <button onClick={() => setEditingSessionId(null)} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-md"><X size={14}/></button>
+                                            </div>
+                                        ) : (
+                                            // Chế độ Bình thường
+                                            <>
+                                                <button 
+                                                    onClick={() => loadPastSession(session)} 
+                                                    className={`flex-1 text-left px-3 py-2.5 text-sm flex items-start gap-2 truncate group/btn rounded-lg transition-colors ${chatHistory.length > 0 && chatHistory[1]?.logId === session.id ? 'bg-blue-50 text-[#003375]' : 'text-gray-700'}`}
+                                                    title={session.title || session.user_message}
+                                                >
+                                                    {session.is_pinned ? (
+                                                        <Pin size={14} className="shrink-0 mt-0.5 text-[#003375] fill-current" />
+                                                    ) : (
+                                                        <MessageCircle size={14} className="shrink-0 mt-0.5 opacity-40 group-hover/btn:text-[#003375] group-hover/btn:opacity-100 transition-colors" />
+                                                    )}
+                                                    <span className="truncate flex-1 font-medium leading-snug">{session.title || session.user_message}</span>
+                                                </button>
+                                                
+                                                <div className="absolute right-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center bg-gradient-to-l from-gray-100 via-gray-100 to-transparent pl-4 pr-1 py-1 rounded-r-lg">
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === session.id ? null : session.id); }} 
+                                                        className="p-1 text-gray-500 hover:bg-white hover:text-[#003375] rounded transition-colors shadow-sm bg-transparent"
+                                                    >
+                                                        <MoreVertical size={14}/>
+                                                    </button>
+                                                </div>
+
+                                                {/* Dropdown Options */}
+                                                {activeDropdown === session.id && (
+                                                    <div className="absolute right-8 top-8 w-36 bg-white border border-gray-200 shadow-xl rounded-lg overflow-hidden z-[100] py-1 text-sm font-medium">
+                                                        <button onClick={(e) => { e.stopPropagation(); togglePin(session); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-gray-700">
+                                                            {session.is_pinned ? <><PinOff size={14}/> Bỏ ghim</> : <><Pin size={14}/> Ghim lên đầu</>}
+                                                        </button>
+                                                        <button onClick={(e) => { e.stopPropagation(); startRename(session); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2 text-gray-700">
+                                                            <Edit3 size={14}/> Đổi tên
+                                                        </button>
+                                                        <button onClick={(e) => { e.stopPropagation(); deleteSession(session.id); }} className="w-full text-left px-3 py-2 hover:bg-red-50 flex items-center gap-2 text-red-600">
+                                                            <Trash2 size={14}/> Xóa cuộc trò chuyện
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
                                 ))
                             )}
                         </div>
                     </div>
 
                     {showSidebar && (
-                        <div className="absolute inset-0 bg-black/20 z-[5] md:hidden backdrop-blur-sm" onClick={() => setShowSidebar(false)}></div>
+                        <div className="absolute inset-0 bg-black/20 z-[15] md:hidden backdrop-blur-sm" onClick={() => setShowSidebar(false)}></div>
                     )}
 
-                    <div className="flex-1 flex flex-col min-w-0 bg-white relative">
+                    <div className="flex-1 flex flex-col min-w-0 bg-white relative z-0">
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-white" ref={scrollRef}>
                           
                           {chatHistory.length === 0 && !loading ? (
@@ -363,6 +483,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                     </div>
                 </div>
             )}
+
           </div>
         </div>
       )}
