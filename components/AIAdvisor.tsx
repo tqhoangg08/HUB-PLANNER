@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Sparkles, X, Send, Loader2, ThumbsUp, ThumbsDown, Lock, History } from 'lucide-react'; 
+import { MessageSquare, Sparkles, X, Send, Loader2, ThumbsUp, ThumbsDown, Lock, History, Menu, Plus, MessageCircle } from 'lucide-react'; 
 import { Link } from 'react-router-dom';
 import { UserData } from '../types';
 import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
@@ -17,51 +17,44 @@ interface ChatMessage {
     content: string;
     logId?: number; 
     rating?: 'up' | 'down' | null; 
-    isHistory?: boolean; // Cờ đánh dấu tin nhắn này là lịch sử kéo từ DB
+    isHistory?: boolean; 
+}
+
+interface ChatSessionLog {
+    id: number;
+    user_message: string;
+    bot_reply: string;
+    created_at: string;
+    is_helpful: boolean | null;
 }
 
 export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false); // ✨ State ẩn/hiện Sidebar Lịch sử
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [savedSessions, setSavedSessions] = useState<ChatSessionLog[]>([]); // ✨ State lưu danh sách lịch sử
+  
   const [customPrompt, setCustomPrompt] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Kéo lịch sử chat từ Supabase khi mở cửa sổ AI
+  // Kéo danh sách lịch sử chat từ Supabase khi mở cửa sổ AI
   useEffect(() => {
-      const fetchHistory = async () => {
-          if (isOpen && userId && chatHistory.length === 0 && supabase) {
+      const fetchHistorySessions = async () => {
+          if (isOpen && userId && supabase) {
               setLoadingHistory(true);
               try {
                   const { data: logs, error } = await supabase
                       .from('ai_chat_logs')
                       .select('*')
                       .eq('user_id', userId)
-                      .order('created_at', { ascending: true })
-                      // Lấy 20 cuộc hội thoại gần nhất để tránh lag
-                      .limit(20);
+                      .order('created_at', { ascending: false }) // Lấy mới nhất lên đầu
+                      .limit(50); // Lưu 50 cuộc hội thoại gần nhất ra Sidebar
 
                   if (error) throw error;
-
-                  if (logs && logs.length > 0) {
-                      const formattedHistory: ChatMessage[] = [];
-                      logs.forEach(log => {
-                          if (log.user_message) {
-                              formattedHistory.push({ role: 'user', content: log.user_message, isHistory: true });
-                          }
-                          if (log.bot_reply) {
-                              formattedHistory.push({ 
-                                  role: 'assistant', 
-                                  content: log.bot_reply, 
-                                  logId: log.id,
-                                  rating: log.is_helpful === true ? 'up' : (log.is_helpful === false ? 'down' : null),
-                                  isHistory: true
-                              });
-                          }
-                      });
-                      setChatHistory(formattedHistory);
-                  }
+                  if (logs) setSavedSessions(logs);
               } catch (err) {
                   console.error("Lỗi kéo lịch sử chat:", err);
               } finally {
@@ -70,7 +63,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
           }
       };
 
-      fetchHistory();
+      fetchHistorySessions();
   }, [isOpen, userId]);
 
   useEffect(() => {
@@ -82,7 +75,6 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
     }
   }, [chatHistory, loading]);
 
-  // Đóng gói dữ liệu sinh viên để AI hiểu ngữ cảnh
   const getStudentContext = () => {
       const stats = calculateCumulativeStats(data.semesters);
       const degree = getDegreeClassification(stats.gpa4);
@@ -117,10 +109,8 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
     try {
       const studentContext = getStudentContext();
       
-      // Lọc bỏ cờ isHistory trước khi gửi API (để giảm dung lượng)
       const cleanHistoryForAI = chatHistory.map(msg => ({ role: msg.role, content: msg.content }));
 
-      // Gửi lịch sử chat, câu hỏi và thông tin sinh viên lên Backend
       const res = await fetch('/api/bot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -136,10 +126,19 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
       const resData = await res.json();
       const botReply = resData.reply || "Xin lỗi, mình không có câu trả lời.";
-      // Nếu Backend trả về logId thực từ Supabase thì dùng, không thì dùng Date.now()
       const returnedLogId = resData.logId || Date.now(); 
 
       setChatHistory(prev => [...prev, { role: "assistant", content: botReply, logId: returnedLogId }]);
+
+      // ✨ Đẩy tin nhắn mới vào đầu danh sách Lịch sử Sidebar
+      const newSessionLog: ChatSessionLog = {
+          id: returnedLogId,
+          user_message: questionToAsk,
+          bot_reply: botReply,
+          created_at: new Date().toISOString(),
+          is_helpful: null
+      };
+      setSavedSessions(prev => [newSessionLog, ...prev]);
 
     } catch (error: any) {
       console.error(error);
@@ -160,16 +159,33 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       if (msg.logId && supabase) {
         try {
             await supabase.from('ai_chat_logs').update({ is_helpful: isHelpful }).eq('id', msg.logId);
+            // Cập nhật lại list ở Sidebar cho đồng bộ
+            setSavedSessions(prev => prev.map(s => s.id === msg.logId ? { ...s, is_helpful: isHelpful } : s));
         } catch (err) {}
       }
   };
 
   const clearHistory = () => {
-      if(window.confirm("Bắt đầu cuộc trò chuyện mới? (Lịch sử cũ vẫn được lưu trong hệ thống)")) {
-          playClick();
-          setChatHistory([]);
-      }
+      playClick();
+      setChatHistory([]);
+      if (window.innerWidth < 768) setShowSidebar(false);
   }
+
+  // ✨ Hàm load lại 1 đoạn chat cũ từ Sidebar
+  const loadPastSession = (session: ChatSessionLog) => {
+      playClick();
+      setChatHistory([
+          { role: 'user', content: session.user_message, isHistory: true },
+          { 
+              role: 'assistant', 
+              content: session.bot_reply, 
+              logId: session.id, 
+              rating: session.is_helpful === true ? 'up' : (session.is_helpful === false ? 'down' : null), 
+              isHistory: true 
+          }
+      ]);
+      if (window.innerWidth < 768) setShowSidebar(false); // Tự động đóng sidebar trên mobile
+  };
 
   return (
     <>
@@ -190,29 +206,31 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl flex flex-col h-[80vh] animate-slideUp relative overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm animate-fadeIn">
+          {/* ✨ Container có thể mở rộng (max-w-2xl -> max-w-4xl) khi bật Sidebar */}
+          <div className={`bg-white rounded-xl shadow-2xl flex flex-col h-[85vh] sm:h-[80vh] animate-slideUp relative overflow-hidden transition-all duration-300 w-full ${showSidebar ? 'max-w-4xl' : 'max-w-2xl'}`}>
             
-            <div className="p-4 border-b flex justify-between items-center bg-[#003375] text-white shrink-0 z-10">
-              <h3 className="font-bold text-lg flex items-center gap-2">
-                <Sparkles size={20} className="text-yellow-300" />
-                Trợ lý Học tập HUB
-              </h3>
-              <div className="flex items-center gap-1">
-                  {chatHistory.length > 0 && (
-                      <button onClick={clearHistory} className="hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors active:scale-95 text-xs font-bold flex items-center gap-1.5" title="Cuộc trò chuyện mới">
-                          <MessageSquare size={14} /> Chat mới
+            <div className="p-3 sm:p-4 border-b flex justify-between items-center bg-[#003375] text-white shrink-0 z-20 relative">
+              <div className="flex items-center gap-2 sm:gap-3">
+                  {userId && (
+                      <button onClick={() => { playClick(); setShowSidebar(!showSidebar); }} className={`p-1.5 sm:p-2 hover:bg-white/20 rounded-lg transition-colors active:scale-95 ${showSidebar ? 'bg-white/10' : ''}`} title="Lịch sử trò chuyện">
+                          <Menu size={20} />
                       </button>
                   )}
-                  <button onClick={() => { playClick(); setIsOpen(false); }} className="hover:bg-white/20 p-2 rounded-full transition-colors active:scale-90 ml-1">
+                  <h3 className="font-bold text-base sm:text-lg flex items-center gap-1.5 sm:gap-2">
+                      <Sparkles size={18} className="text-yellow-300 hidden sm:block" />
+                      Trợ lý Học tập HUB
+                  </h3>
+              </div>
+              <div className="flex items-center gap-1">
+                  <button onClick={() => { playClick(); setIsOpen(false); }} className="hover:bg-white/20 p-1.5 sm:p-2 rounded-full transition-colors active:scale-90 ml-1">
                     <X size={20} />
                   </button>
               </div>
             </div>
 
-            {/* KIỂM TRA ĐĂNG NHẬP Ở ĐÂY */}
             {!userId ? (
-                // 1. MÀN HÌNH KHÓA KHI CHƯA ĐĂNG NHẬP
+                // MÀN HÌNH KHÓA KHI CHƯA ĐĂNG NHẬP
                 <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-gray-50 rounded-b-xl z-0">
                     <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4 border border-gray-200">
                         <Lock size={28} className="text-[#003375]" />
@@ -230,96 +248,128 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                     </Link>
                 </div>
             ) : (
-                // 2. MÀN HÌNH CHAT BÌNH THƯỜNG KHI ĐÃ ĐĂNG NHẬP
-                <>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-gray-50 relative z-0" ref={scrollRef}>
-                      
-                      {loadingHistory && (
-                          <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
-                              <Loader2 size={32} className="animate-spin text-[#003375] mb-2" />
-                              <span className="text-sm text-gray-600 font-medium">Đang khôi phục cuộc trò chuyện...</span>
-                          </div>
-                      )}
-
-                      {chatHistory.length === 0 && !loadingHistory ? (
-                        <div className="text-center text-gray-500 py-10 flex flex-col items-center animate-message">
-                          <div className="bg-blue-100 p-4 rounded-full mb-4">
-                              <MessageSquare size={32} className="text-[#003375]" />
-                          </div>
-                          <p className="font-medium text-gray-700">Chào {data.studentName || 'bạn'}!</p>
-                          <p className="text-sm mt-1 max-w-xs">Mình là AI Cố vấn. Mình đã đọc tài liệu trường và hồ sơ của bạn. Cần hỏi gì cứ nhắn mình nhé!</p>
-                          
-                          <div className="mt-6 flex flex-wrap justify-center gap-2">
-                              <button onClick={() => { handleAdvice(false, "Đánh giá tổng quan kết quả học tập của mình"); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition hover:shadow-sm hover:-translate-y-0.5 active:scale-95">
-                                  📊 Đánh giá bảng điểm
-                              </button>
-                              <button onClick={() => { handleAdvice(false, "Điều kiện để đạt học bổng xuất sắc là gì?"); }} className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-full hover:bg-blue-50 transition hover:shadow-sm hover:-translate-y-0.5 active:scale-95">
-                                  🎓 Điều kiện học bổng
-                              </button>
-                          </div>
+                <div className="flex flex-1 overflow-hidden relative bg-white">
+                    {/* ✨ SIDEBAR: Nằm bên trái, ẩn/hiện mượt mà */}
+                    <div className={`absolute md:relative z-10 h-full bg-[#F8FAFC] border-r border-gray-200 flex flex-col transition-all duration-300 overflow-hidden ${showSidebar ? 'w-64 md:w-72 translate-x-0' : 'w-64 md:w-0 -translate-x-full md:translate-x-0 shrink-0'}`}>
+                        <div className="p-3 border-b border-gray-200 shrink-0">
+                            <button onClick={clearHistory} className="w-full flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 shadow-sm rounded-lg hover:bg-gray-50 hover:border-gray-300 text-sm font-bold text-[#003375] transition-all active:scale-95">
+                                <Plus size={16}/> Cuộc trò chuyện mới
+                            </button>
                         </div>
-                      ) : (
-                        <>
-                            {/* Dòng chữ thông báo Lịch sử */}
-                            {chatHistory.some(m => m.isHistory) && (
-                                <div className="flex items-center justify-center my-4 opacity-50">
-                                    <div className="h-px bg-gray-300 flex-1 max-w-[100px]"></div>
-                                    <span className="text-[10px] uppercase font-bold text-gray-500 px-3 flex items-center gap-1"><History size={12}/> Cuộc trò chuyện trước đó</span>
-                                    <div className="h-px bg-gray-300 flex-1 max-w-[100px]"></div>
-                                </div>
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 py-2 mt-1">Lịch sử gần đây</div>
+                            {loadingHistory ? (
+                                <div className="p-4 text-center text-xs text-gray-500 flex justify-center"><Loader2 size={16} className="animate-spin"/></div>
+                            ) : savedSessions.length === 0 ? (
+                                <div className="p-4 text-center text-xs text-gray-400 italic">Chưa có lịch sử trò chuyện.</div>
+                            ) : (
+                                savedSessions.map(session => (
+                                    <button 
+                                        key={session.id} 
+                                        onClick={() => loadPastSession(session)} 
+                                        className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-200/50 text-sm text-gray-700 transition-colors flex items-start gap-2 group"
+                                        title={session.user_message}
+                                    >
+                                        <MessageCircle size={14} className="shrink-0 mt-0.5 opacity-40 group-hover:text-[#003375] group-hover:opacity-100 transition-colors" />
+                                        <span className="truncate flex-1 font-medium">{session.user_message}</span>
+                                    </button>
+                                ))
                             )}
+                        </div>
+                    </div>
 
-                            {chatHistory.map((msg, idx) => (
-                            <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} ${!msg.isHistory ? 'animate-message' : ''}`}>
-                                <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
-                                    msg.role === 'user' ? 'bg-[#003375] text-white rounded-br-none' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
-                                }`}>
-                                {msg.role === 'assistant' ? (
-                                    <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')) }} />
-                                ) : ( <p>{msg.content}</p> )}
-                                </div>
-                                {msg.role === 'assistant' && (
-                                    <div className="flex gap-2 mt-1 ml-2 opacity-60 hover:opacity-100 transition-opacity">
-                                        <button onClick={() => handleRate(idx, true)} className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'up' ? 'text-green-600' : 'text-gray-400'}`}>
-                                            <ThumbsUp size={14} className={msg.rating === 'up' ? 'fill-current' : ''} />
-                                        </button>
-                                        <button onClick={() => handleRate(idx, false)} className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'down' ? 'text-red-600' : 'text-gray-400'}`}>
-                                            <ThumbsDown size={14} className={msg.rating === 'down' ? 'fill-current' : ''} />
-                                        </button>
+                    {/* Màn đen mờ khi mở Sidebar trên Mobile */}
+                    {showSidebar && (
+                        <div className="absolute inset-0 bg-black/20 z-[5] md:hidden backdrop-blur-sm" onClick={() => setShowSidebar(false)}></div>
+                    )}
+
+                    {/* ✨ MAIN CHAT AREA */}
+                    <div className="flex-1 flex flex-col min-w-0 bg-white relative">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-white" ref={scrollRef}>
+                          
+                          {chatHistory.length === 0 && !loading ? (
+                            <div className="text-center text-gray-500 py-10 flex flex-col items-center animate-message">
+                              <div className="bg-blue-50 p-4 rounded-full mb-4">
+                                  <MessageSquare size={32} className="text-[#003375]" />
+                              </div>
+                              <p className="font-medium text-gray-800 text-base">Chào {data.studentName || 'bạn'}!</p>
+                              <p className="text-sm mt-1 max-w-xs text-gray-500">Hôm nay mình có thể giúp gì cho quá trình học tập của bạn tại HUB?</p>
+                              
+                              <div className="mt-8 flex flex-wrap justify-center gap-2 px-2">
+                                  <button onClick={() => { handleAdvice(false, "Đánh giá tổng quan kết quả học tập của mình"); }} className="text-xs bg-white border border-gray-200 px-4 py-2.5 rounded-xl hover:bg-blue-50 hover:border-blue-200 hover:text-[#003375] font-medium transition-all shadow-sm active:scale-95">
+                                      📊 Đánh giá bảng điểm hiện tại
+                                  </button>
+                                  <button onClick={() => { handleAdvice(false, "Mục tiêu GPA của mình có khả thi không?"); }} className="text-xs bg-white border border-gray-200 px-4 py-2.5 rounded-xl hover:bg-blue-50 hover:border-blue-200 hover:text-[#003375] font-medium transition-all shadow-sm active:scale-95">
+                                      🎯 Đánh giá mục tiêu GPA
+                                  </button>
+                                  <button onClick={() => { handleAdvice(false, "Điều kiện để đạt học bổng xuất sắc là gì?"); }} className="text-xs bg-white border border-gray-200 px-4 py-2.5 rounded-xl hover:bg-blue-50 hover:border-blue-200 hover:text-[#003375] font-medium transition-all shadow-sm active:scale-95">
+                                      🎓 Điều kiện đạt Học bổng
+                                  </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                                {/* Dòng chữ thông báo xem Lịch sử */}
+                                {chatHistory.some(m => m.isHistory) && (
+                                    <div className="flex items-center justify-center my-4 opacity-60">
+                                        <div className="h-px bg-gray-200 flex-1 max-w-[60px]"></div>
+                                        <span className="text-[10px] uppercase font-bold text-gray-500 px-3 flex items-center gap-1.5"><History size={12}/> Đang xem lịch sử cũ</span>
+                                        <div className="h-px bg-gray-200 flex-1 max-w-[60px]"></div>
                                     </div>
                                 )}
-                            </div>
-                            ))}
-                        </>
-                      )}
-                      
-                      {loading && (
-                          <div className="flex justify-start animate-message">
-                            <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-none px-4 py-4 flex items-center gap-1.5 shadow-sm">
-                                <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
-                                <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
-                                <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
-                            </div>
-                          </div>
-                      )}
-                    </div>
 
-                    <div className="p-4 border-t bg-white rounded-b-xl z-10 shrink-0 shadow-[0_-10px_20px_rgba(0,0,0,0.03)]">
-                      <form onSubmit={(e) => { e.preventDefault(); handleAdvice(); }} className="flex gap-2 relative">
-                        <input
-                          type="text" placeholder="Nhập câu hỏi..."
-                          className="flex-1 border border-gray-300 rounded-full px-5 py-3 focus:ring-2 focus:ring-[#003375] focus:outline-none bg-gray-50 pr-12 transition-all"
-                          value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} disabled={loading || loadingHistory}
-                        />
-                        <button type="submit" disabled={loading || loadingHistory || !customPrompt.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#003375] text-white p-2 rounded-full hover:bg-[#002855] disabled:opacity-50 transition-all active:scale-95">
-                          {loading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} className={loading ? 'opacity-0' : 'opacity-100'} />}
-                        </button>
-                      </form>
-                      <p className="text-[10px] text-center text-gray-400 mt-2 italic">
-                        HUB Planner AI lấy dữ liệu từ Sổ tay Sinh viên. Hãy xác minh lại thông tin quan trọng.
-                      </p>
+                                {chatHistory.map((msg, idx) => (
+                                <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} ${!msg.isHistory ? 'animate-message' : ''}`}>
+                                    <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm text-sm leading-relaxed ${
+                                        msg.role === 'user' ? 'bg-[#003375] text-white rounded-br-none' : 'bg-gray-50 text-gray-800 border border-gray-100 rounded-bl-none'
+                                    }`}>
+                                    {msg.role === 'assistant' ? (
+                                        <div className="prose prose-sm max-w-none prose-p:leading-relaxed" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')) }} />
+                                    ) : ( <p>{msg.content}</p> )}
+                                    </div>
+                                    {msg.role === 'assistant' && (
+                                        <div className="flex gap-2 mt-1.5 ml-2 opacity-40 hover:opacity-100 transition-opacity">
+                                            <button onClick={() => handleRate(idx, true)} className={`p-1.5 rounded-full hover:bg-gray-200 transition ${msg.rating === 'up' ? 'text-green-600 bg-green-50' : 'text-gray-500'}`}>
+                                                <ThumbsUp size={14} className={msg.rating === 'up' ? 'fill-current' : ''} />
+                                            </button>
+                                            <button onClick={() => handleRate(idx, false)} className={`p-1.5 rounded-full hover:bg-gray-200 transition ${msg.rating === 'down' ? 'text-red-600 bg-red-50' : 'text-gray-500'}`}>
+                                                <ThumbsDown size={14} className={msg.rating === 'down' ? 'fill-current' : ''} />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                ))}
+                            </>
+                          )}
+                          
+                          {loading && (
+                              <div className="flex justify-start animate-message">
+                                <div className="bg-gray-50 border border-gray-100 rounded-2xl rounded-bl-none px-4 py-4 flex items-center gap-1.5 shadow-sm">
+                                    <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                                    <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                                    <div className="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                                </div>
+                              </div>
+                          )}
+                        </div>
+
+                        <div className="p-3 sm:p-4 border-t border-gray-100 bg-white z-10 shrink-0">
+                          <form onSubmit={(e) => { e.preventDefault(); handleAdvice(); }} className="flex gap-2 relative">
+                            <input
+                              type="text" placeholder="Nhập câu hỏi tại đây..."
+                              className="flex-1 border border-gray-200 rounded-full pl-4 pr-12 py-3 focus:ring-2 focus:ring-[#003375] focus:outline-none bg-gray-50 transition-all text-sm"
+                              value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} disabled={loading}
+                            />
+                            <button type="submit" disabled={loading || !customPrompt.trim()} className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-[#003375] text-white p-2 rounded-full hover:bg-[#002855] disabled:opacity-50 transition-all active:scale-95 shadow-sm">
+                              {loading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} className={loading ? 'opacity-0' : 'opacity-100'} />}
+                            </button>
+                          </form>
+                          <p className="text-[9px] sm:text-[10px] text-center text-gray-400 mt-2 font-medium">
+                            HUB Planner AI có thể cung cấp thông tin chưa chính xác. Vui lòng xác minh lại.
+                          </p>
+                        </div>
                     </div>
-                </>
+                </div>
             )}
 
           </div>
