@@ -1635,21 +1635,21 @@ return (
           </div>
 
           {/* ✨ FORM TUYỂN DỤNG CTV ĐƯỢC CHỈNH LẠI: NÚT BẤM MỞ MODAL ✨ */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative overflow-hidden group">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-1.5 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative overflow-hidden group">
               <div className="flex items-start sm:items-center gap-3 relative z-10">
                   <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm shrink-0 border border-blue-100">
-                      <UserPlus className="text-blue-600" size={20} />
+                      <UserPlus className="text-blue-600" size={12} />
                   </div>
                   <div>
                       <h4 className="font-bold text-sm sm:text-base text-blue-900">Trở thành CTV Nhập liệu HUB Planner</h4>
-                      <p className="text-xs sm:text-sm mt-0.5 text-blue-800 opacity-90 max-w-2xl">
+                      <p className="text-xs sm:text-sm mt-0.5 text-blue-800 opacity-50 max-w-2xl">
                           Bạn muốn đóng góp xây dựng cộng đồng sinh viên HUB? Hãy tham gia đội ngũ cập nhật sự kiện ngay hôm nay!
                       </p>
                   </div>
               </div>
               <button 
                   onClick={() => { playClick(); setShowCTVModal(true); }}
-                  className="shrink-0 text-xs font-bold bg-[#003375] text-white hover:bg-[#002855] shadow-md transition-colors px-4 py-2.5 rounded-lg whitespace-nowrap self-start sm:self-auto relative z-10 active:scale-95 flex items-center gap-2"
+                  className="shrink-0 text-xs font-bold bg-[#003375] text-white hover:bg-[#002855] shadow-md transition-colors px-3 py-1.5 rounded-lg whitespace-nowrap self-start sm:self-auto relative z-10 active:scale-95 flex items-center gap-2"
               >
                   <UserPlus size={16} /> Đăng ký ngay
               </button>
