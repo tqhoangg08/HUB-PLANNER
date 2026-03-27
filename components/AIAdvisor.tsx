@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Sparkles, X, Send, Loader2, ThumbsUp, ThumbsDown, Lock } from 'lucide-react'; 
+import { MessageSquare, Sparkles, X, Send, Loader2, ThumbsUp, ThumbsDown, Lock, History } from 'lucide-react'; 
 import { Link } from 'react-router-dom';
 import { UserData } from '../types';
 import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
@@ -17,14 +17,61 @@ interface ChatMessage {
     content: string;
     logId?: number; 
     rating?: 'up' | 'down' | null; 
+    isHistory?: boolean; // Cờ đánh dấu tin nhắn này là lịch sử kéo từ DB
 }
 
 export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [customPrompt, setCustomPrompt] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Kéo lịch sử chat từ Supabase khi mở cửa sổ AI
+  useEffect(() => {
+      const fetchHistory = async () => {
+          if (isOpen && userId && chatHistory.length === 0 && supabase) {
+              setLoadingHistory(true);
+              try {
+                  const { data: logs, error } = await supabase
+                      .from('ai_chat_logs')
+                      .select('*')
+                      .eq('user_id', userId)
+                      .order('created_at', { ascending: true })
+                      // Lấy 20 cuộc hội thoại gần nhất để tránh lag
+                      .limit(20);
+
+                  if (error) throw error;
+
+                  if (logs && logs.length > 0) {
+                      const formattedHistory: ChatMessage[] = [];
+                      logs.forEach(log => {
+                          if (log.user_message) {
+                              formattedHistory.push({ role: 'user', content: log.user_message, isHistory: true });
+                          }
+                          if (log.bot_reply) {
+                              formattedHistory.push({ 
+                                  role: 'assistant', 
+                                  content: log.bot_reply, 
+                                  logId: log.id,
+                                  rating: log.is_helpful === true ? 'up' : (log.is_helpful === false ? 'down' : null),
+                                  isHistory: true
+                              });
+                          }
+                      });
+                      setChatHistory(formattedHistory);
+                  }
+              } catch (err) {
+                  console.error("Lỗi kéo lịch sử chat:", err);
+              } finally {
+                  setLoadingHistory(false);
+              }
+          }
+      };
+
+      fetchHistory();
+  }, [isOpen, userId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -70,13 +117,16 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
     try {
       const studentContext = getStudentContext();
       
+      // Lọc bỏ cờ isHistory trước khi gửi API (để giảm dung lượng)
+      const cleanHistoryForAI = chatHistory.map(msg => ({ role: msg.role, content: msg.content }));
+
       // Gửi lịch sử chat, câu hỏi và thông tin sinh viên lên Backend
       const res = await fetch('/api/bot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
             question: questionToAsk,
-            history: chatHistory.map(msg => ({ role: msg.role, content: msg.content })),
+            history: cleanHistoryForAI,
             context: studentContext,
             userId: userId
         })
@@ -86,9 +136,10 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
       const resData = await res.json();
       const botReply = resData.reply || "Xin lỗi, mình không có câu trả lời.";
-      const mockLogId = Date.now(); 
+      // Nếu Backend trả về logId thực từ Supabase thì dùng, không thì dùng Date.now()
+      const returnedLogId = resData.logId || Date.now(); 
 
-      setChatHistory(prev => [...prev, { role: "assistant", content: botReply, logId: mockLogId }]);
+      setChatHistory(prev => [...prev, { role: "assistant", content: botReply, logId: returnedLogId }]);
 
     } catch (error: any) {
       console.error(error);
@@ -113,6 +164,13 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       }
   };
 
+  const clearHistory = () => {
+      if(window.confirm("Bắt đầu cuộc trò chuyện mới? (Lịch sử cũ vẫn được lưu trong hệ thống)")) {
+          playClick();
+          setChatHistory([]);
+      }
+  }
+
   return (
     <>
       <style>{`
@@ -133,22 +191,29 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
       {isOpen && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl flex flex-col h-[80vh] animate-slideUp">
+          <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl flex flex-col h-[80vh] animate-slideUp relative overflow-hidden">
             
-            <div className="p-4 border-b flex justify-between items-center bg-[#003375] text-white rounded-t-xl shadow-md">
+            <div className="p-4 border-b flex justify-between items-center bg-[#003375] text-white shrink-0 z-10">
               <h3 className="font-bold text-lg flex items-center gap-2">
                 <Sparkles size={20} className="text-yellow-300" />
                 Trợ lý Học tập HUB
               </h3>
-              <button onClick={() => { playClick(); setIsOpen(false); }} className="hover:bg-white/20 p-2 rounded-full transition-colors active:scale-90">
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-1">
+                  {chatHistory.length > 0 && (
+                      <button onClick={clearHistory} className="hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors active:scale-95 text-xs font-bold flex items-center gap-1.5" title="Cuộc trò chuyện mới">
+                          <MessageSquare size={14} /> Chat mới
+                      </button>
+                  )}
+                  <button onClick={() => { playClick(); setIsOpen(false); }} className="hover:bg-white/20 p-2 rounded-full transition-colors active:scale-90 ml-1">
+                    <X size={20} />
+                  </button>
+              </div>
             </div>
 
             {/* KIỂM TRA ĐĂNG NHẬP Ở ĐÂY */}
             {!userId ? (
                 // 1. MÀN HÌNH KHÓA KHI CHƯA ĐĂNG NHẬP
-                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-gray-50 rounded-b-xl">
+                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-gray-50 rounded-b-xl z-0">
                     <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4 border border-gray-200">
                         <Lock size={28} className="text-[#003375]" />
                     </div>
@@ -167,8 +232,16 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
             ) : (
                 // 2. MÀN HÌNH CHAT BÌNH THƯỜNG KHI ĐÃ ĐĂNG NHẬP
                 <>
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-gray-50" ref={scrollRef}>
-                      {chatHistory.length === 0 ? (
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-gray-50 relative z-0" ref={scrollRef}>
+                      
+                      {loadingHistory && (
+                          <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
+                              <Loader2 size={32} className="animate-spin text-[#003375] mb-2" />
+                              <span className="text-sm text-gray-600 font-medium">Đang khôi phục cuộc trò chuyện...</span>
+                          </div>
+                      )}
+
+                      {chatHistory.length === 0 && !loadingHistory ? (
                         <div className="text-center text-gray-500 py-10 flex flex-col items-center animate-message">
                           <div className="bg-blue-100 p-4 rounded-full mb-4">
                               <MessageSquare size={32} className="text-[#003375]" />
@@ -186,27 +259,38 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                           </div>
                         </div>
                       ) : (
-                        chatHistory.map((msg, idx) => (
-                          <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-message`}>
-                            <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
-                                msg.role === 'user' ? 'bg-[#003375] text-white rounded-br-none' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
-                            }`}>
-                              {msg.role === 'assistant' ? (
-                                  <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')) }} />
-                              ) : ( <p>{msg.content}</p> )}
-                            </div>
-                            {msg.role === 'assistant' && (
-                                <div className="flex gap-2 mt-1 ml-2">
-                                    <button onClick={() => handleRate(idx, true)} className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'up' ? 'text-green-600' : 'text-gray-400'}`}>
-                                        <ThumbsUp size={14} className={msg.rating === 'up' ? 'fill-current' : ''} />
-                                    </button>
-                                    <button onClick={() => handleRate(idx, false)} className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'down' ? 'text-red-600' : 'text-gray-400'}`}>
-                                        <ThumbsDown size={14} className={msg.rating === 'down' ? 'fill-current' : ''} />
-                                    </button>
+                        <>
+                            {/* Dòng chữ thông báo Lịch sử */}
+                            {chatHistory.some(m => m.isHistory) && (
+                                <div className="flex items-center justify-center my-4 opacity-50">
+                                    <div className="h-px bg-gray-300 flex-1 max-w-[100px]"></div>
+                                    <span className="text-[10px] uppercase font-bold text-gray-500 px-3 flex items-center gap-1"><History size={12}/> Cuộc trò chuyện trước đó</span>
+                                    <div className="h-px bg-gray-300 flex-1 max-w-[100px]"></div>
                                 </div>
                             )}
-                          </div>
-                        ))
+
+                            {chatHistory.map((msg, idx) => (
+                            <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} ${!msg.isHistory ? 'animate-message' : ''}`}>
+                                <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
+                                    msg.role === 'user' ? 'bg-[#003375] text-white rounded-br-none' : 'bg-white text-gray-800 border border-gray-200 rounded-bl-none'
+                                }`}>
+                                {msg.role === 'assistant' ? (
+                                    <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')) }} />
+                                ) : ( <p>{msg.content}</p> )}
+                                </div>
+                                {msg.role === 'assistant' && (
+                                    <div className="flex gap-2 mt-1 ml-2 opacity-60 hover:opacity-100 transition-opacity">
+                                        <button onClick={() => handleRate(idx, true)} className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'up' ? 'text-green-600' : 'text-gray-400'}`}>
+                                            <ThumbsUp size={14} className={msg.rating === 'up' ? 'fill-current' : ''} />
+                                        </button>
+                                        <button onClick={() => handleRate(idx, false)} className={`p-1 rounded-full hover:bg-gray-100 transition ${msg.rating === 'down' ? 'text-red-600' : 'text-gray-400'}`}>
+                                            <ThumbsDown size={14} className={msg.rating === 'down' ? 'fill-current' : ''} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                            ))}
+                        </>
                       )}
                       
                       {loading && (
@@ -220,14 +304,14 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                       )}
                     </div>
 
-                    <div className="p-4 border-t bg-white rounded-b-xl">
+                    <div className="p-4 border-t bg-white rounded-b-xl z-10 shrink-0 shadow-[0_-10px_20px_rgba(0,0,0,0.03)]">
                       <form onSubmit={(e) => { e.preventDefault(); handleAdvice(); }} className="flex gap-2 relative">
                         <input
                           type="text" placeholder="Nhập câu hỏi..."
                           className="flex-1 border border-gray-300 rounded-full px-5 py-3 focus:ring-2 focus:ring-[#003375] focus:outline-none bg-gray-50 pr-12 transition-all"
-                          value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} disabled={loading}
+                          value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} disabled={loading || loadingHistory}
                         />
-                        <button type="submit" disabled={loading || !customPrompt.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#003375] text-white p-2 rounded-full hover:bg-[#002855] disabled:opacity-50 transition-all active:scale-95">
+                        <button type="submit" disabled={loading || loadingHistory || !customPrompt.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#003375] text-white p-2 rounded-full hover:bg-[#002855] disabled:opacity-50 transition-all active:scale-95">
                           {loading ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} className={loading ? 'opacity-0' : 'opacity-100'} />}
                         </button>
                       </form>
