@@ -30,12 +30,13 @@ interface ChatSessionLog {
 
 export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false); // ✨ State ẩn/hiện Sidebar Lịch sử
+  // ✨ ĐÃ SỬA: Mặc định mở Sidebar trên máy tính (width >= 768px), ẩn trên mobile
+  const [showSidebar, setShowSidebar] = useState(window.innerWidth >= 768); 
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [savedSessions, setSavedSessions] = useState<ChatSessionLog[]>([]); // ✨ State lưu danh sách lịch sử
+  const [savedSessions, setSavedSessions] = useState<ChatSessionLog[]>([]); 
   
   const [customPrompt, setCustomPrompt] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -50,8 +51,8 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                       .from('ai_chat_logs')
                       .select('*')
                       .eq('user_id', userId)
-                      .order('created_at', { ascending: false }) // Lấy mới nhất lên đầu
-                      .limit(50); // Lưu 50 cuộc hội thoại gần nhất ra Sidebar
+                      .order('created_at', { ascending: false }) 
+                      .limit(50); 
 
                   if (error) throw error;
                   if (logs) setSavedSessions(logs);
@@ -130,7 +131,6 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
       setChatHistory(prev => [...prev, { role: "assistant", content: botReply, logId: returnedLogId }]);
 
-      // ✨ Đẩy tin nhắn mới vào đầu danh sách Lịch sử Sidebar
       const newSessionLog: ChatSessionLog = {
           id: returnedLogId,
           user_message: questionToAsk,
@@ -159,7 +159,6 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       if (msg.logId && supabase) {
         try {
             await supabase.from('ai_chat_logs').update({ is_helpful: isHelpful }).eq('id', msg.logId);
-            // Cập nhật lại list ở Sidebar cho đồng bộ
             setSavedSessions(prev => prev.map(s => s.id === msg.logId ? { ...s, is_helpful: isHelpful } : s));
         } catch (err) {}
       }
@@ -171,7 +170,6 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       if (window.innerWidth < 768) setShowSidebar(false);
   }
 
-  // ✨ Hàm load lại 1 đoạn chat cũ từ Sidebar
   const loadPastSession = (session: ChatSessionLog) => {
       playClick();
       setChatHistory([
@@ -184,7 +182,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
               isHistory: true 
           }
       ]);
-      if (window.innerWidth < 768) setShowSidebar(false); // Tự động đóng sidebar trên mobile
+      if (window.innerWidth < 768) setShowSidebar(false); 
   };
 
   return (
@@ -199,7 +197,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       `}</style>
 
       <button
-        onClick={() => { playClick(); setIsOpen(true); }}
+        onClick={() => { playClick(); setIsOpen(true); setShowSidebar(window.innerWidth >= 768); }}
         className="fixed bottom-6 right-6 bg-[#003375] hover:bg-[#002855] text-white p-4 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 z-50 flex items-center gap-2 border-4 border-white active:scale-95 group animate-float hover:animate-none"
       >
         <Sparkles size={24} className="group-hover:animate-pulse text-yellow-300" />
@@ -207,7 +205,6 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
       {isOpen && (
         <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm animate-fadeIn">
-          {/* ✨ Container có thể mở rộng (max-w-2xl -> max-w-4xl) khi bật Sidebar */}
           <div className={`bg-white rounded-xl shadow-2xl flex flex-col h-[85vh] sm:h-[80vh] animate-slideUp relative overflow-hidden transition-all duration-300 w-full ${showSidebar ? 'max-w-4xl' : 'max-w-2xl'}`}>
             
             <div className="p-3 sm:p-4 border-b flex justify-between items-center bg-[#003375] text-white shrink-0 z-20 relative">
@@ -230,7 +227,6 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
             </div>
 
             {!userId ? (
-                // MÀN HÌNH KHÓA KHI CHƯA ĐĂNG NHẬP
                 <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-gray-50 rounded-b-xl z-0">
                     <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4 border border-gray-200">
                         <Lock size={28} className="text-[#003375]" />
@@ -249,7 +245,6 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                 </div>
             ) : (
                 <div className="flex flex-1 overflow-hidden relative bg-white">
-                    {/* ✨ SIDEBAR: Nằm bên trái, ẩn/hiện mượt mà */}
                     <div className={`absolute md:relative z-10 h-full bg-[#F8FAFC] border-r border-gray-200 flex flex-col transition-all duration-300 overflow-hidden ${showSidebar ? 'w-64 md:w-72 translate-x-0' : 'w-64 md:w-0 -translate-x-full md:translate-x-0 shrink-0'}`}>
                         <div className="p-3 border-b border-gray-200 shrink-0">
                             <button onClick={clearHistory} className="w-full flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 shadow-sm rounded-lg hover:bg-gray-50 hover:border-gray-300 text-sm font-bold text-[#003375] transition-all active:scale-95">
@@ -278,12 +273,10 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                         </div>
                     </div>
 
-                    {/* Màn đen mờ khi mở Sidebar trên Mobile */}
                     {showSidebar && (
                         <div className="absolute inset-0 bg-black/20 z-[5] md:hidden backdrop-blur-sm" onClick={() => setShowSidebar(false)}></div>
                     )}
 
-                    {/* ✨ MAIN CHAT AREA */}
                     <div className="flex-1 flex flex-col min-w-0 bg-white relative">
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-white" ref={scrollRef}>
                           
@@ -309,7 +302,6 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                             </div>
                           ) : (
                             <>
-                                {/* Dòng chữ thông báo xem Lịch sử */}
                                 {chatHistory.some(m => m.isHistory) && (
                                     <div className="flex items-center justify-center my-4 opacity-60">
                                         <div className="h-px bg-gray-200 flex-1 max-w-[60px]"></div>
@@ -358,9 +350,9 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                             <input
                               type="text" placeholder="Nhập câu hỏi tại đây..."
                               className="flex-1 border border-gray-200 rounded-full pl-4 pr-12 py-3 focus:ring-2 focus:ring-[#003375] focus:outline-none bg-gray-50 transition-all text-sm"
-                              value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} disabled={loading}
+                              value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} disabled={loading || loadingHistory}
                             />
-                            <button type="submit" disabled={loading || !customPrompt.trim()} className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-[#003375] text-white p-2 rounded-full hover:bg-[#002855] disabled:opacity-50 transition-all active:scale-95 shadow-sm">
+                            <button type="submit" disabled={loading || loadingHistory || !customPrompt.trim()} className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-[#003375] text-white p-2 rounded-full hover:bg-[#002855] disabled:opacity-50 transition-all active:scale-95 shadow-sm">
                               {loading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} className={loading ? 'opacity-0' : 'opacity-100'} />}
                             </button>
                           </form>
@@ -371,7 +363,6 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                     </div>
                 </div>
             )}
-
           </div>
         </div>
       )}
