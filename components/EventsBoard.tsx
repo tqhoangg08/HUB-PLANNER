@@ -8,11 +8,12 @@ import {
   MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, 
   Save, ToggleLeft, ToggleRight, Settings, Tag, RotateCcw,
   Info, ExternalLink, CalendarClock,
-  Bookmark, BookmarkCheck, ArrowDownUp, AlertTriangle, CalendarDays, MoreHorizontal
+  Bookmark, BookmarkCheck, ArrowDownUp, AlertTriangle, CalendarDays, MoreHorizontal, UserPlus
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
 import { useUserRole } from '../hooks/useUserRole';
+import { CTVRegistrationForm } from './CTVRegistrationForm';
 
 // --- Types ---
 interface HubEvent {
@@ -57,12 +58,11 @@ const formatTimeString = (timeStr: string | null): string => {
     return timeStr;
 };
 
-// Hàm kiểm tra sự kiện đã quá hạn chưa (Bao gồm cả xét Ngày diễn ra nếu Đóng khi đủ số lượng)
+// Hàm kiểm tra sự kiện đã quá hạn chưa
 const checkIsOverdue = (evt: HubEvent, currentDay: Date) => {
     if (evt.deadlineDate) {
         return evt.deadlineDate < currentDay;
     }
-    // Nếu sự kiện thiết lập Đóng khi đủ số lượng và có Ngày diễn ra
     if (evt.close_on_full && evt.event_date) {
         const evtDate = new Date(evt.event_date);
         evtDate.setHours(0, 0, 0, 0);
@@ -70,13 +70,44 @@ const checkIsOverdue = (evt: HubEvent, currentDay: Date) => {
         const todayStart = new Date(currentDay);
         todayStart.setHours(0, 0, 0, 0);
         
-        // Nếu hôm nay đã tới (hoặc qua) ngày diễn ra thì xem như quá hạn
         return todayStart >= evtDate; 
     }
     return false;
 };
 
 // --- Sub-Components (Modals) ---
+
+// ✨ WRAPPER MODAL DÀNH CHO FORM CTV
+const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
+    if (!isOpen) return null;
+    return createPortal(
+        <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 animate-scaleIn relative flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-start mb-2">
+                    <div className="w-14 h-14 bg-blue-100 text-[#003375] rounded-full flex items-center justify-center shadow-sm border border-blue-200">
+                        <UserPlus size={28} />
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 p-2 rounded-full transition-colors active:scale-95">
+                        <X size={18} />
+                    </button>
+                </div>
+                <h3 className="text-2xl font-black text-[#003375] mb-2 mt-2">Đăng ký CTV</h3>
+                <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+                    Gia nhập đội ngũ phát triển nội dung, giúp cập nhật thông tin sự kiện nhanh nhất cho cộng đồng sinh viên HUB!
+                </p>
+                <div className="bg-gray-50 -mx-6 px-6 py-2 border-t border-gray-100 flex-1">
+                    <CTVRegistrationForm 
+                        onSuccess={() => {
+                            onShowToast("Đã gửi đơn đăng ký CTV thành công!", "success");
+                        }}
+                        onClose={onClose} 
+                    />
+                </div>
+            </div>
+        </div>, document.body
+    );
+};
+
 const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
     if (!isOpen) return null;
 
@@ -257,162 +288,6 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>, document.body
-    );
-};
-
-const RecruitFormModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
-    const { session } = useUserRole();
-    const [formData, setFormData] = useState({
-        fullName: '',
-        studentBatch: '',
-        major: '',
-        contactInfo: ''
-    });
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
-
-    if (!isOpen) return null;
-
-    const handleChange = (field: keyof typeof formData) => (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData(prev => ({ ...prev, [field]: e.target.value }));
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!supabase) {
-            setError('Chưa cấu hình Supabase.');
-            return;
-        }
-
-        setSubmitting(true);
-        setError(null);
-
-        const payload = {
-            full_name: formData.fullName.trim(),
-            student_batch: formData.studentBatch.trim(),
-            major: formData.major.trim(),
-            contact_info: formData.contactInfo.trim(),
-            user_id: session?.user?.id ?? null,
-            status: 'pending'
-        };
-
-        try {
-            const { error: insertError } = await supabase
-                .from('ctv_requests')
-                .insert(payload);
-
-            if (insertError) {
-                throw insertError;
-            }
-
-            setSuccess(true);
-            setTimeout(() => {
-                onClose();
-                setSuccess(false);
-                setFormData({
-                    fullName: '',
-                    studentBatch: '',
-                    major: '',
-                    contactInfo: ''
-                });
-            }, 800);
-        } catch (err: any) {
-            setError(err.message || 'Không thể gửi đăng ký. Vui lòng thử lại.');
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    return createPortal(
-        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 animate-scaleIn relative" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X size={20} /></button>
-                <div className="w-16 h-16 bg-blue-100 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Users size={32} />
-                </div>
-                <h3 className="text-xl font-bold text-[#003375] mb-2 text-center">Trở thành CTV Nhập liệu</h3>
-                <p className="text-gray-600 mb-6 text-sm text-center">
-                    Bạn muốn đóng góp cho cộng đồng sinh viên HUB? Hãy tham gia đội ngũ cập nhật tin tức sự kiện cùng chúng mình nhé!
-                </p>
-
-                {error && (
-                    <div className="mb-4 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-600">
-                        {error}
-                    </div>
-                )}
-
-                {success ? (
-                    <div className="rounded-xl border border-green-100 bg-green-50 px-4 py-6 text-center text-green-700">
-                        <p className="font-bold">Đăng ký thành công!</p>
-                        <p className="text-sm mt-1">Cảm ơn bạn đã đăng ký. Chúng mình sẽ liên hệ sớm nhất.</p>
-                    </div>
-                ) : (
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Họ và tên</label>
-                            <input
-                                type="text"
-                                required
-                                value={formData.fullName}
-                                onChange={handleChange('fullName')}
-                                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375]"
-                                placeholder="Nguyễn Văn A"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Khóa</label>
-                            <input
-                                type="text"
-                                required
-                                value={formData.studentBatch}
-                                onChange={handleChange('studentBatch')}
-                                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375]"
-                                placeholder="K40"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Chuyên ngành</label>
-                            <input
-                                type="text"
-                                required
-                                value={formData.major}
-                                onChange={handleChange('major')}
-                                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375]"
-                                placeholder="Kinh doanh quốc tế"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">SĐT / Zalo</label>
-                            <input
-                                type="text"
-                                required
-                                value={formData.contactInfo}
-                                onChange={handleChange('contactInfo')}
-                                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-[#003375]"
-                                placeholder="0909 000 000"
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={submitting}
-                            className="w-full py-3 bg-[#003375] text-white rounded-xl font-bold hover:bg-[#002855] transition-colors flex items-center justify-center gap-2"
-                        >
-                            {submitting ? <Loader2 className="animate-spin" size={18} /> : null}
-                            {submitting ? 'Đang gửi...' : 'Gửi đăng ký'}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200 transition-colors"
-                        >
-                            Để sau
-                        </button>
-                    </form>
-                )}
             </div>
         </div>, document.body
     );
@@ -894,7 +769,7 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
 };
 
 export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) => {
-      useEffect(() => {
+  useEffect(() => {
     document.title = "Sự kiện ĐRL | HUB Planner";
   }, []);
   const { isAdmin, isCTV, session } = useUserRole();
@@ -915,6 +790,9 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+
+  // ✨ STATE MỚI ĐỂ HIỆN MODAL ĐĂNG KÝ CTV
+  const [showCTVModal, setShowCTVModal] = useState(false);
 
   const tabsList = useMemo(() => [
       {id:'all',l:'Tất cả'},
@@ -1011,7 +889,6 @@ const loadParticipation = async () => {
   };
   
   const [showScoreGuide, setShowScoreGuide] = useState(false);
-  const [showRecruitModal, setShowRecruitModal] = useState(false);
   const [showContributeModal, setShowContributeModal] = useState(false);
   const [showManageModal, setShowManageModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<HubEvent | null>(null);
@@ -1455,23 +1332,14 @@ const participatedStats = useMemo(() => {
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra</label>
-                            <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
+                            <input type="date" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Giờ diễn ra</label>
-                            <input type="time" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Trạng thái</label>
-                            <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
-                                <option value="pending">Chờ duyệt (Pending)</option>
-                                <option value="Sắp diễn ra">Sắp diễn ra</option>
-                                <option value="Đang diễn ra">Đang diễn ra</option>
-                                <option value="Đã kết thúc">Đã kết thúc</option>
-                            </select>
+                            <input type="time" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
                         </div>
                     </div>
-                    
+
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200 gap-2">
                         <div>
                             <span className="font-bold text-gray-700 block">Đóng khi đủ số lượng</span>
@@ -1532,6 +1400,16 @@ const participatedStats = useMemo(() => {
                     </div>
 
                     <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Trạng thái</label>
+                        <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+                            <option value="pending">Chờ duyệt (Pending)</option>
+                            <option value="Sắp diễn ra">Sắp diễn ra</option>
+                            <option value="Đang diễn ra">Đang diễn ra</option>
+                            <option value="Đã kết thúc">Đã kết thúc</option>
+                        </select>
+                    </div>
+
+                    <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">Mô tả sự kiện</label>
                         <textarea 
                             rows={4}
@@ -1542,7 +1420,7 @@ const participatedStats = useMemo(() => {
                         ></textarea>
                     </div>
 
-                    <button type="submit" disabled={submitting} className="w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2">
+                    <button type="submit" disabled={submitting} className="w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
                         {submitting ? <Loader2 className="animate-spin"/> : <Save size={18}/>} Lưu thay đổi
                     </button>
                 </form>
@@ -1756,24 +1634,28 @@ return (
             </div>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative overflow-hidden">
-              <div className="flex items-start gap-3 relative z-10">
-                  <Info className="text-blue-600 shrink-0 mt-0.5" size={20} />
-                  <div className="text-sm text-blue-900 leading-snug">
-                      <span className="font-bold mr-1">Cập nhật hoạt động ngoài trường:</span>
-                      <span className="inline-block">🎓 SV Năm 1, 2: <b>02/03 - 07/03</b></span>
-                      <span className="hidden sm:inline mx-2 text-blue-300">|</span>
-                      <span className="inline-block mt-1 sm:mt-0">🎓 SV Năm 3, 4: <b>06/03 - 11/03</b></span>
-                      <p className="text-red-600 font-medium mt-1 text-xs">⚠️ Quá hạn hệ thống sẽ tự động khóa và chốt điểm.</p>
+          {/* ✨ FORM TUYỂN DỤNG CTV ĐƯỢC CHỈNH LẠI: NÚT BẤM MỞ MODAL ✨ */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative overflow-hidden group">
+              <div className="flex items-start sm:items-center gap-3 relative z-10">
+                  <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm shrink-0 border border-blue-100">
+                      <UserPlus className="text-blue-600" size={20} />
+                  </div>
+                  <div>
+                      <h4 className="font-bold text-sm sm:text-base text-blue-900">Trở thành CTV Nhập liệu HUB Planner</h4>
+                      <p className="text-xs sm:text-sm mt-0.5 text-blue-800 opacity-90 max-w-2xl">
+                          Bạn muốn đóng góp xây dựng cộng đồng sinh viên HUB? Hãy tham gia đội ngũ cập nhật sự kiện ngay hôm nay!
+                      </p>
                   </div>
               </div>
-              <a 
-                  href="https://fileserver2.hub.edu.vn/PHONG.CTSV/DOCUMENT/2026/03/02/20260302090726-1057thong-bao-vv-danh-gia-kqrlsv-va-bo-sung-cac-hoat-dong-ngoai-truong-hk1-nh-2025---2026.pdf" 
-                  target="_blank" rel="noreferrer" 
-                  className="shrink-0 text-xs font-bold bg-white text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors px-3 py-2 rounded-md whitespace-nowrap self-start sm:self-auto shadow-sm relative z-10"
+              <button 
+                  onClick={() => { playClick(); setShowCTVModal(true); }}
+                  className="shrink-0 text-xs font-bold bg-[#003375] text-white hover:bg-[#002855] shadow-md transition-colors px-4 py-2.5 rounded-lg whitespace-nowrap self-start sm:self-auto relative z-10 active:scale-95 flex items-center gap-2"
               >
-                  Xem văn bản
-              </a>
+                  <UserPlus size={16} /> Đăng ký ngay
+              </button>
+              <div className="absolute right-0 top-0 opacity-[0.03] pointer-events-none transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-500">
+                  <Users size={200} />
+              </div>
           </div>
 
           <div className="relative flex w-full justify-between overflow-x-auto no-scrollbar border-b border-gray-200 px-1">
@@ -1853,10 +1735,10 @@ return (
 
       <NotificationToast />
       <DiscussionModal event={discussEvent} onClose={() => setDiscussEvent(null)} />
-      {showRecruitModal && <RecruitFormModal isOpen={showRecruitModal} onClose={() => setShowRecruitModal(false)} />}
       {showContributeModal && <ContributeEventModal isOpen={showContributeModal} onClose={() => setShowContributeModal(false)} onShowToast={showToast} />}
       {showScoreGuide && <ScoreGuideModal isOpen={showScoreGuide} onClose={() => setShowScoreGuide(false)} />}
       {showManageModal && <ManageEventModal />}
+      <CTVModalWrapper isOpen={showCTVModal} onClose={() => setShowCTVModal(false)} onShowToast={showToast} />
       
       <ReportEventModal 
           isOpen={!!reportingEvent} 
