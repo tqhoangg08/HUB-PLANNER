@@ -17,9 +17,9 @@ interface LostFoundItem {
   contact_info: string;
   user_name: string;
   image_url: string | null;
-  status: 'pending' | 'approved' | 'resolved'; // Đã thêm trạng thái resolved
+  status: 'pending' | 'approved' | 'resolved'; 
   is_deleted: boolean; 
-  user_id?: string; // Thêm user_id để biết ai là người đăng bài
+  user_id?: string; 
 }
 
 // --- SHARED MODAL LOGIC (SUBMIT) ---
@@ -29,7 +29,7 @@ interface SubmitModalProps {
     type: 'FOUND' | 'LOST';
     onShowToast: (msg: string, type: 'success' | 'error') => void;
     editingItem?: LostFoundItem | null; 
-    currentUserId?: string | null; // ID của người đang đăng nhập
+    currentUserId?: string | null; 
 }
 
 const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShowToast, editingItem, currentUserId }) => {
@@ -135,7 +135,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                         user_name: formData.user_name || 'Ẩn danh',
                         image_url: imageUrl,
                         type: type,
-                        user_id: currentUserId || null, // Lưu ID của người đăng
+                        user_id: currentUserId || null, 
                         status: 'pending'
                     }]);
                 if (error) throw error;
@@ -289,7 +289,7 @@ export const LostFoundBoard: React.FC = () => {
     document.title = "Tìm đồ thất lạc | HUB Planner";
   }, []);
 
-  const { isAdmin, isCTV, isStudent, session } = useUserRole(); // Lấy session
+  const { isAdmin, isCTV, isStudent, session } = useUserRole(); 
   const canManage = isAdmin || isCTV;
 
   const [items, setItems] = useState<LostFoundItem[]>([]);
@@ -353,24 +353,26 @@ export const LostFoundBoard: React.FC = () => {
       }
   };
 
-  const handleDelete = async (id: number) => {
-      if (!isAdmin) return;
+  // ✨ Đã sửa hàm handleDelete để hỗ trợ Admin HOẶC Chủ nhân bài viết
+  const handleDelete = async (item: LostFoundItem) => {
+      // Cho phép Admin xóa hoặc người dùng xóa bài của chính mình
+      if (!isAdmin && session?.user?.id !== item.user_id) return;
+      
       playClick();
-      if (!window.confirm("Xóa tin này?")) return;
+      if (!window.confirm("Bạn có chắc chắn muốn xóa tin này không?")) return;
       
       const { error } = await supabase!
         .from('lost_found_items')
         .update({ is_deleted: true })
-        .eq('id', id);
+        .eq('id', item.id);
 
       if (error) showToast("Lỗi xóa: " + error.message, 'error');
       else {
-          showToast("Đã xóa tin", 'success');
-          setItems(prev => prev.filter(i => i.id !== id));
+          showToast("Đã xóa tin thành công", 'success');
+          setItems(prev => prev.filter(i => i.id !== item.id));
       }
   };
 
-  // Hàm xử lý "Đã tìm thấy"
   const handleResolve = async (id: number) => {
       playClick();
       if (!window.confirm("Bạn xác nhận là đã giải quyết xong (Tìm thấy đồ / Đã trả lại đồ) cho bài đăng này?")) return;
@@ -455,7 +457,6 @@ return (
               </button>
           </div>
       </div>
-      {/* 👆 KẾT THÚC VÙNG STICKY 👆 */}
 
       {!canManage && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-start sm:items-center gap-3 text-sm text-amber-900 animate-fadeIn">
@@ -521,11 +522,18 @@ return (
                         </div>
 
                         <div className="px-4 pb-4 flex flex-col gap-2">
-                            {/* ✨ NÚT ĐÁNH DẤU GIẢI QUYẾT CHO NGƯỜI ĐĂNG */}
-                            {session?.user?.id === item.user_id && !isResolved && (
-                                <button onClick={(e) => { e.stopPropagation(); handleResolve(item.id); }} className="w-full py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-green-200">
-                                    <CheckCircle2 size={16} /> {item.type === 'FOUND' ? 'Đánh dấu đã trao trả' : 'Đánh dấu đã tìm thấy'}
-                                </button>
+                            {/* ✨ NÚT DÀNH RIÊNG CHO NGƯỜI ĐĂNG */}
+                            {session?.user?.id === item.user_id && (
+                                <>
+                                    {!isResolved && (
+                                        <button onClick={(e) => { e.stopPropagation(); handleResolve(item.id); }} className="w-full py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-green-200">
+                                            <CheckCircle2 size={16} /> {item.type === 'FOUND' ? 'Đánh dấu đã trao trả' : 'Đánh dấu đã tìm thấy'}
+                                        </button>
+                                    )}
+                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(item); }} className="w-full py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-red-200">
+                                        <Trash2 size={16} /> Xóa bài đăng
+                                    </button>
+                                </>
                             )}
 
                             <button onClick={() => { playClick(); setSelectedItem(item); }} className="w-full py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-[#003375] rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-gray-200">
@@ -533,6 +541,7 @@ return (
                             </button>
                         </div>
 
+                        {/* TÍNH NĂNG CỦA ADMIN/CTV */}
                         {canManage && (
                             <div className="px-4 pb-4 pt-2 border-t border-gray-100 flex gap-2">
                                 {isPending && (
@@ -544,7 +553,7 @@ return (
                                     <Edit2 size={14} /> Sửa
                                 </button>
                                 {isAdmin && (
-                                    <button onClick={() => handleDelete(item.id)} className="py-1.5 px-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-bold">
+                                    <button onClick={() => handleDelete(item)} className="py-1.5 px-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-bold">
                                         <Trash2 size={14} />
                                     </button>
                                 )}
