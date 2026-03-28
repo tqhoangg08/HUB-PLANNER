@@ -81,15 +81,13 @@ const App: React.FC = () => {
     const [forceGuestOnboarding, setForceGuestOnboarding] = useState(false);
 
     // ==========================================
-    // ✨ THÊM LOGIC BONG BÓNG CHAT Ở ĐÂY ✨
+    // LOGIC BONG BÓNG CHAT Ở ĐÂY
     // ==========================================
     const [showBubble, setShowBubble] = useState(false);
 
     useEffect(() => {
-        // Vừa vào trang 2s thì hiện bong bóng chào
         const initialTimeout = setTimeout(() => setShowBubble(true), 2000);
 
-        // Sau đó cứ lặp lại chu kỳ 10s: Hiện 5s rồi tắt 5s
         const interval = setInterval(() => {
             setShowBubble(true);
             setTimeout(() => {
@@ -220,6 +218,33 @@ const App: React.FC = () => {
     const [isSendingOtp, setIsSendingOtp] = useState(false);
     const [otpError, setOtpError] = useState('');
     const [resendCountdown, setResendCountdown] = useState(0);
+
+    // ==========================================
+    // ✨ THÊM STATE & HÀM CHO CAPTCHA CHỐNG BOT ✨
+    // ==========================================
+    const [captchaQuestion, setCaptchaQuestion] = useState('');
+    const [captchaAnswer, setCaptchaAnswer] = useState<number | null>(null);
+    const [userCaptchaInput, setUserCaptchaInput] = useState('');
+
+    const generateCaptcha = useCallback(() => {
+        const num1 = Math.floor(Math.random() * 10) + 1; // Random 1 -> 10
+        const num2 = Math.floor(Math.random() * 10) + 1;
+        const ops = ['+', '-'];
+        const op = ops[Math.floor(Math.random() * ops.length)];
+        
+        if (op === '+') {
+            setCaptchaQuestion(`${num1} + ${num2}`);
+            setCaptchaAnswer(num1 + num2);
+        } else {
+            // Đảm bảo phép trừ luôn ra số dương cho dễ tính
+            const max = Math.max(num1, num2);
+            const min = Math.min(num1, num2);
+            setCaptchaQuestion(`${max} - ${min}`);
+            setCaptchaAnswer(max - min);
+        }
+        setUserCaptchaInput('');
+    }, []);
+    // ==========================================
 
     const userRolePref: 'guest' | 'school' | 'admin' = session ? (isAdmin ? 'admin' : 'school') : 'guest';
 
@@ -357,15 +382,11 @@ const App: React.FC = () => {
         }
 
         saveTimeoutRef.current = window.setTimeout(async () => {
-            // Xác định ID của người đang được thao tác dữ liệu (Là Admin đang soi, hay là User tự sửa)
             const targetUserId = (isAdmin && viewingUser) ? viewingUser.id : session.user.id;
             
-            // Đảm bảo data đang giữ đúng là của người đó (chống cross-save)
             if (dataOwnerIdRef.current !== targetUserId) return;
 
-            // NẾU LÀ ADMIN ĐANG SỬA GIÙM SINH VIÊN
             if (isAdmin && viewingUser) {
-                // CHỈ CẬP NHẬT CỘT 'data' (tránh lưu đè tên/avatar của Admin vào nick sinh viên)
                 const { error } = await supabase
                     .from(STUDENT_PROFILE_TABLE)
                     .update({ 
@@ -376,7 +397,6 @@ const App: React.FC = () => {
                 
                 if (error) console.error("Lỗi Admin update data user:", error);
             } 
-            // NẾU LÀ TỰ SỬA CHO CHÍNH MÌNH (User bình thường)
             else {
                 const userEmail = session.user.email || '';
                 const studentCode = userEmail.split('@')[0];
@@ -508,8 +528,21 @@ const App: React.FC = () => {
             setResetStep(1); 
             setOtpInput('');
             setOtpError('');
+            generateCaptcha(); // Khởi tạo mã captcha
             setIsUserMenuOpen(false);
         }
+    };
+
+    // ✨ HÀM KIỂM TRA CAPTCHA RỒI MỚI GỬI MAIL OTP ✨
+    const handleVerifyCaptchaAndSendOtp = () => {
+        playClick();
+        if (parseInt(userCaptchaInput) !== captchaAnswer) {
+            setOtpError('Kết quả phép tính không đúng! Vui lòng thử lại.');
+            generateCaptcha(); // Đổi bài toán khác nếu nhập sai
+            return;
+        }
+        setOtpError('');
+        sendOtpEmail();
     };
 
     const sendOtpEmail = async () => {
@@ -543,6 +576,7 @@ const App: React.FC = () => {
         } catch (error) {
             console.error('Lỗi gửi mail:', error);
             setOtpError('Hệ thống mail đang bận. Vui lòng thử lại sau.');
+            generateCaptcha(); // Lỗi gửi mail cũng đổi captcha cho an toàn
         } finally {
             setIsSendingOtp(false);
         }
@@ -1249,7 +1283,7 @@ const App: React.FC = () => {
                 </div>
 
                 {/* ========================================== */}
-                {/* ✨ GIAO DIỆN BONG BÓNG CHAT VÀ COMPONENT ✨ */}
+                {/* GIAO DIỆN BONG BÓNG CHAT VÀ COMPONENT */}
                 {/* ========================================== */}
                 <div className="fixed bottom-[85px] right-6 z-50 flex flex-col items-end pointer-events-none">
                     <div
@@ -1325,7 +1359,7 @@ const App: React.FC = () => {
                                         <button onClick={() => setShowResetModal(false)} className="w-full py-3.5 bg-[#003375] text-white font-bold rounded-xl hover:bg-[#002855] transition-all shadow-md active:scale-95 flex items-center justify-center gap-2">
                                             Thôi, mình ở lại! 💙
                                         </button>
-                                        <button onClick={() => setResetStep(2)} className="w-full py-3 bg-transparent text-gray-500 font-bold rounded-xl hover:bg-gray-50 hover:text-red-600 transition-all text-sm">
+                                        <button onClick={() => { playClick(); setResetStep(2); generateCaptcha(); }} className="w-full py-3 bg-transparent text-gray-500 font-bold rounded-xl hover:bg-gray-50 hover:text-red-600 transition-all text-sm">
                                             Mình đã quyết định, tiếp tục xóa
                                         </button>
                                     </div>
@@ -1349,10 +1383,25 @@ const App: React.FC = () => {
                                             <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 text-center font-bold text-[#003375]">
                                                 {session?.user.email}
                                             </div>
+                                            
+                                            {/* ✨ FORM XÁC MINH CAPTCHA THÊM MỚI Ở ĐÂY ✨ */}
+                                            <div className="mt-4 flex flex-col gap-2">
+                                                <label className="text-sm font-bold text-gray-700 text-center">
+                                                    Xác minh bảo mật: <span className="text-[#003375]">{captchaQuestion} = ?</span>
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    placeholder="Nhập kết quả phép tính..."
+                                                    value={userCaptchaInput}
+                                                    onChange={(e) => setUserCaptchaInput(e.target.value)}
+                                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none transition-all text-sm font-bold text-center bg-gray-50"
+                                                />
+                                            </div>
+
                                             {otpError && <p className="text-xs text-red-500 text-center font-bold">{otpError}</p>}
                                             
                                             <div className="flex flex-col gap-2 mt-4">
-                                                <button onClick={sendOtpEmail} disabled={isSendingOtp} className="w-full bg-red-600 text-white font-bold py-3.5 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-md">
+                                                <button onClick={handleVerifyCaptchaAndSendOtp} disabled={isSendingOtp || !userCaptchaInput} className="w-full bg-red-600 text-white font-bold py-3.5 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-md">
                                                     {isSendingOtp ? <Loader2 className="animate-spin" size={18} /> : <Mail size={18} />} 
                                                     {isSendingOtp ? 'Đang gửi mã...' : 'Xác nhận gửi mã'}
                                                 </button>
@@ -1442,6 +1491,7 @@ const App: React.FC = () => {
                                                     setResetStep(2); 
                                                     setOtpInput('');
                                                     setOtpError('');
+                                                    generateCaptcha(); // Quay lại nhớ tạo captcha mới
                                                 }} 
                                                 className="text-sm text-gray-500 font-semibold hover:text-gray-900 transition-colors flex items-center gap-1.5"
                                             >
