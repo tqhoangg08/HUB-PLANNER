@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, MessageSquare, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield, EyeOff } from 'lucide-react';
+import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, MessageSquare, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
 import { createPortal } from 'react-dom';
@@ -17,8 +17,9 @@ interface LostFoundItem {
   contact_info: string;
   user_name: string;
   image_url: string | null;
-  status: 'pending' | 'approved';
+  status: 'pending' | 'approved' | 'resolved'; // Đã thêm trạng thái resolved
   is_deleted: boolean; 
+  user_id?: string; // Thêm user_id để biết ai là người đăng bài
 }
 
 // --- SHARED MODAL LOGIC (SUBMIT) ---
@@ -28,9 +29,10 @@ interface SubmitModalProps {
     type: 'FOUND' | 'LOST';
     onShowToast: (msg: string, type: 'success' | 'error') => void;
     editingItem?: LostFoundItem | null; 
+    currentUserId?: string | null; // ID của người đang đăng nhập
 }
 
-const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShowToast, editingItem }) => {
+const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShowToast, editingItem, currentUserId }) => {
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -133,6 +135,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                         user_name: formData.user_name || 'Ẩn danh',
                         image_url: imageUrl,
                         type: type,
+                        user_id: currentUserId || null, // Lưu ID của người đăng
                         status: 'pending'
                     }]);
                 if (error) throw error;
@@ -227,6 +230,8 @@ interface ItemDetailModalProps {
 }
 const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
     if (!item) return null;
+    const isResolved = item.status === 'resolved';
+
     return createPortal(
         <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white w-full max-w-6xl h-[90vh] md:h-[85vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative animate-scaleIn">
@@ -234,18 +239,24 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
                 <div className="w-full md:w-[40%] bg-gray-50 flex flex-col border-b md:border-b-0 md:border-r border-gray-200 overflow-y-auto custom-scrollbar shrink-0 h-[45%] md:h-full">
                     <div className="w-full bg-black/5 flex items-center justify-center relative min-h-[200px] md:min-h-[300px]">
                          {item.image_url ? (
-                            <img src={item.image_url} alt="Item" className="w-full h-full object-contain max-h-[40vh] md:max-h-[50vh]" />
+                            <img src={item.image_url} alt="Item" className={`w-full h-full object-contain max-h-[40vh] md:max-h-[50vh] ${isResolved ? 'grayscale opacity-70' : ''}`} />
                         ) : (
                             <div className="flex flex-col items-center text-gray-400 py-10"><ImageOff size={48} className="mb-2 opacity-50" /><span className="text-sm">Không có ảnh</span></div>
                         )}
-                        <div className={`absolute top-4 left-4 text-xs font-bold px-3 py-1.5 rounded-md shadow-sm uppercase tracking-wider ${item.type === 'FOUND' ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'}`}>
-                            {item.type === 'FOUND' ? 'Đồ nhặt được' : 'Đang tìm kiếm'}
+                        <div className={`absolute top-4 left-4 text-xs font-bold px-3 py-1.5 rounded-md shadow-sm uppercase tracking-wider ${
+                            isResolved ? 'bg-green-600 text-white' : 
+                            item.type === 'FOUND' ? 'bg-blue-600 text-white' : 'bg-red-600 text-white'
+                        }`}>
+                            {isResolved ? (item.type === 'FOUND' ? 'Đã trao trả' : 'Đã tìm thấy') : (item.type === 'FOUND' ? 'Đồ nhặt được' : 'Đang tìm kiếm')}
                         </div>
                     </div>
                     <div className="p-6 space-y-4">
                         <div>
-                            <h3 className={`text-2xl font-bold flex items-start gap-2 leading-tight ${item.type === 'FOUND' ? 'text-[#003375]' : 'text-[#990000]'}`}>
-                                {item.type === 'FOUND' ? <MapPin size={24} className="shrink-0 mt-1" /> : <Tag size={24} className="shrink-0 mt-1" />}
+                            <h3 className={`text-2xl font-bold flex items-start gap-2 leading-tight ${
+                                isResolved ? 'text-green-700' :
+                                item.type === 'FOUND' ? 'text-[#003375]' : 'text-[#990000]'
+                            }`}>
+                                {isResolved ? <CheckCircle2 size={24} className="shrink-0 mt-1" /> : (item.type === 'FOUND' ? <MapPin size={24} className="shrink-0 mt-1" /> : <Tag size={24} className="shrink-0 mt-1" />)}
                                 {item.title}
                             </h3>
                             <div className="flex items-center gap-2 text-gray-500 text-sm mt-2"><Calendar size={14} /><span>Ngày đăng: {new Date(item.created_at).toLocaleDateString('vi-VN')}</span></div>
@@ -274,10 +285,11 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
 
 // --- MAIN COMPONENT ---
 export const LostFoundBoard: React.FC = () => {
-    useEffect(() => {
+  useEffect(() => {
     document.title = "Tìm đồ thất lạc | HUB Planner";
   }, []);
-  const { isAdmin, isCTV, isStudent } = useUserRole();
+
+  const { isAdmin, isCTV, isStudent, session } = useUserRole(); // Lấy session
   const canManage = isAdmin || isCTV;
 
   const [items, setItems] = useState<LostFoundItem[]>([]);
@@ -304,7 +316,7 @@ export const LostFoundBoard: React.FC = () => {
         .order('created_at', { ascending: false });
       
       if (isStudent) {
-          query = query.eq('status', 'approved');
+          query = query.in('status', ['approved', 'resolved']);
       }
 
       const { data, error } = await query;
@@ -358,6 +370,23 @@ export const LostFoundBoard: React.FC = () => {
       }
   };
 
+  // Hàm xử lý "Đã tìm thấy"
+  const handleResolve = async (id: number) => {
+      playClick();
+      if (!window.confirm("Bạn xác nhận là đã giải quyết xong (Tìm thấy đồ / Đã trả lại đồ) cho bài đăng này?")) return;
+      
+      const { error } = await supabase!
+        .from('lost_found_items')
+        .update({ status: 'resolved' })
+        .eq('id', id);
+
+      if (error) showToast("Lỗi cập nhật: " + error.message, 'error');
+      else {
+          showToast("Đã đánh dấu thành công! Cảm ơn bạn.", 'success');
+          setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'resolved' } : i));
+      }
+  };
+
   const handleEdit = (item: LostFoundItem) => {
       playClick();
       setEditingItem(item);
@@ -386,8 +415,9 @@ return (
           </div>, document.body
       )}
 
-      {/* 👇 BỌC TOÀN BỘ KHU VỰC NÀY ĐỂ LÀM STICKY 👇 */}
-<div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-6 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
+      {/* VÙNG STICKY */}
+      <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-6 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
             <div>
                 <h2 className="text-[24px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
                     Tìm đồ thất lạc</h2>
@@ -443,42 +473,67 @@ return (
             {filteredItems.length > 0 ? (
                 filteredItems.map((item) => {
                     const isPending = item.status === 'pending';
-                    const borderClass = isPending 
-                        ? 'border-yellow-400 ring-2 ring-yellow-100' 
-                        : (item.type === 'FOUND' ? 'border-gray-200' : 'border-red-100 ring-1 ring-red-50');
+                    const isResolved = item.status === 'resolved';
+
+                    const borderClass = isResolved 
+                        ? 'border-green-200 ring-1 ring-green-50 bg-gray-50'
+                        : isPending 
+                            ? 'border-yellow-400 ring-2 ring-yellow-100' 
+                            : (item.type === 'FOUND' ? 'border-gray-200' : 'border-red-100 ring-1 ring-red-50');
 
                     return (
-                    <div key={item.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-lg transition-all duration-300 group flex flex-col ${borderClass}`}>
+                    <div key={item.id} className={`rounded-xl shadow-sm border overflow-hidden hover:shadow-lg transition-all duration-300 group flex flex-col ${borderClass} ${isResolved ? 'opacity-80' : 'bg-white'}`}>
                         <div className="aspect-video w-full bg-gray-100 relative overflow-hidden cursor-pointer" onClick={() => { playClick(); setSelectedItem(item); }}>
                             {item.image_url ? (
-                                <img src={item.image_url} alt="Item" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+                                <img src={item.image_url} alt="Item" className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${isResolved ? 'grayscale opacity-70' : ''}`} loading="lazy" />
                             ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50"><ImageOff size={32} className="mb-2 opacity-50" /><span className="text-xs">Không có ảnh</span></div>
                             )}
                             <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-md flex items-center gap-1"><Calendar size={12} /> {new Date(item.created_at).toLocaleDateString('vi-VN')}</div>
-                             <div className={`absolute top-2 left-2 text-xs font-bold px-2 py-1 rounded-md shadow-sm uppercase tracking-wider ${item.type === 'FOUND' ? 'bg-blue-100 text-[#003375]' : 'bg-red-100 text-[#990000]'}`}>
-                                {item.type === 'FOUND' ? 'Nhặt được' : 'Đang tìm'}
+                            
+                             <div className={`absolute top-2 left-2 text-xs font-bold px-2 py-1 rounded-md shadow-sm uppercase tracking-wider ${
+                                isResolved ? 'bg-green-100 text-green-800 border border-green-200' :
+                                item.type === 'FOUND' ? 'bg-blue-100 text-[#003375]' : 'bg-red-100 text-[#990000]'
+                            }`}>
+                                {isResolved ? (item.type === 'FOUND' ? 'Đã trao trả' : 'Đã tìm thấy') : (item.type === 'FOUND' ? 'Nhặt được' : 'Đang tìm')}
                             </div>
+
                             {isPending && <div className="absolute bottom-2 left-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-md shadow-md animate-pulse">Chờ duyệt</div>}
                         </div>
 
                         <div className="p-4 flex-1 flex flex-col">
                             <div className="mb-3">
-                                <h3 className={`text-lg font-bold flex items-start gap-2 leading-tight line-clamp-1 ${item.type === 'FOUND' ? 'text-[#003375]' : 'text-[#990000]'}`}>
-                                    {item.type === 'FOUND' ? <MapPin size={18} className="shrink-0 mt-0.5" /> : <Tag size={18} className="shrink-0 mt-0.5" />}
+                                <h3 className={`text-lg font-bold flex items-start gap-2 leading-tight line-clamp-1 ${
+                                    isResolved ? 'text-green-700' :
+                                    item.type === 'FOUND' ? 'text-[#003375]' : 'text-[#990000]'
+                                }`}>
+                                    {isResolved ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" /> : (item.type === 'FOUND' ? <MapPin size={18} className="shrink-0 mt-0.5" /> : <Tag size={18} className="shrink-0 mt-0.5" />)}
                                     {item.title}
                                 </h3>
                                 <p className="text-sm text-gray-500 mt-1 line-clamp-1 flex items-center gap-1"><MapPin size={12}/> Khu vực: {item.location}</p>
                             </div>
                             <div className="space-y-2 text-sm text-gray-600 mt-auto">
-                                <div className={`flex items-center gap-2 p-2 rounded-lg border ${item.type === 'FOUND' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'}`}>
-                                    {item.type === 'FOUND' ? <User size={14} className="text-[#003375]" /> : <HelpCircle size={14} className="text-[#990000]" />}
+                                <div className={`flex items-center gap-2 p-2 rounded-lg border ${isResolved ? 'bg-green-50 border-green-100' : (item.type === 'FOUND' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100')}`}>
+                                    {item.type === 'FOUND' ? <User size={14} className={isResolved ? "text-green-700" : "text-[#003375]"} /> : <HelpCircle size={14} className={isResolved ? "text-green-700" : "text-[#990000]"} />}
                                     <span className="font-medium text-gray-700">{item.type === 'FOUND' ? 'Người nhặt:' : 'Người mất:'}</span><span className="truncate flex-1">{item.user_name}</span>
                                 </div>
                             </div>
                         </div>
 
-                        {canManage ? (
+                        <div className="px-4 pb-4 flex flex-col gap-2">
+                            {/* ✨ NÚT ĐÁNH DẤU GIẢI QUYẾT CHO NGƯỜI ĐĂNG */}
+                            {session?.user?.id === item.user_id && !isResolved && (
+                                <button onClick={(e) => { e.stopPropagation(); handleResolve(item.id); }} className="w-full py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-green-200">
+                                    <CheckCircle2 size={16} /> {item.type === 'FOUND' ? 'Đánh dấu đã trao trả' : 'Đánh dấu đã tìm thấy'}
+                                </button>
+                            )}
+
+                            <button onClick={() => { playClick(); setSelectedItem(item); }} className="w-full py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-[#003375] rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-gray-200">
+                                <MessageSquare size={16} /> 💬 Chi tiết & Liên hệ
+                            </button>
+                        </div>
+
+                        {canManage && (
                             <div className="px-4 pb-4 pt-2 border-t border-gray-100 flex gap-2">
                                 {isPending && (
                                     <button onClick={() => handleApprove(item.id)} className="flex-1 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg text-xs font-bold flex items-center justify-center gap-1">
@@ -493,12 +548,6 @@ return (
                                         <Trash2 size={14} />
                                     </button>
                                 )}
-                            </div>
-                        ) : (
-                            <div className="px-4 pb-4">
-                                <button onClick={() => { playClick(); setSelectedItem(item); }} className="w-full py-2 bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-[#003375] rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-gray-200">
-                                    <MessageSquare size={16} /> 💬 Chi tiết & Liên hệ
-                                </button>
                             </div>
                         )}
                     </div>
@@ -518,6 +567,7 @@ return (
         type={submitType}
         onShowToast={showToast}
         editingItem={editingItem}
+        currentUserId={session?.user?.id}
       />
       <ItemDetailModal 
         item={selectedItem} 
