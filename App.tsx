@@ -26,9 +26,16 @@ import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
 import { AdminReports } from './components/AdminReports';
 import { AIAdvisor } from './components/AIAdvisor';
-
-// Import dữ liệu Ngành/Khóa học
+import { MobileAIAdvisor } from './components/MobileAIAdvisor'; 
 import { ACADEMIC_PROGRAMS, Program, Major, Specialization, getMajors } from './utils/programs';
+import { DesktopLayout } from './layouts/DesktopLayout';
+import { MobileAppLayout } from './layouts/MobileAppLayout';
+import { MobileHome } from './components/MobileHome';
+import { MobileLearning } from './components/MobileLearning';
+import { MobileEvents } from './components/MobileEvents';
+import { MobileLostFound } from './components/MobileLostFound';
+import { MobileProfile } from './components/MobileProfile'; 
+import { MobileLogin } from './components/MobileLogin';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
@@ -81,13 +88,36 @@ const App: React.FC = () => {
     const [forceGuestOnboarding, setForceGuestOnboarding] = useState(false);
 
     // ==========================================
-    // LOGIC BONG BÓNG CHAT Ở ĐÂY
+    // ✨ PWA MODE & RESPONSIVE DETECTOR
+    // ==========================================
+    const [isAppMode, setIsAppMode] = useState(false);
+    const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth < 768);
+
+    useEffect(() => {
+        const checkIfAppMode = () => {
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+            const isIOSStandalone = (window.navigator as any).standalone === true; 
+            setIsAppMode(isStandalone || isIOSStandalone);
+        };
+        const handleResize = () => setIsMobileScreen(window.innerWidth < 768);
+
+        checkIfAppMode();
+        window.matchMedia('(display-mode: standalone)').addEventListener('change', checkIfAppMode);
+        window.addEventListener('resize', handleResize);
+        
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // ✨ Logic tự động chia luồng: Màn hình nhỏ thì dùng Layout Mobile
+    const useMobileLayout = isAppMode && isMobileScreen;
+
+    // ==========================================
+    // LOGIC BONG BÓNG CHAT
     // ==========================================
     const [showBubble, setShowBubble] = useState(false);
 
     useEffect(() => {
         const initialTimeout = setTimeout(() => setShowBubble(true), 2000);
-
         const interval = setInterval(() => {
             setShowBubble(true);
             setTimeout(() => {
@@ -100,7 +130,6 @@ const App: React.FC = () => {
             clearInterval(interval);
         };
     }, []);
-    // ==========================================
 
     const [isHandbookMenuOpen, setIsHandbookMenuOpen] = useState(false);
     const handbookMenuRef = useRef<HTMLDivElement>(null);
@@ -220,31 +249,51 @@ const App: React.FC = () => {
     const [resendCountdown, setResendCountdown] = useState(0);
 
     // ==========================================
-    // ✨ THÊM STATE & HÀM CHO CAPTCHA CHỐNG BOT ✨
+    // ✨ THUẬT TOÁN CAPTCHA NÂNG CAO ✨
     // ==========================================
     const [captchaQuestion, setCaptchaQuestion] = useState('');
     const [captchaAnswer, setCaptchaAnswer] = useState<number | null>(null);
     const [userCaptchaInput, setUserCaptchaInput] = useState('');
 
     const generateCaptcha = useCallback(() => {
-        const num1 = Math.floor(Math.random() * 10) + 1; // Random 1 -> 10
-        const num2 = Math.floor(Math.random() * 10) + 1;
-        const ops = ['+', '-'];
-        const op = ops[Math.floor(Math.random() * ops.length)];
-        
-        if (op === '+') {
-            setCaptchaQuestion(`${num1} + ${num2}`);
-            setCaptchaAnswer(num1 + num2);
-        } else {
-            // Đảm bảo phép trừ luôn ra số dương cho dễ tính
-            const max = Math.max(num1, num2);
-            const min = Math.min(num1, num2);
-            setCaptchaQuestion(`${max} - ${min}`);
-            setCaptchaAnswer(max - min);
-        }
+        const patterns = [
+            () => {
+                const n1 = Math.floor(Math.random() * 50) + 10;
+                const n2 = Math.floor(Math.random() * 50) + 1;
+                return { q: `${n1} + ${n2}`, a: n1 + n2 };
+            },
+            () => {
+                const n1 = Math.floor(Math.random() * 50) + 30;
+                const n2 = Math.floor(Math.random() * 20) + 1;
+                return { q: `${n1} - ${n2}`, a: n1 - n2 };
+            },
+            () => {
+                const n1 = Math.floor(Math.random() * 9) + 2;
+                const n2 = Math.floor(Math.random() * 9) + 2;
+                return { q: `${n1} × ${n2}`, a: n1 * n2 };
+            },
+            () => {
+                const n1 = Math.floor(Math.random() * 20) + 1;
+                const n2 = Math.floor(Math.random() * 20) + 1;
+                const n3 = Math.floor(Math.random() * 10) + 1;
+                return { q: `${n1} + ${n2} + ${n3}`, a: n1 + n2 + n3 };
+            },
+            () => {
+                const n1 = Math.floor(Math.random() * 30) + 20;
+                const n2 = Math.floor(Math.random() * 15) + 1;
+                const n3 = Math.floor(Math.random() * 20) + 1;
+                return { q: `${n1} - ${n2} + ${n3}`, a: n1 - n2 + n3 };
+            }
+        ];
+
+        const selectedPattern = patterns[Math.floor(Math.random() * patterns.length)];
+        const { q, a } = selectedPattern();
+
+        setCaptchaQuestion(q);
+        setCaptchaAnswer(a);
         setUserCaptchaInput('');
+        setOtpError(''); 
     }, []);
-    // ==========================================
 
     const userRolePref: 'guest' | 'school' | 'admin' = session ? (isAdmin ? 'admin' : 'school') : 'guest';
 
@@ -496,6 +545,7 @@ const App: React.FC = () => {
         ensureSchoolDomain();
     }, [session, isGuest, isAdmin, isCTV]);
 
+    // ✨ ĐÃ SỬA: Thay location.href bằng navigate để không bị khựng trang
     const handleLogout = async () => {
         playClick();
         if (window.confirm("Đăng xuất khỏi hệ thống?")) {
@@ -508,7 +558,7 @@ const App: React.FC = () => {
             localStorage.clear();
             sessionStorage.clear();
             
-            window.location.href = '/login';
+            navigate('/login', { replace: true });
         }
     };
 
@@ -528,17 +578,16 @@ const App: React.FC = () => {
             setResetStep(1); 
             setOtpInput('');
             setOtpError('');
-            generateCaptcha(); // Khởi tạo mã captcha
+            generateCaptcha(); 
             setIsUserMenuOpen(false);
         }
     };
 
-    // ✨ HÀM KIỂM TRA CAPTCHA RỒI MỚI GỬI MAIL OTP ✨
     const handleVerifyCaptchaAndSendOtp = () => {
         playClick();
         if (parseInt(userCaptchaInput) !== captchaAnswer) {
-            setOtpError('Kết quả phép tính không đúng! Vui lòng thử lại.');
-            generateCaptcha(); // Đổi bài toán khác nếu nhập sai
+            setOtpError('Kết quả phép tính không đúng! Hệ thống đã đổi câu hỏi bảo mật mới.');
+            generateCaptcha(); 
             return;
         }
         setOtpError('');
@@ -565,7 +614,6 @@ const App: React.FC = () => {
             });
 
             if (error || !data || data.error) {
-                console.error("Chi tiết lỗi từ Edge Function:", error || data?.error);
                 throw new Error("Lỗi từ máy chủ Backend");
             }
 
@@ -576,7 +624,7 @@ const App: React.FC = () => {
         } catch (error) {
             console.error('Lỗi gửi mail:', error);
             setOtpError('Hệ thống mail đang bận. Vui lòng thử lại sau.');
-            generateCaptcha(); // Lỗi gửi mail cũng đổi captcha cho an toàn
+            generateCaptcha(); 
         } finally {
             setIsSendingOtp(false);
         }
@@ -593,6 +641,7 @@ const App: React.FC = () => {
         }
     };
 
+    // ✨ ĐÃ SỬA: Thay location.href bằng navigate để không bị khựng trang
     const executeResetData = async () => {
         try {
             if (!isGuest && session?.user?.id && supabase) {
@@ -633,7 +682,7 @@ const App: React.FC = () => {
             localStorage.clear();
             sessionStorage.clear();
             
-            window.location.href = '/login';
+            navigate('/login', { replace: true });
         }
     };
 
@@ -833,12 +882,13 @@ const App: React.FC = () => {
                             <p className="font-bold flex items-center gap-2 mb-1"><AlertTriangle size={16} /> Yêu cầu bắt buộc:</p>
                             <p>Vui lòng đăng nhập bằng email sinh viên trường ĐH Ngân hàng TP.HCM có đuôi tên miền là <strong>@{SCHOOL_DOMAIN}</strong></p>
                         </div>
+                        {/* ✨ ĐÃ SỬA: Thay location.href bằng navigate để không bị khựng trang */}
                         <button 
                             onClick={async () => { 
                                 playClick(); 
                                 await supabase?.auth.signOut(); 
                                 setIsAccessDenied(false); 
-                                window.location.href = '/login'; 
+                                navigate('/login', { replace: true }); 
                             }} 
                             className="w-full bg-[#003375] text-white font-bold py-3 rounded-xl hover:bg-[#002855] transition-colors flex items-center justify-center gap-2 shadow-sm"
                         >
@@ -856,456 +906,81 @@ const App: React.FC = () => {
             }} />;
         }
 
-        return (
-            <div className="h-[100dvh] bg-[#F8FAFC] font-sans text-gray-800 flex flex-col relative overflow-hidden">
-                <Particles
-                    id="app-particles"
-                    init={particlesInit}
-                    options={particlesOptions}
-                    className="absolute inset-0 z-0 pointer-events-none"
-                />
+        const desktopRoutes = (
+            <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard" element={
+                    <div className="animate-fadeIn">
+                        <Dashboard
+                            data={data}
+                            onSetSemesters={(sems) => setData(prev => ({ ...prev, semesters: sems }))}
+                            isGuest={isGuest}
+                            onRequireOnboarding={() => setForceGuestOnboarding(true)}
+                            onTargetChange={(newTarget) => setData(prev => ({ ...prev, targetGPA: newTarget }))}
+                            showSecurityNotice={!session}
+                            onUpdateSemester={updateSemester} 
+                            onRemoveSemester={removeSemester} 
+                            onAddSemester={addSemester}       
+                            onExportPDF={handleExportPDF}     
+                            onImportPDF={() => { playClick(); setShowImportGuide(true); }} 
+                            isImporting={isImporting}
+                            fileInputRef={fileInputRef}
+                            onFileUpload={handleFileUpload}
+                        />
+                    </div>
+                } />
+                <Route path="/schedule" element={<ScheduleBoard viewUserId={viewingUser?.id} />} />
+                <Route path="/events" element={<EventsBoard viewUserId={viewingUser?.id} />} />
+                <Route path="/lost-found" element={<LostFoundBoard />} />
+                <Route path="/handbook/:tab?" element={<Handbook />} />
+                
+                <Route path="/profile/:id" element={<ProfilePage />} />
+                
+                <Route path="/admin-reports" element={isAdmin ? <AdminReports /> : <Navigate to="/dashboard" replace />} />
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+        );
 
-                <header className="bg-white border-b border-gray-200 w-full z-50 shrink-0 h-auto sm:h-14 shadow-sm p-3 sm:p-0 relative">
-                    <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-8">
-                        <div className="w-full flex flex-row items-center justify-between sm:w-auto sm:gap-3 shrink-0">
-                            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-                                <Link to="/dashboard" className="h-7 w-7 relative flex-shrink-0 transition-transform duration-200 hover:scale-105 active:scale-95" onClick={playClick}>
-                                    <img src="logo.png" alt="HUB Logo" className="h-full w-full object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="h-7 w-7 bg-[#003375] rounded flex items-center justify-center text-white font-bold text-xs">HUB</div>'; }} />
-                                </Link>
-                                <div className="leading-tight">
-                                    <h1 className="text-[15px] font-extrabold text-[#003375] tracking-tight">HUB PLANNER</h1>
-                                    <p className="text-[9px] text-gray-500 uppercase tracking-widest font-semibold">Hỗ trợ sinh viên</p>
-                                </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-2 sm:hidden shrink-0">
-                                {(!isGuest) && (
-                                    <NotificationBell currentUserId={session.user.id} />
-                                )}
-                                
-                                {isGuest && (
-                                    <div className="flex items-center gap-1.5">
-                                        <button onClick={handleRequestReset} className="p-1.5 bg-red-50 text-red-600 rounded-md border border-red-100" title="Reset dữ liệu"><RotateCcw size={16}/></button>
-                                        <Link to="/login" onClick={playClick} className="px-2 py-1.5 bg-[#003375] text-white rounded-md text-xs font-bold shadow-sm">Đăng nhập</Link>
-                                    </div>
-                                )}
+        const mobileRoutes = (
+            <Routes>
+                <Route path="/" element={<Navigate to="/mobile-home" replace />} />
+                <Route path="/mobile-home" element={<MobileHome data={data} displayName={displayName} avatarUrl={profileAvatarUrl} avatarSeed={avatarSeed} isGuest={isGuest} showSecurityNotice={!session} onRequireOnboarding={() => setForceGuestOnboarding(true)} />} />
+                <Route path="/learning" element={<MobileLearning data={data} onSetSemesters={(sems) => setData(prev => ({ ...prev, semesters: sems }))} isGuest={isGuest} onRequireOnboarding={() => setForceGuestOnboarding(true)} onTargetChange={(newTarget) => setData(prev => ({ ...prev, targetGPA: newTarget }))} showSecurityNotice={!session} onUpdateSemester={updateSemester} onRemoveSemester={removeSemester} onAddSemester={addSemester} onExportPDF={handleExportPDF} onImportPDF={() => { playClick(); setShowImportGuide(true); }} isImporting={isImporting} fileInputRef={fileInputRef} onFileUpload={handleFileUpload} viewUserId={viewingUser?.id} />} />
+                <Route path="/events" element={<MobileEvents viewUserId={viewingUser?.id} />} />
+                <Route path="/lost-found" element={<MobileLostFound />} />
+                <Route path="/handbook/:tab?" element={<Handbook />} />
+                
+                <Route path="/profile/:id" element={
+                    <MobileProfile 
+                        setShowAccountSettings={setShowAccountSettings} 
+                        handleRequestReset={handleRequestReset} 
+                    />
+                } />
+                
+                <Route path="/dashboard" element={<Navigate to="/mobile-home" replace />} />
+                <Route path="*" element={<Navigate to="/mobile-home" replace />} />
+            </Routes>
+        );
 
-                                {isAdmin && (
-                                     <button onClick={handleLogout} className="p-1.5 bg-red-50 text-red-600 rounded-md border border-red-100" title="Đăng xuất"><LogOut size={16}/></button>
-                                )}
-
-                                {!isGuest && !isAdmin && (
-                                    <div className="relative">
-                                        <button onClick={() => setIsUserMenuOpen(prev => !prev)} className="flex items-center focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
-                                            {profileAvatarUrl ? (
-                                                isColorAvatar ? (
-                                                    <span className="h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm" style={{ backgroundColor: profileAvatarUrl }}>{avatarSeed}</span>
-                                                ) : (
-                                                    <img src={profileAvatarUrl} alt="Avatar" className="h-8 w-8 rounded-full object-cover shadow-sm border border-gray-200" />
-                                                )
-                                            ) : (
-                                                <span className="h-8 w-8 rounded-full bg-[#003375] text-white flex items-center justify-center text-sm font-bold shadow-sm">{avatarSeed}</span>
-                                            )}
-                                        </button>
-
-                                        {isUserMenuOpen && (
-                                            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
-                                                <button type="button" onClick={() => { const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
-                                                <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
-                                                <button type="button" onClick={handleRequestReset} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
-                                                <button type="button" onClick={handleMenuLogout} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <nav className="flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
-                            
-                            <NavLink 
-                                to="/dashboard" 
-                                ref={el => navRefs.current[0] = el}
-                                onClick={playClick} 
-                                className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}
-                            >
-                                <LayoutDashboard size={20} className="sm:hidden" />
-                                <span className="hidden sm:block">Tổng quan</span>
-                            </NavLink>
-                            <NavLink 
-                                to="/schedule" 
-                                ref={el => navRefs.current[1] = el}
-                                onClick={playClick} 
-                                className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}
-                            >
-                                <Calendar size={20} className="sm:hidden" />
-                                <span className="hidden sm:block">Thời khóa biểu</span>
-                            </NavLink>
-                            <NavLink 
-                                to="/events" 
-                                ref={el => navRefs.current[2] = el}
-                                onClick={playClick} 
-                                className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}
-                            >
-                                <Zap size={20} className="sm:hidden" />
-                                <span className="hidden sm:block">Sự kiện ĐRL</span>
-                            </NavLink>
-                            <NavLink 
-                                to="/lost-found" 
-                                ref={el => navRefs.current[3] = el}
-                                onClick={playClick} 
-                                className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}
-                            >
-                                <Search size={20} className="sm:hidden" />
-                                <span className="hidden sm:block">Tìm đồ thất lạc</span>
-                            </NavLink>
-
-                            {isAdmin ? (
-                                <NavLink 
-                                    to="/admin-reports" 
-                                    ref={el => navRefs.current[4] = el}
-                                    onClick={playClick} 
-                                    className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-red-600' : 'text-gray-400 sm:text-red-500/80 hover:text-red-600'}`}
-                                >
-                                    <ClipboardList size={20} className="sm:hidden" />
-                                    <span className="hidden sm:block">Xử lý báo cáo</span>
-                                </NavLink>
-                            ) : (
-                                <div 
-                                    className="relative flex items-center justify-center sm:h-full shrink-0 z-10" 
-                                    ref={el => {
-                                        handbookMenuRef.current = el; 
-                                        navRefs.current[4] = el; 
-                                    }}
-                                    onMouseEnter={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(true)}
-                                    onMouseLeave={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(false)}
-                                >
-                                    <button 
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            playClick();
-                                            setIsHandbookMenuOpen(!isHandbookMenuOpen);
-                                        }}
-                                        className={`flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none ${
-                                            location.pathname.includes('/handbook') || isHandbookMenuOpen
-                                                ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' 
-                                                : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'
-                                        }`}
-                                    >
-                                        <Book size={20} className="sm:hidden" />
-                                        <span className="hidden sm:flex items-center gap-1">
-                                            Cẩm nang <ChevronDown size={14} className={`transition-transform duration-200 ${isHandbookMenuOpen ? 'rotate-180' : ''}`}/>
-                                        </span>
-                                    </button>
-
-                                    {isHandbookMenuOpen && (
-                                        <div className="fixed sm:absolute top-[105px] sm:top-full right-4 sm:right-0 sm:pt-2 w-64 z-[999] animate-fadeIn">
-                                            <div className="bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
-                                                <div className="p-2 flex flex-col gap-0.5">
-                                                    <Link to="/handbook/contacts" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-[#003375] rounded-lg transition-colors group">
-                                                        <div className="bg-[#003375]/10 p-1.5 rounded-lg text-[#003375] group-hover:bg-[#003375] group-hover:text-white transition-colors"><Phone size={16} /></div> Danh bạ & Khoa
-                                                    </Link>
-                                                    <Link to="/handbook/clubs" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-[#990000] rounded-lg transition-colors group">
-                                                        <div className="bg-[#990000]/10 p-1.5 rounded-lg text-[#990000] group-hover:bg-[#990000] group-hover:text-white transition-colors"><Users size={16} /></div> CLB - Đội - Nhóm
-                                                    </Link>
-                                                    <Link to="/handbook/scholarships" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-green-600 rounded-lg transition-colors group">
-                                                        <div className="bg-green-100 p-1.5 rounded-lg text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors"><Award size={16} /></div> Học bổng & Quy chế
-                                                    </Link>
-                                                    <div className="h-px bg-gray-100 my-1 mx-2"></div>
-                                                    <Link to="/handbook/faqs" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-indigo-600 rounded-lg transition-colors group">
-                                                        <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors"><HelpCircle size={16} /></div> FAQs
-                                                    </Link>
-                                                    <Link to="/handbook/feedback" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-teal-600 rounded-lg transition-colors group">
-                                                        <div className="bg-teal-100 p-1.5 rounded-lg text-teal-600 group-hover:bg-teal-600 group-hover:text-white transition-colors"><MessageSquarePlus size={16} /></div> Góp ý
-                                                    </Link>
-                                                    <Link to="/handbook/donate" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-pink-600 rounded-lg transition-colors group">
-                                                        <div className="bg-pink-100 p-1.5 rounded-lg text-pink-600 group-hover:bg-pink-600 group-hover:text-white transition-colors"><Heart size={16} /></div> Ủng hộ & Tri ân
-                                                    </Link>
-                                                    <Link to="/handbook/about" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-800 rounded-lg transition-colors group">
-                                                        <div className="bg-gray-200 p-1.5 rounded-lg text-gray-600 group-hover:bg-gray-600 group-hover:text-white transition-colors"><Info size={16} /></div> Về chúng mình
-                                                    </Link>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            <div 
-                                className="hidden sm:block absolute bottom-0 h-[2px] bg-[#003375] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-20 rounded-t-full"
-                                style={{ 
-                                    left: `${navIndicator.left}px`, 
-                                    width: `${navIndicator.width}px`,
-                                    opacity: navIndicator.opacity 
-                                }}
-                            />
-                        </nav>
-
-                        <div className="hidden sm:flex items-center gap-1.5 lg:gap-3 shrink-0 pl-2 lg:pl-4 border-l border-gray-200">
-                            {isAdmin && (
-                            <form onSubmit={handleAdminSearchUser} className="flex items-center gap-1 lg:gap-2 mr-1 lg:mr-2 bg-purple-50 p-1 rounded-lg border border-purple-200 shadow-inner">
-                                <div className="relative">
-                                    <input 
-                                        type="text" 
-                                        placeholder="Admin: Tìm..." 
-                                        value={adminSearchMssv}
-                                        onChange={(e) => setAdminSearchMssv(e.target.value)}
-                                        className="pl-7 pr-2 py-1.5 text-[11px] lg:text-xs w-20 lg:w-28 rounded-md border border-purple-200 outline-none focus:ring-1 focus:ring-purple-500 bg-white"
-                                    />
-                                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-400" />
-                                </div>
-                                {viewingUser ? (
-                                    <button type="button" onClick={() => { 
-                                        setViewingUser(null); 
-                                        setAdminSearchMssv(''); 
-                                        setData(INITIAL_DATA); 
-                                        playClick(); 
-                                    }} className="px-2 py-1 lg:px-3 lg:py-1.5 bg-red-500 text-white text-[11px] lg:text-xs font-bold rounded-md hover:bg-red-600 transition-colors whitespace-nowrap">
-                                        Thoát
-                                    </button>
-                                ) : (
-                                    <button type="submit" disabled={isSearchingUser} className="px-2 py-1 lg:px-3 lg:py-1.5 bg-purple-600 text-white text-[11px] lg:text-xs font-bold rounded-md hover:bg-purple-700 transition-colors whitespace-nowrap">
-                                        {isSearchingUser ? '...' : 'Xem'}
-                                    </button>
-                                )}
-                            </form>
-                            )}
-
-                            <button onClick={() => { playClick(); setShowGuide(true); }} className="text-gray-400 hover:text-gray-900 transition-colors hidden sm:block" title="Hướng dẫn">
-                                <HelpCircle size={18} />
-                            </button>
-                            
-                            {!isGuest && (
-                                <NotificationBell currentUserId={session.user.id} />
-                            )}
-                            
-                            {isAdmin ? (
-                                <div className="flex items-center gap-1.5 lg:gap-3 border-l border-gray-200 pl-1.5 lg:pl-3">
-                                    
-                                    {/* NÚT ĐỒNG BỘ DB MỚI BẰNG ICON */}
-                                    <button 
-                                        onClick={async (e) => {
-                                            if (!window.confirm("Bắt đầu đồng bộ? Đảm bảo bạn đã chạy lệnh DISABLE ROW LEVEL SECURITY trên Supabase nhé!")) return;
-                                            playClick();
-                                            
-                                            const btn = e.currentTarget;
-                                            const originalHTML = btn.innerHTML; // Lưu icon gốc lại
-                                            btn.innerHTML = "⏳";
-                                            btn.disabled = true;
-
-                                            try {
-                                                let hasMore = true;
-                                                let page = 0;
-                                                const pageSize = 100;
-                                                let updatedCount = 0;
-                                                
-                                                console.warn("🚀 [BƯỚC 1] BẮT ĐẦU TIẾN TRÌNH ĐỒNG BỘ DATA...");
-
-                                                while (hasMore) {
-                                                    console.warn(`⏳ [BƯỚC 2] Đang tải nhóm ${pageSize} tài khoản ở trang ${page + 1}...`);
-                                                    const { data: profiles, error } = await supabase
-                                                        .from('profiles')
-                                                        .select('id, data')
-                                                        .range(page * pageSize, (page + 1) * pageSize - 1);
-
-                                                    if (error) {
-                                                        console.error("❌ Lỗi lấy data từ Supabase:", error);
-                                                        throw error;
-                                                    }
-                                                    
-                                                    if (!profiles || profiles.length === 0) {
-                                                        console.warn("✅ Đã quét đến cuối Database.");
-                                                        hasMore = false;
-                                                        break;
-                                                    }
-
-                                                    console.warn(`🔍 Đang quét ${profiles.length} tài khoản (Trang ${page + 1})...`);
-
-                                                    for (const profile of profiles) {
-                                                        let pData = profile.data;
-                                                        if (!pData || !pData.semesters || !Array.isArray(pData.semesters)) continue;
-
-                                                        let needsUpdate = false;
-                                                        let baseYear = 2024; 
-                                                        const cohortStr = String(pData.cohort || "").toUpperCase();
-
-                                                        if (cohortStr.includes("K38") || cohortStr.includes("CLCK10")) baseYear = 2022;
-                                                        else if (cohortStr.includes("K39") || cohortStr.includes("CLCK11")) baseYear = 2023;
-                                                        else if (cohortStr.includes("K40") || cohortStr.includes("CLCK12") || cohortStr.includes("CTDBK1")) baseYear = 2024;
-                                                        else if (cohortStr.includes("K41") || cohortStr.includes("CLCK13") || cohortStr.includes("CTDBK2")) baseYear = 2025;
-
-                                                        const newSemesters = pData.semesters.map((sem: any) => {
-                                                            const match = sem.name ? sem.name.match(/Năm (\d+) - Học kỳ (1|2|3|Hè)/) : null;
-                                                            if (match) {
-                                                                needsUpdate = true;
-                                                                const namHoc = parseInt(match[1]);
-                                                                const kyHoc = match[2];
-                                                                const targetYear = baseYear + (namHoc - 1);
-                                                                return { ...sem, name: `Học kỳ ${kyHoc} Năm học ${targetYear}-${targetYear + 1}` };
-                                                            }
-                                                            return sem;
-                                                        });
-
-                                                        if (needsUpdate) {
-                                                            pData.semesters = newSemesters;
-                                                            await supabase.from('profiles').update({ data: pData }).eq('id', profile.id);
-                                                            updatedCount++;
-                                                            console.warn(`👉 Đã sửa thành công bảng điểm ID: ${profile.id}`);
-                                                        }
-                                                    }
-                                                    
-                                                    console.warn(`✅ Xong trang ${page + 1}. Tổng đã sửa: ${updatedCount}`);
-                                                    page++;
-                                                }
-                                                
-                                                alert(`🎉 ĐÃ ĐỒNG BỘ HOÀN TẤT! Cập nhật thành công ${updatedCount} tài khoản.`);
-                                                window.location.reload(); 
-                                            } catch (err) {
-                                                console.error(err);
-                                                alert("❌ Có lỗi xảy ra trong quá trình đồng bộ! (Xem Console)");
-                                            } finally {
-                                                btn.innerHTML = originalHTML; // Trả lại icon ban đầu
-                                                btn.disabled = false;
-                                            }
-                                        }} 
-                                        className="p-1.5 lg:p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center" 
-                                        title="Đồng bộ DB Cũ -> Mới"
-                                    >
-                                        <RefreshCw size={16} />
-                                    </button>
-
-                                    <button onClick={() => { playClick(); setShowActivityLog(true); }} className="text-gray-400 hover:text-[#003375] transition-colors p-1" title="Lịch sử hoạt động">
-                                        <Clock size={16} className="lg:w-[18px] lg:h-[18px]" />
-                                    </button>
-                                    <button onClick={handleLogout} className="text-gray-400 hover:text-red-600 transition-colors p-1" title="Đăng xuất">
-                                        <LogOut size={16} className="lg:w-[18px] lg:h-[18px]" />
-                                    </button>
-                                </div>
-                            ) : session ? (
-                                <div className="relative flex items-center gap-2 lg:gap-3 border-l border-gray-200 pl-2 lg:pl-3">
-                                    <div className="hidden md:flex flex-col items-end justify-center">
-                                        <span className="text-[11px] lg:text-xs font-bold text-gray-700 uppercase tracking-wide leading-none truncate max-w-[100px] lg:max-w-[150px]">{displayName}</span>
-                                        <span className="text-[10px] text-gray-400 font-medium leading-none mt-1">{studentId}</span>
-                                    </div>
-                                    <button onClick={() => setIsUserMenuOpen(prev => !prev)} className="flex items-center gap-2 focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
-                                        {profileAvatarUrl ? (
-                                            isColorAvatar ? (
-                                                <span className="h-7 w-7 lg:h-8 lg:w-8 rounded-full flex items-center justify-center text-white text-xs lg:text-sm font-bold shadow-sm" style={{ backgroundColor: profileAvatarUrl }}>{avatarSeed}</span>
-                                            ) : (
-                                                <img src={profileAvatarUrl} alt="Avatar" className="h-7 w-7 lg:h-8 lg:w-8 rounded-full object-cover shadow-sm border border-gray-200" />
-                                            )
-                                        ) : (
-                                            <span className="h-7 w-7 lg:h-8 lg:w-8 rounded-full bg-[#003375] text-white flex items-center justify-center text-xs lg:text-sm font-bold shadow-sm">{avatarSeed}</span>
-                                        )}
-                                    </button>
-                                    {isUserMenuOpen && (
-                                        <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
-                                            <button type="button" onClick={() => { const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
-                                            <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
-                                            <button type="button" onClick={handleRequestReset} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
-                                            <button type="button" onClick={handleMenuLogout} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-1.5 lg:gap-2 border-l border-gray-200 pl-1.5 lg:pl-3">
-                                    <button onClick={handleRequestReset} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors" title="Xóa dữ liệu dùng thử">
-                                        <RotateCcw size={14} className="lg:w-4 lg:h-4" />
-                                        <span className="text-[10px] lg:text-xs font-bold hidden md:block">Reset</span>
-                                    </button>
-                                    <Link to="/login" onClick={playClick} className="flex items-center gap-1 px-2 lg:px-4 py-1.5 bg-[#003375] text-white text-[10px] lg:text-sm font-bold rounded-lg hover:bg-[#002855] transition-colors shadow-sm whitespace-nowrap">
-                                        <User size={14} className="lg:w-4 lg:h-4" /> <span className="hidden md:block">Đăng nhập</span>
-                                    </Link>
-                                </div>
-                            )}
+        const commonModals = (
+            <>
+                {!useMobileLayout && (
+                    <div className="fixed bottom-[85px] right-6 z-50 flex flex-col items-end pointer-events-none">
+                        <div
+                            className={`relative w-60 bg-white text-gray-800 text-sm font-medium p-3 rounded-2xl shadow-xl border border-blue-100 transition-all duration-500 ease-in-out transform origin-bottom-right ${
+                                showBubble ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-50 translate-y-4'
+                            }`}
+                        >
+                            <p>✨ Tèn ten! Trợ lý AI HUB Planner đã sẵn sàng hỗ trợ bạn học tập rồi nè! Thử ngay nha 💖</p>
+                            <div className="absolute -bottom-2 right-4 w-4 h-4 bg-white transform rotate-45 border-b border-r border-blue-100"></div>
                         </div>
                     </div>
-                </header>
+                )}
 
-                <div className="flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10">
-                    <main className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-2 sm:pt-3 min-h-full flex flex-col">
-                        <div className="flex-1">
-                            <Routes>
-                                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                                
-                                <Route path="/dashboard" element={
-                                    <div className="animate-fadeIn">
-                                        <Dashboard
-                                            data={data}
-                                            onSetSemesters={(sems) => setData(prev => ({ ...prev, semesters: sems }))}
-                                            isGuest={isGuest}
-                                            onRequireOnboarding={() => setForceGuestOnboarding(true)}
-                                            onTargetChange={(newTarget) => setData(prev => ({ ...prev, targetGPA: newTarget }))}
-                                            showSecurityNotice={!session}
-                                            onUpdateSemester={updateSemester} 
-                                            onRemoveSemester={removeSemester} 
-                                            onAddSemester={addSemester}       
-                                            onExportPDF={handleExportPDF}     
-                                            onImportPDF={() => { playClick(); setShowImportGuide(true); }} 
-                                            isImporting={isImporting}
-                                            fileInputRef={fileInputRef}
-                                            onFileUpload={handleFileUpload}
-                                        />
-                                    </div>
-                                } />
-
-                                <Route path="/schedule" element={<ScheduleBoard viewUserId={viewingUser?.id} />} />
-                                <Route path="/events" element={<EventsBoard viewUserId={viewingUser?.id} />} />
-                                <Route path="/lost-found" element={<LostFoundBoard />} />
-                                <Route path="/handbook/:tab?" element={<Handbook />} />
-                                <Route path="/profile/:id" element={<ProfilePage />} />
-                                <Route path="/admin-reports" element={isAdmin ? <AdminReports /> : <Navigate to="/dashboard" replace />} />
-                                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                            </Routes>
-                        </div>
-
-                        <footer className="text-center py-6 mt-10 border-t border-gray-200 text-gray-500 bg-[#F8FAFC]">
-                            <p className="text-xs font-medium tracking-wide mb-1 uppercase">Web designed by tqhoangg</p>
-                            <p className="text-[10px] opacity-80 px-4 mb-3">
-                                HUB Planner có thể mắc sai sót, vui lòng xác minh lại thông tin khi cần thiết.
-                            </p>
-                            <div className="text-xs">
-                                <Link to="/privacy" className="hover:text-gray-900 transition-colors">Chính sách bảo mật</Link>
-                                <span className="mx-3 opacity-50">•</span>
-                                <Link to="/terms" className="hover:text-gray-900 transition-colors">Điều khoản sử dụng</Link>
-                            </div>
-                        </footer>
-                    </main>
-                </div>
-
-                <div className="fixed bottom-6 left-6 z-40 flex flex-col gap-3">
-                    <a href="https://www.facebook.com/hubplannerr" target="_blank" rel="noopener noreferrer" className="h-10 w-10 rounded-full bg-white text-[#1877F2] flex items-center justify-center shadow-md border border-gray-200 hover:scale-110 transition-transform" aria-label="Facebook">
-                        <Facebook size={20} />
-                    </a>
-                    <a href="https://zalo.me/0389342812" target="_blank" rel="noopener noreferrer" className="h-10 w-10 rounded-full bg-white text-[#0a68ff] flex items-center justify-center shadow-md border border-gray-200 hover:scale-110 transition-transform text-[10px] font-bold" aria-label="Zalo">
-                        Zalo
-                    </a>
-                </div>
-
-                {/* ========================================== */}
-                {/* GIAO DIỆN BONG BÓNG CHAT VÀ COMPONENT */}
-                {/* ========================================== */}
-                <div className="fixed bottom-[85px] right-6 z-50 flex flex-col items-end pointer-events-none">
-                    <div
-                        className={`relative w-60 bg-white text-gray-800 text-sm font-medium p-3 rounded-2xl shadow-xl border border-blue-100 transition-all duration-500 ease-in-out transform origin-bottom-right ${
-                            showBubble ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-50 translate-y-4'
-                        }`}
-                    >
-                        <p>✨ Tèn ten! Trợ lý AI HUB Planner đã sẵn sàng hỗ trợ bạn học tập rồi nè! Thử ngay nha 💖</p>
-                        <div className="absolute -bottom-2 right-4 w-4 h-4 bg-white transform rotate-45 border-b border-r border-blue-100"></div>
-                    </div>
-                </div>
-
-                <AIAdvisor data={data} userId={session?.user?.id} />
-                {/* ========================================== */}
-
-                {showImportLoadingToast && (
-                    <div className="fixed bottom-6 right-6 bg-white shadow-xl p-4 rounded-xl border border-gray-200 flex items-start gap-3 z-[100] animate-slideInRight max-w-xs">
-                        <Loader2 className="animate-spin text-[#003375] shrink-0 mt-0.5" />
-                        <p className="text-sm font-medium text-gray-700 leading-snug">
-                            Đang xử lý PDF của bạn, vui lòng đợi giây lát...
-                        </p>
-                    </div>
+                {useMobileLayout ? (
+                    <MobileAIAdvisor data={data} userId={session?.user?.id} />
+                ) : (
+                    <AIAdvisor data={data} userId={session?.user?.id} />
                 )}
 
                 {showImportLoadingToast && (
@@ -1384,10 +1059,10 @@ const App: React.FC = () => {
                                                 {session?.user.email}
                                             </div>
                                             
-                                            {/* ✨ FORM XÁC MINH CAPTCHA THÊM MỚI Ở ĐÂY ✨ */}
+                                            {/* ✨ FORM XÁC MINH CAPTCHA MỚI ✨ */}
                                             <div className="mt-4 flex flex-col gap-2">
                                                 <label className="text-sm font-bold text-gray-700 text-center">
-                                                    Xác minh bảo mật: <span className="text-[#003375]">{captchaQuestion} = ?</span>
+                                                    Xác minh bảo mật: <span className="text-[#003375] text-base">{captchaQuestion} = ?</span>
                                                 </label>
                                                 <input
                                                     type="number"
@@ -1491,7 +1166,7 @@ const App: React.FC = () => {
                                                     setResetStep(2); 
                                                     setOtpInput('');
                                                     setOtpError('');
-                                                    generateCaptcha(); // Quay lại nhớ tạo captcha mới
+                                                    generateCaptcha(); 
                                                 }} 
                                                 className="text-sm text-gray-500 font-semibold hover:text-gray-900 transition-colors flex items-center gap-1.5"
                                             >
@@ -1521,6 +1196,7 @@ const App: React.FC = () => {
                     </div>
                 )}
 
+                {/* MODAL ACCOUNT SETTINGS (Giữ nguyên) */}
                 {showAccountSettings && (
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-fadeIn">
                         <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn border border-gray-200">
@@ -1662,6 +1338,31 @@ const App: React.FC = () => {
                         </div>
                     </div>
                 )}
+            </>
+        );
+
+        // ==========================================
+        // QUYẾT ĐỊNH RENDER THEO WEB BROWSER HAY APP
+        // ==========================================
+        const LayoutComponent = useMobileLayout ? MobileAppLayout : DesktopLayout;
+        const currentRoutes = useMobileLayout ? mobileRoutes : desktopRoutes;
+
+        return (
+            <div className="h-[100dvh] bg-[#F8FAFC] font-sans text-gray-800 flex flex-col relative overflow-hidden">
+                <Particles id="app-particles" init={particlesInit} options={particlesOptions} className="absolute inset-0 z-0 pointer-events-none" />
+                
+                <LayoutComponent
+                    session={session} isGuest={isGuest} isAdmin={isAdmin} viewingUser={viewingUser} 
+                    displayName={displayName} studentId={studentId} avatarUrl={profileAvatarUrl} avatarSeed={avatarSeed} 
+                    adminSearchMssv={adminSearchMssv} isSearchingUser={isSearchingUser} setAdminSearchMssv={setAdminSearchMssv} 
+                    handleAdminSearchUser={handleAdminSearchUser} handleRequestReset={handleRequestReset} handleLogout={handleLogout} 
+                    setShowGuide={setShowGuide} setShowActivityLog={setShowActivityLog} setIsUserMenuOpen={setIsUserMenuOpen} 
+                    isUserMenuOpen={isUserMenuOpen} setShowAccountSettings={setShowAccountSettings} handleMenuLogout={handleMenuLogout} navigate={navigate}
+                >
+                    {currentRoutes}
+                </LayoutComponent>
+                
+                {commonModals}
             </div>
         );
     };
@@ -1679,9 +1380,10 @@ const App: React.FC = () => {
         <Routes>
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfUse />} />
-            <Route path="/login" element={<LoginScreen />} />
+            {/* ✨ ĐÃ SỬA: Route /login nay render MobileLogin hoặc LoginScreen */}
+            <Route path="/login" element={useMobileLayout ? <MobileLogin /> : <LoginScreen />} />
             
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<Navigate to={useMobileLayout ? "/mobile-home" : "/dashboard"} replace />} />
             <Route path="/*" element={renderProtectedApp()} />
         </Routes>
     );

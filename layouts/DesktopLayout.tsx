@@ -1,0 +1,318 @@
+import React, { useRef, useState, useEffect } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Book, Calendar, ChevronDown, ClipboardList, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw } from 'lucide-react';
+import { playClick } from '../utils/audio';
+import NotificationBell from '../components/NotificationBell';
+
+interface DesktopLayoutProps {
+  session: any;
+  isGuest: boolean;
+  isAdmin: boolean;
+  viewingUser: any;
+  displayName: string;
+  studentId: string;
+  avatarUrl: string;
+  avatarSeed: string;
+  adminSearchMssv: string;
+  isSearchingUser: boolean;
+  setAdminSearchMssv: (v: string) => void;
+  handleAdminSearchUser: (e: React.FormEvent) => void;
+  handleRequestReset: () => void;
+  handleLogout: () => void;
+  setShowGuide: (v: boolean) => void;
+  setShowActivityLog: (v: boolean) => void;
+  setIsUserMenuOpen: (v: boolean) => void;
+  isUserMenuOpen: boolean;
+  setShowAccountSettings: (v: boolean) => void;
+  handleMenuLogout: () => void;
+  handleExitAdminView: () => void;
+  handleSyncDB: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  navigate: (path: string) => void;
+  children: React.ReactNode;
+}
+
+export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
+  session, isGuest, isAdmin, viewingUser, displayName, studentId, avatarUrl, avatarSeed,
+  adminSearchMssv, isSearchingUser, setAdminSearchMssv, handleAdminSearchUser,
+  handleRequestReset, handleLogout, setShowGuide, setShowActivityLog,
+  setIsUserMenuOpen, isUserMenuOpen, setShowAccountSettings, handleMenuLogout, 
+  handleExitAdminView, handleSyncDB, navigate, children
+}) => {
+  const location = useLocation();
+  const isColorAvatar = avatarUrl?.startsWith('#');
+  
+  const [isHandbookMenuOpen, setIsHandbookMenuOpen] = useState(false);
+  const handbookMenuRef = useRef<HTMLDivElement>(null);
+  const navRefs = useRef<(HTMLAnchorElement | HTMLDivElement | null)[]>([]);
+  const [navIndicator, setNavIndicator] = useState({ left: 0, width: 0, opacity: 0 });
+
+  useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+          if (handbookMenuRef.current && !handbookMenuRef.current.contains(event.target as Node)) {
+              setIsHandbookMenuOpen(false);
+          }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+      const updateNavIndicator = () => {
+          let activeIndex = -1;
+          if (location.pathname.includes('/dashboard')) activeIndex = 0;
+          else if (location.pathname.includes('/schedule')) activeIndex = 1;
+          else if (location.pathname.includes('/events')) activeIndex = 2;
+          else if (location.pathname.includes('/lost-found')) activeIndex = 3;
+          else if (location.pathname.includes('/handbook') || isHandbookMenuOpen || location.pathname.includes('/admin-reports')) activeIndex = 4;
+
+          if (activeIndex !== -1 && navRefs.current[activeIndex]) {
+              const el = navRefs.current[activeIndex];
+              if (el) {
+                  setNavIndicator({ left: el.offsetLeft, width: el.offsetWidth, opacity: 1 });
+              }
+          } else {
+              setNavIndicator(prev => ({ ...prev, opacity: 0 }));
+          }
+      };
+
+      updateNavIndicator();
+      window.addEventListener('resize', updateNavIndicator);
+      setTimeout(updateNavIndicator, 100); 
+      return () => window.removeEventListener('resize', updateNavIndicator);
+  }, [location.pathname, isHandbookMenuOpen]);
+
+  return (
+    <>
+      <header className="bg-white border-b border-gray-200 w-full z-50 shrink-0 h-auto sm:h-14 shadow-sm p-3 sm:p-0 relative">
+          <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-8">
+              <div className="w-full flex flex-row items-center justify-between sm:w-auto sm:gap-3 shrink-0">
+                  <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+                      <Link to="/dashboard" className="h-7 w-7 relative flex-shrink-0 transition-transform duration-200 hover:scale-105 active:scale-95" onClick={playClick}>
+                          <img src="logo.png" alt="HUB Logo" className="h-full w-full object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="h-7 w-7 bg-[#003375] rounded flex items-center justify-center text-white font-bold text-xs">HUB</div>'; }} />
+                      </Link>
+                      <div className="leading-tight">
+                          <h1 className="text-[15px] font-extrabold text-[#003375] tracking-tight">HUB PLANNER</h1>
+                          <p className="text-[9px] text-gray-500 uppercase tracking-widest font-semibold">Hỗ trợ sinh viên</p>
+                      </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 sm:hidden shrink-0">
+                      {(!isGuest) && (
+                          <NotificationBell currentUserId={session.user.id} />
+                      )}
+                      
+                      {isGuest && (
+                          <div className="flex items-center gap-1.5">
+                              <button onClick={handleRequestReset} className="p-1.5 bg-red-50 text-red-600 rounded-md border border-red-100" title="Reset dữ liệu"><RotateCcw size={16}/></button>
+                              <Link to="/login" onClick={playClick} className="px-2 py-1.5 bg-[#003375] text-white rounded-md text-xs font-bold shadow-sm">Đăng nhập</Link>
+                          </div>
+                      )}
+
+                      {isAdmin && (
+                           <button onClick={handleLogout} className="p-1.5 bg-red-50 text-red-600 rounded-md border border-red-100" title="Đăng xuất"><LogOut size={16}/></button>
+                      )}
+
+                      {!isGuest && !isAdmin && (
+                          <div className="relative">
+                              <button onClick={() => setIsUserMenuOpen(prev => !prev)} className="flex items-center focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
+                                  {avatarUrl ? (
+                                      isColorAvatar ? (
+                                          <span className="h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm" style={{ backgroundColor: avatarUrl }}>{avatarSeed}</span>
+                                      ) : (
+                                          <img src={avatarUrl} alt="Avatar" className="h-8 w-8 rounded-full object-cover shadow-sm border border-gray-200" />
+                                      )
+                                  ) : (
+                                      <span className="h-8 w-8 rounded-full bg-[#003375] text-white flex items-center justify-center text-sm font-bold shadow-sm">{avatarSeed}</span>
+                                  )}
+                              </button>
+
+                              {isUserMenuOpen && (
+                                  <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
+                                      <button type="button" onClick={() => { const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
+                                      <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
+                                      <button type="button" onClick={handleRequestReset} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
+                                      <button type="button" onClick={handleMenuLogout} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
+                                  </div>
+                              )}
+                          </div>
+                      )}
+                  </div>
+              </div>
+
+              <nav className="flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
+                  
+                  <NavLink to="/dashboard" ref={el => navRefs.current[0] = el} onClick={playClick} className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
+                      <LayoutDashboard size={20} className="sm:hidden" />
+                      <span className="hidden sm:block">Tổng quan</span>
+                  </NavLink>
+                  <NavLink to="/schedule" ref={el => navRefs.current[1] = el} onClick={playClick} className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
+                      <Calendar size={20} className="sm:hidden" />
+                      <span className="hidden sm:block">Thời khóa biểu</span>
+                  </NavLink>
+                  <NavLink to="/events" ref={el => navRefs.current[2] = el} onClick={playClick} className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
+                      <Zap size={20} className="sm:hidden" />
+                      <span className="hidden sm:block">Sự kiện ĐRL</span>
+                  </NavLink>
+                  <NavLink to="/lost-found" ref={el => navRefs.current[3] = el} onClick={playClick} className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
+                      <Search size={20} className="sm:hidden" />
+                      <span className="hidden sm:block">Tìm đồ thất lạc</span>
+                  </NavLink>
+
+                  {isAdmin ? (
+                      <NavLink to="/admin-reports" ref={el => navRefs.current[4] = el} onClick={playClick} className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-red-600' : 'text-gray-400 sm:text-red-500/80 hover:text-red-600'}`}>
+                          <ClipboardList size={20} className="sm:hidden" />
+                          <span className="hidden sm:block">Xử lý báo cáo</span>
+                      </NavLink>
+                  ) : (
+                      <div className="relative flex items-center justify-center sm:h-full shrink-0 z-10" ref={el => { handbookMenuRef.current = el; navRefs.current[4] = el; }} onMouseEnter={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(true)} onMouseLeave={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(false)}>
+                          <button onClick={(e) => { e.preventDefault(); playClick(); setIsHandbookMenuOpen(!isHandbookMenuOpen); }} className={`flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none ${location.pathname.includes('/handbook') || isHandbookMenuOpen ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
+                              <Book size={20} className="sm:hidden" />
+                              <span className="hidden sm:flex items-center gap-1">Cẩm nang <ChevronDown size={14} className={`transition-transform duration-200 ${isHandbookMenuOpen ? 'rotate-180' : ''}`}/></span>
+                          </button>
+
+                          {isHandbookMenuOpen && (
+                              <div className="fixed sm:absolute top-[105px] sm:top-full right-4 sm:right-0 sm:pt-2 w-64 z-[999] animate-fadeIn">
+                                  <div className="bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden">
+                                      <div className="p-2 flex flex-col gap-0.5">
+                                          <Link to="/handbook/contacts" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-[#003375] rounded-lg transition-colors group">
+                                              <div className="bg-[#003375]/10 p-1.5 rounded-lg text-[#003375] group-hover:bg-[#003375] group-hover:text-white transition-colors"><Phone size={16} /></div> Danh bạ & Khoa
+                                          </Link>
+                                          <Link to="/handbook/clubs" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-[#990000] rounded-lg transition-colors group">
+                                              <div className="bg-[#990000]/10 p-1.5 rounded-lg text-[#990000] group-hover:bg-[#990000] group-hover:text-white transition-colors"><Users size={16} /></div> CLB - Đội - Nhóm
+                                          </Link>
+                                          <Link to="/handbook/scholarships" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-green-600 rounded-lg transition-colors group">
+                                              <div className="bg-green-100 p-1.5 rounded-lg text-green-600 group-hover:bg-green-600 group-hover:text-white transition-colors"><Award size={16} /></div> Học bổng & Quy chế
+                                          </Link>
+                                          <div className="h-px bg-gray-100 my-1 mx-2"></div>
+                                          <Link to="/handbook/faqs" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-indigo-600 rounded-lg transition-colors group">
+                                              <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors"><HelpCircle size={16} /></div> FAQs
+                                          </Link>
+                                          <Link to="/handbook/feedback" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-teal-600 rounded-lg transition-colors group">
+                                              <div className="bg-teal-100 p-1.5 rounded-lg text-teal-600 group-hover:bg-teal-600 group-hover:text-white transition-colors"><MessageSquarePlus size={16} /></div> Góp ý
+                                          </Link>
+                                          <Link to="/handbook/donate" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-pink-600 rounded-lg transition-colors group">
+                                              <div className="bg-pink-100 p-1.5 rounded-lg text-pink-600 group-hover:bg-pink-600 group-hover:text-white transition-colors"><Heart size={16} /></div> Ủng hộ & Tri ân
+                                          </Link>
+                                          <Link to="/handbook/about" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-800 rounded-lg transition-colors group">
+                                              <div className="bg-gray-200 p-1.5 rounded-lg text-gray-600 group-hover:bg-gray-600 group-hover:text-white transition-colors"><Info size={16} /></div> Về chúng mình
+                                          </Link>
+                                      </div>
+                                  </div>
+                              </div>
+                          )}
+                      </div>
+                  )}
+                  <div className="hidden sm:block absolute bottom-0 h-[2px] bg-[#003375] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-20 rounded-t-full" style={{ left: `${navIndicator.left}px`, width: `${navIndicator.width}px`, opacity: navIndicator.opacity }} />
+              </nav>
+
+              <div className="hidden sm:flex items-center gap-1.5 lg:gap-3 shrink-0 pl-2 lg:pl-4 border-l border-gray-200">
+                  {isAdmin && (
+                  <form onSubmit={handleAdminSearchUser} className="flex items-center gap-1 lg:gap-2 mr-1 lg:mr-2 bg-purple-50 p-1 rounded-lg border border-purple-200 shadow-inner">
+                      <div className="relative">
+                          <input 
+                              type="text" 
+                              placeholder="Admin: Tìm..." 
+                              value={adminSearchMssv}
+                              onChange={(e) => setAdminSearchMssv(e.target.value)}
+                              className="pl-7 pr-2 py-1.5 text-[11px] lg:text-xs w-20 lg:w-28 rounded-md border border-purple-200 outline-none focus:ring-1 focus:ring-purple-500 bg-white"
+                          />
+                          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-400" />
+                      </div>
+                      {viewingUser ? (
+                          <button type="button" onClick={handleExitAdminView} className="px-2 py-1 lg:px-3 lg:py-1.5 bg-red-500 text-white text-[11px] lg:text-xs font-bold rounded-md hover:bg-red-600 transition-colors whitespace-nowrap">
+                              Thoát
+                          </button>
+                      ) : (
+                          <button type="submit" disabled={isSearchingUser} className="px-2 py-1 lg:px-3 lg:py-1.5 bg-purple-600 text-white text-[11px] lg:text-xs font-bold rounded-md hover:bg-purple-700 transition-colors whitespace-nowrap">
+                              {isSearchingUser ? '...' : 'Xem'}
+                          </button>
+                      )}
+                  </form>
+                  )}
+
+                  <button onClick={() => { playClick(); setShowGuide(true); }} className="text-gray-400 hover:text-gray-900 transition-colors hidden sm:block" title="Hướng dẫn">
+                      <HelpCircle size={18} />
+                  </button>
+                  
+                  {!isGuest && (
+                      <NotificationBell currentUserId={session.user.id} />
+                  )}
+                  
+                  {isAdmin ? (
+                      <div className="flex items-center gap-1.5 lg:gap-3 border-l border-gray-200 pl-1.5 lg:pl-3">
+                          <button onClick={handleSyncDB} className="p-1.5 lg:p-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center" title="Đồng bộ DB Cũ -> Mới">
+                              <RefreshCw size={16} />
+                          </button>
+                          <button onClick={() => { playClick(); setShowActivityLog(true); }} className="text-gray-400 hover:text-[#003375] transition-colors p-1" title="Lịch sử hoạt động">
+                              <Clock size={16} className="lg:w-[18px] lg:h-[18px]" />
+                          </button>
+                          <button onClick={handleLogout} className="text-gray-400 hover:text-red-600 transition-colors p-1" title="Đăng xuất">
+                              <LogOut size={16} className="lg:w-[18px] lg:h-[18px]" />
+                          </button>
+                      </div>
+                  ) : session ? (
+                      <div className="relative flex items-center gap-2 lg:gap-3 border-l border-gray-200 pl-2 lg:pl-3">
+                          <div className="hidden md:flex flex-col items-end justify-center">
+                              <span className="text-[11px] lg:text-xs font-bold text-gray-700 uppercase tracking-wide leading-none truncate max-w-[100px] lg:max-w-[150px]">{displayName}</span>
+                              <span className="text-[10px] text-gray-400 font-medium leading-none mt-1">{studentId}</span>
+                          </div>
+                          <button onClick={() => setIsUserMenuOpen(prev => !prev)} className="flex items-center gap-2 focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
+                              {avatarUrl ? (
+                                  isColorAvatar ? (
+                                      <span className="h-7 w-7 lg:h-8 lg:w-8 rounded-full flex items-center justify-center text-white text-xs lg:text-sm font-bold shadow-sm" style={{ backgroundColor: avatarUrl }}>{avatarSeed}</span>
+                                  ) : (
+                                      <img src={avatarUrl} alt="Avatar" className="h-7 w-7 lg:h-8 lg:w-8 rounded-full object-cover shadow-sm border border-gray-200" />
+                                  )
+                              ) : (
+                                  <span className="h-7 w-7 lg:h-8 lg:w-8 rounded-full bg-[#003375] text-white flex items-center justify-center text-xs lg:text-sm font-bold shadow-sm">{avatarSeed}</span>
+                              )}
+                          </button>
+                          {isUserMenuOpen && (
+                              <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
+                                  <button type="button" onClick={() => { const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
+                                  <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
+                                  <button type="button" onClick={handleRequestReset} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
+                                  <button type="button" onClick={handleMenuLogout} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
+                              </div>
+                          )}
+                      </div>
+                  ) : (
+                      <div className="flex items-center gap-1.5 lg:gap-2 border-l border-gray-200 pl-1.5 lg:pl-3">
+                          <button onClick={handleRequestReset} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors" title="Xóa dữ liệu dùng thử">
+                              <RotateCcw size={14} className="lg:w-4 lg:h-4" />
+                              <span className="text-[10px] lg:text-xs font-bold hidden md:block">Reset</span>
+                          </button>
+                          <Link to="/login" onClick={playClick} className="flex items-center gap-1 px-2 lg:px-4 py-1.5 bg-[#003375] text-white text-[10px] lg:text-sm font-bold rounded-lg hover:bg-[#002855] transition-colors shadow-sm whitespace-nowrap">
+                              <User size={14} className="lg:w-4 lg:h-4" /> <span className="hidden md:block">Đăng nhập</span>
+                          </Link>
+                      </div>
+                  )}
+              </div>
+          </div>
+      </header>
+
+      <div className="flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10">
+          <main className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-2 sm:pt-3 min-h-full flex flex-col">
+              <div className="flex-1">
+                  {children}
+              </div>
+              <footer className="text-center py-6 mt-10 border-t border-gray-200 text-gray-500 bg-[#F8FAFC]">
+                  <p className="text-xs font-medium tracking-wide mb-1 uppercase">Web designed by tqhoangg</p>
+                  <p className="text-[10px] opacity-80 px-4 mb-3">HUB Planner có thể mắc sai sót, vui lòng xác minh lại thông tin khi cần thiết.</p>
+                  <div className="text-xs">
+                      <Link to="/privacy" className="hover:text-gray-900 transition-colors">Chính sách bảo mật</Link>
+                      <span className="mx-3 opacity-50">•</span>
+                      <Link to="/terms" className="hover:text-gray-900 transition-colors">Điều khoản sử dụng</Link>
+                  </div>
+              </footer>
+          </main>
+      </div>
+
+      <div className="fixed bottom-6 left-6 z-40 hidden md:flex flex-col gap-3">
+          <a href="https://www.facebook.com/hubplannerr" target="_blank" rel="noopener noreferrer" className="h-10 w-10 rounded-full bg-white text-[#1877F2] flex items-center justify-center shadow-md border border-gray-200 hover:scale-110 transition-transform">
+              <Facebook size={20} />
+          </a>
+      </div>
+    </>
+  );
+};
