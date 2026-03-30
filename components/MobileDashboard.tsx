@@ -18,7 +18,6 @@ import {
 import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { playClick } from '../utils/audio';
-import { AdsBanner } from './AdsBanner';
 import { mapIdToDisplay } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
 import { useUserRole } from '../hooks/useUserRole';
@@ -1132,8 +1131,6 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
  return (
     <div className="w-full pb-10">
-        <AdsBanner />
-
         {showAdminPanel ? (
             <div className="w-full space-y-4 pt-1 animate-fadeIn">
                 <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-3 -mt-2 mb-4 border-b border-gray-200/60 md:shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">                
@@ -1494,7 +1491,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 min-h-0">
                     <div className="flex flex-col gap-3 sm:gap-4">
                         <div className="bg-white p-3 sm:p-5 rounded-xl border border-gray-300 flex flex-col h-[240px] sm:h-auto sm:min-h-[340px]">
                             <div className="flex justify-between items-center mb-2 sm:mb-6">
@@ -1555,67 +1552,65 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-4 min-h-0">
-                        <div className="grid grid-cols-2 gap-3 sm:gap-4 shrink-0">
-                            <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
-                                <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight mb-2 uppercase truncate">Phân bố điểm</h3>
-                                
-                                <div className="h-[100px] sm:h-[130px] w-full relative flex flex-col items-center justify-center shrink-0">
-                                    {isLocked && (
-                                        <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
-                                            <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
-                                                <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
-                                                <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
-                                            </div>
-                                        </Link>
-                                    )}
-                                    {pieData.length > 0 ? (
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <PieChart>
-                                                <Pie data={pieData} cx="50%" cy="50%" innerRadius="55%" outerRadius="90%" paddingAngle={2} dataKey="value" stroke="none">
-                                                    {pieData.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                                    ))}
-                                                </Pie>
-                                                <RechartsTooltip contentStyle={{ borderRadius: '8px', fontSize: '11px', border: '1px solid #E5E7EB', padding: '4px 8px' }} itemStyle={{ padding: 0 }} />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                    ) : (
-                                        <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">Chưa có dữ liệu</div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
-                                <div className="flex justify-between items-center mb-2 sm:mb-3">
-                                    <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 uppercase truncate">Tổng kết năm</h3>
-                                    {yearlyStats.length > 3 && !isLocked && (
-                                        <button onClick={() => { playClick(); setShowYearlyModal(true); }} className="text-[9px] sm:text-[10px] font-bold text-[#003375] hover:underline shrink-0 ml-1">Chi tiết</button>
-                                    )}
-                                </div>
-                                
-                                <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 relative">
-                                    {isLocked && (
-                                        <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
-                                            <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
-                                                <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
-                                                <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
-                                            </div>
-                                        </Link>
-                                    )}
-                                    <div className="grid grid-cols-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
-                                        <span className="col-span-2">Năm</span>
-                                        <span className="text-center">TC</span>
-                                        <span className="text-right">GPA</span>
-                                    </div>
-                                    {yearlyStats.slice(0, 4).map((year) => (
-                                        <div key={year.yearId} className="grid grid-cols-4 text-[10px] sm:text-xs items-center py-1 hover:bg-gray-50 rounded px-0.5 sm:px-1 transition-colors">
-                                            <span className="col-span-2 font-medium text-gray-700 truncate pr-1" title={year.label}>{year.label.replace('Năm học ', 'NH ')}</span>
-                                            <span className="text-center text-gray-500">{year.hasData ? year.totalCredits : '-'}</span>
-                                            <span className="text-right font-extrabold text-[#003375]">{year.hasData ? year.gpa4.toFixed(2) : '-'}</span>
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 shrink-0">
+                        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
+                            <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight mb-2 uppercase truncate">Phân bố điểm</h3>
+                            
+                            <div className="h-[100px] sm:h-[130px] w-full relative flex flex-col items-center justify-center shrink-0">
+                                {isLocked && (
+                                    <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
+                                        <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
+                                            <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
+                                            <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
                                         </div>
-                                    ))}
+                                    </Link>
+                                )}
+                                {pieData.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie data={pieData} cx="50%" cy="50%" innerRadius="55%" outerRadius="90%" paddingAngle={2} dataKey="value" stroke="none">
+                                                {pieData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Pie>
+                                            <RechartsTooltip contentStyle={{ borderRadius: '8px', fontSize: '11px', border: '1px solid #E5E7EB', padding: '4px 8px' }} itemStyle={{ padding: 0 }} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">Chưa có dữ liệu</div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
+                            <div className="flex justify-between items-center mb-2 sm:mb-3">
+                                <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 uppercase truncate">Tổng kết năm</h3>
+                                {yearlyStats.length > 3 && !isLocked && (
+                                    <button onClick={() => { playClick(); setShowYearlyModal(true); }} className="text-[9px] sm:text-[10px] font-bold text-[#003375] hover:underline shrink-0 ml-1">Chi tiết</button>
+                                )}
+                            </div>
+                            
+                            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 relative">
+                                {isLocked && (
+                                    <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
+                                        <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
+                                            <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
+                                            <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
+                                        </div>
+                                    </Link>
+                                )}
+                                <div className="grid grid-cols-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
+                                    <span className="col-span-2">Năm</span>
+                                    <span className="text-center">TC</span>
+                                    <span className="text-right">GPA</span>
                                 </div>
+                                {yearlyStats.slice(0, 4).map((year) => (
+                                    <div key={year.yearId} className="grid grid-cols-4 text-[10px] sm:text-xs items-center py-1 hover:bg-gray-50 rounded px-0.5 sm:px-1 transition-colors">
+                                        <span className="col-span-2 font-medium text-gray-700 truncate pr-1" title={year.label}>{year.label.replace('Năm học ', 'NH ')}</span>
+                                        <span className="text-center text-gray-500">{year.hasData ? year.totalCredits : '-'}</span>
+                                        <span className="text-right font-extrabold text-[#003375]">{year.hasData ? year.gpa4.toFixed(2) : '-'}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>

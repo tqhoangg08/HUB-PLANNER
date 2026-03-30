@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, CalendarDays, Search, Package, MessageSquare, Newspaper, ChevronRight, GraduationCap, BookOpen, Clock, Shield, Loader2 } from 'lucide-react';
+import { Calculator, CalendarDays, Search, Package, MessageSquare, Newspaper, ChevronRight, GraduationCap, BookOpen, Clock, Shield, Loader2, ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserData } from '../types';
 import { playClick } from '../utils/audio';
@@ -19,28 +19,32 @@ interface MobileHomeProps {
 export const MobileHome: React.FC<MobileHomeProps> = ({ 
     data, displayName, avatarUrl, avatarSeed, isGuest, showSecurityNotice, onRequireOnboarding 
 }) => {
+    // ✨ State để điều khiển màn hình trượt
+    const [activeScreen, setActiveScreen] = useState<'main' | 'all-news'>('main');
+
     const [realNews, setRealNews] = useState<any[]>([]);
     const [loadingNews, setLoadingNews] = useState(true);
     
-    // ✨ THÊM STATE ĐỂ LƯU ID CỦA NGƯỜI DÙNG
+    // State lưu toàn bộ tin tức khi mở màn hình "Xem tất cả"
+    const [allNews, setAllNews] = useState<any[]>([]);
+    const [loadingAllNews, setLoadingAllNews] = useState(false);
+    
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-    // Tải Data từ Supabase
+    // Tải 4 tin mới nhất cho trang chủ
     useEffect(() => {
         const fetchRealData = async () => {
             try {
-                // 1. Lấy ID người dùng để truyền cho cái Chuông thông báo
                 const { data: { session } } = await supabase.auth.getSession();
                 if (session?.user) {
                     setCurrentUserId(session.user.id);
                 }
 
-                // 2. Lấy thông báo từ bảng school_announcements
                 const { data: newsData, error } = await supabase
                     .from('school_announcements') 
                     .select('*')
                     .order('date', { ascending: false })
-                    .limit(4);
+                    .limit(4); // Lấy 4 tin
                     
                 if (error) {
                     console.error('Lỗi truy vấn Supabase:', error);
@@ -57,6 +61,25 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
 
         fetchRealData();
     }, []);
+
+    // ✨ Hàm tải TOÀN BỘ tin tức khi bấm "Xem tất cả"
+    const fetchAllNews = async () => {
+        setLoadingAllNews(true);
+        try {
+            const { data: fullNewsData, error } = await supabase
+                .from('school_announcements') 
+                .select('*')
+                .order('date', { ascending: false });
+                
+            if (!error && fullNewsData) {
+                setAllNews(fullNewsData);
+            }
+        } catch (error) {
+            console.error('Lỗi tải toàn bộ tin tức:', error);
+        } finally {
+            setLoadingAllNews(false);
+        }
+    };
 
     const displayNews = realNews.length > 0 ? realNews : [
         { id: '1', title: "Hiện tại chưa có thông báo hoặc tin tức mới nào từ trường.", created_at: new Date().toISOString(), link: "#" }
@@ -79,6 +102,64 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
         return <img src={avatarUrl} alt="Avatar" className="h-12 w-12 rounded-full object-cover shadow-sm bg-white p-0.5 shrink-0" />;
     };
 
+    // =========================================================
+    // MÀN HÌNH XEM TẤT CẢ THÔNG BÁO (TRƯỢT LÊN)
+    // =========================================================
+    if (activeScreen === 'all-news') {
+        return (
+            <div className="fixed inset-0 bg-[#F8FAFC] z-[100] flex flex-col animate-slideInRight pb-safe">
+                {/* Header */}
+                <div className="bg-[#003375] px-4 py-4 flex items-center gap-3 shadow-md shrink-0">
+                    <button 
+                        onClick={() => { playClick(); setActiveScreen('main'); }} 
+                        className="p-1.5 text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors active:scale-95"
+                    >
+                        <ChevronLeft size={24} />
+                    </button>
+                    <h2 className="text-lg font-bold text-white tracking-tight">Tin tức từ trường (HUB)</h2>
+                </div>
+
+                {/* Danh sách toàn bộ thông báo */}
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
+                    {loadingAllNews ? (
+                        <div className="flex justify-center items-center py-10">
+                            <Loader2 className="animate-spin text-[#003375]" size={28} />
+                        </div>
+                    ) : allNews.length === 0 ? (
+                        <div className="text-center py-10 text-gray-500">Chưa có thông báo nào.</div>
+                    ) : (
+                        allNews.map((news) => {
+                            const dateObj = new Date(news.date || news.created_at);
+                            const formattedDate = isNaN(dateObj.getTime()) ? 'Mới cập nhật' : dateObj.toLocaleDateString('vi-VN');
+
+                            return (
+                                <a 
+                                    key={news.id} 
+                                    href={news.link || '#'} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    onClick={playClick}
+                                    className="bg-white p-3.5 rounded-2xl flex gap-4 items-center shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-gray-100 active:scale-[0.98] transition-transform cursor-pointer"
+                                >
+                                    <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center text-red-500 shrink-0">
+                                        <Newspaper size={22} strokeWidth={1.5} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-[13px] text-gray-800 line-clamp-2 leading-snug">{news.title}</h3>
+                                        <p className="text-[10px] text-gray-400 mt-1.5 font-medium">{formattedDate}</p>
+                                    </div>
+                                </a>
+                            );
+                        })
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // =========================================================
+    // MÀN HÌNH TRANG CHỦ CHÍNH
+    // =========================================================
     return (
         <div className="min-h-[100dvh] bg-[#F8FAFC] pb-24 font-sans animate-fadeIn">
             {/* HEADER NỀN XANH CẬP NHẬT THÔNG TIN SINH VIÊN */}
@@ -94,7 +175,6 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                     
                     <div className="relative z-[60] bg-white/10 hover:bg-white/20 transition-colors rounded-full backdrop-blur-sm flex items-center justify-center">
                         <div className="scale-90 opacity-90 hover:opacity-100">
-                            {/* ✨ ĐÃ SỬA: Truyền currentUserId vào NotificationBell */}
                             <NotificationBell currentUserId={currentUserId} />
                         </div>
                     </div>
@@ -184,7 +264,13 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
             <div className="px-5 mt-8">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-[17px] font-bold text-gray-800 tracking-tight">Tin tức từ trường (HUB)</h2>
-                    <button className="text-xs font-bold text-red-600 hover:text-red-700 transition-colors">Xem tất cả</button>
+                    {/* ✨ NÚT XEM TẤT CẢ ĐÃ HOẠT ĐỘNG */}
+                    <button 
+                        onClick={() => { playClick(); setActiveScreen('all-news'); fetchAllNews(); }}
+                        className="text-xs font-bold text-red-600 hover:text-red-700 transition-colors py-1 px-2 -mr-2"
+                    >
+                        Xem tất cả
+                    </button>
                 </div>
                 
                 {loadingNews ? (
