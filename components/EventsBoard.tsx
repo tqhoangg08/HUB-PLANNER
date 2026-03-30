@@ -293,8 +293,6 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
     );
 };
 
-const DRAFT_KEY = 'event_form_draft';
-
 const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
     const [formData, setFormData] = useState({
         title: '',
@@ -313,7 +311,6 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         description: '' 
     });
     const [submitting, setSubmitting] = useState(false);
-    
 
     if (!isOpen) return null;
 
@@ -392,11 +389,6 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 </div>
 
                 <div className="p-6">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-blue-800">
-                        <Sparkles className="shrink-0 mt-0.5" size={18}/>
-                        <p>Dữ liệu đang nhập sẽ tự động được lưu. Bạn có thể quay lại sau mà không mất nội dung.</p>
-                    </div>
-
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
@@ -512,8 +504,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                 </select>
                             </div>
                             <div className="col-span-1">
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Hình thức</label>
-                                <select 
+                                 <label className="block text-sm font-bold text-gray-700 mb-1">Hình thức</label>
+                                 <select 
                                     className="w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
                                     value={formData.format} 
                                     onChange={e => setFormData({...formData, format: e.target.value})}
@@ -576,6 +568,225 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                         </button>
                     </form>
                 </div>
+            </div>
+        </div>, document.body
+    );
+};
+
+const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEvents }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void; editingEvent: HubEvent | null; fetchEvents: () => void }) => {
+    const [formData, setFormData] = useState({
+        title: editingEvent?.name || '',
+        deadline: editingEvent?.deadlineDate ? editingEvent.deadlineDate.toISOString().split('T')[0] : '',
+        deadline_time: editingEvent?.deadline_time || '',
+        close_on_full: editingEvent?.close_on_full || false,
+        event_date: editingEvent?.event_date || '', 
+        event_time: formatTimeString(editingEvent?.event_time) || '',
+        category: editingEvent?.type || 'Hoạt động phong trào',
+        classification: editingEvent?.classification || '',
+        criteria: editingEvent?.category || 'III',
+        points: editingEvent?.score || '5',
+        organizer: editingEvent?.organizer || '',
+        link: editingEvent?.link || '',
+        location_type: editingEvent?.scope || 'Trong trường',
+        format: editingEvent?.location || 'Offline',
+        status: editingEvent?.status || 'Sắp diễn ra',
+        is_manually_closed: editingEvent?.is_manually_closed || false,
+        description: editingEvent?.description || ''
+    });
+    const [submitting, setSubmitting] = useState(false);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        playClick();
+        
+        try {
+            const payload = {
+                title: formData.title,
+                deadline: formData.close_on_full ? null : (formData.deadline ? formData.deadline : null),
+                deadline_time: formData.close_on_full ? null : (formData.deadline_time ? formData.deadline_time : null),
+                close_on_full: formData.close_on_full,
+                event_date: formData.event_date ? formData.event_date : null, 
+                event_time: formData.event_time ? formData.event_time : null, 
+                category: formData.category,
+                classification: formData.classification,
+                criteria: formData.criteria,
+                points: formData.points,
+                organizer: formData.organizer,
+                link: formData.link,
+                location_type: formData.location_type,
+                format: formData.format,
+                status: formData.status,
+                is_manually_closed: formData.is_manually_closed,
+                description: formData.description
+            };
+
+            if (editingEvent) {
+                const { data, error } = await supabase!
+                    .from('events')
+                    .update(payload)
+                    .eq('id', editingEvent.id)
+                    .select();
+
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    throw new Error("Bảo mật RLS đang chặn bạn sửa! Vui lòng chạy lệnh SQL để cấp quyền Admin.");
+                }
+                onShowToast("Cập nhật thành công!", "success");
+            } else {
+                const { data, error } = await supabase!.from('events').insert([payload]).select();
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    throw new Error("Bảo mật RLS đang chặn bạn thêm! Vui lòng chạy lệnh SQL để cấp quyền Admin.");
+                }
+                onShowToast("Thêm sự kiện thành công!", "success");
+            }
+            fetchEvents();
+            onClose();
+        } catch (err: any) {
+            onShowToast("Lỗi: " + err.message, "error");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn flex flex-col">
+                <div className="bg-[#003375] p-4 flex justify-between items-center text-white sticky top-0 z-10 shrink-0">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        {editingEvent ? <Edit2 size={20}/> : <PlusCircle size={20}/>}
+                        {editingEvent ? 'Chỉnh sửa Sự kiện' : 'Thêm Sự kiện Mới'}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                        <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
+                    </div>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
+                        <input type="text" required className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
+                            <div>
+                                <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày hết hạn ĐK</label>
+                                <input 
+                                    type="date" 
+                                    disabled={formData.close_on_full}
+                                    className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`}
+                                    value={formData.deadline} 
+                                    onChange={e => setFormData({...formData, deadline: e.target.value})} 
+                                />
+                            </div>
+                            <div>
+                                <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ hết hạn</label>
+                                <input 
+                                    type="time" 
+                                    disabled={formData.close_on_full}
+                                    className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`}
+                                    value={formData.deadline_time || ''} 
+                                    onChange={e => setFormData({...formData, deadline_time: e.target.value})} 
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra</label>
+                            <input type="date" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Giờ diễn ra</label>
+                            <input type="time" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200 gap-2">
+                        <div>
+                            <span className="font-bold text-gray-700 block">Đóng khi đủ số lượng</span>
+                            <span className="text-xs text-gray-500">Form ĐK sẽ tự khóa trước thời hạn (Do BTC chủ động đóng).</span>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                            <input type="checkbox" className="sr-only peer" checked={formData.close_on_full} onChange={e => setFormData({...formData, close_on_full: e.target.checked})} />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#003375]"></div>
+                        </label>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="col-span-1">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Mục</label>
+                            <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.criteria} onChange={e => setFormData({...formData, criteria: e.target.value})}>
+                                <option value="I">I</option><option value="II">II</option><option value="III">III</option><option value="IV">IV</option><option value="V">V</option><option value="Chưa biết">Chưa biết</option>
+                            </select>
+                        </div>
+                        <div className="col-span-1">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Điểm</label>
+                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.points} onChange={e => setFormData({...formData, points: e.target.value})} />
+                        </div>
+                        <div className="col-span-1">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Khu vực</label>
+                            <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.location_type} onChange={e => setFormData({...formData, location_type: e.target.value})}>
+                                <option value="Trong trường">Trong trường</option>
+                                <option value="Ngoài trường">Ngoài trường</option>
+                            </select>
+                        </div>
+                        <div className="col-span-1">
+                             <label className="block text-sm font-bold text-gray-700 mb-1">Hình thức</label>
+                             <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.format} onChange={e => setFormData({...formData, format: e.target.value})}>
+                                <option value="Offline">Offline</option><option value="Online">Online</option><option value="Hỗn hợp">Hỗn hợp</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Loại hình</label>
+                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" placeholder="VD: Hội thảo..." value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Phân loại (Text)</label>
+                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" placeholder="VD: Minigame, Workshop..." value={formData.classification} onChange={e => setFormData({...formData, classification: e.target.value})} />
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">BTC</label>
+                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.organizer} onChange={e => setFormData({...formData, organizer: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Link</label>
+                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.link} onChange={e => setFormData({...formData, link: e.target.value})} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Trạng thái</label>
+                        <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+                            <option value="pending">Chờ duyệt (Pending)</option>
+                            <option value="Sắp diễn ra">Sắp diễn ra</option>
+                            <option value="Đang diễn ra">Đang diễn ra</option>
+                            <option value="Đã kết thúc">Đã kết thúc</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Mô tả sự kiện</label>
+                        <textarea 
+                            rows={4}
+                            className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] resize-none"
+                            placeholder="Thông tin chi tiết, đối tượng, quyền lợi... (Sẽ được ẩn gọn gàng, hiển thị khi user bấm xem thêm)"
+                            value={formData.description}
+                            onChange={e => setFormData({...formData, description: e.target.value})}
+                        ></textarea>
+                    </div>
+
+                    <button type="submit" disabled={submitting} className="w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
+                        {submitting ? <Loader2 className="animate-spin"/> : <Save size={18}/>} Lưu thay đổi
+                    </button>
+                </form>
             </div>
         </div>, document.body
     );
@@ -1096,239 +1307,6 @@ const participatedStats = useMemo(() => {
     );
   };
 
-  const ADMIN_DRAFT_KEY = 'admin_event_draft';
-
-  const ManageEventModal = () => {
-      const [formData, setFormData] = useState({
-          title: editingEvent?.name || '',
-          deadline: editingEvent?.deadlineDate ? editingEvent.deadlineDate.toISOString().split('T')[0] : '',
-          deadline_time: editingEvent?.deadline_time || '',
-          close_on_full: editingEvent?.close_on_full || false,
-          event_date: editingEvent?.event_date || '', 
-          event_time: formatTimeString(editingEvent?.event_time) || '',
-          category: editingEvent?.type || 'Hoạt động phong trào',
-          classification: editingEvent?.classification || '',
-          criteria: editingEvent?.category || 'III',
-          points: editingEvent?.score || '5',
-          organizer: editingEvent?.organizer || '',
-          link: editingEvent?.link || '',
-          location_type: editingEvent?.scope || 'Trong trường',
-          format: editingEvent?.location || 'Offline',
-          status: editingEvent?.status || 'Sắp diễn ra',
-          is_manually_closed: editingEvent?.is_manually_closed || false,
-          description: editingEvent?.description || ''
-      });
-      const [submitting, setSubmitting] = useState(false);
-
-      useEffect(() => {
-          if (!editingEvent) {
-              const timeout = setTimeout(() => {
-                  localStorage.setItem(ADMIN_DRAFT_KEY, JSON.stringify(formData));
-              }, 500); 
-              return () => clearTimeout(timeout);
-          }
-      }, [formData, editingEvent]);
-
-
-      const handleSubmit = async (e: React.FormEvent) => {
-          e.preventDefault();
-          setSubmitting(true);
-          playClick();
-          
-          try {
-              const payload = {
-                  title: formData.title,
-                  deadline: formData.close_on_full ? null : (formData.deadline ? formData.deadline : null),
-                  deadline_time: formData.close_on_full ? null : (formData.deadline_time ? formData.deadline_time : null),
-                  close_on_full: formData.close_on_full,
-                  event_date: formData.event_date ? formData.event_date : null, 
-                  event_time: formData.event_time ? formData.event_time : null, 
-                  category: formData.category,
-                  classification: formData.classification,
-                  criteria: formData.criteria,
-                  points: formData.points,
-                  organizer: formData.organizer,
-                  link: formData.link,
-                  location_type: formData.location_type,
-                  format: formData.format,
-                  status: formData.status,
-                  is_manually_closed: formData.is_manually_closed,
-                  description: formData.description
-              };
-
-              if (editingEvent) {
-                  const { data, error } = await supabase!
-                      .from('events')
-                      .update(payload)
-                      .eq('id', editingEvent.id)
-                      .select();
-
-                  if (error) throw error;
-                  if (!data || data.length === 0) {
-                      throw new Error("Bảo mật RLS đang chặn bạn sửa! Vui lòng chạy lệnh SQL để cấp quyền Admin.");
-                  }
-                  showToast("Cập nhật thành công!", "success");
-              } else {
-                  const { data, error } = await supabase!.from('events').insert([payload]).select();
-                  if (error) throw error;
-                  if (!data || data.length === 0) {
-                      throw new Error("Bảo mật RLS đang chặn bạn thêm! Vui lòng chạy lệnh SQL để cấp quyền Admin.");
-                  }
-                  showToast("Thêm sự kiện thành công!", "success");
-              }
-              fetchEvents();
-              setShowManageModal(false);
-          } catch (err: any) {
-              showToast("Lỗi: " + err.message, "error");
-          } finally {
-              setSubmitting(false);
-          }
-      };
-
-      return createPortal(
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn flex flex-col">
-                <div className="bg-[#003375] p-4 flex justify-between items-center text-white sticky top-0 z-10 shrink-0">
-                    <h3 className="font-bold text-lg flex items-center gap-2">
-                        {editingEvent ? <Edit2 size={20}/> : <PlusCircle size={20}/>}
-                        {editingEvent ? 'Chỉnh sửa Sự kiện' : 'Thêm Sự kiện Mới'}
-                    </h3>
-                    
-                    <div className="flex items-center gap-2">
-                    
-                        <button onClick={() => setShowManageModal(false)} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
-                    </div>
-                </div>
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-
-
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
-                        <input type="text" required className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
-                            <div>
-                                <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày hết hạn ĐK</label>
-                                <input 
-                                    type="date" 
-                                    disabled={formData.close_on_full}
-                                    className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`}
-                                    value={formData.deadline} 
-                                    onChange={e => setFormData({...formData, deadline: e.target.value})} 
-                                />
-                            </div>
-                            <div>
-                                <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ hết hạn</label>
-                                <input 
-                                    type="time" 
-                                    disabled={formData.close_on_full}
-                                    className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`}
-                                    value={formData.deadline_time || ''} 
-                                    onChange={e => setFormData({...formData, deadline_time: e.target.value})} 
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra</label>
-                            <input type="date" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Giờ diễn ra</label>
-                            <input type="time" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200 gap-2">
-                        <div>
-                            <span className="font-bold text-gray-700 block">Đóng khi đủ số lượng</span>
-                            <span className="text-xs text-gray-500">Form ĐK sẽ tự khóa trước thời hạn (Do BTC chủ động đóng).</span>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                            <input type="checkbox" className="sr-only peer" checked={formData.close_on_full} onChange={e => setFormData({...formData, close_on_full: e.target.checked})} />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#003375]"></div>
-                        </label>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="col-span-1">
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Mục</label>
-                            <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.criteria} onChange={e => setFormData({...formData, criteria: e.target.value})}>
-                                <option value="I">I</option><option value="II">II</option><option value="III">III</option><option value="IV">IV</option><option value="V">V</option><option value="Chưa biết">Chưa biết</option>
-                            </select>
-                        </div>
-                        <div className="col-span-1">
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Điểm</label>
-                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.points} onChange={e => setFormData({...formData, points: e.target.value})} />
-                        </div>
-                        <div className="col-span-1">
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Khu vực</label>
-                            <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.location_type} onChange={e => setFormData({...formData, location_type: e.target.value})}>
-                                <option value="Trong trường">Trong trường</option>
-                                <option value="Ngoài trường">Ngoài trường</option>
-                            </select>
-                        </div>
-                        <div className="col-span-1">
-                             <label className="block text-sm font-bold text-gray-700 mb-1">Hình thức</label>
-                             <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.format} onChange={e => setFormData({...formData, format: e.target.value})}>
-                                <option value="Offline">Offline</option><option value="Online">Online</option><option value="Hỗn hợp">Hỗn hợp</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Loại hình</label>
-                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" placeholder="VD: Hội thảo..." value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Phân loại (Text)</label>
-                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" placeholder="VD: Minigame, Workshop..." value={formData.classification} onChange={e => setFormData({...formData, classification: e.target.value})} />
-                        </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">BTC</label>
-                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.organizer} onChange={e => setFormData({...formData, organizer: e.target.value})} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Link</label>
-                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.link} onChange={e => setFormData({...formData, link: e.target.value})} />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Trạng thái</label>
-                        <select className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
-                            <option value="pending">Chờ duyệt (Pending)</option>
-                            <option value="Sắp diễn ra">Sắp diễn ra</option>
-                            <option value="Đang diễn ra">Đang diễn ra</option>
-                            <option value="Đã kết thúc">Đã kết thúc</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Mô tả sự kiện</label>
-                        <textarea 
-                            rows={4}
-                            className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] resize-none"
-                            placeholder="Thông tin chi tiết, đối tượng, quyền lợi... (Sẽ được ẩn gọn gàng, hiển thị khi user bấm xem thêm)"
-                            value={formData.description}
-                            onChange={e => setFormData({...formData, description: e.target.value})}
-                        ></textarea>
-                    </div>
-
-                    <button type="submit" disabled={submitting} className="w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
-                        {submitting ? <Loader2 className="animate-spin"/> : <Save size={18}/>} Lưu thay đổi
-                    </button>
-                </form>
-            </div>
-        </div>, document.body
-      );
-  };
-
   const renderEventCard = (evt: HubEvent) => {
     const isPending = evt.status === 'pending';
     const isStatusClosed = evt.status === 'Đã kết thúc';
@@ -1637,7 +1615,7 @@ return (
       <DiscussionModal event={discussEvent} onClose={() => setDiscussEvent(null)} />
       {showContributeModal && <ContributeEventModal isOpen={showContributeModal} onClose={() => setShowContributeModal(false)} onShowToast={showToast} />}
       {showScoreGuide && <ScoreGuideModal isOpen={showScoreGuide} onClose={() => setShowScoreGuide(false)} />}
-      {showManageModal && <ManageEventModal />}
+      {showManageModal && <ManageEventModal isOpen={showManageModal} onClose={() => setShowManageModal(false)} onShowToast={showToast} editingEvent={editingEvent} fetchEvents={fetchEvents} />}
       <CTVModalWrapper isOpen={showCTVModal} onClose={() => setShowCTVModal(false)} onShowToast={showToast} />
       
       <ReportEventModal 
