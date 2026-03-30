@@ -1,10 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { Mail, Lock, Loader2, AlertCircle, GraduationCap, ShieldCheck, ChevronLeft } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
+import Particles from "react-particles";
+import { loadSlim } from "tsparticles-slim";
+import type { Engine, ISourceOptions } from "tsparticles-engine";
+
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
+
+// Khai báo để TypeScript không báo lỗi thư viện Google
+declare global {
+    interface Window {
+        google: any;
+    }
+}
 
 export const MobileLogin: React.FC = () => {
     const navigate = useNavigate();
@@ -14,6 +25,91 @@ export const MobileLogin: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [agreed, setAgreed] = useState(false);
+
+    // ==========================================
+    // ✨ TÍCH HỢP GOOGLE ONE TAP (IN-APP POPUP)
+    // ==========================================
+    const GOOGLE_CLIENT_ID = '1097002285480-3og7gdbd6v0sid980n6vc9ctshj9u6br.apps.googleusercontent.com'; // <--- SỬA DÒNG NÀY
+
+    useEffect(() => {
+        // Tải thư viện Google Identity Services khi vừa vào trang
+        const loadGoogleScript = () => {
+            if (document.getElementById('google-gsi-script')) return;
+            const script = document.createElement('script');
+            script.id = 'google-gsi-script';
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+
+            script.onload = () => {
+                if (window.google) {
+                    window.google.accounts.id.initialize({
+                        client_id: GOOGLE_CLIENT_ID,
+                        callback: handleGoogleOneTapResponse,
+                        cancel_on_tap_outside: true,
+                        // hosted_domain: SCHOOL_DOMAIN, // Mở dòng này nếu chỉ muốn tài khoản trường hiện lên
+                    });
+                }
+            };
+        };
+        loadGoogleScript();
+    }, []);
+
+    // Hàm nhận Token từ Google One Tap và gửi cho Supabase xác thực
+    const handleGoogleOneTapResponse = async (response: any) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const { data, error } = await supabase.auth.signInWithIdToken({
+                provider: 'google',
+                token: response.credential,
+            });
+
+            if (error) throw error;
+            navigate('/dashboard', { replace: true });
+        } catch (err: any) {
+            setError(err.message || "Lỗi đăng nhập Google.");
+            setLoading(false);
+        }
+    };
+
+    const handleGoogleLoginClick = async () => {
+        if (!agreed) return; 
+        if (!supabase) return setError("Chưa cấu hình kết nối Database.");
+        playClick();
+        setError(null);
+
+        // 1. Thử gọi Google One Tap (Popup trượt từ dưới lên)
+        if (window.google) {
+            window.google.accounts.id.prompt((notification: any) => {
+                // Nếu Popup bị trình duyệt chặn (do chặn cookie bên thứ 3) -> Chuyển sang dùng Redirect cũ
+                if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                    fallbackGoogleOAuth();
+                }
+            });
+        } else {
+            // Nếu script Google chưa kịp load -> Dùng Redirect cũ
+            fallbackGoogleOAuth();
+        }
+    };
+
+    // 2. Phương án dự phòng: Đăng nhập kiểu chuyển trang truyền thống nếu One Tap bị lỗi
+    const fallbackGoogleOAuth = async () => {
+        setLoading(true);
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: `${window.location.origin}/dashboard`,
+                queryParams: { hd: SCHOOL_DOMAIN, prompt: 'select_account' },
+            },
+        });
+        if (error) {
+            setError(error.message);
+            setLoading(false);
+        }
+    };
+    // ==========================================
 
     const handleAdminLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -28,30 +124,29 @@ export const MobileLogin: React.FC = () => {
         setLoading(false);
     };
 
-    const handleGoogleLogin = async () => {
-        if (!agreed) return; 
-        if (!supabase) return setError("Chưa cấu hình kết nối Database.");
-        setLoading(true); setError(null); playClick();
+    const particlesInit = useCallback(async (engine: Engine) => {
+        await loadSlim(engine);
+    }, []);
 
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: `${window.location.origin}/dashboard`,
-                queryParams: { hd: SCHOOL_DOMAIN, prompt: 'select_account' },
-            },
-        });
-
-        if (error) {
-            setError(error.message);
-            setLoading(false);
-        }
-    };
+    const particlesOptions = useMemo((): ISourceOptions => ({
+        fullScreen: { enable: false },
+        fpsLimit: 60,
+        particles: {
+            number: { value: 20, density: { enable: true, area: 800 } },
+            color: { value: ["#003375", "#93C5FD", "#E2E8F0"] },
+            shape: { type: "circle" },
+            opacity: { value: { min: 0.1, max: 0.4 }, animation: { enable: true, speed: 0.5, minimumValue: 0.1, sync: false } },
+            size: { value: { min: 2, max: 5 } },
+            move: { enable: true, speed: { min: 0.5, max: 1.5 }, direction: "top", random: true, outModes: { default: "out" } },
+        },
+        detectRetina: true,
+    }), []);
 
     return (
         <div className="min-h-[100dvh] bg-[#003375] flex flex-col font-sans animate-fadeIn relative overflow-hidden">
             
-            {/* Background Pattern Nhẹ */}
             <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+            <Particles id="tsparticles-mobile-login" init={particlesInit} options={particlesOptions} className="absolute inset-0 z-0 pointer-events-none" />
 
             {/* HEADER NỬA TRÊN */}
             <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-6 pb-8 pt-12">
@@ -177,7 +272,7 @@ export const MobileLogin: React.FC = () => {
                                 </label>
 
                                 <button 
-                                    type="button" onClick={handleGoogleLogin} disabled={loading || !agreed} 
+                                    type="button" onClick={handleGoogleLoginClick} disabled={loading || !agreed} 
                                     className="w-full bg-white border-2 border-gray-200 text-gray-800 font-bold py-3.5 rounded-xl active:bg-gray-50 transition-colors flex justify-center items-center gap-3 disabled:opacity-50 disabled:active:bg-white shadow-sm text-[15px]"
                                 >
                                     <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -187,7 +282,6 @@ export const MobileLogin: React.FC = () => {
                                         <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                                     </svg>
                                     <span>{loading ? 'Đang kết nối...' : 'Tiếp tục với Google'}</span>
-                                    {loading && <Loader2 className="animate-spin text-gray-500 absolute right-6" size={18} />}
                                 </button>
                             </div>
                         </div>
