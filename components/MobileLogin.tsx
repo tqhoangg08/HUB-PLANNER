@@ -20,7 +20,7 @@ export const MobileLogin: React.FC = () => {
     const [agreed, setAgreed] = useState(false);
 
     // ==========================================
-    // ĐĂNG NHẬP GOOGLE CHUẨN (HIỆN TẤT CẢ GMAIL NHƯ SPOTIFY)
+    // ĐĂNG NHẬP GOOGLE MẶC ĐỊNH (TỰ ĐỘNG LẤY TÀI KHOẢN TRONG MÁY)
     // ==========================================
     const handleGoogleLogin = async () => {
         if (!agreed) return; 
@@ -31,8 +31,7 @@ export const MobileLogin: React.FC = () => {
             provider: 'google',
             options: {
                 redirectTo: `${window.location.origin}/dashboard`,
-                // ✨ ĐÃ SỬA: Xóa 'hd' đi, chỉ dùng prompt để bung ra tất cả tài khoản trong máy
-                queryParams: { prompt: 'select_account' }, 
+                // ✨ ĐÃ SỬA: Xóa bỏ hoàn toàn queryParams để Google tự động xử lý mượt mà nhất
             },
         });
 
@@ -152,7 +151,6 @@ export const MobileLogin: React.FC = () => {
                             <div className="flex-1"></div>
 
                             <div className="mt-6 mb-4">
-                                {/* Checkbox Đồng ý */}
                                 <label className="flex items-start gap-3 cursor-pointer group px-1 mb-4">
                                     <div className="relative flex items-center justify-center mt-0.5 shrink-0">
                                         <input type="checkbox" className="peer sr-only" checked={agreed} onChange={(e) => { playClick(); setAgreed(e.target.checked); }} />
@@ -189,7 +187,6 @@ export const MobileLogin: React.FC = () => {
                             <div className="flex-1"></div>
 
                             <div className="mt-auto mb-4">
-                                {/* Checkbox Đồng ý */}
                                 <label className="flex items-start gap-3 cursor-pointer group px-1 mb-4">
                                     <div className="relative flex items-center justify-center mt-0.5 shrink-0">
                                         <input type="checkbox" className="peer sr-only" checked={agreed} onChange={(e) => { playClick(); setAgreed(e.target.checked); }} />
