@@ -41,11 +41,10 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
 
                 // 2. Lấy thông báo từ bảng announcements
                 const { data: newsData } = await supabase
-                    .from('announcements') 
+                    .from('school_announcements') 
                     .select('*')
-                    .order('created_at', { ascending: false })
+                    .order('date', { ascending: false })
                     .limit(4);
-                if (newsData) setRealNews(newsData);
 
             } catch (error) {
                 console.error('Lỗi tải dữ liệu:', error);
