@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, CalendarDays, Search, Package, MessageSquare, Newspaper, ChevronRight, GraduationCap, BookOpen, Clock, Shield, Loader2, ChevronLeft } from 'lucide-react';
+import { Calculator, CalendarDays, Search, Package, MessageSquare, Newspaper, ChevronRight, GraduationCap, BookOpen, Clock, Shield, Loader2, ChevronLeft, Users, Book } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserData } from '../types';
 import { playClick } from '../utils/audio';
@@ -241,6 +241,13 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                         </div>
                         <span className="text-[11px] text-gray-600 font-medium">Sự kiện</span>
                     </Link>
+                    {/* ✨ MỤC MỚI: CLB - ĐỘI */}
+                    <Link to="/handbook/clubs" onClick={playClick} className="flex flex-col items-center gap-2 group active:scale-95 transition-transform">
+                        <div className="w-[52px] h-[52px] bg-white rounded-2xl flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-indigo-500 border border-indigo-50 group-hover:bg-indigo-50">
+                            <Users size={24} strokeWidth={1.5} />
+                        </div>
+                        <span className="text-[11px] text-gray-600 font-medium">CLB - Đội</span>
+                    </Link>
                     <Link to="/lost-found" onClick={playClick} className="flex flex-col items-center gap-2 group active:scale-95 transition-transform">
                         <div className="w-[52px] h-[52px] bg-white rounded-2xl flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-purple-500 border border-purple-50 group-hover:bg-purple-50">
                             <Search size={24} strokeWidth={1.5} />
@@ -253,11 +260,18 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                         </div>
                         <span className="text-[11px] text-gray-600 font-medium">Nhặt đồ</span>
                     </Link>
-                    <Link to="/profile/guest" onClick={playClick} className="flex flex-col items-center gap-2 group active:scale-95 transition-transform">
+                    <Link to="/handbook/feedback" onClick={playClick} className="flex flex-col items-center gap-2 group active:scale-95 transition-transform">
                         <div className="w-[52px] h-[52px] bg-white rounded-2xl flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-pink-500 border border-pink-50 group-hover:bg-pink-50">
                             <MessageSquare size={24} strokeWidth={1.5} />
                         </div>
                         <span className="text-[11px] text-gray-600 font-medium">Góp ý</span>
+                    </Link>
+                    {/* ✨ MỤC MỚI: CẨM NANG */}
+                    <Link to="/handbook/contacts" onClick={playClick} className="flex flex-col items-center gap-2 group active:scale-95 transition-transform">
+                        <div className="w-[52px] h-[52px] bg-white rounded-2xl flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-teal-500 border border-teal-50 group-hover:bg-teal-50">
+                            <Book size={24} strokeWidth={1.5} />
+                        </div>
+                        <span className="text-[11px] text-gray-600 font-medium">Cẩm nang</span>
                     </Link>
                 </div>
             </div>

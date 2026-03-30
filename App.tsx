@@ -36,6 +36,7 @@ import { MobileEvents } from './components/MobileEvents';
 import { MobileLostFound } from './components/MobileLostFound';
 import { MobileProfile } from './components/MobileProfile'; 
 import { MobileLogin } from './components/MobileLogin';
+import { MobileHandbook } from './components/MobileHandbook';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
@@ -948,7 +949,8 @@ const App: React.FC = () => {
                 <Route path="/learning" element={<MobileLearning data={data} onSetSemesters={(sems) => setData(prev => ({ ...prev, semesters: sems }))} isGuest={isGuest} onRequireOnboarding={() => setForceGuestOnboarding(true)} onTargetChange={(newTarget) => setData(prev => ({ ...prev, targetGPA: newTarget }))} showSecurityNotice={!session} onUpdateSemester={updateSemester} onRemoveSemester={removeSemester} onAddSemester={addSemester} onExportPDF={handleExportPDF} onImportPDF={() => { playClick(); setShowImportGuide(true); }} isImporting={isImporting} fileInputRef={fileInputRef} onFileUpload={handleFileUpload} viewUserId={viewingUser?.id} />} />
                 <Route path="/events" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/lost-found" element={<MobileLostFound />} />
-                <Route path="/handbook/:tab?" element={<Handbook />} />
+                <Route path="/handbook/:tab?" element={<MobileHandbook />} />
+                <Route path="/handbook" element={<MobileHandbook />} />
                 
                 <Route path="/profile/:id" element={
                     <MobileProfile 
