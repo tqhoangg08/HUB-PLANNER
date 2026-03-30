@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Calculator, CalendarDays, Search, Package, MessageSquare, Newspaper, ChevronRight, GraduationCap, BookOpen, Clock, Shield, Loader2 } from 'lucide-react';
+import { Calculator, CalendarDays, Search, Package, MessageSquare, Newspaper, ChevronRight, GraduationCap, BookOpen, Clock, Shield, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserData } from '../types';
 import { playClick } from '../utils/audio';
 import { supabase } from '../utils/supabase';
+import NotificationBell from './NotificationBell';
 
 interface MobileHomeProps {
     data: UserData;
@@ -16,40 +17,40 @@ interface MobileHomeProps {
 }
 
 export const MobileHome: React.FC<MobileHomeProps> = ({ 
-    onRequireOnboarding 
+    data, displayName, avatarUrl, avatarSeed, isGuest, showSecurityNotice, onRequireOnboarding 
 }) => {
-    // State lưu dữ liệu người dùng thật
-    const [realUser, setRealUser] = useState<any>(null);
-    const [realProfile, setRealProfile] = useState<any>(null);
-    const [isLoadingUser, setIsLoadingUser] = useState(true);
-
-    // State lưu dữ liệu thông báo thật
     const [realNews, setRealNews] = useState<any[]>([]);
     const [loadingNews, setLoadingNews] = useState(true);
+    
+    // ✨ THÊM STATE ĐỂ LƯU ID CỦA NGƯỜI DÙNG
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-    // Tải Data thật từ Supabase khi mở App
+    // Tải Data từ Supabase
     useEffect(() => {
         const fetchRealData = async () => {
             try {
-                // 1. Lấy thông tin user hiện tại
+                // 1. Lấy ID người dùng để truyền cho cái Chuông thông báo
                 const { data: { session } } = await supabase.auth.getSession();
                 if (session?.user) {
-                    setRealUser(session.user);
-                    const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-                    if (profile) setRealProfile(profile);
+                    setCurrentUserId(session.user.id);
                 }
 
-                // 2. Lấy thông báo từ bảng announcements
-                const { data: newsData } = await supabase
+                // 2. Lấy thông báo từ bảng school_announcements
+                const { data: newsData, error } = await supabase
                     .from('school_announcements') 
                     .select('*')
                     .order('date', { ascending: false })
                     .limit(4);
+                    
+                if (error) {
+                    console.error('Lỗi truy vấn Supabase:', error);
+                } else if (newsData) {
+                    setRealNews(newsData);
+                }
 
             } catch (error) {
-                console.error('Lỗi tải dữ liệu:', error);
+                console.error('Lỗi tải dữ liệu tin tức:', error);
             } finally {
-                setIsLoadingUser(false);
                 setLoadingNews(false);
             }
         };
@@ -58,29 +59,24 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
     }, []);
 
     const displayNews = realNews.length > 0 ? realNews : [
-        { id: '1', title: "Đang chờ kết nối dữ liệu thông báo từ máy chủ HUB...", created_at: new Date().toISOString(), link: "#" }
+        { id: '1', title: "Hiện tại chưa có thông báo hoặc tin tức mới nào từ trường.", created_at: new Date().toISOString(), link: "#" }
     ];
 
-    // Logic tính toán hiển thị dựa trên dữ liệu thật
-    const actuallyIsGuest = !realUser;
-    const display_Name = realProfile?.full_name || realProfile?.data?.studentName || realUser?.user_metadata?.full_name || 'Khách';
-    const display_Cohort = realProfile?.data?.cohort || null;
-    const display_Major = realProfile?.data?.majorName || null;
-    const display_Avatar = realProfile?.avatar_url || realUser?.user_metadata?.avatar_url || null;
-    const display_Seed = display_Name.charAt(0).toUpperCase();
-
-    const isColorAvatar = display_Avatar?.startsWith('#');
-    const needsUpdate = realUser && (!display_Cohort || !display_Major);
-    const showWarningBox = actuallyIsGuest || needsUpdate;
+    const display_Cohort = data?.cohort || null;
+    const display_Major = data?.majorName || null;
+    const isColorAvatar = avatarUrl?.startsWith('#');
+    
+    const needsUpdate = !isGuest && (!display_Cohort || !display_Major);
+    const showWarningBox = showSecurityNotice || needsUpdate;
 
     const renderAvatar = () => {
-        if (!display_Avatar) {
-            return <span className="h-12 w-12 rounded-full bg-white text-[#003375] flex items-center justify-center text-lg font-bold shadow-sm">{display_Seed}</span>;
+        if (!avatarUrl) {
+            return <span className="h-12 w-12 rounded-full bg-white text-[#003375] flex items-center justify-center text-lg font-bold shadow-sm shrink-0">{avatarSeed}</span>;
         }
         if (isColorAvatar) {
-            return <span className="h-12 w-12 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-sm" style={{ backgroundColor: display_Avatar }}>{display_Seed}</span>;
+            return <span className="h-12 w-12 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-sm shrink-0" style={{ backgroundColor: avatarUrl }}>{avatarSeed}</span>;
         }
-        return <img src={display_Avatar} alt="Avatar" className="h-12 w-12 rounded-full object-cover shadow-sm bg-white p-0.5" />;
+        return <img src={avatarUrl} alt="Avatar" className="h-12 w-12 rounded-full object-cover shadow-sm bg-white p-0.5 shrink-0" />;
     };
 
     return (
@@ -89,23 +85,19 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
             <div className="bg-[#003375] rounded-b-[32px] px-5 pt-12 pb-8 text-white relative shadow-md">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        {isLoadingUser ? (
-                            <div className="h-12 w-12 rounded-full bg-white/20 animate-pulse"></div>
-                        ) : (
-                            renderAvatar()
-                        )}
+                        {renderAvatar()}
                         <div className="min-w-0">
                             <p className="text-xs text-blue-100/80 mb-0.5">Xin chào,</p>
-                            {isLoadingUser ? (
-                                <div className="h-5 w-24 bg-white/20 animate-pulse rounded mt-1"></div>
-                            ) : (
-                                <p className="text-lg font-bold truncate pr-2">{display_Name}</p>
-                            )}
+                            <p className="text-lg font-bold truncate pr-2">{displayName}</p>
                         </div>
                     </div>
-                    <button className="p-2.5 bg-white/10 hover:bg-white/20 transition-colors rounded-full backdrop-blur-sm shrink-0">
-                        <Bell size={20} className="text-white" />
-                    </button>
+                    
+                    <div className="relative z-[60] bg-white/10 hover:bg-white/20 transition-colors rounded-full backdrop-blur-sm flex items-center justify-center">
+                        <div className="scale-90 opacity-90 hover:opacity-100">
+                            {/* ✨ ĐÃ SỬA: Truyền currentUserId vào NotificationBell */}
+                            <NotificationBell currentUserId={currentUserId} />
+                        </div>
+                    </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2 mt-5">
@@ -119,19 +111,19 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
             </div>
 
             {/* THÔNG BÁO YÊU CẦU ĐĂNG NHẬP HOẶC CẬP NHẬT THÔNG TIN */}
-            {!isLoadingUser && showWarningBox && (
+            {showWarningBox && (
                 <div className="px-4 mt-5 animate-slideUp">
                     <div className="bg-blue-50 border border-blue-200 p-4 rounded-2xl flex flex-col gap-3 shadow-sm">
                         <div className="flex items-start gap-3 text-[#003375] text-[13px] font-medium leading-relaxed">
                             <Shield size={20} className="shrink-0 mt-0.5" />
-                            {actuallyIsGuest ? (
+                            {isGuest ? (
                                 <p>Bạn đang dùng thử với tư cách khách. <strong>Đăng nhập để lưu dữ liệu và mở khóa toàn bộ tính năng.</strong></p>
                             ) : (
                                 <p>Hồ sơ sinh viên của bạn chưa hoàn tất. <strong>Vui lòng cập nhật thông tin để hệ thống xếp hạng và tính điểm chuẩn xác.</strong></p>
                             )}
                         </div>
                         <div className="flex gap-2 w-full mt-1">
-                            {actuallyIsGuest ? (
+                            {isGuest ? (
                                 <Link to="/login" onClick={playClick} className="flex-1 px-3 py-2.5 bg-[#003375] text-white text-[13px] font-bold rounded-xl hover:bg-[#002855] transition-colors text-center shadow-sm">
                                     Đăng nhập ngay
                                 </Link>
@@ -179,7 +171,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                         </div>
                         <span className="text-[11px] text-gray-600 font-medium">Nhặt đồ</span>
                     </Link>
-                    <Link to="/handbook/feedback" onClick={playClick} className="flex flex-col items-center gap-2 group active:scale-95 transition-transform">
+                    <Link to="/profile/guest" onClick={playClick} className="flex flex-col items-center gap-2 group active:scale-95 transition-transform">
                         <div className="w-[52px] h-[52px] bg-white rounded-2xl flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-pink-500 border border-pink-50 group-hover:bg-pink-50">
                             <MessageSquare size={24} strokeWidth={1.5} />
                         </div>
@@ -202,7 +194,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                 ) : (
                     <div className="flex flex-col gap-3">
                         {displayNews.map((news) => {
-                            const dateObj = new Date(news.created_at || news.date);
+                            const dateObj = new Date(news.date || news.created_at);
                             const formattedDate = isNaN(dateObj.getTime()) ? 'Mới cập nhật' : dateObj.toLocaleDateString('vi-VN');
 
                             return (
