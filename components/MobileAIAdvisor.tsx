@@ -85,7 +85,6 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
   const onDragStart = (e: React.MouseEvent | React.TouchEvent) => {
     setIsDragging(false); 
-    // Đã fix lỗi xung đột click: KHÔNG setIsOpen(false) ngay tại đây nữa
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     dragRef.current = { startX: clientX, startY: clientY, initX: pos.x, initY: pos.y };
@@ -382,7 +381,20 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
         onTouchEnd={onDragEnd}
       >
         <button
-            onClick={() => { if (!isDragging) { playClick(); setIsOpen(!isOpen); setShowHistory(false); } }}
+            onClick={() => { 
+                if (!isDragging) { 
+                    playClick(); 
+                    if (!isOpen) {
+                        // ✨ ĐÃ SỬA: Ép tọa độ về góc dưới phải TRƯỚC KHI mở khung chat
+                        setPos({
+                            x: window.innerWidth - 70,
+                            y: window.innerHeight - 150
+                        });
+                    }
+                    setIsOpen(!isOpen); 
+                    setShowHistory(false); 
+                } 
+            }}
             className={`w-14 h-14 bg-[#003375] hover:bg-[#002855] text-white rounded-full shadow-[0_4px_20px_rgba(0,51,117,0.3)] flex items-center justify-center border-2 border-white transition-transform ${isDragging ? 'scale-90 cursor-grabbing' : 'cursor-grab hover:scale-105 active:scale-95 animate-float'} ${isOpen ? 'scale-90 bg-[#002855]' : ''}`}
         >
             {isOpen ? <X size={24} /> : <Sparkles size={24} className="text-yellow-300" />}
