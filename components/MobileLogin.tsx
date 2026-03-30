@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { Mail, Lock, Loader2, AlertCircle, GraduationCap, ShieldCheck, ChevronLeft } from 'lucide-react';
@@ -10,6 +10,13 @@ import type { Engine, ISourceOptions } from "tsparticles-engine";
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 
+// Khai báo để TypeScript không báo lỗi thư viện Google
+declare global {
+    interface Window {
+        google: any;
+    }
+}
+
 export const MobileLogin: React.FC = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'student' | 'admin'>('student');
@@ -20,26 +27,89 @@ export const MobileLogin: React.FC = () => {
     const [agreed, setAgreed] = useState(false);
 
     // ==========================================
-    // ĐĂNG NHẬP GOOGLE MẶC ĐỊNH (TỰ ĐỘNG LẤY TÀI KHOẢN TRONG MÁY)
+    // ✨ TÍCH HỢP GOOGLE ONE TAP (IN-APP POPUP)
     // ==========================================
-    const handleGoogleLogin = async () => {
+    const GOOGLE_CLIENT_ID = 'ĐIỀN_CLIENT_ID_CỦA_BẠN_VÀO_ĐÂY.apps.googleusercontent.com'; // <--- SỬA DÒNG NÀY
+
+    useEffect(() => {
+        // Tải thư viện Google Identity Services khi vừa vào trang
+        const loadGoogleScript = () => {
+            if (document.getElementById('google-gsi-script')) return;
+            const script = document.createElement('script');
+            script.id = 'google-gsi-script';
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+
+            script.onload = () => {
+                if (window.google) {
+                    window.google.accounts.id.initialize({
+                        client_id: GOOGLE_CLIENT_ID,
+                        callback: handleGoogleOneTapResponse,
+                        cancel_on_tap_outside: true,
+                        // hosted_domain: SCHOOL_DOMAIN, // Mở dòng này nếu chỉ muốn tài khoản trường hiện lên
+                    });
+                }
+            };
+        };
+        loadGoogleScript();
+    }, []);
+
+    // Hàm nhận Token từ Google One Tap và gửi cho Supabase xác thực
+    const handleGoogleOneTapResponse = async (response: any) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const { data, error } = await supabase.auth.signInWithIdToken({
+                provider: 'google',
+                token: response.credential,
+            });
+
+            if (error) throw error;
+            navigate('/dashboard', { replace: true });
+        } catch (err: any) {
+            setError(err.message || "Lỗi đăng nhập Google.");
+            setLoading(false);
+        }
+    };
+
+    const handleGoogleLoginClick = async () => {
         if (!agreed) return; 
         if (!supabase) return setError("Chưa cấu hình kết nối Database.");
-        setLoading(true); setError(null); playClick();
+        playClick();
+        setError(null);
 
+        // 1. Thử gọi Google One Tap (Popup trượt từ dưới lên)
+        if (window.google) {
+            window.google.accounts.id.prompt((notification: any) => {
+                // Nếu Popup bị trình duyệt chặn (do chặn cookie bên thứ 3) -> Chuyển sang dùng Redirect cũ
+                if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                    fallbackGoogleOAuth();
+                }
+            });
+        } else {
+            // Nếu script Google chưa kịp load -> Dùng Redirect cũ
+            fallbackGoogleOAuth();
+        }
+    };
+
+    // 2. Phương án dự phòng: Đăng nhập kiểu chuyển trang truyền thống nếu One Tap bị lỗi
+    const fallbackGoogleOAuth = async () => {
+        setLoading(true);
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
                 redirectTo: `${window.location.origin}/dashboard`,
-                // ✨ ĐÃ SỬA: Xóa bỏ hoàn toàn queryParams để Google tự động xử lý mượt mà nhất
+                queryParams: { hd: SCHOOL_DOMAIN, prompt: 'select_account' },
             },
         });
-
         if (error) {
             setError(error.message);
             setLoading(false);
         }
     };
+    // ==========================================
 
     const handleAdminLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -151,6 +221,7 @@ export const MobileLogin: React.FC = () => {
                             <div className="flex-1"></div>
 
                             <div className="mt-6 mb-4">
+                                {/* Checkbox Đồng ý */}
                                 <label className="flex items-start gap-3 cursor-pointer group px-1 mb-4">
                                     <div className="relative flex items-center justify-center mt-0.5 shrink-0">
                                         <input type="checkbox" className="peer sr-only" checked={agreed} onChange={(e) => { playClick(); setAgreed(e.target.checked); }} />
@@ -187,6 +258,7 @@ export const MobileLogin: React.FC = () => {
                             <div className="flex-1"></div>
 
                             <div className="mt-auto mb-4">
+                                {/* Checkbox Đồng ý */}
                                 <label className="flex items-start gap-3 cursor-pointer group px-1 mb-4">
                                     <div className="relative flex items-center justify-center mt-0.5 shrink-0">
                                         <input type="checkbox" className="peer sr-only" checked={agreed} onChange={(e) => { playClick(); setAgreed(e.target.checked); }} />
@@ -200,7 +272,7 @@ export const MobileLogin: React.FC = () => {
                                 </label>
 
                                 <button 
-                                    type="button" onClick={handleGoogleLogin} disabled={loading || !agreed} 
+                                    type="button" onClick={handleGoogleLoginClick} disabled={loading || !agreed} 
                                     className="w-full bg-white border-2 border-gray-200 text-gray-800 font-bold py-3.5 rounded-xl active:bg-gray-50 transition-colors flex justify-center items-center gap-3 disabled:opacity-50 disabled:active:bg-white shadow-sm text-[15px]"
                                 >
                                     <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -210,7 +282,6 @@ export const MobileLogin: React.FC = () => {
                                         <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                                     </svg>
                                     <span>{loading ? 'Đang kết nối...' : 'Tiếp tục với Google'}</span>
-                                    {loading && <Loader2 className="animate-spin text-gray-500 absolute right-6" size={18} />}
                                 </button>
                             </div>
                         </div>

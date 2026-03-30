@@ -313,56 +313,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         description: '' 
     });
     const [submitting, setSubmitting] = useState(false);
-    const [isDraftLoaded, setIsDraftLoaded] = useState(false);
-
-    useEffect(() => {
-        if (isOpen) {
-            const savedDraft = localStorage.getItem(DRAFT_KEY);
-            if (savedDraft) {
-                try {
-                    const parsed = JSON.parse(savedDraft);
-                    setFormData(parsed);
-                    setIsDraftLoaded(true);
-                    setTimeout(() => setIsDraftLoaded(false), 3000);
-                } catch (e) {
-                    console.error("Failed to restore draft", e);
-                }
-            }
-        }
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (isOpen) {
-            const timeoutId = setTimeout(() => {
-                localStorage.setItem(DRAFT_KEY, JSON.stringify(formData));
-            }, 500); 
-            return () => clearTimeout(timeoutId);
-        }
-    }, [formData, isOpen]);
-
-    const handleClearDraft = () => {
-        if (window.confirm("Bạn có chắc muốn xóa toàn bộ nội dung nháp và nhập lại từ đầu?")) {
-            playClick();
-            const resetData = {
-                title: '',
-                deadline: '',
-                deadline_time: '',
-                close_on_full: false,
-                event_date: '', 
-                event_time: '',
-                category: 'Hoạt động phong trào',
-                criteria: 'III',
-                points: '5',
-                organizer: '',
-                link: '',
-                format: 'Offline',
-                location_type: 'Trong trường',
-                description: ''
-            };
-            setFormData(resetData);
-            localStorage.removeItem(DRAFT_KEY);
-        }
-    };
+    
 
     if (!isOpen) return null;
 
@@ -415,7 +366,6 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
 
             onShowToast("Đóng góp của bạn đã được gửi và đang chờ Admin duyệt. Cảm ơn bạn!", "success");
             
-            localStorage.removeItem(DRAFT_KEY);
             setFormData({
                 title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '', category: 'Hoạt động phong trào', criteria: 'III', points: '5',
                 organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
@@ -437,14 +387,6 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                         <PlusCircle size={20}/> Đóng góp Sự kiện mới
                     </h3>
                     <div className="flex items-center gap-2">
-                        {isDraftLoaded && <span className="text-xs bg-white/20 px-2 py-1 rounded animate-pulse">Đã khôi phục nháp</span>}
-                        <button 
-                            onClick={handleClearDraft} 
-                            className="hover:bg-white/20 p-2 rounded-full transition-colors text-white/80 hover:text-white"
-                            title="Xóa bản nháp / Làm mới"
-                        >
-                            <RotateCcw size={18} />
-                        </button>
                         <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
                     </div>
                 </div>
@@ -1177,22 +1119,6 @@ const participatedStats = useMemo(() => {
           description: editingEvent?.description || ''
       });
       const [submitting, setSubmitting] = useState(false);
-      const [isDraftLoaded, setIsDraftLoaded] = useState(false);
-
-      useEffect(() => {
-          if (!editingEvent) {
-              const saved = localStorage.getItem(ADMIN_DRAFT_KEY);
-              if (saved) {
-                  try {
-                      setFormData(JSON.parse(saved));
-                      setIsDraftLoaded(true);
-                      setTimeout(() => setIsDraftLoaded(false), 3000);
-                  } catch (e) {
-                      console.error("Draft parse error", e);
-                  }
-              }
-          }
-      }, []);
 
       useEffect(() => {
           if (!editingEvent) {
@@ -1203,17 +1129,6 @@ const participatedStats = useMemo(() => {
           }
       }, [formData, editingEvent]);
 
-      const handleReset = () => {
-          if (confirm("Bạn có chắc muốn xóa bản nháp và nhập lại từ đầu?")) {
-              playClick();
-              localStorage.removeItem(ADMIN_DRAFT_KEY);
-              setFormData({
-                  title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '', category: 'Hoạt động phong trào', classification: '',
-                  criteria: 'III', points: '5', organizer: '', link: '', location_type: 'Trong trường',
-                  format: 'Offline', status: 'Sắp diễn ra', is_manually_closed: false, description: ''
-              });
-          }
-      };
 
       const handleSubmit = async (e: React.FormEvent) => {
           e.preventDefault();
@@ -1259,7 +1174,6 @@ const participatedStats = useMemo(() => {
                   if (!data || data.length === 0) {
                       throw new Error("Bảo mật RLS đang chặn bạn thêm! Vui lòng chạy lệnh SQL để cấp quyền Admin.");
                   }
-                  localStorage.removeItem(ADMIN_DRAFT_KEY);
                   showToast("Thêm sự kiện thành công!", "success");
               }
               fetchEvents();
@@ -1281,26 +1195,12 @@ const participatedStats = useMemo(() => {
                     </h3>
                     
                     <div className="flex items-center gap-2">
-                        {isDraftLoaded && <span className="text-xs bg-white/20 px-2 py-1 rounded animate-pulse">Đã khôi phục nháp</span>}
-                        {!editingEvent && (
-                            <button 
-                                onClick={handleReset} 
-                                className="hover:bg-white/20 p-2 rounded-full transition-colors text-white/80 hover:text-white"
-                                title="Xóa nháp / Làm mới"
-                            >
-                                <RotateCcw size={18} />
-                            </button>
-                        )}
+                    
                         <button onClick={() => setShowManageModal(false)} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
                     </div>
                 </div>
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {!editingEvent && (
-                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-800 flex items-center gap-2">
-                            <Sparkles size={16} className="shrink-0"/>
-                            Dữ liệu đang nhập sẽ tự động được lưu nháp.
-                        </div>
-                    )}
+
 
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
