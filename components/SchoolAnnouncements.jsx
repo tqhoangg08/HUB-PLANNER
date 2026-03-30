@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../utils/supabase';
-// ĐÃ THÊM: Import icon Building (Tòa nhà) để làm giao diện phòng ban
 import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter, Building } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 
@@ -15,7 +14,7 @@ const getDepartmentName = (link) => {
   const l = link.toLowerCase();
   
   if (l.includes('phongktdbcl')) return 'Phòng Khảo thí và ĐBCL';
-  if (l.includes('scc.hub.edu.vn')) return 'Trung tâm SV và QHDN'; // Viết tắt cho gọn giao diện Mobile
+  if (l.includes('scc.hub.edu.vn')) return 'Trung tâm SV và QHDN'; 
   if (l.includes('clc.hub.edu.vn')) return 'Ban quản lý CLC';
   if (l.includes('phongdaotao')) return 'Phòng Đào tạo';
   if (l.includes('phongqlcntt')) return 'Phòng Quản lý CNTT';
@@ -24,7 +23,6 @@ const getDepartmentName = (link) => {
   if (l.includes('phongketoan')) return 'Phòng Kế toán';
   if (l.includes('online.hub.edu.vn')) return 'HUB Portal';
   
-  // Để cái hub.edu.vn ở cuối cùng làm Fallback (Tránh nó nhận diện nhầm các link ở trên do đều có chữ hub.edu.vn)
   if (l.includes('hub.edu.vn')) return 'HUB'; 
   
   return 'HUB';
@@ -47,22 +45,16 @@ const SchoolAnnouncements = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // 👇 ĐÃ THÊM: HÀM KHÓA CUỘN NỀN KHI MỞ MODAL 👇
   useEffect(() => {
     if (isModalOpen) {
-      // Khi Modal mở -> Khóa cuộn thẻ body
       document.body.style.overflow = 'hidden';
     } else {
-      // Khi Modal đóng -> Mở lại
       document.body.style.overflow = 'unset';
     }
-
-    // Hàm dọn dẹp phòng trường hợp Component bị unmount đột ngột
     return () => {
       document.body.style.overflow = 'unset';
     };
   }, [isModalOpen]);
-  // 👆 KẾT THÚC 👇
 
   // 1. FETCH 10 TIN MỚI NHẤT CHO WIDGET BÊN NGOÀI
   useEffect(() => {
@@ -71,6 +63,7 @@ const SchoolAnnouncements = () => {
         const { data, error } = await supabase
           .from('school_announcements')
           .select('*')
+          .or('is_hidden.eq.false,is_hidden.is.null') // ✨ ĐÃ THÊM: Chỉ lấy tin chưa bị ẩn
           .order('date', { ascending: false }) 
           .order('created_at', { ascending: false }) 
           .limit(10); 
@@ -90,7 +83,8 @@ const SchoolAnnouncements = () => {
     try {
       let query = supabase
         .from('school_announcements')
-        .select('*', { count: 'exact' });
+        .select('*', { count: 'exact' })
+        .or('is_hidden.eq.false,is_hidden.is.null'); // ✨ ĐÃ THÊM: Chỉ lấy tin chưa bị ẩn
 
       if (searchQuery) query = query.ilike('title', `%${searchQuery}%`);
       if (startDate) query = query.gte('date', startDate);
@@ -164,9 +158,6 @@ const SchoolAnnouncements = () => {
 
   return (
     <>
-      {/* =========================================================
-          GIAO DIỆN WIDGET BÊN NGOÀI DASHBOARD
-          ========================================================= */}
       <div className="bg-white min-h-full rounded-xl overflow-hidden border border-gray-100 shadow-sm flex flex-col"> 
         <div className="bg-[#003375] px-3 py-2 lg:px-4 lg:py-3 flex justify-between items-center z-20 shrink-0">
           <h3 className="text-white font-bold text-xs lg:text-sm flex items-center gap-1.5 lg:gap-2">
@@ -187,7 +178,7 @@ const SchoolAnnouncements = () => {
           ) : (
             news.map((item) => {
               const finalLink = processLinkData(item);
-              const deptName = getDepartmentName(finalLink); // Lấy tên phòng ban
+              const deptName = getDepartmentName(finalLink);
 
               return (
                 <a 
@@ -202,13 +193,11 @@ const SchoolAnnouncements = () => {
                     {item.is_new && <span className="bg-red-500 text-white text-[8px] lg:text-[9px] px-1 lg:px-1.5 py-0.5 rounded font-bold shrink-0">MỚI</span>}
                   </div>
                   
-                  {/* BỐ CỤC CHÂN THẺ WIDGET: Thêm Badge Phòng Ban */}
                   <div className="flex justify-between items-center mt-2">
                     <div className="flex items-center gap-2">
                       <span className="text-[9px] lg:text-[10px] text-gray-400 flex items-center gap-1">
                         {formatDate(item.date)}
                       </span>
-                      {/* Badge tên phòng ban */}
                       <span className="text-[8px] lg:text-[9px] font-medium px-1.5 py-0.5 rounded border border-blue-100 bg-blue-50 text-blue-600/80 truncate max-w-[100px] sm:max-w-none">
                         {deptName}
                       </span>
@@ -222,9 +211,6 @@ const SchoolAnnouncements = () => {
         </div>
       </div>
 
-      {/* =========================================================
-          MODAL XEM TẤT CẢ BẰNG PORTAL
-          ========================================================= */}
       {isModalOpen && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 pt-16 lg:p-10" onClick={() => setIsModalOpen(false)}>
           <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -283,7 +269,7 @@ const SchoolAnnouncements = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {modalNews.map((item) => {
                     const finalLink = processLinkData(item);
-                    const deptName = getDepartmentName(finalLink); // Lấy tên phòng ban
+                    const deptName = getDepartmentName(finalLink);
 
                     return (
                       <a 
@@ -302,7 +288,6 @@ const SchoolAnnouncements = () => {
                           </p>
                         </div>
                         
-                        {/* CHÂN THẺ MODAL: Tên phòng ban nằm bên trái, Nút xem chi tiết bên phải */}
                         <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
                           <div className="text-gray-500 text-[10px] sm:text-[11px] font-medium flex items-center gap-1.5">
                             <Building size={12} className="text-blue-500/70"/> {deptName}
@@ -318,7 +303,7 @@ const SchoolAnnouncements = () => {
               )}
             </div>
 
-            {/* Thanh Phân trang (Pagination) */}
+            {/* Thanh Phân trang */}
             <div className="p-3 sm:p-4 border-t border-gray-100 bg-gray-50 shrink-0 flex flex-col sm:flex-row justify-between items-center gap-3">
               <p className="text-[11px] sm:text-xs text-gray-500 font-medium">
                 Hiển thị <span className="font-bold text-gray-800">{totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}</span> - <span className="font-bold text-gray-800">{Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}</span> trong tổng số <span className="font-bold text-gray-800">{totalCount}</span> thông báo

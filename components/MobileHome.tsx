@@ -43,8 +43,9 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                 const { data: newsData, error } = await supabase
                     .from('school_announcements') 
                     .select('*')
+                    .or('is_hidden.eq.false,is_hidden.is.null') // ✨ ĐÃ THÊM: Chỉ lấy tin chưa bị ẩn
                     .order('date', { ascending: false })
-                    .limit(4); // Lấy 4 tin
+                    .limit(4); 
                     
                 if (error) {
                     console.error('Lỗi truy vấn Supabase:', error);
@@ -69,6 +70,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
             const { data: fullNewsData, error } = await supabase
                 .from('school_announcements') 
                 .select('*')
+                .or('is_hidden.eq.false,is_hidden.is.null') // ✨ ĐÃ THÊM: Chỉ lấy tin chưa bị ẩn
                 .order('date', { ascending: false });
                 
             if (!error && fullNewsData) {
@@ -264,7 +266,6 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
             <div className="px-5 mt-8">
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-[17px] font-bold text-gray-800 tracking-tight">Tin tức từ trường (HUB)</h2>
-                    {/* ✨ NÚT XEM TẤT CẢ ĐÃ HOẠT ĐỘNG */}
                     <button 
                         onClick={() => { playClick(); setActiveScreen('all-news'); fetchAllNews(); }}
                         className="text-xs font-bold text-red-600 hover:text-red-700 transition-colors py-1 px-2 -mr-2"
