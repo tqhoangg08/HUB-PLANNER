@@ -195,17 +195,6 @@ export const MobileHandbook: React.FC = () => {
         setTimeout(() => setCopiedId(null), 2000);
     };
 
-    // --- TAB MENU DÀNH CHO MOBILE ---
-    const TAB_MENU = [
-        { id: 'contacts', label: 'Danh bạ', icon: <Phone size={14} /> },
-        { id: 'clubs', label: 'CLB - Đội', icon: <Users size={14} /> },
-        { id: 'scholarships', label: 'Học bổng', icon: <Award size={14} /> },
-        { id: 'faqs', label: 'Hỏi đáp', icon: <HelpCircle size={14} /> },
-        { id: 'feedback', label: 'Góp ý', icon: <MessageSquarePlus size={14} /> },
-        { id: 'donate', label: 'Ủng hộ', icon: <Heart size={14} /> },
-        { id: 'about', label: 'Về dự án', icon: <Info size={14} /> },
-    ];
-
     const renderContent = () => {
         switch (activeTab) {
             case 'contacts':
@@ -377,33 +366,39 @@ export const MobileHandbook: React.FC = () => {
         }
     };
 
+    // Hàm lấy thông tin Tiêu đề Header phụ thuộc vào Tab
+    const getHeaderInfo = () => {
+        switch (activeTab) {
+            case 'contacts': return { title: 'Cẩm nang', sub: 'Danh bạ Phòng ban & Khoa' };
+            case 'clubs': return { title: 'CLB - Đội - Nhóm', sub: 'Hoạt động ngoại khóa & Đoàn - Hội' };
+            case 'scholarships': return { title: 'Học bổng & Quy chế', sub: 'Thông tin học vụ & Chế độ' };
+            case 'faqs': return { title: 'Câu hỏi thường gặp', sub: 'Hỗ trợ giải đáp (FAQs)' };
+            case 'feedback': return { title: 'Góp ý & Phản hồi', sub: 'Đóng góp ý tưởng phát triển' };
+            case 'donate': return { title: 'Ủng hộ & Tri ân', sub: 'Đồng hành cùng dự án' };
+            case 'about': return { title: 'Về chúng mình', sub: 'Đội ngũ HUB Planner' };
+            default: return { title: 'Cẩm nang', sub: 'Thông tin sinh viên' };
+        }
+    };
+
+    const headerInfo = getHeaderInfo();
+
     return (
         <div className="min-h-[100dvh] bg-[#F8FAFC] flex flex-col font-sans relative">
-            {/* HEADER */}
+            {/* HEADER SIÊU GỌN - ĐỔI TÊN ĐỘNG */}
             <div className="bg-[#003375] px-4 pt-12 pb-4 text-white shrink-0 sticky top-0 z-40 shadow-md">
-                <div className="flex items-center justify-between mb-4">
-                    <button onClick={() => { playClick(); navigate('/'); }} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors active:scale-95 -ml-2">
+                <div className="flex items-center justify-between">
+                    <button onClick={() => { playClick(); navigate(-1); }} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors active:scale-95 -ml-2">
                         <ChevronLeft size={24} />
                     </button>
-                    <h1 className="text-lg font-bold">Cẩm nang Sinh viên</h1>
-                    <div className="w-10"></div> {/* Spacer */}
-                </div>
-                
-                {/* THANH TAB TRƯỢT NGANG */}
-                <div className="flex overflow-x-auto no-scrollbar gap-2 pb-1 -mx-4 px-4 snap-x">
-                    {TAB_MENU.map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => { playClick(); setActiveTab(tab.id as TabType); }}
-                            className={`snap-start shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all ${activeTab === tab.id ? 'bg-white text-[#003375] shadow-sm' : 'bg-white/10 text-blue-100 border border-white/10'}`}
-                        >
-                            {tab.icon} {tab.label}
-                        </button>
-                    ))}
+                    <div className="text-center">
+                        <h1 className="text-lg font-bold">{headerInfo.title}</h1>
+                        <p className="text-xs text-blue-200">{headerInfo.sub}</p>
+                    </div>
+                    <div className="w-10"></div> {/* Spacer để căn giữa chữ */}
                 </div>
             </div>
 
-            {/* NỘI DUNG */}
+            {/* NỘI DUNG TƯƠNG ỨNG VỚI NÚT ĐÃ BẤM */}
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                 {renderContent()}
             </div>
