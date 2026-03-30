@@ -58,6 +58,24 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
 
   const currentStudentId = session?.user?.email?.split('@')[0] || 'guest';
 
+  // --- LOGIC MỚI: Xác định khi nào hiển thị Bottom Navigation ---
+  const EXACT_MAIN_PATHS = [
+    '/dashboard',
+    '/mobile-home',
+    '/learning',
+    '/events',
+    '/lost-found',
+    '/profile',
+    `/profile/${currentStudentId}`
+  ];
+
+  // Loại bỏ dấu '/' ở cuối (nếu có) để so sánh URL chính xác nhất
+  const currentPath = location.pathname.replace(/\/$/, '');
+  
+  // Biến cờ: true nếu URL hiện tại nằm trong danh sách các tab chính
+  const showBottomNav = EXACT_MAIN_PATHS.includes(currentPath);
+  // --------------------------------------------------------------
+
   // 3. Tính toán hướng trượt
   useEffect(() => {
     const currentIndex = getTabIndex(location.pathname);
@@ -134,39 +152,41 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
       <main ref={mainRef} className="flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative bg-white">
         <div key={location.pathname} className={`w-full min-h-full flex flex-col animate-${slideDirection}`}>
           {children}
-          {/* Khoảng trống để nội dung không bị thanh nav che mất */}
-          <div className="h-24 w-full shrink-0"></div>
+          {/* Khoảng trống đệm: CHỈ HIỂN THỊ KHI CÓ THANH NAV ĐỂ TRÁNH BỊ LẤP NỘI DUNG */}
+          {showBottomNav && <div className="h-24 w-full shrink-0"></div>}
         </div>
       </main>
 
-      {/* THANH MENU DƯỚI ĐÁY (BOTTOM NAVIGATION) */}
-      <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-50 pb-safe">
-        <div className="flex justify-around items-center h-[65px] px-2">
-          {NAV_ITEMS.map((item) => {
-            const isActive = checkIsActive(location.pathname, item.match);
-            const Icon = item.icon;
+      {/* THANH MENU DƯỚI ĐÁY: CHỈ HIỂN THỊ KHI ĐANG Ở 5 TAB CHÍNH */}
+      {showBottomNav && (
+        <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-50 pb-safe">
+          <div className="flex justify-around items-center h-[65px] px-2">
+            {NAV_ITEMS.map((item) => {
+              const isActive = checkIsActive(location.pathname, item.match);
+              const Icon = item.icon;
 
-            return (
-              <NavLink 
-                key={item.id}
-                to={item.path} 
-                onClick={playClick}
-                className={`flex flex-col items-center justify-center w-full h-full gap-1.5 transition-colors ${
-                  isActive ? 'text-[#003375]' : 'text-gray-400 hover:text-gray-600'
-                }`} 
-              >
-                <Icon 
-                  size={24} 
-                  className={`transition-all duration-300 ${
-                    isActive ? `text-[#003375] ${item.iconActiveStyle}` : ''
+              return (
+                <NavLink 
+                  key={item.id}
+                  to={item.path} 
+                  onClick={playClick}
+                  className={`flex flex-col items-center justify-center w-full h-full gap-1.5 transition-colors ${
+                    isActive ? 'text-[#003375]' : 'text-gray-400 hover:text-gray-600'
                   }`} 
-                />
-                <span className="text-[10px] font-bold">{item.label}</span>
-              </NavLink>
-            );
-          })}
+                >
+                  <Icon 
+                    size={24} 
+                    className={`transition-all duration-300 ${
+                      isActive ? `text-[#003375] ${item.iconActiveStyle}` : ''
+                    }`} 
+                  />
+                  <span className="text-[10px] font-bold">{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
