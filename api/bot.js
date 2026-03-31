@@ -5,18 +5,13 @@ import { Redis } from "@upstash/redis";
 // ===========================================
 // ✨ HỆ THỐNG CÂN BẰNG TẢI API KEY (LOAD BALANCING) ✨
 // ===========================================
-// Lấy chuỗi API Keys từ Vercel (Ví dụ: "Key1,Key2,Key3")
 const GEMINI_KEYS_STRING = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || "";
-// Tách chuỗi thành mảng, loại bỏ khoảng trắng và các key rỗng
 const GEMINI_KEYS = GEMINI_KEYS_STRING.split(',').map(key => key.trim()).filter(key => key.length > 0);
 
-// Kéo dữ liệu từ Supabase (Dùng khóa Service Role để không bị kẹt bảo mật RLS)
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_KEY;
-
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Chống spam bằng Upstash Redis (Giữ nguyên của bạn)
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 const redis = (UPSTASH_URL && UPSTASH_TOKEN) ? new Redis({ url: UPSTASH_URL, token: UPSTASH_TOKEN }) : null;
@@ -31,7 +26,6 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    // Báo lỗi nếu không có API Key nào được nạp
     if (GEMINI_KEYS.length === 0) throw new Error("Thiếu API Key Gemini");
 
     if (ratelimit) {
@@ -48,68 +42,101 @@ export default async function handler(req, res) {
     let logId = null;
     if (supabase) {
         const { data: logData, error: logError } = await supabase.from('ai_chat_logs').insert([{
-            user_id: userId || null, // ✨ NẾU CÓ USER ID THÌ LƯU, GUEST THÌ ĐỂ NULL
+            user_id: userId || null, 
             user_message: question,
             bot_reply: '⏳ Đang xử lý (Chờ cập nhật trên web)'
         }]).select('id').single();
         
-        if (logData) {
-            logId = logData.id;
-        }
-        if (logError) {
-            console.error("Lỗi ghi log partial lên Supabase:", logError);
-        }
+        if (logData) logId = logData.id;
+        if (logError) console.error("Lỗi ghi log partial lên Supabase:", logError);
     }
 
-    // 1. KÉO TẤT CẢ CÁC GÓI KIẾN THỨC TỪ SUPABASE (ID 1, 2, 3, 4...)
-    const { data: kbData, error: kbError } = await supabase
-        .from('system_knowledge')
-        .select('id, content')
-        .order('id', { ascending: true }); // Kéo tất cả và xếp theo thứ tự ID
-        
-    let handbookText = "";
-    if (kbData && kbData.length > 0) {
-        // Gom tất cả các hàng lại, ngăn cách nhau bằng dấu gạch ngang để AI dễ đọc
-        handbookText = kbData.map(row => `--- TÀI LIỆU PHẦN ${row.id} ---\n${row.content}`).join('\n\n');
-    } else {
-        handbookText = "Không tìm thấy dữ liệu kiến thức.";
+    // ===========================================
+    // ✨ KÉO TẤT CẢ DỮ LIỆU SONG SONG BẰNG PROMISE.ALL ✨
+    // ===========================================
+    // Dùng Promise.all giúp kéo 5 bảng cùng lúc, tiết kiệm 5 lần thời gian chờ!
+    const [
+        { data: kbData },
+        { data: eventsData },
+        { data: announcementsData },
+        { data: lostFoundData },
+        { data: coursesData }
+    ] = await Promise.all([
+        // 1. Cẩm nang hệ thống
+        supabase.from('system_knowledge').select('id, content').order('id', { ascending: true }),
+        // 2. Sự kiện đang & sắp diễn ra
+        supabase.from('events').select('title, status, deadline, format, points, link')
+                .in('status', ['Đang diễn ra', 'Sắp diễn ra']).limit(5),
+        // 3. Thông báo mới nhất (Bỏ qua các thông báo bị ẩn)
+        supabase.from('school_announcements').select('title, date, link')
+                .eq('is_hidden', false).order('date', { ascending: false }).limit(5),
+        // 4. Tìm đồ thất lạc mới nhất
+        supabase.from('lost_found_items').select('title, description, location, contact_info')
+                .order('created_at', { ascending: false }).limit(5),
+        // 5. Học phần (Chỉ lấy 5 dòng mẫu để tránh nổ token)
+        supabase.from('course_schedules').select('subject_name, course_code, instructor, credits')
+                .limit(5)
+    ]);
+
+    // XỬ LÝ TEXT CHO TỪNG PHẦN
+    let handbookText = kbData?.length ? kbData.map(row => `--- TÀI LIỆU PHẦN ${row.id} ---\n${row.content}`).join('\n\n') : "Không có cẩm nang.";
+    
+    let realtimeContext = "\n[THÔNG TIN THỰC TẾ TRÊN WEB (REAL-TIME)]\n";
+    
+    if (eventsData?.length) {
+        realtimeContext += "\n**🎉 SỰ KIỆN NỔI BẬT:**\n" + eventsData.map(e => `- ${e.title} (${e.status}). Hình thức: ${e.format}. Điểm: ${e.points}. Hạn: ${e.deadline || 'Không có'}`).join('\n');
+    }
+    
+    if (announcementsData?.length) {
+        realtimeContext += "\n\n**📢 THÔNG BÁO MỚI NHẤT:**\n" + announcementsData.map(a => `- ${a.title} (Ngày: ${a.date}). Link: ${a.link}`).join('\n');
     }
 
-    // 2. GOM TẤT CẢ VÀO MỘT SYSTEM PROMPT "THÉP"
+    if (lostFoundData?.length) {
+        realtimeContext += "\n\n**🔍 TÌM ĐỒ THẤT LẠC:**\n" + lostFoundData.map(l => `- [${l.title}]: ${l.description} (Khu vực: ${l.location}). LH: ${l.contact_info}`).join('\n');
+    }
+
+    if (coursesData?.length) {
+        realtimeContext += "\n\n**📚 MỘT SỐ HỌC PHẦN MẪU (Lưu ý: Đây không phải toàn bộ môn học):**\n" + coursesData.map(c => `- ${c.subject_name} (${c.course_code}) - GV: ${c.instructor} - ${c.credits} TC`).join('\n');
+    }
+
+    // ===========================================
+    // ✨ GOM VÀO SYSTEM PROMPT ✨
+    // ===========================================
     const systemInstruction = `Bạn là AI Cố vấn học tập của website HUB Planner.
-Nhiệm vụ: Tư vấn cho sinh viên DỰA TRÊN "CẨM NANG SINH VIÊN" dưới đây. 
+Nhiệm vụ: Tư vấn cho sinh viên Đại học Ngân hàng TP.HCM (HUB).
 
-[THÔNG TIN SINH VIÊN HIỆN TẠI]:
+[THÔNG TIN CÁ NHÂN CỦA SINH VIÊN]:
 ${context || "Chưa có thông tin."}
 
-[CẨM NANG TRƯỜNG (TOÀN BỘ)]:
+${realtimeContext}
+
+[CẨM NANG TRƯỜNG (TOÀN BỘ QUY CHẾ)]:
 ${handbookText}
 
 NGUYÊN TẮC BẮT BUỘC:
-1. Trả lời chuẩn xác 100% dựa vào CẨM NANG SINH VIÊN. Không tự ý bịa điểm, bịa quy chế.
-2. Nếu câu hỏi không có trong Cẩm nang, bắt buộc nói: "Dạ thông tin này mình chưa rõ, bạn liên hệ Phòng Đào tạo nhé!".
-3. Trả lời bằng Markdown rõ ràng, dễ đọc, xưng "mình" gọi "bạn".`;
+1. Trả lời chuẩn xác 100% dựa vào CẨM NANG và THÔNG TIN THỰC TẾ ở trên. 
+2. Khi sinh viên hỏi về sự kiện, thông báo, hoặc đồ thất lạc, hãy ưu tiên dùng dữ liệu trong [THÔNG TIN THỰC TẾ TRÊN WEB].
+3. Nếu sinh viên hỏi về một "Môn học/Học phần" không có trong danh sách mẫu, hãy nói: "Hệ thống hiện chưa tải toàn bộ thời khóa biểu, bạn vui lòng tra cứu trực tiếp trên chức năng Môn học của web nhé!".
+4. Trả lời bằng Markdown rõ ràng, thân thiện, xưng "mình" gọi "bạn". Không tự ý bịa thông tin.`;
 
-    // 3. Chuẩn bị lịch sử chat cho Gemini
+    // Chuẩn bị lịch sử chat cho Gemini
     const formattedHistory = (history || []).slice(-4).map(msg => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: msg.content.substring(0, 500) }]
     }));
     formattedHistory.push({ role: 'user', parts: [{ text: question }] });
 
-    // ===========================================
-    // ✨ BỐC THĂM RANDOM API KEY ✨
-    // ===========================================
+    // Bốc thăm API Key
     const activeKey = GEMINI_KEYS[Math.floor(Math.random() * GEMINI_KEYS.length)];
 
-    // 4. GỌI GEMINI 3.1 FLASH LITE PREVIEW (Model không băm tài liệu)
+    // GỌI GEMINI 3.1 FLASH LITE
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${activeKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             system_instruction: { parts: [{ text: systemInstruction }] },
             contents: formattedHistory,
-            generationConfig: { temperature: 0.1 } 
+            generationConfig: { temperature: 0.2 } // Tăng nhẹ temp một chút để nó chat mượt hơn
         })
     });
 
@@ -122,14 +149,11 @@ NGUYÊN TẮC BẮT BUỘC:
 
     const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Mình đang xử lý hơi lâu, bạn hỏi lại nha!";
     
-    // 5. CẬP NHẬT CÂU TRẢ LỜI THỰC TẾ VÀO DATABASE
+    // CẬP NHẬT LOG THỰC TẾ VÀO DATABASE
     if (supabase && logId) {
-        await supabase.from('ai_chat_logs')
-            .update({ bot_reply: replyText })
-            .eq('id', logId);
+        await supabase.from('ai_chat_logs').update({ bot_reply: replyText }).eq('id', logId);
     }
     
-    // TRẢ VỀ LỜI ĐÁP VÀ LOG ID. Frontend vẫn nhận được logId để like/dislike.
     return res.status(200).json({ reply: replyText, logId: logId });
 
   } catch (error) {
