@@ -54,7 +54,9 @@ export default async function handler(req, res) {
     // ===========================================
     // ✨ KÉO TẤT CẢ DỮ LIỆU SONG SONG BẰNG PROMISE.ALL ✨
     // ===========================================
-    // Dùng Promise.all giúp kéo 5 bảng cùng lúc, tiết kiệm 5 lần thời gian chờ!
+    // ===========================================
+    // ✨ KÉO TẤT CẢ DỮ LIỆU SONG SONG BẰNG PROMISE.ALL ✨
+    // ===========================================
     const [
         { data: kbData },
         { data: eventsData },
@@ -64,16 +66,19 @@ export default async function handler(req, res) {
     ] = await Promise.all([
         // 1. Cẩm nang hệ thống
         supabase.from('system_knowledge').select('id, content').order('id', { ascending: true }),
-        // 2. Sự kiện đang & sắp diễn ra
-        supabase.from('events').select('title, status, deadline, format, points, link')
-                .in('status', ['Đang diễn ra', 'Sắp diễn ra']).limit(5),
-        // 3. Thông báo mới nhất (Bỏ qua các thông báo bị ẩn)
+        
+        // 2. SỬA CHỖ NÀY: Chỉ lấy "Đang diễn ra" và sắp xếp lấy mới nhất
+       supabase.from('events').select('title, status, deadline, format, points, link')
+                .eq('status', 'Đang diễn ra') 
+                .order('id', { ascending: false }),
+                
+        // 3. Thông báo mới nhất
         supabase.from('school_announcements').select('title, date, link')
                 .eq('is_hidden', false).order('date', { ascending: false }).limit(5),
         // 4. Tìm đồ thất lạc mới nhất
         supabase.from('lost_found_items').select('title, description, location, contact_info')
                 .order('created_at', { ascending: false }).limit(5),
-        // 5. Học phần (Chỉ lấy 5 dòng mẫu để tránh nổ token)
+        // 5. Học phần
         supabase.from('course_schedules').select('subject_name, course_code, instructor, credits')
                 .limit(5)
     ]);
