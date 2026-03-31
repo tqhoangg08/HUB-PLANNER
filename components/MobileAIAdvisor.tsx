@@ -536,13 +536,13 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                     </Link>
                 </div>
             ) : (
-                <div className="flex-1 flex flex-col min-w-0 bg-[#F3F4F6] relative z-0">
+                <div className="flex-1 flex flex-col min-w-0 bg-[#F3F4F6] relative z-0 overflow-hidden">
                    {/* BONG BÓNG CHAT NỘI DUNG */}
-                    <div 
-                        className="flex-1 overflow-y-auto custom-scrollbar px-3 py-5 space-y-4 min-h-0" 
-                        ref={scrollRef}
-                        style={{ touchAction: 'pan-y' }}
-                    >
+<div 
+    className="flex-1 overflow-y-auto custom-scrollbar px-3 py-5 space-y-4 min-h-0" 
+    ref={scrollRef}
+    style={{ WebkitOverflowScrolling: 'touch' }} 
+>
                         
                         {chatHistory.length === 0 && !loading ? (
                         <div className="flex flex-col items-center animate-message mt-6 mb-10 px-2 text-center">
