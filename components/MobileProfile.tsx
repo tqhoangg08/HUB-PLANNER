@@ -14,15 +14,13 @@ interface MobileProfileProps {
     handleRequestReset?: () => void;
 }
 
-type SubScreen = 'main' | 'events';
-
 export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSettings, handleRequestReset }) => {
     const navigate = useNavigate();
     const [profile, setProfile] = useState<any>(null);
     const [session, setSession] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
-    const [activeScreen, setActiveScreen] = useState<SubScreen>('main');
+    const [showEvents, setShowEvents] = useState(false);
     const [joinedEvents, setJoinedEvents] = useState<any[]>([]);
     const [loadingEvents, setLoadingEvents] = useState(false);
 
@@ -40,8 +38,8 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
     }, []);
 
     useEffect(() => {
-        if (activeScreen === 'events' && session?.user) fetchJoinedEvents();
-    }, [activeScreen, session]);
+        if (showEvents && session?.user) fetchJoinedEvents();
+    }, [showEvents, session]);
 
     const fetchJoinedEvents = async () => {
         setLoadingEvents(true);
@@ -106,11 +104,12 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
         </button>
     );
 
-    if (activeScreen === 'events') {
+    // MÀN HÌNH LỊCH SỬ SỰ KIỆN (Giữ nguyên dạng trượt lên)
+    if (showEvents) {
         return (
             <div className="fixed inset-0 bg-[#F8FAFC] z-[100] flex flex-col animate-slideInRight pb-safe">
                 <div className="bg-[#003375] px-4 py-4 flex items-center gap-3 shadow-md shrink-0">
-                    <button onClick={() => { playClick(); setActiveScreen('main'); }} className="p-1.5 text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors active:scale-95">
+                    <button onClick={() => { playClick(); setShowEvents(false); }} className="p-1.5 text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors active:scale-95">
                         <ChevronLeft size={24} />
                     </button>
                     <h2 className="text-lg font-bold text-white tracking-tight">Lịch sử tham gia</h2>
@@ -185,7 +184,7 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                 <h3 className="text-[13px] font-extrabold text-gray-500 mb-3 px-1">Tài khoản</h3>
                 <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-gray-100 overflow-hidden">
                     <MenuItem icon={User} iconColor="text-orange-500" iconBg="bg-orange-50" title="Cập nhật thông tin" onClick={() => { playClick(); setShowAccountSettings?.(true); }} />
-                    <MenuItem icon={History} iconColor="text-blue-500" iconBg="bg-blue-50" title="Lịch sử tham gia sự kiện" onClick={() => { playClick(); setActiveScreen('events'); }} />
+                    <MenuItem icon={History} iconColor="text-blue-500" iconBg="bg-blue-50" title="Lịch sử tham gia sự kiện" onClick={() => { playClick(); setShowEvents(true); }} />
                     <MenuItem icon={Trash2} iconColor="text-red-500" iconBg="bg-red-50" title="Xóa dữ liệu" isDestructive={true} onClick={() => { playClick(); handleRequestReset?.(); }} />
                 </div>
             </div>
@@ -199,15 +198,15 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                 </div>
             </div>
 
-            {/* ĐÃ CHUYỂN HƯỚNG SANG ĐÚNG TRANG CẨM NANG */}
+            {/* ✨ TẤT CẢ CÁC NÚT DƯỚI ĐÂY ĐỀU ĐƯỢC CHUYỂN HƯỚNG RA TRANG ĐỘC LẬP */}
             <div className="mx-4 mt-6 mb-6">
                 <h3 className="text-[13px] font-extrabold text-gray-500 mb-3 px-1">Về HUB Planner</h3>
                 <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-gray-100 overflow-hidden">
                     <MenuItem icon={Info} iconColor="text-gray-500" iconBg="bg-gray-50" title="Giới thiệu" rightText="Về chúng mình" onClick={() => { playClick(); navigate('/mobile-handbook/about'); }} />
                     <MenuItem icon={HelpCircle} iconColor="text-gray-500" iconBg="bg-gray-50" title="Gửi phản hồi & Góp ý" onClick={() => { playClick(); navigate('/mobile-handbook/feedback'); }} />
                     <MenuItem icon={Coffee} iconColor="text-gray-500" iconBg="bg-gray-50" title="Ủng hộ (Donate)" onClick={() => { playClick(); navigate('/mobile-handbook/donate'); }} />
-                    <MenuItem icon={FileText} iconColor="text-gray-500" iconBg="bg-gray-50" title="Điều khoản dịch vụ" onClick={() => { playClick(); navigate('/mobile-handbook/terms'); }} />
-                    <MenuItem icon={Lock} iconColor="text-gray-500" iconBg="bg-gray-50" title="Chính sách bảo mật" onClick={() => { playClick(); navigate('/mobile-handbook/privacy'); }} />
+                    <MenuItem icon={FileText} iconColor="text-gray-500" iconBg="bg-gray-50" title="Điều khoản dịch vụ" onClick={() => { playClick(); navigate('/terms'); }} />
+                    <MenuItem icon={Lock} iconColor="text-gray-500" iconBg="bg-gray-50" title="Chính sách bảo mật" onClick={() => { playClick(); navigate('/privacy'); }} />
                 </div>
             </div>
 
