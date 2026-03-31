@@ -407,7 +407,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
       {/* CHAT WINDOW (POPUP TỪ ICON) */}
       {isOpen && createPortal(
-        <div className="fixed inset-0 z-[100000] pointer-events-none">
+        <div className="fixed top-0 left-0 w-full h-[100dvh] z-[100000] pointer-events-none">
           {/* Backdrop tối nhẹ */}
 <div 
   className="fixed h-[100dvh] w-full top-0 left-0 bg-black/20 backdrop-blur-sm pointer-events-auto animate-fadeIn" 
@@ -432,10 +432,9 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
             style={{
               left: 12,
               right: 12,
-              // Căn chỉnh khung chat dựa theo vị trí icon 
-...(isTopHalf 
-    ? { top: pos.y + 68, maxHeight: `calc(100dvh - ${pos.y + 80}px)`, transformOrigin: `${pos.x + 28}px -10px` } 
-    : { bottom: window.innerHeight - pos.y + 12, maxHeight: 'calc(100dvh - 120px)', transformOrigin: `${pos.x + 28}px calc(100% + 10px)` }),
+              top: 60,      // Chốt cứng cách mép trên 60px
+              bottom: 12,   // Chốt cứng cách đáy 12px (Bàn phím lên nó sẽ tự đẩy cái này lên)
+              transformOrigin: `${pos.x + 28}px ${isTopHalf ? '-10px' : 'calc(100% + 10px)'}`
             }}
           >
             {/* HEADER CHAT */}
@@ -539,11 +538,11 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
             ) : (
                 <div className="flex-1 flex flex-col min-w-0 bg-[#F3F4F6] relative z-0">
                    {/* BONG BÓNG CHAT NỘI DUNG */}
-<div 
-    className="flex-1 overflow-y-auto custom-scrollbar px-3 py-5 space-y-4" 
-    ref={scrollRef}
-    style={{ touchAction: 'pan-y', overscrollBehavior: 'contain' }} 
->f
+                    <div 
+                        className="flex-1 overflow-y-auto custom-scrollbar px-3 py-5 space-y-4 min-h-0" 
+                        ref={scrollRef}
+                        style={{ touchAction: 'pan-y' }}
+                    >
                         
                         {chatHistory.length === 0 && !loading ? (
                         <div className="flex flex-col items-center animate-message mt-6 mb-10 px-2 text-center">
