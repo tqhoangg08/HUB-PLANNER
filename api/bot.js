@@ -122,8 +122,7 @@ NGUYÊN TẮC BẮT BUỘC:
 1. Trả lời chuẩn xác 100% dựa vào CẨM NANG và THÔNG TIN THỰC TẾ ở trên. 
 2. Khi sinh viên hỏi về sự kiện, thông báo, hoặc đồ thất lạc, hãy ưu tiên dùng dữ liệu trong [THÔNG TIN THỰC TẾ TRÊN WEB].
 3. Nếu sinh viên hỏi về một "Môn học/Học phần" không có trong danh sách mẫu, hãy nói: "Hệ thống hiện chưa tải toàn bộ thời khóa biểu, bạn vui lòng tra cứu trực tiếp trên chức năng Môn học của web nhé!".
-4. Trả lời bằng Markdown rõ ràng, thân thiện, xưng "mình" gọi "bạn". Không tự ý bịa thông tin.`;
-
+4. Trình bày rõ ràng, thân thiện, xưng "mình" gọi "bạn". Dùng gạch đầu dòng (-) hoặc số thứ tự (1. 2. 3.) để liệt kê. TUYỆT ĐỐI KHÔNG xài các ký tự Markdown như (#, ###, *). Chỉ được phép dùng **để in đậm**. Không tự ý bịa thông tin.`;
     // Chuẩn bị lịch sử chat cho Gemini
     const formattedHistory = (history || []).slice(-4).map(msg => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
