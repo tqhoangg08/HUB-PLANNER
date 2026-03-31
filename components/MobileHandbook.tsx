@@ -8,8 +8,9 @@ import {
 import { playClick } from '../utils/audio';
 import { supabase } from '../utils/supabase';
 
-type TabType = 'contacts' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about' | 'feedback' | 'donate';
-const VALID_TABS: TabType[] = ['contacts', 'clubs', 'scholarships', 'regulations', 'faqs', 'about', 'feedback', 'donate'];
+// ✨ THÊM 'terms' VÀ 'privacy' VÀO ĐÂY
+type TabType = 'contacts' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about' | 'feedback' | 'donate' | 'terms' | 'privacy';
+const VALID_TABS: TabType[] = ['contacts', 'clubs', 'scholarships', 'regulations', 'faqs', 'about', 'feedback', 'donate', 'terms', 'privacy'];
 
 export const MobileHandbook: React.FC = () => {
     const { tab } = useParams<{ tab: string }>(); 
@@ -47,18 +48,12 @@ export const MobileHandbook: React.FC = () => {
     }, [tab]);
 
     useEffect(() => {
-        if (activeTab === 'donate') {
-            fetchDonors();
-        }
+        if (activeTab === 'donate') fetchDonors();
     }, [activeTab]);
 
     const fetchDonors = async () => {
         setLoadingDonors(true);
-        const { data, error } = await supabase
-            .from('donations')
-            .select('*')
-            .order('amount', { ascending: false }); 
-        
+        const { data, error } = await supabase.from('donations').select('*').order('amount', { ascending: false }); 
         if (!error && data) setDonors(data);
         setLoadingDonors(false);
     };
@@ -66,17 +61,12 @@ export const MobileHandbook: React.FC = () => {
     const handleDonateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!donateForm.name || !donateForm.amount) return;
-
         setIsDonating(true);
         try {
             const cleanAmount = parseInt(donateForm.amount.replace(/\D/g, '')) || 0;
             const { error } = await supabase.from('donations').insert([{
-                name: donateForm.name,
-                student_id: donateForm.mssv,
-                message: donateForm.message,
-                amount: cleanAmount
+                name: donateForm.name, student_id: donateForm.mssv, message: donateForm.message, amount: cleanAmount
             }]);
-
             if (error) throw error;
             alert("Cảm ơn tấm lòng vàng của bạn! ❤️");
             setDonateForm({ name: '', mssv: '', amount: '', message: '' }); 
@@ -95,7 +85,6 @@ export const MobileHandbook: React.FC = () => {
     const handleSubmitFeedback = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!feedbackContent.trim()) return;
-
         setIsSubmitting(true);
         try {
             const { error } = await supabase.from('feedback').insert([{ type: feedbackType, content: feedbackContent, contact: contactInfo }]);
@@ -119,51 +108,15 @@ export const MobileHandbook: React.FC = () => {
         { name: 'Phòng Kế toán', email: 'phongketoan@hub.edu.vn', phone: '028.38.212.591', loc: '36 TTĐ' },
         { name: 'Thư viện', email: 'thuvien@hub.edu.vn', phone: '028.38.971.651', loc: '56 HD2' },
         { name: 'Trạm Y tế', email: 'toyte.tccb@hub.edu.vn', phone: '0912.048.079', loc: 'Các cơ sở' },
-        { name: 'Khoa Tài chính', email: 'khoatc@hub.edu.vn', phone: '028.38.971.631', loc: 'Tầng 1 - Khu B' },
-        { name: 'Khoa Ngân hàng', email: 'khoanh@hub.edu.vn', phone: '028.38.971.624', loc: 'Tầng 1 - Khu B' },
-        { name: 'Khoa QTKD', email: 'khoaktqt@hub.edu.vn', phone: '028.38.971.639', loc: 'Tầng 2 - Khu B' },
-        { name: 'Khoa Kế toán', email: 'khoaktkt@hub.edu.vn', phone: '028.38.971.641', loc: 'Tầng 1 - Khu B' },
-        { name: 'Khoa HTTTQL', email: 'khoahtttql@hub.edu.vn', phone: '028.38.971.655', loc: 'Tầng 2 - Khu B' },
-        { name: 'Khoa Ngoại ngữ', email: 'khoangoaingu@hub.edu.vn', phone: '028.38.214.305', loc: 'Tầng 2 - Khu B' },
-        { name: 'Khoa Luật KT', email: 'khoalkt@hub.edu.vn', phone: '028.37.200.151', loc: 'Tầng 2 - Khu B' },
-        { name: 'Khoa KTQT', email: 'khoaktqt@hub.edu.vn', phone: '028.38.971.640', loc: 'Tầng 1 - Khu B' },
     ];
 
     const clubs = [
         {
-            type: 'Học thuật', list: [
-                { name: 'CLB Ngân hàng Quốc tế (IBC)', link: 'https://www.facebook.com/CLBIBC', email: 'ibc@hub.edu.vn', manager: 'Đoàn trường' },
+            type: 'Học thuật & Kỹ năng', list: [
                 { name: 'CLB Anh văn STEP', link: 'https://www.facebook.com/stepclubhub', email: 'clb.step@hub.edu.vn', manager: 'Đoàn trường' },
-                { name: 'CLB Anh văn BEE', link: 'https://www.facebook.com/BeeClubHUB', email: 'clb.bee@hub.edu.vn', manager: 'Đoàn trường' },
                 { name: 'CLB SV NCKH (SRC)', link: 'https://www.facebook.com/spyclubhub', email: 'clb.nckh@hub.edu.vn', manager: 'Đoàn trường' },
-                { name: 'Đội Enactus BU', link: 'https://www.facebook.com/EBankingUniversity', email: 'clb.enactus@hub.edu.vn', manager: 'Hội SV' },
                 { name: 'CLB Tài chính (BUSF)', link: 'https://www.facebook.com/BUSFClub', email: 'busf@hub.edu.vn', manager: 'Đoàn khoa TC' },
-                { name: 'CLB QTKD & Marketing (MMC)', link: 'https://www.facebook.com/HUBMMC', email: 'mmc@hub.edu.vn', manager: 'Đoàn khoa QTKD' },
-                { name: 'CLB Anh ngữ Quốc tế (IEC)', link: 'https://www.facebook.com/iec.hub', email: 'iec@hub.edu.vn', manager: 'Đoàn khoa KTQT' },
-                { name: 'CLB Kinh doanh QT (IBEC)', link: 'https://www.facebook.com/IBEC.HUB', email: 'ibec.hub@gmail.com', manager: 'Đoàn khoa KTQT' },
-                { name: 'CLB Kết nối nghề nghiệp', link: '', email: 'clb.careerlink@hub.edu.vn', manager: 'Đoàn khoa NH' },
-                { name: 'CLB Kế toán Kiểm toán (FAAC)', link: 'https://www.facebook.com/hub.faac', email: 'faac.hub@gmail.com', manager: 'Đoàn khoa KTKT' },
-                { name: 'CLB Pháp lý', link: 'https://www.facebook.com/CLBPHAPLYHUB', email: 'clb.phaply@hub.edu.vn', manager: 'Đoàn khoa Luật' },
-                { name: 'CLB Học thuật GIEO', link: '', email: 'gieoclub@hub.edu.vn', manager: 'Đoàn khoa HTTTQL' },
-                { name: 'CLB DATA LAB', link: '', email: '', manager: 'Đoàn khoa KHDL' },
-            ]
-        },
-        {
-            type: 'Kỹ năng & Tình nguyện', list: [
-                { name: 'Ban Sự kiện', link: 'https://www.facebook.com/bansukienhub', email: 'bansukien@hub.edu.vn', manager: 'Đoàn trường' },
-                { name: 'CLB Kỹ năng', link: 'https://www.facebook.com/clbknbuh', email: 'clb.kynang@hub.edu.vn', manager: 'Đoàn trường' },
-                { name: 'CLB Khởi nghiệp (FIC)', link: 'https://www.facebook.com/ficstart', email: 'fic@hub.edu.vn', manager: 'Hội SV' },
-                { name: 'CLB Hỗ trợ SV Trực tuyến (OSAC)', link: 'https://www.facebook.com/hotrosinhvientructuyen', email: 'osac@hub.edu.vn', manager: 'Đoàn trường' },
-                { name: 'CLB Tủ sách tình bạn', link: 'https://www.facebook.com/clbtusachtinhban', email: 'clb.tstb@hub.edu.vn', manager: 'Hội SV' },
-            ]
-        },
-        {
-            type: 'Sở thích & Văn thể', list: [
-                { name: 'Ban Truyền thông (B4T)', link: 'https://www.facebook.com/b4t.hub', email: 'ban4t@hub.edu.vn', manager: 'Hội SV' },
-                { name: 'CLB Bóng đá (BUFC)', link: 'https://www.facebook.com/footballclubbuh', email: 'clb.bongda@hub.edu.vn', manager: 'Hội SV' },
-                { name: 'CLB Cầu lông (BBC)', link: 'https://www.facebook.com/hubbadminton', email: 'clb.caulong@hub.edu.vn', manager: 'Hội SV' },
-                { name: 'CLB Guitar', link: 'https://www.facebook.com/guitarclub.hub', email: 'clb.guitar@hub.edu.vn', manager: 'Hội SV' },
-                { name: 'Đội Văn nghệ (VNXK)', link: 'https://www.facebook.com/vnxuki.hub', email: 'vnxk@hub.edu.vn', manager: 'Hội SV' },
+                { name: 'Ban Sự kiện', link: 'https://www.facebook.com/bansukienhub', email: 'bansukien@hub.edu.vn', manager: 'Đoàn trường' }
             ]
         }
     ];
@@ -172,16 +125,8 @@ export const MobileHandbook: React.FC = () => {
         {
             group: "Bảo Mật & Tài Khoản",
             items: [
-                { q: "Web có lưu mật khẩu Portal không?", a: "Tuyệt đối KHÔNG. Việc đăng nhập Portal chỉ diễn ra cục bộ trên trình duyệt của bạn để lấy bảng điểm." },
-                { q: "Tại sao đổi máy thì dữ liệu bị mất?", a: "Vì nếu bạn chưa đăng nhập Gmail, dữ liệu chỉ lưu trên máy hiện tại. Hãy đăng nhập để hệ thống đồng bộ dữ liệu của bạn lên mây nhé." }
-            ]
-        },
-        {
-            group: "Tính Năng Học Tập",
-            items: [
-                { q: "Làm sao để nhập điểm tự động?", a: "Vào Portal -> Xem điểm -> In ra file PDF. Sau đó tải file đó lên web." },
-                { q: "Công cụ tính GPA hệ 4 hay 10?", a: "Hỗ trợ song song cả hai và tự động quy đổi." },
-                { q: "AI Cố vấn (Gemini) giúp gì?", a: "Chat để hỏi lộ trình, cách học, mục tiêu điểm số." }
+                { q: "Web có lưu mật khẩu Portal không?", a: "Tuyệt đối KHÔNG. Việc đăng nhập Portal chỉ diễn ra cục bộ trên trình duyệt của bạn." },
+                { q: "Tại sao đổi máy thì dữ liệu bị mất?", a: "Hãy đăng nhập để hệ thống đồng bộ dữ liệu của bạn lên mây nhé." }
             ]
         }
     ];
@@ -224,10 +169,6 @@ export const MobileHandbook: React.FC = () => {
             case 'clubs':
                 return (
                     <div className="space-y-4 animate-fadeIn pb-6">
-                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-2">
-                            <h3 className="font-bold text-[#003375] flex items-center gap-2 mb-1 text-sm"><Users size={16} /> Hoạt động Đoàn - Hội</h3>
-                            <p className="text-xs text-blue-800 leading-relaxed">HUB có hơn 40 CLB/Đội/Nhóm. Tham gia để rèn luyện kỹ năng và cộng điểm rèn luyện!</p>
-                        </div>
                         {clubs.map((group, idx) => (
                             <div key={idx} className="bg-white p-4 rounded-xl border border-gray-200">
                                 <h4 className="font-bold text-[#990000] border-b border-gray-100 pb-2 mb-3 text-sm">{group.type}</h4>
@@ -263,7 +204,6 @@ export const MobileHandbook: React.FC = () => {
                                 </tbody>
                             </table>
                         </div>
-                        <p className="text-[10px] text-gray-500 italic px-1">* Tích lũy tối thiểu 15TC/kỳ, không rớt môn, không kỷ luật.</p>
                     </div>
                 );
             case 'faqs':
@@ -362,11 +302,70 @@ export const MobileHandbook: React.FC = () => {
                         </div>
                     </div>
                 );
+
+            // ✨ CODE MỚI: ĐIỀU KHOẢN SỬ DỤNG
+            case 'terms':
+                return (
+                    <div className="animate-fadeIn pb-6 space-y-5 bg-white p-4 rounded-xl border border-gray-200 text-sm text-gray-700 leading-relaxed text-justify">
+                        <div className="text-center border-b border-gray-100 pb-3 mb-3">
+                            <p className="text-[11px] text-gray-500 italic">Phiên bản 1.1 - Cập nhật: 25/02/2026</p>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-[#003375] text-sm mb-1 uppercase">1. Chấp thuận điều khoản</h3>
+                            <p>Bằng việc đăng nhập, bạn xác nhận đã đọc, hiểu rõ và đồng ý tuân thủ toàn bộ các quy định trong bản Điều khoản này.</p>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-[#003375] text-sm mb-1 uppercase">2. Tuyên bố miễn trừ trách nhiệm</h3>
+                            <p className="text-red-600 font-medium">HUB Planner KHÔNG PHẢI là sản phẩm chính thức của Trường Đại học Ngân hàng TP.HCM (HUB).</p>
+                            <p className="mt-1">Dữ liệu về Thời khóa biểu, Lịch thi được đồng bộ tham khảo từ online.hub.edu.vn. Tính năng GPA/ĐRL chỉ mang tính chất tham khảo. Sinh viên có trách nhiệm đối chiếu lại kết quả với Portal của trường trước khi ra quyết định.</p>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-[#003375] text-sm mb-1 uppercase">3. Tài khoản và Bảo mật</h3>
+                            <p>Khi dùng máy công cộng, bạn có trách nhiệm Đăng xuất hoặc dùng tính năng Xóa dữ liệu (Reset) trước khi rời đi để tránh lộ thông tin.</p>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-[#003375] text-sm mb-1 uppercase">4. Quyền sở hữu trí tuệ</h3>
+                            <p>Mã nguồn, dữ liệu biên tập thuộc sở hữu của HUB Planner. Nghiêm cấm thu thập trái phép (Crawling) từ hệ thống.</p>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-[#003375] text-sm mb-1 uppercase">5. Chính sách Donate</h3>
+                            <p>Mọi khoản đóng góp là tự nguyện gây quỹ duy trì Server. Chúng tôi KHÔNG áp dụng chính sách hoàn tiền.</p>
+                        </div>
+                    </div>
+                );
+
+            // ✨ CODE MỚI: CHÍNH SÁCH BẢO MẬT
+            case 'privacy':
+                return (
+                    <div className="animate-fadeIn pb-6 space-y-5 bg-white p-4 rounded-xl border border-gray-200 text-sm text-gray-700 leading-relaxed text-justify">
+                        <div className="text-center border-b border-gray-100 pb-3 mb-3">
+                            <p className="text-[11px] text-gray-500 italic">Phiên bản 1.1 - Cập nhật: 25/02/2026</p>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-[#003375] text-sm mb-1 uppercase">1. Dữ liệu thu thập</h3>
+                            <p>Khi đăng nhập Google, chúng tôi chỉ thu thập: Tên, Email và Ảnh đại diện. Dữ liệu học tập do bạn nhập được mã hóa và lưu trữ an toàn.</p>
+                            <div className="bg-red-50 text-red-600 p-2 text-xs font-bold mt-2 rounded border border-red-100">
+                                ⚠️ TUYÊN BỐ: Chúng tôi KHÔNG BAO GIỜ lấy mật khẩu Portal hay mật khẩu Google của bạn.
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-[#003375] text-sm mb-1 uppercase">2. Mục đích sử dụng</h3>
+                            <p>Đồng bộ dữ liệu học tập giữa các thiết bị, tính toán GPA và tùy biến thời khóa biểu cho riêng bạn.</p>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-[#003375] text-sm mb-1 uppercase">3. Cam kết Không chia sẻ</h3>
+                            <p>Chúng tôi TUYỆT ĐỐI KHÔNG bán hoặc cho thuê dữ liệu của bạn cho bất kỳ đơn vị quảng cáo nào.</p>
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-[#003375] text-sm mb-1 uppercase">4. Quyền của bạn</h3>
+                            <p>Bạn có toàn quyền chỉnh sửa hoặc yêu cầu XÓA VĨNH VIỄN toàn bộ dữ liệu của mình bằng nút "Xóa dữ liệu" trong mục Cài đặt.</p>
+                        </div>
+                    </div>
+                );
             default: return null;
         }
     };
 
-    // Hàm lấy thông tin Tiêu đề Header phụ thuộc vào Tab
     const getHeaderInfo = () => {
         switch (activeTab) {
             case 'contacts': return { title: 'Cẩm nang', sub: 'Danh bạ Phòng ban & Khoa' };
@@ -376,6 +375,8 @@ export const MobileHandbook: React.FC = () => {
             case 'feedback': return { title: 'Góp ý & Phản hồi', sub: 'Đóng góp ý tưởng phát triển' };
             case 'donate': return { title: 'Ủng hộ & Tri ân', sub: 'Đồng hành cùng dự án' };
             case 'about': return { title: 'Về chúng mình', sub: 'Đội ngũ HUB Planner' };
+            case 'terms': return { title: 'Điều khoản dịch vụ', sub: 'Quy định sử dụng' };  // ✨ ĐÃ THÊM
+            case 'privacy': return { title: 'Chính sách bảo mật', sub: 'Bảo vệ quyền riêng tư' }; // ✨ ĐÃ THÊM
             default: return { title: 'Cẩm nang', sub: 'Thông tin sinh viên' };
         }
     };
@@ -384,7 +385,6 @@ export const MobileHandbook: React.FC = () => {
 
     return (
         <div className="min-h-[100dvh] bg-[#F8FAFC] flex flex-col font-sans relative">
-            {/* HEADER SIÊU GỌN - ĐỔI TÊN ĐỘNG */}
             <div className="bg-[#003375] px-4 pt-12 pb-4 text-white shrink-0 sticky top-0 z-40 shadow-md">
                 <div className="flex items-center justify-between">
                     <button onClick={() => { playClick(); navigate(-1); }} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors active:scale-95 -ml-2">
@@ -394,11 +394,9 @@ export const MobileHandbook: React.FC = () => {
                         <h1 className="text-lg font-bold">{headerInfo.title}</h1>
                         <p className="text-xs text-blue-200">{headerInfo.sub}</p>
                     </div>
-                    <div className="w-10"></div> {/* Spacer để căn giữa chữ */}
+                    <div className="w-10"></div>
                 </div>
             </div>
-
-            {/* NỘI DUNG TƯƠNG ỨNG VỚI NÚT ĐÃ BẤM */}
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                 {renderContent()}
             </div>
