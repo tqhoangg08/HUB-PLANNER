@@ -9,7 +9,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { ActivityLogModal } from './components/ActivityLogModal';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfUse } from './components/TermsOfUse';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, HeartCrack, ArrowLeft, RefreshCw, ClipboardList } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, HeartCrack, ArrowLeft, RefreshCw, ClipboardList, Share, PlusSquare } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
@@ -109,8 +109,46 @@ const App: React.FC = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // ✨ Logic tự động chia luồng: Màn hình nhỏ thì dùng Layout Mobile
     const useMobileLayout = isAppMode && isMobileScreen;
+
+    // ==========================================
+    // ✨ LÕI XỬ LÝ CÀI ĐẶT APP (PWA INSTALL)
+    // ==========================================
+    const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+    const [isIOS, setIsIOS] = useState(false);
+    const [showIOSInstructions, setShowIOSInstructions] = useState(false);
+
+    useEffect(() => {
+        // Nhận diện thiết bị Apple
+        const userAgent = window.navigator.userAgent.toLowerCase();
+        const isIOSDevice = /iphone|ipad|ipod|macintosh/.test(userAgent) && 'ontouchend' in document;
+        setIsIOS(isIOSDevice);
+
+        // Bắt sự kiện cài đặt tự động (Chrome, Edge, Android...)
+        const handleBeforeInstallPrompt = (e: Event) => {
+            e.preventDefault(); 
+            setDeferredPrompt(e);
+        };
+
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    }, []);
+
+    const handleInstallApp = async () => {
+        playClick();
+        if (isIOS) {
+            setShowIOSInstructions(true);
+        } else if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                setDeferredPrompt(null);
+            }
+        } else {
+            alert("Trình duyệt của bạn không hỗ trợ cài đặt hoặc bạn đã cài app này rồi.");
+        }
+    };
+    // ==========================================
 
     // ==========================================
     // LOGIC BONG BÓNG CHAT
@@ -546,7 +584,6 @@ const App: React.FC = () => {
         ensureSchoolDomain();
     }, [session, isGuest, isAdmin, isCTV]);
 
-    // ✨ ĐÃ SỬA: Thay location.href bằng navigate để không bị khựng trang
     const handleLogout = async () => {
         playClick();
         if (window.confirm("Đăng xuất khỏi hệ thống?")) {
@@ -642,7 +679,6 @@ const App: React.FC = () => {
         }
     };
 
-    // ✨ ĐÃ SỬA: Thay location.href bằng navigate để không bị khựng trang
     const executeResetData = async () => {
         try {
             if (!isGuest && session?.user?.id && supabase) {
@@ -883,7 +919,6 @@ const App: React.FC = () => {
                             <p className="font-bold flex items-center gap-2 mb-1"><AlertTriangle size={16} /> Yêu cầu bắt buộc:</p>
                             <p>Vui lòng đăng nhập bằng email sinh viên trường ĐH Ngân hàng TP.HCM có đuôi tên miền là <strong>@{SCHOOL_DOMAIN}</strong></p>
                         </div>
-                        {/* ✨ ĐÃ SỬA: Thay location.href bằng navigate để không bị khựng trang */}
                         <button 
                             onClick={async () => { 
                                 playClick(); 
@@ -952,10 +987,13 @@ const App: React.FC = () => {
                 <Route path="/handbook/:tab?" element={<MobileHandbook />} />
                 <Route path="/handbook" element={<MobileHandbook />} />
                 
+                {/* ✨ TRUYỀN HÀM CÀI ĐẶT APP XUỐNG CHO MOBILE PROFILE */}
                 <Route path="/profile/:id" element={
                     <MobileProfile 
                         setShowAccountSettings={setShowAccountSettings} 
                         handleRequestReset={handleRequestReset} 
+                        onInstallApp={handleInstallApp}
+                        showInstallButton={!isAppMode}
                     />
                 } />
                 
@@ -1061,7 +1099,6 @@ const App: React.FC = () => {
                                                 {session?.user.email}
                                             </div>
                                             
-                                            {/* ✨ FORM XÁC MINH CAPTCHA MỚI ✨ */}
                                             <div className="mt-4 flex flex-col gap-2">
                                                 <label className="text-sm font-bold text-gray-700 text-center">
                                                     Xác minh bảo mật: <span className="text-[#003375] text-base">{captchaQuestion} = ?</span>
@@ -1340,11 +1377,55 @@ const App: React.FC = () => {
                         </div>
                     </div>
                 )}
+
+                {/* ✨ BẢNG HƯỚNG DẪN CÀI ĐẶT TRÊN MÁY APPLE (IOS/MAC) */}
+                {showIOSInstructions && (
+                    <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-end justify-center sm:items-center p-4 animate-fadeIn" onClick={() => setShowIOSInstructions(false)}>
+                        <div className="bg-white w-full max-w-sm rounded-3xl p-6 relative animate-slideUp sm:animate-scaleIn" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => setShowIOSInstructions(false)} className="absolute top-4 right-4 bg-gray-100 p-2 rounded-full text-gray-500 hover:bg-gray-200 transition-colors">
+                                <X size={20} />
+                            </button>
+                            
+                            <div className="w-16 h-16 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Download size={32} />
+                            </div>
+                            
+                            <h3 className="text-xl font-black text-center text-[#003375] mb-2">Cài đặt HUB Planner</h3>
+                            <p className="text-sm text-gray-600 text-center mb-6 leading-relaxed">
+                                Trình duyệt của Apple không cho phép cài đặt tự động. Bạn vui lòng làm theo 2 bước cực nhanh sau:
+                            </p>
+                            
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0 text-blue-500">
+                                        <Share size={20} />
+                                    </div>
+                                    <p className="text-sm font-medium text-gray-700">
+                                        <strong>Bước 1:</strong> Nhấn vào biểu tượng <span className="text-blue-500 font-bold">Chia sẻ (Share)</span> ở thanh công cụ trình duyệt.
+                                    </p>
+                                </div>
+                                
+                                <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0 text-gray-800">
+                                        <PlusSquare size={20} />
+                                    </div>
+                                    <p className="text-sm font-medium text-gray-700">
+                                        <strong>Bước 2:</strong> Cuộn xuống và chọn <span className="font-bold text-gray-900">Thêm vào MH chính</span>.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <button onClick={() => setShowIOSInstructions(false)} className="w-full bg-[#003375] text-white font-bold py-4 rounded-2xl mt-6 active:scale-95 transition-transform shadow-md">
+                                Đã hiểu
+                            </button>
+                        </div>
+                    </div>
+                )}
             </>
         );
 
         // ==========================================
-        // QUYẾT ĐỊNH RENDER THEO WEB BROWSER HAY APP
+        // RENDER CHÍNH CỦA APP
         // ==========================================
         const LayoutComponent = useMobileLayout ? MobileAppLayout : DesktopLayout;
         const currentRoutes = useMobileLayout ? mobileRoutes : desktopRoutes;
@@ -1354,6 +1435,10 @@ const App: React.FC = () => {
                 <Particles id="app-particles" init={particlesInit} options={particlesOptions} className="absolute inset-0 z-0 pointer-events-none" />
                 
                 <LayoutComponent
+                    // ✨ TRUYỀN HÀM XỬ LÝ CÀI ĐẶT APP XUỐNG CHO GIAO DIỆN
+                    onInstallApp={handleInstallApp}
+                    showInstallButton={!isAppMode} 
+
                     session={session} isGuest={isGuest} isAdmin={isAdmin} viewingUser={viewingUser} 
                     displayName={displayName} studentId={studentId} avatarUrl={profileAvatarUrl} avatarSeed={avatarSeed} 
                     adminSearchMssv={adminSearchMssv} isSearchingUser={isSearchingUser} setAdminSearchMssv={setAdminSearchMssv} 
@@ -1382,7 +1467,6 @@ const App: React.FC = () => {
         <Routes>
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfUse />} />
-            {/* ✨ ĐÃ SỬA: Route /login nay render MobileLogin hoặc LoginScreen */}
             <Route path="/login" element={useMobileLayout ? <MobileLogin /> : <LoginScreen />} />
             
             <Route path="/" element={<Navigate to={useMobileLayout ? "/mobile-home" : "/dashboard"} replace />} />

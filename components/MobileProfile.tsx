@@ -3,7 +3,8 @@ import {
     User, History, Trash2, Moon, Bell, RefreshCw, 
     Info, HelpCircle, Coffee, FileText, Lock, 
     ChevronRight, LogOut, CheckCircle2, ChevronLeft,
-    Calendar, MapPin, Clock, Loader2
+    Calendar, MapPin, Clock, Loader2,
+    Download, Share, PlusSquare, X
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { playClick } from '../utils/audio';
@@ -19,7 +20,50 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
     const [profile, setProfile] = useState<any>(null);
     const [session, setSession] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+    const [isIOS, setIsIOS] = useState(false);
+    const [isStandalone, setIsStandalone] = useState(false);
+    const [showIOSInstructions, setShowIOSInstructions] = useState(false);
 
+    useEffect(() => {
+        // Kiểm tra xem máy có phải iOS không (iPhone, iPad, iPod)
+        const userAgent = window.navigator.userAgent.toLowerCase();
+        const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
+        setIsIOS(isIOSDevice);
+
+        // Kiểm tra xem app đã được cài ra màn hình chính chưa
+        const isAppInstalled = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+        setIsStandalone(isAppInstalled);
+
+        // Bắt sự kiện cài đặt tự động (Chỉ chạy trên Android / PC Chrome)
+        const handleBeforeInstallPrompt = (e: Event) => {
+            e.preventDefault(); // Chặn bảng cài đặt mặc định của trình duyệt
+            setDeferredPrompt(e); // Lưu lại sự kiện để dùng khi bấm nút
+        };
+
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        };
+    }, []);
+
+    const handleInstallClick = async () => {
+        playClick();
+        if (isIOS) {
+            // Nếu là iOS -> Bật bảng hướng dẫn bằng tay
+            setShowIOSInstructions(true);
+        } else if (deferredPrompt) {
+            // Nếu là Android/PC -> Kích hoạt bảng cài đặt tự động
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                setDeferredPrompt(null);
+            }
+        } else {
+            alert("Trình duyệt của bạn không hỗ trợ cài đặt hoặc bạn đã cài app rồi.");
+        }
+    };
     const [showEvents, setShowEvents] = useState(false);
     const [joinedEvents, setJoinedEvents] = useState<any[]>([]);
     const [loadingEvents, setLoadingEvents] = useState(false);
@@ -189,14 +233,72 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                 </div>
             </div>
 
+            {/* DANH SÁCH MENU HỆ THỐNG */}
             <div className="mx-4 mt-6">
                 <h3 className="text-[13px] font-extrabold text-gray-500 mb-3 px-1">Hệ thống</h3>
                 <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-gray-100 overflow-hidden">
+                    
+                    {/* ✨ THÊM MỚI: NÚT TẢI APP (Chỉ hiện khi chưa cài đặt) */}
+                    {!isStandalone && (
+                        <MenuItem 
+                            icon={Download} iconColor="text-green-600" iconBg="bg-green-50" 
+                            title="Cài đặt App (Tải xuống)" rightText="Nhanh & Mượt hơn"
+                            onClick={handleInstallClick}
+                        />
+                    )}
+
                     <MenuItem icon={Moon} iconColor="text-rose-500" iconBg="bg-rose-50" title="Giao diện" rightText="Mặc định" onClick={handleComingSoon} />
                     <MenuItem icon={Bell} iconColor="text-rose-500" iconBg="bg-rose-50" title="Cài đặt thông báo" onClick={handleComingSoon} />
                     <MenuItem icon={RefreshCw} iconColor="text-rose-500" iconBg="bg-rose-50" title="Xóa bộ nhớ đệm" onClick={handleClearCache} />
                 </div>
             </div>
+
+            {/* ✨ THÊM MỚI: BẢNG HƯỚNG DẪN DÀNH RIÊNG CHO IOS */}
+            {showIOSInstructions && (
+                <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-end justify-center sm:items-center p-4 animate-fadeIn" onClick={() => setShowIOSInstructions(false)}>
+                    <div className="bg-white w-full max-w-sm rounded-3xl p-6 relative animate-slideUp sm:animate-scaleIn" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowIOSInstructions(false)} className="absolute top-4 right-4 bg-gray-100 p-2 rounded-full text-gray-500 hover:bg-gray-200">
+                            <X size={20} />
+                        </button>
+                        
+                        <div className="w-16 h-16 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Download size={32} />
+                        </div>
+                        
+                        <h3 className="text-xl font-black text-center text-[#003375] mb-2">Cài đặt HUB Planner</h3>
+                        <p className="text-sm text-gray-600 text-center mb-6 leading-relaxed">
+                            Apple iOS không cho phép cài đặt tự động. Bạn vui lòng làm theo 2 bước cực nhanh sau nhé:
+                        </p>
+                        
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0 text-blue-500">
+                                    <Share size={20} />
+                                </div>
+                                <p className="text-sm font-medium text-gray-700">
+                                    <strong>Bước 1:</strong> Nhấn vào biểu tượng <span className="text-blue-500 font-bold">Chia sẻ (Share)</span> ở thanh công cụ Safari (dưới cùng màn hình).
+                                </p>
+                            </div>
+                            
+                            <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0 text-gray-800">
+                                    <PlusSquare size={20} />
+                                </div>
+                                <p className="text-sm font-medium text-gray-700">
+                                    <strong>Bước 2:</strong> Cuộn xuống và chọn <span className="font-bold text-gray-900">Thêm vào MH chính</span> (Add to Home Screen).
+                                </p>
+                            </div>
+                        </div>
+
+                        <button onClick={() => setShowIOSInstructions(false)} className="w-full bg-[#003375] text-white font-bold py-4 rounded-2xl mt-6 active:scale-95 transition-transform">
+                            Đã hiểu
+                        </button>
+                        
+                        {/* Mũi tên chỉ xuống đáy màn hình cho iOS */}
+                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-white rotate-45"></div>
+                    </div>
+                </div>
+            )}
 
             {/* ✨ TẤT CẢ CÁC NÚT DƯỚI ĐÂY ĐỀU ĐƯỢC CHUYỂN HƯỚNG RA TRANG ĐỘC LẬP */}
             <div className="mx-4 mt-6 mb-6">
