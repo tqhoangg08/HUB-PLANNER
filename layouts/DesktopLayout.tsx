@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Book, Calendar, ChevronDown, ClipboardList, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw } from 'lucide-react';
+import { Book, Calendar, ChevronDown, ClipboardList, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download } from 'lucide-react'; // ✨ THÊM: Import icon Download
 import { playClick } from '../utils/audio';
 import NotificationBell from '../components/NotificationBell';
 
@@ -29,6 +29,10 @@ interface DesktopLayoutProps {
   handleSyncDB: (e: React.MouseEvent<HTMLButtonElement>) => void;
   navigate: (path: string) => void;
   children: React.ReactNode;
+  
+  // ✨ THÊM 2 PROPS NHẬN TỪ APP.TSX
+  onOpenDesktopInstall?: () => void;
+  showInstallButton?: boolean;
 }
 
 export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
@@ -36,7 +40,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   adminSearchMssv, isSearchingUser, setAdminSearchMssv, handleAdminSearchUser,
   handleRequestReset, handleLogout, setShowGuide, setShowActivityLog,
   setIsUserMenuOpen, isUserMenuOpen, setShowAccountSettings, handleMenuLogout, 
-  handleExitAdminView, handleSyncDB, navigate, children
+  handleExitAdminView, handleSyncDB, navigate, children,
+  onOpenDesktopInstall, showInstallButton // ✨ NHẬN PROPS Ở ĐÂY
 }) => {
   const location = useLocation();
   const isColorAvatar = avatarUrl?.startsWith('#');
@@ -96,6 +101,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </div>
                   </div>
                   
+                  {/* BÊN TRONG CỦA MÀN HÌNH ĐIỆN THOẠI (Mobile Header) */}
                   <div className="flex items-center gap-2 sm:hidden shrink-0">
                       {(!isGuest) && (
                           <NotificationBell currentUserId={session.user.id} />
@@ -139,6 +145,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   </div>
               </div>
 
+              {/* THANH MENU ĐIỀU HƯỚNG Ở GIỮA */}
               <nav className="flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
                   
                   <NavLink to="/dashboard" ref={el => navRefs.current[0] = el} onClick={playClick} className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
@@ -205,6 +212,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   <div className="hidden sm:block absolute bottom-0 h-[2px] bg-[#003375] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-20 rounded-t-full" style={{ left: `${navIndicator.left}px`, width: `${navIndicator.width}px`, opacity: navIndicator.opacity }} />
               </nav>
 
+              {/* KHU VỰC CHỨC NĂNG GÓC BÊN PHẢI (PC) */}
               <div className="hidden sm:flex items-center gap-1.5 lg:gap-3 shrink-0 pl-2 lg:pl-4 border-l border-gray-200">
                   {isAdmin && (
                   <form onSubmit={handleAdminSearchUser} className="flex items-center gap-1 lg:gap-2 mr-1 lg:mr-2 bg-purple-50 p-1 rounded-lg border border-purple-200 shadow-inner">
@@ -228,6 +236,18 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           </button>
                       )}
                   </form>
+                  )}
+
+                  {/* ✨ THÊM NÚT TẢI APP VÀO ĐÂY, NGAY TRƯỚC NÚT HELP VÀ CHUÔNG ✨ */}
+                  {showInstallButton && (
+                      <button 
+                          onClick={() => { playClick(); onOpenDesktopInstall?.(); }}
+                          className="flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-700 font-bold text-xs px-2.5 py-1.5 rounded-lg hover:bg-green-100 hover:border-green-300 transition-colors shadow-sm active:scale-95 whitespace-nowrap"
+                          title="Tải ứng dụng về máy"
+                      >
+                          <Download size={14} className="stroke-[2.5]" />
+                          <span className="hidden lg:inline">Tải App</span>
+                      </button>
                   )}
 
                   <button onClick={() => { playClick(); setShowGuide(true); }} className="text-gray-400 hover:text-gray-900 transition-colors hidden sm:block" title="Hướng dẫn">
@@ -300,9 +320,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   <p className="text-xs font-medium tracking-wide mb-1 uppercase">Web designed by tqhoangg</p>
                   <p className="text-[10px] opacity-80 px-4 mb-3">HUB Planner có thể mắc sai sót, vui lòng xác minh lại thông tin khi cần thiết.</p>
                   <div className="text-xs">
-                      <Link to="/privacy" className="hover:text-gray-900 transition-colors">Chính sách bảo mật</Link>
+                      <Link to="/handbook/privacy" className="hover:text-gray-900 transition-colors">Chính sách bảo mật</Link>
                       <span className="mx-3 opacity-50">•</span>
-                      <Link to="/terms" className="hover:text-gray-900 transition-colors">Điều khoản sử dụng</Link>
+                      <Link to="/handbook/terms" className="hover:text-gray-900 transition-colors">Điều khoản sử dụng</Link>
                   </div>
               </footer>
           </main>
