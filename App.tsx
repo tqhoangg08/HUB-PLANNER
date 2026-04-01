@@ -37,7 +37,11 @@ import { MobileLostFound } from './components/MobileLostFound';
 import { MobileProfile } from './components/MobileProfile'; 
 import { MobileLogin } from './components/MobileLogin';
 import { MobileHandbook } from './components/MobileHandbook';
-
+let globalDeferredPrompt: any = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    globalDeferredPrompt = e;
+});
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
 
@@ -136,13 +140,15 @@ const App: React.FC = () => {
 
     const handleInstallApp = async () => {
         playClick();
+        const promptToUse = deferredPrompt || globalDeferredPrompt;
         if (isIOS) {
             setShowIOSInstructions(true);
-        } else if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
+        } else if (promptToUse) {
+            promptToUse.prompt();
+            const { outcome } = await promptToUse.userChoice;
             if (outcome === 'accepted') {
                 setDeferredPrompt(null);
+                globalDeferredPrompt = null;
             }
         } else {
             alert("Trình duyệt của bạn không hỗ trợ cài đặt hoặc bạn đã cài app này rồi.");

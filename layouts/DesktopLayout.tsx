@@ -31,7 +31,7 @@ interface DesktopLayoutProps {
   children: React.ReactNode;
   
   // ✨ THÊM 2 PROPS NHẬN TỪ APP.TSX
-  onOpenDesktopInstall?: () => void;
+  onInstallApp?: () => void;
   showInstallButton?: boolean;
 }
 
@@ -41,7 +41,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   handleRequestReset, handleLogout, setShowGuide, setShowActivityLog,
   setIsUserMenuOpen, isUserMenuOpen, setShowAccountSettings, handleMenuLogout, 
   handleExitAdminView, handleSyncDB, navigate, children,
-  onOpenDesktopInstall, showInstallButton // ✨ NHẬN PROPS Ở ĐÂY
+  onInstallApp, showInstallButton // ✨ NHẬN PROPS Ở ĐÂY
 }) => {
   const location = useLocation();
   const isColorAvatar = avatarUrl?.startsWith('#');
@@ -106,7 +106,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                     {/* ✨ THÊM NÚT TẢI APP CHO MOBILE VÀO ĐÂY ✨ */}
     {showInstallButton && (
         <button 
-            onClick={() => { playClick(); onOpenDesktopInstall?.(); }}
+            onClick={() => { playClick(); onInstallApp?.(); }}
             className="flex items-center justify-center h-8 px-2.5 bg-green-50 border border-green-200 text-green-700 rounded-lg shadow-sm active:scale-95 shrink-0"
             title="Tải ứng dụng"
         >
@@ -252,7 +252,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   {/* ✨ THÊM NÚT TẢI APP VÀO ĐÂY, NGAY TRƯỚC NÚT HELP VÀ CHUÔNG ✨ */}
                   {showInstallButton && (
                       <button 
-                          onClick={() => { playClick(); onOpenDesktopInstall?.(); }}
+                          onClick={() => { playClick(); onInstallApp?.(); }}
                           className="flex items-center gap-1.5 bg-green-50 border border-green-200 text-green-700 font-bold text-xs px-2.5 py-1.5 rounded-lg hover:bg-green-100 hover:border-green-300 transition-colors shadow-sm active:scale-95 whitespace-nowrap"
                           title="Tải ứng dụng về máy"
                       >
