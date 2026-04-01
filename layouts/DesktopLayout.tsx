@@ -103,6 +103,17 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   
                   {/* BÊN TRONG CỦA MÀN HÌNH ĐIỆN THOẠI (Mobile Header) */}
                   <div className="flex items-center gap-2 sm:hidden shrink-0">
+                    {/* ✨ THÊM NÚT TẢI APP CHO MOBILE VÀO ĐÂY ✨ */}
+    {showInstallButton && (
+        <button 
+            onClick={() => { playClick(); onOpenDesktopInstall?.(); }}
+            className="flex items-center justify-center h-8 px-2.5 bg-green-50 border border-green-200 text-green-700 rounded-lg shadow-sm active:scale-95 shrink-0"
+            title="Tải ứng dụng"
+        >
+            <Download size={16} className="stroke-[2.5]" />
+            <span className="text-[11px] font-bold ml-1">Tải App</span>
+        </button>
+    )}
                       {(!isGuest) && (
                           <NotificationBell currentUserId={session.user.id} />
                       )}
