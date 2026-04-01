@@ -11,6 +11,9 @@ export default defineConfig({
       devOptions: {
         enabled: true // Bật true để chạy được PWA trên localhost
       },
+      workbox: {
+        maximumFileSizeToCacheInBytes: 5000000
+      },
       manifest: {
         short_name: "HUB Planner",
         name: "HUB Planner - Hỗ trợ sinh viên",
