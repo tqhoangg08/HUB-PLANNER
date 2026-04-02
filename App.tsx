@@ -36,6 +36,7 @@ import { MobileEvents } from './components/MobileEvents';
 import { MobileLostFound } from './components/MobileLostFound';
 import { MobileProfile } from './components/MobileProfile'; 
 import { MobileLogin } from './components/MobileLogin';
+import Swal from 'sweetalert2';
 import { MobileHandbook } from './components/MobileHandbook';
 let globalDeferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -151,7 +152,35 @@ const App: React.FC = () => {
                 globalDeferredPrompt = null;
             }
         } else {
-            alert("Trình duyệt của bạn không hỗ trợ cài đặt hoặc bạn đã cài app này rồi.");
+          Swal.fire({
+    html: `
+        <div class="flex flex-col items-center mt-2">
+            <div class="w-14 h-8 bg-blue-50 rounded-full flex items-center justify-center mb-5 border border-blue-100 shadow-sm">
+                <span class="text-3xl">💡</span>
+            </div>
+            <h3 class="text-2xl font-black text-[#003375] mb-3">Tèn ten!</h3>
+            <p class="text-sm text-gray-500 leading-relaxed px-4">
+                Trình duyệt không hỗ trợ cài tự động, hoặc <strong class="text-gray-800 font-bold">HUB Planner</strong> đã được cài trên thiết bị này rồi.
+            </p>
+        </div>
+    `,
+    showConfirmButton: true,
+    confirmButtonText: 'Đã hiểu',
+    buttonsStyling: false, // Bắt buộc false để tắt style cục mịch mặc định
+    width: '24em',
+    padding: '1.5em 0 0 0', // Căn chỉnh lại khoảng cách trên dưới
+    customClass: {
+        // Bo góc siêu bự 3xl y như thiết kế web của ông
+        popup: 'rounded-3xl border border-gray-100 shadow-2xl overflow-hidden',
+        // Kéo dãn cái hộp chứa nút ra sát 2 mép
+        actions: 'w-full px-6 pb-6 pt-2 mt-4',
+        // Trả lại cái nút to, bự, oai phong lẫm liệt
+        confirmButton: 'w-full py-3.5 bg-[#003375] text-white rounded-xl font-bold text-sm shadow-md hover:bg-[#002855] transition-all active:scale-95 focus:outline-none',
+    },
+    showClass: {
+        popup: 'animate-scaleIn'
+    }
+});
         }
     };
     // ==========================================

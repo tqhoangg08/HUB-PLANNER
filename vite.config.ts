@@ -15,6 +15,9 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 5000000
       },
       manifest: {
+        id: "/", // 👈 Thêm dòng này (Định danh app)
+        description: "Ứng dụng hỗ trợ học tập, sự kiện, quản lý lộ trình và thời khóa biểu cho sinh viên HUB", // 👈 Thêm dòng này (Mô tả app)
+        orientation: "portrait",
         short_name: "HUB Planner",
         name: "HUB Planner - Hỗ trợ sinh viên",
         icons: [

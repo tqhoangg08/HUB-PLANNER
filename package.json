@@ -31,6 +31,7 @@
     "react-particles": "^2.12.2",
     "react-router-dom": "^7.12.0",
     "recharts": "^3.6.0",
+    "sweetalert2": "^11.26.24",
     "tsparticles-slim": "^2.12.0",
     "winston": "^3.19.0"
   },
