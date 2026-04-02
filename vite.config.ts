@@ -1,25 +1,81 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa' // 👈 Thêm import này
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   plugins: [
     react(),
-    // 👈 Thêm nguyên cục VitePWA này vào
     VitePWA({
       registerType: 'autoUpdate',
       devOptions: {
-        enabled: true // Bật true để chạy được PWA trên localhost
+        enabled: true 
       },
       workbox: {
         maximumFileSizeToCacheInBytes: 5000000
       },
+      // Thêm 'as any' để TypeScript không báo lỗi với các tính năng PWA thử nghiệm
       manifest: {
-        id: "/", // 👈 Thêm dòng này (Định danh app)
-        description: "Ứng dụng hỗ trợ học tập, sự kiện, quản lý lộ trình và thời khóa biểu cho sinh viên HUB", // 👈 Thêm dòng này (Mô tả app)
-        orientation: "portrait",
+        id: "/",
         short_name: "HUB Planner",
         name: "HUB Planner - Hỗ trợ sinh viên",
+        description: "Ứng dụng hỗ trợ học tập, quản lý lộ trình và thời khóa biểu cho sinh viên HUB",
+        orientation: "portrait",
+        start_url: "/",
+        display: "standalone",
+        theme_color: "#003375",
+        background_color: "#F8FAFC",
+        
+        categories: ["education", "productivity", "utilities"],
+        iarc_rating_id: "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",
+        prefer_related_applications: false,
+        related_applications: [],
+        display_override: ["window-controls-overlay", "standalone"],
+        launch_handler: {
+          client_mode: "focus-existing"
+        },
+        shortcuts: [
+          {
+            name: "Thời khóa biểu",
+            short_name: "Lịch học",
+            description: "Xem thời khóa biểu hôm nay",
+            url: "/schedule",
+            icons: [{ src: "/logo192.png", sizes: "192x192" }]
+          },
+          {
+            name: "Tìm đồ thất lạc",
+            short_name: "Tìm đồ",
+            url: "/lost-found",
+            icons: [{ src: "/logo192.png", sizes: "192x192" }]
+          }
+        ],
+        share_target: {
+          action: "/dashboard",
+          method: "GET",
+          params: { title: "title", text: "text", url: "url" }
+        },
+        file_handlers: [
+          {
+            action: "/",
+            accept: { "application/pdf": [".pdf"] }
+          }
+        ],
+        protocol_handlers: [
+          { protocol: "web+hubplanner", url: "/?link=%s" }
+        ],
+        widgets: [
+          {
+            name: "HUB Planner Widget",
+            description: "Xem nhanh lịch học",
+            tag: "hub_planner_widget",
+            ms_ac_holographic_extension: "/"
+          }
+        ],
+        edge_side_panel: {
+          preferred_width: 400
+        },
+        note_taking: {
+          new_note_url: "/handbook"
+        },
         icons: [
           {
             src: "/logo192.png",
@@ -47,18 +103,13 @@ export default defineConfig({
             type: "image/png",
             form_factor: "wide"
           }
-        ],
-        start_url: "/", // Đổi "." thành "/" để tránh lỗi đường dẫn
-        display: "standalone",
-        theme_color: "#003375",
-        background_color: "#F8FAFC"
-      }
+        ]
+      } as any // 👈 CÚ CHỐT NẰM Ở ĐÂY NÈ
     })
   ],
   server: {
     port: 3000,
   },
-  // 👇 Đống này của ông tôi giữ nguyên không đụng tới nha
   esbuild: {
     drop: ['console', 'debugger'],
   },
