@@ -510,7 +510,22 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
   const nextWeek = () => setSelectedWeek(prev => prev < 24 ? prev + 1 : 24);
   const prevMonth = () => setSelectedMonthIndex(prev => prev > 0 ? prev - 1 : 0);
   const nextMonth = () => setSelectedMonthIndex(prev => prev < 11 ? prev + 1 : 11);
-
+  const goToToday = () => {
+    playClick();
+    const now = new Date();
+    let startDate = new Date('2026-02-02T00:00:00'); 
+    if (selectedSemester === 'HK1_2025_2026') startDate = new Date('2025-08-11T00:00:00'); 
+    
+    const diffTime = now.getTime() - startDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    let weekNum = Math.floor(diffDays / 7) + 1;
+    
+    if (weekNum < 1) weekNum = 1;
+    if (weekNum > 24) weekNum = 24;
+    
+    setSelectedWeek(weekNum);
+    setSelectedMonthIndex(now.getMonth());
+  };
   return (
     <div className="w-full pb-24 space-y-4 pt-1 animate-fadeIn">
         {/* --- HEADER TKB --- */}
@@ -617,12 +632,17 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                         </h2>
                         
                         <div className="flex flex-wrap items-center justify-center gap-2">
-                            <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1 shrink-0">
-                                <button onClick={() => setViewMode('week')} className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Tuần</button>
-                                <button onClick={() => setViewMode('month')} className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Tháng</button>
-                            </div>
-                            
-                            {viewMode === 'week' ? (
+      <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1 shrink-0">
+          <button onClick={() => setViewMode('week')} className={`...`}>Tuần</button>
+          <button onClick={() => setViewMode('month')} className={`...`}>Tháng</button>
+      </div>
+
+      {/* ✨ THÊM NÚT HÔM NAY VÀO ĐÂY */}
+      <button onClick={goToToday} className="px-2.5 py-1 text-[11px] font-bold bg-blue-50 text-[#003375] rounded-md hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm shrink-0 active:scale-95">
+          Hôm nay
+      </button>
+      
+      {viewMode === 'week' ? (
                                 <div className="flex items-center gap-1.5 shrink-0">
                                     <div className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
                                         <button onClick={prevWeek} className="p-1.5 active:bg-gray-50 text-gray-600 border-r border-gray-200"><ChevronLeft size={14}/></button>
