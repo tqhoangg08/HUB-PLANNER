@@ -918,17 +918,17 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </div>
                         
                         <div className="flex items-center gap-2">
-      <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1">
-          <button onClick={() => setViewMode('week')} className={`...`}>Tuần</button>
-          <button onClick={() => setViewMode('month')} className={`...`}>Tháng</button>
-      </div>
-      
-      {/* ✨ THÊM NÚT HÔM NAY VÀO ĐÂY */}
-      <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold bg-blue-50 text-[#003375] rounded-lg hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm mr-2 active:scale-95">
-          Hôm nay
-      </button>
-
-      {viewMode === 'week' ? (
+                            <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1">
+                                <button onClick={() => setViewMode('week')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Tuần</button>
+                                <button onClick={() => setViewMode('month')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>Tháng</button>
+                            </div>
+                            
+                            {/* Nút Hôm Nay */}
+                            <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold bg-blue-50 text-[#003375] rounded-lg hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm mr-2 active:scale-95">
+                                Hôm nay
+                            </button>
+                            
+                            {viewMode === 'week' ? (
                                 <div className="flex items-center gap-1.5">
                                     <div className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
                                         <button onClick={prevWeek} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-200"><ChevronLeft size={16}/></button>

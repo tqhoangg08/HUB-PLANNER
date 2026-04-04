@@ -632,17 +632,17 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                         </h2>
                         
                         <div className="flex flex-wrap items-center justify-center gap-2">
-      <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1 shrink-0">
-          <button onClick={() => setViewMode('week')} className={`...`}>Tuần</button>
-          <button onClick={() => setViewMode('month')} className={`...`}>Tháng</button>
-      </div>
+                            <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg p-1 shrink-0">
+                                <button onClick={() => setViewMode('week')} className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Tuần</button>
+                                <button onClick={() => setViewMode('month')} className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Tháng</button>
+                            </div>
 
-      {/* ✨ THÊM NÚT HÔM NAY VÀO ĐÂY */}
-      <button onClick={goToToday} className="px-2.5 py-1 text-[11px] font-bold bg-blue-50 text-[#003375] rounded-md hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm shrink-0 active:scale-95">
-          Hôm nay
-      </button>
-      
-      {viewMode === 'week' ? (
+                            {/* Nút Hôm Nay */}
+                            <button onClick={goToToday} className="px-2.5 py-1 text-[11px] font-bold bg-blue-50 text-[#003375] rounded-md hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm shrink-0 active:scale-95">
+                                Hôm nay
+                            </button>
+                            
+                            {viewMode === 'week' ? (
                                 <div className="flex items-center gap-1.5 shrink-0">
                                     <div className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
                                         <button onClick={prevWeek} className="p-1.5 active:bg-gray-50 text-gray-600 border-r border-gray-200"><ChevronLeft size={14}/></button>
