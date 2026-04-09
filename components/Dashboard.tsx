@@ -770,7 +770,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     
     const [currentPage, setCurrentPage] = useState(1);
     const [pageInput, setPageInput] = useState('1');
-    const [adminSort, setAdminSort] = useState<'newest' | 'gpa_desc' | 'credits_desc'>('newest');
+    const [adminSort, setAdminSort] = useState<string>('updated_desc');
     
     const [adminFilterCohort, setAdminFilterCohort] = useState<string>('all');
     const [adminFilterMajor, setAdminFilterMajor] = useState<string>('all');
@@ -940,18 +940,45 @@ export const Dashboard: React.FC<DashboardProps> = ({
             }
         }
 
-        if (adminSort !== 'newest') {
-            result.sort((a, b) => {
-                if (adminSort === 'gpa_desc') {
-                    return b._computedGpa - a._computedGpa;
-                } else if (adminSort === 'credits_desc') {
-                    return b._computedCredits - a._computedCredits;
-                }
-                return 0;
-            });
-        }
+        result.sort((a, b) => {
+            if (adminSort === 'gpa_desc') return b._computedGpa - a._computedGpa;
+            if (adminSort === 'gpa_asc') return a._computedGpa - b._computedGpa;
+            if (adminSort === 'credits_desc') return b._computedCredits - a._computedCredits;
+            if (adminSort === 'credits_asc') return a._computedCredits - b._computedCredits;
+            if (adminSort === 'mssv_asc') return (a.student_code || '').localeCompare(b.student_code || '');
+            if (adminSort === 'mssv_desc') return (b.student_code || '').localeCompare(a.student_code || '');
+            if (adminSort === 'name_asc') {
+                const nameA = a.full_name || a.data?.studentName || '';
+                const nameB = b.full_name || b.data?.studentName || '';
+                return nameA.localeCompare(nameB);
+            }
+            if (adminSort === 'name_desc') {
+                const nameA = a.full_name || a.data?.studentName || '';
+                const nameB = b.full_name || b.data?.studentName || '';
+                return nameB.localeCompare(nameA);
+            }
+            if (adminSort === 'cohort_asc') return (a.data?.cohort || '').localeCompare(b.data?.cohort || '');
+            if (adminSort === 'cohort_desc') return (b.data?.cohort || '').localeCompare(a.data?.cohort || '');
+            if (adminSort === 'updated_asc') return new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
+            
+            return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+        });
+
         return result;
     }, [baseFilteredUsers, adminSort, adminFilterGpa]);
+
+    const handleSortClick = (column: string) => {
+        playClick();
+        if (adminSort.startsWith(column)) {
+            setAdminSort(adminSort.endsWith('_asc') ? `${column}_desc` : `${column}_asc`);
+        } else {
+            if (column === 'gpa' || column === 'credits' || column === 'updated') {
+                setAdminSort(`${column}_desc`);
+            } else {
+                setAdminSort(`${column}_asc`);
+            }
+        }
+    };
 
     const activeData = useMemo(() => {
         if (selectedUserOverview) {
@@ -1168,11 +1195,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
 
  return (
-    <div className="w-full pb-10">
-        <AdsBanner />
+    <div className={`w-full ${showAdminPanel ? '' : 'pb-10'}`}>
+        {!showAdminPanel && <AdsBanner />}
 
         {showAdminPanel ? (
-            <div className="w-full space-y-3 pt-1 animate-fadeIn">
+            <div className="w-full space-y-3 animate-fadeIn">
                 {/* 1. HEADER & NÚT */}
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 mb-4">
                     <div>
@@ -1284,8 +1311,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                         <div className="w-px h-4 bg-gray-200 shrink-0"></div>
 
-                        <select value={adminSort} onChange={(e) => setAdminSort(e.target.value as any)} className="appearance-none bg-transparent py-1.5 pl-2 pr-6 text-xs text-gray-700 font-medium outline-none cursor-pointer border-none hover:text-gray-900 max-w-[120px] truncate bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0_center] bg-[length:1em_1em]">
-                            <option value="newest">Mới cập nhật</option>
+                        <select value={adminSort} onChange={(e) => setAdminSort(e.target.value)} className="appearance-none bg-transparent py-1.5 pl-2 pr-6 text-xs text-gray-700 font-medium outline-none cursor-pointer border-none hover:text-gray-900 max-w-[120px] truncate bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0_center] bg-[length:1em_1em]">
+                            <option value="updated_desc">Mới cập nhật</option>
                             <option value="gpa_desc">GPA Cao nhất</option>
                             <option value="credits_desc">Nhiều Tín nhất</option>
                         </select>
@@ -1308,23 +1335,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <table className="w-full text-xs text-left relative">
                             <thead className="bg-white border-b border-gray-200 sticky top-0 z-10 text-[11px] text-gray-500 font-bold uppercase tracking-wider">
                                 <tr>
-                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center gap-1.5">MSSV <ArrowUpDown size={12} className="text-gray-300"/></div>
+                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={() => handleSortClick('mssv')}>
+                                        <div className="flex items-center gap-1.5">MSSV {adminSort.startsWith('mssv') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
                                     </th>
-                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center gap-1.5">HỌ VÀ TÊN <ArrowUpDown size={12} className="text-gray-300"/></div>
+                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={() => handleSortClick('name')}>
+                                        <div className="flex items-center gap-1.5">HỌ VÀ TÊN {adminSort.startsWith('name') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
                                     </th>
-                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center gap-1.5">HỆ / KHÓA <ArrowUpDown size={12} className="text-gray-300"/></div>
+                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={() => handleSortClick('cohort')}>
+                                        <div className="flex items-center gap-1.5">HỆ / KHÓA {adminSort.startsWith('cohort') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
                                     </th>
-                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center gap-1.5">{adminFilterSemester === 'all' ? 'GPA TÍCH LŨY' : 'GPA HỌC KỲ'} <ArrowUpDown size={12} className="text-gray-300"/></div>
+                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={() => handleSortClick('gpa')}>
+                                        <div className="flex items-center gap-1.5">{adminFilterSemester === 'all' ? 'GPA TÍCH LŨY' : 'GPA HỌC KỲ'} {adminSort.startsWith('gpa') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
                                     </th>
-                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center gap-1.5">TÍN CHỈ <ArrowUpDown size={12} className="text-gray-300"/></div>
+                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={() => handleSortClick('credits')}>
+                                        <div className="flex items-center gap-1.5">TÍN CHỈ {adminSort.startsWith('credits') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
                                     </th>
-                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center gap-1.5 justify-end">CẬP NHẬT LÚC <ChevronDown size={12} className="text-blue-500"/></div>
+                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={() => handleSortClick('updated')}>
+                                        <div className="flex items-center gap-1.5 justify-end">CẬP NHẬT LÚC {adminSort.startsWith('updated') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
                                     </th>
                                 </tr>
                             </thead>
