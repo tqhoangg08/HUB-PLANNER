@@ -7,6 +7,7 @@ import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { parseSchedulePdf } from '../utils/schedulePdfImport';
 import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
+import { AdsBanner } from './AdsBanner';
 
 interface Course {
   id: string;
@@ -182,11 +183,17 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   // ==========================================
   // STATE CHO TÍNH NĂNG ADMIN MỚI
   // ==========================================
-  const [isAdminView, setIsAdminView] = useState(false);
+  // ✨ FIX: Mặc định bật chế độ AdminView nếu user có quyền Admin
+  const [isAdminView, setIsAdminView] = useState(isAdmin);
   const [adminTab, setAdminTab] = useState<'system' | 'user'>('system');
   const [isAdminEditModalOpen, setIsAdminEditModalOpen] = useState(false);
   const [adminEditData, setAdminEditData] = useState<Partial<Course>>({});
   const [isSavingAdminCourse, setIsSavingAdminCourse] = useState(false);
+
+  // Đồng bộ lại trạng thái view nếu props isAdmin load sau
+  useEffect(() => {
+      setIsAdminView(isAdmin);
+  }, [isAdmin]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -680,7 +687,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const filteredAdminCourses = availableCourses.filter(c => adminTab === 'system' ? !c.is_user_added : c.is_user_added);
 
   return (
-    <div className="w-full pb-10">
+    <div className={`w-full ${isAdminView ? '' : 'pb-10'}`}>
+        {!isAdminView && <AdsBanner />}
+
         {/* HEADER CHUẨN DASHBOARD */}
         <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
             <div className="flex flex-row justify-between items-end px-1 overflow-hidden shrink-0">
