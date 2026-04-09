@@ -1172,119 +1172,119 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <AdsBanner />
 
         {showAdminPanel ? (
-            <div className="w-full space-y-4 pt-1 animate-fadeIn">
+            <div className="w-full space-y-3 pt-1 animate-fadeIn">
                 {/* 1. HEADER & NÚT */}
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 mb-4">
                     <div>
-                        <h1 className="text-2xl sm:text-[28px] font-extrabold text-gray-900 tracking-tight leading-none mb-2">
+                        <h1 className="text-xl sm:text-[24px] font-extrabold text-gray-900 tracking-tight leading-none mb-1.5">
                             Quản lý Sinh viên
                         </h1>
-                        <p className="text-sm text-gray-500 font-medium">Xem và theo dõi tiến độ học tập toàn trường</p>
+                        <p className="text-xs text-gray-500 font-medium">Xem và theo dõi tiến độ học tập toàn trường</p>
                     </div>
                     
-                    <div className="flex items-center gap-3">
-                        <button className="px-4 py-2.5 bg-white text-gray-600 text-sm font-semibold border border-gray-300 hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors shadow-sm">
-                            <Download size={16} /> Xuất danh sách
+                    <div className="flex items-center gap-2">
+                        <button className="px-3 py-2 bg-white text-gray-600 text-xs font-semibold border border-gray-300 hover:bg-gray-50 rounded-lg flex items-center gap-1.5 transition-colors shadow-sm">
+                            <Download size={14} /> Xuất danh sách
                         </button>
-                        <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="px-4 py-2.5 bg-[#0052cc] text-white text-sm font-semibold rounded-lg hover:bg-[#003d99] flex items-center gap-2 transition-colors shadow-sm">
-                            <User size={16} /> Hồ sơ của tôi
+                        <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="px-3 py-2 bg-[#0052cc] text-white text-xs font-semibold rounded-lg hover:bg-[#003d99] flex items-center gap-1.5 transition-colors shadow-sm">
+                            <User size={14} /> Hồ sơ của tôi
                         </button>
                     </div>
                 </div>
 
                 {/* 2. BỐN THẺ THỐNG KÊ (LAYOUT NGANG) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                     {/* Thẻ 1: Tổng sinh viên */}
-                    <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
-                            <Users size={26} strokeWidth={2} />
+                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                            <Users size={20} strokeWidth={2} />
                         </div>
                         <div>
-                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Tổng sinh viên</p>
-                            <div className="flex items-baseline gap-1.5">
-                                <span className="text-3xl font-black text-gray-900">{adminSummary.total}</span>
-                                <span className="text-sm text-gray-500 font-medium">sinh viên</span>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Tổng sinh viên</p>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-2xl font-black text-gray-900">{adminSummary.total}</span>
+                                <span className="text-xs text-gray-500 font-medium">SV</span>
                             </div>
                         </div>
                     </div>
 
                     {/* Thẻ 2: Trung bình GPA */}
-                    <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-500 flex items-center justify-center shrink-0">
-                            <TrendingUp size={26} strokeWidth={2} />
+                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-purple-50 text-purple-500 flex items-center justify-center shrink-0">
+                            <TrendingUp size={20} strokeWidth={2} />
                         </div>
                         <div>
-                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Trung bình GPA</p>
-                            <div className="flex items-baseline gap-1.5">
-                                <span className="text-3xl font-black text-gray-900">{adminSummary.avgGPA}</span>
-                                <span className="text-sm text-gray-400 font-medium">/ 4.0</span>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Trung bình GPA</p>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-2xl font-black text-gray-900">{adminSummary.avgGPA}</span>
+                                <span className="text-xs text-gray-400 font-medium">/ 4.0</span>
                             </div>
                         </div>
                     </div>
 
                     {/* Thẻ 3: Cảnh báo học vụ */}
-                    <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4 cursor-pointer hover:border-red-300 transition-all" onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'warning' ? 'all' : 'warning'); }}>
-                        <div className="w-14 h-14 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
-                            <AlertTriangle size={26} strokeWidth={2} />
+                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 cursor-pointer hover:border-red-300 transition-all" onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'warning' ? 'all' : 'warning'); }}>
+                        <div className="w-10 h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                            <AlertTriangle size={20} strokeWidth={2} />
                         </div>
                         <div>
-                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Cảnh báo học vụ</p>
-                            <div className="flex items-baseline gap-1.5">
-                                <span className="text-3xl font-black text-red-600">{adminSummary.warning}</span>
-                                <span className="text-sm text-gray-500 font-medium">sinh viên</span>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Cảnh báo học vụ</p>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-2xl font-black text-red-600">{adminSummary.warning}</span>
+                                <span className="text-xs text-gray-500 font-medium">SV</span>
                             </div>
                         </div>
                     </div>
 
                     {/* Thẻ 4: Xuất sắc */}
-                    <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4 cursor-pointer hover:border-yellow-300 transition-all" onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'excellent' ? 'all' : 'excellent'); }}>
-                        <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
-                            <Award size={26} strokeWidth={2} />
+                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 cursor-pointer hover:border-yellow-300 transition-all" onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'excellent' ? 'all' : 'excellent'); }}>
+                        <div className="w-10 h-10 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
+                            <Award size={20} strokeWidth={2} />
                         </div>
                         <div>
-                            <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Xuất sắc (≥ 3.6)</p>
-                            <div className="flex items-baseline gap-1.5">
-                                <span className="text-3xl font-black text-orange-500">{adminSummary.excellent}</span>
-                                <span className="text-sm text-gray-500 font-medium">sinh viên</span>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Xuất sắc (≥ 3.6)</p>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-2xl font-black text-orange-500">{adminSummary.excellent}</span>
+                                <span className="text-xs text-gray-500 font-medium">SV</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* 3. THANH TÌM KIẾM VÀ BỘ LỌC BỐ CỤC GIỐNG HÌNH */}
-                <div className="flex flex-col xl:flex-row items-center bg-white p-2 rounded-xl border border-gray-200 mb-6 shadow-sm gap-4">
+                {/* 3. THANH TÌM KIẾM VÀ BỘ LỌC ĐƯỢC LÀM COMPACT (KHÔNG THANH CUỘN DƯỚI) */}
+                <div className="flex flex-col xl:flex-row items-center bg-white p-1.5 rounded-lg border border-gray-200 mb-4 shadow-sm gap-2">
                     
                     {/* Search Input */}
-                    <div className="relative w-full xl:w-[350px] shrink-0">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <div className="relative w-full xl:w-[250px] shrink-0">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
                         <input 
                             type="text" 
                             placeholder="Tìm MSSV hoặc họ tên..." 
                             value={adminSearch}
                             onChange={e => setAdminSearch(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-gray-50/50 hover:bg-gray-50 border border-transparent focus:border-blue-200 rounded-lg outline-none text-sm text-gray-700 transition-colors"
+                            className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-transparent focus:border-blue-200 rounded-md outline-none text-xs text-gray-700 transition-colors"
                         />
                     </div>
 
-                    <div className="hidden xl:block w-px h-6 bg-gray-200"></div>
+                    <div className="hidden xl:block w-px h-5 bg-gray-200 shrink-0"></div>
 
                     {/* Filters */}
-                    <div className="flex items-center flex-1 gap-4 overflow-x-auto custom-scrollbar pb-1 xl:pb-0">
-                        <select value={adminFilterMajor} onChange={(e) => setAdminFilterMajor(e.target.value)} className="appearance-none bg-transparent py-2 pl-2 pr-6 text-sm text-gray-700 font-medium outline-none cursor-pointer border-none hover:text-gray-900 truncate bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0_center] bg-[length:1.25em_1.25em]">
+                    <div className="flex items-center flex-1 gap-2 overflow-x-auto no-scrollbar pb-1 xl:pb-0">
+                        <select value={adminFilterMajor} onChange={(e) => setAdminFilterMajor(e.target.value)} className="appearance-none bg-transparent py-1.5 pl-2 pr-6 text-xs text-gray-700 font-medium outline-none cursor-pointer border-none hover:text-gray-900 max-w-[140px] truncate bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0_center] bg-[length:1em_1em]">
                             <option value="all">Tất cả hệ đào tạo</option>
                             {adminMajors.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
 
-                        <div className="w-px h-4 bg-gray-200"></div>
+                        <div className="w-px h-4 bg-gray-200 shrink-0"></div>
 
-                        <select value={adminFilterSemester} onChange={(e) => setAdminFilterSemester(e.target.value)} className="appearance-none bg-transparent py-2 pl-2 pr-6 text-sm text-gray-700 font-medium outline-none cursor-pointer border-none hover:text-gray-900 truncate bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0_center] bg-[length:1.25em_1.25em]">
+                        <select value={adminFilterSemester} onChange={(e) => setAdminFilterSemester(e.target.value)} className="appearance-none bg-transparent py-1.5 pl-2 pr-6 text-xs text-gray-700 font-medium outline-none cursor-pointer border-none hover:text-gray-900 max-w-[140px] truncate bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0_center] bg-[length:1em_1em]">
                             <option value="all">Tích lũy toàn khóa</option>
                             {adminSemesters.map(s => <option key={s} value={s}>{s.replace('Học kỳ ', 'HK').replace(' Năm học ', ' ')}</option>)}
                         </select>
 
-                        <div className="w-px h-4 bg-gray-200"></div>
+                        <div className="w-px h-4 bg-gray-200 shrink-0"></div>
 
-                        <select value={adminSort} onChange={(e) => setAdminSort(e.target.value as any)} className="appearance-none bg-transparent py-2 pl-2 pr-6 text-sm text-gray-700 font-medium outline-none cursor-pointer border-none hover:text-gray-900 bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0_center] bg-[length:1.25em_1.25em]">
+                        <select value={adminSort} onChange={(e) => setAdminSort(e.target.value as any)} className="appearance-none bg-transparent py-1.5 pl-2 pr-6 text-xs text-gray-700 font-medium outline-none cursor-pointer border-none hover:text-gray-900 max-w-[120px] truncate bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0_center] bg-[length:1em_1em]">
                             <option value="newest">Mới cập nhật</option>
                             <option value="gpa_desc">GPA Cao nhất</option>
                             <option value="credits_desc">Nhiều Tín nhất</option>
@@ -1292,45 +1292,45 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     {/* Actions Right */}
-                    <div className="flex items-center gap-3 shrink-0 pr-2">
-                        <button onClick={() => { playClick(); fetchAdminData(); }} disabled={loadingAdmin} className="p-2 border border-gray-200 text-gray-500 hover:text-[#0052cc] hover:border-blue-200 hover:bg-blue-50 rounded-lg transition-colors" title="Làm mới">
-                            <RefreshCw size={16} className={loadingAdmin ? "animate-spin" : ""} />
+                    <div className="flex items-center gap-2 shrink-0 pr-1">
+                        <button onClick={() => { playClick(); fetchAdminData(); }} disabled={loadingAdmin} className="p-1.5 border border-gray-200 text-gray-500 hover:text-[#0052cc] hover:border-blue-200 hover:bg-blue-50 rounded-md transition-colors" title="Làm mới">
+                            <RefreshCw size={14} className={loadingAdmin ? "animate-spin" : ""} />
                         </button>
-                        <span className="text-sm text-gray-600 font-medium">
-                            <span className="font-extrabold text-gray-900">{adminSummary.total}</span> sinh viên
+                        <span className="text-xs text-gray-600 font-medium whitespace-nowrap">
+                            <span className="font-extrabold text-gray-900">{adminSummary.total}</span> SV
                         </span>
                     </div>
                 </div>
 
                 {/* 4. BẢNG DỮ LIỆU */}
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto custom-scrollbar max-h-[60vh]">
-                        <table className="w-full text-sm text-left relative">
-                            <thead className="bg-white border-b border-gray-200 sticky top-0 z-10 text-xs text-gray-500 font-bold uppercase tracking-wider">
+                    <div className="overflow-x-auto custom-scrollbar max-h-[65vh]">
+                        <table className="w-full text-xs text-left relative">
+                            <thead className="bg-white border-b border-gray-200 sticky top-0 z-10 text-[11px] text-gray-500 font-bold uppercase tracking-wider">
                                 <tr>
-                                    <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center gap-2">MSSV <ArrowUpDown size={14} className="text-gray-300"/></div>
+                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-1.5">MSSV <ArrowUpDown size={12} className="text-gray-300"/></div>
                                     </th>
-                                    <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center gap-2">HỌ VÀ TÊN <ArrowUpDown size={14} className="text-gray-300"/></div>
+                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-1.5">HỌ VÀ TÊN <ArrowUpDown size={12} className="text-gray-300"/></div>
                                     </th>
-                                    <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center gap-2">HỆ / KHÓA <ArrowUpDown size={14} className="text-gray-300"/></div>
+                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-1.5">HỆ / KHÓA <ArrowUpDown size={12} className="text-gray-300"/></div>
                                     </th>
-                                    <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center gap-2">{adminFilterSemester === 'all' ? 'GPA TÍCH LŨY' : 'GPA HỌC KỲ'} <ArrowUpDown size={14} className="text-gray-300"/></div>
+                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-1.5">{adminFilterSemester === 'all' ? 'GPA TÍCH LŨY' : 'GPA HỌC KỲ'} <ArrowUpDown size={12} className="text-gray-300"/></div>
                                     </th>
-                                    <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center gap-2">TÍN CHỈ <ArrowUpDown size={14} className="text-gray-300"/></div>
+                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-1.5">TÍN CHỈ <ArrowUpDown size={12} className="text-gray-300"/></div>
                                     </th>
-                                    <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center gap-2 justify-end">CẬP NHẬT LÚC <ChevronDown size={14} className="text-blue-500"/></div>
+                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-1.5 justify-end">CẬP NHẬT LÚC <ChevronDown size={12} className="text-blue-500"/></div>
                                     </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {loadingAdmin ? (
-                                    <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#0052cc] mx-auto mb-2" size={28}/> <span className="text-gray-500">Đang tải toàn bộ dữ liệu ({adminUsers.length}+)...</span></td></tr>
+                                    <tr><td colSpan={6} className="py-10 text-center"><Loader2 className="animate-spin text-[#0052cc] mx-auto mb-2" size={24}/> <span className="text-gray-500">Đang tải dữ liệu ({adminUsers.length}+)...</span></td></tr>
                                 ) : (() => {
                                     const totalPages = Math.ceil(processedAdminUsers.length / itemsPerPage) || 1;
                                     const paginatedUsers = processedAdminUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -1345,28 +1345,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             
                                             return (
                                                 <tr key={user.id} onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`); }} className="hover:bg-blue-50/40 cursor-pointer transition-colors group bg-white">
-                                                    <td className="px-6 py-4 font-bold text-[#0052cc] text-[13px]">{user.student_code || '-'}</td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[13px] ${avatar.colorClass}`}>
+                                                    <td className="px-4 py-2.5 font-bold text-[#0052cc] text-xs">{user.student_code || '-'}</td>
+                                                    <td className="px-4 py-2.5">
+                                                        <div className="flex items-center gap-2.5">
+                                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${avatar.colorClass}`}>
                                                                 {avatar.initial}
                                                             </div>
-                                                            <span className="font-semibold text-gray-800 text-[14px] group-hover:text-[#0052cc] transition-colors">{fullName}</span>
+                                                            <span className="font-semibold text-gray-800 text-xs group-hover:text-[#0052cc] transition-colors">{fullName}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-gray-500 text-[13px]">{user.data?.programName || 'Đại học chính quy'} / {user.data?.cohort || '-'}</td>
-                                                    <td className="px-6 py-4">
+                                                    <td className="px-4 py-2.5 text-gray-500 text-xs">{user.data?.programName || 'Đại học chính quy'} / {user.data?.cohort || '-'}</td>
+                                                    <td className="px-4 py-2.5">
                                                         <div className="flex items-center gap-2">
-                                                            <span className={`font-bold text-[14px] ${user._computedGpa >= 3.2 ? 'text-[#0052cc]' : (user._computedGpa >= 2.5 ? 'text-orange-500' : 'text-gray-700')}`}>{gpaVal}</span>
+                                                            <span className={`font-bold text-xs ${user._computedGpa >= 3.2 ? 'text-[#0052cc]' : (user._computedGpa >= 2.5 ? 'text-orange-500' : 'text-gray-700')}`}>{gpaVal}</span>
                                                             {gpaBadge && (
-                                                                <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${gpaBadge.className}`}>
+                                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${gpaBadge.className}`}>
                                                                     {gpaBadge.label}
                                                                 </span>
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-gray-700 font-semibold text-[13px]">{user._computedCredits || 0}</td>
-                                                    <td className="px-6 py-4 text-right text-[13px] text-gray-500">{updateDate}</td>
+                                                    <td className="px-4 py-2.5 text-gray-700 font-semibold text-xs">{user._computedCredits || 0}</td>
+                                                    <td className="px-4 py-2.5 text-right text-xs text-gray-500">{updateDate}</td>
                                                 </tr>
                                             )
                                         })
@@ -1383,20 +1383,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         const totalPages = Math.ceil(processedAdminUsers.length / itemsPerPage) || 1;
 
                         return (
-                            <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-white border-t border-gray-200 gap-3">
-                                <span className="text-xs sm:text-sm text-gray-500 font-medium">
-                                    Đang xem <span className="font-bold text-gray-900">{processedAdminUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> đến <span className="font-bold text-gray-900">{Math.min(currentPage * itemsPerPage, processedAdminUsers.length)}</span> trong tổng số <span className="font-bold text-[#0052cc]">{processedAdminUsers.length}</span> sinh viên
+                            <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-white border-t border-gray-200 gap-3">
+                                <span className="text-xs text-gray-500 font-medium">
+                                    Đang xem <span className="font-bold text-gray-900">{processedAdminUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> đến <span className="font-bold text-gray-900">{Math.min(currentPage * itemsPerPage, processedAdminUsers.length)}</span> trong tổng số <span className="font-bold text-[#0052cc]">{processedAdminUsers.length}</span> SV
                                 </span>
                                 <div className="flex items-center gap-2">
                                     <button 
                                         onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.max(1, p - 1); setPageInput(newP.toString()); return newP; }); }} 
                                         disabled={currentPage === 1}
-                                        className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        className="px-2.5 py-1 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
                                         Trước
                                     </button>
                                     
-                                    <div className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-md border border-gray-200 text-xs font-bold text-gray-600">
+                                    <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 text-xs font-bold text-gray-600">
                                         <span>Trang</span>
                                         <input 
                                             type="number"
@@ -1414,7 +1414,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter') e.currentTarget.blur();
                                             }}
-                                            className="w-10 text-center bg-white border border-gray-300 text-gray-900 rounded outline-none focus:ring-1 focus:ring-[#0052cc] focus:border-[#0052cc] transition-all"
+                                            className="w-8 text-center bg-white border border-gray-300 text-gray-900 rounded outline-none focus:ring-1 focus:ring-[#0052cc] focus:border-[#0052cc] transition-all"
                                             style={{ MozAppearance: 'textfield' }}
                                         />
                                         <span>/ {totalPages}</span>
@@ -1423,7 +1423,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     <button 
                                         onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.min(totalPages, p + 1); setPageInput(newP.toString()); return newP; }); }} 
                                         disabled={currentPage === totalPages || processedAdminUsers.length === 0}
-                                        className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        className="px-2.5 py-1 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
                                         Sau
                                     </button>
