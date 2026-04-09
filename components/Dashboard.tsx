@@ -25,6 +25,39 @@ import { useForecastRank } from '../hooks/useForecastRank';
 import { useUserRole } from '../hooks/useUserRole';
 
 // ============================================================================
+// HELPERS CHO GIAO DIỆN ADMIN
+// ============================================================================
+const getAvatarProps = (name: string) => {
+    if (!name || name === 'Chưa cập nhật') return { initial: 'U', colorClass: 'bg-gray-100 text-gray-600' };
+    const words = name.trim().split(' ');
+    const lastWord = words[words.length - 1];
+    const initial = lastWord.charAt(0).toUpperCase();
+
+    const colors = [
+        'bg-teal-100 text-teal-700',
+        'bg-purple-100 text-purple-700',
+        'bg-blue-100 text-blue-700',
+        'bg-orange-100 text-orange-700',
+        'bg-rose-100 text-rose-700',
+        'bg-emerald-100 text-emerald-700'
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % colors.length;
+    return { initial, colorClass: colors[index] };
+};
+
+const getGpaBadge = (gpa: number) => {
+    if (gpa >= 3.6) return { label: 'Xuất sắc', className: 'bg-orange-50 text-orange-600 border-orange-200' };
+    if (gpa >= 3.2) return { label: 'Giỏi', className: 'bg-blue-50 text-blue-600 border-blue-200' };
+    if (gpa >= 2.5) return { label: 'Khá', className: 'bg-yellow-50 text-yellow-600 border-yellow-200' };
+    if (gpa >= 2.0) return { label: 'TB', className: 'bg-gray-50 text-gray-600 border-gray-200' };
+    return { label: 'Yếu', className: 'bg-red-50 text-red-600 border-red-200' };
+};
+
+// ============================================================================
 // MODAL: BÁO LỖI HỆ THỐNG
 // ============================================================================
 const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
@@ -707,9 +740,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [adminUsers, setAdminUsers] = useState<any[]>([]);
     const [loadingAdmin, setLoadingAdmin] = useState(false);
     const [selectedUserOverview, setSelectedUserOverview] = useState<UserData | null>(null);
-    const [selectedAdminUserId, setSelectedAdminUserId] = useState<string | null>(null); // ✨ Lưu ID sinh viên đang soi
+    const [selectedAdminUserId, setSelectedAdminUserId] = useState<string | null>(null);
 
-    // ✨ Hàm lưu thẳng xuống Supabase dành riêng cho Admin + Cập nhật Local
     const saveAdminUserUpdate = async (newData: UserData) => {
         if (!selectedAdminUserId) return;
         try {
@@ -718,7 +750,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 updated_at: new Date().toISOString()
             }).eq('id', selectedAdminUserId);
 
-            // ✨ CẬP NHẬT NGAY LẬP TỨC RA BẢNG DANH SÁCH (Không cần tải lại)
             setAdminUsers(prevUsers => prevUsers.map(u => 
                 u.id === selectedAdminUserId ? { ...u, data: newData, updated_at: new Date().toISOString() } : u
             ));
@@ -730,18 +761,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
     
     const [adminSearch, setAdminSearch] = useState('');
     const [adminMode, setAdminMode] = useState<'list' | 'detail'>('list');
-    // ✨ Tự động đổi URL khi bật tắt chế độ Admin
+    
     useEffect(() => {
         if (isAdmin && adminMode === 'list') {
             window.history.replaceState(null, '', '/dashboard/admin');
         }
     }, [isAdmin, adminMode]);
-    // State phân trang và sắp xếp cho Admin
+    
     const [currentPage, setCurrentPage] = useState(1);
     const [pageInput, setPageInput] = useState('1');
     const [adminSort, setAdminSort] = useState<'newest' | 'gpa_desc' | 'credits_desc'>('newest');
     
-    // State Lọc cho Admin
     const [adminFilterCohort, setAdminFilterCohort] = useState<string>('all');
     const [adminFilterMajor, setAdminFilterMajor] = useState<string>('all');
     const [adminFilterGpa, setAdminFilterGpa] = useState<'all' | 'warning' | 'excellent' | 'nogpa'>('all');
@@ -769,7 +799,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const showAdminPanel = isAdmin && adminMode === 'list';
 
-    // Tách hàm fetch ra để có thể làm nút Refresh
     const fetchAdminData = async () => {
         setLoadingAdmin(true);
         let allProfiles: any[] = [];
@@ -808,13 +837,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     };
 
     useEffect(() => {
-        // ✨ CHỈ TẢI DATA 1 LẦN NẾU DANH SÁCH TRỐNG
         if (showAdminPanel && adminUsers.length === 0) {
             fetchAdminData();
         }
     }, [showAdminPanel]);
 
-    // Tạo danh sách Khóa, Ngành, và Học kỳ động từ dữ liệu thực tế
     const { adminCohorts, adminMajors, adminSemesters } = useMemo(() => {
         const cSet = new Set<string>();
         const mSet = new Set<string>();
@@ -850,13 +877,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         };
     }, [adminUsers]);
 
-    // TỐI ƯU HÓA: Tính toán GPA và Tín chỉ theo Học kỳ đã chọn
     const baseFilteredUsers = useMemo(() => {
         return adminUsers
             .map(u => {
                  let validSems = (u.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
 
-                 // LỌC THEO HỌC KỲ NẾU CÓ CHỌN
                  if (adminFilterSemester !== 'all') {
                      validSems = validSems.filter((s: any) => s.name === adminFilterSemester);
                  }
@@ -872,14 +897,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 const matchCohort = adminFilterCohort === 'all' || u.data?.cohort === adminFilterCohort;
                 const matchMajor = adminFilterMajor === 'all' || u.data?.majorName === adminFilterMajor;
                 
-                // NẾU CÓ LỌC THEO HỌC KỲ, CHỈ HIỂN THỊ SINH VIÊN CÓ DỮ LIỆU ĐIỂM Ở HỌC KỲ ĐÓ
                 const matchSemester = adminFilterSemester === 'all' || u._computedCredits > 0;
 
                 return matchSearch && matchCohort && matchMajor && matchSemester;
             });
     }, [adminUsers, adminSearch, adminFilterCohort, adminFilterMajor, adminFilterSemester]);
 
-    // Thống kê tổng quan cho Admin (dựa trên baseFilteredUsers để không bị sai số khi click vào thẻ)
     const adminSummary = useMemo(() => {
         if (baseFilteredUsers.length === 0) return { total: 0, avgGPA: 0, warning: 0, excellent: 0 };
         let sumGPA = 0;
@@ -904,7 +927,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         };
     }, [baseFilteredUsers]);
 
-    // Lọc và Sắp xếp danh sách Admin cuối cùng
     const processedAdminUsers = useMemo(() => {
         let result = [...baseFilteredUsers];
 
@@ -914,7 +936,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             } else if (adminFilterGpa === 'excellent') {
                 result = result.filter(u => u._computedGpa >= 3.6);
             } else if (adminFilterGpa === 'nogpa') {
-                // ✨ Nếu lọc "Chưa có điểm", lấy những bạn có Tín chỉ = 0
                 result = result.filter(u => !u._computedCredits || u._computedCredits === 0);
             }
         }
@@ -932,7 +953,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         return result;
     }, [baseFilteredUsers, adminSort, adminFilterGpa]);
 
-
     const activeData = useMemo(() => {
         if (selectedUserOverview) {
             return {
@@ -948,7 +968,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         if (selectedUserOverview) {
             const newData = { ...activeData, semesters };
             setSelectedUserOverview(newData);
-            saveAdminUserUpdate(newData); // ✨ Lưu thẳng lên Supabase
+            saveAdminUserUpdate(newData); 
         } else onSetSemesters(semesters);
     };
 
@@ -956,7 +976,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         if (selectedUserOverview) {
             const newData = { ...activeData, targetGPA: newTarget };
             setSelectedUserOverview(newData);
-            saveAdminUserUpdate(newData); // ✨ Lưu thẳng lên Supabase
+            saveAdminUserUpdate(newData); 
         } else onTargetChange(newTarget);
     };
 
@@ -966,7 +986,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             newSems[index] = updatedSem;
             const newData = { ...activeData, semesters: newSems };
             setSelectedUserOverview(newData);
-            saveAdminUserUpdate(newData); // ✨ Lưu thẳng lên Supabase
+            saveAdminUserUpdate(newData); 
         } else onUpdateSemester(index, updatedSem);
     };
 
@@ -975,7 +995,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             const newSems = activeData.semesters.filter((_, i) => i !== index);
             const newData = { ...activeData, semesters: newSems };
             setSelectedUserOverview(newData);
-            saveAdminUserUpdate(newData); // ✨ Lưu thẳng lên Supabase
+            saveAdminUserUpdate(newData); 
         } else onRemoveSemester(index);
     };
 
@@ -984,7 +1004,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             const newSem: Semester = { id: Date.now().toString(), name: '', subjects: [], trainingScore: null };
             const newData = { ...activeData, semesters: [...activeData.semesters, newSem] };
             setSelectedUserOverview(newData);
-            saveAdminUserUpdate(newData); // ✨ Lưu thẳng lên Supabase
+            saveAdminUserUpdate(newData); 
         } else onAddSemester();
     };
 
@@ -1231,8 +1251,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                {/* 3. THANH TÌM KIẾM VÀ BỘ LỌC (1 HÀNG) */}
-                <div className="flex flex-col xl:flex-row items-center justify-between bg-white p-1.5 rounded-xl border border-gray-200 mb-6 shadow-sm gap-2">
+                {/* 3. THANH TÌM KIẾM VÀ BỘ LỌC BỐ CỤC GIỐNG HÌNH */}
+                <div className="flex flex-col xl:flex-row items-center bg-white p-2 rounded-xl border border-gray-200 mb-6 shadow-sm gap-4">
                     
                     {/* Search Input */}
                     <div className="relative w-full xl:w-[350px] shrink-0">
@@ -1246,55 +1266,71 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         />
                     </div>
 
-                    {/* Filters & Actions */}
-                    <div className="flex items-center gap-1 w-full xl:w-auto overflow-x-auto custom-scrollbar pb-1 xl:pb-0">
-                        <div className="hidden xl:block w-px h-6 bg-gray-200 mx-2"></div>
+                    <div className="hidden xl:block w-px h-6 bg-gray-200"></div>
 
-                        <select value={adminFilterMajor} onChange={(e) => setAdminFilterMajor(e.target.value)} className="appearance-none bg-transparent py-2 pl-3 pr-8 text-sm text-gray-600 font-semibold outline-none cursor-pointer border-r border-gray-100 hover:text-gray-900 truncate max-w-[180px] bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0.5rem_center] bg-[length:1.25em_1.25em]">
+                    {/* Filters */}
+                    <div className="flex items-center flex-1 gap-4 overflow-x-auto custom-scrollbar pb-1 xl:pb-0">
+                        <select value={adminFilterMajor} onChange={(e) => setAdminFilterMajor(e.target.value)} className="appearance-none bg-transparent py-2 pl-2 pr-6 text-sm text-gray-700 font-medium outline-none cursor-pointer border-none hover:text-gray-900 truncate bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0_center] bg-[length:1.25em_1.25em]">
                             <option value="all">Tất cả hệ đào tạo</option>
                             {adminMajors.map(m => <option key={m} value={m}>{m}</option>)}
                         </select>
 
-                        <select value={adminFilterSemester} onChange={(e) => setAdminFilterSemester(e.target.value)} className="appearance-none bg-transparent py-2 pl-3 pr-8 text-sm text-gray-600 font-semibold outline-none cursor-pointer border-r border-gray-100 hover:text-gray-900 truncate max-w-[180px] bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0.5rem_center] bg-[length:1.25em_1.25em]">
+                        <div className="w-px h-4 bg-gray-200"></div>
+
+                        <select value={adminFilterSemester} onChange={(e) => setAdminFilterSemester(e.target.value)} className="appearance-none bg-transparent py-2 pl-2 pr-6 text-sm text-gray-700 font-medium outline-none cursor-pointer border-none hover:text-gray-900 truncate bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0_center] bg-[length:1.25em_1.25em]">
                             <option value="all">Tích lũy toàn khóa</option>
                             {adminSemesters.map(s => <option key={s} value={s}>{s.replace('Học kỳ ', 'HK').replace(' Năm học ', ' ')}</option>)}
                         </select>
 
-                        <select value={adminSort} onChange={(e) => setAdminSort(e.target.value as any)} className="appearance-none bg-transparent py-2 pl-3 pr-8 text-sm text-gray-600 font-semibold outline-none cursor-pointer border-none hover:text-gray-900 bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0.5rem_center] bg-[length:1.25em_1.25em]">
+                        <div className="w-px h-4 bg-gray-200"></div>
+
+                        <select value={adminSort} onChange={(e) => setAdminSort(e.target.value as any)} className="appearance-none bg-transparent py-2 pl-2 pr-6 text-sm text-gray-700 font-medium outline-none cursor-pointer border-none hover:text-gray-900 bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0_center] bg-[length:1.25em_1.25em]">
                             <option value="newest">Mới cập nhật</option>
                             <option value="gpa_desc">GPA Cao nhất</option>
                             <option value="credits_desc">Nhiều Tín nhất</option>
                         </select>
+                    </div>
 
-                        <div className="w-px h-6 bg-gray-200 mx-2"></div>
-
-                        <button onClick={() => { playClick(); fetchAdminData(); }} disabled={loadingAdmin} className="p-2 text-gray-400 hover:text-[#0052cc] hover:bg-blue-50 rounded-lg transition-colors shrink-0" title="Làm mới">
-                            <RefreshCw size={18} className={loadingAdmin ? "animate-spin" : ""} />
+                    {/* Actions Right */}
+                    <div className="flex items-center gap-3 shrink-0 pr-2">
+                        <button onClick={() => { playClick(); fetchAdminData(); }} disabled={loadingAdmin} className="p-2 border border-gray-200 text-gray-500 hover:text-[#0052cc] hover:border-blue-200 hover:bg-blue-50 rounded-lg transition-colors" title="Làm mới">
+                            <RefreshCw size={16} className={loadingAdmin ? "animate-spin" : ""} />
                         </button>
-                        
-                        <span className="text-sm text-gray-500 whitespace-nowrap pl-2 pr-3">
-                            <span className="font-extrabold text-gray-800">{adminSummary.total}</span> sinh viên
+                        <span className="text-sm text-gray-600 font-medium">
+                            <span className="font-extrabold text-gray-900">{adminSummary.total}</span> sinh viên
                         </span>
                     </div>
                 </div>
 
                 {/* 4. BẢNG DỮ LIỆU */}
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto custom-scrollbar max-h-[55vh]">
+                    <div className="overflow-x-auto custom-scrollbar max-h-[60vh]">
                         <table className="w-full text-sm text-left relative">
-                            <thead className="bg-gray-50 uppercase tracking-wider text-xs text-gray-500 border-b border-gray-200 sticky top-0 z-10">
+                            <thead className="bg-white border-b border-gray-200 sticky top-0 z-10 text-xs text-gray-500 font-bold uppercase tracking-wider">
                                 <tr>
-                                    <th className="px-4 py-3 font-bold">MSSV</th>
-                                    <th className="px-4 py-3 font-bold">Họ và Tên</th>
-                                    <th className="px-4 py-3 font-bold">Hệ / Khóa</th>
-                                    <th className="px-4 py-3 font-bold text-center">{adminFilterSemester === 'all' ? 'GPA Tích lũy' : 'GPA Học kỳ'}</th>
-                                    <th className="px-4 py-3 font-bold text-center">Tín chỉ</th>
-                                    <th className="px-4 py-3 font-bold text-right">Cập nhật lúc</th>
+                                    <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-2">MSSV <ArrowUpDown size={14} className="text-gray-300"/></div>
+                                    </th>
+                                    <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-2">HỌ VÀ TÊN <ArrowUpDown size={14} className="text-gray-300"/></div>
+                                    </th>
+                                    <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-2">HỆ / KHÓA <ArrowUpDown size={14} className="text-gray-300"/></div>
+                                    </th>
+                                    <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-2">{adminFilterSemester === 'all' ? 'GPA TÍCH LŨY' : 'GPA HỌC KỲ'} <ArrowUpDown size={14} className="text-gray-300"/></div>
+                                    </th>
+                                    <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-2">TÍN CHỈ <ArrowUpDown size={14} className="text-gray-300"/></div>
+                                    </th>
+                                    <th className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center gap-2 justify-end">CẬP NHẬT LÚC <ChevronDown size={14} className="text-blue-500"/></div>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {loadingAdmin ? (
-                                    <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/> <span className="text-gray-500">Đang tải toàn bộ dữ liệu ({adminUsers.length}+)...</span></td></tr>
+                                    <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#0052cc] mx-auto mb-2" size={28}/> <span className="text-gray-500">Đang tải toàn bộ dữ liệu ({adminUsers.length}+)...</span></td></tr>
                                 ) : (() => {
                                     const totalPages = Math.ceil(processedAdminUsers.length / itemsPerPage) || 1;
                                     const paginatedUsers = processedAdminUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -1302,15 +1338,35 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     return paginatedUsers.length > 0 ? (
                                         paginatedUsers.map(user => {
                                             const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
+                                            const fullName = user.full_name || user.data?.studentName || 'Chưa cập nhật';
+                                            const avatar = getAvatarProps(fullName);
+                                            const gpaVal = user._computedGpa > 0 ? user._computedGpa.toFixed(2) : '-';
+                                            const gpaBadge = user._computedGpa > 0 ? getGpaBadge(user._computedGpa) : null;
                                             
                                             return (
-                                                <tr key={user.id} onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
-                                                    <td className="px-4 py-3 font-bold text-[#003375]">{user.student_code || '-'}</td>
-                                                    <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#003375] transition-colors">{user.full_name || user.data?.studentName || 'Chưa cập nhật'}</td>
-                                                    <td className="px-4 py-3 text-gray-600">{user.data?.programName || '-'} / {user.data?.cohort || '-'}</td>
-                                                    <td className="px-4 py-3 text-center font-bold text-emerald-600">{user._computedGpa > 0 ? user._computedGpa.toFixed(2) : '-'}</td>
-                                                    <td className="px-4 py-3 text-center text-gray-600">{user._computedCredits || 0}</td>
-                                                    <td className="px-4 py-3 text-right text-xs text-gray-500">{updateDate}</td>
+                                                <tr key={user.id} onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`); }} className="hover:bg-blue-50/40 cursor-pointer transition-colors group bg-white">
+                                                    <td className="px-6 py-4 font-bold text-[#0052cc] text-[13px]">{user.student_code || '-'}</td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[13px] ${avatar.colorClass}`}>
+                                                                {avatar.initial}
+                                                            </div>
+                                                            <span className="font-semibold text-gray-800 text-[14px] group-hover:text-[#0052cc] transition-colors">{fullName}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-gray-500 text-[13px]">{user.data?.programName || 'Đại học chính quy'} / {user.data?.cohort || '-'}</td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`font-bold text-[14px] ${user._computedGpa >= 3.2 ? 'text-[#0052cc]' : (user._computedGpa >= 2.5 ? 'text-orange-500' : 'text-gray-700')}`}>{gpaVal}</span>
+                                                            {gpaBadge && (
+                                                                <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${gpaBadge.className}`}>
+                                                                    {gpaBadge.label}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-gray-700 font-semibold text-[13px]">{user._computedCredits || 0}</td>
+                                                    <td className="px-6 py-4 text-right text-[13px] text-gray-500">{updateDate}</td>
                                                 </tr>
                                             )
                                         })
@@ -1327,20 +1383,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         const totalPages = Math.ceil(processedAdminUsers.length / itemsPerPage) || 1;
 
                         return (
-                            <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 gap-3">
-                                <span className="text-xs sm:text-sm text-gray-500">
-                                    Đang xem <span className="font-bold text-gray-700">{processedAdminUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> đến <span className="font-bold text-gray-700">{Math.min(currentPage * itemsPerPage, processedAdminUsers.length)}</span> trong tổng số <span className="font-bold text-gray-900">{processedAdminUsers.length}</span> sinh viên
+                            <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-white border-t border-gray-200 gap-3">
+                                <span className="text-xs sm:text-sm text-gray-500 font-medium">
+                                    Đang xem <span className="font-bold text-gray-900">{processedAdminUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> đến <span className="font-bold text-gray-900">{Math.min(currentPage * itemsPerPage, processedAdminUsers.length)}</span> trong tổng số <span className="font-bold text-[#0052cc]">{processedAdminUsers.length}</span> sinh viên
                                 </span>
                                 <div className="flex items-center gap-2">
                                     <button 
                                         onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.max(1, p - 1); setPageInput(newP.toString()); return newP; }); }} 
                                         disabled={currentPage === 1}
-                                        className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
                                         Trước
                                     </button>
                                     
-                                    <div className="flex items-center gap-1.5 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100 text-xs font-bold text-[#003375]">
+                                    <div className="flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-md border border-gray-200 text-xs font-bold text-gray-600">
                                         <span>Trang</span>
                                         <input 
                                             type="number"
@@ -1358,7 +1414,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter') e.currentTarget.blur();
                                             }}
-                                            className="w-10 text-center bg-white border border-blue-200 text-[#003375] rounded outline-none focus:ring-2 focus:ring-[#003375] transition-all"
+                                            className="w-10 text-center bg-white border border-gray-300 text-gray-900 rounded outline-none focus:ring-1 focus:ring-[#0052cc] focus:border-[#0052cc] transition-all"
                                             style={{ MozAppearance: 'textfield' }}
                                         />
                                         <span>/ {totalPages}</span>
@@ -1367,7 +1423,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     <button 
                                         onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.min(totalPages, p + 1); setPageInput(newP.toString()); return newP; }); }} 
                                         disabled={currentPage === totalPages || processedAdminUsers.length === 0}
-                                        className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
                                         Sau
                                     </button>
