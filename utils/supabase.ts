@@ -1,16 +1,16 @@
+/// <reference types="vite/client" />
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_KEY; // hoặc VITE_SUPABASE_ANON_KEY tuỳ bạn đặt
+// Ép kiểu (as string) để đảm bảo với TypeScript là biến này luôn tồn tại
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_KEY as string;
 
-export const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
-          storageKey: "hubplanner-auth",
-        },
-      })
-    : null;
+// Khởi tạo thẳng luôn, KHÔNG dùng "? ... : null" nữa!
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storageKey: "hubplanner-auth",
+  },
+});

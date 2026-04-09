@@ -580,7 +580,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
         deadline_time: editingEvent?.deadline_time || '',
         close_on_full: editingEvent?.close_on_full || false,
         event_date: editingEvent?.event_date || '', 
-        event_time: formatTimeString(editingEvent?.event_time) || '',
+        event_time: formatTimeString(editingEvent?.event_time ?? null) || '', 
         category: editingEvent?.type || 'Hoạt động phong trào',
         classification: editingEvent?.classification || '',
         criteria: editingEvent?.category || 'III',
@@ -1540,7 +1540,7 @@ return (
             {tabsList.map((tab, idx) => (
                 <button 
                     key={tab.id} 
-                    ref={el => tabsRef.current[idx] = el}
+                    ref={(el) => { tabsRef.current[idx] = el; }}
                     onClick={() => { playClick(); setActiveTab(tab.id); }} 
                     className={`flex-1 text-center px-2 pb-3 text-sm font-semibold whitespace-nowrap transition-colors z-10 ${activeTab === tab.id ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}
                 >

@@ -809,7 +809,7 @@ return (
           {/* Scrollable Tabs */}
           <div className="relative flex w-full overflow-x-auto no-scrollbar pt-2">
             {tabsList.map((tab, idx) => (
-                <button key={tab.id} ref={el => tabsRef.current[idx] = el} onClick={() => { playClick(); setActiveTab(tab.id); }} className={`flex-none px-4 pb-2.5 text-[14px] font-bold whitespace-nowrap z-10 transition-colors ${activeTab === tab.id ? 'text-[#003375]' : 'text-gray-400'}`}>
+                <button key={tab.id} ref={(el) => { tabsRef.current[idx] = el; }} onClick={() => { playClick(); setActiveTab(tab.id); }} className={`flex-none px-4 pb-2.5 text-[14px] font-bold whitespace-nowrap z-10 transition-colors ${activeTab === tab.id ? 'text-[#003375]' : 'text-gray-400'}`}>
                     {tab.l}
                 </button>
             ))}
