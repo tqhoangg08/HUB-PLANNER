@@ -58,7 +58,6 @@ const formatTimeString = (timeStr: string | null): string => {
     return timeStr;
 };
 
-// Hàm kiểm tra sự kiện đã quá hạn chưa
 const checkIsOverdue = (evt: HubEvent, currentDay: Date) => {
     if (evt.deadlineDate) {
         return evt.deadlineDate < currentDay;
@@ -924,7 +923,9 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   useEffect(() => {
     document.title = "Sự kiện ĐRL | HUB Planner";
   }, []);
-  const { isAdmin, isCTV, session } = useUserRole();
+
+  // ✨ ĐÃ SỬA: Lấy thêm biến loading
+  const { isAdmin, isCTV, session, loading: roleLoading } = useUserRole();
   const canManage = isAdmin || isCTV;
   
   const today = new Date();
@@ -1303,7 +1304,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   };
 
   // =======================================================================
-  // RENDER DẠNG CARD (DÀNH CHO USER)
+  // ✨ RENDER DẠNG CARD CHO NGƯỜI DÙNG BÌNH THƯỜNG (GIỮ NGUYÊN)
   // =======================================================================
   const renderEventCard = (evt: HubEvent) => {
     const isPending = evt.status === 'pending';
@@ -1378,7 +1379,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                     <Clock size={14} className={`shrink-0 ${isLinkClosed || evt.is_deleted ? 'text-gray-400' : isDeadlineToday ? 'text-red-500' : 'text-gray-400'}`} />
                     <span className={`truncate ${isDeadlineToday && !isLinkClosed && !evt.is_deleted ? 'text-red-600 font-bold' : ''}`}>
                         Hạn chót: {evt.close_on_full ? (
-                            <span className="font-bold text-[#990000]">Đóng khi đủ số lượng</span>
+                            <span className="font-bold text-[#990000]">Đóng khi đủ SL</span>
                         ) : (
                             evt.time && evt.time !== 'Chưa cập nhật' ? `${evt.deadline_time ? formatTimeString(evt.deadline_time) + ' ' : ''}${evt.time}` : 'Chưa cập nhật'
                         )}
@@ -1449,6 +1450,15 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     );
   };
 
+    // ✨ NGĂN CHẶN RENDER (CHỐNG NHÁY) KHI CHƯA LOAD QUYỀN XONG
+    if (roleLoading) {
+        return (
+            <div className="w-full min-h-[60vh] flex flex-col items-center justify-center">
+                <Loader2 className="animate-spin text-[#0052cc] mb-3" size={32} />
+                <span className="text-gray-400 text-sm font-medium">Đang tải sự kiện...</span>
+            </div>
+        );
+    }
 
 return (
     <div className="animate-slideInRight">
@@ -1479,11 +1489,11 @@ return (
                         <input 
                             type="text" 
                             placeholder="Tìm tên, BTC, loại hình..." 
-                            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-all" 
+                            className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-md text-xs outline-none focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-all" 
                             value={searchTerm} 
                             onChange={(e) => setSearchTerm(e.target.value)} 
                         />
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                     </div>
                     
                     {/* Dropdown Khu vực */}
@@ -1491,14 +1501,14 @@ return (
                         <select 
                             value={activeScope} 
                             onChange={(e) => { playClick(); setActiveScope(e.target.value); }} 
-                            className="w-full appearance-none pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-300 transition-colors"
+                            className="w-full appearance-none pl-8 pr-7 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-300 transition-colors"
                         >
                             <option value="all">Tất cả khu vực</option>
                             <option value="internal">Trong trường</option>
                             <option value="external">Ngoài trường</option>
                         </select>
-                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                        <Building2 className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                     </div>
                     
                     {/* Dropdown Sắp xếp */}
@@ -1506,32 +1516,32 @@ return (
                         <select 
                             value={sortOrder} 
                             onChange={(e) => { playClick(); setSortOrder(e.target.value as 'newest' | 'oldest' | 'expiring_soon'); }} 
-                            className="w-full appearance-none pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-300 transition-colors"
+                            className="w-full appearance-none pl-8 pr-7 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-300 transition-colors"
                         >
                             <option value="newest">Mới nhất</option>
                             <option value="oldest">Cũ nhất</option>
                             <option value="expiring_soon">Gần hết hạn</option>
                         </select>
-                        <ArrowDownUp className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                        <ArrowDownUp className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                     </div>
 
                     {/* Nút chức năng */}
                     <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                        <button onClick={() => { playClick(); fetchEvents(); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95" title="Làm mới">
-                            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+                        <button onClick={() => { playClick(); fetchEvents(); }} className="p-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-[#003375] transition-all active:scale-95" title="Làm mới">
+                            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
                         </button>
-                        <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95" title="Xem bảng điểm">
-                            <FileText size={18} />
+                        <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="p-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95" title="Xem bảng điểm">
+                            <FileText size={14} />
                         </button>
                         
                         {canManage ? (
-                            <button onClick={handleOpenAdd} className="flex-1 sm:flex-none px-4 py-2 bg-[#003375] hover:bg-[#002855] text-white rounded-lg shadow-sm flex items-center justify-center gap-2 font-bold transition-all active:scale-95 whitespace-nowrap">
-                                <PlusCircle size={16} /> Thêm sự kiện
+                            <button onClick={handleOpenAdd} className="flex-1 sm:flex-none px-3 py-1.5 bg-[#003375] hover:bg-[#002855] text-white rounded-md shadow-sm flex items-center justify-center gap-1.5 text-xs font-bold transition-all active:scale-95 whitespace-nowrap">
+                                <PlusCircle size={14} /> Thêm mới
                             </button>
                         ) : (
-                            <button onClick={() => { playClick(); setShowContributeModal(true); }} className="flex-1 sm:flex-none px-4 py-2 bg-[#003375] hover:bg-[#002855] text-white rounded-lg shadow-sm flex items-center justify-center gap-2 font-bold transition-all active:scale-95 whitespace-nowrap">
-                                <PlusCircle size={16} /> Gửi đóng góp
+                            <button onClick={() => { playClick(); setShowContributeModal(true); }} className="flex-1 sm:flex-none px-3 py-1.5 bg-[#003375] hover:bg-[#002855] text-white rounded-md shadow-sm flex items-center justify-center gap-1.5 text-xs font-bold transition-all active:scale-95 whitespace-nowrap">
+                                <PlusCircle size={14} /> Gửi đóng góp
                             </button>
                         )}
                     </div>
@@ -1649,13 +1659,13 @@ return (
                                             </td>
                                             <td className="px-4 py-3 text-xs text-gray-600 align-top w-[20%]">
                                                 <div className="mb-1"><span className="text-gray-400 font-medium">Ngày TC:</span> {evt.event_date ? formatDateString(evt.event_date) : '-'}</div>
-                                                <div><span className="text-gray-400 font-medium">Hạn ĐK:</span> {evt.close_on_full ? <span className="text-red-500 font-bold">Đóng khi đủ SL</span> : (evt.deadlineDate ? formatDateString(evt.deadlineDate.toISOString()) : '-')}</div>
+                                                <div><span className="text-gray-400 font-medium">Hạn ĐK:</span> {evt.close_on_full ? <span className="text-red-500 font-bold">Đóng khi SL</span> : (evt.deadlineDate ? formatDateString(evt.deadlineDate.toISOString()) : '-')}</div>
                                             </td>
                                             <td className="px-4 py-3 text-center align-top w-[10%]">
                                                 {badgeUI}
                                             </td>
                                             <td className="px-4 py-3 text-right align-top w-[10%]">
-                                                <div className="flex items-center justify-end gap-1">
+                                                <div className="flex items-center justify-end gap-1 relative z-20">
                                                     <button onClick={() => handleOpenEdit(evt)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Chỉnh sửa chi tiết"><Edit2 size={16}/></button>
                                                     <button onClick={() => handleToggleClose(evt)} className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-md transition-colors" title={evt.is_manually_closed ? 'Mở lại đăng ký' : 'Tạm đóng đăng ký'}>
                                                         {evt.is_manually_closed ? <ToggleRight size={16} className="text-green-600"/> : <ToggleLeft size={16} className="text-orange-600"/>}

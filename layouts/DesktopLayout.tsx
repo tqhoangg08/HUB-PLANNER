@@ -49,6 +49,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   const navRefs = useRef<(HTMLAnchorElement | HTMLDivElement | null)[]>([]);
   const [navIndicator, setNavIndicator] = useState({ left: 0, width: 0, opacity: 0 });
 
+  const isSidebarAdminView = isAdmin && (location.pathname.includes('/dashboard/admin') || location.pathname.includes('/admin-reports'));
+
   useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
           if (handbookMenuRef.current && !handbookMenuRef.current.contains(event.target as Node)) {
@@ -60,7 +62,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   }, []);
 
   useEffect(() => {
-      if (isAdmin) return; 
+      if (isSidebarAdminView) return; 
 
       const updateNavIndicator = () => {
           let activeIndex = -1;
@@ -84,18 +86,26 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       window.addEventListener('resize', updateNavIndicator);
       setTimeout(updateNavIndicator, 100); 
       return () => window.removeEventListener('resize', updateNavIndicator);
-  }, [location.pathname, isHandbookMenuOpen, isAdmin]);
+  }, [location.pathname, isHandbookMenuOpen, isSidebarAdminView]);
 
+  // ✨ Đổi tên Breadcrumb linh hoạt theo trang đang đứng
+  const getPageTitle = () => {
+      if (location.pathname.includes('admin-reports')) return 'Xử lý báo cáo';
+      if (location.pathname.includes('dashboard')) return 'Quản lý Sinh viên';
+      if (location.pathname.includes('schedule')) return 'Thời khóa biểu';
+      if (location.pathname.includes('events')) return 'Sự kiện Điểm Rèn Luyện';
+      if (location.pathname.includes('lost-found')) return 'Tìm đồ thất lạc';
+      return 'Hệ thống';
+  };
 
   // ==============================================================================================
   // ✨ 1. GIAO DIỆN ADMIN (SIDEBAR NẰM BÊN TRÁI) ✨
   // ==============================================================================================
-  if (isAdmin) {
+  if (isSidebarAdminView) {
       return (
           <div className="flex h-[100dvh] w-full bg-[#F8FAFC] overflow-hidden font-sans text-gray-800">
               {/* SIDEBAR BÊN TRÁI */}
               <aside className="w-[260px] bg-white border-r border-gray-200 flex flex-col shrink-0 z-50">
-                  {/* Khu vực Logo */}
                   <div className="h-16 flex items-center px-6 border-b border-gray-100 shrink-0">
                       <Link to="/dashboard" className="flex items-center gap-3 transition-transform hover:scale-105" onClick={playClick}>
                           <img src="logo.png" alt="HUB Logo" className="h-8 w-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="h-8 w-8 bg-[#0052cc] rounded flex items-center justify-center text-white font-bold text-xs">HUB</div>'; }} />
@@ -106,11 +116,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </Link>
                   </div>
 
-                  {/* Menu Chức Năng */}
                   <div className="flex-1 overflow-y-auto py-6 flex flex-col gap-1.5 px-4 custom-scrollbar">
                       <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider">CHỨC NĂNG</div>
-                      
-                      <NavLink to="/dashboard" onClick={playClick} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+                      <NavLink to="/dashboard/admin" onClick={playClick} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-semibold transition-colors ${isActive || location.pathname === '/dashboard/admin' ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
                           <LayoutDashboard size={18} /> Tổng quan
                       </NavLink>
                       <NavLink to="/schedule" onClick={playClick} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
@@ -130,7 +138,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </NavLink>
                   </div>
 
-                  {/* Menu Footer (Cài đặt, Trợ giúp, Profile) */}
                   <div className="p-4 border-t border-gray-100 flex flex-col gap-1.5 bg-gray-50/50">
                       <button onClick={() => setShowAccountSettings(true)} className="flex items-center gap-3 px-3 py-2.5 text-[14px] font-semibold text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors">
                           <Settings size={18} /> Cài đặt
@@ -139,7 +146,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           <HelpCircle size={18} /> Trợ giúp
                       </button>
 
-                      {/* ĐÃ SỬA LỖI Ở ĐÂY */}
+                      {/* ✨ ĐÃ FIX LỖI TYPE SCRIPT BẰNG CÁCH DÙNG TRỰC TIẾP !isUserMenuOpen */}
                       <div className="mt-4 flex items-center gap-3 px-2 pt-3 border-t border-gray-200 relative group cursor-pointer" onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}>
                           <div className="h-10 w-10 rounded-full bg-[#0052cc] text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
                               {avatarSeed || 'A'}
@@ -158,20 +165,15 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   </div>
               </aside>
 
-              {/* KHU VỰC NỘI DUNG CHÍNH */}
               <div className="flex-1 flex flex-col min-w-0 relative">
-                  {/* Top Header của Admin */}
                   <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0 relative z-40">
-                      {/* Breadcrumb bên trái */}
                       <div className="flex items-center gap-2 text-sm font-medium text-gray-400">
                           <span>HUB Planner</span>
                           <span className="opacity-50">/</span>
-                          <span className="text-gray-900 font-bold">{location.pathname.includes('admin-reports') ? 'Xử lý báo cáo' : location.pathname.includes('dashboard') ? 'Quản lý Sinh viên' : 'Hệ thống'}</span>
+                          <span className="text-gray-900 font-bold">{getPageTitle()}</span>
                       </div>
 
-                      {/* Các nút công cụ bên phải */}
                       <div className="flex items-center gap-3 lg:gap-4">
-                          {/* Thanh Search Admin */}
                           <form onSubmit={handleAdminSearchUser} className="relative hidden md:block">
                               <input 
                                   type="text" 
@@ -203,7 +205,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </div>
                   </header>
 
-                  {/* Nội dung thay đổi (Children) */}
                   <main className="flex-1 overflow-y-auto custom-scrollbar">
                       <div className="w-full max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 min-h-full flex flex-col">
                           <div className="flex-1">
@@ -218,7 +219,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
 
   // ==============================================================================================
-  // ✨ 2. GIAO DIỆN USER BÌNH THƯỜNG (MENU NẰM NGANG PHÍA TRÊN - GIỮ NGUYÊN BẢN GỐC) ✨
+  // ✨ 2. GIAO DIỆN USER BÌNH THƯỜNG (MENU NẰM NGANG PHÍA TRÊN) ✨
   // ==============================================================================================
   return (
     <>
@@ -261,7 +262,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
                       {!isGuest && (
                           <div className="relative">
-                              {/* ĐÃ SỬA LỖI Ở ĐÂY */}
+                              {/* ✨ ĐÃ FIX LỖI TYPE SCRIPT BẰNG CÁCH DÙNG TRỰC TIẾP !isUserMenuOpen */}
                               <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
                                   {avatarUrl ? (
                                       isColorAvatar ? (
@@ -279,6 +280,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                                       <button type="button" onClick={() => { const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
                                       <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
                                       <button type="button" onClick={handleRequestReset} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
+                                      {isAdmin && (
+                                          <button type="button" onClick={() => { navigate('/dashboard/admin'); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-bold text-[#0052cc] hover:bg-blue-50 transition-colors border-b border-gray-100">Quay lại Admin</button>
+                                      )}
                                       <button type="button" onClick={handleMenuLogout} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
                                   </div>
                               )}
@@ -287,10 +291,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   </div>
               </div>
 
-              {/* THANH MENU ĐIỀU HƯỚNG MÀN HÌNH NGANG */}
               <nav className="flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
                   
-                  {/* CÁC THẺ NAVLINK FIX LỖI TS TYPE */}
                   <NavLink to="/dashboard" ref={(el: any) => { navRefs.current[0] = el; }} onClick={playClick} className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
                       <LayoutDashboard size={20} className="sm:hidden" />
                       <span className="hidden sm:block">Tổng quan</span>
@@ -348,7 +350,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   <div className="hidden sm:block absolute bottom-0 h-[2px] bg-[#003375] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-20 rounded-t-full" style={{ left: `${navIndicator.left}px`, width: `${navIndicator.width}px`, opacity: navIndicator.opacity }} />
               </nav>
 
-              {/* KHU VỰC CÔNG CỤ GÓC PHẢI */}
               <div className="hidden sm:flex items-center gap-1.5 lg:gap-3 shrink-0 pl-2 lg:pl-4 border-l border-gray-200">
                   {showInstallButton && (
                       <button 
@@ -376,7 +377,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               <span className="text-[10px] text-gray-400 font-medium leading-none mt-1">{studentId}</span>
                           </div>
                           
-                          {/* ĐÃ SỬA LỖI Ở ĐÂY */}
                           <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-2 focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
                               {avatarUrl ? (
                                   isColorAvatar ? (
@@ -394,6 +394,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                                   <button type="button" onClick={() => { const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
                                   <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
                                   <button type="button" onClick={handleRequestReset} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
+                                  {isAdmin && (
+                                      <button type="button" onClick={() => { navigate('/dashboard/admin'); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-bold text-[#0052cc] hover:bg-blue-50 transition-colors border-b border-gray-100">Quay lại Admin</button>
+                                  )}
                                   <button type="button" onClick={handleMenuLogout} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
                               </div>
                           )}
