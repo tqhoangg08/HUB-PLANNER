@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Book, Calendar, ChevronDown, ClipboardList, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Settings } from 'lucide-react';
+import { Book, Calendar, ChevronDown, ClipboardList, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Settings, Menu, X } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import NotificationBell from '../components/NotificationBell';
 
@@ -45,6 +45,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   const isColorAvatar = avatarUrl?.startsWith('#');
   
   const [isHandbookMenuOpen, setIsHandbookMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const handbookMenuRef = useRef<HTMLDivElement>(null);
   const navRefs = useRef<(HTMLAnchorElement | HTMLDivElement | null)[]>([]);
   const [navIndicator, setNavIndicator] = useState({ left: 0, width: 0, opacity: 0 });
@@ -139,7 +140,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           <HelpCircle size={18} /> Trợ giúp
                       </button>
 
-                      {/* ĐÃ SỬA LỖI Ở ĐÂY */}
                       <div className="mt-4 flex items-center gap-3 px-2 pt-3 border-t border-gray-200 relative group cursor-pointer" onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}>
                           <div className="h-10 w-10 rounded-full bg-[#0052cc] text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
                               {avatarSeed || 'A'}
@@ -261,7 +261,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
                       {!isGuest && (
                           <div className="relative">
-                              {/* ĐÃ SỬA LỖI Ở ĐÂY */}
                               <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
                                   {avatarUrl ? (
                                       isColorAvatar ? (
@@ -284,11 +283,19 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               )}
                           </div>
                       )}
+
+                      {/* NÚT HAMBURGER MENU */}
+                      <button 
+                          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+                          className="p-1.5 text-gray-600 hover:text-[#003375] focus:outline-none transition-transform active:scale-95 bg-gray-50 rounded-md border border-gray-200 ml-1"
+                      >
+                          {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                      </button>
                   </div>
               </div>
 
-              {/* THANH MENU ĐIỀU HƯỚNG MÀN HÌNH NGANG */}
-              <nav className="flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
+              {/* THANH MENU ĐIỀU HƯỚNG MÀN HÌNH NGANG (Đã thêm hidden sm:flex) */}
+              <nav className="hidden sm:flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
                   
                   {/* CÁC THẺ NAVLINK FIX LỖI TS TYPE */}
                   <NavLink to="/dashboard" ref={(el: any) => { navRefs.current[0] = el; }} onClick={playClick} className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
@@ -376,7 +383,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               <span className="text-[10px] text-gray-400 font-medium leading-none mt-1">{studentId}</span>
                           </div>
                           
-                          {/* ĐÃ SỬA LỖI Ở ĐÂY */}
                           <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-2 focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
                               {avatarUrl ? (
                                   isColorAvatar ? (
@@ -409,6 +415,51 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           </Link>
                       </div>
                   )}
+              </div>
+          </div>
+
+          {/* MENU DROPDOWN DÀNH CHO MOBILE */}
+          <div 
+              className={`sm:hidden absolute top-full left-0 w-full bg-white shadow-lg border-b border-gray-200 overflow-hidden transition-all duration-300 ease-in-out z-40 ${
+                  isMobileMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+              }`}
+          >
+              <div className="flex flex-col p-4 space-y-2">
+                  <NavLink 
+                      to="/dashboard" 
+                      onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
+                      className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#003375]' : 'text-gray-600 hover:bg-gray-100 hover:text-[#003375]'}`}
+                  >
+                      <LayoutDashboard size={18} /> Tổng quan
+                  </NavLink>
+                  <NavLink 
+                      to="/schedule" 
+                      onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
+                      className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#003375]' : 'text-gray-600 hover:bg-gray-100 hover:text-[#003375]'}`}
+                  >
+                      <Calendar size={18} /> Thời khóa biểu
+                  </NavLink>
+                  <NavLink 
+                      to="/events" 
+                      onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
+                      className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#003375]' : 'text-gray-600 hover:bg-gray-100 hover:text-[#003375]'}`}
+                  >
+                      <Zap size={18} /> Sự kiện ĐRL
+                  </NavLink>
+                  <NavLink 
+                      to="/lost-found" 
+                      onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
+                      className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#003375]' : 'text-gray-600 hover:bg-gray-100 hover:text-[#003375]'}`}
+                  >
+                      <Search size={18} /> Tìm đồ thất lạc
+                  </NavLink>
+                  <Link 
+                      to="/handbook" 
+                      onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${location.pathname.includes('/handbook') ? 'bg-blue-50 text-[#003375]' : 'text-gray-600 hover:bg-gray-100 hover:text-[#003375]'}`}
+                  >
+                      <Book size={18} /> Cẩm nang
+                  </Link>
               </div>
           </div>
       </header>
