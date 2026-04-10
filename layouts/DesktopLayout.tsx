@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Book, Calendar, ChevronDown, ClipboardList, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Settings, Menu, X } from 'lucide-react';
+import { Book, Calendar, ChevronDown, ClipboardList, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Settings, Menu, X } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import NotificationBell from '../components/NotificationBell';
 
@@ -46,6 +46,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   
   const [isHandbookMenuOpen, setIsHandbookMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileHandbookOpen, setIsMobileHandbookOpen] = useState(false);
   const handbookMenuRef = useRef<HTMLDivElement>(null);
   const navRefs = useRef<(HTMLAnchorElement | HTMLDivElement | null)[]>([]);
   const [navIndicator, setNavIndicator] = useState({ left: 0, width: 0, opacity: 0 });
@@ -94,9 +95,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   if (isAdmin) {
       return (
           <div className="flex h-[100dvh] w-full bg-[#F8FAFC] overflow-hidden font-sans text-gray-800">
-              {/* SIDEBAR BÊN TRÁI */}
               <aside className="w-[260px] bg-white border-r border-gray-200 flex flex-col shrink-0 z-50">
-                  {/* Khu vực Logo */}
                   <div className="h-16 flex items-center px-6 border-b border-gray-100 shrink-0">
                       <Link to="/dashboard" className="flex items-center gap-3 transition-transform hover:scale-105" onClick={playClick}>
                           <img src="logo.png" alt="HUB Logo" className="h-8 w-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="h-8 w-8 bg-[#0052cc] rounded flex items-center justify-center text-white font-bold text-xs">HUB</div>'; }} />
@@ -107,7 +106,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </Link>
                   </div>
 
-                  {/* Menu Chức Năng */}
                   <div className="flex-1 overflow-y-auto py-6 flex flex-col gap-1.5 px-4 custom-scrollbar">
                       <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider">CHỨC NĂNG</div>
                       
@@ -131,7 +129,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </NavLink>
                   </div>
 
-                  {/* Menu Footer (Cài đặt, Trợ giúp, Profile) */}
                   <div className="p-4 border-t border-gray-100 flex flex-col gap-1.5 bg-gray-50/50">
                       <button onClick={() => setShowAccountSettings(true)} className="flex items-center gap-3 px-3 py-2.5 text-[14px] font-semibold text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors">
                           <Settings size={18} /> Cài đặt
@@ -158,20 +155,15 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   </div>
               </aside>
 
-              {/* KHU VỰC NỘI DUNG CHÍNH */}
               <div className="flex-1 flex flex-col min-w-0 relative">
-                  {/* Top Header của Admin */}
                   <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0 relative z-40">
-                      {/* Breadcrumb bên trái */}
                       <div className="flex items-center gap-2 text-sm font-medium text-gray-400">
                           <span>HUB Planner</span>
                           <span className="opacity-50">/</span>
                           <span className="text-gray-900 font-bold">{location.pathname.includes('admin-reports') ? 'Xử lý báo cáo' : location.pathname.includes('dashboard') ? 'Quản lý Sinh viên' : 'Hệ thống'}</span>
                       </div>
 
-                      {/* Các nút công cụ bên phải */}
                       <div className="flex items-center gap-3 lg:gap-4">
-                          {/* Thanh Search Admin */}
                           <form onSubmit={handleAdminSearchUser} className="relative hidden md:block">
                               <input 
                                   type="text" 
@@ -203,7 +195,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </div>
                   </header>
 
-                  {/* Nội dung thay đổi (Children) */}
                   <main className="flex-1 overflow-y-auto custom-scrollbar">
                       <div className="w-full max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 min-h-full flex flex-col">
                           <div className="flex-1">
@@ -218,7 +209,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
 
   // ==============================================================================================
-  // ✨ 2. GIAO DIỆN USER BÌNH THƯỜNG (CÓ MENU TRƯỢT SLIDE-OVER) ✨
+  // ✨ 2. GIAO DIỆN USER BÌNH THƯỜNG ✨
   // ==============================================================================================
   return (
     <>
@@ -235,7 +226,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </div>
                   </div>
                   
-                  {/* Mobile Header elements */}
+                  {/* === HEADER DÀNH RIÊNG CHO MOBILE === */}
                   <div className="flex items-center gap-2 sm:hidden shrink-0">
                       {showInstallButton && (
                           <button 
@@ -252,39 +243,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           <NotificationBell currentUserId={session?.user?.id} />
                       )}
                       
-                      {isGuest && (
-                          <div className="flex items-center gap-1.5">
-                              <button onClick={handleRequestReset} className="p-1.5 bg-red-50 text-red-600 rounded-md border border-red-100" title="Reset dữ liệu"><RotateCcw size={16}/></button>
-                              <Link to="/login" onClick={playClick} className="px-2 py-1.5 bg-[#003375] text-white rounded-md text-xs font-bold shadow-sm">Đăng nhập</Link>
-                          </div>
-                      )}
-
-                      {!isGuest && (
-                          <div className="relative">
-                              <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
-                                  {avatarUrl ? (
-                                      isColorAvatar ? (
-                                          <span className="h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm" style={{ backgroundColor: avatarUrl }}>{avatarSeed}</span>
-                                      ) : (
-                                          <img src={avatarUrl} alt="Avatar" className="h-8 w-8 rounded-full object-cover shadow-sm border border-gray-200" />
-                                      )
-                                  ) : (
-                                      <span className="h-8 w-8 rounded-full bg-[#003375] text-white flex items-center justify-center text-sm font-bold shadow-sm">{avatarSeed}</span>
-                                  )}
-                              </button>
-
-                              {isUserMenuOpen && (
-                                  <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
-                                      <button type="button" onClick={() => { const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
-                                      <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
-                                      <button type="button" onClick={handleRequestReset} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
-                                      <button type="button" onClick={handleMenuLogout} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
-                                  </div>
-                              )}
-                          </div>
-                      )}
-
-                      {/* NÚT HAMBURGER MỞ MENU TRƯỢT */}
+                      {/* GỌN GÀNG: Chỉ còn nút Hamburger trên Mobile, đã xóa Avatar/Login */}
                       <button 
                           onClick={() => setIsMobileMenuOpen(true)} 
                           className="p-1.5 text-gray-600 hover:text-[#003375] focus:outline-none transition-transform active:scale-95 bg-gray-50 rounded-md border border-gray-200 ml-1"
@@ -354,7 +313,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   <div className="hidden sm:block absolute bottom-0 h-[2px] bg-[#003375] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-20 rounded-t-full" style={{ left: `${navIndicator.left}px`, width: `${navIndicator.width}px`, opacity: navIndicator.opacity }} />
               </nav>
 
-              {/* KHU VỰC CÔNG CỤ GÓC PHẢI */}
+              {/* === KHU VỰC CÔNG CỤ GÓC PHẢI TRÊN DESKTOP (Giữ nguyên Avatar) === */}
               <div className="hidden sm:flex items-center gap-1.5 lg:gap-3 shrink-0 pl-2 lg:pl-4 border-l border-gray-200">
                   {showInstallButton && (
                       <button 
@@ -442,7 +401,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       </div>
 
       {/* ======================================================================= */}
-      {/* KHỐI SLIDE-OVER  MENU DÀNH CHO MOBILE */}
+      {/* KHỐI MENU TRƯỢT DÀNH CHO MOBILE (KÈM GREETING VÀ TÀI KHOẢN) */}
       {/* ======================================================================= */}
       
       <div 
@@ -472,7 +431,39 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
           <div className="flex-1 overflow-y-auto py-5 px-4 flex flex-col gap-1 custom-scrollbar bg-white">
               
-              <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider">TÍNH NĂNG CHÍNH</div>
+              {/* Lời chào cá nhân hóa */}
+              {!isGuest ? (
+                  <div className="px-2 py-1 mb-4 flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm border border-gray-200 shadow-sm overflow-hidden shrink-0">
+                          {avatarUrl ? (
+                              isColorAvatar ? (
+                                  <span className="h-full w-full flex items-center justify-center text-white" style={{ backgroundColor: avatarUrl }}>{avatarSeed}</span>
+                              ) : (
+                                  <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                              )
+                          ) : (
+                              <span className="h-full w-full flex items-center justify-center bg-[#003375] text-white">{avatarSeed}</span>
+                          )}
+                      </div>
+                      <div className="min-w-0">
+                          <p className="text-[11px] text-gray-500 font-semibold mb-0.5">Xin chào,</p>
+                          <p className="text-[14px] font-bold text-[#003375] truncate">{displayName}</p>
+                      </div>
+                  </div>
+              ) : (
+                  <div className="px-2 py-1 mb-4 flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center font-bold text-sm border border-gray-200 shadow-sm shrink-0 text-gray-400">
+                          <User size={20} />
+                      </div>
+                      <div>
+                          <p className="text-[11px] text-gray-500 font-semibold mb-0.5">Xin chào,</p>
+                          <p className="text-[14px] font-bold text-gray-700 truncate">Khách</p>
+                      </div>
+                  </div>
+              )}
+
+              {/* === TÍNH NĂNG CHÍNH === */}
+              <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider mt-2">TÍNH NĂNG CHÍNH</div>
               
               <NavLink 
                   to="/dashboard" 
@@ -528,16 +519,109 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
               <div className="h-px bg-gray-100 w-full my-3"></div>
               
+              {/* === TIỆN ÍCH & HỖ TRỢ === */}
               <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider mt-1">TIỆN ÍCH & HỖ TRỢ</div>
               
-              <Link 
-                  to="/handbook" 
-                  onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
-                  className={`flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-medium transition-colors ${location.pathname.includes('/handbook') ? 'bg-blue-50 text-[#003375] border border-blue-100 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
-              >
-                  <Book size={20} className={location.pathname.includes('/handbook') ? 'text-[#003375]' : 'text-gray-500'} /> 
-                  Cẩm nang
-              </Link>
+              <div className="flex flex-col">
+                  <button 
+                      onClick={() => { playClick(); setIsMobileHandbookOpen(!isMobileHandbookOpen); }} 
+                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-[14px] font-medium transition-colors ${location.pathname.includes('/handbook') ? 'bg-blue-50 text-[#003375] border border-blue-100 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+                  >
+                      <div className="flex items-center gap-3.5">
+                          <Book size={20} className={location.pathname.includes('/handbook') ? 'text-[#003375]' : 'text-gray-500'} /> 
+                          <span>Cẩm nang</span>
+                      </div>
+                      <ChevronDown size={16} className={`transition-transform duration-200 text-gray-500 ${isMobileHandbookOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isMobileHandbookOpen ? 'max-h-[500px] opacity-100 mt-1' : 'max-h-0 opacity-0'}`}>
+                      <div className="flex flex-col gap-1 pl-12 pr-4 pb-2 border-l-2 border-gray-100 ml-[26px]">
+                          <Link to="/handbook/contacts" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-[#003375] transition-colors">
+                              <Phone size={14} /> Danh bạ & Khoa
+                          </Link>
+                          <Link to="/handbook/clubs" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-[#990000] transition-colors">
+                              <Users size={14} /> CLB - Đội - Nhóm
+                          </Link>
+                          <Link to="/handbook/scholarships" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-green-600 transition-colors">
+                              <Award size={14} /> Học bổng & Quy chế
+                          </Link>
+                          <Link to="/handbook/faqs" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-indigo-600 transition-colors">
+                              <HelpCircle size={14} /> FAQs
+                          </Link>
+                          <Link to="/handbook/feedback" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-teal-600 transition-colors">
+                              <MessageSquarePlus size={14} /> Góp ý
+                          </Link>
+                          <Link to="/handbook/donate" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-pink-600 transition-colors">
+                              <Heart size={14} /> Ủng hộ & Tri ân
+                          </Link>
+                          <Link to="/handbook/about" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-gray-900 transition-colors">
+                              <Info size={14} /> Về chúng mình
+                          </Link>
+                      </div>
+                  </div>
+              </div>
+
+              <div className="h-px bg-gray-100 w-full my-3"></div>
+
+              {/* === TÀI KHOẢN === */}
+              <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider mt-1">TÀI KHOẢN</div>
+
+              {isGuest ? (
+                  <>
+                      <Link 
+                          to="/login" 
+                          onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
+                          className="flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                          <User size={20} className="text-gray-500" />
+                          <span>Đăng nhập</span>
+                      </Link>
+                      <button 
+                          onClick={() => { setIsMobileMenuOpen(false); playClick(); alert('Chức năng đăng ký CTV đang được phát triển!'); }} 
+                          className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                          <UserPlus size={20} className="text-gray-500" />
+                          <span>Đăng ký làm CTV</span>
+                      </button>
+                  </>
+              ) : (
+                  <>
+                      <button 
+                          onClick={() => { 
+                              const myStudentId = session?.user?.email?.split('@')[0]; 
+                              if (myStudentId) { navigate(`/profile/${myStudentId}`); } 
+                              setIsMobileMenuOpen(false); 
+                              playClick(); 
+                          }} 
+                          className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                          <User size={20} className="text-gray-500" />
+                          <span>Hồ sơ cá nhân</span>
+                      </button>
+                      <button 
+                          onClick={() => { setShowAccountSettings(true); setIsMobileMenuOpen(false); playClick(); }} 
+                          className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                          <Settings size={20} className="text-gray-500" />
+                          <span>Cài đặt thông tin</span>
+                      </button>
+                      <button 
+                          onClick={() => { handleRequestReset(); setIsMobileMenuOpen(false); playClick(); }} 
+                          className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                          <RefreshCw size={20} className="text-gray-500" />
+                          <span>Làm mới dữ liệu</span>
+                      </button>
+                      <button 
+                          onClick={() => { handleMenuLogout(); setIsMobileMenuOpen(false); playClick(); }} 
+                          className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-bold text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                          <LogOut size={20} className="text-red-500" />
+                          <span>Đăng xuất</span>
+                      </button>
+                  </>
+              )}
+
           </div>
       </div>
     </>
