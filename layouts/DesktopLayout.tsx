@@ -218,7 +218,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
 
   // ==============================================================================================
-  // ✨ 2. GIAO DIỆN USER BÌNH THƯỜNG (CÓ TÍCH HỢP SLIDE-OVER MENU TRÊN MOBILE) ✨
+  // ✨ 2. GIAO DIỆN USER BÌNH THƯỜNG (CÓ MENU TRƯỢT SLIDE-OVER) ✨
   // ==============================================================================================
   return (
     <>
@@ -284,7 +284,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           </div>
                       )}
 
-                      {/* NÚT HAMBURGER MENU MỞ SLIDE-OVER */}
+                      {/* NÚT HAMBURGER MỞ MENU TRƯỢT */}
                       <button 
                           onClick={() => setIsMobileMenuOpen(true)} 
                           className="p-1.5 text-gray-600 hover:text-[#003375] focus:outline-none transition-transform active:scale-95 bg-gray-50 rounded-md border border-gray-200 ml-1"
@@ -294,10 +294,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   </div>
               </div>
 
-              {/* THANH MENU ĐIỀU HƯỚNG MÀN HÌNH NGANG (Chỉ hiện trên Desktop) */}
+              {/* THANH MENU ĐIỀU HƯỚNG MÀN HÌNH NGANG (Chỉ hiện trên Desktop, ẩn trên Mobile) */}
               <nav className="hidden sm:flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
                   
-                  {/* CÁC THẺ NAVLINK FIX LỖI TS TYPE */}
                   <NavLink to="/dashboard" ref={(el: any) => { navRefs.current[0] = el; }} onClick={playClick} className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#003375]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
                       <LayoutDashboard size={20} className="sm:hidden" />
                       <span className="hidden sm:block">Tổng quan</span>
@@ -443,10 +442,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       </div>
 
       {/* ======================================================================= */}
-      {/* KHỐI SLIDE-OVER MENU DÀNH CHO MOBILE (Trượt từ trái sang giống PTIT) */}
+      {/* KHỐI SLIDE-OVER MENU DÀNH CHO MOBILE */}
       {/* ======================================================================= */}
       
-      {/* Lớp phủ mờ (Overlay) */}
       <div 
           className={`fixed inset-0 bg-black/60 z-[100] transition-opacity duration-300 sm:hidden ${
               isMobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
@@ -454,13 +452,11 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
           onClick={() => setIsMobileMenuOpen(false)}
       />
 
-      {/* Menu Drawer */}
       <div 
           className={`fixed top-0 left-0 h-[100dvh] w-[85%] max-w-[320px] bg-white z-[101] flex flex-col shadow-2xl transition-transform duration-300 ease-in-out sm:hidden ${
               isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
-          {/* Header màu xanh của Drawer */}
           <div className="bg-[#003375] p-5 flex items-center justify-between shrink-0 shadow-md">
               <div className="flex flex-col text-white">
                   <span className="font-extrabold text-lg tracking-tight">HUB PLANNER</span>
@@ -474,7 +470,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               </button>
           </div>
 
-          {/* Danh sách chức năng */}
           <div className="flex-1 overflow-y-auto py-5 px-4 flex flex-col gap-1 custom-scrollbar bg-white">
               
               <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider">TÍNH NĂNG CHÍNH</div>
