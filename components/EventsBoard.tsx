@@ -77,7 +77,6 @@ const checkIsOverdue = (evt: HubEvent, currentDay: Date) => {
 
 // --- Sub-Components (Modals) ---
 
-// ✨ WRAPPER MODAL DÀNH CHO FORM CTV
 const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
     if (!isOpen) return null;
     return createPortal(
@@ -944,7 +943,6 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
 
-  // ✨ STATE MỚI ĐỂ HIỆN MODAL ĐĂNG KÝ CTV
   const [showCTVModal, setShowCTVModal] = useState(false);
 
   const tabsList = useMemo(() => [
@@ -977,7 +975,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   }, []);
 
   useEffect(() => {
-const loadParticipation = async () => {
+      const loadParticipation = async () => {
           if (session?.user?.id && supabase) {
               const targetId = viewUserId || session.user.id;
 
@@ -1009,7 +1007,7 @@ const loadParticipation = async () => {
       if (session !== undefined) {
           loadParticipation();
       }
- }, [session, viewUserId]);
+  }, [session, viewUserId]);
 
   const toggleParticipation = async (eventId: string) => {
       playClick();
@@ -1046,9 +1044,7 @@ const loadParticipation = async () => {
   const [showManageModal, setShowManageModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<HubEvent | null>(null);
   const [discussEvent, setDiscussEvent] = useState<{id: string, name: string} | null>(null);
-  
   const [reportingEvent, setReportingEvent] = useState<HubEvent | null>(null);
-
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error') => {
@@ -1116,7 +1112,7 @@ const loadParticipation = async () => {
           setEvents(parsedEvents);
       }
       setLoading(false);
-} catch (err) {
+    } catch (err) {
       console.error(err);
       
       const mockEvents: HubEvent[] = [
@@ -1276,11 +1272,10 @@ const loadParticipation = async () => {
       return isExpiredTime || isClosedStatus;
   });
 
-const participatedStats = useMemo(() => {
+  const participatedStats = useMemo(() => {
       if (activeTab !== 'participated') return null;
       const stats: Record<string, number> = { 'I': 0, 'II': 0, 'III': 0, 'IV': 0, 'V': 0 };
       events.forEach(evt => {
-          // Bỏ điều kiện is_deleted để tính toàn bộ sự kiện đã tham gia
           if (participatedEvents.includes(evt.id)) { 
               const cat = evt.category;
               if (stats[cat] !== undefined) {
@@ -1307,7 +1302,9 @@ const participatedStats = useMemo(() => {
     );
   };
 
-  // ✨ UPDATE: RENDER EVENT CARD THEO DẠNG DANH SÁCH MỚI (LIST VIEW)
+  // =======================================================================
+  // RENDER DẠNG CARD (DÀNH CHO USER)
+  // =======================================================================
   const renderEventCard = (evt: HubEvent) => {
     const isPending = evt.status === 'pending';
     const isStatusClosed = evt.status === 'Đã kết thúc';
@@ -1401,7 +1398,7 @@ const participatedStats = useMemo(() => {
             )}
         </div>
 
-        {/* ACTIONS SECTION (BÊN PHẢI HOẶC BÊN DƯỚI NẾU MOBILE) */}
+        {/* ACTIONS SECTION */}
         <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-2 w-full md:w-[160px] lg:w-[200px] shrink-0 md:pl-4 md:border-l border-gray-100 mt-2 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0">
             <div className="flex items-center gap-2 w-full md:w-auto justify-end">
                 <button 
@@ -1421,34 +1418,20 @@ const participatedStats = useMemo(() => {
                     <span className="text-xs font-bold hidden lg:block">Thảo luận</span>
                 </button>
                 
-                {/* Menu Admin & Báo lỗi */}
-                <div className="relative">
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === evt.id ? null : evt.id); }} 
-                        className="p-2 sm:px-3 sm:py-2 text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors flex items-center justify-center"
-                    >
-                        <MoreHorizontal size={16}/>
-                    </button>
-                    {activeDropdown === evt.id && (
-                        <div className="absolute right-0 md:left-auto bottom-full md:bottom-auto md:top-full mb-1 md:mt-1 w-48 bg-white border border-gray-300 shadow-xl rounded-lg overflow-hidden z-20 py-1 text-sm font-medium">
-                            {canManage && (
-                                <>
-                                    <button onClick={() => handleOpenEdit(evt)} className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Edit2 size={14} /> Chỉnh sửa</button>
-                                    <button onClick={() => handleToggleClose(evt)} className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                                        {evt.is_manually_closed ? <><ToggleRight size={14} className="text-green-600"/> Mở lại đơn</> : <><ToggleLeft size={14} className="text-orange-600"/> Đóng đơn</>}
-                                    </button>
-                                    {isAdmin && (
-                                        <button onClick={() => handleDeleteEvent(evt.id)} className="w-full text-left px-3 py-2 text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14} /> Xóa sự kiện</button>
-                                    )}
-                                    <div className="h-px bg-gray-100 my-1"></div>
-                                </>
-                            )}
-                            <button onClick={(e) => { e.stopPropagation(); playClick(); setReportingEvent(evt); setActiveDropdown(null); }} className="w-full text-left px-3 py-2 text-orange-600 hover:bg-orange-50 flex items-center gap-2">
-                                <AlertTriangle size={14} /> Báo lỗi thông tin
-                            </button>
-                        </div>
-                    )}
-                </div>
+                {/* Nút báo lỗi nhỏ cho user */}
+                <button 
+                    onClick={(e) => { e.stopPropagation(); playClick(); setReportingEvent(evt); }} 
+                    className="p-2 sm:px-3 sm:py-2 bg-white border border-gray-300 rounded-lg text-orange-500 hover:bg-orange-50 transition-colors flex items-center justify-center lg:hidden"
+                >
+                    <AlertTriangle size={16} />
+                </button>
+                <button 
+                    onClick={(e) => { e.stopPropagation(); playClick(); setReportingEvent(evt); }} 
+                    className="hidden lg:flex p-2 sm:px-3 sm:py-2 bg-white border border-gray-300 rounded-lg text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-colors items-center justify-center gap-2"
+                >
+                    <AlertTriangle size={16} />
+                    <span className="text-xs font-bold hidden lg:block">Báo lỗi</span>
+                </button>
             </div>
 
             {/* Nút Đăng Ký */}
@@ -1466,86 +1449,124 @@ const participatedStats = useMemo(() => {
     );
   };
 
+
 return (
     <div className="animate-slideInRight">
-<div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-            <div>
-    <h2 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
-        Sự kiện Điểm Rèn Luyện
-    </h2>
-    {canManage && (
-        <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-1 mb-1 border border-blue-100">
-            <Settings size={10} className="inline mr-1"/>
-            {isAdmin ? 'Chế độ Admin: Toàn quyền' : 'Chế độ CTV: Sửa/Đóng đơn'}
-        </div>
-    )}
-    <p className="text-[11px] sm:text-xs text-gray-500 italic mt-1.5 max-w-xl leading-relaxed">
-        *Lưu ý: Các thông tin sự kiện, phân loại mục và điểm cộng được tổng hợp từ cộng đồng nên chỉ mang tính tham khảo và có thể có sai sót. Bạn vui lòng đối chiếu lại với thông báo chính thức từ BTC nhé.
-    </p>
-</div>
-            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto items-stretch">
-                <div className="relative flex-1 sm:flex-none"><input type="text" placeholder="Tìm tên, BTC, loại hình..." className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none w-full md:w-64 transition-all hover:border-blue-300 h-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /></div>
+        {/* STICKY HEADER */}
+        <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
+            <div className="flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between w-full">
+                {/* Tiêu đề & Thông báo */}
+                <div className="w-full xl:w-auto">
+                    <h2 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
+                        Sự kiện Điểm Rèn Luyện
+                    </h2>
+                    {canManage && (
+                        <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-1 mb-1 border border-blue-100">
+                            <Settings size={10} className="inline mr-1"/>
+                            {isAdmin ? 'Chế độ Admin: Quản lý danh sách' : 'Chế độ CTV: Sửa/Đóng sự kiện'}
+                        </div>
+                    )}
+                    <p className="text-[11px] sm:text-xs text-gray-500 italic mt-1.5 max-w-xl leading-relaxed">
+                        *Lưu ý: Các thông tin sự kiện, phân loại mục và điểm cộng được tổng hợp từ cộng đồng nên chỉ mang tính tham khảo và có thể có sai sót. Bạn vui lòng đối chiếu lại với thông báo chính thức từ BTC nhé.
+                    </p>
+                </div>
                 
-                <div className="flex gap-2 w-full sm:w-auto">
-                    <div className="relative flex-1 sm:flex-none">
-                        <select value={activeScope} onChange={(e) => { playClick(); setActiveScope(e.target.value); }} className="appearance-none pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none bg-white text-sm font-medium text-gray-700 h-full w-full cursor-pointer hover:border-blue-300 transition-colors">
-                            <option value="all">Tất cả khu vực</option><option value="internal">Trong trường</option><option value="external">Ngoài trường</option>
-                        </select>
-                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                {/* Thanh Công Cụ (Filter & Actions) ĐÃ ĐƯỢC CHỐNG DÍNH CHÙM */}
+                <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto shrink-0 justify-start xl:justify-end">
+                    
+                    {/* Search Bar */}
+                    <div className="relative w-full sm:w-auto flex-grow sm:flex-grow-0 min-w-[200px]">
+                        <input 
+                            type="text" 
+                            placeholder="Tìm tên, BTC, loại hình..." 
+                            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-all" 
+                            value={searchTerm} 
+                            onChange={(e) => setSearchTerm(e.target.value)} 
+                        />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                     </div>
                     
-                    <div className="relative flex-1 sm:flex-none">
-                        <select value={sortOrder} onChange={(e) => { playClick(); setSortOrder(e.target.value as 'newest' | 'oldest' | 'expiring_soon'); }} className="appearance-none pl-9 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none bg-white text-sm font-medium text-gray-700 h-full w-full cursor-pointer hover:border-blue-300 transition-colors">
+                    {/* Dropdown Khu vực */}
+                    <div className="relative w-full sm:w-auto flex-1 sm:flex-none">
+                        <select 
+                            value={activeScope} 
+                            onChange={(e) => { playClick(); setActiveScope(e.target.value); }} 
+                            className="w-full appearance-none pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-300 transition-colors"
+                        >
+                            <option value="all">Tất cả khu vực</option>
+                            <option value="internal">Trong trường</option>
+                            <option value="external">Ngoài trường</option>
+                        </select>
+                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                    </div>
+                    
+                    {/* Dropdown Sắp xếp */}
+                    <div className="relative w-full sm:w-auto flex-1 sm:flex-none">
+                        <select 
+                            value={sortOrder} 
+                            onChange={(e) => { playClick(); setSortOrder(e.target.value as 'newest' | 'oldest' | 'expiring_soon'); }} 
+                            className="w-full appearance-none pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-300 transition-colors"
+                        >
                             <option value="newest">Mới nhất</option>
                             <option value="oldest">Cũ nhất</option>
                             <option value="expiring_soon">Gần hết hạn</option>
                         </select>
-                        <ArrowDownUp className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} /><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                        <ArrowDownUp className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+                    </div>
+
+                    {/* Nút chức năng */}
+                    <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                        <button onClick={() => { playClick(); fetchEvents(); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95" title="Làm mới">
+                            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+                        </button>
+                        <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95" title="Xem bảng điểm">
+                            <FileText size={18} />
+                        </button>
+                        
+                        {canManage ? (
+                            <button onClick={handleOpenAdd} className="flex-1 sm:flex-none px-4 py-2 bg-[#003375] hover:bg-[#002855] text-white rounded-lg shadow-sm flex items-center justify-center gap-2 font-bold transition-all active:scale-95 whitespace-nowrap">
+                                <PlusCircle size={16} /> Thêm sự kiện
+                            </button>
+                        ) : (
+                            <button onClick={() => { playClick(); setShowContributeModal(true); }} className="flex-1 sm:flex-none px-4 py-2 bg-[#003375] hover:bg-[#002855] text-white rounded-lg shadow-sm flex items-center justify-center gap-2 font-bold transition-all active:scale-95 whitespace-nowrap">
+                                <PlusCircle size={16} /> Gửi đóng góp
+                            </button>
+                        )}
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div className="flex gap-2">
-                    <button onClick={() => { playClick(); fetchEvents(); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95 hover:rotate-180 duration-500" title="Làm mới"><RefreshCw size={20} className={loading ? "animate-spin" : ""} /></button>
-                    <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95" title="Xem bảng điểm"><FileText size={20} /></button>
-                    
-                    {canManage ? (
-                        <button onClick={handleOpenAdd} className="px-4 py-2 bg-[#003375] hover:bg-[#002855] text-white rounded-lg shadow-sm flex items-center gap-2 font-bold transition-all active:scale-95 hover:shadow-md whitespace-nowrap justify-center flex-1">
-                            <PlusCircle size={18} /> Thêm mới
-                        </button>
-                    ) : (
-                        <button onClick={() => { playClick(); setShowContributeModal(true); }} className="px-4 py-2 bg-[#003375] hover:bg-[#002855] text-white rounded-lg shadow-sm flex items-center gap-2 font-bold transition-all active:scale-95 hover:shadow-md whitespace-nowrap justify-center flex-1">
-                            <PlusCircle size={18} /> Đóng góp
-                        </button>
-                    )}
+        {/* ✨ ẨN BANNER CTV NẾU LÀ ADMIN / CTV ✨ */}
+        {!canManage && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-1.5 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative overflow-hidden group">
+                <div className="flex items-start sm:items-center gap-3 relative z-10">
+                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm shrink-0 border border-blue-100">
+                        <UserPlus className="text-blue-600" size={12} />
+                    </div>
+                    <div>
+                        <h4 className="font-bold text-sm sm:text-base text-blue-900">Trở thành CTV Nhập liệu HUB Planner</h4>
+                        <p className="text-xs sm:text-sm mt-0.5 text-blue-800 opacity-50 max-w-2xl">
+                            Bạn muốn đóng góp xây dựng cộng đồng sinh viên HUB? Hãy tham gia đội ngũ cập nhật sự kiện ngay hôm nay!
+                        </p>
+                    </div>
+                </div>
+                <button 
+                    onClick={() => { playClick(); setShowCTVModal(true); }}
+                    className="shrink-0 text-xs font-bold bg-[#003375] text-white hover:bg-[#002855] shadow-md transition-colors px-3 py-1.5 rounded-lg whitespace-nowrap self-start sm:self-auto relative z-10 active:scale-95 flex items-center gap-2"
+                >
+                    <UserPlus size={16} /> Đăng ký ngay
+                </button>
+                <div className="absolute right-0 top-0 opacity-[0.03] pointer-events-none transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-500">
+                    <Users size={200} />
                 </div>
             </div>
-          </div>
+        )}
 
-          {/* ✨ FORM TUYỂN DỤNG CTV ĐƯỢC CHỈNH LẠI: NÚT BẤM MỞ MODAL ✨ */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-1.5 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative overflow-hidden group">
-              <div className="flex items-start sm:items-center gap-3 relative z-10">
-                  <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm shrink-0 border border-blue-100">
-                      <UserPlus className="text-blue-600" size={12} />
-                  </div>
-                  <div>
-                      <h4 className="font-bold text-sm sm:text-base text-blue-900">Trở thành CTV Nhập liệu HUB Planner</h4>
-                      <p className="text-xs sm:text-sm mt-0.5 text-blue-800 opacity-50 max-w-2xl">
-                          Bạn muốn đóng góp xây dựng cộng đồng sinh viên HUB? Hãy tham gia đội ngũ cập nhật sự kiện ngay hôm nay!
-                      </p>
-                  </div>
-              </div>
-              <button 
-                  onClick={() => { playClick(); setShowCTVModal(true); }}
-                  className="shrink-0 text-xs font-bold bg-[#003375] text-white hover:bg-[#002855] shadow-md transition-colors px-3 py-1.5 rounded-lg whitespace-nowrap self-start sm:self-auto relative z-10 active:scale-95 flex items-center gap-2"
-              >
-                  <UserPlus size={16} /> Đăng ký ngay
-              </button>
-              <div className="absolute right-0 top-0 opacity-[0.03] pointer-events-none transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-500">
-                  <Users size={200} />
-              </div>
-          </div>
-
-          <div className="relative flex w-full justify-between overflow-x-auto no-scrollbar border-b border-gray-200 px-1">
+        {/* TABS LỌC CHUNG CHO CẢ ADMIN VÀ USER */}
+        <div className="relative flex w-full justify-between overflow-x-auto no-scrollbar border-b border-gray-200 px-1 mb-6">
             {tabsList.map((tab, idx) => (
                 <button 
                     key={tab.id} 
@@ -1560,67 +1581,149 @@ return (
                 className="absolute bottom-0 h-[2px] bg-[#003375] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-20 rounded-t-full"
                 style={{ left: `${indicatorStyle.left}px`, width: `${indicatorStyle.width}px` }}
             />
-          </div>
-      </div>
-
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 animate-fadeIn"><Loader2 size={40} className="text-[#003375] animate-spin mb-4" /><p className="text-gray-500">Đang tải danh sách sự kiện...</p></div>
-      ) : error ? (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn"><p className="font-bold mb-2">Đã xảy ra lỗi</p><p>{error}</p></div>
-      ) : (
-        <div className="space-y-8 animate-fadeIn">
-            {activeTab === 'participated' && participatedStats && (
-                <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                    <span className="font-bold text-[#003375] flex items-center gap-2">
-                        <BookmarkCheck size={18} /> Thống kê đã tham gia:
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                        {['I', 'II', 'III', 'IV', 'V'].map(cat => (
-                            <div key={cat} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">
-                                <span className="text-xs text-gray-600 font-semibold">Mục {cat}:</span>
-                                <span className="text-sm font-bold text-[#003375]">{participatedStats[cat]}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {openingEvents.length > 0 && (
-                <div>
-                    <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
-                        <Flame className="text-orange-500 fill-orange-100" /> 
-                        {activeTab === 'participated' ? 'Đang/Đã tham gia (Mở đăng ký)' : 'Đang mở đăng ký'} ({openingEvents.length})
-                    </h3>
-                    {/* ✨ UPDATE GRID -> FLEX COL THEO YÊU CẦU ✨ */}
-                    <div className="flex flex-col gap-4">
-                        {openingEvents.map(evt => renderEventCard(evt))}
-                    </div>
-                </div>
-            )}
-
-            {expiredEvents.length > 0 && (
-                <div>
-                      <h3 className="text-xl font-bold text-gray-500 mb-4 mt-8 flex items-center gap-2">
-                        <Lock className="text-gray-400" /> 
-                        {activeTab === 'participated' ? 'Đã tham gia (Hết hạn)' : 'Đã hết hạn'} ({expiredEvents.length})
-                    </h3>
-                    {/* ✨ UPDATE GRID -> FLEX COL THEO YÊU CẦU ✨ */}
-                    <div className="flex flex-col gap-4 opacity-80">
-                        {expiredEvents.map(evt => renderEventCard(evt))}
-                    </div>
-                </div>
-            )}
-
-            {filteredEvents.length === 0 && (
-                <div className="col-span-full py-16 text-center bg-white rounded-xl border border-dashed border-gray-300">
-                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300"><Calendar size={32} /></div>
-                    <p className="text-gray-500 font-medium">
-                        {activeTab === 'participated' ? 'Bạn chưa đánh dấu tham gia sự kiện nào.' : 'Không tìm thấy sự kiện phù hợp.'}
-                    </p>
-                </div>
-            )}
         </div>
-      )}
+
+        {/* KHU VỰC HIỂN THỊ DỮ LIỆU */}
+        {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 animate-fadeIn">
+                <Loader2 size={40} className="text-[#003375] animate-spin mb-4" />
+                <p className="text-gray-500 font-medium">Đang tải danh sách sự kiện...</p>
+            </div>
+        ) : error ? (
+            <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn">
+                <p className="font-bold mb-2">Đã xảy ra lỗi</p>
+                <p>{error}</p>
+            </div>
+        ) : canManage ? (
+            /* ✨ BẢNG QUẢN LÝ DÀNH CHO ADMIN VÀ CTV ✨ */
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden animate-fadeIn">
+                <div className="overflow-x-auto custom-scrollbar max-h-[65vh]">
+                    <table className="w-full text-sm text-left min-w-[900px]">
+                        <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 font-bold uppercase tracking-wider sticky top-0 z-10">
+                            <tr>
+                                <th className="px-4 py-3">Tên sự kiện</th>
+                                <th className="px-4 py-3">BTC & Loại hình</th>
+                                <th className="px-4 py-3 text-center">ĐRL</th>
+                                <th className="px-4 py-3">Thời gian</th>
+                                <th className="px-4 py-3 text-center">Trạng thái</th>
+                                <th className="px-4 py-3 text-right">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {filteredEvents.length === 0 ? (
+                                <tr><td colSpan={6} className="py-8 text-center text-gray-500 font-medium">Không có sự kiện nào phù hợp.</td></tr>
+                            ) : (
+                                filteredEvents.map(evt => {
+                                    const isPending = evt.status === 'pending';
+                                    const isStatusClosed = evt.status === 'Đã kết thúc';
+                                    const isActive = evt.status === 'Đang diễn ra';
+                                    const isOverdue = checkIsOverdue(evt, today);
+                                    const isManualClose = evt.is_manually_closed;
+                                    const isLinkClosed = isStatusClosed || isOverdue || isManualClose; 
+                                    
+                                    let badgeUI = null;
+                                    if (isPending) badgeUI = <span className="bg-yellow-50 text-yellow-700 px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap">Chờ duyệt</span>;
+                                    else if (evt.is_deleted) badgeUI = <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap">Đã bị ẩn</span>;
+                                    else if (isLinkClosed) badgeUI = <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-[10px] font-bold border border-gray-200 whitespace-nowrap">Đã đóng</span>;
+                                    else if (isActive) badgeUI = <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap">Đang diễn ra</span>;
+                                    else badgeUI = <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap">Sắp diễn ra</span>;
+
+                                    return (
+                                        <tr key={evt.id} className={`hover:bg-gray-50 transition-colors ${evt.is_deleted ? 'opacity-60 bg-gray-50/50' : ''}`}>
+                                            <td className="px-4 py-3 w-[30%] align-top">
+                                                <div className="font-bold text-[#003375] text-sm line-clamp-2 leading-snug">{evt.name}</div>
+                                                <div className="text-[10px] text-gray-500 mt-1.5 flex flex-wrap items-center gap-1.5">
+                                                    {evt.classification && <span className="bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded border border-purple-100 font-medium">{evt.classification}</span>}
+                                                    {evt.scope && <span className="font-medium">• {evt.scope}</span>}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 align-top text-gray-700 w-[20%]">
+                                                <div className="text-xs font-bold line-clamp-2 mb-1">{evt.organizer}</div>
+                                                <div className="text-[10px] text-gray-500 flex items-center gap-1"><MapPin size={10}/> {evt.location || 'Offline'}</div>
+                                            </td>
+                                            <td className="px-4 py-3 text-center align-top w-[10%]">
+                                                <div className="text-xs font-bold text-red-600 bg-red-50 border border-red-100 rounded px-2 py-0.5 inline-block mx-auto mb-1">
+                                                    {evt.score.includes('+') ? evt.score : `+${evt.score}`}
+                                                </div>
+                                                <div className="text-[10px] text-gray-500 font-medium">Mục {evt.category}</div>
+                                            </td>
+                                            <td className="px-4 py-3 text-xs text-gray-600 align-top w-[20%]">
+                                                <div className="mb-1"><span className="text-gray-400 font-medium">Ngày TC:</span> {evt.event_date ? formatDateString(evt.event_date) : '-'}</div>
+                                                <div><span className="text-gray-400 font-medium">Hạn ĐK:</span> {evt.close_on_full ? <span className="text-red-500 font-bold">Đóng khi đủ SL</span> : (evt.deadlineDate ? formatDateString(evt.deadlineDate.toISOString()) : '-')}</div>
+                                            </td>
+                                            <td className="px-4 py-3 text-center align-top w-[10%]">
+                                                {badgeUI}
+                                            </td>
+                                            <td className="px-4 py-3 text-right align-top w-[10%]">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button onClick={() => handleOpenEdit(evt)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Chỉnh sửa chi tiết"><Edit2 size={16}/></button>
+                                                    <button onClick={() => handleToggleClose(evt)} className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-md transition-colors" title={evt.is_manually_closed ? 'Mở lại đăng ký' : 'Tạm đóng đăng ký'}>
+                                                        {evt.is_manually_closed ? <ToggleRight size={16} className="text-green-600"/> : <ToggleLeft size={16} className="text-orange-600"/>}
+                                                    </button>
+                                                    {isAdmin && <button onClick={() => handleDeleteEvent(evt.id)} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors" title="Ẩn/Xóa sự kiện"><Trash2 size={16}/></button>}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        ) : (
+            /* DẠNG CARD CHUẨN DÀNH CHO USER BÌNH THƯỜNG */
+            <div className="space-y-8 animate-fadeIn">
+                {activeTab === 'participated' && participatedStats && (
+                    <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                        <span className="font-bold text-[#003375] flex items-center gap-2">
+                            <BookmarkCheck size={18} /> Thống kê đã tham gia:
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                            {['I', 'II', 'III', 'IV', 'V'].map(cat => (
+                                <div key={cat} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">
+                                    <span className="text-xs text-gray-600 font-semibold">Mục {cat}:</span>
+                                    <span className="text-sm font-bold text-[#003375]">{participatedStats[cat]}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {openingEvents.length > 0 && (
+                    <div>
+                        <h3 className="text-xl font-bold text-[#003375] mb-4 flex items-center gap-2">
+                            <Flame className="text-orange-500 fill-orange-100" /> 
+                            {activeTab === 'participated' ? 'Đang/Đã tham gia (Mở đăng ký)' : 'Đang mở đăng ký'} ({openingEvents.length})
+                        </h3>
+                        <div className="flex flex-col gap-4">
+                            {openingEvents.map(evt => renderEventCard(evt))}
+                        </div>
+                    </div>
+                )}
+
+                {expiredEvents.length > 0 && (
+                    <div>
+                          <h3 className="text-xl font-bold text-gray-500 mb-4 mt-8 flex items-center gap-2">
+                            <Lock className="text-gray-400" /> 
+                            {activeTab === 'participated' ? 'Đã tham gia (Hết hạn)' : 'Đã hết hạn'} ({expiredEvents.length})
+                        </h3>
+                        <div className="flex flex-col gap-4 opacity-80">
+                            {expiredEvents.map(evt => renderEventCard(evt))}
+                        </div>
+                    </div>
+                )}
+
+                {filteredEvents.length === 0 && (
+                    <div className="col-span-full py-16 text-center bg-white rounded-xl border border-dashed border-gray-300">
+                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300"><Calendar size={32} /></div>
+                        <p className="text-gray-500 font-medium">
+                            {activeTab === 'participated' ? 'Bạn chưa đánh dấu tham gia sự kiện nào.' : 'Không tìm thấy sự kiện phù hợp.'}
+                        </p>
+                    </div>
+                )}
+            </div>
+        )}
 
       <NotificationToast />
       <DiscussionModal event={discussEvent} onClose={() => setDiscussEvent(null)} />
