@@ -1476,9 +1476,11 @@ return (
                             {isAdmin ? 'Chế độ Admin: Quản lý danh sách' : 'Chế độ CTV: Sửa/Đóng sự kiện'}
                         </div>
                     )}
-                    <p className="text-[11px] sm:text-xs text-gray-500 italic mt-1.5 max-w-xl leading-relaxed">
-                        *Lưu ý: Các thông tin sự kiện, phân loại mục và điểm cộng được tổng hợp từ cộng đồng nên chỉ mang tính tham khảo và có thể có sai sót. Bạn vui lòng đối chiếu lại với thông báo chính thức từ BTC nhé.
-                    </p>
+                    {!isAdmin && (
+    <p className="text-[11px] sm:text-xs text-gray-500 italic mt-1.5 max-w-xl leading-relaxed">
+        *Lưu ý: Các thông tin sự kiện, phân loại mục và điểm cộng được tổng hợp từ cộng đồng nên chỉ mang tính tham khảo và có thể có sai sót. Bạn vui lòng đối chiếu lại với thông báo chính thức từ BTC nhé.
+    </p>
+)}
                 </div>
                 
                 {/* Thanh Công Cụ (Filter & Actions) ĐÃ ĐƯỢC CHỐNG DÍNH CHÙM */}
