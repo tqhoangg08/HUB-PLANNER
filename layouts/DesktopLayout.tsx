@@ -146,7 +146,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           <HelpCircle size={18} /> Trợ giúp
                       </button>
 
-                      {/* ✨ ĐÃ FIX LỖI TYPE SCRIPT BẰNG CÁCH DÙNG TRỰC TIẾP !isUserMenuOpen */}
                       <div className="mt-4 flex items-center gap-3 px-2 pt-3 border-t border-gray-200 relative group cursor-pointer" onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}>
                           <div className="h-10 w-10 rounded-full bg-[#0052cc] text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
                               {avatarSeed || 'A'}
@@ -262,7 +261,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
                       {!isGuest && (
                           <div className="relative">
-                              {/* ✨ ĐÃ FIX LỖI TYPE SCRIPT BẰNG CÁCH DÙNG TRỰC TIẾP !isUserMenuOpen */}
                               <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
                                   {avatarUrl ? (
                                       isColorAvatar ? (
