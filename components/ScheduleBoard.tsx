@@ -27,7 +27,7 @@ interface Course {
   phase: string;      
   semester: string;   
   instructor?: string; 
-  is_user_added?: boolean; // Thêm trường này để quản lý tab Admin
+  is_user_added?: boolean;
 }
 
 const HK_START_DATE = new Date('2026-02-02T00:00:00');
@@ -183,14 +183,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   // ==========================================
   // STATE CHO TÍNH NĂNG ADMIN MỚI
   // ==========================================
-  // ✨ FIX: Mặc định bật chế độ AdminView nếu user có quyền Admin
+  // ✨ Mặc định là bật nếu có quyền Admin
   const [isAdminView, setIsAdminView] = useState(isAdmin);
   const [adminTab, setAdminTab] = useState<'system' | 'user'>('system');
   const [isAdminEditModalOpen, setIsAdminEditModalOpen] = useState(false);
   const [adminEditData, setAdminEditData] = useState<Partial<Course>>({});
   const [isSavingAdminCourse, setIsSavingAdminCourse] = useState(false);
 
-  // Đồng bộ lại trạng thái view nếu props isAdmin load sau
   useEffect(() => {
       setIsAdminView(isAdmin);
   }, [isAdmin]);
@@ -264,7 +263,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             });
         }
         
-        // Mở rộng giới hạn cho Admin để dễ quản lý hơn
         const { data, error } = await query.limit(isAdminView ? 1000 : 100);
         if (error) throw error;
 
@@ -683,12 +681,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     setSelectedWeek(weekNum);
     setSelectedMonthIndex(now.getMonth());
   };
-  // Lọc dữ liệu dành cho Admin Table
+  
   const filteredAdminCourses = availableCourses.filter(c => adminTab === 'system' ? !c.is_user_added : c.is_user_added);
 
   return (
     <div className={`w-full ${isAdminView ? '' : 'pb-10'}`}>
-        {!isAdminView && <AdsBanner />}
+        {/* ✨ FIX: Cấm tiệt quảng cáo hiển thị nếu là Admin (chặn lỗi nháy và khoảng trắng) */}
+        {!isAdmin && <AdsBanner />}
 
         {/* HEADER CHUẨN DASHBOARD */}
         <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
@@ -1081,9 +1080,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     ) : (
                             // LỊCH THÁNG
                             <div className="flex flex-col h-full bg-white">
-                                {/* Trả lại padding chuẩn, xóa bỏ pb-24 gây ra khoảng trống */}
                                 <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4">
-                                    {/* Thêm min-h-full để lưới tự động kéo dài xuống tận đáy màn hình */}
                                     <div className="grid grid-cols-7 gap-px bg-gray-200 rounded-xl border border-gray-200 shadow-sm min-h-full">
                                         {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => (
                                             <div key={d} className="bg-[#f8fafc] text-center text-[11px] font-bold py-2.5 text-[#003375] uppercase border-b border-gray-200">{d}</div>
