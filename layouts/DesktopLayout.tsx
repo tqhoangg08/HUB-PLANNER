@@ -218,11 +218,11 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
 
   // ==============================================================================================
-  // ✨ 2. GIAO DIỆN USER BÌNH THƯỜNG (MENU NẰM NGANG PHÍA TRÊN - GIỮ NGUYÊN BẢN GỐC) ✨
+  // ✨ 2. GIAO DIỆN USER BÌNH THƯỜNG (CÓ TÍCH HỢP SLIDE-OVER MENU TRÊN MOBILE) ✨
   // ==============================================================================================
   return (
     <>
-      <header className="bg-white border-b border-gray-200 w-full z-50 shrink-0 h-auto sm:h-14 shadow-sm p-3 sm:p-0 relative">
+      <header className="bg-white border-b border-gray-200 w-full z-40 shrink-0 h-auto sm:h-14 shadow-sm p-3 sm:p-0 relative">
           <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-8">
               <div className="w-full flex flex-row items-center justify-between sm:w-auto sm:gap-3 shrink-0">
                   <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
@@ -284,17 +284,17 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           </div>
                       )}
 
-                      {/* NÚT HAMBURGER MENU */}
+                      {/* NÚT HAMBURGER MENU MỞ SLIDE-OVER */}
                       <button 
-                          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+                          onClick={() => setIsMobileMenuOpen(true)} 
                           className="p-1.5 text-gray-600 hover:text-[#003375] focus:outline-none transition-transform active:scale-95 bg-gray-50 rounded-md border border-gray-200 ml-1"
                       >
-                          {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                          <Menu size={20} />
                       </button>
                   </div>
               </div>
 
-              {/* THANH MENU ĐIỀU HƯỚNG MÀN HÌNH NGANG (Đã thêm hidden sm:flex) */}
+              {/* THANH MENU ĐIỀU HƯỚNG MÀN HÌNH NGANG (Chỉ hiện trên Desktop) */}
               <nav className="hidden sm:flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
                   
                   {/* CÁC THẺ NAVLINK FIX LỖI TS TYPE */}
@@ -417,51 +417,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   )}
               </div>
           </div>
-
-          {/* MENU DROPDOWN DÀNH CHO MOBILE */}
-          <div 
-              className={`sm:hidden absolute top-full left-0 w-full bg-white shadow-lg border-b border-gray-200 overflow-hidden transition-all duration-300 ease-in-out z-40 ${
-                  isMobileMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
-              }`}
-          >
-              <div className="flex flex-col p-4 space-y-2">
-                  <NavLink 
-                      to="/dashboard" 
-                      onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
-                      className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#003375]' : 'text-gray-600 hover:bg-gray-100 hover:text-[#003375]'}`}
-                  >
-                      <LayoutDashboard size={18} /> Tổng quan
-                  </NavLink>
-                  <NavLink 
-                      to="/schedule" 
-                      onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
-                      className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#003375]' : 'text-gray-600 hover:bg-gray-100 hover:text-[#003375]'}`}
-                  >
-                      <Calendar size={18} /> Thời khóa biểu
-                  </NavLink>
-                  <NavLink 
-                      to="/events" 
-                      onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
-                      className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#003375]' : 'text-gray-600 hover:bg-gray-100 hover:text-[#003375]'}`}
-                  >
-                      <Zap size={18} /> Sự kiện ĐRL
-                  </NavLink>
-                  <NavLink 
-                      to="/lost-found" 
-                      onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
-                      className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#003375]' : 'text-gray-600 hover:bg-gray-100 hover:text-[#003375]'}`}
-                  >
-                      <Search size={18} /> Tìm đồ thất lạc
-                  </NavLink>
-                  <Link 
-                      to="/handbook" 
-                      onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
-                      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${location.pathname.includes('/handbook') ? 'bg-blue-50 text-[#003375]' : 'text-gray-600 hover:bg-gray-100 hover:text-[#003375]'}`}
-                  >
-                      <Book size={18} /> Cẩm nang
-                  </Link>
-              </div>
-          </div>
       </header>
 
       <div className="flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10">
@@ -485,6 +440,110 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
           <a href="https://www.facebook.com/hubplannerr" target="_blank" rel="noopener noreferrer" className="h-10 w-10 rounded-full bg-white text-[#1877F2] flex items-center justify-center shadow-md border border-gray-200 hover:scale-110 transition-transform">
               <Facebook size={20} />
           </a>
+      </div>
+
+      {/* ======================================================================= */}
+      {/* KHỐI SLIDE-OVER MENU DÀNH CHO MOBILE (Trượt từ trái sang giống PTIT) */}
+      {/* ======================================================================= */}
+      
+      {/* Lớp phủ mờ (Overlay) */}
+      <div 
+          className={`fixed inset-0 bg-black/60 z-[100] transition-opacity duration-300 sm:hidden ${
+              isMobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
+          }`}
+          onClick={() => setIsMobileMenuOpen(false)}
+      />
+
+      {/* Menu Drawer */}
+      <div 
+          className={`fixed top-0 left-0 h-[100dvh] w-[85%] max-w-[320px] bg-white z-[101] flex flex-col shadow-2xl transition-transform duration-300 ease-in-out sm:hidden ${
+              isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+      >
+          {/* Header màu xanh của Drawer */}
+          <div className="bg-[#003375] p-5 flex items-center justify-between shrink-0 shadow-md">
+              <div className="flex flex-col text-white">
+                  <span className="font-extrabold text-lg tracking-tight">HUB PLANNER</span>
+                  <span className="text-xs font-medium opacity-90 mt-0.5">Hỗ trợ sinh viên</span>
+              </div>
+              <button 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors"
+              >
+                  <X size={22} />
+              </button>
+          </div>
+
+          {/* Danh sách chức năng */}
+          <div className="flex-1 overflow-y-auto py-5 px-4 flex flex-col gap-1 custom-scrollbar bg-white">
+              
+              <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider">TÍNH NĂNG CHÍNH</div>
+              
+              <NavLink 
+                  to="/dashboard" 
+                  onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
+                  className={({ isActive }) => `flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-medium transition-colors ${isActive ? 'bg-blue-50 text-[#003375] border border-blue-100' : 'text-gray-700 hover:bg-gray-50'}`}
+              >
+                  {({ isActive }) => (
+                      <>
+                          <LayoutDashboard size={20} className={isActive ? 'text-[#003375]' : 'text-gray-500'} /> 
+                          <span className={isActive ? 'font-bold' : ''}>Tổng quan</span>
+                      </>
+                  )}
+              </NavLink>
+              
+              <NavLink 
+                  to="/schedule" 
+                  onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
+                  className={({ isActive }) => `flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-medium transition-colors ${isActive ? 'bg-blue-50 text-[#003375] border border-blue-100' : 'text-gray-700 hover:bg-gray-50'}`}
+              >
+                  {({ isActive }) => (
+                      <>
+                          <Calendar size={20} className={isActive ? 'text-[#003375]' : 'text-gray-500'} /> 
+                          <span className={isActive ? 'font-bold' : ''}>Thời khóa biểu</span>
+                      </>
+                  )}
+              </NavLink>
+              
+              <NavLink 
+                  to="/events" 
+                  onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
+                  className={({ isActive }) => `flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-medium transition-colors ${isActive ? 'bg-blue-50 text-[#003375] border border-blue-100' : 'text-gray-700 hover:bg-gray-50'}`}
+              >
+                  {({ isActive }) => (
+                      <>
+                          <Zap size={20} className={isActive ? 'text-[#003375]' : 'text-gray-500'} /> 
+                          <span className={isActive ? 'font-bold' : ''}>Sự kiện ĐRL</span>
+                      </>
+                  )}
+              </NavLink>
+              
+              <NavLink 
+                  to="/lost-found" 
+                  onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
+                  className={({ isActive }) => `flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-medium transition-colors ${isActive ? 'bg-blue-50 text-[#003375] border border-blue-100' : 'text-gray-700 hover:bg-gray-50'}`}
+              >
+                  {({ isActive }) => (
+                      <>
+                          <Search size={20} className={isActive ? 'text-[#003375]' : 'text-gray-500'} /> 
+                          <span className={isActive ? 'font-bold' : ''}>Tìm đồ thất lạc</span>
+                      </>
+                  )}
+              </NavLink>
+
+              <div className="h-px bg-gray-100 w-full my-3"></div>
+              
+              <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider mt-1">TIỆN ÍCH & HỖ TRỢ</div>
+              
+              <Link 
+                  to="/handbook" 
+                  onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
+                  className={`flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-medium transition-colors ${location.pathname.includes('/handbook') ? 'bg-blue-50 text-[#003375] border border-blue-100 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+              >
+                  <Book size={20} className={location.pathname.includes('/handbook') ? 'text-[#003375]' : 'text-gray-500'} /> 
+                  Cẩm nang
+              </Link>
+          </div>
       </div>
     </>
   );
