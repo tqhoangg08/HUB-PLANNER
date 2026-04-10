@@ -736,7 +736,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         document.title = "Tổng quan | HUB Planner";
     }, []);
 
-    const { isAdmin } = useUserRole();
+    const { isAdmin, loading } = useUserRole();
     const [adminUsers, setAdminUsers] = useState<any[]>([]);
     const [loadingAdmin, setLoadingAdmin] = useState(false);
     const [selectedUserOverview, setSelectedUserOverview] = useState<UserData | null>(null);
@@ -1196,7 +1196,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
  return (
     <div className={`w-full ${showAdminPanel ? '' : 'pb-10'}`}>
-        {!showAdminPanel && <AdsBanner />}
+        {/* Chỉ hiện Ads khi ĐÃ LOAD XONG QUYỀN và KHÔNG PHẢI ADMIN */}
+        {!loading && !isAdmin && <AdsBanner />}
 
         {showAdminPanel ? (
             <div className="w-full space-y-3 animate-fadeIn">
