@@ -736,6 +736,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         document.title = "Tổng quan | HUB Planner";
     }, []);
 
+    // ✨ FIX LỖI NHÁY: Lấy biến loading từ role
     const { isAdmin, loading } = useUserRole();
     const [adminUsers, setAdminUsers] = useState<any[]>([]);
     const [loadingAdmin, setLoadingAdmin] = useState(false);
@@ -1196,7 +1197,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
  return (
     <div className={`w-full ${showAdminPanel ? '' : 'pb-10'}`}>
-        {/* Chỉ hiện Ads khi ĐÃ LOAD XONG QUYỀN và KHÔNG PHẢI ADMIN */}
+        {/* ✨ FIX: Chặn hiển thị banner quảng cáo cho đến khi tải xong role */}
         {!loading && !isAdmin && <AdsBanner />}
 
         {showAdminPanel ? (
