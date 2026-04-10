@@ -541,7 +541,7 @@ return (
                             </button>
                         </div>
 
-                        {/* TÍNH NĂNG CỦA ADMIN/CTV */}
+                        {/* TÍNH NĂNG CỦ A ADMIN/CTV */}
                         {canManage && (
                             <div className="px-4 pb-4 pt-2 border-t border-gray-100 flex gap-2">
                                 {isPending && (
