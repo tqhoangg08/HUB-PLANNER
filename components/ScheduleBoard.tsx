@@ -144,8 +144,7 @@ const getColorForCourse = (id: string) => {
 export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   useEffect(() => { document.title = "Thời khóa biểu | HUB Planner"; }, []);
 
-  // ✨ FIX: Lấy thêm trạng thái loading từ hook
-  const { session, isAdmin, loading: roleLoading } = useUserRole();
+  const { session, isAdmin, loading } = useUserRole();
   const isAuthenticated = session !== null;
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -184,18 +183,17 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   // ==========================================
   // STATE CHO TÍNH NĂNG ADMIN MỚI
   // ==========================================
-  const [isAdminView, setIsAdminView] = useState(false);
+  const [isAdminView, setIsAdminView] = useState(isAdmin);
   const [adminTab, setAdminTab] = useState<'system' | 'user'>('system');
   const [isAdminEditModalOpen, setIsAdminEditModalOpen] = useState(false);
   const [adminEditData, setAdminEditData] = useState<Partial<Course>>({});
   const [isSavingAdminCourse, setIsSavingAdminCourse] = useState(false);
 
-  // ✨ FIX: Chỉ cập nhật isAdminView khi role đã load xong
   useEffect(() => {
-      if (!roleLoading) {
+      if (!loading) {
           setIsAdminView(isAdmin);
       }
-  }, [isAdmin, roleLoading]);
+  }, [isAdmin, loading]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -687,10 +685,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   
   const filteredAdminCourses = availableCourses.filter(c => adminTab === 'system' ? !c.is_user_added : c.is_user_added);
 
+    // ✨ NGĂN CHẶN RENDER NẾU CHƯA LOAD QUYỀN XONG
+    if (loading) {
+        return (
+            <div className="w-full min-h-[60vh] flex flex-col items-center justify-center">
+                <Loader2 className="animate-spin text-[#0052cc] mb-3" size={32} />
+                <span className="text-gray-400 text-sm font-medium">Đang tải không gian làm việc...</span>
+            </div>
+        );
+    }
+
   return (
     <div className={`w-full ${isAdminView ? '' : 'pb-10'}`}>
-        {/* ✨ FIX: Khóa luôn cái Banner khi đang load dữ liệu role hoặc đã là Admin */}
-        {!roleLoading && !isAdmin && <AdsBanner />}
+        {!isAdmin && <AdsBanner />}
 
         {/* HEADER CHUẨN DASHBOARD */}
         <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">

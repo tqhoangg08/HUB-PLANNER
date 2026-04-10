@@ -1195,10 +1195,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
     }
 
+    // ✨ NGĂN CHẶN RENDER NẾU CHƯA LOAD QUYỀN XONG
+    if (loading) {
+        return (
+            <div className="w-full min-h-[60vh] flex flex-col items-center justify-center">
+                <Loader2 className="animate-spin text-[#0052cc] mb-3" size={32} />
+                <span className="text-gray-400 text-sm font-medium">Đang tải không gian làm việc...</span>
+            </div>
+        );
+    }
+
  return (
     <div className={`w-full ${showAdminPanel ? '' : 'pb-10'}`}>
-        {/* ✨ FIX: Chặn hiển thị banner quảng cáo cho đến khi tải xong role */}
-        {!loading && !isAdmin && <AdsBanner />}
+        {!isAdmin && <AdsBanner />}
 
         {showAdminPanel ? (
             <div className="w-full space-y-3 animate-fadeIn">
