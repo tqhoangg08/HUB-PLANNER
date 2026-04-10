@@ -442,7 +442,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       </div>
 
       {/* ======================================================================= */}
-      {/* KHỐI SLIDE-OVER MENU DÀNH CHO MOBILE */}
+      {/* KHỐI SLIDE-OVER  MENU DÀNH CHO MOBILE */}
       {/* ======================================================================= */}
       
       <div 
