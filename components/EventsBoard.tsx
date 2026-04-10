@@ -1307,12 +1307,12 @@ const participatedStats = useMemo(() => {
     );
   };
 
+  // ✨ UPDATE: RENDER EVENT CARD THEO DẠNG DANH SÁCH MỚI (LIST VIEW)
   const renderEventCard = (evt: HubEvent) => {
     const isPending = evt.status === 'pending';
     const isStatusClosed = evt.status === 'Đã kết thúc';
     const isActive = evt.status === 'Đang diễn ra';
     
-    // Đã thay đổi logic lấy isOverdue sử dụng helper function để hỗ trợ Đóng khi đủ số lượng
     const isOverdue = checkIsOverdue(evt, today);
     const isDeadlineToday = !isStatusClosed && !isPending && isSameDay(evt.deadlineDate, today);
     const isManualClose = evt.is_manually_closed;
@@ -1322,34 +1322,115 @@ const participatedStats = useMemo(() => {
     const isParticipated = participatedEvents.includes(evt.id);
 
     let badgeUI = null;
-    if (isPending) badgeUI = <span className="bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-md flex items-center gap-1"><Circle size={6} fill="currentColor" /> Chờ duyệt</span>;
-    else if (evt.is_deleted) badgeUI = <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md">Đã ẩn</span>;
-    else if (isLinkClosed) badgeUI = <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md flex items-center gap-1"><Lock size={10} /> Đã đóng</span>;
-    else if (isDeadlineToday) badgeUI = <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-md flex items-center gap-1"><Siren size={10} className="animate-pulse" /> Hạn chót</span>;
-    else if (isActive) badgeUI = <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md flex items-center gap-1"><Circle size={6} fill="currentColor" /> Đang diễn ra</span>;
-    else badgeUI = <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md flex items-center gap-1">Sắp diễn ra</span>;
+    if (isPending) badgeUI = <span className="bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold"><Circle size={6} fill="currentColor" /> Chờ duyệt</span>;
+    else if (evt.is_deleted) badgeUI = <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md font-bold">Đã ẩn</span>;
+    else if (isLinkClosed) badgeUI = <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold"><Lock size={10} /> Đã đóng</span>;
+    else if (isDeadlineToday) badgeUI = <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold"><Siren size={10} className="animate-pulse" /> Hạn chót</span>;
+    else if (isActive) badgeUI = <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold"><Circle size={6} fill="currentColor" /> Đang diễn ra</span>;
+    else badgeUI = <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold">Sắp diễn ra</span>;
 
     return (
-      <div key={evt.id} className={`bg-white rounded-xl border border-gray-300 p-4 flex flex-col transition-all duration-300 hover:shadow-md group relative
-        ${evt.is_deleted ? 'opacity-60 grayscale' : ''} 
-      `}>
-        <div className="flex justify-between items-start mb-2">
-            <span className="text-xs text-gray-500 font-medium flex items-center gap-1 line-clamp-1 pr-2">
-                <Building2 size={14} className="shrink-0"/> {evt.organizer}
-            </span>
-            <div className="flex items-center gap-1.5 shrink-0 text-[10px] font-bold">
-                {badgeUI}
+      <div key={evt.id} className={`bg-white rounded-xl border border-gray-200 p-4 flex flex-col md:flex-row gap-4 lg:gap-6 items-start md:items-center transition-all duration-300 hover:shadow-md relative group ${evt.is_deleted ? 'opacity-60 grayscale' : ''}`}>
+        
+        {/* INFO SECTION (BÊN TRÁI) */}
+        <div className="flex-1 min-w-0 w-full">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                <span className="text-xs text-gray-500 font-medium flex items-center gap-1">
+                    <Building2 size={14} className="shrink-0"/> {evt.organizer}
+                </span>
+                <div className="text-[10px]">
+                    {badgeUI}
+                </div>
+            </div>
+            
+            <h3 className={`font-bold text-gray-900 text-base sm:text-lg leading-snug mb-2 transition-colors ${!isLinkClosed && !evt.is_deleted ? 'group-hover:text-[#003375]' : ''}`} title={evt.name}>
+                {evt.name}
+            </h3>
+
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+                {evt.classification && (
+                    <span className="bg-purple-50 text-purple-600 border border-purple-200 text-[10px] font-medium px-2 py-0.5 rounded flex items-center gap-1">
+                        <Tag size={10}/> {evt.classification}
+                    </span>
+                )}
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${isLinkClosed || evt.is_deleted ? 'bg-gray-50 text-gray-500 border-gray-200' : 'bg-red-50 text-[#990000] border-red-100'}`}>
+                    <Award size={10}/> {evt.score.includes('+') ? evt.score : `+${evt.score}`}
+                </span>
+                <span className="bg-gray-50 text-gray-600 border border-gray-300 text-[10px] font-medium px-2 py-0.5 rounded">
+                    Mục {evt.category}
+                </span>
+                {evt.scope && evt.scope !== 'Khác' && (
+                    <span className="bg-gray-50 text-gray-600 border border-gray-300 text-[10px] font-medium px-2 py-0.5 rounded flex items-center gap-1">
+                        <MapPin size={10}/> {evt.scope}
+                    </span>
+                )}
+                {evt.location && (
+                    <span className="bg-gray-50 text-gray-600 border border-gray-300 text-[10px] font-medium px-2 py-0.5 rounded">
+                        {evt.location}
+                    </span>
+                )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 text-xs text-gray-600">
+                <div className="flex items-center gap-1.5">
+                    <Calendar size={14} className="text-gray-400 shrink-0"/>
+                    <span className="truncate">Diễn ra: {evt.event_date ? `${formatTimeString(evt.event_time)} ${formatDateString(evt.event_date)}` : 'Chưa cập nhật'}</span>
+                </div>
+                <div className="hidden sm:block text-gray-300">•</div>
+                <div className="flex items-center gap-1.5">
+                    <Clock size={14} className={`shrink-0 ${isLinkClosed || evt.is_deleted ? 'text-gray-400' : isDeadlineToday ? 'text-red-500' : 'text-gray-400'}`} />
+                    <span className={`truncate ${isDeadlineToday && !isLinkClosed && !evt.is_deleted ? 'text-red-600 font-bold' : ''}`}>
+                        Hạn chót: {evt.close_on_full ? (
+                            <span className="font-bold text-[#990000]">Đóng khi đủ số lượng</span>
+                        ) : (
+                            evt.time && evt.time !== 'Chưa cập nhật' ? `${evt.deadline_time ? formatTimeString(evt.deadline_time) + ' ' : ''}${evt.time}` : 'Chưa cập nhật'
+                        )}
+                    </span>
+                </div>
+            </div>
+            
+            {evt.description && (
+                <details className="mt-3 text-xs text-gray-600 group/details w-full">
+                    <summary className="font-semibold text-blue-600 cursor-pointer list-none flex items-center gap-1 hover:underline select-none">
+                        <Info size={12}/> Xem chi tiết
+                    </summary>
+                    <div className="mt-2 p-3 bg-gray-50 border border-gray-100 rounded-lg whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar">
+                        {evt.description}
+                    </div>
+                </details>
+            )}
+        </div>
+
+        {/* ACTIONS SECTION (BÊN PHẢI HOẶC BÊN DƯỚI NẾU MOBILE) */}
+        <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-2 w-full md:w-[160px] lg:w-[200px] shrink-0 md:pl-4 md:border-l border-gray-100 mt-2 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0">
+            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+                <button 
+                    onClick={() => toggleParticipation(evt.id)} 
+                    className={`p-2 sm:px-3 sm:py-2 rounded-lg border transition-colors flex items-center justify-center gap-2 ${isParticipated ? 'bg-green-50 border-green-300 text-green-600' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`} 
+                    title={isParticipated ? "Đã tham gia (Bấm hủy)" : "Đánh dấu tham gia"}
+                >
+                    {isParticipated ? <BookmarkCheck size={16}/> : <Bookmark size={16}/>}
+                    <span className="text-xs font-bold hidden lg:block">{isParticipated ? 'Đã lưu' : 'Lưu lại'}</span>
+                </button>
+                <button 
+                    onClick={() => { playClick(); setDiscussEvent({ id: evt.id, name: evt.name }); }} 
+                    className="p-2 sm:px-3 sm:py-2 bg-white border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-[#003375] transition-colors flex items-center justify-center gap-2" 
+                    title="Thảo luận"
+                >
+                    <MessageCircle size={16}/>
+                    <span className="text-xs font-bold hidden lg:block">Thảo luận</span>
+                </button>
                 
+                {/* Menu Admin & Báo lỗi */}
                 <div className="relative">
                     <button 
                         onClick={(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === evt.id ? null : evt.id); }} 
-                        className="p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 rounded-md transition-colors"
+                        className="p-2 sm:px-3 sm:py-2 text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-colors flex items-center justify-center"
                     >
                         <MoreHorizontal size={16}/>
                     </button>
-                    
                     {activeDropdown === evt.id && (
-                        <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-gray-300 shadow-xl rounded-lg overflow-hidden z-20 py-1 text-sm font-medium">
+                        <div className="absolute right-0 md:left-auto bottom-full md:bottom-auto md:top-full mb-1 md:mt-1 w-48 bg-white border border-gray-300 shadow-xl rounded-lg overflow-hidden z-20 py-1 text-sm font-medium">
                             {canManage && (
                                 <>
                                     <button onClick={() => handleOpenEdit(evt)} className="w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Edit2 size={14} /> Chỉnh sửa</button>
@@ -1369,87 +1450,15 @@ const participatedStats = useMemo(() => {
                     )}
                 </div>
             </div>
-        </div>
 
-        <h3 className={`font-bold text-gray-900 text-base leading-snug mb-3 line-clamp-2 min-h-[2.5rem] transition-colors ${!isLinkClosed && !evt.is_deleted ? 'group-hover:text-[#003375]' : ''}`} title={evt.name}>
-            {evt.name}
-        </h3>
-
-        <div className="flex flex-wrap gap-2 mb-4">
-            {evt.classification && (
-                <span className="bg-purple-50 text-purple-600 border border-purple-200 text-[10px] font-medium px-2 py-0.5 rounded flex items-center gap-1">
-                    <Tag size={10}/> {evt.classification}
-                </span>
-            )}
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${isLinkClosed || evt.is_deleted ? 'bg-gray-50 text-gray-500 border-gray-200' : 'bg-red-50 text-[#990000] border-red-100'}`}>
-                <Award size={10}/> {evt.score.includes('+') ? evt.score : `+${evt.score}`}
-            </span>
-            <span className="bg-gray-50 text-gray-600 border border-gray-300 text-[10px] font-medium px-2 py-0.5 rounded">
-                Mục {evt.category}
-            </span>
-            {evt.scope && evt.scope !== 'Khác' && (
-                <span className="bg-gray-50 text-gray-600 border border-gray-300 text-[10px] font-medium px-2 py-0.5 rounded flex items-center gap-1">
-                    <MapPin size={10}/> {evt.scope}
-                </span>
-            )}
-            {evt.location && (
-                <span className="bg-gray-50 text-gray-600 border border-gray-300 text-[10px] font-medium px-2 py-0.5 rounded">
-                    {evt.location}
-                </span>
-            )}
-        </div>
-
-        <div className="space-y-1.5 text-[11px] sm:text-xs text-gray-600 mb-4">
-            <div className="flex items-center gap-2">
-                <Calendar size={14} className="text-gray-400 shrink-0"/>
-                <span className="truncate">Diễn ra: {evt.event_date ? `${formatTimeString(evt.event_time)} ${formatDateString(evt.event_date)}` : 'Chưa cập nhật'}</span>
-            </div>
-            <div className="flex items-center gap-2">
-                <Clock size={14} className={`shrink-0 ${isLinkClosed || evt.is_deleted ? 'text-gray-400' : isDeadlineToday ? 'text-red-500' : 'text-gray-400'}`} />
-                <span className={`truncate ${isDeadlineToday && !isLinkClosed && !evt.is_deleted ? 'text-red-600 font-bold' : ''}`}>
-                    Hạn chót: {evt.close_on_full ? (
-                        <span className="font-bold text-[#990000]">Đóng khi đủ số lượng</span>
-                    ) : (
-                        evt.time && evt.time !== 'Chưa cập nhật' ? `${evt.deadline_time ? formatTimeString(evt.deadline_time) + ' ' : ''}${evt.time}` : 'Chưa cập nhật'
-                    )}
-                </span>
-            </div>
-        </div>
-
-        {evt.description && (
-            <details className="mb-4 text-xs text-gray-600 group/details flex-1">
-                <summary className="font-semibold text-blue-600 cursor-pointer list-none flex items-center gap-1 hover:underline select-none">
-                    <Info size={12}/> Xem chi tiết nội dung sự kiện
-                </summary>
-                <div className="mt-2 p-3 bg-gray-50 border border-gray-100 rounded-lg whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar">
-                    {evt.description}
-                </div>
-            </details>
-        )}
-
-        <div className="flex items-center gap-2 mt-auto pt-3 border-t border-gray-100">
-            <button 
-                onClick={() => toggleParticipation(evt.id)} 
-                className={`p-2 rounded-lg border transition-colors ${isParticipated ? 'bg-green-50 border-green-300 text-green-600' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`} 
-                title={isParticipated ? "Đã tham gia (Bấm hủy)" : "Đánh dấu tham gia"}
-            >
-                {isParticipated ? <BookmarkCheck size={16}/> : <Bookmark size={16}/>}
-            </button>
-            <button 
-                onClick={() => { playClick(); setDiscussEvent({ id: evt.id, name: evt.name }); }} 
-                className="p-2 bg-white border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-[#003375] transition-colors" 
-                title="Thảo luận"
-            >
-                <MessageCircle size={16}/>
-            </button>
-            
+            {/* Nút Đăng Ký */}
             {evt.link && !isLinkClosed && !evt.is_deleted ? (
-                <a href={formattedLink} target="_blank" rel="noopener noreferrer" onClick={(e) => { playClick(); e.stopPropagation(); }} className={`flex-1 text-white text-sm font-bold py-2 rounded-lg flex items-center justify-center transition-colors shadow-sm ${isDeadlineToday ? 'bg-red-600 hover:bg-red-700' : 'bg-[#003375] hover:bg-[#002855]'}`}>
-                    Tham gia
+                <a href={formattedLink} target="_blank" rel="noopener noreferrer" onClick={(e) => { playClick(); e.stopPropagation(); }} className={`w-full mt-2 md:mt-1 text-white text-sm font-bold px-6 py-2.5 rounded-lg flex items-center justify-center transition-colors shadow-sm ${isDeadlineToday ? 'bg-red-600 hover:bg-red-700' : 'bg-[#003375] hover:bg-[#002855]'}`}>
+                    Đăng ký ngay
                 </a>
             ) : (
-                <button disabled className="flex-1 py-2 rounded-lg font-semibold text-sm cursor-not-allowed border bg-gray-50 text-gray-400 border-gray-200 flex items-center justify-center gap-2">
-                    {evt.is_deleted ? "Đã ẩn" : (isLinkClosed ? <><Lock size={14}/> Đã đóng</> : "Chưa có link")}
+                <button disabled className="w-full mt-2 md:mt-1 py-2.5 px-4 rounded-lg font-semibold text-xs cursor-not-allowed border bg-gray-50 text-gray-400 border-gray-200 flex items-center justify-center gap-1.5">
+                    {evt.is_deleted ? "Đã bị ẩn" : (isLinkClosed ? <><Lock size={14}/> Đã kết thúc</> : "Chưa có link")}
                 </button>
             )}
         </div>
@@ -1459,7 +1468,7 @@ const participatedStats = useMemo(() => {
 
 return (
     <div className="animate-slideInRight">
-<div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+<div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div>
     <h2 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
         Sự kiện Điểm Rèn Luyện
@@ -1582,7 +1591,8 @@ return (
                         <Flame className="text-orange-500 fill-orange-100" /> 
                         {activeTab === 'participated' ? 'Đang/Đã tham gia (Mở đăng ký)' : 'Đang mở đăng ký'} ({openingEvents.length})
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* ✨ UPDATE GRID -> FLEX COL THEO YÊU CẦU ✨ */}
+                    <div className="flex flex-col gap-4">
                         {openingEvents.map(evt => renderEventCard(evt))}
                     </div>
                 </div>
@@ -1590,11 +1600,12 @@ return (
 
             {expiredEvents.length > 0 && (
                 <div>
-                      <h3 className="text-xl font-bold text-gray-500 mb-4 flex items-center gap-2">
+                      <h3 className="text-xl font-bold text-gray-500 mb-4 mt-8 flex items-center gap-2">
                         <Lock className="text-gray-400" /> 
                         {activeTab === 'participated' ? 'Đã tham gia (Hết hạn)' : 'Đã hết hạn'} ({expiredEvents.length})
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80">
+                    {/* ✨ UPDATE GRID -> FLEX COL THEO YÊU CẦU ✨ */}
+                    <div className="flex flex-col gap-4 opacity-80">
                         {expiredEvents.map(evt => renderEventCard(evt))}
                     </div>
                 </div>
