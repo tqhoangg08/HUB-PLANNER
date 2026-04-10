@@ -144,7 +144,8 @@ const getColorForCourse = (id: string) => {
 export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   useEffect(() => { document.title = "Thời khóa biểu | HUB Planner"; }, []);
 
-  const { session, isAdmin } = useUserRole();
+  // ✨ FIX: Lấy thêm trạng thái loading từ hook
+  const { session, isAdmin, loading: roleLoading } = useUserRole();
   const isAuthenticated = session !== null;
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -183,16 +184,18 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   // ==========================================
   // STATE CHO TÍNH NĂNG ADMIN MỚI
   // ==========================================
-  // ✨ Mặc định là bật nếu có quyền Admin
-  const [isAdminView, setIsAdminView] = useState(isAdmin);
+  const [isAdminView, setIsAdminView] = useState(false);
   const [adminTab, setAdminTab] = useState<'system' | 'user'>('system');
   const [isAdminEditModalOpen, setIsAdminEditModalOpen] = useState(false);
   const [adminEditData, setAdminEditData] = useState<Partial<Course>>({});
   const [isSavingAdminCourse, setIsSavingAdminCourse] = useState(false);
 
+  // ✨ FIX: Chỉ cập nhật isAdminView khi role đã load xong
   useEffect(() => {
-      setIsAdminView(isAdmin);
-  }, [isAdmin]);
+      if (!roleLoading) {
+          setIsAdminView(isAdmin);
+      }
+  }, [isAdmin, roleLoading]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -686,8 +689,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
   return (
     <div className={`w-full ${isAdminView ? '' : 'pb-10'}`}>
-        {/* ✨ FIX: Cấm tiệt quảng cáo hiển thị nếu là Admin (chặn lỗi nháy và khoảng trắng) */}
-        {!isAdmin && <AdsBanner />}
+        {/* ✨ FIX: Khóa luôn cái Banner khi đang load dữ liệu role hoặc đã là Admin */}
+        {!roleLoading && !isAdmin && <AdsBanner />}
 
         {/* HEADER CHUẨN DASHBOARD */}
         <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
