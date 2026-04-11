@@ -2,7 +2,7 @@
 
 @layer base {
 
-  /* 👇 1. CẤU HÌNH SIZE CHỮ TOÀN WEB */
+  /*  1. CẤU HÌNH SIZE CHỮ TOÀN WEB */
   html,
   body {
     /* overflow-x: hidden;  <-- Tạm tắt để fix lỗi sticky sidebar */
