@@ -1,11 +1,21 @@
+# Tắt Edge Runtime để tránh lỗi khởi động và nhẹ máy
+[edge_runtime]
+enabled = false
 
 [functions.send-otp-email]
-enabled = true
+enabled = false
 verify_jwt = true
 import_map = "./functions/send-otp-email/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
 entrypoint = "./functions/send-otp-email/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/send-otp-email/*.html" ]
+
+# Cấu hình tên miền chính của dự án (Giúp sửa lỗi chuyển hướng sai)
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://127.0.0.1:3000"]
+
+# Bật đăng nhập Google và cấp Key
+[auth.external.google]
+enabled = true
+client_id = "1097002285480-3og7gdbd6v0sid980n6vc9ctshj9u6br.apps.googleusercontent.com"
+secret = "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"
+redirect_uri = "http://127.0.0.1:54321/auth/v1/callback"
