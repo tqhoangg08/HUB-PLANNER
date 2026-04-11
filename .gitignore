@@ -27,3 +27,5 @@ dist-ssr
 .env.local
 .vercel
 .env*.local
+backup_*.sql
+supabase/seed.sql
