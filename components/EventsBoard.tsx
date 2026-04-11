@@ -924,7 +924,6 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     document.title = "Sự kiện ĐRL | HUB Planner";
   }, []);
 
-  // ✨ ĐÃ SỬA: Lấy thêm biến loading
   const { isAdmin, isCTV, session, loading: roleLoading } = useUserRole();
   const canManage = isAdmin || isCTV;
   
@@ -1304,7 +1303,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   };
 
   // =======================================================================
-  // ✨ RENDER DẠNG CARD CHO NGƯỜI DÙNG BÌNH THƯỜNG (GIỮ NGUYÊN)
+  // ✨ RENDER DẠNG CARD LƯỚI CHO NGƯỜI DÙNG BÌNH THƯỜNG
   // =======================================================================
   const renderEventCard = (evt: HubEvent) => {
     const isPending = evt.status === 'pending';
@@ -1328,121 +1327,109 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     else badgeUI = <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold">Sắp diễn ra</span>;
 
     return (
-      <div key={evt.id} className={`bg-white rounded-xl border border-gray-200 p-4 flex flex-col md:flex-row gap-4 lg:gap-6 items-start md:items-center transition-all duration-300 hover:shadow-md relative group ${evt.is_deleted ? 'opacity-60 grayscale' : ''}`}>
+      <div key={evt.id} className={`bg-white rounded-xl border border-gray-200 p-3.5 sm:p-5 flex flex-col h-full transition-all duration-300 hover:shadow-lg hover:-translate-y-1 relative group ${evt.is_deleted ? 'opacity-60 grayscale' : ''}`}>
         
-        {/* INFO SECTION (BÊN TRÁI) */}
-        <div className="flex-1 min-w-0 w-full">
-            <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                <span className="text-xs text-gray-500 font-medium flex items-center gap-1">
-                    <Building2 size={14} className="shrink-0"/> {evt.organizer}
-                </span>
-                <div className="text-[10px]">
-                    {badgeUI}
-                </div>
+        {/* HEADER: Organizer & Status */}
+        <div className="flex justify-between items-start gap-2 mb-2 sm:mb-3">
+            <span className="text-[11px] sm:text-xs text-gray-500 font-medium flex items-center gap-1.5 line-clamp-1">
+                <Building2 size={12} className="sm:w-[14px] sm:h-[14px] shrink-0"/> <span className="truncate">{evt.organizer}</span>
+            </span>
+            <div className="shrink-0 text-[10px]">
+                {badgeUI}
             </div>
-            
-            <h3 className={`font-bold text-gray-900 text-base sm:text-lg leading-snug mb-2 transition-colors ${!isLinkClosed && !evt.is_deleted ? 'group-hover:text-[#003375]' : ''}`} title={evt.name}>
-                {evt.name}
-            </h3>
+        </div>
 
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-                {evt.classification && (
-                    <span className="bg-purple-50 text-purple-600 border border-purple-200 text-[10px] font-medium px-2 py-0.5 rounded flex items-center gap-1">
-                        <Tag size={10}/> {evt.classification}
-                    </span>
-                )}
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${isLinkClosed || evt.is_deleted ? 'bg-gray-50 text-gray-500 border-gray-200' : 'bg-red-50 text-[#990000] border-red-100'}`}>
-                    <Award size={10}/> {evt.score.includes('+') ? evt.score : `+${evt.score}`}
-                </span>
-                <span className="bg-gray-50 text-gray-600 border border-gray-300 text-[10px] font-medium px-2 py-0.5 rounded">
-                    Mục {evt.category}
-                </span>
-                {evt.scope && evt.scope !== 'Khác' && (
-                    <span className="bg-gray-50 text-gray-600 border border-gray-300 text-[10px] font-medium px-2 py-0.5 rounded flex items-center gap-1">
-                        <MapPin size={10}/> {evt.scope}
-                    </span>
-                )}
-                {evt.location && (
-                    <span className="bg-gray-50 text-gray-600 border border-gray-300 text-[10px] font-medium px-2 py-0.5 rounded">
-                        {evt.location}
-                    </span>
-                )}
-            </div>
+        {/* TITLE */}
+        <h3 className={`font-bold text-gray-900 text-sm sm:text-base leading-snug mb-2 sm:mb-3 line-clamp-2 transition-colors ${!isLinkClosed && !evt.is_deleted ? 'group-hover:text-[#003375]' : ''}`} title={evt.name}>
+            {evt.name}
+        </h3>
 
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 text-xs text-gray-600">
-                <div className="flex items-center gap-1.5">
-                    <Calendar size={14} className="text-gray-400 shrink-0"/>
-                    <span className="truncate">Diễn ra: {evt.event_date ? `${formatTimeString(evt.event_time)} ${formatDateString(evt.event_date)}` : 'Chưa cập nhật'}</span>
-                </div>
-                <div className="hidden sm:block text-gray-300">•</div>
-                <div className="flex items-center gap-1.5">
-                    <Clock size={14} className={`shrink-0 ${isLinkClosed || evt.is_deleted ? 'text-gray-400' : isDeadlineToday ? 'text-red-500' : 'text-gray-400'}`} />
-                    <span className={`truncate ${isDeadlineToday && !isLinkClosed && !evt.is_deleted ? 'text-red-600 font-bold' : ''}`}>
-                        Hạn chót: {evt.close_on_full ? (
-                            <span className="font-bold text-[#990000]">Đóng khi đủ SL</span>
-                        ) : (
-                            evt.time && evt.time !== 'Chưa cập nhật' ? `${evt.deadline_time ? formatTimeString(evt.deadline_time) + ' ' : ''}${evt.time}` : 'Chưa cập nhật'
-                        )}
-                    </span>
-                </div>
-            </div>
-            
-            {evt.description && (
-                <details className="mt-3 text-xs text-gray-600 group/details w-full">
-                    <summary className="font-semibold text-blue-600 cursor-pointer list-none flex items-center gap-1 hover:underline select-none">
-                        <Info size={12}/> Xem chi tiết
-                    </summary>
-                    <div className="mt-2 p-3 bg-gray-50 border border-gray-100 rounded-lg whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar">
-                        {evt.description}
-                    </div>
-                </details>
+        {/* TAGS */}
+        <div className="flex flex-wrap items-center gap-1.5 mb-2.5 sm:mb-4">
+            {evt.classification && (
+                <span className="bg-purple-50 text-purple-600 border border-purple-100 text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md flex items-center gap-1">
+                    <Tag size={10}/> {evt.classification}
+                </span>
+            )}
+            <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border flex items-center gap-1 ${isLinkClosed || evt.is_deleted ? 'bg-gray-50 text-gray-500 border-gray-200' : 'bg-red-50 text-[#990000] border-red-100'}`}>
+                <Award size={10}/> {evt.score.includes('+') ? evt.score : `+${evt.score}`}
+            </span>
+            <span className="bg-gray-50 text-gray-600 border border-gray-200 text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md">
+                Mục {evt.category}
+            </span>
+            {evt.scope && evt.scope !== 'Khác' && (
+                <span className="bg-gray-50 text-gray-600 border border-gray-200 text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md flex items-center gap-1">
+                    <MapPin size={10}/> {evt.scope}
+                </span>
             )}
         </div>
 
-        {/* ACTIONS SECTION */}
-        <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-2 w-full md:w-[160px] lg:w-[200px] shrink-0 md:pl-4 md:border-l border-gray-100 mt-2 md:mt-0 pt-3 md:pt-0 border-t md:border-t-0">
-            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+        {/* DATETIME */}
+        <div className="flex flex-col gap-1 sm:gap-2 text-[11px] sm:text-xs text-gray-600 mb-2.5 sm:mb-4">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+                <Calendar size={12} className="sm:w-[14px] sm:h-[14px] text-gray-400 shrink-0"/>
+                <span className="truncate">Diễn ra: {evt.event_date ? `${formatTimeString(evt.event_time)} ${formatDateString(evt.event_date)}` : 'Chưa cập nhật'}</span>
+            </div>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+                <Clock size={12} className={`sm:w-[14px] sm:h-[14px] shrink-0 ${isLinkClosed || evt.is_deleted ? 'text-gray-400' : isDeadlineToday ? 'text-red-500' : 'text-gray-400'}`} />
+                <span className={`truncate ${isDeadlineToday && !isLinkClosed && !evt.is_deleted ? 'text-red-600 font-bold' : ''}`}>
+                    Hạn chót: {evt.close_on_full ? (
+                        <span className="font-bold text-[#990000]">Đóng khi đủ SL</span>
+                    ) : (
+                        evt.time && evt.time !== 'Chưa cập nhật' ? `${evt.deadline_time ? formatTimeString(evt.deadline_time) + ' ' : ''}${evt.time}` : 'Chưa cập nhật'
+                    )}
+                </span>
+            </div>
+        </div>
+
+        {/* DESCRIPTION TOGGLE */}
+        {evt.description && (
+            <details className="text-[11px] sm:text-xs text-gray-600 group/details w-full mb-3 sm:mb-4">
+                <summary className="font-semibold text-blue-600 cursor-pointer list-none flex items-center gap-1 hover:underline select-none">
+                    <Info size={12}/> Xem chi tiết
+                </summary>
+                <div className="mt-2 p-2.5 sm:p-3 bg-gray-50 border border-gray-100 rounded-lg whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar">
+                    {evt.description}
+                </div>
+            </details>
+        )}
+
+        {/* FOOTER ACTIONS (Pushed to bottom) */}
+        <div className="mt-auto pt-3 sm:pt-4 border-t border-gray-100 flex items-center gap-1.5 sm:gap-2 w-full">
+            
+            {/* Nhóm 3 nút icon (Lưu, Chat, Báo lỗi) */}
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 <button 
-                    onClick={() => toggleParticipation(evt.id)} 
-                    className={`p-2 sm:px-3 sm:py-2 rounded-lg border transition-colors flex items-center justify-center gap-2 ${isParticipated ? 'bg-green-50 border-green-300 text-green-600' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`} 
+                    onClick={(e) => { e.stopPropagation(); toggleParticipation(evt.id); }} 
+                    className={`p-1.5 sm:p-2 rounded-lg transition-colors flex items-center justify-center ${isParticipated ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`} 
                     title={isParticipated ? "Đã tham gia (Bấm hủy)" : "Đánh dấu tham gia"}
                 >
-                    {isParticipated ? <BookmarkCheck size={16}/> : <Bookmark size={16}/>}
-                    <span className="text-xs font-bold hidden lg:block">{isParticipated ? 'Đã lưu' : 'Lưu lại'}</span>
+                    {isParticipated ? <BookmarkCheck size={16} className="sm:w-[18px] sm:h-[18px]"/> : <Bookmark size={16} className="sm:w-[18px] sm:h-[18px]"/>}
                 </button>
                 <button 
-                    onClick={() => { playClick(); setDiscussEvent({ id: evt.id, name: evt.name }); }} 
-                    className="p-2 sm:px-3 sm:py-2 bg-white border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-[#003375] transition-colors flex items-center justify-center gap-2" 
+                    onClick={(e) => { e.stopPropagation(); playClick(); setDiscussEvent({ id: evt.id, name: evt.name }); }} 
+                    className="p-1.5 sm:p-2 bg-gray-50 rounded-lg text-gray-500 hover:bg-blue-50 hover:text-[#003375] transition-colors flex items-center justify-center" 
                     title="Thảo luận"
                 >
-                    <MessageCircle size={16}/>
-                    <span className="text-xs font-bold hidden lg:block">Thảo luận</span>
-                </button>
-                
-                {/* Nút báo lỗi nhỏ cho user */}
-                <button 
-                    onClick={(e) => { e.stopPropagation(); playClick(); setReportingEvent(evt); }} 
-                    className="p-2 sm:px-3 sm:py-2 bg-white border border-gray-300 rounded-lg text-orange-500 hover:bg-orange-50 transition-colors flex items-center justify-center lg:hidden"
-                >
-                    <AlertTriangle size={16} />
+                    <MessageCircle size={16} className="sm:w-[18px] sm:h-[18px]"/>
                 </button>
                 <button 
                     onClick={(e) => { e.stopPropagation(); playClick(); setReportingEvent(evt); }} 
-                    className="hidden lg:flex p-2 sm:px-3 sm:py-2 bg-white border border-gray-300 rounded-lg text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-colors items-center justify-center gap-2"
+                    className="p-1.5 sm:p-2 bg-gray-50 rounded-lg text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-colors flex items-center justify-center"
+                    title="Báo lỗi"
                 >
-                    <AlertTriangle size={16} />
-                    <span className="text-xs font-bold hidden lg:block">Báo lỗi</span>
+                    <AlertTriangle size={16} className="sm:w-[18px] sm:h-[18px]"/>
                 </button>
             </div>
 
-            {/* Nút Đăng Ký */}
+            {/* Nút Đăng ký ngay (Nằm ngang hàng, kéo dài ra) */}
             {evt.link && !isLinkClosed && !evt.is_deleted ? (
-                <a href={formattedLink} target="_blank" rel="noopener noreferrer" onClick={(e) => { playClick(); e.stopPropagation(); }} className={`w-full mt-2 md:mt-1 text-white text-sm font-bold px-6 py-2.5 rounded-lg flex items-center justify-center transition-colors shadow-sm ${isDeadlineToday ? 'bg-red-600 hover:bg-red-700' : 'bg-[#003375] hover:bg-[#002855]'}`}>
+                <a href={formattedLink} target="_blank" rel="noopener noreferrer" onClick={(e) => { playClick(); e.stopPropagation(); }} className={`flex-1 text-white text-[13px] sm:text-sm font-bold px-2 sm:px-4 py-2 sm:py-2.5 rounded-lg flex items-center justify-center transition-colors shadow-sm ${isDeadlineToday ? 'bg-red-600 hover:bg-red-700' : 'bg-[#003375] hover:bg-[#002855]'}`}>
                     Đăng ký ngay
                 </a>
             ) : (
-                <button disabled className="w-full mt-2 md:mt-1 py-2.5 px-4 rounded-lg font-semibold text-xs cursor-not-allowed border bg-gray-50 text-gray-400 border-gray-200 flex items-center justify-center gap-1.5">
-                    {evt.is_deleted ? "Đã bị ẩn" : (isLinkClosed ? <><Lock size={14}/> Đã kết thúc</> : "Chưa có link")}
+                <button disabled className="flex-1 py-2 sm:py-2.5 px-2 sm:px-4 rounded-lg font-semibold text-[11px] sm:text-xs cursor-not-allowed border bg-gray-50 text-gray-400 border-gray-200 flex items-center justify-center gap-1.5">
+                    {evt.is_deleted ? "Đã bị ẩn" : (isLinkClosed ? <><Lock size={12} className="sm:w-[14px] sm:h-[14px]"/> Đã kết thúc</> : "Chưa có link")}
                 </button>
             )}
         </div>
@@ -1463,8 +1450,8 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 return (
     <div className="animate-slideInRight">
         {/* STICKY HEADER */}
-        <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
-            <div className="flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between w-full">
+        <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 sm:pb-4 -mt-2 mb-2 sm:mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
+            <div className="flex flex-col xl:flex-row gap-2 sm:gap-4 items-start xl:items-center justify-between w-full">
                 {/* Tiêu đề & Thông báo */}
                 <div className="w-full xl:w-auto">
                     <h2 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
@@ -1484,7 +1471,7 @@ return (
                 </div>
                 
                 {/* Thanh Công Cụ (Filter & Actions) ĐÃ ĐƯỢC CHỐNG DÍNH CHÙM */}
-                <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto shrink-0 justify-start xl:justify-end">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full xl:w-auto shrink-0 justify-start xl:justify-end">
                     
                     {/* Search Bar */}
                     <div className="relative w-full sm:w-auto flex-grow sm:flex-grow-0 min-w-[200px]">
@@ -1498,81 +1485,88 @@ return (
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                     </div>
                     
-                    {/* Dropdown Khu vực */}
-                    <div className="relative w-full sm:w-auto flex-1 sm:flex-none">
-                        <select 
-                            value={activeScope} 
-                            onChange={(e) => { playClick(); setActiveScope(e.target.value); }} 
-                            className="w-full appearance-none pl-8 pr-7 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-300 transition-colors"
-                        >
-                            <option value="all">Tất cả khu vực</option>
-                            <option value="internal">Trong trường</option>
-                            <option value="external">Ngoài trường</option>
-                        </select>
-                        <Building2 className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                    </div>
-                    
-                    {/* Dropdown Sắp xếp */}
-                    <div className="relative w-full sm:w-auto flex-1 sm:flex-none">
-                        <select 
-                            value={sortOrder} 
-                            onChange={(e) => { playClick(); setSortOrder(e.target.value as 'newest' | 'oldest' | 'expiring_soon'); }} 
-                            className="w-full appearance-none pl-8 pr-7 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-300 transition-colors"
-                        >
-                            <option value="newest">Mới nhất</option>
-                            <option value="oldest">Cũ nhất</option>
-                            <option value="expiring_soon">Gần hết hạn</option>
-                        </select>
-                        <ArrowDownUp className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                    </div>
+                    {/* Container hàng 2 trên Mobile (Dropdowns + Buttons) */}
+                    <div className="flex flex-row items-center gap-2 w-full sm:w-auto">
+                        {/* Dropdowns */}
+                        <div className="flex items-center gap-2 flex-1 sm:flex-none">
+                            <div className="relative flex-1 sm:flex-none">
+                                <select 
+                                    value={activeScope} 
+                                    onChange={(e) => { playClick(); setActiveScope(e.target.value); }} 
+                                    className="w-full appearance-none pl-7 pr-6 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-300 transition-colors"
+                                >
+                                    <option value="all">Tất cả khu vực</option>
+                                    <option value="internal">Trong trường</option>
+                                    <option value="external">Ngoài trường</option>
+                                </select>
+                                <Building2 className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+                            </div>
+                            
+                            <div className="relative flex-1 sm:flex-none">
+                                <select 
+                                    value={sortOrder} 
+                                    onChange={(e) => { playClick(); setSortOrder(e.target.value as 'newest' | 'oldest' | 'expiring_soon'); }} 
+                                    className="w-full appearance-none pl-7 pr-6 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-300 transition-colors"
+                                >
+                                    <option value="newest">Mới nhất</option>
+                                    <option value="oldest">Cũ nhất</option>
+                                    <option value="expiring_soon">Gần hết hạn</option>
+                                </select>
+                                <ArrowDownUp className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+                            </div>
+                        </div>
 
-                    {/* Nút chức năng */}
-                    <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                        <button onClick={() => { playClick(); fetchEvents(); }} className="p-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-[#003375] transition-all active:scale-95" title="Làm mới">
-                            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-                        </button>
-                        <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="p-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95" title="Xem bảng điểm">
-                            <FileText size={14} />
-                        </button>
-                        
-                        {canManage ? (
-                            <button onClick={handleOpenAdd} className="flex-1 sm:flex-none px-3 py-1.5 bg-[#003375] hover:bg-[#002855] text-white rounded-md shadow-sm flex items-center justify-center gap-1.5 text-xs font-bold transition-all active:scale-95 whitespace-nowrap">
-                                <PlusCircle size={14} /> Thêm mới
+                        {/* Nút chức năng (Thu gọn thành icon trên mobile) */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <button onClick={() => { playClick(); fetchEvents(); }} className="p-1.5 sm:px-2 sm:py-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Làm mới">
+                                <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
                             </button>
-                        ) : (
-                            <button onClick={() => { playClick(); setShowContributeModal(true); }} className="flex-1 sm:flex-none px-3 py-1.5 bg-[#003375] hover:bg-[#002855] text-white rounded-md shadow-sm flex items-center justify-center gap-1.5 text-xs font-bold transition-all active:scale-95 whitespace-nowrap">
-                                <PlusCircle size={14} /> Gửi đóng góp
+                            <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="p-1.5 sm:px-2 sm:py-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Xem bảng điểm">
+                                <FileText size={14} />
                             </button>
-                        )}
+                            
+                            {canManage ? (
+                                <button onClick={handleOpenAdd} className="p-1.5 sm:px-3 sm:py-1.5 bg-[#003375] hover:bg-[#002855] text-white rounded-md shadow-sm flex items-center justify-center text-xs font-bold transition-all active:scale-95" title="Thêm mới">
+                                    <PlusCircle size={14} />
+                                    <span className="hidden sm:inline sm:ml-1.5">Thêm mới</span>
+                                </button>
+                            ) : (
+                                <button onClick={() => { playClick(); setShowContributeModal(true); }} className="p-1.5 sm:px-3 sm:py-1.5 bg-[#003375] hover:bg-[#002855] text-white rounded-md shadow-sm flex items-center justify-center text-xs font-bold transition-all active:scale-95" title="Gửi đóng góp">
+                                    <PlusCircle size={14} />
+                                    <span className="hidden sm:inline sm:ml-1.5">Gửi đóng góp</span>
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
         </div>
-
-        {/* ✨ ẨN BANNER CTV NẾU LÀ ADMIN / CTV ✨ */}
+ </div>
+       {/* ✨ ẨN BANNER CTV NẾU LÀ ADMIN / CTV ✨ */}
         {!canManage && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-1.5 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative overflow-hidden group">
-                <div className="flex items-start sm:items-center gap-3 relative z-10">
-                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm shrink-0 border border-blue-100">
-                        <UserPlus className="text-blue-600" size={12} />
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 sm:p-3 mb-2 sm:mb-4 flex flex-row items-center justify-between gap-2 sm:gap-3 relative overflow-hidden group">
+                <div className="flex items-center gap-2.5 sm:gap-3 relative z-10 flex-1 min-w-0">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center shadow-sm shrink-0 border border-blue-100">
+                        <UserPlus className="text-blue-600 w-3 h-3 sm:w-4 sm:h-4" />
                     </div>
-                    <div>
-                        <h4 className="font-bold text-sm sm:text-base text-blue-900">Trở thành CTV Nhập liệu HUB Planner</h4>
-                        <p className="text-xs sm:text-sm mt-0.5 text-blue-800 opacity-50 max-w-2xl">
-                            Bạn muốn đóng góp xây dựng cộng đồng sinh viên HUB? Hãy tham gia đội ngũ cập nhật sự kiện ngay hôm nay!
+                    <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-[12px] sm:text-sm text-blue-900 truncate">Trở thành CTV Nhập liệu</h4>
+                        {/* Dòng chữ phụ này sẽ bị ẩn trên Mobile, chỉ hiện trên màn to (sm:block) */}
+                        <p className="hidden sm:block text-xs mt-0.5 text-blue-800 opacity-60 truncate">
+                            Đóng góp xây dựng cộng đồng sinh viên HUB ngay hôm nay!
                         </p>
                     </div>
                 </div>
                 <button 
                     onClick={() => { playClick(); setShowCTVModal(true); }}
-                    className="shrink-0 text-xs font-bold bg-[#003375] text-white hover:bg-[#002855] shadow-md transition-colors px-3 py-1.5 rounded-lg whitespace-nowrap self-start sm:self-auto relative z-10 active:scale-95 flex items-center gap-2"
+                    className="shrink-0 text-[10px] sm:text-xs font-bold bg-[#003375] text-white hover:bg-[#002855] shadow-sm transition-colors px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-md whitespace-nowrap relative z-10 active:scale-95 flex items-center gap-1.5"
                 >
-                    <UserPlus size={16} /> Đăng ký ngay
+                    <UserPlus size={12} className="sm:w-4 sm:h-4" /> 
+                    <span>Đăng ký</span>
                 </button>
                 <div className="absolute right-0 top-0 opacity-[0.03] pointer-events-none transform translate-x-1/4 -translate-y-1/4 group-hover:scale-110 transition-transform duration-500">
-                    <Users size={200} />
+                    <Users size={150} />
                 </div>
             </div>
         )}
@@ -1684,7 +1678,7 @@ return (
                 </div>
             </div>
         ) : (
-            /* DẠNG CARD CHUẨN DÀNH CHO USER BÌNH THƯỜNG */
+            /* ✨ DẠNG CARD LƯỚI CHO USER BÌNH THƯỜNG ✨ */
             <div className="space-y-8 animate-fadeIn">
                 {activeTab === 'participated' && participatedStats && (
                     <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -1708,7 +1702,7 @@ return (
                             <Flame className="text-orange-500 fill-orange-100" /> 
                             {activeTab === 'participated' ? 'Đang/Đã tham gia (Mở đăng ký)' : 'Đang mở đăng ký'} ({openingEvents.length})
                         </h3>
-                        <div className="flex flex-col gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                             {openingEvents.map(evt => renderEventCard(evt))}
                         </div>
                     </div>
@@ -1720,7 +1714,7 @@ return (
                             <Lock className="text-gray-400" /> 
                             {activeTab === 'participated' ? 'Đã tham gia (Hết hạn)' : 'Đã hết hạn'} ({expiredEvents.length})
                         </h3>
-                        <div className="flex flex-col gap-4 opacity-80">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 opacity-80">
                             {expiredEvents.map(evt => renderEventCard(evt))}
                         </div>
                     </div>

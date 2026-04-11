@@ -700,13 +700,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         {!isAdmin && <AdsBanner />}
 
         {/* HEADER CHUẨN DASHBOARD */}
-        <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
+        <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-1 sm:pb-4 -mt-2 mb-1 sm:mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
             <div className="flex flex-row justify-between items-end px-1 overflow-hidden shrink-0">
                 <div className="flex flex-col">
                     <h1 className="text-[24px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
                         Thời khóa biểu
                     </h1>
-                    <div className="flex items-center gap-1.5 mt-2 text-[12px] sm:text-[13px] text-gray-500 overflow-x-auto whitespace-nowrap custom-scrollbar pb-1">
+                    <div className="flex items-center gap-1.5 mt-1 sm:mt-2 text-[12px] sm:text-[13px] text-gray-500 overflow-x-auto whitespace-nowrap custom-scrollbar pb-1">
                         <span className="shrink-0">Quản lý học tập</span>
                         <span className="text-gray-300 shrink-0">•</span>
                         <span className="font-bold text-gray-700 shrink-0">Lịch học & Thi</span>
@@ -818,11 +818,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 </div>
             </div>
         ) : (
-            <div className="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-150px)] items-start">
+            <div className="flex flex-col lg:flex-row gap-3 sm:gap-6 lg:h-[calc(100vh-150px)] items-start">
             
                 {/* CỘT TRÁI: SIDEBAR FILTER */}
-                <div className="w-full lg:w-[300px] bg-white rounded-xl border border-gray-300 flex flex-col shrink-0 overflow-hidden h-[500px] lg:h-full shadow-sm">
-                    <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-[#f8fafc]">
+                <div className={`w-full lg:w-[300px] bg-white rounded-xl border border-gray-300 flex flex-col shrink-0 overflow-hidden shadow-sm transition-all ${searchTerm.trim() ? 'h-[450px]' : 'h-auto'} lg:h-full`}>
+                    <div className="p-3 sm:p-4 border-b border-gray-100 flex justify-between items-center bg-[#f8fafc]">
                         <h2 className="text-base font-bold text-[#003375] flex items-center gap-2">
                             <Search size={18} className="text-[#990000]" /> Tìm kiếm & Lọc
                         </h2>
@@ -833,16 +833,16 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         )}
                     </div>
                     
-                    <div className="p-4 space-y-4 border-b border-gray-100">
+                    <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 border-b border-gray-100">
                         <div className="flex gap-2">
                             <div className="flex-1">
-                                <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 outline-none text-sm font-bold text-[#003375] bg-white hover:border-gray-300 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
+                                <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="w-full px-3 py-2 sm:py-2.5 rounded-lg border border-gray-200 outline-none text-sm font-bold text-[#003375] bg-white hover:border-gray-300 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
                                     <option value="HK2_2025_2026">HK2 (2025-2026)</option>
                                     <option value="HK1_2025_2026">HK1 (2025-2026)</option>
                                 </select>
                             </div>
                             <div className="w-[35%]">
-                                <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 outline-none text-sm font-bold text-gray-700 bg-white hover:border-gray-300 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
+                                <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="w-full px-3 py-2 sm:py-2.5 rounded-lg border border-gray-200 outline-none text-sm font-bold text-gray-700 bg-white hover:border-gray-300 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
                                     <option value="all">Mọi đợt</option>
                                     <option value="1">Đợt 1</option>
                                     <option value="2">Đợt 2</option>
@@ -851,8 +851,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </div>
 
                         <div className="relative">
-                            <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 outline-none text-sm transition-all hover:border-gray-300 focus:border-[#003375] focus:ring-1 focus:ring-[#003375] disabled:bg-gray-50 disabled:cursor-not-allowed"/>
-                            <Search className="absolute left-3 top-3 text-gray-400" size={16} />
+                            <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 sm:py-2.5 rounded-lg border border-gray-200 outline-none text-sm transition-all hover:border-gray-300 focus:border-[#003375] focus:ring-1 focus:ring-[#003375] disabled:bg-gray-50 disabled:cursor-not-allowed"/>
+                            <Search className="absolute left-3 top-2.5 sm:top-3 text-gray-400" size={16} />
                         </div>
 
                         <div className="flex gap-2">
@@ -875,8 +875,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload} />
                     </div>
 
-                    {/* Danh sách môn học gợi ý */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50 custom-scrollbar relative">
+                    {/* Danh sách môn học gợi ý (TỰ ĐỘNG ẨN TRÊN MOBILE KHI CHƯA NHẬP TỪ KHÓA) */}
+                    <div className={`flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-gray-50/50 custom-scrollbar relative ${searchTerm.trim() ? 'block' : 'hidden lg:block'}`}>
                         {!isAuthenticated ? (
                             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6 bg-white/80 backdrop-blur-sm animate-fadeIn">
                                 <div className="w-14 h-14 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mb-3 shadow-sm border border-blue-100">

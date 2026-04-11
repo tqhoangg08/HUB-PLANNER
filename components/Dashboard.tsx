@@ -1472,22 +1472,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
             </div>
         ) : (
-            <div className="w-full space-y-4 pt-1 animate-fadeIn">
-                <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
+            <div className="w-full space-y-2 sm:space-y-4 pt-1 animate-fadeIn">
+                <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-1 sm:pb-4 -mt-2 mb-1 sm:mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
                     {isAdmin && (
                         <button 
-    onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('list'); window.history.pushState(null, '', '/dashboard/admin'); }}
-    className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
->
-    <ChevronLeft size={16} /> Quay lại danh sách quản lý
-</button>
+                            onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('list'); window.history.pushState(null, '', '/dashboard/admin'); }}
+                            className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
+                        >
+                            <ChevronLeft size={16} /> Quay lại danh sách quản lý
+                        </button>
                     )}
                     
-                    <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-2">
+                    <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-1 sm:mb-2">
                         Học tập {selectedUserOverview && <span className="text-sm text-gray-400 font-medium ml-2 uppercase tracking-wide border border-gray-200 bg-white px-2 py-0.5 rounded-md align-middle">(Chế độ xem của Admin)</span>}
                     </h1>
                     
-                    <div className="flex flex-wrap items-center gap-1.5 text-[12px] sm:text-[13px] text-gray-500 font-medium mb-3">
+                    <div className="flex flex-wrap items-center gap-1.5 text-[12px] sm:text-[13px] text-gray-500 font-medium mb-1 sm:mb-3">
                         <span className="font-bold text-gray-700">Tổng quan lộ trình</span>
                         <span className="text-gray-300">•</span>
                         <span>{activeData.studentName || 'Chưa cập nhật tên'}</span>
@@ -1500,7 +1500,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     {isGuest && (
-                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fadeIn">
+                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fadeIn mt-2 sm:mt-0">
                             <div className="flex items-center gap-2 text-[#003375] text-sm font-medium">
                                 <Info size={18} className="shrink-0" />
                                 {isLocked ? (
