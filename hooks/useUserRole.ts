@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { Session } from '@supabase/supabase-js';
 
-export type UserRole = 'admin' | 'editor' | 'student';
+// 1. Thêm 'auditor' vào Type
+export type UserRole = 'admin' | 'auditor' | 'editor' | 'student';
 
 interface UserRoleState {
     role: UserRole;
     isAdmin: boolean;
+    isAuditor: boolean; // 2. Thêm cờ nhận diện Auditor
     isCTV: boolean; // Editor
     isStudent: boolean;
     loading: boolean;
@@ -18,6 +20,7 @@ export const useUserRole = () => {
     const [state, setState] = useState<UserRoleState>({
         role: 'student',
         isAdmin: false,
+        isAuditor: false, // 3. Khởi tạo mặc định
         isCTV: false,
         isStudent: true,
         loading: true, // Khóa màn hình chờ lấy phiên
@@ -33,8 +36,14 @@ export const useUserRole = () => {
             if (!currentSession) {
                 if (isMounted) {
                     setState({
-                        role: 'student', isAdmin: false, isCTV: false, isStudent: true,
-                        loading: false, userEmail: null, session: null
+                        role: 'student', 
+                        isAdmin: false, 
+                        isAuditor: false, 
+                        isCTV: false, 
+                        isStudent: true,
+                        loading: false, 
+                        userEmail: null, 
+                        session: null
                     });
                 }
                 return;
@@ -43,7 +52,7 @@ export const useUserRole = () => {
             // Bảo vệ an toàn: Nếu supabase chưa sẵn sàng thì khoan hãy check DB
             if (!supabase) return;
 
-            // Trường hợp 2: Có đăng nhập -> Chạy vào DB check xem có phải Admin không
+            // Trường hợp 2: Có đăng nhập -> Chạy vào DB check xem có phải Admin/Auditor không
             try {
                 const { data, error } = await supabase
                     .from('user_roles')
@@ -51,14 +60,15 @@ export const useUserRole = () => {
                     .eq('user_id', currentSession.user.id)
                     .maybeSingle();
 
-                const role = (data && !error) ? (data.role as UserRole) : 'student';
+                const role = (data && !error) ? (data.role as string).trim() as UserRole : 'student';
 
                 if (isMounted) {
                     setState({
                         role,
                         isAdmin: role === 'admin',
+                        isAuditor: role === 'auditor', // 4. Kiểm tra role auditor
                         isCTV: role === 'editor',
-                        isStudent: role !== 'admin' && role !== 'editor',
+                        isStudent: role !== 'admin' && role !== 'editor' && role !== 'auditor', // 5. Cập nhật điều kiện sinh viên
                         loading: false,
                         userEmail: currentSession.user.email || null,
                         session: currentSession // <-- Giữ nguyên phiên đăng nhập
@@ -66,10 +76,14 @@ export const useUserRole = () => {
                 }
             } catch (err) {
                 console.error("Lỗi lấy quyền:", err);
-                // Trường hợp 3: DÙ CÓ LỖI DB THÌ VẪN PHẢI CHO ĐĂNG NHẬP (Chỉ là không có quyền Admin thôi)
+                // Trường hợp 3: DÙ CÓ LỖI DB THÌ VẪN PHẢI CHO ĐĂNG NHẬP (Chỉ là không có quyền)
                 if (isMounted) {
                     setState({
-                        role: 'student', isAdmin: false, isCTV: false, isStudent: true,
+                        role: 'student', 
+                        isAdmin: false, 
+                        isAuditor: false, 
+                        isCTV: false, 
+                        isStudent: true,
                         loading: false, 
                         userEmail: currentSession.user.email || null, 
                         session: currentSession // <-- QUAN TRỌNG: Tránh bị văng ra ẩn danh!

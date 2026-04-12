@@ -144,7 +144,7 @@ const getColorForCourse = (id: string) => {
 export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   useEffect(() => { document.title = "Thời khóa biểu | HUB Planner"; }, []);
 
-  const { session, isAdmin, loading } = useUserRole();
+  const { session, isAdmin, isAuditor, loading } = useUserRole();
   const isAuthenticated = session !== null;
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -190,10 +190,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isSavingAdminCourse, setIsSavingAdminCourse] = useState(false);
 
   useEffect(() => {
-      if (!loading) {
-          setIsAdminView(isAdmin);
-      }
-  }, [isAdmin, loading]);
+    if (!loading) {
+        setIsAdminView(isAdmin || isAuditor);
+    }
+}, [isAdmin, isAuditor, loading]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -400,6 +400,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   };
 
   const handleAdminDeleteCourse = async (id: string) => {
+    if (isAuditor) {
+        alert("⚠️ Tính năng này bị khóa đối với tài khoản Auditor.");
+        return;
+    }
       if (!window.confirm("BẠN CÓ CHẮC CHẮN MUỐN XÓA?\nHành động này sẽ xóa môn học khỏi cơ sở dữ liệu và tự động xóa khỏi Thời khóa biểu của tất cả sinh viên đang lưu môn này!")) return;
       
       try {
@@ -713,7 +717,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     </div>
                 </div>
                 {/* NÚT TOGGLE ADMIN MODE */}
-                {isAdmin && (
+                {(isAdmin || isAuditor) && (
                     <button 
                         onClick={() => { playClick(); setIsAdminView(!isAdminView); }}
                         className="flex items-center gap-1.5 px-4 py-2 bg-purple-100 text-purple-700 font-bold rounded-lg hover:bg-purple-200 transition-colors shadow-sm text-xs sm:text-sm active:scale-95"
@@ -806,9 +810,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         </td>
                                         <td className="p-3 text-center">
                                             <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => { setAdminEditData(c); setIsAdminEditModalOpen(true); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Chỉnh sửa"><Edit size={16}/></button>
-                                                <button onClick={() => handleAdminDeleteCourse(c.id)} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors" title="Xóa vĩnh viễn"><Trash2 size={16}/></button>
-                                            </div>
+    <button onClick={() => { setAdminEditData(c); setIsAdminEditModalOpen(true); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Chỉnh sửa"><Edit size={16}/></button>
+    {!isAuditor && (
+        <button onClick={() => handleAdminDeleteCourse(c.id)} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors" title="Xóa vĩnh viễn"><Trash2 size={16}/></button>
+    )}
+</div>
                                         </td>
                                     </tr>
                                 ))}

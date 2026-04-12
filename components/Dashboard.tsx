@@ -287,9 +287,10 @@ interface SemesterTableProps {
   allSemesterOptions: string[];
   usedSemesterNames: string[];
   onCascadeUpdate: (newName: string) => void; 
+  isReadOnly?: boolean;
 }
 
-const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester, allSemesterOptions, usedSemesterNames, onCascadeUpdate }) => {
+const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester, allSemesterOptions, usedSemesterNames, onCascadeUpdate, isReadOnly }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
     
@@ -737,14 +738,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }, []);
 
     // ✨ FIX LỖI NHÁY: Lấy biến loading từ role
-    const { isAdmin, loading } = useUserRole();
+    const { isAdmin, isAuditor, loading } = useUserRole();
     const [adminUsers, setAdminUsers] = useState<any[]>([]);
     const [loadingAdmin, setLoadingAdmin] = useState(false);
     const [selectedUserOverview, setSelectedUserOverview] = useState<UserData | null>(null);
     const [selectedAdminUserId, setSelectedAdminUserId] = useState<string | null>(null);
+    const isViewingAsAuditor = isAuditor && selectedUserOverview !== null;
 
     const saveAdminUserUpdate = async (newData: UserData) => {
-        if (!selectedAdminUserId) return;
+    if (!selectedAdminUserId || isAuditor) return;
         try {
             await supabase.from('profiles').update({
                 data: newData,
@@ -763,11 +765,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [adminSearch, setAdminSearch] = useState('');
     const [adminMode, setAdminMode] = useState<'list' | 'detail'>('list');
     
+    // Đổi thành:
     useEffect(() => {
-        if (isAdmin && adminMode === 'list') {
-            window.history.replaceState(null, '', '/dashboard/admin');
-        }
-    }, [isAdmin, adminMode]);
+    if ((isAdmin || isAuditor) && adminMode === 'list') {
+        window.history.replaceState(null, '', '/dashboard/admin');
+    }
+}, [isAdmin, isAuditor, adminMode]);
     
     const [currentPage, setCurrentPage] = useState(1);
     const [pageInput, setPageInput] = useState('1');
@@ -786,19 +789,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }, [adminSearch, adminSort, adminFilterCohort, adminFilterMajor, adminFilterGpa, adminFilterSemester]);
 
     const prevStudentNameRef = useRef(data.studentName);
+    // Đổi thành:
     useEffect(() => {
-        if (isAdmin && data.studentName !== prevStudentNameRef.current) {
-            setAdminMode('detail');
-        }
-        prevStudentNameRef.current = data.studentName;
-    }, [data.studentName, isAdmin]);
+    if ((isAdmin || isAuditor) && data.studentName !== prevStudentNameRef.current) {
+        setAdminMode('detail');
+    }
+    prevStudentNameRef.current = data.studentName;
+}, [data.studentName, isAdmin, isAuditor]);
 
     const [showRankingModal, setShowRankingModal] = useState(false);
     const [showFailedModal, setShowFailedModal] = useState(false);
     const [showYearlyModal, setShowYearlyModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
 
-    const showAdminPanel = isAdmin && adminMode === 'list';
+    const showAdminPanel = (isAdmin || isAuditor) && adminMode === 'list';
 
     const fetchAdminData = async () => {
         setLoadingAdmin(true);
@@ -1210,260 +1214,221 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {!isAdmin && <AdsBanner />}
 
         {showAdminPanel ? (
-            <div className="w-full space-y-3 animate-fadeIn">
-                {/* 1. HEADER & NÚT */}
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 mb-4">
+            <div className="w-full space-y-3 sm:space-y-4 animate-fadeIn">
+                {/* 1. HEADER & NÚT THAO TÁC */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                     <div>
-                        <h1 className="text-xl sm:text-[24px] font-extrabold text-gray-900 tracking-tight leading-none mb-1.5">
+                        <h1 className="text-[22px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
                             Quản lý Sinh viên
                         </h1>
-                        <p className="text-xs text-gray-500 font-medium">Xem và theo dõi tiến độ học tập toàn trường</p>
+                        <p className="text-[11px] sm:text-xs text-gray-500 mt-1">Xem và theo dõi tiến độ học tập toàn trường</p>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                        <button className="px-3 py-2 bg-white text-gray-600 text-xs font-semibold border border-gray-300 hover:bg-gray-50 rounded-lg flex items-center gap-1.5 transition-colors shadow-sm">
-                            <Download size={14} /> Xuất danh sách
+                    <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
+                        <button className="shrink-0 px-3 py-1.5 bg-white text-gray-600 text-xs font-semibold border border-gray-300 hover:bg-gray-50 rounded-lg flex items-center gap-1.5 transition-colors shadow-sm">
+                            <Download size={14} /> <span className="hidden sm:inline">Xuất danh sách</span><span className="sm:hidden">Xuất</span>
                         </button>
-                        <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="px-3 py-2 bg-[#0052cc] text-white text-xs font-semibold rounded-lg hover:bg-[#003d99] flex items-center gap-1.5 transition-colors shadow-sm">
+                        <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="shrink-0 px-3 py-1.5 bg-[#0052cc] text-white text-xs font-bold rounded-lg hover:bg-[#003d99] flex items-center gap-1.5 transition-colors shadow-sm">
                             <User size={14} /> Hồ sơ của tôi
                         </button>
+                        <button onClick={() => { playClick(); fetchAdminData(); }} disabled={loadingAdmin} className="shrink-0 p-1.5 border border-gray-300 text-gray-500 hover:text-[#0052cc] hover:bg-blue-50 rounded-lg transition-colors bg-white shadow-sm" title="Làm mới">
+                            <RefreshCw size={16} className={loadingAdmin ? "animate-spin" : ""} />
+                        </button>
                     </div>
                 </div>
 
-                {/* 2. BỐN THẺ THỐNG KÊ (LAYOUT NGANG) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                    {/* Thẻ 1: Tổng sinh viên */}
-                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
-                            <Users size={20} strokeWidth={2} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Tổng sinh viên</p>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-2xl font-black text-gray-900">{adminSummary.total}</span>
-                                <span className="text-xs text-gray-500 font-medium">SV</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Thẻ 2: Trung bình GPA */}
-                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-purple-50 text-purple-500 flex items-center justify-center shrink-0">
-                            <TrendingUp size={20} strokeWidth={2} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Trung bình GPA</p>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-2xl font-black text-gray-900">{adminSummary.avgGPA}</span>
-                                <span className="text-xs text-gray-400 font-medium">/ 4.0</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Thẻ 3: Cảnh báo học vụ */}
-                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 cursor-pointer hover:border-red-300 transition-all" onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'warning' ? 'all' : 'warning'); }}>
-                        <div className="w-10 h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
-                            <AlertTriangle size={20} strokeWidth={2} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Cảnh báo học vụ</p>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-2xl font-black text-red-600">{adminSummary.warning}</span>
-                                <span className="text-xs text-gray-500 font-medium">SV</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Thẻ 4: Xuất sắc */}
-                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3 cursor-pointer hover:border-yellow-300 transition-all" onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'excellent' ? 'all' : 'excellent'); }}>
-                        <div className="w-10 h-10 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
-                            <Award size={20} strokeWidth={2} />
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Xuất sắc (≥ 3.6)</p>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-2xl font-black text-orange-500">{adminSummary.excellent}</span>
-                                <span className="text-xs text-gray-500 font-medium">SV</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 3. THANH TÌM KIẾM VÀ BỘ LỌC ĐƯỢC LÀM COMPACT (KHÔNG THANH CUỘN DƯỚI) */}
-                <div className="flex flex-col xl:flex-row items-center bg-white p-1.5 rounded-lg border border-gray-200 mb-4 shadow-sm gap-2">
-                    
-                    {/* Search Input */}
-                    <div className="relative w-full xl:w-[250px] shrink-0">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
+                {/* 2. BỘ LỌC VÀ TÌM KIẾM (SCROLL NGANG TRÊN MOBILE) */}
+                <div className="flex flex-col md:flex-row gap-2 bg-white p-2 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="relative w-full md:w-64 shrink-0">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                         <input 
-                            type="text" 
-                            placeholder="Tìm MSSV hoặc họ tên..." 
-                            value={adminSearch}
-                            onChange={e => setAdminSearch(e.target.value)}
-                            className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-transparent focus:border-blue-200 rounded-md outline-none text-xs text-gray-700 transition-colors"
+                            type="text" placeholder="Tìm MSSV hoặc Tên..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)}
+                            className="w-full pl-8 pr-3 py-1.5 border border-gray-200 bg-gray-50 focus:bg-white rounded-lg focus:border-[#003375] focus:ring-1 focus:ring-[#003375] outline-none text-xs text-gray-700 transition-all"
                         />
                     </div>
+                    
+                    <div className="hidden md:block w-px h-6 bg-gray-200 my-auto shrink-0"></div>
 
-                    <div className="hidden xl:block w-px h-5 bg-gray-200 shrink-0"></div>
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full pb-0.5 md:pb-0">
+                        <div className="relative shrink-0">
+                            <select value={adminFilterGpa} onChange={(e) => setAdminFilterGpa(e.target.value as any)} className="appearance-none bg-gray-50 border border-gray-200 rounded-lg py-1.5 pl-2.5 pr-7 text-xs text-gray-700 font-medium outline-none cursor-pointer hover:border-blue-300 w-[120px]">
+                                <option value="all">Mọi mức điểm</option>
+                                <option value="excellent">Xuất sắc (&gt;3.6)</option>
+                                <option value="warning">Cảnh báo (&lt;2.0)</option>
+                                <option value="nogpa">Chưa có điểm</option>
+                            </select>
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3 pointer-events-none" />
+                        </div>
 
-                    {/* Filters */}
-                    <div className="flex items-center flex-1 gap-2 overflow-x-auto no-scrollbar pb-1 xl:pb-0">
-                        <select value={adminFilterMajor} onChange={(e) => setAdminFilterMajor(e.target.value)} className="appearance-none bg-transparent py-1.5 pl-2 pr-6 text-xs text-gray-700 font-medium outline-none cursor-pointer border-none hover:text-gray-900 max-w-[140px] truncate bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0_center] bg-[length:1em_1em]">
-                            <option value="all">Tất cả hệ đào tạo</option>
-                            {adminMajors.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
+                        <div className="relative shrink-0">
+                            <select value={adminFilterMajor} onChange={(e) => setAdminFilterMajor(e.target.value)} className="appearance-none bg-gray-50 border border-gray-200 rounded-lg py-1.5 pl-2.5 pr-7 text-xs text-gray-700 font-medium outline-none cursor-pointer hover:border-blue-300 w-[130px] truncate">
+                                <option value="all">Tất cả Ngành</option>
+                                {adminMajors.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3 pointer-events-none" />
+                        </div>
 
-                        <div className="w-px h-4 bg-gray-200 shrink-0"></div>
+                        <div className="relative shrink-0">
+                            <select value={adminFilterSemester} onChange={(e) => setAdminFilterSemester(e.target.value)} className="appearance-none bg-gray-50 border border-gray-200 rounded-lg py-1.5 pl-2.5 pr-7 text-xs text-gray-700 font-medium outline-none cursor-pointer hover:border-blue-300 w-[140px] truncate">
+                                <option value="all">Tích lũy toàn khóa</option>
+                                {adminSemesters.map(s => <option key={s} value={s}>{s.replace('Học kỳ ', 'HK').replace(' Năm học ', ' ')}</option>)}
+                            </select>
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3 pointer-events-none" />
+                        </div>
+                    </div>
+                </div>
 
-                        <select value={adminFilterSemester} onChange={(e) => setAdminFilterSemester(e.target.value)} className="appearance-none bg-transparent py-1.5 pl-2 pr-6 text-xs text-gray-700 font-medium outline-none cursor-pointer border-none hover:text-gray-900 max-w-[140px] truncate bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0_center] bg-[length:1em_1em]">
-                            <option value="all">Tích lũy toàn khóa</option>
-                            {adminSemesters.map(s => <option key={s} value={s}>{s.replace('Học kỳ ', 'HK').replace(' Năm học ', ' ')}</option>)}
-                        </select>
+                {/* 3. BỐN THẺ THỐNG KÊ (GRID 2x2 MOBILE, 4x1 DESKTOP) */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                    <button onClick={() => { playClick(); setAdminFilterGpa('all'); }} className={`bg-white p-2.5 sm:p-3 rounded-xl border shadow-sm flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'all' ? 'border-[#003375] ring-2 ring-[#003375]/10 bg-blue-50/20' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                            <Users size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
+                        </div>
+                        <div>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Tổng SV</p>
+                            <span className="text-lg sm:text-xl font-black text-gray-900">{adminSummary.total}</span>
+                        </div>
+                    </button>
 
-                        <div className="w-px h-4 bg-gray-200 shrink-0"></div>
-
-                        <select value={adminSort} onChange={(e) => setAdminSort(e.target.value)} className="appearance-none bg-transparent py-1.5 pl-2 pr-6 text-xs text-gray-700 font-medium outline-none cursor-pointer border-none hover:text-gray-900 max-w-[120px] truncate bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_0_center] bg-[length:1em_1em]">
-                            <option value="updated_desc">Mới cập nhật</option>
-                            <option value="gpa_desc">GPA Cao nhất</option>
-                            <option value="credits_desc">Nhiều Tín nhất</option>
-                        </select>
+                    <div className="bg-white p-2.5 sm:p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-2 sm:gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-50 text-purple-500 flex items-center justify-center shrink-0">
+                            <BarChart3 size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
+                        </div>
+                        <div>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">TB GPA</p>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-lg sm:text-xl font-black text-[#003375]">{adminSummary.avgGPA}</span>
+                                <span className="text-[10px] sm:text-xs text-gray-400 font-medium">/4.0</span>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Actions Right */}
-                    <div className="flex items-center gap-2 shrink-0 pr-1">
-                        <button onClick={() => { playClick(); fetchAdminData(); }} disabled={loadingAdmin} className="p-1.5 border border-gray-200 text-gray-500 hover:text-[#0052cc] hover:border-blue-200 hover:bg-blue-50 rounded-md transition-colors" title="Làm mới">
-                            <RefreshCw size={14} className={loadingAdmin ? "animate-spin" : ""} />
-                        </button>
-                        <span className="text-xs text-gray-600 font-medium whitespace-nowrap">
-                            <span className="font-extrabold text-gray-900">{adminSummary.total}</span> SV
-                        </span>
-                    </div>
+                    <button onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'warning' ? 'all' : 'warning'); }} className={`p-2.5 sm:p-3 rounded-xl border shadow-sm flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'warning' ? 'border-red-400 bg-red-50/50' : 'bg-white border-gray-200 hover:border-red-300 hover:bg-red-50/30'}`}>
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                            <AlertTriangle size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
+                        </div>
+                        <div>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-red-600/80 uppercase tracking-wider mb-0.5">Cảnh báo</p>
+                            <span className="text-lg sm:text-xl font-black text-red-600">{adminSummary.warning}</span>
+                        </div>
+                    </button>
+
+                    <button onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'excellent' ? 'all' : 'excellent'); }} className={`p-2.5 sm:p-3 rounded-xl border shadow-sm flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'excellent' ? 'border-yellow-400 bg-yellow-50/50' : 'bg-white border-gray-200 hover:border-yellow-300 hover:bg-yellow-50/30'}`}>
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
+                            <Crown size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
+                        </div>
+                        <div>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-orange-500/80 uppercase tracking-wider mb-0.5">Xuất sắc</p>
+                            <span className="text-lg sm:text-xl font-black text-orange-500">{adminSummary.excellent}</span>
+                        </div>
+                    </button>
                 </div>
 
                 {/* 4. BẢNG DỮ LIỆU */}
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
                     <div className="overflow-x-auto custom-scrollbar max-h-[65vh]">
-                        <table className="w-full text-xs text-left relative">
-                            <thead className="bg-white border-b border-gray-200 sticky top-0 z-10 text-[11px] text-gray-500 font-bold uppercase tracking-wider">
+                        <table className="w-full text-left relative min-w-[550px] sm:min-w-[700px]">
+                            <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10 text-[10px] sm:text-[11px] text-gray-500 font-bold uppercase tracking-wider">
                                 <tr>
-                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={() => handleSortClick('mssv')}>
-                                        <div className="flex items-center gap-1.5">MSSV {adminSort.startsWith('mssv') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
+                                    <th className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none" onClick={() => handleSortClick('mssv')}>
+                                        <div className="flex items-center gap-1">MSSV {adminSort.startsWith('mssv') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
                                     </th>
-                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={() => handleSortClick('name')}>
-                                        <div className="flex items-center gap-1.5">HỌ VÀ TÊN {adminSort.startsWith('name') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
+                                    <th className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none" onClick={() => handleSortClick('name')}>
+                                        <div className="flex items-center gap-1">HỌ VÀ TÊN {adminSort.startsWith('name') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
                                     </th>
-                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={() => handleSortClick('cohort')}>
-                                        <div className="flex items-center gap-1.5">HỆ / KHÓA {adminSort.startsWith('cohort') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
+                                    <th className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none" onClick={() => handleSortClick('cohort')}>
+                                        <div className="flex items-center gap-1">HỆ / KHÓA {adminSort.startsWith('cohort') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
                                     </th>
-                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={() => handleSortClick('gpa')}>
-                                        <div className="flex items-center gap-1.5">{adminFilterSemester === 'all' ? 'GPA TÍCH LŨY' : 'GPA HỌC KỲ'} {adminSort.startsWith('gpa') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
+                                    <th className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none text-center" onClick={() => handleSortClick('gpa')}>
+                                        <div className="flex items-center justify-center gap-1">{adminFilterSemester === 'all' ? 'GPA' : 'GPA HK'} {adminSort.startsWith('gpa') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
                                     </th>
-                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={() => handleSortClick('credits')}>
-                                        <div className="flex items-center gap-1.5">TÍN CHỈ {adminSort.startsWith('credits') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
+                                    <th className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none text-center" onClick={() => handleSortClick('credits')}>
+                                        <div className="flex items-center justify-center gap-1">TC {adminSort.startsWith('credits') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
                                     </th>
-                                    <th className="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={() => handleSortClick('updated')}>
-                                        <div className="flex items-center gap-1.5 justify-end">CẬP NHẬT LÚC {adminSort.startsWith('updated') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
+                                    <th className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none text-right" onClick={() => handleSortClick('updated')}>
+                                        <div className="flex items-center justify-end gap-1">CẬP NHẬT {adminSort.startsWith('updated') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-300"/>}</div>
                                     </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {loadingAdmin ? (
-                                    <tr><td colSpan={6} className="py-10 text-center"><Loader2 className="animate-spin text-[#0052cc] mx-auto mb-2" size={24}/> <span className="text-gray-500">Đang tải dữ liệu ({adminUsers.length}+)...</span></td></tr>
+                                    <tr><td colSpan={6} className="py-10 text-center"><Loader2 className="animate-spin text-[#0052cc] mx-auto mb-2" size={24}/> <span className="text-xs text-gray-500">Đang tải dữ liệu...</span></td></tr>
                                 ) : (() => {
-                                    const totalPages = Math.ceil(processedAdminUsers.length / itemsPerPage) || 1;
                                     const paginatedUsers = processedAdminUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
                                     return paginatedUsers.length > 0 ? (
                                         paginatedUsers.map(user => {
                                             const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
                                             const fullName = user.full_name || user.data?.studentName || 'Chưa cập nhật';
                                             const avatar = getAvatarProps(fullName);
-                                            const gpaVal = user._computedGpa > 0 ? user._computedGpa.toFixed(2) : '-';
                                             const gpaBadge = user._computedGpa > 0 ? getGpaBadge(user._computedGpa) : null;
                                             
                                             return (
-                                                <tr key={user.id} onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`); }} className="hover:bg-blue-50/40 cursor-pointer transition-colors group bg-white">
-                                                    <td className="px-4 py-2.5 font-bold text-[#0052cc] text-xs">{user.student_code || '-'}</td>
-                                                    <td className="px-4 py-2.5">
-                                                        <div className="flex items-center gap-2.5">
-                                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${avatar.colorClass}`}>
+                                                <tr key={user.id} onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group bg-white">
+                                                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 font-bold text-[#0052cc] text-[11px] sm:text-xs">{user.student_code || '-'}</td>
+                                                    <td className="px-3 sm:px-4 py-2.5 sm:py-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center font-bold text-[9px] sm:text-[10px] shrink-0 ${avatar.colorClass}`}>
                                                                 {avatar.initial}
                                                             </div>
-                                                            <span className="font-semibold text-gray-800 text-xs group-hover:text-[#0052cc] transition-colors">{fullName}</span>
+                                                            <span className="font-semibold text-gray-800 text-xs group-hover:text-[#0052cc] transition-colors line-clamp-1">{fullName}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-2.5 text-gray-500 text-xs">{user.data?.programName || 'Đại học chính quy'} / {user.data?.cohort || '-'}</td>
-                                                    <td className="px-4 py-2.5">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={`font-bold text-xs ${user._computedGpa >= 3.2 ? 'text-[#0052cc]' : (user._computedGpa >= 2.5 ? 'text-orange-500' : 'text-gray-700')}`}>{gpaVal}</span>
+                                                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-gray-600 text-[10px] sm:text-xs">{user.data?.programName || 'ĐHCQ'} / {user.data?.cohort || '-'}</td>
+                                                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-center">
+                                                        <div className="flex flex-col items-center justify-center gap-0.5 sm:gap-1">
+                                                            <span className={`font-bold text-[11px] sm:text-xs ${user._computedGpa >= 3.2 ? 'text-[#0052cc]' : (user._computedGpa >= 2.5 ? 'text-orange-500' : 'text-gray-700')}`}>{user._computedGpa > 0 ? user._computedGpa.toFixed(2) : '-'}</span>
                                                             {gpaBadge && (
-                                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold border ${gpaBadge.className}`}>
-                                                                    {gpaBadge.label}
-                                                                </span>
+                                                                <span className={`px-1 py-[1px] sm:px-1.5 sm:py-0.5 rounded text-[8px] sm:text-[9px] font-semibold border whitespace-nowrap ${gpaBadge.className}`}>{gpaBadge.label}</span>
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-2.5 text-gray-700 font-semibold text-xs">{user._computedCredits || 0}</td>
-                                                    <td className="px-4 py-2.5 text-right text-xs text-gray-500">{updateDate}</td>
+                                                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-gray-700 font-semibold text-center text-[11px] sm:text-xs">{user._computedCredits || 0}</td>
+                                                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-right text-[10px] sm:text-[11px] text-gray-500 whitespace-nowrap">{updateDate}</td>
                                                 </tr>
                                             )
                                         })
                                     ) : (
-                                        <tr><td colSpan={6} className="py-8 text-center text-gray-500">Không tìm thấy sinh viên nào phù hợp</td></tr>
+                                        <tr><td colSpan={6} className="py-8 text-center text-xs text-gray-500">Không tìm thấy sinh viên nào phù hợp</td></tr>
                                     )
                                 })()}
                             </tbody>
                         </table>
                     </div>
 
-                    {/* THANH CHUYỂN TRANG THÔNG MINH */}
+                    {/* PHÂN TRANG (GỌN TRÊN MOBILE, FULL TRÊN DESKTOP) */}
                     {!loadingAdmin && processedAdminUsers.length > 0 && (() => {
                         const totalPages = Math.ceil(processedAdminUsers.length / itemsPerPage) || 1;
-
                         return (
-                            <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-white border-t border-gray-200 gap-3">
-                                <span className="text-xs text-gray-500 font-medium">
-                                    Đang xem <span className="font-bold text-gray-900">{processedAdminUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> đến <span className="font-bold text-gray-900">{Math.min(currentPage * itemsPerPage, processedAdminUsers.length)}</span> trong tổng số <span className="font-bold text-[#0052cc]">{processedAdminUsers.length}</span> SV
+                            <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 bg-gray-50 border-t border-gray-200">
+                                <span className="text-[10px] sm:text-[11px] text-gray-500 font-medium">
+                                    <span className="hidden sm:inline">Đang xem</span> <span className="font-bold text-gray-800">{processedAdminUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span>-<span className="font-bold text-gray-800">{Math.min(currentPage * itemsPerPage, processedAdminUsers.length)}</span> / <span className="font-bold text-[#0052cc]">{processedAdminUsers.length}</span> SV
                                 </span>
-                                <div className="flex items-center gap-2">
-                                    <button 
-                                        onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.max(1, p - 1); setPageInput(newP.toString()); return newP; }); }} 
-                                        disabled={currentPage === 1}
-                                        className="px-2.5 py-1 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        Trước
+                                <div className="flex items-center gap-1 sm:gap-2">
+                                    <button onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.max(1, p - 1); setPageInput(newP.toString()); return newP; }); }} disabled={currentPage === 1} className="px-2 py-1 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 transition-colors">
+                                        <span className="hidden sm:inline">Trước</span>
+                                        <ChevronLeft size={14} className="sm:hidden" />
                                     </button>
                                     
-                                    <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-md border border-gray-200 text-xs font-bold text-gray-600">
-                                        <span>Trang</span>
+                                    <div className="flex items-center gap-1 sm:gap-1.5 bg-white px-1.5 sm:px-2 py-1 rounded border border-gray-200 text-[10px] sm:text-xs font-bold text-gray-600">
                                         <input 
-                                            type="number"
-                                            min={1}
-                                            max={totalPages}
-                                            value={pageInput}
+                                            type="number" min={1} max={totalPages} value={pageInput}
                                             onChange={(e) => setPageInput(e.target.value)}
                                             onBlur={(e) => {
                                                 let newPage = parseInt(e.target.value);
                                                 if (isNaN(newPage) || newPage < 1) newPage = 1;
                                                 if (newPage > totalPages) newPage = totalPages;
-                                                setCurrentPage(newPage);
-                                                setPageInput(newPage.toString());
+                                                setCurrentPage(newPage); setPageInput(newPage.toString());
                                             }}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') e.currentTarget.blur();
-                                            }}
-                                            className="w-8 text-center bg-white border border-gray-300 text-gray-900 rounded outline-none focus:ring-1 focus:ring-[#0052cc] focus:border-[#0052cc] transition-all"
+                                            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                            className="w-6 sm:w-8 text-center bg-transparent border-none text-[#0052cc] outline-none focus:ring-0 p-0 m-0"
                                             style={{ MozAppearance: 'textfield' }}
                                         />
                                         <span>/ {totalPages}</span>
                                     </div>
 
-                                    <button 
-                                        onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.min(totalPages, p + 1); setPageInput(newP.toString()); return newP; }); }} 
-                                        disabled={currentPage === totalPages || processedAdminUsers.length === 0}
-                                        className="px-2.5 py-1 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        Sau
+                                    <button onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.min(totalPages, p + 1); setPageInput(newP.toString()); return newP; }); }} disabled={currentPage === totalPages || processedAdminUsers.length === 0} className="px-2 py-1 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 transition-colors">
+                                        <span className="hidden sm:inline">Sau</span>
+                                        <ChevronRight size={14} className="sm:hidden" />
                                     </button>
                                 </div>
                             </div>
@@ -1474,21 +1439,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
         ) : (
             <div className="w-full space-y-2 sm:space-y-4 pt-1 animate-fadeIn">
                 <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-1 sm:pb-4 -mt-2 mb-1 sm:mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">                
-                    {isAdmin && (
+                    
+                    {/* Đã sửa isAdmin thành (isAdmin || isAuditor) ở đây */}
+                    {(isAdmin || isAuditor) && (
                         <button 
                             onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('list'); window.history.pushState(null, '', '/dashboard/admin'); }}
-                            className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
+                            className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-all w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 active:scale-95"
                         >
-                            <ChevronLeft size={16} /> Quay lại danh sách quản lý
+                            <ChevronLeft size={16} /> Quay lại danh sách
                         </button>
                     )}
                     
                     <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-1 sm:mb-2">
-                        Học tập {selectedUserOverview && <span className="text-sm text-gray-400 font-medium ml-2 uppercase tracking-wide border border-gray-200 bg-white px-2 py-0.5 rounded-md align-middle">(Chế độ xem của Admin)</span>}
+                        Học tập {selectedUserOverview && <span className="text-[10px] sm:text-xs text-gray-400 font-medium ml-2 uppercase tracking-wide border border-gray-200 bg-white px-2 py-0.5 rounded-md align-middle">(Chế độ xem)</span>}
                     </h1>
                     
                     <div className="flex flex-wrap items-center gap-1.5 text-[12px] sm:text-[13px] text-gray-500 font-medium mb-1 sm:mb-3">
-                        <span className="font-bold text-gray-700">Tổng quan lộ trình</span>
+                        <span className="font-bold text-gray-700">Tổng quan lộ trình</span> 
                         <span className="text-gray-300">•</span>
                         <span>{activeData.studentName || 'Chưa cập nhật tên'}</span>
                         <span className="text-gray-300">•</span>
@@ -1814,6 +1781,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     allSemesterOptions={ALL_SEMESTERS}
                                     usedSemesterNames={usedSemesterNames}
                                     onCascadeUpdate={(newName) => handleCascadeUpdate(originalIndex, newName)}
+                                    isReadOnly={isViewingAsAuditor}
                                 />
                             )
                         })}

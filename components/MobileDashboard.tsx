@@ -252,9 +252,10 @@ interface SemesterTableProps {
   allSemesterOptions: string[];
   usedSemesterNames: string[];
   onCascadeUpdate: (newName: string) => void; 
+  isReadOnly?: boolean;
 }
 
-const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester, allSemesterOptions, usedSemesterNames, onCascadeUpdate }) => {
+const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester, allSemesterOptions, usedSemesterNames, onCascadeUpdate, isReadOnly }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
     
@@ -632,9 +633,10 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                             <td className="px-2 py-2 text-center font-bold text-gray-700">{letter}</td>
                             <td className="px-2 py-2 text-center font-bold text-[#003375]">{avg4 !== null ? avg4.toFixed(1) : '-'}</td>
                             <td className="px-3 py-2 text-center"><span className={`px-2 py-1 rounded text-xs block w-full text-center shadow-sm ${statusClass}`}>{statusText}</span></td>
+                            {!isReadOnly && (
                             <td className="px-2 py-2 text-center">
-                                <button onClick={() => removeSubject(subject.id)} className="text-gray-300 hover:text-red-500 transition-all hover:scale-110 p-1 active:scale-90" title="Xóa môn"><Trash2 size={16} /></button>
-                            </td>
+                                 <button onClick={() => removeSubject(subject.id)}><Trash2 size={16} /></button>
+                            </td> )}
                             </tr>
                         );
                         })
@@ -644,10 +646,10 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 </tbody>
                 </table>
             </div>
-            
+            {!isReadOnly && (
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 rounded-b-xl flex justify-between items-center">
                 <button onClick={addSubject} className="flex items-center gap-1 text-sm font-medium text-[#003375] hover:text-blue-700 transition-all hover:translate-x-1 p-1 active:scale-95"><Plus size={16} /> Thêm môn học</button>
-            </div>
+            </div> )}
         </>
       ) : (
           <div className="p-8 text-center bg-red-50/40 border-t border-red-100 flex flex-col items-center justify-center rounded-b-xl">
@@ -700,14 +702,15 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
         document.title = "Tổng quan | HUB Planner";
     }, []);
 
-    const { isAdmin } = useUserRole();
+    const { isAdmin, isAuditor, loading } = useUserRole();
     const [adminUsers, setAdminUsers] = useState<any[]>([]);
     const [loadingAdmin, setLoadingAdmin] = useState(false);
     const [selectedUserOverview, setSelectedUserOverview] = useState<UserData | null>(null);
     const [selectedAdminUserId, setSelectedAdminUserId] = useState<string | null>(null);
+    const isViewingAsAuditor = isAuditor && selectedUserOverview !== null;
 
     const saveAdminUserUpdate = async (newData: UserData) => {
-        if (!selectedAdminUserId) return;
+        if (!selectedAdminUserId || isAuditor) return;
         try {
             await supabase.from('profiles').update({
                 data: newData,
@@ -725,10 +728,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     const [adminSearch, setAdminSearch] = useState('');
     const [adminMode, setAdminMode] = useState<'list' | 'detail'>('list');
     useEffect(() => {
-        if (isAdmin && adminMode === 'list') {
-            window.history.replaceState(null, '', '/dashboard/admin');
-        }
-    }, [isAdmin, adminMode]);
+    if ((isAdmin || isAuditor) && adminMode === 'list') {
+        window.history.replaceState(null, '', '/dashboard/admin');
+    }
+}, [isAdmin, isAuditor, adminMode]);
     const [currentPage, setCurrentPage] = useState(1);
     const [pageInput, setPageInput] = useState('1');
     const [adminSort, setAdminSort] = useState<'newest' | 'gpa_desc' | 'credits_desc'>('newest');
@@ -747,18 +750,18 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
     const prevStudentNameRef = useRef(data.studentName);
     useEffect(() => {
-        if (isAdmin && data.studentName !== prevStudentNameRef.current) {
-            setAdminMode('detail');
-        }
-        prevStudentNameRef.current = data.studentName;
-    }, [data.studentName, isAdmin]);
+    if ((isAdmin || isAuditor) && data.studentName !== prevStudentNameRef.current) {
+        setAdminMode('detail');
+    }
+    prevStudentNameRef.current = data.studentName;
+}, [data.studentName, isAdmin, isAuditor]);
 
     const [showRankingModal, setShowRankingModal] = useState(false);
     const [showFailedModal, setShowFailedModal] = useState(false);
     const [showYearlyModal, setShowYearlyModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
 
-    const showAdminPanel = isAdmin && adminMode === 'list';
+    const showAdminPanel = (isAdmin || isAuditor) && adminMode === 'list';
 
     const fetchAdminData = async () => {
         setLoadingAdmin(true);
@@ -1671,6 +1674,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     allSemesterOptions={ALL_SEMESTERS}
                                     usedSemesterNames={usedSemesterNames}
                                     onCascadeUpdate={(newName) => handleCascadeUpdate(originalIndex, newName)}
+                                    isReadOnly={isViewingAsAuditor}
                                 />
                             )
                         })}

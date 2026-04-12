@@ -517,8 +517,8 @@ export const MobileEvents: React.FC<MobileEventsProps> = ({ viewUserId }) => {
   useEffect(() => {
     document.title = "Sự kiện ĐRL | HUB Planner";
   }, []);
-  const { isAdmin, isCTV, session } = useUserRole();
-  const canManage = isAdmin || isCTV;
+  const { isAdmin, isAuditor, isCTV, session } = useUserRole();
+const canManage = isAdmin || isAuditor || isCTV;
   
   const today = new Date();
 

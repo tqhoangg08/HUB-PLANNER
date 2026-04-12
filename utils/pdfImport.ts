@@ -113,7 +113,7 @@ const extractFullTranscriptWithAI = async (text: string): Promise<any> => {
 };
 
 // ==========================================
-// 🚀 PHẦN 4: HÀM CHÍNH (MAIN FUNCTION)
+// 🚀 PHẦN 4: HÀM CHÍNH  (MAIN FUNCTION)
 // ==========================================
 export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     const result: ParsedResult = { studentInfo: {}, semesters: [], yearRanges: [] };
@@ -140,9 +140,9 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     if (aiResult.sinh_vien) {
         result.studentInfo = {
             studentName: aiResult.sinh_vien.ho_ten,
-            studentId: aiResult.sinh_vien.ma_sv,
+            studentCode: aiResult.sinh_vien.ma_sv,
             majorName: aiResult.sinh_vien.chuyen_nganh
-        };
+        } as any; // <-- Thêm "as any" ở đây để dập lỗi TypeScript
     }
 
     if (aiResult.hoc_ky && Array.isArray(aiResult.hoc_ky)) {

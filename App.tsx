@@ -87,7 +87,8 @@ const INITIAL_DATA: UserData = {
 };
 
 const App: React.FC = () => {
-    const { isAdmin, isCTV, session, loading: loadingRole } = useUserRole();
+    const { isAdmin, isAuditor, isCTV, session, loading: loadingRole } = useUserRole();
+    console.log("Kiểm tra quyền hiện tại:", { isAdmin, isAuditor, isCTV });
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -401,7 +402,7 @@ const App: React.FC = () => {
 
     const storageKey = useMemo(() => {
         if (!isGuest && session?.user?.id) {
-            const targetId = (isAdmin && viewingUser) ? viewingUser.id : session.user.id;
+            const targetId = ((isAdmin || isAuditor) && viewingUser) ? viewingUser.id : session.user.id;
             return `${STORAGE_KEY}:${targetId}`;
         }
         return STORAGE_KEY;
@@ -417,7 +418,7 @@ const App: React.FC = () => {
         const loadData = async () => {
             if ((userRolePref === 'school' || userRolePref === 'admin') && session?.user?.id && supabase) {
                 
-                if (isAdmin && viewingUser) {
+                if ((isAdmin || isAuditor) && viewingUser) {
                     const { data: profileData } = await supabase
                         .from(STUDENT_PROFILE_TABLE)
                         .select('data')
@@ -504,45 +505,47 @@ const App: React.FC = () => {
         }
 
         saveTimeoutRef.current = window.setTimeout(async () => {
-            const targetUserId = (isAdmin && viewingUser) ? viewingUser.id : session.user.id;
-            
-            if (dataOwnerIdRef.current !== targetUserId) return;
+            const targetUserId = ((isAdmin || isAuditor) && viewingUser) ? viewingUser.id : session.user.id;
 
-            if (isAdmin && viewingUser) {
-                const { error } = await supabase
-                    .from(STUDENT_PROFILE_TABLE)
-                    .update({ 
-                        data: data,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', targetUserId);
-                
-                if (error) console.error("Lỗi Admin update data user:", error);
-            } 
-            else {
-                const userEmail = session.user.email || '';
-                const studentCode = userEmail.split('@')[0];
-                const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
-                const nameToSave = profileFullName || metaName;
+if (dataOwnerIdRef.current !== targetUserId) return;
 
-                const payload = {
-                    id: session.user.id,
-                    email: userEmail,
-                    student_code: studentCode,
-                    full_name: nameToSave,
-                    avatar_url: profileAvatarUrl,
-                    data,
-                    updated_at: new Date().toISOString(),
-                };
+if (isAdmin && viewingUser) {
+    // Admin được quyền lưu
+    const { error } = await supabase
+        .from(STUDENT_PROFILE_TABLE)
+        .update({ 
+            data: data,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', targetUserId);
+    
+    if (error) console.error("Lỗi Admin update data user:", error);
+} 
+else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR LẠI
+    // User thường mới được tự động save (Auditor thì bị chặn lại không cho save)
+    const userEmail = session.user.email || '';
+    const studentCode = userEmail.split('@')[0];
+    const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
+    const nameToSave = profileFullName || metaName;
 
-                const { error } = await supabase
-                    .from(STUDENT_PROFILE_TABLE)
-                    .upsert(payload, { onConflict: 'id' });
+    const payload = {
+        id: session.user.id,
+        email: userEmail,
+        student_code: studentCode,
+        full_name: nameToSave,
+        avatar_url: profileAvatarUrl,
+        data,
+        updated_at: new Date().toISOString(),
+    };
 
-                if (!error && !profileFullName && nameToSave) {
-                    setProfileFullName(nameToSave);
-                }
-            }
+    const { error } = await supabase
+        .from(STUDENT_PROFILE_TABLE)
+        .upsert(payload, { onConflict: 'id' });
+
+    if (!error && !profileFullName && nameToSave) {
+        setProfileFullName(nameToSave);
+    }
+}
         }, 600); 
 
         return () => {
@@ -604,7 +607,7 @@ const App: React.FC = () => {
                 return;
             }
 
-            if (isGuest || isAdmin || isCTV || !session?.user?.email) return;
+            if (isGuest || isAdmin || isAuditor || isCTV || !session?.user?.email) return;
             
             const emailDomain = session.user.email.split('@')[1];
             if (emailDomain !== SCHOOL_DOMAIN) {
@@ -937,7 +940,7 @@ const App: React.FC = () => {
     const renderProtectedApp = () => {
         if (!isLoaded) return null;
 
-        if (isAccessDenied && !isAdmin && !isCTV) {
+        if (isAccessDenied && !isAdmin && !isAuditor && !isCTV) {
             return (
                 <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#F8FAFC] animate-fadeIn">
                     <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 max-w-md text-center">
@@ -1009,7 +1012,7 @@ const App: React.FC = () => {
                 
                 <Route path="/profile/:id" element={<ProfilePage />} />
                 
-                <Route path="/admin-reports" element={isAdmin ? <AdminReports /> : <Navigate to="/dashboard" replace />} />
+                <Route path="/admin-reports" element={(isAdmin || isAuditor) ? <AdminReports /> : <Navigate to="/dashboard" replace />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
         );
@@ -1476,7 +1479,7 @@ const App: React.FC = () => {
                     onInstallApp={handleInstallApp}
                     showInstallButton={!isAppMode} 
 
-                    session={session} isGuest={isGuest} isAdmin={isAdmin} viewingUser={viewingUser} 
+                    session={session} isGuest={isGuest} isAdmin={isAdmin} isAuditor={isAuditor} viewingUser={viewingUser} 
                     displayName={displayName} studentId={studentId} avatarUrl={profileAvatarUrl} avatarSeed={avatarSeed} 
                     adminSearchMssv={adminSearchMssv} isSearchingUser={isSearchingUser} setAdminSearchMssv={setAdminSearchMssv} 
                     handleAdminSearchUser={handleAdminSearchUser} handleRequestReset={handleRequestReset} handleLogout={handleLogout} 

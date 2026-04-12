@@ -232,15 +232,16 @@ export const AdminReports: React.FC = () => {
 
     return (
         <div className="animate-fadeIn pb-10">
-            <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-6 border-b border-gray-200/60 shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">
-                <h2 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
+            {/* Header tinh gọn lại trên Mobile */}
+            <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 sm:pb-4 -mt-2 mb-3 sm:mb-5 border-b border-gray-200/60 md:shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">
+                <h2 className="text-[22px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
                     Xử lý báo cáo
                 </h2>
-                <p className="text-sm text-gray-500">Quản lý phản hồi, lỗi hệ thống và đơn xin CTV từ người dùng</p>
+                <p className="text-[11px] sm:text-sm text-gray-500 truncate">Quản lý phản hồi, lỗi hệ thống và đơn xin CTV</p>
             </div>
 
-            {/* Menu Tabs */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6">
+            {/* Menu Tabs: Chuyển sang dạng cuộn ngang (Horizontal Scroll) */}
+            <div className="flex overflow-x-auto no-scrollbar gap-2 mb-4 pb-1">
                 {tabs.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id;
@@ -248,10 +249,14 @@ export const AdminReports: React.FC = () => {
                         <button
                             key={tab.id}
                             onClick={() => { playClick(); setActiveTab(tab.id); }}
-                            className={`flex flex-col items-center justify-center p-3 rounded-xl border transition-all ${isActive ? `${tab.bg} ${tab.color} border-current ring-2 ring-current/20 shadow-sm` : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300'}`}
+                            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border transition-all shrink-0 ${
+                                isActive 
+                                ? `${tab.bg} ${tab.color} border-current shadow-sm ring-1 ring-current/20` 
+                                : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                            }`}
                         >
-                            <Icon size={24} className="mb-2" />
-                            <span className="text-xs font-bold text-center">{tab.label}</span>
+                            <Icon size={16} className={isActive ? '' : 'opacity-70'} />
+                            <span className="text-[11px] sm:text-xs font-bold whitespace-nowrap">{tab.label}</span>
                         </button>
                     );
                 })}
@@ -259,7 +264,7 @@ export const AdminReports: React.FC = () => {
 
             {/* Bảng dữ liệu / Danh sách Cards */}
             <div className="bg-gray-50/50 p-1 rounded-xl">
-                <div className="flex justify-between items-center mb-4 px-2">
+                <div className="flex justify-between items-center mb-3 sm:mb-4 px-1 sm:px-2">
                     <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
                         {tabs.find(t => t.id === activeTab)?.label}
                     </h3>

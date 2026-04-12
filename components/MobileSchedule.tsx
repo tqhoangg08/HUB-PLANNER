@@ -156,7 +156,7 @@ const DragHandle = () => (
 export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) => {
   useEffect(() => { document.title = "Thời khóa biểu | HUB Planner"; }, []);
 
-  const { session, isAdmin } = useUserRole();
+  const { session, isAdmin, isAuditor, loading } = useUserRole();
   const isAuthenticated = session !== null;
 
   const [searchTerm, setSearchTerm] = useState('');

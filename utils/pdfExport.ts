@@ -28,19 +28,20 @@ export const exportTranscriptToPdf = (data: UserData) => {
   const startY = 36;
   const gap = 8;
 
-  doc.text(`Ho va ten: ${removeVietnameseTones(data.studentName)}`, col1X, startY);
-  doc.text(`Ma so / Khoa: ${data.cohort}`, col1X, startY + gap);
-  doc.text(`Chuong trinh: ${removeVietnameseTones(data.programName)}`, col1X, startY + gap * 2);
+  // Thêm || '' để fix lỗi undefined
+  doc.text(`Ho va ten: ${removeVietnameseTones(data.studentName || '')}`, col1X, startY);
+  doc.text(`Ma so / Khoa: ${data.cohort || ''}`, col1X, startY + gap);
+  doc.text(`Chuong trinh: ${removeVietnameseTones(data.programName || '')}`, col1X, startY + gap * 2);
 
-  doc.text(`Nganh: ${removeVietnameseTones(data.majorName)}`, col2X, startY);
-  doc.text(`Chuyen nganh: ${removeVietnameseTones(data.specializationName)}`, col2X, startY + gap);
+  doc.text(`Nganh: ${removeVietnameseTones(data.majorName || '')}`, col2X, startY);
+  doc.text(`Chuyen nganh: ${removeVietnameseTones(data.specializationName || '')}`, col2X, startY + gap);
 
   // --- Cumulative Stats ---
   const stats = calculateCumulativeStats(data.semesters);
   
   doc.setFontSize(10);
   doc.setTextColor(0, 51, 117);
-  doc.text(`GPA (He 4): ${stats.gpa4.toFixed(2)}  |  GPA (He 10): ${stats.gpa10.toFixed(2)}  |  Tin chi tich luy: ${stats.passedCredits}/${data.totalCreditsRequired}`, 105, 70, { align: 'center' });
+  doc.text(`GPA (He 4): ${stats.gpa4.toFixed(2)}  |  GPA (He 10): ${stats.gpa10.toFixed(2)}  |  Tin chi tich luy: ${stats.passedCredits}/${data.totalCreditsRequired || 125}`, 105, 70, { align: 'center' });
 
   // --- Semesters Tables ---
   let currentY = 75;
@@ -58,12 +59,12 @@ export const exportTranscriptToPdf = (data: UserData) => {
     // Semester Header
     doc.setFontSize(11);
     doc.setTextColor(0);
-    doc.setFont(undefined, 'bold');
-    doc.text(`${removeVietnameseTones(sem.name)}`, 14, currentY + 5);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${removeVietnameseTones(sem.name || '')}`, 14, currentY + 5);
     
-    // Semester Summary
+    // Semester  Summary
     doc.setFontSize(9);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     doc.setTextColor(100);
     const summaryText = `GPA(4): ${semStats.gpa4.toFixed(2)}  |  GPA(10): ${semStats.gpa10.toFixed(2)}  |  DRL: ${sem.trainingScore ?? '-'}`;
     doc.text(summaryText, 196, currentY + 5, { align: 'right' });
@@ -75,7 +76,7 @@ export const exportTranscriptToPdf = (data: UserData) => {
         
         return [
             index + 1,
-            removeVietnameseTones(sub.name) + (sub.isNonGPA ? ' (*)' : ''),
+            removeVietnameseTones(sub.name || '') + (sub.isNonGPA ? ' (*)' : ''),
             sub.credits,
             avg10 !== null ? avg10.toFixed(1) : '-',
             scale4 !== null ? scale4.toFixed(1) : '-',
@@ -127,17 +128,18 @@ export const exportTranscriptToPdf = (data: UserData) => {
   if (currentY < 270) {
       doc.setFontSize(8);
       doc.setTextColor(100);
-      doc.setFont(undefined, 'italic');
+      doc.setFont('helvetica', 'italic');
       doc.text('(*) Mon hoc khong tinh vao diem trung binh (GPA).', 14, currentY);
   }
 
-  doc.save(`${removeVietnameseTones(data.studentName).replace(/\s+/g, '_')}_Transcript.pdf`);
+  doc.save(`${removeVietnameseTones(data.studentName || 'Bang_Diem').replace(/\s+/g, '_')}_Transcript.pdf`);
 };
 
 // Helper to handle Vietnamese characters in basic fonts
 // Since jsPDF default font doesn't support full Vietnamese charset, we strip tones for compatibility
-function removeVietnameseTones(str: string): string {
+function removeVietnameseTones(str: any): string {
     if (!str) return '';
+    str = String(str);
     str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
     str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
     str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");

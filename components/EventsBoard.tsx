@@ -924,8 +924,8 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     document.title = "Sự kiện ĐRL | HUB Planner";
   }, []);
 
-  const { isAdmin, isCTV, session, loading: roleLoading } = useUserRole();
-  const canManage = isAdmin || isCTV;
+  const { isAdmin, isAuditor, isCTV, session, loading: roleLoading } = useUserRole();
+    const canManage = isAdmin || isAuditor || isCTV;
   
   const today = new Date();
 
@@ -1460,10 +1460,10 @@ return (
                     {canManage && (
                         <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-1 mb-1 border border-blue-100">
                             <Settings size={10} className="inline mr-1"/>
-                            {isAdmin ? 'Chế độ Admin: Quản lý danh sách' : 'Chế độ CTV: Sửa/Đóng sự kiện'}
+                           {isAdmin ? 'Chế độ Admin: Quản lý danh sách' : (isAuditor ? 'Chế độ Auditor: Quản lý/Sửa/Đóng' : 'Chế độ CTV: Sửa/Đóng sự kiện')}
                         </div>
                     )}
-                    {!isAdmin && (
+                    {!canManage && (
     <p className="text-[11px] sm:text-xs text-gray-500 italic mt-1.5 max-w-xl leading-relaxed">
         *Lưu ý: Các thông tin sự kiện, phân loại mục và điểm cộng được tổng hợp từ cộng đồng nên chỉ mang tính tham khảo và có thể có sai sót. Bạn vui lòng đối chiếu lại với thông báo chính thức từ BTC nhé.
     </p>
