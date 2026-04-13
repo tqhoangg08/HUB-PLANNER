@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'script', // 👈 CÚ CHỐT CHỮA BỆNH SW: Ép Vite bơm thẳng script ra HTML cho Bot nó đọc
+      injectRegister: 'script', 
       devOptions: {
         enabled: true 
       },
@@ -20,10 +20,9 @@ export default defineConfig({
         name: "HUB Planner - Hỗ trợ sinh viên",
         description: "Ứng dụng hỗ trợ học tập, quản lý lộ trình và thời khóa biểu cho sinh viên HUB",
         orientation: "portrait",
-        dir: "ltr", // 👈 Fix: Xác định hướng chữ trái sang phải
+        dir: "ltr", 
         start_url: "/",
         
-        // 👈 Fix: Thêm "tabbed" để cho phép mở nhiều tab trong PWA
         display_override: ["window-controls-overlay", "tabbed", "standalone"],
         display: "standalone",
         theme_color: "#003375",
@@ -33,7 +32,6 @@ export default defineConfig({
         iarc_rating_id: "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",
         prefer_related_applications: false,
         
-        // 👈 Fix: Khai báo 1 cái ID giả định để bot không la làng
         related_applications: [
           {
             platform: "play",
@@ -42,9 +40,9 @@ export default defineConfig({
           }
         ],
 
-        // 👈 Fix: Cho phép app mở rộng ra các subdomain (vd: admin.hotrosinhvienhub.id.vn)
+        // 👈 ĐÃ FIX Ở ĐÂY: Thêm https:// và bỏ dấu *
         scope_extensions: [
-          { origin: "*.hotrosinhvienhub.id.vn" }
+          { origin: "https://hotrosinhvienhub.id.vn" }
         ],
         
         launch_handler: {
@@ -68,6 +66,8 @@ export default defineConfig({
         share_target: {
           action: "/dashboard",
           method: "GET",
+          // 👈 ĐÃ FIX Ở ĐÂY: Khai báo rõ định dạng mã hóa để trình duyệt không nhắc nhở nữa
+          enctype: "application/x-www-form-urlencoded",
           params: { title: "title", text: "text", url: "url" }
         },
         file_handlers: [
