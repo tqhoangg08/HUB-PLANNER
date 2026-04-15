@@ -25,7 +25,7 @@ interface HubEvent {
   time: string;      
   deadlineDate: Date | null;
   deadline_time: string | null; 
-  close_on_full: boolean;       
+  close_on_full: boolean;        
   description: string | null;   
   link: string;
   organizer: string;
@@ -38,6 +38,8 @@ interface HubEvent {
   created_at: string; 
   event_date: string | null; 
   event_time: string | null;
+  registration_start_date: string | null;
+  registration_start_time: string | null;
 }
 
 // --- Helper ---
@@ -299,6 +301,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         close_on_full: false,
         event_date: '', 
         event_time: '', 
+        registration_start_date: '',
+        registration_start_time: '',
         category: 'Hoạt động phong trào',
         criteria: 'III',
         points: '5',
@@ -309,6 +313,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         description: '' 
     });
     const [submitting, setSubmitting] = useState(false);
+    const [isCustomCategory, setIsCustomCategory] = useState(false);
 
     if (!isOpen) return null;
 
@@ -341,6 +346,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 close_on_full: formData.close_on_full,
                 event_date: formData.event_date ? formData.event_date : null,
                 event_time: formData.event_time ? formData.event_time : null, 
+                registration_start_date: formData.registration_start_date ? formData.registration_start_date : null,
+                registration_start_time: formData.registration_start_time ? formData.registration_start_time : null,
                 category: formData.category, 
                 criteria: formData.criteria, 
                 points: formData.points,
@@ -362,7 +369,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             onShowToast("Đóng góp của bạn đã được gửi và đang chờ Admin duyệt. Cảm ơn bạn!", "success");
             
             setFormData({
-                title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '', category: 'Hoạt động phong trào', criteria: 'III', points: '5',
+                title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '', registration_start_date: '', registration_start_time: '', category: 'Hoạt động phong trào', criteria: 'III', points: '5',
                 organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
             });
             onClose();
@@ -400,48 +407,60 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
+                        {/* KHU VỰC THỜI GIAN ĐỘNG */}
+                        {formData.category?.toLowerCase().includes('minigame') ? (
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div>
-                                    <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày hết hạn ĐK</label>
-                                    <input 
-                                        type="date" 
-                                        disabled={formData.close_on_full}
-                                        className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`}
-                                        value={formData.deadline} 
-                                        onChange={e => setFormData({...formData, deadline: e.target.value})} 
-                                    />
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Ngày bắt đầu</label>
+                                    <input type="date" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
                                 </div>
                                 <div>
-                                    <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ hết hạn</label>
-                                    <input 
-                                        type="time" 
-                                        disabled={formData.close_on_full}
-                                        className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`}
-                                        value={formData.deadline_time || ''} 
-                                        onChange={e => setFormData({...formData, deadline_time: e.target.value})} 
-                                    />
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Giờ bắt đầu</label>
+                                    <input type="time" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
+                                </div>
+                                <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày kết thúc</label>
+                                        <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ kết thúc</label>
+                                        <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra</label>
-                                <input 
-                                    type="date" 
-                                    className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]"
-                                    value={formData.event_date} 
-                                    onChange={e => setFormData({...formData, event_date: e.target.value})} 
-                                />
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Ngày mở ĐK</label>
+                                        <input type="date" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.registration_start_date} onChange={e => setFormData({...formData, registration_start_date: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-1">Giờ mở ĐK</label>
+                                        <input type="time" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.registration_start_time} onChange={e => setFormData({...formData, registration_start_time: e.target.value})} />
+                                    </div>
+                                </div>
+                                <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày đóng ĐK</label>
+                                        <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ đóng ĐK</label>
+                                        <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra</label>
+                                    <input type="date" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Giờ diễn ra</label>
+                                    <input type="time" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Giờ diễn ra</label>
-                                <input 
-                                    type="time" 
-                                    className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]"
-                                    value={formData.event_time} 
-                                    onChange={e => setFormData({...formData, event_time: e.target.value})} 
-                                />
-                            </div>
-                        </div>
+                        )}
 
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200 gap-2">
                             <div>
@@ -456,13 +475,43 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
 
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Loại hình</label>
-                            <input 
-                                type="text" 
-                                className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]"
-                                placeholder="VD: Hội thảo..."
-                                value={formData.category} 
-                                onChange={e => setFormData({...formData, category: e.target.value})} 
-                            />
+                            <select 
+                                className="w-full border border-gray-300 rounded-lg p-2.5 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
+                                value={isCustomCategory ? "Khác" : formData.category}
+                                onChange={e => {
+                                    if (e.target.value === "Khác") {
+                                        setIsCustomCategory(true);
+                                        setFormData({...formData, category: ''});
+                                    } else {
+                                        setIsCustomCategory(false);
+                                        setFormData({...formData, category: e.target.value});
+                                    }
+                                }}
+                            >
+                                <option value="Hoạt động phong trào">Hoạt động phong trào</option>
+                                <option value="Minigame">Minigame</option>
+                                <option value="Tình nguyện">Tình nguyện</option>
+                                <option value="Cuộc thi học thuật">Cuộc thi học thuật</option>
+                                <option value="Cổ vũ">Cổ vũ</option>
+                                <option value="Talkshow">Talkshow</option>
+                                <option value="Tọa đàm">Tọa đàm</option>
+                                <option value="Hội thảo">Hội thảo</option>
+                                <option value="Sự kiện offline">Sự kiện offline</option>
+                                <option value="Teambuilding">Teambuilding</option>
+                                <option value="Hoạt động thể thao">Hoạt động thể thao</option>
+                                <option value="Khác">Khác (Tự nhập)</option>
+                            </select>
+                            
+                            {isCustomCategory && (
+                                <input 
+                                    type="text" 
+                                    autoFocus
+                                    className="w-full border border-gray-300 rounded-lg p-2.5 mt-2 outline-none focus:ring-2 focus:ring-[#003375] animate-fadeIn"
+                                    placeholder="Nhập loại hình khác..."
+                                    value={formData.category} 
+                                    onChange={e => setFormData({...formData, category: e.target.value})} 
+                                />
+                            )}
                         </div>
 
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -579,6 +628,8 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
         close_on_full: editingEvent?.close_on_full || false,
         event_date: editingEvent?.event_date || '', 
         event_time: formatTimeString(editingEvent?.event_time ?? null) || '', 
+        registration_start_date: editingEvent?.registration_start_date || '',
+        registration_start_time: formatTimeString(editingEvent?.registration_start_time ?? null) || '',
         category: editingEvent?.type || 'Hoạt động phong trào',
         classification: editingEvent?.classification || '',
         criteria: editingEvent?.category || 'III',
@@ -592,6 +643,10 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
         description: editingEvent?.description || ''
     });
     const [submitting, setSubmitting] = useState(false);
+    const predefinedCategories = ["Hoạt động phong trào", "Minigame", "Tình nguyện", "Cuộc thi học thuật", "Cổ vũ", "Talkshow", "Tọa đàm", "Hội thảo", "Sự kiện offline", "Teambuilding", "Hoạt động thể thao"];
+    const [isCustomCategory, setIsCustomCategory] = useState(
+        editingEvent?.type ? !predefinedCategories.includes(editingEvent.type) : false
+    );
 
     if (!isOpen) return null;
 
@@ -608,6 +663,8 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                 close_on_full: formData.close_on_full,
                 event_date: formData.event_date ? formData.event_date : null, 
                 event_time: formData.event_time ? formData.event_time : null, 
+                registration_start_date: formData.registration_start_date ? formData.registration_start_date : null,
+                registration_start_time: formData.registration_start_time ? formData.registration_start_time : null,
                 category: formData.category,
                 classification: formData.classification,
                 criteria: formData.criteria,
@@ -668,38 +725,60 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                         <input type="text" required className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
+                    {/* KHU VỰC THỜI GIAN ĐỘNG */}
+                    {(formData.category?.toLowerCase().includes('minigame') || formData.classification?.toLowerCase().includes('minigame')) ? (
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
-                                <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày hết hạn ĐK</label>
-                                <input 
-                                    type="date" 
-                                    disabled={formData.close_on_full}
-                                    className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`}
-                                    value={formData.deadline} 
-                                    onChange={e => setFormData({...formData, deadline: e.target.value})} 
-                                />
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Ngày bắt đầu</label>
+                                <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
                             </div>
                             <div>
-                                <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ hết hạn</label>
-                                <input 
-                                    type="time" 
-                                    disabled={formData.close_on_full}
-                                    className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`}
-                                    value={formData.deadline_time || ''} 
-                                    onChange={e => setFormData({...formData, deadline_time: e.target.value})} 
-                                />
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Giờ bắt đầu</label>
+                                <input type="time" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
+                            </div>
+                            <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày kết thúc</label>
+                                    <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ kết thúc</label>
+                                    <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
+                                </div>
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra</label>
-                            <input type="date" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Ngày mở ĐK</label>
+                                    <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.registration_start_date} onChange={e => setFormData({...formData, registration_start_date: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Giờ mở ĐK</label>
+                                    <input type="time" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.registration_start_time} onChange={e => setFormData({...formData, registration_start_time: e.target.value})} />
+                                </div>
+                            </div>
+                            <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày đóng ĐK</label>
+                                    <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
+                                </div>
+                                <div>
+                                    <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ đóng ĐK</label>
+                                    <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Ngày diễn ra</label>
+                                <input type="date" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_date} onChange={e => setFormData({...formData, event_date: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Giờ diễn ra</label>
+                                <input type="time" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
+                            </div>
                         </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Giờ diễn ra</label>
-                            <input type="time" className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.event_time} onChange={e => setFormData({...formData, event_time: e.target.value})} />
-                        </div>
-                    </div>
+                    )}
 
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200 gap-2">
                         <div>
@@ -741,7 +820,35 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Loại hình</label>
-                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" placeholder="VD: Hội thảo..." value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} />
+                            <select 
+                                className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
+                                value={isCustomCategory ? "Khác" : (predefinedCategories.includes(formData.category) ? formData.category : "Khác")}
+                                onChange={e => {
+                                    if (e.target.value === "Khác") {
+                                        setIsCustomCategory(true);
+                                        setFormData({...formData, category: ''});
+                                    } else {
+                                        setIsCustomCategory(false);
+                                        setFormData({...formData, category: e.target.value});
+                                    }
+                                }}
+                            >
+                                {predefinedCategories.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                                <option value="Khác">Khác (Tự nhập)</option>
+                            </select>
+                            
+                            {isCustomCategory && (
+                                <input 
+                                    type="text" 
+                                    autoFocus
+                                    className="w-full border border-gray-300 rounded-lg p-2 mt-2 outline-none focus:ring-2 focus:ring-[#003375] animate-fadeIn"
+                                    placeholder="Nhập loại hình khác..."
+                                    value={formData.category} 
+                                    onChange={e => setFormData({...formData, category: e.target.value})} 
+                                />
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Phân loại (Text)</label>
@@ -1105,7 +1212,9 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                   is_deleted: row.is_deleted || false,
                   created_at: row.created_at || new Date().toISOString(),
                   event_date: row.event_date || null,
-                  event_time: row.event_time || null 
+                  event_time: row.event_time || null,
+                  registration_start_date: row.registration_start_date || null,
+                  registration_start_time: row.registration_start_time || null
               };
           });
 
@@ -1137,7 +1246,9 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
               is_deleted: false,
               created_at: new Date().toISOString(),
               event_date: '2026-04-05',
-              event_time: '08:00'
+              event_time: '08:00',
+              registration_start_date: null,
+              registration_start_time: null
           }
       ];
       
@@ -1365,22 +1476,47 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
         </div>
 
         {/* DATETIME */}
-        <div className="flex flex-col gap-1 sm:gap-2 text-[11px] sm:text-xs text-gray-600 mb-2.5 sm:mb-4">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-                <Calendar size={12} className="sm:w-[14px] sm:h-[14px] text-gray-400 shrink-0"/>
-                <span className="truncate">Diễn ra: {evt.event_date ? `${formatTimeString(evt.event_time)} ${formatDateString(evt.event_date)}` : 'Chưa cập nhật'}</span>
+        {evt.type?.toLowerCase().includes('minigame') || evt.classification?.toLowerCase().includes('minigame') ? (
+            <div className="flex flex-col gap-1 sm:gap-2 text-[11px] sm:text-xs text-gray-600 mb-2.5 sm:mb-4">
+                <div className="flex items-start gap-1.5 sm:gap-2">
+                    <Clock size={12} className="sm:w-[14px] sm:h-[14px] text-gray-400 shrink-0 mt-0.5"/>
+                    <div className="flex flex-col">
+                        <span className="font-medium text-gray-500 mb-0.5">Thời gian tham gia:</span>
+                        <span className={`font-bold ${isLinkClosed || evt.is_deleted ? 'text-gray-500' : 'text-[#003375]'}`}>
+                            {evt.event_date ? `${formatTimeString(evt.event_time)} ${formatDateString(evt.event_date)}` : '...'} 
+                            {' - '} 
+                            {evt.close_on_full ? (
+                                <span className="text-[#990000]">Đóng khi đủ SL</span>
+                            ) : (
+                                evt.time && evt.time !== 'Chưa cập nhật' ? `${evt.deadline_time ? formatTimeString(evt.deadline_time) + ' ' : ''}${evt.time}` : '...'
+                            )}
+                        </span>
+                    </div>
+                </div>
             </div>
-            <div className="flex items-center gap-1.5 sm:gap-2">
-                <Clock size={12} className={`sm:w-[14px] sm:h-[14px] shrink-0 ${isLinkClosed || evt.is_deleted ? 'text-gray-400' : isDeadlineToday ? 'text-red-500' : 'text-gray-400'}`} />
-                <span className={`truncate ${isDeadlineToday && !isLinkClosed && !evt.is_deleted ? 'text-red-600 font-bold' : ''}`}>
-                    Hạn chót: {evt.close_on_full ? (
-                        <span className="font-bold text-[#990000]">Đóng khi đủ SL</span>
-                    ) : (
-                        evt.time && evt.time !== 'Chưa cập nhật' ? `${evt.deadline_time ? formatTimeString(evt.deadline_time) + ' ' : ''}${evt.time}` : 'Chưa cập nhật'
-                    )}
-                </span>
+        ) : (
+            <div className="flex flex-col gap-1 sm:gap-2 text-[11px] sm:text-xs text-gray-600 mb-2.5 sm:mb-4">
+                <div className="flex items-start gap-1.5 sm:gap-2">
+                    <CalendarClock size={12} className="sm:w-[14px] sm:h-[14px] text-gray-400 shrink-0 mt-0.5"/>
+                    <div className="flex flex-col">
+                        <span className="font-medium text-gray-500 mb-0.5">Thời gian đăng ký:</span>
+                        <span className={`font-bold ${isDeadlineToday && !isLinkClosed && !evt.is_deleted ? 'text-red-600' : 'text-gray-700'}`}>
+                            {evt.registration_start_date ? `${formatTimeString(evt.registration_start_time)} ${formatDateString(evt.registration_start_date)}` : '...'}
+                            {' - '}
+                            {evt.close_on_full ? (
+                                <span className="text-[#990000]">Đóng khi đủ SL</span>
+                            ) : (
+                                evt.time && evt.time !== 'Chưa cập nhật' ? `${evt.deadline_time ? formatTimeString(evt.deadline_time) + ' ' : ''}${evt.time}` : '...'
+                            )}
+                        </span>
+                    </div>
+                </div>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                    <Calendar size={12} className="sm:w-[14px] sm:h-[14px] text-gray-400 shrink-0"/>
+                    <span className="truncate">Thời gian diễn ra: <span className="font-semibold text-gray-700">{evt.event_date ? `${formatTimeString(evt.event_time)} ${formatDateString(evt.event_date)}` : 'Chưa cập nhật'}</span></span>
+                </div>
             </div>
-        </div>
+        )}
 
         {/* DESCRIPTION TOGGLE */}
         {evt.description && (
@@ -1654,8 +1790,27 @@ return (
                                                 <div className="text-[10px] text-gray-500 font-medium">Mục {evt.category}</div>
                                             </td>
                                             <td className="px-4 py-3 text-xs text-gray-600 align-top w-[20%]">
-                                                <div className="mb-1"><span className="text-gray-400 font-medium">Ngày TC:</span> {evt.event_date ? formatDateString(evt.event_date) : '-'}</div>
-                                                <div><span className="text-gray-400 font-medium">Hạn ĐK:</span> {evt.close_on_full ? <span className="text-red-500 font-bold">Đóng khi SL</span> : (evt.deadlineDate ? formatDateString(evt.deadlineDate.toISOString()) : '-')}</div>
+                                                {evt.type?.toLowerCase().includes('minigame') || evt.classification?.toLowerCase().includes('minigame') ? (
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className="text-gray-400 font-medium">TG tham gia:</span>
+                                                        <span className="font-semibold text-[#003375]">
+                                                            {evt.event_date ? formatDateString(evt.event_date) : '...'} - {evt.close_on_full ? <span className="text-red-500">Đóng khi SL</span> : (evt.deadlineDate ? formatDateString(evt.deadlineDate.toISOString()) : '...')}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col gap-1">
+                                                        <div>
+                                                            <span className="text-gray-400 font-medium block">TG đăng ký:</span> 
+                                                            <span className="font-semibold text-gray-700">
+                                                                {evt.registration_start_date ? formatDateString(evt.registration_start_date) : '...'} - {evt.close_on_full ? <span className="text-red-500">Đóng khi SL</span> : (evt.deadlineDate ? formatDateString(evt.deadlineDate.toISOString()) : '...')}
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-gray-400 font-medium block">TG diễn ra:</span> 
+                                                            <span className="font-semibold text-[#003375]">{evt.event_date ? formatDateString(evt.event_date) : '-'}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3 text-center align-top w-[10%]">
                                                 {badgeUI}
