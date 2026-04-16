@@ -25,6 +25,8 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  let logId = null; // Khai báo logId ở phạm vi rộng để block catch có thể dùng được
+
   try {
     if (GEMINI_KEYS.length === 0) throw new Error("Thiếu API Key Gemini");
 
@@ -39,7 +41,6 @@ export default async function handler(req, res) {
     // ===========================================
     // ✨ GHI LOG PARTIAL LÊN SUPABASE NGAY LẬP TỨC ✨
     // ===========================================
-    let logId = null;
     if (supabase) {
         const { data: logData, error: logError } = await supabase.from('ai_chat_logs').insert([{
             user_id: userId || null, 
@@ -54,9 +55,6 @@ export default async function handler(req, res) {
     // ===========================================
     // ✨ KÉO TẤT CẢ DỮ LIỆU SONG SONG BẰNG PROMISE.ALL ✨
     // ===========================================
-    // ===========================================
-    // ✨ KÉO TẤT CẢ DỮ LIỆU SONG SONG BẰNG PROMISE.ALL ✨
-    // ===========================================
     const [
         { data: kbData },
         { data: eventsData },
@@ -67,7 +65,7 @@ export default async function handler(req, res) {
         // 1. Cẩm nang hệ thống
         supabase.from('system_knowledge').select('id, content').order('id', { ascending: true }),
         
-        // 2. SỬA CHỖ NÀY: Chỉ lấy "Đang diễn ra" và sắp xếp lấy mới nhất
+        // 2. Chỉ lấy "Đang diễn ra" và sắp xếp lấy mới nhất
        supabase.from('events').select('title, status, deadline, format, points, link')
                 .eq('status', 'Đang diễn ra') 
                 .order('id', { ascending: false }),
@@ -75,9 +73,11 @@ export default async function handler(req, res) {
         // 3. Thông báo mới nhất
         supabase.from('school_announcements').select('title, date, link')
                 .eq('is_hidden', false).order('date', { ascending: false }).limit(5),
+                
         // 4. Tìm đồ thất lạc mới nhất
         supabase.from('lost_found_items').select('title, description, location, contact_info')
                 .order('created_at', { ascending: false }).limit(5),
+                
         // 5. Học phần
         supabase.from('course_schedules').select('subject_name, course_code, instructor, credits')
                 .limit(5)
@@ -123,6 +123,7 @@ NGUYÊN TẮC BẮT BUỘC:
 2. Khi sinh viên hỏi về sự kiện, thông báo, hoặc đồ thất lạc, hãy ưu tiên dùng dữ liệu trong [THÔNG TIN THỰC TẾ TRÊN WEB].
 3. Nếu sinh viên hỏi về một "Môn học/Học phần" không có trong danh sách mẫu, hãy nói: "Hệ thống hiện chưa tải toàn bộ thời khóa biểu, bạn vui lòng tra cứu trực tiếp trên chức năng Môn học của web nhé!".
 4. Trình bày rõ ràng, thân thiện, xưng "mình" gọi "bạn". Dùng gạch đầu dòng (-) hoặc số thứ tự (1. 2. 3.) để liệt kê. TUYỆT ĐỐI KHÔNG xài các ký tự Markdown như (#, ###, *). Chỉ được phép dùng **để in đậm**. Không tự ý bịa thông tin.`;
+    
     // Chuẩn bị lịch sử chat cho Gemini
     const formattedHistory = (history || []).slice(-4).map(msg => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
@@ -140,20 +141,41 @@ NGUYÊN TẮC BẮT BUỘC:
         body: JSON.stringify({
             system_instruction: { parts: [{ text: systemInstruction }] },
             contents: formattedHistory,
-            generationConfig: { temperature: 0.2 } // Tăng nhẹ temp một chút để nó chat mượt hơn
+            generationConfig: { temperature: 0.2 } 
         })
     });
 
     const data = await response.json();
+    let replyText = "";
 
+    // ===========================================
+    // 🚀 XỬ LÝ KHI GOOGLE TRẢ VỀ LỖI (QUÁ TẢI 503, SAI KEY...)
+    // ===========================================
     if (!response.ok) {
         console.error("Lỗi từ Gemini:", data);
-        throw new Error('Lỗi gọi AI Google');
+        
+        // Bắt chính xác lỗi 503 (High Demand / Unavailable)
+        if (data.error?.code === 503 || data.error?.status === 'UNAVAILABLE' || data.error?.message?.includes('high demand')) {
+            replyText = "🤖 Xin lỗi bạn, hiện tại máy chủ AI của Google đang bị quá tải. Bạn vui lòng đợi 1-2 phút rồi hỏi lại mình nhé!";
+        } 
+        // Các lỗi khác từ Google
+        else {
+            replyText = "🤖 Hệ thống AI đang gặp sự cố kết nối. Xin vui lòng thử lại sau.";
+        }
+        
+        // TRẢ VỀ STATUS 200 ĐỂ FRONTEND KHÔNG BỊ SẬP (Vẫn hiện tin nhắn báo lỗi)
+        if (supabase && logId) {
+            await supabase.from('ai_chat_logs').update({ bot_reply: replyText }).eq('id', logId);
+        }
+        return res.status(200).json({ reply: replyText, logId: logId });
     }
 
-    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Mình đang xử lý hơi lâu, bạn hỏi lại nha!";
+    // ===========================================
+    // ✨ NẾU THÀNH CÔNG: Lấy câu trả lời và update Database
+    // ===========================================
+    replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Mình đang xử lý hơi lâu, bạn hỏi lại nha!";
     
-    // CẬP NHẬT LOG THỰC TẾ VÀO DATABASE
+    // CẬP NHẬT LOG THÀNH CÔNG VÀO DATABASE
     if (supabase && logId) {
         await supabase.from('ai_chat_logs').update({ bot_reply: replyText }).eq('id', logId);
     }
@@ -161,7 +183,20 @@ NGUYÊN TẮC BẮT BUỘC:
     return res.status(200).json({ reply: replyText, logId: logId });
 
   } catch (error) {
-    console.error("❌ SERVER ERROR:", error);
-    return res.status(500).json({ reply: "Xin lỗi, máy chủ AI đang bận. Bạn thử lại sau nhé! 😵" });
+    // ===========================================
+    // 💥 LỖI SERVER NẶNG (Đứt mạng, sập hàm...)
+    // ===========================================
+    console.error("❌ SERVER ERROR CHUNG:", error);
+    
+    // Cố gắng gỡ Database bị kẹt phút chót
+    if (logId && supabase) {
+        try {
+            await supabase.from('ai_chat_logs').update({ bot_reply: "❌ Đã xảy ra lỗi hệ thống (Server Error)." }).eq('id', logId);
+        } catch (dbError) {
+             console.error("Không thể gỡ Database:", dbError);
+        }
+    }
+    
+    return res.status(500).json({ reply: "Xin lỗi, máy chủ đang bận. Bạn thử lại sau nhé! 😵" });
   }
 }
