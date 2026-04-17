@@ -976,13 +976,28 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
                 <div className="flex-1 bg-white rounded-xl border border-gray-200 flex flex-col overflow-hidden min-h-[600px] lg:min-h-0 lg:h-full w-full shadow-sm relative">
                     {/* TOOLBAR LỊCH */}
-                    <div className="flex flex-col sm:flex-row items-center justify-between p-3 sm:p-4 border-b border-gray-100 gap-3 bg-white shrink-0">
-                        <div className="flex items-center gap-3">
+                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-3 sm:p-4 border-b border-gray-100 gap-3 bg-white shrink-0">
+                        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                             <h2 className="text-lg font-extrabold text-[#003375] flex items-center gap-2">
                                 <Calendar size={20} className="text-[#990000]" /> Lịch cá nhân
                             </h2>
+
+                            {/* ✨ BADGE THÔNG BÁO TÍNH NĂNG MỚI (Đã sửa dài và rõ nghĩa hơn) ✨ */}
+                            <div 
+                                className="flex items-center gap-1.5 px-3 py-1 bg-blue-50/80 border border-blue-200 text-[#003375] rounded-full text-[10px] sm:text-xs font-bold shadow-sm cursor-help hover:bg-blue-100 transition-colors"
+                                title="Mở danh sách Môn đã lưu và nhấn vào biểu tượng Sửa (Cây bút) để bắt đầu!"
+                            >
+                                <Zap size={14} className="fill-yellow-500 text-yellow-500 animate-pulse shrink-0" />
+                                {/* Màn hình Laptop/PC: Hiển thị đầy đủ câu chữ */}
+                                <span className="hidden md:inline">✨ Mới: Bạn đã có thể tự chỉnh sửa giờ, phòng học cá nhân!</span>
+                                {/* Màn hình Tablet: Thu gọn một chút */}
+                                <span className="hidden sm:inline md:hidden">✨ Mới: Đã có thể tự sửa lịch học!</span>
+                                {/* Màn hình Điện thoại: Cực ngắn gọn để không rớt dòng */}
+                                <span className="sm:hidden">✨ Tự sửa lịch!</span>
+                            </div>
+
                             {selectedWeek !== 0 && viewMode === 'week' && (
-                                <span className="hidden sm:flex text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded-md items-center gap-1.5">
+                                <span className="hidden md:flex text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded-md items-center gap-1.5">
                                     <CalendarDays size={12}/>
                                     {weekStartStr} - {weekEndStr}
                                 </span>
