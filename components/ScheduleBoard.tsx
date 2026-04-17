@@ -28,6 +28,7 @@ interface Course {
   semester: string;   
   instructor?: string; 
   is_user_added?: boolean;
+  user_schedule_id?: string; // ID dùng để cập nhật lịch cá nhân
 }
 
 const HK_START_DATE = new Date('2026-02-02T00:00:00');
@@ -181,7 +182,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ==========================================
-  // STATE CHO TÍNH NĂNG ADMIN MỚI
+  // STATE CHO TÍNH NĂNG ADMIN & STUDENT EDIT
   // ==========================================
   const [isAdminView, setIsAdminView] = useState(isAdmin);
   const [adminTab, setAdminTab] = useState<'system' | 'user'>('system');
@@ -189,18 +190,21 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [adminEditData, setAdminEditData] = useState<Partial<Course>>({});
   const [isSavingAdminCourse, setIsSavingAdminCourse] = useState(false);
 
+  const [isStudentEditModalOpen, setIsStudentEditModalOpen] = useState(false);
+  const [studentEditData, setStudentEditData] = useState<Partial<Course> & { user_schedule_id?: string }>({});
+  const [isSavingStudentCourse, setIsSavingStudentCourse] = useState(false);
+
   useEffect(() => {
     if (!loading) {
         setIsAdminView(isAdmin || isAuditor);
     }
-}, [isAdmin, isAuditor, loading]);
+  }, [isAdmin, isAuditor, loading]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const startX = useRef(0);
   const scrollLeft = useRef(0);
 
-  // Click ra ngoài để đóng dropdown
   useEffect(() => {
     const closeDropdowns = () => {
         setIsWeekDropdownOpen(false);
@@ -283,9 +287,18 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     const targetId = viewUserId || user.id;
 
     try {
-      const { data, error } = await supabase.from('user_schedules').select(`course_id, semester, course_schedules (*)`).eq('user_id', targetId);
+      // Kéo thêm cột custom_data để đè lên dữ liệu gốc
+      const { data, error } = await supabase.from('user_schedules').select(`id, course_id, semester, custom_data, course_schedules (*)`).eq('user_id', targetId);
       if (!error && data) {
-        setMySchedule(data.map((item: any) => item.course_schedules).filter(Boolean));
+        setMySchedule(data.map((item: any) => {
+            if (!item.course_schedules) return null;
+            return {
+                ...item.course_schedules,
+                ...(item.custom_data || {}), // Đè dữ liệu cá nhân lên (nếu có)
+                id: item.course_schedules.id, // Bắt buộc giữ ID gốc để tránh lỗi xóa môn
+                user_schedule_id: item.id // ID của bản ghi trong bảng user_schedules
+            };
+        }).filter(Boolean));
       }
     } catch (error) { console.error("Lỗi kéo TKB:", error); }
   };
@@ -347,8 +360,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     setIsSyncing(true);
     try {
       const { error } = await supabase.from('user_schedules').insert({ user_id: user.id, course_id: course.id, semester: selectedSemester });
-      if (error) setMySchedule(mySchedule.filter(c => c.id !== course.id));
-    } catch (err) {} finally { setIsSyncing(false); }
+      if (error) throw error;
+      fetchMySchedule(); // Fetch lại để lấy user_schedule_id
+    } catch (err) {
+        setMySchedule(mySchedule.filter(c => c.id !== course.id));
+    } finally { setIsSyncing(false); }
   };
 
   const removeFromSchedule = async (courseId: string) => {
@@ -360,6 +376,39 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       const { error } = await supabase.from('user_schedules').delete().eq('user_id', user.id).eq('course_id', courseId);
       if (error) setMySchedule(backup);
     } catch (err) { setMySchedule(backup); }
+  };
+
+  // ==========================================
+  // HÀM SỬA MÔN HỌC (CHO SINH VIÊN)
+  // ==========================================
+  const handleStudentSaveCourse = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!studentEditData.subject_name || !studentEditData.course_code) {
+          alert("Vui lòng nhập Tên môn và Mã môn!");
+          return;
+      }
+
+      setIsSavingStudentCourse(true);
+      try {
+          // Bóc tách những trường gốc ra, chỉ đẩy vào custom_data những gì liên quan đến môn học
+          const { id, user_schedule_id, is_user_added, ...overrideData } = studentEditData;
+
+          const { error } = await supabase
+              .from('user_schedules')
+              .update({ custom_data: overrideData })
+              .eq('id', user_schedule_id);
+
+          if (error) throw error;
+          alert("Cập nhật thông tin môn học cá nhân thành công!");
+          setIsStudentEditModalOpen(false);
+          setSelectedCourseInfo(null);
+          fetchMySchedule();
+      } catch (err) {
+          console.error(err);
+          alert("Có lỗi xảy ra khi lưu lịch cá nhân.");
+      } finally {
+          setIsSavingStudentCourse(false);
+      }
   };
 
   // ==========================================
@@ -881,7 +930,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload} />
                     </div>
 
-                    {/* Danh sách môn học gợi ý (TỰ ĐỘNG ẨN TRÊN MOBILE KHI CHƯA NHẬP TỪ KHÓA) */}
+                    {/* Danh sách môn học gợi ý */}
                     <div className={`flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-gray-50/50 custom-scrollbar relative ${searchTerm.trim() ? 'block' : 'hidden lg:block'}`}>
                         {!isAuthenticated ? (
                             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6 bg-white/80 backdrop-blur-sm animate-fadeIn">
@@ -908,7 +957,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         <div className="flex justify-between items-start">
                                             <div>
                                                 <h3 className={`font-bold text-xs leading-tight pr-6 line-clamp-2 ${color.text}`}>{course.subject_name}</h3>
-                                                {/* Thêm Mã HP và Đợt ở đây */}
                                                 <p className="text-[10px] text-gray-500 font-medium mt-0.5">
                                                     {course.course_code} • Đợt {course.phase || '1'}
                                                 </p>
@@ -1069,7 +1117,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                                 <div key={course.id} onClick={() => setSelectedCourseInfo({ course, details: slotDetails })} className={`border-l-4 ${color.border} ${color.bg} rounded-r-lg p-2.5 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 relative group w-full shrink-0`}>
                                                                     <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="absolute top-1.5 right-1.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity bg-white/50 rounded p-0.5"><X size={14}/></button>
                                                                     <h4 className={`font-bold ${color.text} text-[11px] sm:text-xs leading-snug line-clamp-2 pr-4 mb-0.5`}>{course.subject_name}</h4>
-                                                                    {/* Thêm phần hiển thị Mã HP và Đợt */}
                                                                     <div className={`text-[9px] ${color.text} opacity-80 font-medium mb-1.5 truncate`}>{course.course_code} • Đợt {course.phase || '1'}</div>
                                                                     
                                                                     <div className={`text-[10px] ${color.label} font-semibold flex items-center gap-1`}><MapPin size={10}/> P. {slotDetails.room}</div>
@@ -1225,7 +1272,17 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             {!currentSemesterSchedule.some(c => c.id === course.id) ? (
                                 <button onClick={() => { addToSchedule(course); setSelectedCourseInfo(null); }} className="flex-1 py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-all shadow-md">Thêm vào Lịch</button>
                             ) : (
-                                <button onClick={() => { removeFromSchedule(course.id); setSelectedCourseInfo(null); }} className="flex-1 py-2.5 rounded-lg bg-red-50 text-red-600 border border-red-200 text-sm font-bold hover:bg-red-100 transition-all">Xóa khỏi Lịch</button>
+                                <>
+                                    <button onClick={() => {
+                                        const scheduleItem = currentSemesterSchedule.find(c => c.id === course.id);
+                                        setStudentEditData(scheduleItem || course);
+                                        setIsStudentEditModalOpen(true);
+                                        setSelectedCourseInfo(null);
+                                    }} className="px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors" title="Sửa thông tin cá nhân">
+                                        <Edit size={18} />
+                                    </button>
+                                    <button onClick={() => { removeFromSchedule(course.id); setSelectedCourseInfo(null); }} className="flex-1 py-2.5 rounded-lg bg-red-50 text-red-600 border border-red-200 text-sm font-bold hover:bg-red-100 transition-all">Xóa khỏi Lịch</button>
+                                </>
                             )}
                         </div>
                     </div>
@@ -1254,7 +1311,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         <h4 className="font-bold text-gray-800 text-sm truncate">{course.subject_name}</h4>
                                         <p className="text-[10px] text-gray-500 mt-0.5 font-medium">{course.course_code} <span className="mx-1">•</span> Đợt {course.phase || '1'}</p>
                                     </div>
-                                    <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors border border-transparent hover:border-red-100" title="Xóa môn khỏi lịch"><Trash2 size={16}/></button>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        <button onClick={(e) => { e.stopPropagation(); setStudentEditData(course); setIsStudentEditModalOpen(true); setIsMyScheduleModalOpen(false); }} className="text-gray-400 hover:text-blue-600 p-2 rounded-lg hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-100" title="Sửa lịch cá nhân"><Edit size={16}/></button>
+                                        <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors border border-transparent hover:border-red-100" title="Xóa môn khỏi lịch"><Trash2 size={16}/></button>
+                                    </div>
                                 </div>
                             ))
                         )}
@@ -1296,6 +1356,73 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         <div><input type="text" placeholder="Giảng viên (Tùy chọn)" value={newCourseData.instructor} onChange={e => setNewCourseData({...newCourseData, instructor: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-colors"/></div>
                         <button type="submit" disabled={isSubmittingCourse} className="w-full py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-colors shadow-md">{isSubmittingCourse ? 'Đang gửi...' : 'Gửi yêu cầu'}</button>
                     </form>
+                </div>
+            </div>
+        )}
+
+        {/* MODAL SINH VIÊN SỬA MÔN CÁ NHÂN */}
+       {isStudentEditModalOpen && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => setIsStudentEditModalOpen(false)}>
+                <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl animate-scaleIn border border-gray-100 flex flex-col max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <div className="p-4 sm:p-5 bg-[#003375] text-white flex justify-between items-center shrink-0">
+                        <h2 className="font-bold text-lg flex items-center gap-2"><Edit size={18} /> Sửa thông tin môn học (Lịch cá nhân)</h2>
+                        <button onClick={() => setIsStudentEditModalOpen(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
+                    </div>
+                    
+                    <div className="p-5 overflow-y-auto custom-scrollbar flex-1 bg-gray-50">
+                        <form id="studentCourseForm" onSubmit={handleStudentSaveCourse} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Tên môn học *</label>
+                                <input required type="text" value={studentEditData.subject_name || ''} onChange={e => setStudentEditData({...studentEditData, subject_name: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Mã học phần *</label>
+                                <input required type="text" value={studentEditData.course_code || ''} onChange={e => setStudentEditData({...studentEditData, course_code: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Số Tín Chỉ</label>
+                                <input type="number" min="1" max="10" value={studentEditData.credits || ''} onChange={e => setStudentEditData({...studentEditData, credits: parseInt(e.target.value)})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Giảng viên</label>
+                                <input type="text" value={studentEditData.instructor || ''} onChange={e => setStudentEditData({...studentEditData, instructor: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Ngày học (VD: 2, 4, 6)</label>
+                                <input type="text" value={studentEditData.day_of_week || ''} onChange={e => setStudentEditData({...studentEditData, day_of_week: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Ca học (S, C, S C)</label>
+                                <input type="text" value={studentEditData.shift || ''} onChange={e => setStudentEditData({...studentEditData, shift: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Phòng học (VD: B1.101, C301)</label>
+                                <input type="text" value={studentEditData.room || ''} onChange={e => setStudentEditData({...studentEditData, room: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Tuần học (VD: 1, 5-15)</label>
+                                <input type="text" value={studentEditData.weeks || ''} onChange={e => setStudentEditData({...studentEditData, weeks: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Đợt (1, 2)</label>
+                                <input type="text" value={studentEditData.phase || ''} onChange={e => setStudentEditData({...studentEditData, phase: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Ngày thi (VD: 15/07/2026)</label>
+                                <input type="text" value={studentEditData.exam_date || ''} onChange={e => setStudentEditData({...studentEditData, exam_date: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Ca thi (1, 2, 3...)</label>
+                                <input type="text" value={studentEditData.exam_shift || ''} onChange={e => setStudentEditData({...studentEditData, exam_shift: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                        </form>
+                    </div>
+                    <div className="p-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0 rounded-b-xl">
+                        <button type="button" onClick={() => setIsStudentEditModalOpen(false)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors text-sm">Hủy bỏ</button>
+                        <button type="submit" form="studentCourseForm" disabled={isSavingStudentCourse} className="px-6 py-2 bg-[#003375] hover:bg-[#003d99] text-white font-bold rounded-lg shadow-md transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
+                            {isSavingStudentCourse ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} Lưu Thông Tin Cá Nhân
+                        </button>
+                    </div>
                 </div>
             </div>
         )}
@@ -1373,5 +1500,5 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             />
         )}
     </div>
-  );
+  );  
 }
