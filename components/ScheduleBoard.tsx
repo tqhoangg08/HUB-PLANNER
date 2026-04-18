@@ -19,7 +19,7 @@ interface CourseLabel {
   type: string;
   text?: string; 
   color: string;
-  date?: string;
+  date?: string; 
 }
 
 interface Course {
@@ -44,7 +44,7 @@ interface Course {
   user_schedule_id?: string;
   user?: UserProfile;
   labels?: CourseLabel[]; 
-  dateStr?: string;
+  dateStr?: string; 
 }
 
 const HK_START_DATE = new Date('2026-02-02T00:00:00');
@@ -65,7 +65,6 @@ const LABEL_COLORS = [
     { name: 'Xám', value: 'gray' },
 ];
 
-// Map màu cố định cho các loại Label mặc định (Đồng bộ toàn hệ thống)
 const FIXED_LABEL_COLORS: Record<string, string> = {
     'Nghỉ': 'red',
     'Thi giữa kỳ': 'yellow',
@@ -98,8 +97,27 @@ const getLabelDotColor = (color: string) => {
 };
 
 // =======================================================================
-// HỆ THỐNG HELPER
+// HỆ THỐNG HELPER (NGÀY THÁNG)
 // =======================================================================
+const formatDateStr = (date: Date) => {
+    const d = date.getDate().toString().padStart(2, '0');
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const y = date.getFullYear();
+    return `${d}/${m}/${y}`;
+};
+
+const getWeekDatesFull = (weekNum: number, sem: string) => {
+    if (weekNum === 0) return ['', '', '', '', '', '', '']; 
+    const dates = [];
+    const startDate = sem === 'HK1_2025_2026' ? new Date('2025-08-11T00:00:00') : new Date('2026-02-02T00:00:00');
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(startDate);
+        d.setDate(d.getDate() + (weekNum - 1) * 7 + i);
+        dates.push(formatDateStr(d));
+    }
+    return dates;
+};
+
 const getMainShiftType = (shiftStr?: string) => {
   if (!shiftStr) return '';
   const s = shiftStr.trim().toUpperCase();
@@ -148,7 +166,12 @@ const getExamTime = (shiftStr?: string) => {
     default: return '';
   }
 };
-
+const getExamDayMonth = (dateStr: string) => {
+  if (!dateStr) return "";
+  const parts = dateStr.split('/');
+  if (parts.length >= 2) return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}`;
+  return dateStr;
+};
 const splitData = (str?: string) => {
   if (!str) return [];
   const s = str.toString().trim();
@@ -261,7 +284,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [quickTagData, setQuickTagData] = useState({ type: 'Nghỉ', text: '', color: 'red' });
   const [isSavingQuickTag, setIsSavingQuickTag] = useState(false);
 
-  // States cho Form thêm Label ngay trong Modal Chi Tiết Môn Học
   const [showInlineLabelForm, setShowInlineLabelForm] = useState(false);
   const [inlineLabelData, setInlineLabelData] = useState({ type: 'Nghỉ', text: '', color: 'red' });
   const [isSavingInlineLabel, setIsSavingInlineLabel] = useState(false);
@@ -322,17 +344,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     };
   }, []);
 
-  const today = new Date();
-  const todayStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+  const todayStr = formatDateStr(new Date());
 
   const fetchCourses = async () => {
     setIsLoading(true);
     try {
         let query = supabase.from('course_schedules').select('*').eq('semester', selectedSemester);
-        
-        if (selectedPhase !== 'all') {
-            query = query.eq('phase', selectedPhase);
-        }
+        if (selectedPhase !== 'all') query = query.eq('phase', selectedPhase);
         
         const term = searchTerm.trim();
         if (term) {
@@ -341,16 +359,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 query = query.or(`subject_name.ilike.%${kw}%,course_code.ilike.%${kw}%,instructor.ilike.%${kw}%`);
             });
         }
-        
         const { data, error } = await query.limit(isAdminView ? 1000 : 100);
         if (error) throw error;
-
         setAvailableCourses(data || []);
     } catch (error) { 
         console.error("Lỗi tải danh sách môn:", error); 
-    } finally { 
-        setIsLoading(false); 
-    }
+    } finally { setIsLoading(false); }
   };
 
   const fetchChangedUserScheduleCourses = async () => {
@@ -358,16 +372,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     setIsLoading(true);
     try {
         const dbSemester = selectedSemester.replace(/\s+/g, '_').replace(/[\(\)]/g, '');
-        
         const { data: schedulesData, error: schedulesError } = await supabase
             .from('user_schedules')
-            .select(`
-                id,
-                user_id,
-                custom_data,
-                semester,
-                course_schedules (*)
-            `)
+            .select(`id, user_id, custom_data, semester, course_schedules (*)`)
             .limit(10000);
 
         if (schedulesError) throw schedulesError;
@@ -375,13 +382,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         if (schedulesData) {
             const filteredSchedules = schedulesData.filter((item: any) => {
                 const isCorrectSemester = item.semester === selectedSemester || item.semester === dbSemester;
-                
                 let hasChanges = false;
                 if (item.custom_data) {
                     const cData = typeof item.custom_data === 'string' ? JSON.parse(item.custom_data) : item.custom_data;
                     hasChanges = Object.keys(cData).length > 0;
                 }
-                
                 return isCorrectSemester && hasChanges && item.course_schedules;
             });
 
@@ -433,9 +438,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       if (!error && data) {
         setMySchedule(data.map((item: any) => {
             if (!item.course_schedules) return null;
+            let cData = item.custom_data;
+            if (typeof cData === 'string') {
+                try { cData = JSON.parse(cData); } catch(e) { cData = {}; }
+            }
             return {
                 ...item.course_schedules,
-                ...(item.custom_data || {}), 
+                ...cData, 
                 id: item.course_schedules.id, 
                 user_schedule_id: item.id 
             };
@@ -520,19 +529,20 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   };
 
   // ==========================================
-  // XỬ LÝ NHÃN (LABEL) CÁ NHÂN HÓA
+  // XỬ LÝ GẮN NHÃN CÁ NHÂN HÓA (ĐÃ CHUẨN HÓA)
   // ==========================================
   const handleAddLabel = () => {
       if (newLabelData.type === 'Khác' && !newLabelData.text.trim()) {
           alert("Vui lòng nhập tên nhãn!"); return;
       }
       const finalColor = newLabelData.type === 'Khác' ? newLabelData.color : FIXED_LABEL_COLORS[newLabelData.type];
+      
       const newLabel: CourseLabel = {
           id: Math.random().toString(36).substr(2, 9),
           type: newLabelData.type,
           text: newLabelData.type === 'Khác' ? newLabelData.text : undefined,
           color: finalColor,
-          date: ''
+          date: '' // Bảng sửa thông tin chung thì không gắn ngày cụ thể
       };
       setStudentEditData(prev => ({
           ...prev,
@@ -548,7 +558,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       }));
   };
 
-  // Xử lý Gắn nhãn nhanh từ Modal nhỏ
   const handleQuickSaveLabel = async () => {
       if (!quickTagCourse || !quickTagCourse.user_schedule_id) return;
       if (quickTagData.type === 'Khác' && !quickTagData.text.trim()) {
@@ -557,16 +566,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       setIsSavingQuickTag(true);
       try {
           const finalColor = quickTagData.type === 'Khác' ? quickTagData.color : FIXED_LABEL_COLORS[quickTagData.type];
+          
           const targetDate = quickTagCourse.dateStr || '';
+
           const newLabel: CourseLabel = {
               id: Math.random().toString(36).substr(2, 9),
               type: quickTagData.type,
               text: quickTagData.type === 'Khác' ? quickTagData.text : undefined,
               color: finalColor,
-              date: targetDate
+              date: targetDate 
           };
 
-const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = quickTagCourse;
+          const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = quickTagCourse;
+          
           const overrideData = {
               ...rest,
               labels: [...(labels || []), newLabel]
@@ -590,7 +602,6 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
       }
   };
 
-  // Xử lý Thêm nhãn trực tiếp trong Modal Chi tiết Môn học
   const handleInlineSaveLabel = async () => {
       if (!selectedCourseInfo || !selectedCourseInfo.dateStr) {
           alert("Vui lòng chọn môn học từ lịch ở một ngày cụ thể để gắn nhãn!");
@@ -607,7 +618,6 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
       try {
           const finalColor = inlineLabelData.type === 'Khác' ? inlineLabelData.color : FIXED_LABEL_COLORS[inlineLabelData.type];
           
-          // Đảm bảo dateStr không bao giờ undefined
           const targetDate = selectedCourseInfo.dateStr || '';
 
           const newLabel: CourseLabel = {
@@ -615,10 +625,10 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
               type: inlineLabelData.type,
               text: inlineLabelData.type === 'Khác' ? inlineLabelData.text : undefined,
               color: finalColor,
-              date: targetDate // ✨ SỬA CHỖ NÀY
+              date: targetDate 
           };
 
-          const { id, user_schedule_id, is_user_added, user, labels, ...rest } = course;
+          const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = course;
           const updatedLabels = [...(labels || []), newLabel];
           const overrideData = {
               ...rest,
@@ -635,6 +645,7 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
           const updatedCourse = { ...course, labels: updatedLabels };
           setSelectedCourseInfo({ ...selectedCourseInfo, course: updatedCourse });
           setMySchedule(prev => prev.map(c => c.id === course.id ? updatedCourse : c));
+          setChangedUserScheduleCourses(prev => prev.map(c => c.id === course.id ? updatedCourse : c));
           
           setShowInlineLabelForm(false);
           setInlineLabelData({ type: 'Nghỉ', text: '', color: 'red' });
@@ -646,14 +657,13 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
       }
   };
 
-  // Xử lý Xóa nhãn trực tiếp trong Modal Chi tiết Môn học
   const handleInlineRemoveLabel = async (labelIdToRemove: string) => {
       if (!selectedCourseInfo) return;
       const course = currentSemesterSchedule.find(c => c.id === selectedCourseInfo.course.id) || selectedCourseInfo.course;
       if (!course.user_schedule_id) return;
       
       try {
-          const { id, user_schedule_id, is_user_added, user, labels, ...rest } = course;
+          const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = course;
           const updatedLabels = (labels || []).filter(l => l.id !== labelIdToRemove);
           const overrideData = {
               ...rest,
@@ -683,10 +693,9 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
           alert("Vui lòng nhập Tên môn và Mã môn!");
           return;
       }
-
       setIsSavingStudentCourse(true);
       try {
-          const { id, user_schedule_id, is_user_added, user, ...overrideData } = studentEditData;
+          const { id, user_schedule_id, is_user_added, user, dateStr, ...overrideData } = studentEditData;
 
           const { error } = await supabase
               .from('user_schedules')
@@ -709,71 +718,34 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
   const handleAdminSaveCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminEditData.subject_name || !adminEditData.course_code) {
-        alert("Vui lòng nhập Tên môn và Mã môn!");
-        return;
+        alert("Vui lòng nhập Tên môn và Mã môn!"); return;
     }
-
     setIsSavingAdminCourse(true);
     try {
         const payload = {
-            ...adminEditData,
-            semester: selectedSemester,
+            ...adminEditData, semester: selectedSemester,
             is_user_added: adminEditData.is_user_added ?? (adminTab === 'user')
         };
-
         if (payload.id) {
             const { error } = await supabase.from('course_schedules').update(payload).eq('id', payload.id);
-            if (error) throw error;
-            alert("Cập nhật môn học thành công!");
+            if (error) throw error; alert("Cập nhật môn học thành công!");
         } else {
             const { error } = await supabase.from('course_schedules').insert(payload);
-            if (error) throw error;
-            alert("Thêm môn mới thành công!");
+            if (error) throw error; alert("Thêm môn mới thành công!");
         }
-        setIsAdminEditModalOpen(false);
-        fetchCourses();
-    } catch (err) {
-        console.error(err);
-        alert("Có lỗi xảy ra khi lưu môn học.");
-    } finally {
-        setIsSavingAdminCourse(false);
-    }
+        setIsAdminEditModalOpen(false); fetchCourses();
+    } catch (err) { alert("Có lỗi xảy ra khi lưu môn học."); } 
+    finally { setIsSavingAdminCourse(false); }
   };
 
   const handleAdminDeleteCourse = async (id: string) => {
-    if (isAuditor) {
-        alert("⚠️ Tính năng này bị khóa đối với tài khoản Auditor.");
-        return;
-    }
+    if (isAuditor) { alert("⚠️ Tính năng này bị khóa đối với tài khoản Auditor."); return; }
       if (!window.confirm("BẠN CÓ CHẮC CHẮN MUỐN XÓA?\nHành động này sẽ xóa môn học khỏi cơ sở dữ liệu và tự động xóa khỏi Thời khóa biểu của tất cả sinh viên đang lưu môn này!")) return;
-      
       try {
           const { error } = await supabase.from('course_schedules').delete().eq('id', id);
-          if (error) throw error;
-          fetchCourses();
-      } catch (err) {
-          console.error(err);
-          alert("Lỗi khi xóa môn học.");
-      }
+          if (error) throw error; fetchCourses();
+      } catch (err) { alert("Lỗi khi xóa môn học."); }
   };
-
-  const getWeekDates = (weekNum: number) => {
-    if (weekNum === 0) return ['', '', '', '', '', '', '']; 
-    const dates = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(HK_START_DATE);
-      d.setDate(d.getDate() + (weekNum - 1) * 7 + i);
-      dates.push(`${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`);
-    }
-    return dates;
-  };
-
-  const getExamDayMonth = (dateStr: string) => {
-    if (!dateStr) return "";
-    const parts = dateStr.split('/');
-    if (parts.length >= 2) return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}`;
-    return dateStr;
-  }
 
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -842,50 +814,29 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
 
             let targetCourseId = null;
 
-            if (existingCourses && existingCourses.length > 0) {
-                targetCourseId = existingCourses[0].id;
-            }
+            if (existingCourses && existingCourses.length > 0) targetCourseId = existingCourses[0].id;
 
             if (!targetCourseId) {
                 const { data: newCourse, error: insertErr } = await supabase
                     .from('course_schedules')
                     .insert({
-                        course_code: cleanCode, 
-                        subject_name: course.subject_name,
-                        credits: course.credits,
-                        instructor: course.instructor,
-                        day_of_week: course.day_of_week,
-                        shift: course.shift,
-                        room: course.room,
-                        campus: course.campus || 'TD', 
-                        weeks: finalWeeks, 
-                        semester: currentSem,
-                        phase: phaseStr, 
-                        is_user_added: false 
+                        course_code: cleanCode, subject_name: course.subject_name,
+                        credits: course.credits, instructor: course.instructor,
+                        day_of_week: course.day_of_week, shift: course.shift,
+                        room: course.room, campus: course.campus || 'TD', 
+                        weeks: finalWeeks, semester: currentSem, phase: phaseStr, is_user_added: false 
                     })
                     .select('id')
                     .single();
-                if (!insertErr && newCourse) {
-                    targetCourseId = newCourse.id;
-                } else {
-                    console.error("Lỗi thêm môn mới:", insertErr);
-                }
+                if (!insertErr && newCourse) targetCourseId = newCourse.id;
             }
 
             if (targetCourseId) {
                 const { data: checkLink } = await supabase
-                    .from('user_schedules')
-                    .select('id')
-                    .eq('user_id', user.id)
-                    .eq('course_id', targetCourseId)
-                    .single();
+                    .from('user_schedules').select('id').eq('user_id', user.id).eq('course_id', targetCourseId).single();
 
                 if (!checkLink) {
-                    await supabase.from('user_schedules').insert({
-                        user_id: user.id,
-                        course_id: targetCourseId,
-                        semester: currentSem
-                    });
+                    await supabase.from('user_schedules').insert({ user_id: user.id, course_id: targetCourseId, semester: currentSem });
                     addedCount++;
                 }
             }
@@ -893,16 +844,13 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
         
         if (addedCount > 0) {
             alert(`✅ Đã đồng bộ thành công ${addedCount} môn học vào Thời khóa biểu!`);
-            fetchMySchedule(); 
-            setSelectedSemester(currentSem); 
+            fetchMySchedule(); setSelectedSemester(currentSem); 
         } else {
             alert(`Các môn học trong file đã có sẵn trong Thời khóa biểu của bạn rồi!`);
         }
 
-    } catch (err) {
-        console.error(err);
-        alert("Lỗi khi đọc PDF.");
-    } finally {
+    } catch (err) { alert("Lỗi khi đọc PDF."); } 
+    finally {
         setIsProcessingPdf(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
     }
@@ -938,7 +886,6 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
   const getExamsForDate = (targetDate: Date, schedule: Course[]) => {
     const shortStr = `${targetDate.getDate().toString().padStart(2, '0')}/${(targetDate.getMonth() + 1).toString().padStart(2, '0')}`;
     const longStr = `${shortStr}/${targetDate.getFullYear()}`;
-    
     return schedule.filter(c => {
        if (!c.exam_date) return false;
        const d = c.exam_date.trim();
@@ -967,15 +914,11 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
     setIsSubmittingReport(true);
     try {
       const { error } = await supabase.from('course_reports').insert({ 
-        course_code: reportData.course_code, 
-        subject_name: reportData.subject_name, 
-        error_description: reportData.description,
-        user_id: user.id
+        course_code: reportData.course_code, subject_name: reportData.subject_name, error_description: reportData.description, user_id: user.id
       });
       if (error) throw error;
       alert("✅ Gửi báo cáo thành công! Cảm ơn bạn đã đóng góp.");
-      setIsReportModalOpen(false);
-      setReportData({ course_code: '', subject_name: '', description: '' });
+      setIsReportModalOpen(false); setReportData({ course_code: '', subject_name: '', description: '' });
     } catch (error) { alert("Đã xảy ra lỗi khi gửi báo cáo."); } 
     finally { setIsSubmittingReport(false); }
   };
@@ -990,22 +933,18 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
     setIsSubmittingCourse(true);
     try {
       const { error } = await supabase.from('user_course_requests').insert({ 
-        subject_name: newCourseData.subject_name, 
-        course_code: newCourseData.course_code, 
-        instructor: newCourseData.instructor || 'Chưa rõ',
-        user_id: user.id
+        subject_name: newCourseData.subject_name, course_code: newCourseData.course_code, instructor: newCourseData.instructor || 'Chưa rõ', user_id: user.id
       });
       if (error) throw error;
       alert("✅ Gửi yêu cầu thành công! Admin sẽ kiểm tra và cập nhật môn này.");
-      setIsCreateCourseModalOpen(false);
-      setNewCourseData({ subject_name: '', course_code: '', instructor: '' });
+      setIsCreateCourseModalOpen(false); setNewCourseData({ subject_name: '', course_code: '', instructor: '' });
     } catch (error) { alert("Đã xảy ra lỗi khi gửi yêu cầu."); } 
     finally { setIsSubmittingCourse(false); }
   };
 
-  const currentWeekDates = getWeekDates(selectedWeek);
-  const weekStartStr = currentWeekDates[0];
-  const weekEndStr = currentWeekDates[6];
+  const currentWeekDates = getWeekDatesFull(selectedWeek, selectedSemester);
+  const weekStartStr = currentWeekDates[0]?.substring(0, 5);
+  const weekEndStr = currentWeekDates[6]?.substring(0, 5);
 
   const prevWeek = () => setSelectedWeek(prev => prev > 0 ? prev - 1 : 0);
   const nextWeek = () => setSelectedWeek(prev => prev < 24 ? prev + 1 : 24);
@@ -1037,7 +976,6 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
       filteredAdminCourses = changedUserScheduleCourses;
   }
 
-    // ✨ NGĂN CHẶN RENDER NẾU CHƯA LOAD QUYỀN XONG
     if (loading) {
         return (
             <div className="w-full min-h-[60vh] flex flex-col items-center justify-center">
@@ -1051,37 +989,24 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
     <div className={`w-full ${isAdminView ? '' : 'pb-10'}`}>
         {!isAdmin && <AdsBanner />}
 
-        {/* HEADER CHUẨN DASHBOARD */}
         <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-1 sm:pb-4 -mt-2 mb-1 sm:mb-4 md:border-b md:border-transparent md:border-gray-200/60">
             <div className="flex flex-row justify-between items-end px-1 overflow-hidden shrink-0">
                 <div className="flex flex-col">
-                    <h1 className="text-[24px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
-                        Thời khóa biểu
-                    </h1>
+                    <h1 className="text-[24px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">Thời khóa biểu</h1>
                     <div className="flex items-center gap-1.5 mt-1 sm:mt-2 text-[12px] sm:text-[13px] text-gray-500 overflow-x-auto whitespace-nowrap custom-scrollbar pb-1">
-                        <span className="shrink-0">Quản lý học tập</span>
-                        <span className="text-gray-300 shrink-0">•</span>
-                        <span className="font-bold text-gray-700 shrink-0">Lịch học & Thi</span>
+                        <span className="shrink-0">Quản lý học tập</span><span className="text-gray-300 shrink-0">•</span><span className="font-bold text-gray-700 shrink-0">Lịch học & Thi</span>
                     </div>
                 </div>
-                {/* NÚT TOGGLE ADMIN MODE */}
                 {(isAdmin || isAuditor) && (
-                    <button 
-                        onClick={() => { playClick(); setIsAdminView(!isAdminView); }}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-purple-100 text-purple-700 font-bold rounded-lg hover:bg-purple-200 transition-colors shadow-sm text-xs sm:text-sm active:scale-95"
-                    >
-                        <Settings size={16}/> 
-                        <span className="hidden sm:inline">{isAdminView ? 'Về giao diện Sinh viên' : 'Quản lý Môn học'}</span>
-                        <span className="sm:hidden">Admin</span>
+                    <button onClick={() => { playClick(); setIsAdminView(!isAdminView); }} className="flex items-center gap-1.5 px-4 py-2 bg-purple-100 text-purple-700 font-bold rounded-lg hover:bg-purple-200 transition-colors shadow-sm text-xs sm:text-sm active:scale-95">
+                        <Settings size={16}/> <span className="hidden sm:inline">{isAdminView ? 'Về giao diện Sinh viên' : 'Quản lý Môn học'}</span><span className="sm:hidden">Admin</span>
                     </button>
                 )}
             </div>
         </div>
 
-        {/* LAYOUT CHÍNH HOẶC ADMIN VIEW */}
         {isAdminView ? (
             <div className="w-full bg-white rounded-xl border border-gray-300 overflow-hidden flex flex-col h-[calc(100vh-150px)]">
-                {/* THANH CÔNG CỤ ADMIN */}
                 <div className="p-4 border-b border-gray-200 bg-[#f8fafc] flex flex-wrap gap-4 items-center justify-between">
                     <div className="flex items-center gap-3">
                         <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-300 outline-none text-sm font-bold text-[#003375] bg-white hover:border-gray-400 transition-colors cursor-pointer">
@@ -1100,42 +1025,24 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                             <input type="text" placeholder="Tìm môn học, mã HP, GV..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-300 outline-none text-sm transition-all hover:border-gray-400 focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"/>
                             <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
                         </div>
-                        <button onClick={fetchCourses} className="p-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors" title="Làm mới">
-                            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
-                        </button>
+                        <button onClick={fetchCourses} className="p-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"><RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /></button>
                         {adminTab !== 'user_changed' && (
-                            <button 
-                                onClick={() => { setAdminEditData({ is_user_added: adminTab === 'user' }); setIsAdminEditModalOpen(true); }}
-                                className="flex items-center gap-1.5 px-4 py-2 bg-[#003375] text-white font-bold rounded-lg hover:bg-[#002855] transition-colors text-sm whitespace-nowrap"
-                            >
-                                <Plus size={16}/> Thêm môn
-                            </button>
+                            <button onClick={() => { setAdminEditData({ is_user_added: adminTab === 'user' }); setIsAdminEditModalOpen(true); }} className="flex items-center gap-1.5 px-4 py-2 bg-[#003375] text-white font-bold rounded-lg hover:bg-[#002855] transition-colors text-sm whitespace-nowrap"><Plus size={16}/> Thêm môn</button>
                         )}
                     </div>
                 </div>
 
-                {/* TABS ADMIN */}
                 <div className="px-4 pt-4 border-b border-gray-200 flex gap-6 bg-white shrink-0 overflow-x-auto custom-scrollbar">
-                    <button onClick={() => setAdminTab('system')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'system' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>
-                        Môn hệ thống gốc
-                    </button>
-                    <button onClick={() => setAdminTab('user')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'user' ? 'border-b-2 border-purple-600 text-purple-700' : 'text-gray-500 hover:text-gray-800'}`}>
-                        Môn sinh viên thêm
-                    </button>
-                    <button onClick={() => setAdminTab('user_changed')} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'user_changed' ? 'border-b-2 border-orange-600 text-orange-700' : 'text-gray-500 hover:text-gray-800'}`}>
-                        Môn sinh viên thay đổi
-                    </button>
+                    <button onClick={() => setAdminTab('system')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'system' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn hệ thống gốc</button>
+                    <button onClick={() => setAdminTab('user')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'user' ? 'border-b-2 border-purple-600 text-purple-700' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên thêm</button>
+                    <button onClick={() => setAdminTab('user_changed')} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'user_changed' ? 'border-b-2 border-orange-600 text-orange-700' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên thay đổi</button>
                 </div>
 
-                {/* BẢNG DỮ LIỆU ADMIN */}
                 <div className="flex-1 overflow-auto custom-scrollbar bg-white">
                     {isLoading ? (
                         <div className="flex items-center justify-center h-full text-gray-500 gap-2"><Loader2 className="animate-spin" size={20}/> Đang tải dữ liệu...</div>
                     ) : filteredAdminCourses.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-gray-500">
-                            <Search size={40} className="mb-3 text-gray-300"/>
-                            <p>Không có dữ liệu trong mục này.</p>
-                        </div>
+                        <div className="flex flex-col items-center justify-center h-full text-gray-500"><Search size={40} className="mb-3 text-gray-300"/><p>Không có dữ liệu trong mục này.</p></div>
                     ) : adminTab === 'user_changed' ? (
                         <table className="w-full text-left border-collapse text-sm min-w-[1000px]">
                             <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
@@ -1163,19 +1070,13 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                                             {c.labels && c.labels.length > 0 && (
                                                 <div className="flex gap-1 mt-1 flex-wrap">
                                                     {c.labels.map((l: any) => (
-                                                        <span key={l.id} className={`text-[9px] px-1 rounded border font-semibold ${getLabelStyle(l.color)}`}>
-                                                            {l.type === 'Khác' ? l.text : l.type}
-                                                        </span>
+                                                        <span key={l.id} className={`text-[9px] px-1 rounded border font-semibold ${getLabelStyle(l.color)}`}>{l.date} - {l.type === 'Khác' ? l.text : l.type}</span>
                                                     ))}
                                                 </div>
                                             )}
                                         </td>
                                         <td className="p-3 text-center">
-                                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                {!isAuditor && (
-                                                    <button onClick={() => removeFromSchedule(c.id)} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors" title="Xóa lịch thay đổi của sinh viên này"><Trash2 size={16}/></button>
-                                                )}
-                                            </div>
+                                            {!isAuditor && ( <button onClick={() => removeFromSchedule(c.id)} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"><Trash2 size={16}/></button> )}
                                         </td>
                                     </tr>
                                 ))}
@@ -1202,17 +1103,12 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                                         <td className="p-3 text-center font-medium">{c.credits}</td>
                                         <td className="p-3 text-center"><span className="px-2 py-0.5 bg-gray-100 rounded text-xs font-bold text-gray-600">{c.phase || '1'}</span></td>
                                         <td className="p-3 text-gray-600 font-medium">{c.instructor || '-'}</td>
-                                        <td className="p-3 text-xs text-gray-600 leading-relaxed">
-                                            <span className="font-bold text-gray-800">Thứ {c.day_of_week} ({c.shift})</span> • P.{c.room}<br/>
-                                            Tuần: {c.weeks}
-                                        </td>
+                                        <td className="p-3 text-xs text-gray-600 leading-relaxed"><span className="font-bold text-gray-800">Thứ {c.day_of_week} ({c.shift})</span> • P.{c.room}<br/>Tuần: {c.weeks}</td>
                                         <td className="p-3 text-center">
                                             <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-    <button onClick={() => { setAdminEditData(c); setIsAdminEditModalOpen(true); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Chỉnh sửa"><Edit size={16}/></button>
-    {!isAuditor && (
-        <button onClick={() => handleAdminDeleteCourse(c.id)} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors" title="Xóa vĩnh viễn"><Trash2 size={16}/></button>
-    )}
-</div>
+                                                <button onClick={() => { setAdminEditData(c); setIsAdminEditModalOpen(true); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Chỉnh sửa"><Edit size={16}/></button>
+                                                {!isAuditor && ( <button onClick={() => handleAdminDeleteCourse(c.id)} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors" title="Xóa vĩnh viễn"><Trash2 size={16}/></button> )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -1227,14 +1123,8 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                 {/* CỘT TRÁI: SIDEBAR FILTER */}
                 <div className={`w-full lg:w-[300px] bg-white rounded-xl border border-gray-300 flex flex-col shrink-0 overflow-hidden transition-all ${searchTerm.trim() ? 'h-[450px]' : 'h-auto'} lg:h-full`}>
                     <div className="p-3 sm:p-4 border-b border-gray-200 flex justify-between items-center bg-[#f8fafc]">
-                        <h2 className="text-base font-bold text-[#003375] flex items-center gap-2">
-                            <Search size={18} className="text-[#990000]" /> Tìm kiếm & Lọc
-                        </h2>
-                        {isSyncing ? (
-                            <Loader2 size={16} className="text-blue-500 animate-spin" />
-                        ) : (
-                            <button onClick={fetchCourses} className="text-gray-400 hover:text-[#003375] transition-colors" title="Làm mới"><RefreshCw size={14}/></button>
-                        )}
+                        <h2 className="text-base font-bold text-[#003375] flex items-center gap-2"><Search size={18} className="text-[#990000]" /> Tìm kiếm & Lọc</h2>
+                        {isSyncing ? ( <Loader2 size={16} className="text-blue-500 animate-spin" /> ) : ( <button onClick={fetchCourses} className="text-gray-400 hover:text-[#003375] transition-colors" title="Làm mới"><RefreshCw size={14}/></button> )}
                     </div>
                     
                     <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 border-b border-gray-200">
@@ -1260,21 +1150,12 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                         </div>
 
                         <div className="flex gap-2">
-                            <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '' }); setIsReportModalOpen(true); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] sm:text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                <AlertTriangle size={14} /> Báo lỗi môn
-                            </button>
-                            <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                                <BookPlus size={14} /> Yêu cầu thêm
-                            </button>
+                            <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '' }); setIsReportModalOpen(true); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] sm:text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><AlertTriangle size={14} /> Báo lỗi môn</button>
+                            <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><BookPlus size={14} /> Yêu cầu thêm</button>
                         </div>
 
-                        <button 
-                            disabled={!isAuthenticated || isProcessingPdf} 
-                            onClick={() => setIsPdfGuideOpen(true)} 
-                            className="w-full flex items-center justify-center gap-2 p-2.5 mt-2 rounded-lg bg-[#003375] text-white hover:bg-[#002855] font-bold text-sm transition-all active:scale-95 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
-                        >
-                            {isProcessingPdf ? <Loader2 className="animate-spin" size={16} /> : <FileUp size={16} />}
-                            {isProcessingPdf ? 'Đang phân tích PDF...' : 'Nhập TKB từ PDF'}
+                        <button disabled={!isAuthenticated || isProcessingPdf} onClick={() => setIsPdfGuideOpen(true)} className="w-full flex items-center justify-center gap-2 p-2.5 mt-2 rounded-lg bg-[#003375] text-white hover:bg-[#002855] font-bold text-sm transition-all active:scale-95 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed">
+                            {isProcessingPdf ? <Loader2 className="animate-spin" size={16} /> : <FileUp size={16} />} {isProcessingPdf ? 'Đang phân tích PDF...' : 'Nhập TKB từ PDF'}
                         </button>
                         <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload} />
                     </div>
@@ -1283,32 +1164,22 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                     <div className={`flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-gray-50/50 custom-scrollbar relative ${searchTerm.trim() ? 'block' : 'hidden lg:block'}`}>
                         {!isAuthenticated ? (
                             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6 bg-white/80 backdrop-blur-sm animate-fadeIn">
-                                <div className="w-14 h-14 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mb-3 border border-blue-200">
-                                    <Lock size={24} />
-                                </div>
+                                <div className="w-14 h-14 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mb-3 border border-blue-200"><Lock size={24} /></div>
                                 <p className="text-xs text-gray-600 font-medium leading-relaxed">Đăng nhập bằng tài khoản sinh viên để xem lịch học.</p>
                             </div>
                         ) : isLoading ? (
                             <p className="text-center text-xs text-gray-400 mt-10 animate-pulse font-medium">Đang tải dữ liệu...</p>
                         ) : availableCourses.length === 0 ? (
-                            <div className="text-center mt-8">
-                                <p className="text-gray-500 text-xs mb-3 font-medium">Không tìm thấy môn học.</p>
-                            </div>
+                            <div className="text-center mt-8"><p className="text-gray-500 text-xs mb-3 font-medium">Không tìm thấy môn học.</p></div>
                         ) : (
                             availableCourses.map((course) => {
                                 const color = getColorForCourse(course.id);
                                 return (
-                                    <div 
-                                        key={course.id} 
-                                        className={`bg-white border border-gray-200 border-l-4 ${color.border} rounded-lg p-3 relative group hover:border-gray-300 transition-all cursor-pointer`}
-                                        onClick={() => setSelectedCourseInfo({ course })}
-                                    >
+                                    <div key={course.id} className={`bg-white border border-gray-200 border-l-4 ${color.border} rounded-lg p-3 relative group hover:border-gray-300 transition-all cursor-pointer`} onClick={() => setSelectedCourseInfo({ course })}>
                                         <div className="flex justify-between items-start">
                                             <div>
                                                 <h3 className={`font-bold text-xs leading-tight pr-6 line-clamp-2 ${color.text}`}>{course.subject_name}</h3>
-                                                <p className="text-[10px] text-gray-500 font-medium mt-0.5">
-                                                    {course.course_code} • Đợt {course.phase || '1'}
-                                                </p>
+                                                <p className="text-[10px] text-gray-500 font-medium mt-0.5">{course.course_code} • Đợt {course.phase || '1'}</p>
                                             </div>
                                             <button onClick={(e) => { e.stopPropagation(); addToSchedule(course); }} disabled={isSyncing} className="text-gray-400 hover:text-[#003375] p-1 bg-gray-50 hover:bg-blue-50 rounded-md transition-colors shrink-0"><Plus size={14}/></button>
                                         </div>
@@ -1324,27 +1195,18 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
 
                 {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
                 <div className="flex-1 bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden min-h-[600px] lg:min-h-0 lg:h-full w-full relative">
-                    {/* TOOLBAR LỊCH */}
                     <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-3 sm:p-4 border-b border-gray-200 gap-3 bg-white shrink-0">
                         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                            <h2 className="text-lg font-extrabold text-[#003375] flex items-center gap-2">
-                                <Calendar size={20} className="text-[#990000]" /> Lịch cá nhân
-                            </h2>
-
-                            <div 
-                                className="flex items-center gap-1.5 px-3 py-1 bg-blue-50/80 border border-blue-200 text-[#003375] rounded-full text-[10px] sm:text-xs font-bold cursor-help hover:bg-blue-100 transition-colors"
-                                title="Mở danh sách Môn đã lưu và nhấn vào biểu tượng Sửa (Cây bút) để tạo Nhãn dán, sửa giờ học!"
-                            >
+                            <h2 className="text-lg font-extrabold text-[#003375] flex items-center gap-2"><Calendar size={20} className="text-[#990000]" /> Lịch cá nhân</h2>
+                            <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-50/80 border border-blue-200 text-[#003375] rounded-full text-[10px] sm:text-xs font-bold cursor-help hover:bg-blue-100 transition-colors" title="Click vào môn học trên lịch hoặc dùng Nút Tag để dán nhãn (Label) cho ngày đó!">
                                 <Zap size={14} className="fill-yellow-500 text-yellow-500 animate-pulse shrink-0" />
-                                <span className="hidden md:inline">✨ Mới: Gắn nhãn, tạo nhắc nhở cho môn học!</span>
-                                <span className="hidden sm:inline md:hidden">✨ Mới: Nhãn dán cá nhân!</span>
+                                <span className="hidden md:inline">✨ Mới: Gắn nhãn, tùy chỉnh lịch học cá nhân!</span>
+                                <span className="hidden sm:inline md:hidden">✨ Mới: Nhãn dán ngày!</span>
                                 <span className="sm:hidden">✨ Gắn nhãn!</span>
                             </div>
-
                             {selectedWeek !== 0 && viewMode === 'week' && (
                                 <span className="hidden md:flex text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded-md items-center gap-1.5 border border-gray-200">
-                                    <CalendarDays size={12}/>
-                                    {weekStartStr} - {weekEndStr}
+                                    <CalendarDays size={12}/> {weekStartStr} - {weekEndStr}
                                 </span>
                             )}
                         </div>
@@ -1354,10 +1216,7 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                                 <button onClick={() => setViewMode('week')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-[#003375] border border-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>Tuần</button>
                                 <button onClick={() => setViewMode('month')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-[#003375] border border-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>Tháng</button>
                             </div>
-                            
-                            <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold bg-blue-50 text-[#003375] rounded-lg hover:bg-blue-100 transition-colors border border-blue-200 active:scale-95 whitespace-nowrap">
-                                Hôm nay
-                            </button>
+                            <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold bg-blue-50 text-[#003375] rounded-lg hover:bg-blue-100 transition-colors border border-blue-200 active:scale-95 whitespace-nowrap">Hôm nay</button>
                             
                             {viewMode === 'week' ? (
                                 <div className="flex items-center gap-1.5">
@@ -1365,20 +1224,18 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                                         <button onClick={prevWeek} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-300"><ChevronLeft size={16}/></button>
                                         <button onClick={nextWeek} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
                                     </div>
-                                    
                                     <div className="relative">
                                         <button onClick={(e) => { e.stopPropagation(); setIsWeekDropdownOpen(!isWeekDropdownOpen); setIsMonthDropdownOpen(false); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50">
-                                            {selectedWeek === 0 ? 'Tổng quát' : `Tuần ${selectedWeek}`}
-                                            <ChevronDown size={14} className="text-gray-400"/>
+                                            {selectedWeek === 0 ? 'Tổng quát' : `Tuần ${selectedWeek}`} <ChevronDown size={14} className="text-gray-400"/>
                                         </button>
                                         {isWeekDropdownOpen && (
                                             <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl max-h-[300px] overflow-y-auto z-50 py-1">
                                                 <button onClick={() => { setSelectedWeek(0); setIsWeekDropdownOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 font-bold text-gray-700 border-b border-gray-100">Hiển thị Tổng quát</button>
                                                 {Array.from({length: 24}, (_, i) => i + 1).map(w => {
-                                                    const wDates = getWeekDates(w);
+                                                    const wDates = getWeekDatesFull(w, selectedSemester);
                                                     return (
                                                         <button key={w} onClick={() => { setSelectedWeek(w); setIsWeekDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedWeek === w ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
-                                                            Tuần {w} <span className="text-xs text-gray-400 ml-1 font-normal">({wDates[0]} - {wDates[6]})</span>
+                                                            Tuần {w} <span className="text-xs text-gray-400 ml-1 font-normal">({wDates[0].substring(0,5)} - {wDates[6].substring(0,5)})</span>
                                                         </button>
                                                     );
                                                 })}
@@ -1394,8 +1251,7 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                                     </div>
                                     <div className="relative">
                                         <button onClick={(e) => { e.stopPropagation(); setIsMonthDropdownOpen(!isMonthDropdownOpen); setIsWeekDropdownOpen(false); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50">
-                                            Tháng {selectedMonthIndex + 1}
-                                            <ChevronDown size={14} className="text-gray-400"/>
+                                            Tháng {selectedMonthIndex + 1} <ChevronDown size={14} className="text-gray-400"/>
                                         </button>
                                         {isMonthDropdownOpen && (
                                             <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-xl max-h-[300px] overflow-y-auto z-50 py-1">
@@ -1429,14 +1285,13 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                                         <th className="w-[60px] border-b border-r border-gray-200 bg-[#f8fafc]"></th>
                                         {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
                                             const isTodayCol = selectedWeek !== 0 && currentWeekDates[index] === todayStr;
-
                                             return (
                                             <th key={day} className={`py-2 border-b border-r border-gray-200 transition-colors ${isTodayCol ? 'bg-[#F0F9FF]' : 'bg-[#f8fafc]'}`}>
                                                 <div className={`flex flex-col items-center gap-0.5 ${isTodayCol ? 'text-[#003375]' : 'text-gray-700'}`}>
                                                     <span className="font-extrabold text-xs uppercase tracking-wide">Thứ {day === 8 ? 'CN' : day}</span>
                                                     {selectedWeek !== 0 && (
                                                         <span className={`text-[10px] px-2 py-0.5 rounded-full ${isTodayCol ? 'bg-[#003375] text-white font-bold' : 'text-gray-500 font-medium'}`}>
-                                                            {currentWeekDates[index]}
+                                                            {currentWeekDates[index].substring(0, 5)}
                                                         </span>
                                                     )}
                                                 </div>
@@ -1455,6 +1310,7 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                                             
                                             {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
                                                 const isTodayCol = selectedWeek !== 0 && currentWeekDates[index] === todayStr;
+                                                const cellDateStr = currentWeekDates[index]; 
 
                                                 const slotCourses = currentSemesterSchedule.map(c => {
                                                     const details = getCourseDetailsForSlot(c, day, selectedWeek, shift);
@@ -1464,7 +1320,7 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                                                 const slotExams = currentSemesterSchedule.filter(c => {
                                                     if (!c.exam_date || !c.exam_shift || selectedWeek === 0) return false; 
                                                     const examDM = getExamDayMonth(c.exam_date);
-                                                    return examDM === currentWeekDates[index] && isExamInShift(c.exam_shift, shift);
+                                                    return examDM === cellDateStr.substring(0, 5) && isExamInShift(c.exam_shift, shift);
                                                 });
                                                 
                                                 return (
@@ -1472,32 +1328,31 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                                                         <div className="flex flex-col gap-2 w-full h-full">
                                                             {slotCourses.map(({course, slotDetails}: any) => {
                                                                 const color = getColorForCourse(course.id);
+                                                                const cellLabels = course.labels?.filter((l: any) => l.date === cellDateStr) || [];
+                                                                
                                                                 return (
-                                                                <div key={course.id} onClick={() => setSelectedCourseInfo({ course, details: slotDetails, dateStr: currentWeekDates[index] })} className={`border-l-4 border-y border-r border-gray-100 ${color.border} ${color.bg} rounded-r-lg p-2 cursor-pointer transition-all hover:-translate-y-0.5 relative group w-full shrink-0 flex flex-col`}>
+                                                                <div key={course.id} onClick={() => setSelectedCourseInfo({ course, details: slotDetails, dateStr: cellDateStr })} className={`border-l-4 border-y border-r border-gray-100 ${color.border} ${color.bg} rounded-r-lg p-2 cursor-pointer transition-all hover:-translate-y-0.5 relative group w-full shrink-0 flex flex-col`}>
                                                                     
                                                                     <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                                                        <button onClick={(e) => { e.stopPropagation(); setQuickTagCourse({ ...course, dateStr: currentWeekDates[index] }); }} className="bg-white/80 hover:bg-white text-blue-600 hover:text-blue-800 rounded p-1 shadow-sm border border-blue-100" title="Gắn nhãn nhanh">
-    <Tag size={12}/>
-</button>
+                                                                        {selectedWeek !== 0 && (
+                                                                            <button onClick={(e) => { e.stopPropagation(); setQuickTagCourse({ ...course, dateStr: cellDateStr }); }} className="bg-white/80 hover:bg-white text-blue-600 hover:text-blue-800 rounded p-1 shadow-sm border border-blue-100" title="Gắn nhãn cho ngày này">
+                                                                                <Tag size={12}/>
+                                                                            </button>
+                                                                        )}
                                                                         <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="bg-white/80 hover:bg-white text-red-500 hover:text-red-700 rounded p-1 shadow-sm border border-red-100" title="Xóa môn">
                                                                             <X size={12}/>
                                                                         </button>
                                                                     </div>
 
-                                                                    {/* ✨ LỌC NHÃN ĐÚNG NGÀY TRONG LỊCH TUẦN ✨ */}
-{(() => {
-    const cellLabels = course.labels?.filter((l: any) => l.date === currentWeekDates[index]) || [];
-    if (cellLabels.length === 0) return null;
-    return (
-        <div className="flex flex-wrap gap-1 mb-1 relative z-0 pr-10">
-            {cellLabels.map((l: any) => (
-                <span key={l.id} className={`text-[8px] px-1.5 py-0.5 rounded border font-bold whitespace-nowrap ${getLabelStyle(l.color)}`}>
-                    {l.type === 'Khác' ? l.text : l.type}
-                </span>
-            ))}
-        </div>
-    );
-})()}
+                                                                    {cellLabels.length > 0 && (
+                                                                        <div className="flex flex-wrap gap-1 mb-1 relative z-0 pr-10">
+                                                                            {cellLabels.map((l: any) => (
+                                                                                <span key={l.id} className={`text-[8px] px-1.5 py-0.5 rounded border font-bold whitespace-nowrap ${getLabelStyle(l.color)}`}>
+                                                                                    {l.type === 'Khác' ? l.text : l.type}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
 
                                                                     <h4 className={`font-bold ${color.text} text-[11px] sm:text-xs leading-snug line-clamp-2 pr-10 mb-0.5 mt-0.5`}>{course.subject_name}</h4>
                                                                     <div className={`text-[9px] ${color.text} opacity-80 font-medium mb-1.5 truncate`}>{course.course_code} • Đợt {course.phase || '1'}</div>
@@ -1511,7 +1366,7 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                                                             })}
 
                                                             {slotExams.map(exam => (
-                                                                <div key={`exam-${exam.id}`} onClick={() => setSelectedCourseInfo({ course: exam })} className="border-l-4 border-y border-r border-gray-100 border-l-red-500 bg-red-50 rounded-r-lg p-2.5 cursor-pointer transition-all hover:-translate-y-0.5 relative group w-full shrink-0">
+                                                                <div key={`exam-${exam.id}`} onClick={() => setSelectedCourseInfo({ course: exam, dateStr: cellDateStr })} className="border-l-4 border-y border-r border-gray-100 border-l-red-500 bg-red-50 rounded-r-lg p-2.5 cursor-pointer transition-all hover:-translate-y-0.5 relative group w-full shrink-0">
                                                                     <div className="text-[9px] font-black text-red-600 uppercase mb-1 tracking-wider flex items-center gap-1 bg-red-100 w-fit px-1.5 py-0.5 rounded"><Zap size={10} className="fill-current"/> Lịch thi</div>
                                                                     <h4 className="font-bold text-red-900 text-[11px] sm:text-xs leading-snug line-clamp-2 mb-1">{exam.subject_name}</h4>
                                                                     <div className="text-[10px] text-red-700 font-bold flex items-center gap-1"><Clock size={10}/> {exam.exam_shift} {getExamTime(exam.exam_shift) ? `(${getExamTime(exam.exam_shift)})` : ''}</div>
@@ -1536,10 +1391,11 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                                         
                                         {renderMonthDays().map((date, idx) => {
                                             if (!date) return <div key={`empty-${idx}`} className="bg-gray-50/30 min-h-[90px]" />;
-                                            const cellDateStr = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+                                            
+                                            const cellDateStr = formatDateStr(date);
                                             const dayCourses = getCoursesForDate(date, mySchedule);
                                             const dayExams = getExamsForDate(date, mySchedule);
-                                            const isToday = new Date().toDateString() === date.toDateString();
+                                            const isToday = todayStr === cellDateStr;
                                             
                                             return (
                                                 <div key={date.toISOString()} className={`bg-white min-h-[90px] p-1.5 transition-colors hover:bg-gray-50/50 ${isToday ? 'bg-[#F0F9FF]' : ''}`}>
@@ -1549,27 +1405,22 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                                                     <div className="flex flex-col gap-1 overflow-hidden px-0.5">
                                                         {dayCourses.map((item: any, i: number) => {
                                                             const color = getColorForCourse(item.course.id);
+                                                            const cellLabels = item.course.labels?.filter((l: any) => l.date === cellDateStr) || [];
                                                             return (
-                                                                <div key={i} onClick={() => setSelectedCourseInfo({ course: item.course, details: item.details, dateStr: cellDateStr })} className={`text-[9px] px-1.5 py-1 rounded truncate cursor-pointer font-semibold flex items-center gap-1 ${color.bg} ${color.text} border-l-2 ${color.border} hover:opacity-80 transition-opacity`}>
-                                                                    {/* ✨ LỌC NHÃN ĐÚNG NGÀY TRONG LỊCH THÁNG ✨ */}
-{(() => {
-    const cellDateStr = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
-    const cellLabels = item.course.labels?.filter((l: any) => l.date === cellDateStr) || [];
-    if (cellLabels.length === 0) return null;
-    return (
-        <div className="flex gap-0.5 shrink-0">
-            {cellLabels.map((l: any) => (
-                <span key={l.id} className={`w-1.5 h-1.5 rounded-full ${getLabelDotColor(l.color)}`} title={l.type === 'Khác' ? l.text : l.type}></span>
-            ))}
-        </div>
-    );
-})()}
+                                                                <div key={i} onClick={() => setSelectedCourseInfo({course: item.course, details: item.details, dateStr: cellDateStr})} className={`text-[9px] px-1.5 py-1 rounded truncate cursor-pointer font-semibold flex items-center gap-1 ${color.bg} ${color.text} border-l-2 ${color.border} hover:opacity-80 transition-opacity`}>
+                                                                    {cellLabels.length > 0 && (
+                                                                        <div className="flex gap-0.5 shrink-0">
+                                                                            {cellLabels.map((l: any) => (
+                                                                                <span key={l.id} className={`w-1.5 h-1.5 rounded-full ${getLabelDotColor(l.color)}`} title={l.type === 'Khác' ? l.text : l.type}></span>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
                                                                     <span className="truncate">{item.course.subject_name}</span>
                                                                 </div>
                                                             );
                                                         })}
                                                         {dayExams.map((exam: any, i: number) => (
-                                                            <div key={`exam-${i}`} onClick={() => setSelectedCourseInfo({course: exam})} className="text-[9px] px-1.5 py-1 rounded truncate cursor-pointer bg-red-50 text-red-700 border-l-2 border-l-red-500 font-bold hover:bg-red-100 flex items-center gap-1">
+                                                            <div key={`exam-${i}`} onClick={() => setSelectedCourseInfo({course: exam, dateStr: cellDateStr})} className="text-[9px] px-1.5 py-1 rounded truncate cursor-pointer bg-red-50 text-red-700 border-l-2 border-l-red-500 font-bold hover:bg-red-100 flex items-center gap-1">
                                                                 <Zap size={8} className="shrink-0"/> <span className="truncate">Thi: {exam.subject_name}</span>
                                                             </div>
                                                         ))}
@@ -1593,13 +1444,16 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
             </div>
         )}
 
-        {/* =======================================================================
-           MODAL CHI TIẾT MÔN HỌC (TÍCH HỢP QUẢN LÝ LABEL TRỰC TIẾP)
-        ======================================================================= */}
+        {/* MODAL CHI TIẾT MÔN HỌC (TÍCH HỢP QUẢN LÝ LABEL TRỰC TIẾP) */}
         {selectedCourseInfo && (() => {
             const displayCourse = currentSemesterSchedule.find(c => c.id === selectedCourseInfo.course.id) || selectedCourseInfo.course;
             const details = selectedCourseInfo.details;
             const isSaved = !!displayCourse.user_schedule_id;
+            const targetDateStr = selectedCourseInfo.dateStr;
+
+            const modalLabels = targetDateStr 
+                ? displayCourse.labels?.filter((l: any) => l.date === targetDateStr) 
+                : displayCourse.labels;
 
             let timeDisplayValue = '';
             if (details) {
@@ -1631,28 +1485,28 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                             <div className="flex gap-1.5 flex-wrap mt-2 items-center">
                                 {displayCourse.phase && <span className="text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 shrink-0">Đợt {displayCourse.phase}</span>}
                                 
-                                {/* HIỂN THỊ LABELS KÈM NÚT XÓA INLINE */}
-{displayCourse.labels && displayCourse.labels
-    .filter((l: any) => !selectedCourseInfo.dateStr || l.date === selectedCourseInfo.dateStr)
-    .map((l: any) => (
-        <span key={l.id} className={`text-[10px] font-bold pl-2 pr-1 py-0.5 rounded border flex items-center gap-1 ${getLabelStyle(l.color)}`}>
-            <Tag size={10} /> {l.type === 'Khác' ? l.text : l.type}
-            {isSaved && (
-                <button onClick={(e) => { e.stopPropagation(); handleInlineRemoveLabel(l.id); }} className="hover:text-red-600 ml-0.5 bg-white/50 rounded-full p-0.5" title="Xóa nhãn"><X size={10}/></button>
-            )}
-        </span>
-))}
+                                {/* HIỂN THỊ LABELS */}
+                                {modalLabels && modalLabels.map((l: any) => (
+                                    <span key={l.id} className={`text-[10px] font-bold pl-2 pr-1 py-0.5 rounded border flex items-center gap-1 ${getLabelStyle(l.color)}`}>
+                                        <Tag size={10} /> 
+                                        {!targetDateStr && <span className="font-normal opacity-80 mr-0.5">[{l.date?.substring(0,5)}]</span>}
+                                        {l.type === 'Khác' ? l.text : l.type}
+                                        {isSaved && (
+                                            <button onClick={(e) => { e.stopPropagation(); handleInlineRemoveLabel(l.id); }} className="hover:text-red-600 ml-0.5 bg-white/50 rounded-full p-0.5" title="Xóa nhãn"><X size={10}/></button>
+                                        )}
+                                    </span>
+                                ))}
 
-                                {/* NÚT THÊM NHÃN INLINE */}
-                                {isSaved && !showInlineLabelForm && (
+                                {/* NÚT THÊM NHÃN INLINE (Chỉ hiện khi thao tác tại 1 ngày cụ thể) */}
+                                {isSaved && targetDateStr && !showInlineLabelForm && (
                                     <button onClick={() => setShowInlineLabelForm(true)} className="text-[10px] font-bold px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-500 hover:bg-gray-100 flex items-center gap-1 shrink-0 transition-colors">
                                         <Plus size={10}/> Thêm nhãn
                                     </button>
                                 )}
                             </div>
 
-                            {/* FORM THÊM NHÃN INLINE (Chỉ hiện khi bấm Thêm Nhãn) */}
-                            {isSaved && showInlineLabelForm && (
+                            {/* FORM THÊM NHÃN INLINE */}
+                            {isSaved && targetDateStr && showInlineLabelForm && (
                                 <div className="mt-3 p-2 bg-white rounded-lg border border-gray-200 shadow-sm flex flex-wrap gap-2 items-start animate-fadeIn">
                                     <select 
                                         value={inlineLabelData.type} 
@@ -1693,7 +1547,6 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                                     </div>
                                 </div>
                             )}
-
                         </div>
                         <div className="p-5 space-y-4">
                             <div className="flex items-start gap-3">
@@ -1837,7 +1690,7 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                     
                     <div className="p-5 flex flex-col gap-4">
                         <div>
-                            <p className="text-xs font-bold text-gray-500 mb-1">Môn học:</p>
+                            <p className="text-xs font-bold text-gray-500 mb-1">Môn học ngày {quickTagCourse.dateStr}:</p>
                             <p className="text-sm font-bold text-[#003375] leading-tight line-clamp-2">{quickTagCourse.subject_name}</p>
                         </div>
 
@@ -1861,7 +1714,6 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                                 />
                             )}
 
-                            {/* Chỉ hiển thị chọn màu khi chọn "Khác" */}
                             {quickTagData.type === 'Khác' && (
                                 <>
                                     <label className="text-xs font-bold text-gray-600 mt-1">Chọn màu sắc:</label>
@@ -1889,7 +1741,7 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
             </div>
         )}
 
-        {/* MODAL SINH VIÊN SỬA MÔN CÁ NHÂN VÀ GẮN NHÃN (BẢNG LỚN) */}
+        {/* MODAL SINH VIÊN SỬA MÔN CÁ NHÂN VÀ GẮN NHÃN CHUNG (BẢNG LỚN) */}
         {isStudentEditModalOpen && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => setIsStudentEditModalOpen(false)}>
                 <div className="bg-white rounded-2xl w-full max-w-3xl border border-gray-200 flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
@@ -1900,53 +1752,22 @@ const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = 
                     <div className="p-5 overflow-y-auto custom-scrollbar flex-1 bg-gray-50 flex flex-col gap-6">
                         
                         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                            <h3 className="text-sm font-bold text-[#003375] mb-3 flex items-center gap-1.5"><Tag size={16}/> Nhãn dán (Labels)</h3>
+                            <h3 className="text-sm font-bold text-[#003375] mb-3 flex items-center gap-1.5"><Tag size={16}/> Nhãn dán đã gắn cho môn này</h3>
                             
-                            {studentEditData.labels && studentEditData.labels.length > 0 && (
+                            {studentEditData.labels && studentEditData.labels.length > 0 ? (
                                 <div className="flex flex-wrap gap-2 mb-4">
                                     {studentEditData.labels.map(l => (
                                         <div key={l.id} className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded border ${getLabelStyle(l.color)}`}>
+                                            <span className="font-normal opacity-80 mr-1">[{l.date?.substring(0,5)}]</span>
                                             <span>{l.type === 'Khác' ? l.text : l.type}</span>
                                             <button type="button" onClick={() => handleRemoveLabel(l.id)} className="opacity-60 hover:opacity-100 hover:text-red-600 transition-colors ml-1"><X size={12}/></button>
                                         </div>
                                     ))}
                                 </div>
+                            ) : (
+                                <p className="text-xs text-gray-500 mb-4">Môn học này chưa có nhãn nào. Hãy dán nhãn từ trang Lịch!</p>
                             )}
 
-                            <div className="flex flex-wrap gap-2 items-start bg-gray-50 p-3 rounded-lg border border-gray-100">
-                                <select 
-                                    value={newLabelData.type} 
-                                    onChange={(e) => setNewLabelData({...newLabelData, type: e.target.value})}
-                                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-[#003375] h-[38px] cursor-pointer"
-                                >
-                                    {LABEL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
-
-                                {newLabelData.type === 'Khác' && (
-                                    <>
-                                        <input 
-                                            type="text" 
-                                            placeholder="Nhập tên nhãn..." 
-                                            value={newLabelData.text} 
-                                            onChange={(e) => setNewLabelData({...newLabelData, text: e.target.value})}
-                                            className="flex-1 min-w-[120px] px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-[#003375] h-[38px]"
-                                        />
-                                        <div className="flex gap-1 bg-white border border-gray-300 p-1 rounded-lg h-[38px] items-center">
-                                            {LABEL_COLORS.map(c => (
-                                                <button 
-                                                    key={c.value} type="button" title={c.name}
-                                                    onClick={() => setNewLabelData({...newLabelData, color: c.value})}
-                                                    className={`w-6 h-6 rounded-full ${getLabelDotColor(c.value)} ${newLabelData.color === c.value ? 'ring-2 ring-offset-1 ring-gray-400 scale-110' : 'hover:scale-110'} transition-transform`}
-                                                />
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-
-                                <button type="button" onClick={handleAddLabel} className="px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 font-bold rounded-lg text-sm transition-colors h-[38px] flex items-center gap-1 shrink-0 ml-auto sm:ml-0">
-                                    <Plus size={16}/> Thêm
-                                </button>
-                            </div>
                         </div>
 
                         <form id="studentCourseForm" onSubmit={handleStudentSaveCourse} className="grid grid-cols-1 md:grid-cols-2 gap-4">
