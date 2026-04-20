@@ -1238,7 +1238,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 {/* 2. BỘ LỌC VÀ TÌM KIẾM (SCROLL NGANG TRÊN MOBILE) */}
-                <div className="flex flex-col md:flex-row gap-2 bg-white p-2 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex flex-col md:flex-row gap-2 bg-white p-2 rounded-xl border border-gray-300">
                     <div className="relative w-full md:w-64 shrink-0">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                         <input 
@@ -1280,7 +1280,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                 {/* 3. BỐN THẺ THỐNG KÊ (GRID 2x2 MOBILE, 4x1 DESKTOP) */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-                    <button onClick={() => { playClick(); setAdminFilterGpa('all'); }} className={`bg-white p-2.5 sm:p-3 rounded-xl border shadow-sm flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'all' ? 'border-[#003375] ring-2 ring-[#003375]/10 bg-blue-50/20' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
+                    <button onClick={() => { playClick(); setAdminFilterGpa('all'); }} className={`bg-white p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'all' ? 'border-[#003375] ring-1 ring-[#003375] bg-blue-50/20' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'}`}>
                         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
                             <Users size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
@@ -1290,7 +1290,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     </button>
 
-                    <div className="bg-white p-2.5 sm:p-3 rounded-xl border border-gray-200 shadow-sm flex items-center gap-2 sm:gap-3">
+                    <div className="bg-white p-2.5 sm:p-3 rounded-xl border border-gray-300 flex items-center gap-2 sm:gap-3">
                         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-50 text-purple-500 flex items-center justify-center shrink-0">
                             <BarChart3 size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
@@ -1303,7 +1303,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     </div>
 
-                    <button onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'warning' ? 'all' : 'warning'); }} className={`p-2.5 sm:p-3 rounded-xl border shadow-sm flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'warning' ? 'border-red-400 bg-red-50/50' : 'bg-white border-gray-200 hover:border-red-300 hover:bg-red-50/30'}`}>
+                    <button onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'warning' ? 'all' : 'warning'); }} className={`p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'warning' ? 'border-red-500 ring-1 ring-red-500 bg-red-50/50' : 'bg-white border-gray-300 hover:border-red-400 hover:bg-red-50/30'}`}>
                         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
                             <AlertTriangle size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
@@ -1313,7 +1313,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     </button>
 
-                    <button onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'excellent' ? 'all' : 'excellent'); }} className={`p-2.5 sm:p-3 rounded-xl border shadow-sm flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'excellent' ? 'border-yellow-400 bg-yellow-50/50' : 'bg-white border-gray-200 hover:border-yellow-300 hover:bg-yellow-50/30'}`}>
+                    <button onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'excellent' ? 'all' : 'excellent'); }} className={`p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'excellent' ? 'border-yellow-500 ring-1 ring-yellow-500 bg-yellow-50/50' : 'bg-white border-gray-300 hover:border-yellow-400 hover:bg-yellow-50/30'}`}>
                         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
                             <Crown size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
@@ -1325,7 +1325,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 {/* 4. BẢNG DỮ LIỆU */}
-                <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                <div className="bg-white border border-gray-300 rounded-xl overflow-hidden">
                     <div className="overflow-x-auto custom-scrollbar max-h-[65vh]">
                         <table className="w-full text-left relative min-w-[550px] sm:min-w-[700px]">
                             <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10 text-[10px] sm:text-[11px] text-gray-500 font-bold uppercase tracking-wider">

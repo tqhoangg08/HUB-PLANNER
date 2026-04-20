@@ -82,9 +82,9 @@ const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; on
     if (!isOpen) return null;
     return createPortal(
         <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
-            <div className="bg-white rounded-3xl max-w-md w-full p-6 animate-scaleIn relative flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 animate-scaleIn relative flex flex-col border border-gray-300" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-start mb-2">
-                    <div className="w-14 h-14 bg-blue-100 text-[#003375] rounded-full flex items-center justify-center shadow-sm border border-blue-200">
+                    <div className="w-14 h-14 bg-blue-100 text-[#003375] rounded-full flex items-center justify-center border border-blue-200">
                         <UserPlus size={28} />
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 p-2 rounded-full transition-colors active:scale-95">
@@ -95,7 +95,7 @@ const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; on
                 <p className="text-sm text-gray-600 mb-6 leading-relaxed">
                     Gia nhập đội ngũ phát triển nội dung, giúp cập nhật thông tin sự kiện nhanh nhất cho cộng đồng sinh viên HUB!
                 </p>
-                <div className="bg-gray-50 -mx-6 px-6 py-2 border-t border-gray-100 flex-1">
+                <div className="bg-gray-50 -mx-6 px-6 py-2 border-t border-gray-200 flex-1">
                     <CTVRegistrationForm 
                         onSuccess={() => {
                             onShowToast("Đã gửi đơn đăng ký CTV thành công!", "success");
@@ -215,7 +215,7 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
 
     return createPortal(
         <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white rounded-xl max-w-4xl w-full h-[90vh] flex flex-col animate-scaleIn relative overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-xl max-w-4xl w-full h-[90vh] flex flex-col animate-scaleIn relative overflow-hidden border border-gray-300" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b flex justify-between items-center bg-[#003375] text-white shrink-0">
                     <h3 className="text-xl font-bold flex items-center gap-2"><FileText /> Phụ lục Đánh giá Kết quả Rèn luyện</h3>
                     <button onClick={onClose} className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-full transition-colors"><X size={24} /></button>
@@ -224,12 +224,12 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-gray-50">
                     <div className="space-y-8">
                         {sections.map((section) => (
-                            <div key={section.id} className={`bg-white rounded-xl border-l-4 shadow-sm overflow-hidden ${
-                                section.color === 'blue' ? 'border-blue-500' :
-                                section.color === 'green' ? 'border-green-500' :
-                                section.color === 'yellow' ? 'border-yellow-500' :
-                                section.color === 'orange' ? 'border-orange-500' :
-                                'border-purple-500'
+                            <div key={section.id} className={`bg-white rounded-xl border border-gray-300 border-l-4 overflow-hidden ${
+                                section.color === 'blue' ? 'border-l-blue-500' :
+                                section.color === 'green' ? 'border-l-green-500' :
+                                section.color === 'yellow' ? 'border-l-yellow-500' :
+                                section.color === 'orange' ? 'border-l-orange-500' :
+                                'border-l-purple-500'
                             }`}>
                                 <div className={`px-5 py-4 border-b flex justify-between items-center ${
                                     section.color === 'blue' ? 'bg-blue-50 text-blue-900' :
@@ -242,7 +242,7 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
                                         <span className="w-8 h-8 rounded-full bg-white/50 flex items-center justify-center text-sm border border-current">{section.id}</span>
                                         {section.title}
                                     </h4>
-                                    <span className="font-bold bg-white px-3 py-1.5 rounded-lg text-sm shadow-sm border border-current opacity-90 whitespace-nowrap">{section.range}</span>
+                                    <span className="font-bold bg-white px-3 py-1.5 rounded-lg text-sm border border-current opacity-90 whitespace-nowrap">{section.range}</span>
                                 </div>
                                 <div className="p-0">
                                     <table className="w-full text-sm">
@@ -251,12 +251,12 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
                                                 if (row.type === 'header') {
                                                     return (
                                                         <tr key={idx} className={`${row.isNegative ? 'bg-red-50 text-red-700' : 'bg-gray-50 text-gray-700'} font-bold`}>
-                                                            <td colSpan={2} className="px-5 py-3 uppercase text-xs tracking-wider border-b border-gray-100">{row.text}</td>
+                                                            <td colSpan={2} className="px-5 py-3 uppercase text-xs tracking-wider border-b border-gray-200">{row.text}</td>
                                                         </tr>
                                                     )
                                                 }
                                                 return (
-                                                    <tr key={idx} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                                                    <tr key={idx} className="border-b border-gray-200 last:border-0 hover:bg-gray-50 transition-colors">
                                                         <td className={`px-5 py-3 text-gray-800 leading-relaxed ${row.isSubItem ? 'pl-10 text-gray-600' : ''}`}>
                                                             {row.text}
                                                         </td>
@@ -282,9 +282,9 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
                     </div>
                     
                     <div className="mt-6 flex justify-end sticky bottom-0 pointer-events-none">
-                        <div className="bg-[#003375] text-white px-5 py-2.5 rounded-xl font-bold text-base shadow-xl flex items-center gap-3 pointer-events-auto border-2 border-white/20 transform hover:scale-105 transition-transform backdrop-blur-md">
+                        <div className="bg-[#003375] text-white px-5 py-2.5 rounded-xl font-bold text-base flex items-center gap-3 pointer-events-auto border border-gray-300 transform hover:scale-105 transition-transform backdrop-blur-md">
                             <span className="font-bold text-sm uppercase tracking-wide">TỔNG ĐIỂM TỐI ĐA</span>
-                            <span className="bg-white text-[#003375] px-2.5 py-0.5 rounded-lg shadow-inner">100</span>
+                            <span className="bg-white text-[#003375] px-2.5 py-0.5 rounded-lg">100</span>
                         </div>
                     </div>
                 </div>
@@ -383,7 +383,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
 
     return createPortal(
         <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
-            <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn relative flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn border border-gray-300 relative flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="bg-[#003375] p-4 flex justify-between items-center text-white sticky top-0 z-10 shrink-0">
                     <h3 className="font-bold text-lg flex items-center gap-2">
                         <PlusCircle size={20}/> Đóng góp Sự kiện mới
@@ -421,11 +421,11 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                 <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
                                     <div>
                                         <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày kết thúc</label>
-                                        <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
+                                        <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
                                     </div>
                                     <div>
                                         <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ kết thúc</label>
-                                        <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
+                                        <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
                                     </div>
                                 </div>
                             </div>
@@ -444,11 +444,11 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                 <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
                                     <div>
                                         <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày đóng ĐK</label>
-                                        <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
+                                        <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
                                     </div>
                                     <div>
                                         <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ đóng ĐK</label>
-                                        <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
+                                        <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
                                     </div>
                                 </div>
                                 <div>
@@ -462,7 +462,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             </div>
                         )}
 
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200 gap-2">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-300 gap-2">
                             <div>
                                 <span className="font-bold text-gray-700 block">Đóng khi đủ số lượng</span>
                                 <span className="text-xs text-gray-500">Form ĐK sẽ tự khóa trước thời hạn (Do BTC chủ động đóng).</span>
@@ -608,7 +608,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                         <button 
                             type="submit" 
                             disabled={submitting} 
-                            className="w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md"
+                            className="w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
                         >
                             {submitting ? <Loader2 className="animate-spin"/> : <Send size={18}/>} 
                             {submitting ? 'Đang gửi...' : 'Gửi đóng góp'}
@@ -709,7 +709,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
 
     return createPortal(
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn flex flex-col">
+            <div className="bg-white rounded-xl border border-gray-300 w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn flex flex-col">
                 <div className="bg-[#003375] p-4 flex justify-between items-center text-white sticky top-0 z-10 shrink-0">
                     <h3 className="font-bold text-lg flex items-center gap-2">
                         {editingEvent ? <Edit2 size={20}/> : <PlusCircle size={20}/>}
@@ -739,11 +739,11 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                             <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
                                 <div>
                                     <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày kết thúc</label>
-                                    <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
+                                    <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
                                 </div>
                                 <div>
                                     <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ kết thúc</label>
-                                    <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
+                                    <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
                                 </div>
                             </div>
                         </div>
@@ -762,11 +762,11 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                             <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-2">
                                 <div>
                                     <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Ngày đóng ĐK</label>
-                                    <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
+                                    <input type="date" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} />
                                 </div>
                                 <div>
                                     <label className={`block text-sm font-bold mb-1 ${formData.close_on_full ? 'text-gray-400' : 'text-gray-700'}`}>Giờ đóng ĐK</label>
-                                    <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
+                                    <input type="time" disabled={formData.close_on_full} className={`w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375] transition-all ${formData.close_on_full ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300'}`} value={formData.deadline_time || ''} onChange={e => setFormData({...formData, deadline_time: e.target.value})} />
                                 </div>
                             </div>
                             <div>
@@ -780,7 +780,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                         </div>
                     )}
 
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200 gap-2">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-300 gap-2">
                         <div>
                             <span className="font-bold text-gray-700 block">Đóng khi đủ số lượng</span>
                             <span className="text-xs text-gray-500">Form ĐK sẽ tự khóa trước thời hạn (Do BTC chủ động đóng).</span>
@@ -888,7 +888,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                         ></textarea>
                     </div>
 
-                    <button type="submit" disabled={submitting} className="w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
+                    <button type="submit" disabled={submitting} className="w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95">
                         {submitting ? <Loader2 className="animate-spin"/> : <Save size={18}/>} Lưu thay đổi
                     </button>
                 </form>
@@ -901,8 +901,8 @@ const DiscussionModal = ({ event, onClose }: { event: {id: string, name: string}
     if (!event) return null;
     return createPortal(
         <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white rounded-xl max-w-2xl w-full h-[80vh] flex flex-col animate-scaleIn relative overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+            <div className="bg-white rounded-xl max-w-2xl w-full h-[80vh] flex flex-col animate-scaleIn relative overflow-hidden border border-gray-300" onClick={e => e.stopPropagation()}>
+                <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
                     <div>
                         <h3 className="font-bold text-[#003375] line-clamp-1">{event.name}</h3>
                         <p className="text-xs text-gray-500">Thảo luận & Hỏi đáp</p>
@@ -960,7 +960,7 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
 
     return createPortal(
         <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
-            <div className="bg-white rounded-xl w-full max-w-lg p-0 overflow-hidden animate-scaleIn shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-xl w-full max-w-lg p-0 overflow-hidden animate-scaleIn border border-gray-300 relative flex flex-col" onClick={e => e.stopPropagation()}>
                 
                 <div className="bg-red-600 p-4 flex justify-between items-center text-white shrink-0">
                     <h3 className="font-bold text-lg flex items-center gap-2">
@@ -1013,7 +1013,7 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
                             <button 
                                 type="submit" 
                                 disabled={submitting} 
-                                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md"
+                                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
                             >
                                 {submitting ? <Loader2 className="animate-spin" size={18}/> : <Send size={18}/>} 
                                 {submitting ? 'Đang gửi...' : 'Gửi báo cáo'}
@@ -1400,7 +1400,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   const NotificationToast = () => {
     if (!notification) return null;
     return createPortal(
-        <div className={`fixed top-4 right-4 z-[100000] max-w-sm w-full bg-white rounded-xl shadow-2xl border-l-4 p-4 flex items-center gap-3 animate-slideInRight ${notification.type === 'success' ? 'border-green-500' : 'border-red-500'}`}>
+        <div className={`fixed top-4 right-4 z-[100000] max-w-sm w-full bg-white rounded-xl border border-gray-300 border-l-4 p-4 flex items-center gap-3 animate-slideInRight ${notification.type === 'success' ? 'border-l-green-500' : 'border-l-red-500'}`}>
             <div className={`p-2 rounded-full ${notification.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
                 {notification.type === 'success' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
             </div>
@@ -1438,7 +1438,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     else badgeUI = <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md flex items-center gap-1 font-bold">Sắp diễn ra</span>;
 
     return (
-      <div key={evt.id} className={`bg-white rounded-xl border border-gray-200 p-3.5 sm:p-5 flex flex-col h-full transition-all duration-300 hover:shadow-lg hover:-translate-y-1 relative group ${evt.is_deleted ? 'opacity-60 grayscale' : ''}`}>
+      <div key={evt.id} className={`bg-white rounded-xl border border-gray-300 p-3.5 sm:p-5 flex flex-col h-full transition-all duration-300 hover:border-blue-400 hover:-translate-y-1 relative group ${evt.is_deleted ? 'opacity-60 grayscale' : ''}`}>
         
         {/* HEADER: Organizer & Status */}
         <div className="flex justify-between items-start gap-2 mb-2 sm:mb-3">
@@ -1524,34 +1524,34 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                 <summary className="font-semibold text-blue-600 cursor-pointer list-none flex items-center gap-1 hover:underline select-none">
                     <Info size={12}/> Xem chi tiết
                 </summary>
-                <div className="mt-2 p-2.5 sm:p-3 bg-gray-50 border border-gray-100 rounded-lg whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar">
+                <div className="mt-2 p-2.5 sm:p-3 bg-gray-50 border border-gray-200 rounded-lg whitespace-pre-line max-h-32 overflow-y-auto custom-scrollbar">
                     {evt.description}
                 </div>
             </details>
         )}
 
         {/* FOOTER ACTIONS (Pushed to bottom) */}
-        <div className="mt-auto pt-3 sm:pt-4 border-t border-gray-100 flex items-center gap-1.5 sm:gap-2 w-full">
+        <div className="mt-auto pt-3 sm:pt-4 border-t border-gray-200 flex items-center gap-1.5 sm:gap-2 w-full">
             
             {/* Nhóm 3 nút icon (Lưu, Chat, Báo lỗi) */}
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                 <button 
                     onClick={(e) => { e.stopPropagation(); toggleParticipation(evt.id); }} 
-                    className={`p-1.5 sm:p-2 rounded-lg transition-colors flex items-center justify-center ${isParticipated ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-700'}`} 
+                    className={`p-1.5 sm:p-2 rounded-lg transition-colors flex items-center justify-center ${isParticipated ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100 hover:text-gray-700'}`} 
                     title={isParticipated ? "Đã tham gia (Bấm hủy)" : "Đánh dấu tham gia"}
                 >
                     {isParticipated ? <BookmarkCheck size={16} className="sm:w-[18px] sm:h-[18px]"/> : <Bookmark size={16} className="sm:w-[18px] sm:h-[18px]"/>}
                 </button>
                 <button 
                     onClick={(e) => { e.stopPropagation(); playClick(); setDiscussEvent({ id: evt.id, name: evt.name }); }} 
-                    className="p-1.5 sm:p-2 bg-gray-50 rounded-lg text-gray-500 hover:bg-blue-50 hover:text-[#003375] transition-colors flex items-center justify-center" 
+                    className="p-1.5 sm:p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 hover:bg-blue-50 hover:text-[#003375] hover:border-blue-200 transition-colors flex items-center justify-center" 
                     title="Thảo luận"
                 >
                     <MessageCircle size={16} className="sm:w-[18px] sm:h-[18px]"/>
                 </button>
                 <button 
                     onClick={(e) => { e.stopPropagation(); playClick(); setReportingEvent(evt); }} 
-                    className="p-1.5 sm:p-2 bg-gray-50 rounded-lg text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-colors flex items-center justify-center"
+                    className="p-1.5 sm:p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 hover:text-orange-600 hover:bg-orange-50 hover:border-orange-200 transition-colors flex items-center justify-center"
                     title="Báo lỗi"
                 >
                     <AlertTriangle size={16} className="sm:w-[18px] sm:h-[18px]"/>
@@ -1560,11 +1560,11 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
             {/* Nút Đăng ký ngay (Nằm ngang hàng, kéo dài ra) */}
             {evt.link && !isLinkClosed && !evt.is_deleted ? (
-                <a href={formattedLink} target="_blank" rel="noopener noreferrer" onClick={(e) => { playClick(); e.stopPropagation(); }} className={`flex-1 text-white text-[13px] sm:text-sm font-bold px-2 sm:px-4 py-2 sm:py-2.5 rounded-lg flex items-center justify-center transition-colors shadow-sm ${isDeadlineToday ? 'bg-red-600 hover:bg-red-700' : 'bg-[#003375] hover:bg-[#002855]'}`}>
+                <a href={formattedLink} target="_blank" rel="noopener noreferrer" onClick={(e) => { playClick(); e.stopPropagation(); }} className={`flex-1 text-white text-[13px] sm:text-sm font-bold px-2 sm:px-4 py-2 sm:py-2.5 rounded-lg flex items-center justify-center transition-colors border border-transparent ${isDeadlineToday ? 'bg-red-600 hover:bg-red-700' : 'bg-[#003375] hover:bg-[#002855]'}`}>
                     Đăng ký ngay
                 </a>
             ) : (
-                <button disabled className="flex-1 py-2 sm:py-2.5 px-2 sm:px-4 rounded-lg font-semibold text-[11px] sm:text-xs cursor-not-allowed border bg-gray-50 text-gray-400 border-gray-200 flex items-center justify-center gap-1.5">
+                <button disabled className="flex-1 py-2 sm:py-2.5 px-2 sm:px-4 rounded-lg font-semibold text-[11px] sm:text-xs cursor-not-allowed border border-gray-200 bg-gray-50 text-gray-400 flex items-center justify-center gap-1.5">
                     {evt.is_deleted ? "Đã bị ẩn" : (isLinkClosed ? <><Lock size={12} className="sm:w-[14px] sm:h-[14px]"/> Đã kết thúc</> : "Chưa có link")}
                 </button>
             )}
@@ -1586,7 +1586,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 return (
     <div className="animate-slideInRight">
         {/* STICKY HEADER */}
-        <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 sm:pb-4 -mt-2 mb-2 sm:mb-4 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
+        <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 sm:pb-4 -mt-2 mb-2 sm:mb-4 md:border-b md:border-gray-300">
             <div className="flex flex-col xl:flex-row gap-2 sm:gap-4 items-start xl:items-center justify-between w-full">
                 {/* Tiêu đề & Thông báo */}
                 <div className="w-full xl:w-auto">
@@ -1594,7 +1594,7 @@ return (
                         Sự kiện Điểm Rèn Luyện
                     </h2>
                     {canManage && (
-                        <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-1 mb-1 border border-blue-100">
+                        <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-1 mb-1 border border-blue-200">
                             <Settings size={10} className="inline mr-1"/>
                            {isAdmin ? 'Chế độ Admin: Quản lý danh sách' : (isAuditor ? 'Chế độ Auditor: Quản lý/Sửa/Đóng' : 'Chế độ CTV: Sửa/Đóng sự kiện')}
                         </div>
@@ -1629,7 +1629,7 @@ return (
                                 <select 
                                     value={activeScope} 
                                     onChange={(e) => { playClick(); setActiveScope(e.target.value); }} 
-                                    className="w-full appearance-none pl-7 pr-6 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-300 transition-colors"
+                                    className="w-full appearance-none pl-7 pr-6 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-400 transition-colors"
                                 >
                                     <option value="all">Tất cả khu vực</option>
                                     <option value="internal">Trong trường</option>
@@ -1643,7 +1643,7 @@ return (
                                 <select 
                                     value={sortOrder} 
                                     onChange={(e) => { playClick(); setSortOrder(e.target.value as 'newest' | 'oldest' | 'expiring_soon'); }} 
-                                    className="w-full appearance-none pl-7 pr-6 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-300 transition-colors"
+                                    className="w-full appearance-none pl-7 pr-6 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-400 transition-colors"
                                 >
                                     <option value="newest">Mới nhất</option>
                                     <option value="oldest">Cũ nhất</option>
@@ -1664,12 +1664,12 @@ return (
                             </button>
                             
                             {canManage ? (
-                                <button onClick={handleOpenAdd} className="p-1.5 sm:px-3 sm:py-1.5 bg-[#003375] hover:bg-[#002855] text-white rounded-md shadow-sm flex items-center justify-center text-xs font-bold transition-all active:scale-95" title="Thêm mới">
+                                <button onClick={handleOpenAdd} className="p-1.5 sm:px-3 sm:py-1.5 bg-[#003375] border border-transparent hover:bg-[#002855] text-white rounded-md flex items-center justify-center text-xs font-bold transition-all active:scale-95" title="Thêm mới">
                                     <PlusCircle size={14} />
                                     <span className="hidden sm:inline sm:ml-1.5">Thêm mới</span>
                                 </button>
                             ) : (
-                                <button onClick={() => { playClick(); setShowContributeModal(true); }} className="p-1.5 sm:px-3 sm:py-1.5 bg-[#003375] hover:bg-[#002855] text-white rounded-md shadow-sm flex items-center justify-center text-xs font-bold transition-all active:scale-95" title="Gửi đóng góp">
+                                <button onClick={() => { playClick(); setShowContributeModal(true); }} className="p-1.5 sm:px-3 sm:py-1.5 bg-[#003375] border border-transparent hover:bg-[#002855] text-white rounded-md flex items-center justify-center text-xs font-bold transition-all active:scale-95" title="Gửi đóng góp">
                                     <PlusCircle size={14} />
                                     <span className="hidden sm:inline sm:ml-1.5">Gửi đóng góp</span>
                                 </button>
@@ -1681,9 +1681,9 @@ return (
  </div>
        {/* ✨ ẨN BANNER CTV NẾU LÀ ADMIN / CTV ✨ */}
         {!canManage && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 sm:p-3 mb-2 sm:mb-4 flex flex-row items-center justify-between gap-2 sm:gap-3 relative overflow-hidden group">
+            <div className="bg-blue-50 border border-blue-300 rounded-lg p-2 sm:p-3 mb-2 sm:mb-4 flex flex-row items-center justify-between gap-2 sm:gap-3 relative overflow-hidden group">
                 <div className="flex items-center gap-2.5 sm:gap-3 relative z-10 flex-1 min-w-0">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center shadow-sm shrink-0 border border-blue-100">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center shrink-0 border border-blue-200">
                         <UserPlus className="text-blue-600 w-3 h-3 sm:w-4 sm:h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1696,7 +1696,7 @@ return (
                 </div>
                 <button 
                     onClick={() => { playClick(); setShowCTVModal(true); }}
-                    className="shrink-0 text-[10px] sm:text-xs font-bold bg-[#003375] text-white hover:bg-[#002855] shadow-sm transition-colors px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-md whitespace-nowrap relative z-10 active:scale-95 flex items-center gap-1.5"
+                    className="shrink-0 text-[10px] sm:text-xs font-bold bg-[#003375] border border-transparent text-white hover:bg-[#002855] transition-colors px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-md whitespace-nowrap relative z-10 active:scale-95 flex items-center gap-1.5"
                 >
                     <UserPlus size={12} className="sm:w-4 sm:h-4" /> 
                     <span>Đăng ký</span>
@@ -1708,7 +1708,7 @@ return (
         )}
 
         {/* TABS LỌC CHUNG CHO CẢ ADMIN VÀ USER */}
-        <div className="relative flex w-full justify-between overflow-x-auto no-scrollbar border-b border-gray-200 px-1 mb-6">
+        <div className="relative flex w-full justify-between overflow-x-auto no-scrollbar border-b border-gray-300 px-1 mb-6">
             {tabsList.map((tab, idx) => (
                 <button 
                     key={tab.id} 
@@ -1732,16 +1732,16 @@ return (
                 <p className="text-gray-500 font-medium">Đang tải danh sách sự kiện...</p>
             </div>
         ) : error ? (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center animate-fadeIn">
+            <div className="bg-red-50 border border-red-300 text-red-700 p-6 rounded-xl text-center animate-fadeIn">
                 <p className="font-bold mb-2">Đã xảy ra lỗi</p>
                 <p>{error}</p>
             </div>
         ) : canManage ? (
             /* ✨ BẢNG QUẢN LÝ DÀNH CHO ADMIN VÀ CTV ✨ */
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden animate-fadeIn">
+            <div className="bg-white border border-gray-300 rounded-xl overflow-hidden animate-fadeIn">
                 <div className="overflow-x-auto custom-scrollbar max-h-[65vh]">
                     <table className="w-full text-sm text-left min-w-[900px]">
-                        <thead className="bg-gray-50 border-b border-gray-200 text-[11px] text-gray-500 font-bold uppercase tracking-wider sticky top-0 z-10">
+                        <thead className="bg-gray-50 border-b border-gray-300 text-[11px] text-gray-500 font-bold uppercase tracking-wider sticky top-0 z-10">
                             <tr>
                                 <th className="px-4 py-3">Tên sự kiện</th>
                                 <th className="px-4 py-3">BTC & Loại hình</th>
@@ -1751,7 +1751,7 @@ return (
                                 <th className="px-4 py-3 text-right">Thao tác</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody className="divide-y divide-gray-200">
                             {filteredEvents.length === 0 ? (
                                 <tr><td colSpan={6} className="py-8 text-center text-gray-500 font-medium">Không có sự kiện nào phù hợp.</td></tr>
                             ) : (
@@ -1764,18 +1764,18 @@ return (
                                     const isLinkClosed = isStatusClosed || isOverdue || isManualClose; 
                                     
                                     let badgeUI = null;
-                                    if (isPending) badgeUI = <span className="bg-yellow-50 text-yellow-700 px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap">Chờ duyệt</span>;
-                                    else if (evt.is_deleted) badgeUI = <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap">Đã bị ẩn</span>;
+                                    if (isPending) badgeUI = <span className="bg-yellow-50 text-yellow-700 px-2 py-1 rounded border border-yellow-200 text-[10px] font-bold whitespace-nowrap">Chờ duyệt</span>;
+                                    else if (evt.is_deleted) badgeUI = <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded border border-gray-200 text-[10px] font-bold whitespace-nowrap">Đã bị ẩn</span>;
                                     else if (isLinkClosed) badgeUI = <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-[10px] font-bold border border-gray-200 whitespace-nowrap">Đã đóng</span>;
-                                    else if (isActive) badgeUI = <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap">Đang diễn ra</span>;
-                                    else badgeUI = <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap">Sắp diễn ra</span>;
+                                    else if (isActive) badgeUI = <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-200 text-[10px] font-bold whitespace-nowrap">Đang diễn ra</span>;
+                                    else badgeUI = <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200 text-[10px] font-bold whitespace-nowrap">Sắp diễn ra</span>;
 
                                     return (
                                         <tr key={evt.id} className={`hover:bg-gray-50 transition-colors ${evt.is_deleted ? 'opacity-60 bg-gray-50/50' : ''}`}>
                                             <td className="px-4 py-3 w-[30%] align-top">
                                                 <div className="font-bold text-[#003375] text-sm line-clamp-2 leading-snug">{evt.name}</div>
                                                 <div className="text-[10px] text-gray-500 mt-1.5 flex flex-wrap items-center gap-1.5">
-                                                    {evt.classification && <span className="bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded border border-purple-100 font-medium">{evt.classification}</span>}
+                                                    {evt.classification && <span className="bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded border border-purple-200 font-medium">{evt.classification}</span>}
                                                     {evt.scope && <span className="font-medium">• {evt.scope}</span>}
                                                 </div>
                                             </td>
@@ -1784,7 +1784,7 @@ return (
                                                 <div className="text-[10px] text-gray-500 flex items-center gap-1"><MapPin size={10}/> {evt.location || 'Offline'}</div>
                                             </td>
                                             <td className="px-4 py-3 text-center align-top w-[10%]">
-                                                <div className="text-xs font-bold text-red-600 bg-red-50 border border-red-100 rounded px-2 py-0.5 inline-block mx-auto mb-1">
+                                                <div className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded px-2 py-0.5 inline-block mx-auto mb-1">
                                                     {evt.score.includes('+') ? evt.score : `+${evt.score}`}
                                                 </div>
                                                 <div className="text-[10px] text-gray-500 font-medium">Mục {evt.category}</div>
@@ -1836,13 +1836,13 @@ return (
             /* ✨ DẠNG CARD LƯỚI CHO USER BÌNH THƯỜNG ✨ */
             <div className="space-y-8 animate-fadeIn">
                 {activeTab === 'participated' && participatedStats && (
-                    <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <div className="bg-blue-50 border border-blue-300 rounded-xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
                         <span className="font-bold text-[#003375] flex items-center gap-2">
                             <BookmarkCheck size={18} /> Thống kê đã tham gia:
                         </span>
                         <div className="flex flex-wrap gap-2">
                             {['I', 'II', 'III', 'IV', 'V'].map(cat => (
-                                <div key={cat} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm">
+                                <div key={cat} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-blue-200">
                                     <span className="text-xs text-gray-600 font-semibold">Mục {cat}:</span>
                                     <span className="text-sm font-bold text-[#003375]">{participatedStats[cat]}</span>
                                 </div>
@@ -1876,8 +1876,8 @@ return (
                 )}
 
                 {filteredEvents.length === 0 && (
-                    <div className="col-span-full py-16 text-center bg-white rounded-xl border border-dashed border-gray-300">
-                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300"><Calendar size={32} /></div>
+                    <div className="col-span-full py-16 text-center bg-white rounded-xl border border-gray-300">
+                        <div className="w-16 h-16 bg-gray-50 rounded-full border border-gray-200 flex items-center justify-center mx-auto mb-4 text-gray-300"><Calendar size={32} /></div>
                         <p className="text-gray-500 font-medium">
                             {activeTab === 'participated' ? 'Bạn chưa đánh dấu tham gia sự kiện nào.' : 'Không tìm thấy sự kiện phù hợp.'}
                         </p>
