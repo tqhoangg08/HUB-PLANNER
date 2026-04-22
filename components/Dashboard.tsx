@@ -1055,7 +1055,69 @@ export const Dashboard: React.FC<DashboardProps> = ({
             handleLocalUpdateSemester(targetIndex, { ...activeData.semesters[targetIndex], name: newName });
             return;
         }
+        // ✨ TÍNH NĂNG: TỰ ĐỘNG ĐIỀN ĐIỂM RÈN LUYỆN TỪ DB TRƯỜNG ✨
+    useEffect(() => {
+        const fetchAndFillTrainingScore = async () => {
+            // 1. Xác định MSSV (Hỗ trợ cả lúc Admin soi profile và User tự xem)
+            let targetStudentCode = (data as any).studentCode || (data as any).student_code; 
+            if (selectedAdminUserId) {
+                const adminViewUser = adminUsers.find(u => u.id === selectedAdminUserId);
+                if (adminViewUser) targetStudentCode = adminViewUser.student_code;
+            } else if (!targetStudentCode) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const { data: profile } = await supabase.from('profiles').select('student_code').eq('id', user.id).single();
+                    targetStudentCode = profile?.student_code;
+                }
+            }
 
+            if (!targetStudentCode) return;
+
+            let hasChanges = false;
+            const newSemesters = [...activeData.semesters];
+
+            // 2. Quét các học kỳ chưa nhập điểm
+            for (let i = 0; i < newSemesters.length; i++) {
+                const sem = newSemesters[i];
+                
+                // Chỉ tự động điền nếu user chưa nhập (bằng null hoặc 0)
+                if (sem.trainingScore === null || sem.trainingScore === 0) {
+                    
+                    // Regex ma thuật: Biến "Học kỳ 1 Năm học 2025-2026" thành "HK1_2025_2026"
+                    const match = sem.name.match(/Học kỳ (1|2|3|Hè) Năm học (\d{4})-(\d{4})/);
+                    if (match) {
+                        const hk = match[1] === 'Hè' ? '3' : match[1]; 
+                        const year1 = match[2];
+                        const year2 = match[3];
+                        const semId = `HK${hk}_${year1}_${year2}`;
+
+                        // Móc dữ liệu từ bảng official_training_scores
+                        const { data: official, error } = await supabase
+                            .from('official_training_scores')
+                            .select('official_score')
+                            .eq('student_code', targetStudentCode)
+                            .eq('semester_id', semId)
+                            .single();
+
+                        if (official && !error && official.official_score) {
+                            newSemesters[i] = { ...sem, trainingScore: official.official_score };
+                            hasChanges = true;
+                        }
+                    }
+                }
+            }
+
+            // 3. Nếu tìm thấy điểm thì cập nhật lại giao diện
+            if (hasChanges) {
+                handleLocalSetSemesters(newSemesters);
+            }
+        };
+
+        // Kích hoạt khi vào trang hoặc khi bấm thêm/xóa học kỳ
+        if (activeData.semesters && activeData.semesters.length > 0) {
+            fetchAndFillTrainingScore();
+        }
+    }, [activeData.semesters.length, selectedAdminUserId]);
         const targetHk = parseInt(match[1]);
         const targetYear = parseInt(match[2]);
         const targetAbs = targetYear * 2 + (targetHk - 1);
