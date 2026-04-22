@@ -602,21 +602,21 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                 <thead className="text-xs text-white uppercase bg-[#003375] border-b border-[#002855]">
-                    <tr>
-                    <th className="px-3 py-3 w-10 text-center border-r border-[#002855]">STT</th>
-                    <th className="px-2 py-3 w-14 text-center border-r border-[#002855]">10%</th>
-                    <th className="px-2 py-3 w-14 text-center border-r border-[#002855]">20%</th>
-                    <th className="px-2 py-3 w-14 text-center border-r border-[#002855]">20%</th>
-                    <th className="px-2 py-3 w-14 text-center border-r border-[#002855]">50%</th>
-                    <th className="px-3 py-3 min-w-[180px] border-r border-[#002855]">Môn học</th>
-                    <th className="px-2 py-3 w-12 text-center border-r border-[#002855]">TC</th>
-                    <th className="px-2 py-3 w-14 text-center border-r border-[#002855]">TB(10)</th>
-                    <th className="px-2 py-3 w-14 text-center border-r border-[#002855]">Chữ</th>
-                    <th className="px-2 py-3 w-14 text-center border-r border-[#002855]">TB(4)</th>
-                    <th className="px-3 py-3 w-20 text-center border-r border-[#002855]">Trạng thái</th>
-                    <th className="px-2 py-3 w-8"></th>
-                    </tr>
-                </thead>
+    <tr>
+        <th className="px-3 py-3 w-10 text-center">STT</th>
+        <th className="px-2 py-3 w-14 text-center">10%</th>
+        <th className="px-2 py-3 w-14 text-center">20%</th>
+        <th className="px-2 py-3 w-14 text-center">20%</th>
+        <th className="px-2 py-3 w-14 text-center">50%</th>
+        <th className="px-3 py-3 min-w-[180px]">Môn học</th>
+        <th className="px-2 py-3 w-12 text-center">TC</th>
+        <th className="px-2 py-3 w-14 text-center">TB(10)</th>
+        <th className="px-2 py-3 w-14 text-center">Chữ</th>
+        <th className="px-2 py-3 w-14 text-center">TB(4)</th>
+        <th className="px-3 py-3 w-20 text-center">Trạng thái</th>
+        <th className="px-2 py-3 w-8"></th>
+    </tr>
+</thead>
                 <tbody className="divide-y divide-gray-200">
                     {processedSubjects.length > 0 ? (
                         processedSubjects.map((subject, sIdx) => {
@@ -641,16 +641,16 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                         }
 
                         return (
-                            <tr key={subject.id} className={`${rowClass} transition-colors duration-150 group`}>
-                            <td className="px-3 py-2 text-center text-gray-500 border-r border-gray-200">{sIdx + 1}</td>
-                            
-                            {['scoreCC', 'scoreProcess', 'scoreMid', 'scoreFinal'].map((key) => (
-                                <td key={key} className="px-1 py-2 border-r border-gray-200">
-                                <ScoreInput value={subject[key as keyof Subject] as number | null} onChange={(val) => handleSubjectChange(subject.id, key as keyof Subject, val)} />
-                                </td>
-                            ))}
+                        <tr key={subject.id} className={`${rowClass} transition-colors duration-150 group`}>
+                        <td className="px-3 py-2 text-center text-gray-500">{sIdx + 1}</td>
+        
+                     {['scoreCC', 'scoreProcess', 'scoreMid', 'scoreFinal'].map((key) => (
+                        <td key={key} className="px-1 py-2">
+                           <ScoreInput value={subject[key as keyof Subject] as number | null} onChange={(val) => handleSubjectChange(subject.id, key as keyof Subject, val)} />
+                          </td>
+                             ))}
 
-                            <td className="px-3 py-2 border-r border-gray-200">
+                              <td className="px-3 py-2">
                                 <input type="text" className="w-full bg-transparent border-b border-transparent focus:border-[#003375] focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375]" value={subject.name} onChange={(e) => handleSubjectChange(subject.id, 'name', e.target.value)} />
                                 <div className="flex items-center gap-2 mt-1">
                                     <label className="text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
@@ -660,19 +660,19 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                 </div>
                             </td>
                             
-                            <td className="px-1 py-2 border-r border-gray-200">
-                                <input type="number" className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-[#003375] focus:border-[#003375] hover:border-gray-400" value={subject.credits} onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
-                            </td>
-                            
-                            <td className="px-2 py-2 text-center font-bold text-[#990000] border-r border-gray-200">{avg10 !== null ? avg10.toFixed(1) : '-'}</td>
-                            <td className="px-2 py-2 text-center font-bold text-gray-700 border-r border-gray-200">{letter}</td>
-                            <td className="px-2 py-2 text-center font-bold text-[#003375] border-r border-gray-200">{avg4 !== null ? avg4.toFixed(1) : '-'}</td>
-                            <td className="px-3 py-2 text-center border-r border-gray-200"><span className={`px-2 py-1 rounded text-xs block w-full text-center ${statusClass}`}>{statusText}</span></td>
-                            <td className="px-2 py-2 text-center">
-                                <button onClick={() => removeSubject(subject.id)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all p-1.5 border border-transparent hover:border-red-200 active:scale-90" title="Xóa môn"><Trash2 size={16} /></button>
-                            </td>
-                            </tr>
-                        );
+                            <td className="px-1 py-2">
+            <input type="number" className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-[#003375] focus:border-[#003375] hover:border-gray-400" value={subject.credits} onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
+        </td>
+        
+        <td className="px-2 py-2 text-center font-bold text-[#990000]">{avg10 !== null ? avg10.toFixed(1) : '-'}</td>
+        <td className="px-2 py-2 text-center font-bold text-gray-700">{letter}</td>
+        <td className="px-2 py-2 text-center font-bold text-[#003375]">{avg4 !== null ? avg4.toFixed(1) : '-'}</td>
+        <td className="px-3 py-2 text-center"><span className={`px-2 py-1 rounded text-xs block w-full text-center ${statusClass}`}>{statusText}</span></td>
+        <td className="px-2 py-2 text-center">
+            <button onClick={() => removeSubject(subject.id)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all p-1.5 border border-transparent hover:border-red-200 active:scale-90" title="Xóa môn"><Trash2 size={16} /></button>
+        </td>
+    </tr>
+);
                         })
                     ) : (
                         <tr><td colSpan={12} className="py-8 text-center text-gray-500">Không tìm thấy môn học nào phù hợp với "{searchTerm}"</td></tr>
