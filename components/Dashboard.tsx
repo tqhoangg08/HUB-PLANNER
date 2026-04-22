@@ -1058,7 +1058,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
         // ✨ TÍNH NĂNG: TỰ ĐỘNG ĐIỀN ĐIỂM RÈN LUYỆN TỪ DB TRƯỜNG ✨
     useEffect(() => {
         const fetchAndFillTrainingScore = async () => {
-            // 1. Xác định MSSV (Hỗ trợ cả lúc Admin soi profile và User tự xem)
+            console.log("🔍 [AUTO-DRL] Bắt đầu quét ĐRL tự động...");
+            
+            // 1. Xác định MSSV
             let targetStudentCode = (data as any).studentCode || (data as any).student_code; 
             if (selectedAdminUserId) {
                 const adminViewUser = adminUsers.find(u => u.id === selectedAdminUserId);
@@ -1071,6 +1073,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 }
             }
 
+            console.log("👤 [AUTO-DRL] MSSV đang xét:", targetStudentCode);
             if (!targetStudentCode) return;
 
             let hasChanges = false;
@@ -1080,16 +1083,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
             for (let i = 0; i < newSemesters.length; i++) {
                 const sem = newSemesters[i];
                 
-                // Chỉ tự động điền nếu user chưa nhập (bằng null hoặc 0)
-                if (sem.trainingScore === null || sem.trainingScore === 0) {
+                // Chỉ tự động điền nếu user chưa nhập (bằng null, 0 hoặc chuỗi rỗng)
+                if (sem.trainingScore === null || sem.trainingScore === undefined || sem.trainingScore === 0) {
+                    console.log(`📚 [AUTO-DRL] Đang xét học kỳ: "${sem.name}" (Điểm hiện tại: trống)`);
                     
-                    // Regex ma thuật: Biến "Học kỳ 1 Năm học 2025-2026" thành "HK1_2025_2026"
                     const match = sem.name.match(/Học kỳ (1|2|3|Hè) Năm học (\d{4})-(\d{4})/);
                     if (match) {
                         const hk = match[1] === 'Hè' ? '3' : match[1]; 
                         const year1 = match[2];
                         const year2 = match[3];
                         const semId = `HK${hk}_${year1}_${year2}`;
+                        
+                        console.log(`🔗 [AUTO-DRL] Mã học kỳ gửi lên DB: ${semId}`);
 
                         // Móc dữ liệu từ bảng official_training_scores
                         const { data: official, error } = await supabase
@@ -1099,21 +1104,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             .eq('semester_id', semId)
                             .single();
 
-                        if (official && !error && official.official_score) {
+                        console.log("📥 [AUTO-DRL] Kết quả trả về từ DB Trường:", official, "| Lỗi (nếu có):", error);
+
+                        // Sửa lỗi: Check kỹ official_score phải khác null/undefined (vì lỡ điểm là 0 thật)
+                        if (official && !error && official.official_score !== null && official.official_score !== undefined) {
                             newSemesters[i] = { ...sem, trainingScore: official.official_score };
                             hasChanges = true;
+                            console.log(`✅ [AUTO-DRL] Đã cập nhật điểm thành công: ${official.official_score}`);
                         }
+                    } else {
+                        console.log(`⚠️ [AUTO-DRL] Tên học kỳ "${sem.name}" không đúng định dạng Regex!`);
                     }
                 }
             }
 
-            // 3. Nếu tìm thấy điểm thì cập nhật lại giao diện
+            // 3. Cập nhật lại giao diện
             if (hasChanges) {
                 handleLocalSetSemesters(newSemesters);
             }
         };
 
-        // Kích hoạt khi vào trang hoặc khi bấm thêm/xóa học kỳ
         if (activeData.semesters && activeData.semesters.length > 0) {
             fetchAndFillTrainingScore();
         }
