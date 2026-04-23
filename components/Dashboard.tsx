@@ -15,7 +15,7 @@ import {
     calculateRequiredGPA,
     getGradeDetails
 } from '../utils/calculations';
-import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter } from 'lucide-react';
+import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter, Flame } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { playClick } from '../utils/audio';
 import { AdsBanner } from './AdsBanner';
@@ -602,21 +602,21 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                 <thead className="text-xs text-white uppercase bg-[#003375] border-b border-[#002855]">
-    <tr>
-        <th className="px-3 py-3 w-10 text-center">STT</th>
-        <th className="px-2 py-3 w-14 text-center">10%</th>
-        <th className="px-2 py-3 w-14 text-center">20%</th>
-        <th className="px-2 py-3 w-14 text-center">20%</th>
-        <th className="px-2 py-3 w-14 text-center">50%</th>
-        <th className="px-3 py-3 min-w-[180px]">Môn học</th>
-        <th className="px-2 py-3 w-12 text-center">TC</th>
-        <th className="px-2 py-3 w-14 text-center">TB(10)</th>
-        <th className="px-2 py-3 w-14 text-center">Chữ</th>
-        <th className="px-2 py-3 w-14 text-center">TB(4)</th>
-        <th className="px-3 py-3 w-20 text-center">Trạng thái</th>
-        <th className="px-2 py-3 w-8"></th>
-    </tr>
-</thead>
+                    <tr>
+                        <th className="px-3 py-3 w-10 text-center">STT</th>
+                        <th className="px-2 py-3 w-14 text-center">10%</th>
+                        <th className="px-2 py-3 w-14 text-center">20%</th>
+                        <th className="px-2 py-3 w-14 text-center">20%</th>
+                        <th className="px-2 py-3 w-14 text-center">50%</th>
+                        <th className="px-3 py-3 min-w-[180px]">Môn học</th>
+                        <th className="px-2 py-3 w-12 text-center">TC</th>
+                        <th className="px-2 py-3 w-14 text-center">TB(10)</th>
+                        <th className="px-2 py-3 w-14 text-center">Chữ</th>
+                        <th className="px-2 py-3 w-14 text-center">TB(4)</th>
+                        <th className="px-3 py-3 w-20 text-center">Trạng thái</th>
+                        <th className="px-2 py-3 w-8"></th>
+                    </tr>
+                </thead>
                 <tbody className="divide-y divide-gray-200">
                     {processedSubjects.length > 0 ? (
                         processedSubjects.map((subject, sIdx) => {
@@ -641,38 +641,38 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                         }
 
                         return (
-                        <tr key={subject.id} className={`${rowClass} transition-colors duration-150 group`}>
-                        <td className="px-3 py-2 text-center text-gray-500">{sIdx + 1}</td>
-        
-                     {['scoreCC', 'scoreProcess', 'scoreMid', 'scoreFinal'].map((key) => (
-                        <td key={key} className="px-1 py-2">
-                           <ScoreInput value={subject[key as keyof Subject] as number | null} onChange={(val) => handleSubjectChange(subject.id, key as keyof Subject, val)} />
-                          </td>
-                             ))}
+                            <tr key={subject.id} className={`${rowClass} transition-colors duration-150 group`}>
+                                <td className="px-3 py-2 text-center text-gray-500">{sIdx + 1}</td>
+                                
+                                {['scoreCC', 'scoreProcess', 'scoreMid', 'scoreFinal'].map((key) => (
+                                    <td key={key} className="px-1 py-2">
+                                        <ScoreInput value={subject[key as keyof Subject] as number | null} onChange={(val) => handleSubjectChange(subject.id, key as keyof Subject, val)} />
+                                    </td>
+                                ))}
 
-                              <td className="px-3 py-2">
-                                <input type="text" className="w-full bg-transparent border-b border-transparent focus:border-[#003375] focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375]" value={subject.name} onChange={(e) => handleSubjectChange(subject.id, 'name', e.target.value)} />
-                                <div className="flex items-center gap-2 mt-1">
-                                    <label className="text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
-                                        <input type="checkbox" checked={subject.isNonGPA} onChange={(e) => { playClick(); handleSubjectChange(subject.id, 'isNonGPA', e.target.checked); }} className="rounded text-[#003375] border-gray-300 focus:ring-[#003375] w-3 h-3 mr-1" />
-                                        Không tính GPA
-                                    </label>
-                                </div>
-                            </td>
-                            
-                            <td className="px-1 py-2">
-            <input type="number" className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-[#003375] focus:border-[#003375] hover:border-gray-400" value={subject.credits} onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
-        </td>
-        
-        <td className="px-2 py-2 text-center font-bold text-[#990000]">{avg10 !== null ? avg10.toFixed(1) : '-'}</td>
-        <td className="px-2 py-2 text-center font-bold text-gray-700">{letter}</td>
-        <td className="px-2 py-2 text-center font-bold text-[#003375]">{avg4 !== null ? avg4.toFixed(1) : '-'}</td>
-        <td className="px-3 py-2 text-center"><span className={`px-2 py-1 rounded text-xs block w-full text-center ${statusClass}`}>{statusText}</span></td>
-        <td className="px-2 py-2 text-center">
-            <button onClick={() => removeSubject(subject.id)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all p-1.5 border border-transparent hover:border-red-200 active:scale-90" title="Xóa môn"><Trash2 size={16} /></button>
-        </td>
-    </tr>
-);
+                                <td className="px-3 py-2">
+                                    <input type="text" className="w-full bg-transparent border-b border-transparent focus:border-[#003375] focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375]" value={subject.name} onChange={(e) => handleSubjectChange(subject.id, 'name', e.target.value)} />
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <label className="text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
+                                            <input type="checkbox" checked={subject.isNonGPA} onChange={(e) => { playClick(); handleSubjectChange(subject.id, 'isNonGPA', e.target.checked); }} className="rounded text-[#003375] border-gray-300 focus:ring-[#003375] w-3 h-3 mr-1" />
+                                            Không tính GPA
+                                        </label>
+                                    </div>
+                                </td>
+                                
+                                <td className="px-1 py-2">
+                                    <input type="number" className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-[#003375] focus:border-[#003375] hover:border-gray-400" value={subject.credits} onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
+                                </td>
+                                
+                                <td className="px-2 py-2 text-center font-bold text-[#990000]">{avg10 !== null ? avg10.toFixed(1) : '-'}</td>
+                                <td className="px-2 py-2 text-center font-bold text-gray-700">{letter}</td>
+                                <td className="px-2 py-2 text-center font-bold text-[#003375]">{avg4 !== null ? avg4.toFixed(1) : '-'}</td>
+                                <td className="px-3 py-2 text-center"><span className={`px-2 py-1 rounded text-xs block w-full text-center ${statusClass}`}>{statusText}</span></td>
+                                <td className="px-2 py-2 text-center">
+                                    <button onClick={() => removeSubject(subject.id)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all p-1.5 border border-transparent hover:border-red-200 active:scale-90" title="Xóa môn"><Trash2 size={16} /></button>
+                                </td>
+                            </tr>
+                        );
                         })
                     ) : (
                         <tr><td colSpan={12} className="py-8 text-center text-gray-500">Không tìm thấy môn học nào phù hợp với "{searchTerm}"</td></tr>
@@ -1057,7 +1057,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         const targetHk = match[1] === 'Hè' ? 3 : parseInt(match[1]);
         const targetYear = parseInt(match[2]);
-        // Tạm coi mỗi năm có 2 kỳ chính và 1 kỳ hè = 3 kỳ
         const targetAbs = targetYear * 3 + (targetHk - 1);
 
         const isFirstSpawn = activeData.semesters.length === 1 && activeData.semesters[0].name === '';
@@ -1151,6 +1150,39 @@ export const Dashboard: React.FC<DashboardProps> = ({
             fetchAndFillTrainingScore();
         }
     }, [activeData.semesters.length, selectedAdminUserId]);
+
+    // ✨ TÍNH NĂNG 2: FETCH RANK ĐIỂM RÈN LUYỆN ✨
+    const [drlRank, setDrlRank] = useState<any>(null);
+
+    useEffect(() => {
+        const fetchDrlRank = async () => {
+            if (isGuest || showAdminPanel || isViewingAsAuditor) return;
+            
+            // 1. Lấy MSSV của sinh viên đang đăng nhập
+            const targetStudentCode = (data as any).studentCode || (data as any).student_code;
+            if (!targetStudentCode) return;
+
+            try {
+                // 2. Chọc vào bảng v_drl_ranking và lọc đúng MSSV đó
+                const { data: rankData, error } = await supabase
+                    .from('v_drl_ranking') 
+                    .select('*')
+                    .eq('student_code', targetStudentCode) 
+                    .order('semester_id', { ascending: false })
+                    .limit(1)
+                    .single();
+
+                if (rankData && !error) {
+                    setDrlRank(rankData);
+                }
+            } catch (err) {
+                console.error("Lỗi fetch ĐRL rank:", err);
+            }
+        };
+
+        fetchDrlRank();
+    }, [isGuest, showAdminPanel, isViewingAsAuditor, data]);
+
 
     const sortedSemesters = useMemo(() => {
         const getWeight = (name: string) => {
@@ -1551,6 +1583,57 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     )}
                 </div>
 
+                {/* 🏆 WIDGET VINH DANH ĐIỂM RÈN LUYỆN 🏆 */}
+                {drlRank && !showAdminPanel && !isGuest && (
+                    <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-300 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden shadow-sm">
+                        <div className="absolute -right-4 -top-4 opacity-10 pointer-events-none transform rotate-12">
+                            <Crown size={120} />
+                        </div>
+                        
+                        <div className="relative z-10 flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="bg-yellow-200 text-yellow-800 text-[10px] font-bold px-2 py-0.5 rounded border border-yellow-300 uppercase tracking-wide">
+                                    Vinh danh ĐRL
+                                </span>
+                                <span className="text-xs font-bold text-gray-500">{drlRank.semester_id.replace('HK1_', 'Học kỳ 1 NH ').replace('HK2_', 'Học kỳ 2 NH ')}</span>
+                            </div>
+                            <h3 className="text-lg sm:text-xl font-extrabold text-yellow-900 mb-2">
+                                Bạn đạt <span className="text-orange-600">{drlRank.official_score}</span> điểm rèn luyện! 🎉
+                            </h3>
+                            <div className="flex flex-wrap items-center gap-3 sm:gap-6 mt-1">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm text-yellow-600 border border-yellow-200">
+                                        <Trophy size={16} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-gray-500 font-semibold uppercase">Lớp {drlRank.class_name}</p>
+                                        <p className="text-sm font-black text-gray-800">Hạng #{drlRank.rank_in_class} <span className="text-xs font-medium text-gray-500">/ {drlRank.total_in_class}</span></p>
+                                    </div>
+                                </div>
+                                
+                                <div className="w-px h-8 bg-yellow-200 hidden sm:block"></div>
+                                
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm text-orange-500 border border-orange-200">
+                                        <Flame size={16} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-gray-500 font-semibold uppercase">Khoa {drlRank.department}</p>
+                                        <p className="text-sm font-black text-gray-800">Top {Math.max(1, Math.ceil(drlRank.top_percent_faculty * 100))}% <span className="text-xs font-medium text-gray-500">xuất sắc</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="hidden lg:flex shrink-0 relative z-10 mr-4">
+                            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm border-4 border-yellow-200 relative">
+                                <Crown size={32} className="text-yellow-500 drop-shadow-sm mb-3" />
+                                <span className="absolute bottom-3 text-[13px] font-black text-yellow-800">#{drlRank.rank_in_class}</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                     <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:border-blue-400 transition-colors flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-1">
@@ -1609,7 +1692,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     </div>
 
-                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:border-blue-400 transition-colors flex flex-col justify-between relative overflow-hidden">
+                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                         <div className="flex justify-between items-start mb-1">
                             <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dự báo mục tiêu</span>
                             <Target size={16} className="text-[#003375] shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
