@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { UserData, GradeStatus } from '../types';
 import { supabase } from '../utils/supabase';
@@ -11,45 +11,44 @@ import {
     getSubjectStatus
 } from './calculations';
 
-// Hàm helper dùng FileReader API siêu an toàn, không bao giờ lỗi khi build Production
-const arrayBufferToBase64 = async (buffer: ArrayBuffer): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const blob = new Blob([buffer], { type: 'application/x-font-ttf' });
-        const reader = new FileReader();
-        reader.onload = () => {
-            const dataUrl = reader.result as string;
-            resolve(dataUrl.split(',')[1]); // Chỉ lấy phần chuỗi Base64
-        };
-        reader.onerror = error => reject(error);
-        reader.readAsDataURL(blob);
-    });
+// Hàm Base64 bằng vòng lặp truyền thống (Tuyệt đối an toàn khi Vercel nén code)
+const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
 };
 
 export const exportTranscriptToPdf = async (data: UserData) => {
     const doc = new jsPDF();
-    const MARGIN_LEFT = 15; // Ép chuẩn lề trái 15px cho toàn bộ văn bản
+    const MARGIN_LEFT = 15; 
     const PAGE_WIDTH = 210;
-    const MARGIN_RIGHT = PAGE_WIDTH - MARGIN_LEFT; // Lề phải chuẩn
+    const MARGIN_RIGHT = PAGE_WIDTH - MARGIN_LEFT; 
 
-    // 1. TẢI FONT CHUẨN TIMES NEW ROMAN 
+    // 1. TẢI FONT CHUẨN (Bọc thép chống lỗi mạng)
     try {
         const fontBaseUrl = 'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/tinos';
         
-        const [regRes, boldRes, italicRes] = await Promise.all([
-            fetch(`${fontBaseUrl}/Tinos-Regular.ttf`),
-            fetch(`${fontBaseUrl}/Tinos-Bold.ttf`),
-            fetch(`${fontBaseUrl}/Tinos-Italic.ttf`)
+        // Viết riêng một hàm lấy font có check lỗi đàng hoàng
+        const fetchFont = async (filename: string) => {
+            const res = await fetch(`${fontBaseUrl}/${filename}`);
+            if (!res.ok) throw new Error(`Không tải được font ${filename}`);
+            const buffer = await res.arrayBuffer();
+            return arrayBufferToBase64(buffer);
+        };
+
+        // Tải 3 font cùng lúc và đợi xong xuôi mới chạy tiếp
+        const [regB64, boldB64, italicB64] = await Promise.all([
+            fetchFont('Tinos-Regular.ttf'),
+            fetchFont('Tinos-Bold.ttf'),
+            fetchFont('Tinos-Italic.ttf')
         ]);
 
-        const [regBuf, boldBuf, italicBuf] = await Promise.all([
-            regRes.arrayBuffer(),
-            boldRes.arrayBuffer(),
-            italicRes.arrayBuffer()
-        ]);
-
-        doc.addFileToVFS('Tinos-Regular.ttf', await arrayBufferToBase64(regBuf));
-        doc.addFileToVFS('Tinos-Bold.ttf', await arrayBufferToBase64(boldBuf));
-        doc.addFileToVFS('Tinos-Italic.ttf', await arrayBufferToBase64(italicBuf));
+        doc.addFileToVFS('Tinos-Regular.ttf', regB64);
+        doc.addFileToVFS('Tinos-Bold.ttf', boldB64);
+        doc.addFileToVFS('Tinos-Italic.ttf', italicB64);
 
         doc.addFont('Tinos-Regular.ttf', 'Tinos', 'normal');
         doc.addFont('Tinos-Bold.ttf', 'Tinos', 'bold');
@@ -58,6 +57,8 @@ export const exportTranscriptToPdf = async (data: UserData) => {
         doc.setFont('Tinos', 'normal'); 
     } catch (error) {
         console.error("Lỗi tải font tiếng Việt:", error);
+        // Bắn thông báo cho người dùng biết nếu mạng bị xịt
+        alert("Hệ thống đang tải Font chữ chuẩn mất nhiều thời gian hơn bình thường hoặc mạng đang yếu. Nếu PDF xuất ra bị lỗi font, vui lòng thử lại sau vài giây!");
     }
 
     // LẤY MSSV TỰ ĐỘNG
