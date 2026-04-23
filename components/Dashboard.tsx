@@ -1160,23 +1160,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
             
             // 1. Lấy MSSV của sinh viên đang đăng nhập
             const targetStudentCode = (data as any).studentCode || (data as any).student_code;
+            console.log("👑 [RANK-DRL] Bắt đầu tìm hạng cho MSSV:", targetStudentCode);
+
             if (!targetStudentCode) return;
 
             try {
-                // 2. Chọc vào bảng v_drl_ranking và lọc đúng MSSV đó
+                // 2. Chọc vào bảng v_drl_ranking
                 const { data: rankData, error } = await supabase
-                    .from('v_drl_ranking') 
+                    .from('v_drl_ranking')
                     .select('*')
-                    .eq('student_code', targetStudentCode) 
+                    .eq('student_code', targetStudentCode)
                     .order('semester_id', { ascending: false })
                     .limit(1)
                     .single();
 
+                console.log("👑 [RANK-DRL] Dữ liệu từ Supabase:", rankData, "| Lỗi (nếu có):", error);
+
                 if (rankData && !error) {
                     setDrlRank(rankData);
+                    console.log("✅ [RANK-DRL] Lên sóng thành công!");
+                } else if (error) {
+                    console.error("❌ [RANK-DRL] Bị Supabase chặn hoặc không có data:", error.message);
                 }
             } catch (err) {
-                console.error("Lỗi fetch ĐRL rank:", err);
+                console.error("❌ [RANK-DRL] Lỗi Code React:", err);
             }
         };
 
