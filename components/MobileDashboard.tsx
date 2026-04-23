@@ -566,20 +566,20 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                <thead className="text-xs text-white uppercase bg-[#003375]">
+                <thead className="text-xs text-white uppercase bg-[#003375] border-b border-[#002855]">
                     <tr>
-                    <th className="px-3 py-3 w-10 text-center">STT</th>
-                    <th className="px-2 py-3 w-14 text-center">10%</th>
-                    <th className="px-2 py-3 w-14 text-center">20%</th>
-                    <th className="px-2 py-3 w-14 text-center">20%</th>
-                    <th className="px-2 py-3 w-14 text-center">50%</th>
-                    <th className="px-3 py-3 min-w-[180px]">Môn học</th>
-                    <th className="px-2 py-3 w-12 text-center">TC</th>
-                    <th className="px-2 py-3 w-14 text-center">TB(10)</th>
-                    <th className="px-2 py-3 w-14 text-center">Chữ</th>
-                    <th className="px-2 py-3 w-14 text-center">TB(4)</th>
-                    <th className="px-3 py-3 w-20 text-center">Trạng thái</th>
-                    <th className="px-2 py-3 w-8"></th>
+                        <th className="px-3 py-3 w-10 text-center">STT</th>
+                        <th className="px-2 py-3 w-14 text-center">10%</th>
+                        <th className="px-2 py-3 w-14 text-center">20%</th>
+                        <th className="px-2 py-3 w-14 text-center">20%</th>
+                        <th className="px-2 py-3 w-14 text-center">50%</th>
+                        <th className="px-3 py-3 min-w-[180px]">Môn học</th>
+                        <th className="px-2 py-3 w-12 text-center">TC</th>
+                        <th className="px-2 py-3 w-14 text-center">TB(10)</th>
+                        <th className="px-2 py-3 w-14 text-center">Chữ</th>
+                        <th className="px-2 py-3 w-14 text-center">TB(4)</th>
+                        <th className="px-3 py-3 w-20 text-center">Trạng thái</th>
+                        <th className="px-2 py-3 w-8"></th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -607,36 +607,35 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
                         return (
                             <tr key={subject.id} className={`${rowClass} transition-colors duration-150 group`}>
-                            <td className="px-3 py-2 text-center text-gray-500">{sIdx + 1}</td>
-                            
-                            {['scoreCC', 'scoreProcess', 'scoreMid', 'scoreFinal'].map((key) => (
-                                <td key={key} className="px-1 py-2">
-                                <ScoreInput value={subject[key as keyof Subject] as number | null} onChange={(val) => handleSubjectChange(subject.id, key as keyof Subject, val)} />
-                                </td>
-                            ))}
+                                <td className="px-3 py-2 text-center text-gray-500">{sIdx + 1}</td>
+                                
+                                {['scoreCC', 'scoreProcess', 'scoreMid', 'scoreFinal'].map((key) => (
+                                    <td key={key} className="px-1 py-2">
+                                        <ScoreInput value={subject[key as keyof Subject] as number | null} onChange={(val) => handleSubjectChange(subject.id, key as keyof Subject, val)} />
+                                    </td>
+                                ))}
 
-                            <td className="px-3 py-2">
-                                <input type="text" className="w-full bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375]" value={subject.name} onChange={(e) => handleSubjectChange(subject.id, 'name', e.target.value)} />
-                                <div className="flex items-center gap-2 mt-1">
-                                    <label className="text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
-                                        <input type="checkbox" checked={subject.isNonGPA} onChange={(e) => { playClick(); handleSubjectChange(subject.id, 'isNonGPA', e.target.checked); }} className="rounded text-[#003375] focus:ring-[#003375] w-3 h-3 mr-1" />
-                                        Không tính GPA
-                                    </label>
-                                </div>
-                            </td>
-                            
-                            <td className="px-1 py-2">
-                                <input type="number" className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300" value={subject.credits} onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
-                            </td>
-                            
-                            <td className="px-2 py-2 text-center font-bold text-[#990000]">{avg10 !== null ? avg10.toFixed(1) : '-'}</td>
-                            <td className="px-2 py-2 text-center font-bold text-gray-700">{letter}</td>
-                            <td className="px-2 py-2 text-center font-bold text-[#003375]">{avg4 !== null ? avg4.toFixed(1) : '-'}</td>
-                            <td className="px-3 py-2 text-center"><span className={`px-2 py-1 rounded text-xs block w-full text-center shadow-sm ${statusClass}`}>{statusText}</span></td>
-                            {!isReadOnly && (
-                            <td className="px-2 py-2 text-center">
-                                 <button onClick={() => removeSubject(subject.id)}><Trash2 size={16} /></button>
-                            </td> )}
+                                <td className="px-3 py-2">
+                                    <input type="text" className="w-full bg-transparent border-b border-transparent focus:border-[#003375] focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375]" value={subject.name} onChange={(e) => handleSubjectChange(subject.id, 'name', e.target.value)} />
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <label className="text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
+                                            <input type="checkbox" checked={subject.isNonGPA} onChange={(e) => { playClick(); handleSubjectChange(subject.id, 'isNonGPA', e.target.checked); }} className="rounded text-[#003375] border-gray-300 focus:ring-[#003375] w-3 h-3 mr-1" />
+                                            Không tính GPA
+                                        </label>
+                                    </div>
+                                </td>
+                                
+                                <td className="px-1 py-2">
+                                    <input type="number" className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-[#003375] focus:border-[#003375] hover:border-gray-400" value={subject.credits} onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
+                                </td>
+                                
+                                <td className="px-2 py-2 text-center font-bold text-[#990000]">{avg10 !== null ? avg10.toFixed(1) : '-'}</td>
+                                <td className="px-2 py-2 text-center font-bold text-gray-700">{letter}</td>
+                                <td className="px-2 py-2 text-center font-bold text-[#003375]">{avg4 !== null ? avg4.toFixed(1) : '-'}</td>
+                                <td className="px-3 py-2 text-center"><span className={`px-2 py-1 rounded text-xs block w-full text-center ${statusClass}`}>{statusText}</span></td>
+                                <td className="px-2 py-2 text-center">
+                                    <button onClick={() => removeSubject(subject.id)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all p-1.5 border border-transparent hover:border-red-200 active:scale-90" title="Xóa môn"><Trash2 size={16} /></button>
+                                </td>
                             </tr>
                         );
                         })
@@ -1021,7 +1020,55 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
         handleLocalSetSemesters(newSemesters);
     };
+    // ✨ TÍNH NĂNG: TỰ ĐỘNG ĐIỀN ĐIỂM RÈN LUYỆN TỪ DB TRƯỜNG ✨
+    useEffect(() => {
+        const fetchAndFillTrainingScore = async () => {
+            let targetStudentCode = (data as any).studentCode || (data as any).student_code; 
+            if (selectedAdminUserId) {
+                const adminViewUser = adminUsers.find(u => u.id === selectedAdminUserId);
+                if (adminViewUser) targetStudentCode = adminViewUser.student_code;
+            } else if (!targetStudentCode) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const { data: profile } = await supabase.from('profiles').select('student_code').eq('id', user.id).single();
+                    targetStudentCode = profile?.student_code;
+                }
+            }
 
+            if (!targetStudentCode) return;
+
+            let hasChanges = false;
+            const newSemesters = [...activeData.semesters];
+
+            for (let i = 0; i < newSemesters.length; i++) {
+                const sem = newSemesters[i];
+                if (sem.trainingScore === null || sem.trainingScore === undefined || sem.trainingScore === 0) {
+                    const match = sem.name.match(/Học kỳ (1|2|3|Hè) Năm học (\d{4})-(\d{4})/);
+                    if (match) {
+                        const hk = match[1] === 'Hè' ? '3' : match[1]; 
+                        const year1 = match[2];
+                        const year2 = match[3];
+                        const semId = `HK${hk}_${year1}_${year2}`;
+
+                        const { data: official, error } = await supabase
+                            .from('official_training_scores')
+                            .select('official_score')
+                            .eq('student_code', targetStudentCode)
+                            .eq('semester_id', semId)
+                            .maybeSingle();
+
+                        if (official && !error && official.official_score !== null && official.official_score !== undefined) {
+                            newSemesters[i] = { ...sem, trainingScore: official.official_score };
+                            hasChanges = true;
+                        }
+                    }
+                }
+            }
+            if (hasChanges) handleLocalSetSemesters(newSemesters);
+        };
+
+        if (activeData.semesters && activeData.semesters.length > 0) fetchAndFillTrainingScore();
+    }, [activeData.semesters.length, selectedAdminUserId, data]);
     const sortedSemesters = useMemo(() => {
         const getWeight = (name: string) => {
             if (!name) return 999999;
@@ -1232,46 +1279,49 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
-                    <button 
-                        onClick={() => { playClick(); setAdminFilterGpa('all'); }}
-                        className={`bg-white p-4 rounded-xl border shadow-sm flex flex-col justify-between text-left transition-all ${adminFilterGpa === 'all' ? 'border-[#003375] ring-2 ring-[#003375]/20' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
-                    >
-                        <div className="flex justify-between items-center mb-2 w-full">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Tổng sinh viên</span>
-                            <Users size={16} className="text-gray-400" />
+                {/* 3. BỐN THẺ THỐNG KÊ (GRID 2x2 MOBILE, 4x1 DESKTOP) */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                    <button onClick={() => { playClick(); setAdminFilterGpa('all'); }} className={`bg-white p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'all' ? 'border-[#003375] ring-1 ring-[#003375] bg-blue-50/20' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'}`}>
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
+                            <Users size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
-                        <div className="text-2xl font-black text-gray-900">{adminSummary.total}</div>
+                        <div>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Tổng SV</p>
+                            <span className="text-lg sm:text-xl font-black text-gray-900">{adminSummary.total}</span>
+                        </div>
                     </button>
 
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between">
-                        <div className="flex justify-between items-center mb-2 w-full">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Trung bình GPA</span>
-                            <BarChart3 size={16} className="text-blue-500" />
+                    <div className="bg-white p-2.5 sm:p-3 rounded-xl border border-gray-300 flex items-center gap-2 sm:gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-50 text-purple-500 flex items-center justify-center shrink-0">
+                            <BarChart3 size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
-                        <div className="text-2xl font-black text-[#003375]">{adminSummary.avgGPA} <span className="text-xs font-semibold text-gray-400">/ 4.0</span></div>
+                        <div>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">TB GPA</p>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-lg sm:text-xl font-black text-[#003375]">{adminSummary.avgGPA}</span>
+                                <span className="text-[10px] sm:text-xs text-gray-400 font-medium">/4.0</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <button 
-                        onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'warning' ? 'all' : 'warning'); }}
-                        className={`bg-white p-4 rounded-xl border shadow-sm flex flex-col justify-between text-left transition-all ${adminFilterGpa === 'warning' ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/30' : 'border-gray-200 hover:border-red-200 hover:bg-red-50/30'}`}
-                    >
-                        <div className="flex justify-between items-center mb-2 w-full">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Cảnh báo (&lt;2.0)</span>
-                            <AlertTriangle size={16} className="text-red-500" />
+                    <button onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'warning' ? 'all' : 'warning'); }} className={`p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'warning' ? 'border-red-500 ring-1 ring-red-500 bg-red-50/50' : 'bg-white border-gray-300 hover:border-red-400 hover:bg-red-50/30'}`}>
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                            <AlertTriangle size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
-                        <div className="text-2xl font-black text-red-600">{adminSummary.warning} <span className="text-xs font-semibold text-gray-400 font-normal">sinh viên</span></div>
+                        <div>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-red-600/80 uppercase tracking-wider mb-0.5">Cảnh báo</p>
+                            <span className="text-lg sm:text-xl font-black text-red-600">{adminSummary.warning}</span>
+                        </div>
                     </button>
 
-                    <button 
-                        onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'excellent' ? 'all' : 'excellent'); }}
-                        className={`bg-white p-4 rounded-xl border shadow-sm flex flex-col justify-between text-left transition-all ${adminFilterGpa === 'excellent' ? 'border-yellow-500 ring-2 ring-yellow-500/20 bg-yellow-50/30' : 'border-gray-200 hover:border-yellow-200 hover:bg-yellow-50/30'}`}
-                    >
-                        <div className="flex justify-between items-center mb-2 w-full">
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Xuất sắc (&gt;3.6)</span>
-                            <Crown size={16} className="text-yellow-500" />
+                    <button onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'excellent' ? 'all' : 'excellent'); }} className={`p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'excellent' ? 'border-yellow-500 ring-1 ring-yellow-500 bg-yellow-50/50' : 'bg-white border-gray-300 hover:border-yellow-400 hover:bg-yellow-50/30'}`}>
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
+                            <Crown size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
-                        <div className="text-2xl font-black text-yellow-600">{adminSummary.excellent} <span className="text-xs font-semibold text-gray-400 font-normal">sinh viên</span></div>
+                        <div>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-orange-500/80 uppercase tracking-wider mb-0.5">Xuất sắc</p>
+                            <span className="text-lg sm:text-xl font-black text-orange-500">{adminSummary.excellent}</span>
+                        </div>
                     </button>
                 </div>
 
@@ -1393,7 +1443,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between">
+                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-1">
                             <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng GPA tích lũy</span>
                             <GraduationCap size={16} className="text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -1407,7 +1457,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                         </div>
                     </div>
 
-                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between">
+                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-1">
                             <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng TC tích lũy</span>
                             <BookOpen size={16} className="text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -1421,7 +1471,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                         </div>
                     </div>
 
-                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:shadow-md transition-shadow flex flex-col justify-between cursor-pointer relative overflow-hidden" onClick={() => { if(!isLocked) { playClick(); setShowRankingModal(true); } }}>
+                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between cursor-pointer relative overflow-hidden" onClick={() => { if(!isLocked) { playClick(); setShowRankingModal(true); } }}>
                         <div className="flex justify-between items-start mb-1">
                             <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">BXH môn học</span>
                             <Trophy size={16} className="text-yellow-500 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -1429,8 +1479,8 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                         
                         <div className="relative flex-1 flex flex-col justify-center">
                             {isLocked && (
-                                <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/40 backdrop-blur-[3px] z-20 flex items-center justify-center flex-col text-center rounded-lg shadow-[inset_0_0_10px_rgba(255,255,255,0.6)] cursor-pointer group hover:bg-white/50 transition-colors">
-                                    <div className="bg-white/90 px-3 py-1.5 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
+                                <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/80 backdrop-blur-[2px] z-20 flex items-center justify-center flex-col text-center rounded-lg cursor-pointer group hover:bg-white transition-colors border border-gray-200">
+                                    <div className="bg-white px-3 py-1.5 rounded-xl border border-gray-300 flex flex-col items-center group-hover:scale-105 transition-transform">
                                         <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
                                         <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
                                     </div>
@@ -1441,7 +1491,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     <span className="text-[11px] sm:text-sm font-bold text-[#003375] line-clamp-1 leading-tight">{highestSubject.name}</span>
                                     <div className="mt-1 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
                                         <span className="text-sm sm:text-[15px] font-extrabold text-gray-900 leading-none">{highestSubject.avg.toFixed(1)}</span>
-                                        <span className="text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 whitespace-nowrap">Điểm {highestSubject.letter}</span>
+                                        <span className="text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 whitespace-nowrap">Điểm {highestSubject.letter}</span>
                                     </div>
                                 </div>
                             ) : (
@@ -1450,7 +1500,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                         </div>
                     </div>
 
-                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col justify-between relative overflow-hidden">
+                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                         <div className="flex justify-between items-start mb-1">
                             <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dự báo mục tiêu</span>
                             <Target size={16} className="text-[#003375] shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -1458,8 +1508,8 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                         <div className="relative flex-1 flex flex-col justify-center">
                             {isLocked && (
-                                <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/40 backdrop-blur-[3px] z-20 flex items-center justify-center flex-col text-center rounded-lg shadow-[inset_0_0_10px_rgba(255,255,255,0.6)] cursor-pointer group hover:bg-white/50 transition-colors">
-                                    <div className="bg-white/90 px-3 py-1.5 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
+                                <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/80 backdrop-blur-[2px] z-20 flex items-center justify-center flex-col text-center rounded-lg cursor-pointer group hover:bg-white transition-colors border border-gray-200">
+                                    <div className="bg-white px-3 py-1.5 rounded-xl border border-gray-300 flex flex-col items-center group-hover:scale-105 transition-transform">
                                         <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
                                         <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
                                     </div>
@@ -1468,7 +1518,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <div className="flex flex-col gap-1 sm:gap-1 text-[9px] sm:text-[11px] text-gray-600 mt-1">
                                 <div className="flex justify-between items-center">
                                     <span className="truncate">Mục tiêu:</span>
-                                    <div className="flex items-center group relative cursor-pointer border-b border-dashed border-gray-300 hover:border-[#003375]">
+                                    <div className="flex items-center group relative cursor-pointer border-b border-dashed border-gray-400 hover:border-[#003375]">
                                         <input
                                             type="number" min="0" max="4" step="0.1"
                                             value={activeData.targetGPA}
@@ -1484,7 +1534,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                 <div className="flex justify-between items-center">
                                     <span className="truncate">Trung bình một tín:</span>
                                     {requiredAnalysis && requiredAnalysis.isPossible ? (
-                                        <span className={`font-bold ${scoreClass}`}>{Math.max(0, requiredAnalysis.requiredGPA).toFixed(2)}</span>
+                                        <span className={`font-bold border-b border-transparent ${scoreClass}`}>{Math.max(0, requiredAnalysis.requiredGPA).toFixed(2)}</span>
                                     ) : (
                                         <span className="font-bold text-[#990000]">Không thể</span>
                                     )}
