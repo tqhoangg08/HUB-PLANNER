@@ -50,11 +50,12 @@ export const exportTranscriptToPdf = async (data: UserData) => {
         doc.addFileToVFS('Tinos-Bold.ttf', boldB64);
         doc.addFileToVFS('Tinos-Italic.ttf', italicB64);
 
-        doc.addFont('Tinos-Regular.ttf', 'Tinos', 'normal');
-        doc.addFont('Tinos-Bold.ttf', 'Tinos', 'bold');
-        doc.addFont('Tinos-Italic.ttf', 'Tinos', 'italic');
+        // ✨ ĐIỂM CHẾT Ở ĐÂY: Bắt buộc phải có chữ 'Identity-H' để ép jsPDF hiểu Tiếng Việt
+        doc.addFont('Tinos-Regular.ttf', 'Tinos', 'normal', 'Identity-H');
+        doc.addFont('Tinos-Bold.ttf', 'Tinos', 'bold', 'Identity-H');
+        doc.addFont('Tinos-Italic.ttf', 'Tinos', 'italic', 'Identity-H');
         
-        doc.setFont('Tinos', 'normal'); 
+        doc.setFont('Tinos', 'normal');
     } catch (error) {
         console.error("Lỗi tải font tiếng Việt:", error);
         // Bắn thông báo cho người dùng biết nếu mạng bị xịt
