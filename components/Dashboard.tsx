@@ -1160,8 +1160,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             
             // 1. Lấy MSSV của sinh viên đang đăng nhập
             const targetStudentCode = (data as any).studentCode || (data as any).student_code;
-            console.log("👑 [RANK-DRL] Bắt đầu tìm hạng cho MSSV:", targetStudentCode);
-
             if (!targetStudentCode) return;
 
             try {
@@ -1170,17 +1168,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     .from('v_drl_ranking')
                     .select('*')
                     .eq('student_code', targetStudentCode)
-                    .order('semester_id', { ascending: false })
+                    // Bỏ dòng order semester_id đi nếu bảng View của sếp chưa có cột này để tránh lỗi
                     .limit(1)
-                    .single();
-
-                console.log("👑 [RANK-DRL] Dữ liệu từ Supabase:", rankData, "| Lỗi (nếu có):", error);
+                    .maybeSingle(); // ✨ SỬA THÀNH maybeSingle() Ở ĐÂY NÈ SẾP
 
                 if (rankData && !error) {
                     setDrlRank(rankData);
-                    console.log("✅ [RANK-DRL] Lên sóng thành công!");
-                } else if (error) {
-                    console.error("❌ [RANK-DRL] Bị Supabase chặn hoặc không có data:", error.message);
                 }
             } catch (err) {
                 console.error("❌ [RANK-DRL] Lỗi Code React:", err);
@@ -1602,10 +1595,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 <span className="bg-yellow-200 text-yellow-800 text-[10px] font-bold px-2 py-0.5 rounded border border-yellow-300 uppercase tracking-wide">
                                     Vinh danh ĐRL
                                 </span>
-                                <span className="text-xs font-bold text-gray-500">{drlRank.semester_id.replace('HK1_', 'Học kỳ 1 NH ').replace('HK2_', 'Học kỳ 2 NH ')}</span>
+                                <span className="text-xs font-bold text-gray-500">
+                                    {drlRank.semester_id ? drlRank.semester_id.replace('HK1_', 'Học kỳ 1 NH ').replace('HK2_', 'Học kỳ 2 NH ') : 'Dự kiến'}
+                                </span>
                             </div>
                             <h3 className="text-lg sm:text-xl font-extrabold text-yellow-900 mb-2">
-                                Bạn đạt <span className="text-orange-600">{drlRank.official_score}</span> điểm rèn luyện! 🎉
+                                Bạn đạt <span className="text-orange-600">{drlRank.official_score || 0}</span> điểm rèn luyện! 🎉
                             </h3>
                             <div className="flex flex-wrap items-center gap-3 sm:gap-6 mt-1">
                                 <div className="flex items-center gap-2">
@@ -1613,8 +1608,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         <Trophy size={16} />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] text-gray-500 font-semibold uppercase">Lớp {drlRank.class_name}</p>
-                                        <p className="text-sm font-black text-gray-800">Hạng #{drlRank.rank_in_class} <span className="text-xs font-medium text-gray-500">/ {drlRank.total_in_class}</span></p>
+                                        <p className="text-[10px] text-gray-500 font-semibold uppercase">Lớp {drlRank.class_name || '?'}</p>
+                                        <p className="text-sm font-black text-gray-800">Hạng #{drlRank.rank_in_class || '?'} <span className="text-xs font-medium text-gray-500">/ {drlRank.total_in_class || '?'}</span></p>
                                     </div>
                                 </div>
                                 
@@ -1625,8 +1620,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         <Flame size={16} />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] text-gray-500 font-semibold uppercase">Khoa {drlRank.department}</p>
-                                        <p className="text-sm font-black text-gray-800">Top {Math.max(1, Math.ceil(drlRank.top_percent_faculty * 100))}% <span className="text-xs font-medium text-gray-500">xuất sắc</span></p>
+                                        <p className="text-[10px] text-gray-500 font-semibold uppercase">Khoa {drlRank.department || '?'}</p>
+                                        <p className="text-sm font-black text-gray-800">Top {Math.max(1, Math.ceil((drlRank.top_percent_faculty || 0) * 100))}% <span className="text-xs font-medium text-gray-500">xuất sắc</span></p>
                                     </div>
                                 </div>
                             </div>
@@ -1635,7 +1630,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <div className="hidden lg:flex shrink-0 relative z-10 mr-4">
                             <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm border-4 border-yellow-200 relative">
                                 <Crown size={32} className="text-yellow-500 drop-shadow-sm mb-3" />
-                                <span className="absolute bottom-3 text-[13px] font-black text-yellow-800">#{drlRank.rank_in_class}</span>
+                                <span className="absolute bottom-3 text-[13px] font-black text-yellow-800">#{drlRank.rank_in_class || '?'}</span>
                             </div>
                         </div>
                     </div>
