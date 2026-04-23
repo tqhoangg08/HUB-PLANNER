@@ -23,6 +23,7 @@ import SchoolAnnouncements from './SchoolAnnouncements';
 import { mapIdToDisplay } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
 import { useUserRole } from '../hooks/useUserRole';
+import { exportTranscriptToPdf } from '../utils/pdfExport';
 
 // ============================================================================
 // HELPERS CHO GIAO DIỆN ADMIN
@@ -233,6 +234,140 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
                 </div>
             </div>
         </div>, document.body
+    );
+};
+
+const extractAcademicYearFromSemester = (semesterName: string) => {
+    const match = semesterName.match(/(\d{4}-\d{4})/);
+    return match ? match[1] : null;
+};
+
+interface PdfExportYearOption {
+    yearId: string;
+    label: string;
+    semesterCount: number;
+    totalCredits: number;
+    hasData: boolean;
+}
+
+const PdfExportModal = ({
+    isOpen,
+    onClose,
+    yearOptions,
+    onExportFull,
+    onExportYear,
+    isExporting
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    yearOptions: PdfExportYearOption[];
+    onExportFull: () => void;
+    onExportYear: (yearId: string) => void;
+    isExporting: boolean;
+}) => {
+    if (!isOpen) return null;
+
+    return createPortal(
+        <div
+            className="fixed inset-0 z-[99999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn"
+            onClick={() => {
+                if (!isExporting) onClose();
+            }}
+        >
+            <div
+                className="bg-white rounded-xl w-full max-w-lg flex flex-col animate-scaleIn overflow-hidden border border-gray-300"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
+                    <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
+                        <Download size={18} className="text-[#003375]" /> Chọn phạm vi xuất PDF
+                    </h3>
+                    <button
+                        onClick={onClose}
+                        disabled={isExporting}
+                        className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+
+                <div className="p-4 overflow-y-auto max-h-[70vh] custom-scrollbar space-y-4">
+                    <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4">
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <p className="text-sm font-bold text-[#003375]">Xuất bảng điểm toàn khóa</p>
+                                <p className="text-xs text-gray-600 mt-1">
+                                    Gộp toàn bộ học kỳ hợp lệ vào một file PDF duy nhất.
+                                </p>
+                            </div>
+                            <GraduationCap className="w-5 h-5 text-[#003375] shrink-0" />
+                        </div>
+                        <button
+                            onClick={onExportFull}
+                            disabled={isExporting}
+                            className="mt-4 w-full py-2.5 bg-[#003375] hover:bg-[#002759] text-white font-bold rounded-lg text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                            {isExporting ? 'Đang chuẩn bị PDF...' : 'Xuất toàn khóa'}
+                        </button>
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                            <Calendar className="w-4 h-4 text-[#003375]" />
+                            <span>Xuất bảng điểm theo năm học</span>
+                        </div>
+
+                        {yearOptions.length > 0 ? (
+                            yearOptions.map((year) => (
+                                <button
+                                    key={year.yearId}
+                                    onClick={() => onExportYear(year.yearId)}
+                                    disabled={isExporting}
+                                    className="w-full text-left rounded-xl border border-gray-300 hover:border-[#003375]/40 hover:bg-blue-50/50 p-4 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p className="font-bold text-gray-900 text-sm">{year.label}</p>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                {year.semesterCount} học kỳ hợp lệ
+                                            </p>
+                                        </div>
+                                        <span className="text-[#003375] font-bold text-xs bg-blue-50 border border-blue-200 px-2 py-1 rounded-md">
+                                            {year.hasData ? 'Có dữ liệu' : 'Chưa đủ dữ liệu'}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-600">
+                                        <span className="bg-gray-100 px-2 py-1 rounded-md border border-gray-200 font-medium">
+                                            TC: {year.totalCredits}
+                                        </span>
+                                        <span className="bg-white px-2 py-1 rounded-md border border-gray-200 font-medium">
+                                            File riêng theo năm
+                                        </span>
+                                    </div>
+                                </button>
+                            ))
+                        ) : (
+                            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
+                                Chưa có năm học hợp lệ để xuất riêng.
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="p-3 border-t border-gray-300 bg-white">
+                    <button
+                        onClick={onClose}
+                        disabled={isExporting}
+                        className="w-full py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body
     );
 };
 
@@ -725,7 +860,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     onUpdateSemester,
     onRemoveSemester,
     onAddSemester,
-    onExportPDF,
     onImportPDF,
     isImporting,
     fileInputRef,
@@ -798,7 +932,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [showRankingModal, setShowRankingModal] = useState(false);
     const [showFailedModal, setShowFailedModal] = useState(false);
     const [showYearlyModal, setShowYearlyModal] = useState(false);
+    const [showPdfExportModal, setShowPdfExportModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
+    const [isExportingPdf, setIsExportingPdf] = useState(false);
 
     const showAdminPanel = (isAdmin || isAuditor) && adminMode === 'list';
 
@@ -1206,6 +1342,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const stats = calculateCumulativeStats(validDataSemesters);
     const yearlyStats = calculateYearlyStats(validDataSemesters);
     const trendAnalysis = analyzeTrend(validDataSemesters);
+    const pdfExportYearOptions = useMemo(
+        () =>
+            yearlyStats
+                .map((year) => {
+                    const semesters = validDataSemesters.filter(
+                        (semester) => extractAcademicYearFromSemester(semester.name) === year.yearId
+                    );
+
+                    return {
+                        yearId: year.yearId,
+                        label: year.label,
+                        semesterCount: semesters.length,
+                        totalCredits: year.totalCredits,
+                        hasData: year.hasData
+                    };
+                })
+                .filter((year) => year.semesterCount > 0),
+        [yearlyStats, validDataSemesters]
+    );
 
     const validSubjects = validDataSemesters.flatMap(s => s.subjects)
         .filter(s => !s.isNonGPA)
@@ -1261,6 +1416,56 @@ export const Dashboard: React.FC<DashboardProps> = ({
     
     const failedCount = failedSubjectsList.length;
     const totalCreditsRequired = activeData.totalCreditsRequired || 125;
+
+    const handleOpenPdfExportModal = () => {
+        playClick();
+
+        if (validDataSemesters.length === 0) {
+            alert('Chưa có dữ liệu học kỳ hợp lệ để xuất PDF.');
+            return;
+        }
+
+        setShowPdfExportModal(true);
+    };
+
+    const handleExportFullPdf = async () => {
+        playClick();
+        setIsExportingPdf(true);
+
+        try {
+            await exportTranscriptToPdf(activeData, {
+                scope: 'full',
+                semesters: validDataSemesters
+            });
+            setShowPdfExportModal(false);
+        } finally {
+            setIsExportingPdf(false);
+        }
+    };
+
+    const handleExportYearPdf = async (yearId: string) => {
+        playClick();
+
+        const selectedYear = pdfExportYearOptions.find((year) => year.yearId === yearId);
+        if (!selectedYear) return;
+
+        const yearSemesters = validDataSemesters.filter(
+            (semester) => extractAcademicYearFromSemester(semester.name) === yearId
+        );
+
+        setIsExportingPdf(true);
+
+        try {
+            await exportTranscriptToPdf(activeData, {
+                scope: 'year',
+                semesters: yearSemesters,
+                academicYearLabel: selectedYear.label
+            });
+            setShowPdfExportModal(false);
+        } finally {
+            setIsExportingPdf(false);
+        }
+    };
     
     const requiredAnalysis = calculateRequiredGPA(
         stats.rawGPA4, 
@@ -1887,7 +2092,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </button>
                             
                             <button
-                                onClick={onExportPDF}
+                                onClick={handleOpenPdfExportModal}
                                 className="text-gray-600 bg-white border border-gray-300 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1 sm:gap-2 active:scale-95"
                             >
                                 <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
@@ -1956,6 +2161,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {showRankingModal && <SubjectRankingModal subjects={validSubjects} onClose={() => setShowRankingModal(false)} />}
         {showFailedModal && <FailedSubjectsModal subjects={failedSubjectsList} onClose={() => setShowFailedModal(false)} />}
         {showYearlyModal && <YearlyStatsModal stats={yearlyStats} onClose={() => setShowYearlyModal(false)} />}
+        <PdfExportModal
+            isOpen={showPdfExportModal}
+            onClose={() => setShowPdfExportModal(false)}
+            yearOptions={pdfExportYearOptions}
+            onExportFull={handleExportFullPdf}
+            onExportYear={handleExportYearPdf}
+            isExporting={isExportingPdf}
+        />
         {showReportModal && <ReportErrorModal isOpen={showReportModal} onClose={() => setShowReportModal(false)} />}
     </div>
   );
