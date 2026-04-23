@@ -125,8 +125,10 @@ export const exportTranscriptToPdf = async (data: UserData, options: TranscriptE
 
     const stats = calculateCumulativeStats(validDataSemesters);
     const classification = getDegreeClassification(stats.gpa4);
-    const titleText = isYearExport ? 'BẢNG ĐIỂM NĂM HỌC' : 'GIẤY CHỨNG NHẬN KẾT QUẢ HỌC TẬP';
-    const subtitleText = isYearExport ? selectedAcademicYear : null;
+    const titleText = 'GIẤY CHỨNG NHẬN KẾT QUẢ HỌC TẬP';
+    const subtitleText = isYearExport
+    ? selectedAcademicYear
+    : 'Bảng điểm toàn khóa';
 
     // --- HEADER: QUỐC HIỆU & TIÊU NGỮ ---
     doc.setFontSize(12);
@@ -154,21 +156,21 @@ export const exportTranscriptToPdf = async (data: UserData, options: TranscriptE
     );
 
     doc.setFont('times', 'bold');
-    doc.setFontSize(subtitleText ? 15 : 16);
+    doc.setFontSize(16);
     doc.text(titleText, 105, 50, { align: 'center' });
 
-    if (subtitleText) {
-        doc.setFontSize(13);
-        doc.text(subtitleText, 105, 57, { align: 'center' });
-    }
+if (subtitleText) {
+    doc.setFontSize(13);
+    doc.text(subtitleText, 105, 57, { align: 'center' });
+}
 
     // --- THÔNG TIN SINH VIÊN ---
     doc.setFont('times', 'normal');
     doc.setFontSize(12);
-    const startY = subtitleText ? 69 : 62;
-    const gapY = 6;
-    const col1X = MARGIN_LEFT;
-    const col2X = 110;
+        const startY = 69;
+        const gapY = 6;
+        const col1X = MARGIN_LEFT;
+        const col2X = 110;
 
     doc.text(`Họ và tên SV: ${studentName}`, col1X, startY);
     doc.text(`Khóa: ${cohort}`, col2X, startY);
@@ -179,14 +181,8 @@ export const exportTranscriptToPdf = async (data: UserData, options: TranscriptE
     doc.text('Hình thức đào tạo: Chính quy', col1X, startY + gapY * 2);
     doc.text(`Chuyên ngành: ${specName}`, col2X, startY + gapY * 2);
 
-    doc.text(
-        `Phạm vi xuất: ${isYearExport ? selectedAcademicYear ?? 'Năm học đã chọn' : 'Toàn khóa'}`,
-        col1X,
-        startY + gapY * 3
-    );
-
     // --- BẢNG ĐIỂM ---
-    let currentY = startY + gapY * 3 + 10;
+    let currentY = startY + gapY * 2 + 10;
 
     validDataSemesters.forEach((sem) => {
         const semStats = calculateSemesterStats(sem.subjects);
