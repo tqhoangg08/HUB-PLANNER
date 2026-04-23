@@ -38,22 +38,22 @@ export const exportTranscriptToPdf = async (data: UserData) => {
         // ✨ Trỏ thẳng vào thư mục public/fonts của sếp
         const fontBaseUrl = '/fonts'; 
         
-        // Tải 3 file font từ local
+        // Đổi tên file tương ứng với file sếp bỏ vào thư mục public/fonts
         const [regB64, boldB64, italicB64] = await Promise.all([
-            fetchFontBase64(`${fontBaseUrl}/Tinos-Regular.ttf`),
-            fetchFontBase64(`${fontBaseUrl}/Tinos-Bold.ttf`),
-            fetchFontBase64(`${fontBaseUrl}/Tinos-Italic.ttf`)
+            fetchFontBase64(`/fonts/times.ttf`), // File thường
+            fetchFontBase64(`/fonts/timesbd.ttf`), // File in đậm
+            fetchFontBase64(`/fonts/timesi.ttf`) // File in nghiêng
         ]);
 
-        doc.addFileToVFS('Tinos-Regular.ttf', regB64);
-        doc.addFileToVFS('Tinos-Bold.ttf', boldB64);
-        doc.addFileToVFS('Tinos-Italic.ttf', italicB64);
+        doc.addFileToVFS('times.ttf', regB64);
+        doc.addFileToVFS('timesbd.ttf', boldB64);
+        doc.addFileToVFS('timesi.ttf', italicB64);
 
-        doc.addFont('Tinos-Regular.ttf', 'Tinos', 'normal', 'Identity-H');
-        doc.addFont('Tinos-Bold.ttf', 'Tinos', 'bold', 'Identity-H');
-        doc.addFont('Tinos-Italic.ttf', 'Tinos', 'italic', 'Identity-H');
+        doc.addFont('times.ttf', 'times', 'normal', 'Identity-H');
+        doc.addFont('timesbd.ttf', 'times', 'bold', 'Identity-H');
+        doc.addFont('timesi.ttf', 'times', 'italic', 'Identity-H');
         
-        doc.setFont('Tinos', 'normal'); 
+        doc.setFont('times', 'normal'); 
     } catch (error) {
         console.error("❌ Lỗi tải font tiếng Việt từ local:", error);
         alert("⚠️ Lỗi hệ thống: Không thể nạp font chữ. Quá trình xuất PDF đã bị hủy để tránh lỗi hiển thị.");
