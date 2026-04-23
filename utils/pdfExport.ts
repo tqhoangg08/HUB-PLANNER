@@ -11,15 +11,18 @@ import {
     getSubjectStatus
 } from './calculations';
 
-// Hàm helper để convert file font sang base64 an toàn
-const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return window.btoa(binary);
+// Hàm helper dùng FileReader API siêu an toàn, không bao giờ lỗi khi build Production
+const arrayBufferToBase64 = async (buffer: ArrayBuffer): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const blob = new Blob([buffer], { type: 'application/x-font-ttf' });
+        const reader = new FileReader();
+        reader.onload = () => {
+            const dataUrl = reader.result as string;
+            resolve(dataUrl.split(',')[1]); // Chỉ lấy phần chuỗi Base64
+        };
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(blob);
+    });
 };
 
 export const exportTranscriptToPdf = async (data: UserData) => {
@@ -44,9 +47,9 @@ export const exportTranscriptToPdf = async (data: UserData) => {
             italicRes.arrayBuffer()
         ]);
 
-        doc.addFileToVFS('Tinos-Regular.ttf', arrayBufferToBase64(regBuf));
-        doc.addFileToVFS('Tinos-Bold.ttf', arrayBufferToBase64(boldBuf));
-        doc.addFileToVFS('Tinos-Italic.ttf', arrayBufferToBase64(italicBuf));
+        doc.addFileToVFS('Tinos-Regular.ttf', await arrayBufferToBase64(regBuf));
+        doc.addFileToVFS('Tinos-Bold.ttf', await arrayBufferToBase64(boldBuf));
+        doc.addFileToVFS('Tinos-Italic.ttf', await arrayBufferToBase64(italicBuf));
 
         doc.addFont('Tinos-Regular.ttf', 'Tinos', 'normal');
         doc.addFont('Tinos-Bold.ttf', 'Tinos', 'bold');
