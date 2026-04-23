@@ -11,14 +11,20 @@ import {
     getSubjectStatus
 } from './calculations';
 
-// Hàm Base64 bằng vòng lặp truyền thống (Tuyệt đối an toàn khi Vercel nén code)
-const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return window.btoa(binary);
+// Hàm nạp font từ thư mục public/fonts và chuyển sang Base64
+const fetchFontBase64 = async (url: string): Promise<string> => {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Lỗi tải font từ: ${url}`);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const base64data = (reader.result as string).split(',')[1];
+            resolve(base64data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
 };
 
 export const exportTranscriptToPdf = async (data: UserData) => {
@@ -27,39 +33,33 @@ export const exportTranscriptToPdf = async (data: UserData) => {
     const PAGE_WIDTH = 210;
     const MARGIN_RIGHT = PAGE_WIDTH - MARGIN_LEFT; 
 
-    // 1. TẢI FONT CHUẨN (Bọc thép chống lỗi mạng)
+    // 1. TẢI FONT CHUẨN TỪ LOCAL REPO (Bao mượt, không sợ rớt mạng)
     try {
-        const fontBaseUrl = 'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/tinos';
+        // ✨ Trỏ thẳng vào thư mục public/fonts của sếp
+        const fontBaseUrl = '/fonts'; 
         
-        // Viết riêng một hàm lấy font có check lỗi đàng hoàng
-        const fetchFont = async (filename: string) => {
-            const res = await fetch(`${fontBaseUrl}/${filename}`);
-            if (!res.ok) throw new Error(`Không tải được font ${filename}`);
-            const buffer = await res.arrayBuffer();
-            return arrayBufferToBase64(buffer);
-        };
-
-        // Tải 3 font cùng lúc và đợi xong xuôi mới chạy tiếp
+        // Tải 3 file font từ local
         const [regB64, boldB64, italicB64] = await Promise.all([
-            fetchFont('Tinos-Regular.ttf'),
-            fetchFont('Tinos-Bold.ttf'),
-            fetchFont('Tinos-Italic.ttf')
+            fetchFontBase64(`${fontBaseUrl}/Tinos-Regular.ttf`),
+            fetchFontBase64(`${fontBaseUrl}/Tinos-Bold.ttf`),
+            fetchFontBase64(`${fontBaseUrl}/Tinos-Italic.ttf`)
         ]);
 
         doc.addFileToVFS('Tinos-Regular.ttf', regB64);
         doc.addFileToVFS('Tinos-Bold.ttf', boldB64);
         doc.addFileToVFS('Tinos-Italic.ttf', italicB64);
 
-        // ✨ ĐIỂM CHẾT Ở ĐÂY: Bắt buộc phải có chữ 'Identity-H' để ép jsPDF hiểu Tiếng Việt
         doc.addFont('Tinos-Regular.ttf', 'Tinos', 'normal', 'Identity-H');
         doc.addFont('Tinos-Bold.ttf', 'Tinos', 'bold', 'Identity-H');
         doc.addFont('Tinos-Italic.ttf', 'Tinos', 'italic', 'Identity-H');
         
-        doc.setFont('Tinos', 'normal');
+        doc.setFont('Tinos', 'normal'); 
     } catch (error) {
-        console.error("Lỗi tải font tiếng Việt:", error);
-        // Bắn thông báo cho người dùng biết nếu mạng bị xịt
-        alert("Hệ thống đang tải Font chữ chuẩn mất nhiều thời gian hơn bình thường hoặc mạng đang yếu. Nếu PDF xuất ra bị lỗi font, vui lòng thử lại sau vài giây!");
+        console.error("❌ Lỗi tải font tiếng Việt từ local:", error);
+        alert("⚠️ Lỗi hệ thống: Không thể nạp font chữ. Quá trình xuất PDF đã bị hủy để tránh lỗi hiển thị.");
+        
+        // ✨ CHỐT CHẶN TỬ THẦN: Dừng ngay hàm export lại, tuyệt đối không cho chạy xuống doc.save()
+        return; 
     }
 
     // LẤY MSSV TỰ ĐỘNG
