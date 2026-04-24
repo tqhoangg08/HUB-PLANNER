@@ -1607,11 +1607,11 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 return (
     <div className="animate-slideInRight">
         {/* STICKY HEADER */}
-        <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 sm:pb-4 -mt-2 mb-2 sm:mb-4 md:border-b md:border-gray-300">
-            <div className="flex flex-col xl:flex-row gap-2 sm:gap-4 items-start xl:items-center justify-between w-full">
+        <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 sm:pb-3 -mt-2 mb-2 sm:mb-4 md:border-b md:border-gray-300">
+            <div className="flex flex-col gap-2 w-full">
                 {/* Tiêu đề & Thông báo */}
-                <div className="w-full xl:w-auto">
-                    <h2 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
+                <div className="w-full">
+                    <h2 className="text-[24px] sm:text-[28px] lg:text-[30px] font-extrabold text-[#003375] tracking-tight leading-tight sm:whitespace-nowrap mb-0.5">
                         Sự kiện Điểm Rèn Luyện
                     </h2>
                     {canManage && (
@@ -1621,17 +1621,17 @@ return (
                         </div>
                     )}
                     {!canManage && (
-    <p className="text-[11px] sm:text-xs text-gray-500 italic mt-1.5 max-w-xl leading-relaxed">
+    <p className="text-[11px] sm:text-xs text-gray-500 italic mt-1 max-w-xl md:max-w-none md:truncate leading-relaxed">
         *Lưu ý: Các thông tin sự kiện, phân loại mục và điểm cộng được tổng hợp từ cộng đồng nên chỉ mang tính tham khảo và có thể có sai sót. Bạn vui lòng đối chiếu lại với thông báo chính thức từ BTC nhé.
     </p>
 )}
                 </div>
                 
                 {/* Thanh Công Cụ */}
-                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full xl:w-auto shrink-0 justify-start xl:justify-end">
+                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full shrink-0 justify-start md:justify-between">
                     
                     {/* Search Bar */}
-                    <div className="relative w-full md:w-auto md:flex-grow-0 md:min-w-[260px]">
+                    <div className="relative w-full md:max-w-[390px] md:flex-1">
                         <input 
                             type="text" 
                             placeholder="Tìm tên, BTC, loại hình..." 
@@ -1818,9 +1818,9 @@ return (
  </div>
        {/* ✨ ẨN BANNER CTV NẾU LÀ ADMIN / CTV ✨ */}
         {!canManage && (
-            <div className="bg-blue-50 border border-blue-300 rounded-lg p-2 sm:p-3 mb-2 sm:mb-4 flex flex-row items-center justify-between gap-2 sm:gap-3 relative overflow-hidden group">
+            <div className="bg-blue-50 border border-blue-300 rounded-lg p-2 mb-2 sm:mb-3 flex flex-row items-center justify-between gap-2 sm:gap-3 relative overflow-hidden group">
                 <div className="flex items-center gap-2.5 sm:gap-3 relative z-10 flex-1 min-w-0">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center shrink-0 border border-blue-200">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 bg-white rounded-full flex items-center justify-center shrink-0 border border-blue-200">
                         <UserPlus className="text-blue-600 w-3 h-3 sm:w-4 sm:h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1833,7 +1833,7 @@ return (
                 </div>
                 <button 
                     onClick={() => { playClick(); setShowCTVModal(true); }}
-                    className="shrink-0 text-[10px] sm:text-xs font-bold bg-[#003375] border border-transparent text-white hover:bg-[#002855] transition-colors px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-md whitespace-nowrap relative z-10 active:scale-95 flex items-center gap-1.5"
+                    className="shrink-0 text-[10px] sm:text-xs font-bold bg-[#003375] border border-transparent text-white hover:bg-[#002855] transition-colors px-2.5 py-1.5 sm:px-3 rounded-md whitespace-nowrap relative z-10 active:scale-95 flex items-center gap-1.5"
                 >
                     <UserPlus size={12} className="sm:w-4 sm:h-4" /> 
                     <span>Đăng ký</span>
@@ -1845,7 +1845,7 @@ return (
         )}
 
         {/* TABS LỌC CHUNG CHO CẢ ADMIN VÀ USER */}
-        <div className="relative flex w-full justify-between overflow-x-auto no-scrollbar border-b border-gray-300 px-1 mb-6">
+        <div className="relative flex w-full justify-between overflow-x-auto no-scrollbar border-b border-gray-300 px-1 mb-4">
             {tabsList.map((tab, idx) => (
                 <button 
                     key={tab.id} 
