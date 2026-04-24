@@ -167,10 +167,10 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
       {showBottomNav && (
         isIOS ? (
           // ==========================================
-          // GIAO DIỆN iOS: LIQUID GLASS (Nổi bồng bềnh)
+          // GIAO DIỆN iOS: LIQUID GLASS 
           // ==========================================
           <div className="absolute bottom-6 left-4 right-4 z-50 pb-safe">
-            <div className="flex justify-around items-center h-[72px] px-2 bg-white/70 backdrop-blur-2xl saturate-[150%] border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.1)] rounded-[36px]">
+            <div className="flex justify-around items-center h-[72px] px-2 bg-white/25 backdrop-blur-[40px] saturate-[200%] border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.1)] rounded-full">
               {NAV_ITEMS.map((item) => {
                 const isActive = checkIsActive(location.pathname, item.match);
                 const Icon = item.icon;
@@ -180,13 +180,14 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
                     key={item.id}
                     to={item.path} 
                     onClick={playClick}
-                    className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
-                      isActive ? 'text-[#003375]' : 'text-gray-400 hover:text-gray-500'
+                    className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-all duration-300 ${
+                      isActive ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-700'
                     }`} 
                   >
-                    <div className={`p-1.5 rounded-full transition-all duration-300 ${isActive ? 'bg-[#003375]/10 scale-110' : 'scale-100'}`}>
+                    {/* Bỏ viền nền lót, chỉ dùng hiệu ứng nảy (scale) và bóng đổ nhẹ cho icon */}
+                    <div className={`transition-all duration-300 ${isActive ? 'scale-[1.15] drop-shadow-md' : 'scale-100'}`}>
                       <Icon 
-                        size={22} 
+                        size={24} 
                         className={`transition-all duration-300 ${isActive ? `text-[#003375] ${item.iconActiveStyle}` : ''}`} 
                       />
                     </div>

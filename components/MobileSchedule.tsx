@@ -1114,6 +1114,9 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
             let timeDisplayValue = '';
             if (details) {
                 timeDisplayValue = [`Thứ ${details.day}`, getShiftDisplay(details.shift), getCourseTimeLabel(details.shift)].filter(Boolean).join('\n');
+                if (details.isMakeup && details.originalDate) {
+                    timeDisplayValue += `\nHọc bù cho ngày ${details.originalDate}`;
+                }
             } else {
                 const dayArr = splitData(course.day_of_week);
                 const shiftArr = splitData(course.shift);
@@ -1138,6 +1141,15 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                             <div className="pr-4">
                                 <h2 className="text-lg font-bold text-[#003375] leading-tight mb-1">{course.subject_name}</h2>
                                 <p className="text-gray-500 text-xs font-medium">{course.course_code} {course.phase && `• Đợt ${course.phase}`}</p>
+                                {modalLabels.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                        {modalLabels.map(label => (
+                                            <span key={label.id} className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${getLabelStyle(label.color)}`}>
+                                                {label.type === 'Khác' ? label.text : label.type}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                             <button onClick={() => setSelectedCourseInfo(null)} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95 shrink-0"><X size={16}/></button>
                         </div>
@@ -1171,6 +1183,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                                         <p className="text-[10px] text-purple-500 font-bold uppercase tracking-wide mb-0.5">Lịch thi dự kiến</p>
                                         <p className="text-sm font-bold text-purple-900">{course.exam_date || 'Đang cập nhật...'}</p>
                                         {course.exam_shift && <p className="text-[11px] text-purple-700 mt-1 font-medium">Ca thi: {course.exam_shift} {getExamTime(course.exam_shift) ? `(${getExamTime(course.exam_shift)})` : ''}</p>}
+                                        {course.exam_room && <p className="text-[11px] text-purple-700 mt-1 font-medium">Phòng thi: {course.exam_room}</p>}
                                     </div>
                                 </div>
                             )}
@@ -1179,6 +1192,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                                 <button onClick={() => { setReportData({ course_code: course.course_code, subject_name: course.subject_name, description: '' }); setIsReportModalOpen(true); setSelectedCourseInfo(null); }} className="p-3.5 rounded-xl border border-gray-200 text-gray-500 active:bg-gray-100 shrink-0" title="Báo lỗi">
                                     <AlertTriangle size={18} />
                                 </button>
+                                {selectedDateStr && course.user_schedule_id && (
+                                    <button onClick={() => { setQuickTagCourse({ ...course, dateStr: selectedDateStr }); setSelectedCourseInfo(null); }} className="p-3.5 rounded-xl border border-blue-100 bg-blue-50 text-blue-600 active:bg-blue-100 shrink-0" title="Gắn nhãn">
+                                        <Tag size={18} />
+                                    </button>
+                                )}
                                 {!currentSemesterSchedule.some(c => c.id === course.id) ? (
                                     <button onClick={() => { addToSchedule(course); setSelectedCourseInfo(null); }} className="flex-1 py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] transition-colors shadow-md flex items-center justify-center gap-2"><Plus size={16}/> Thêm vào Lịch</button>
                                 ) : (
@@ -1190,6 +1208,79 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                 </div>, document.body
             );
         })()}
+
+        {/* MODAL GẮN NHÃN NHANH */}
+        {quickTagCourse && createPortal(
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setQuickTagCourse(null)}>
+                <div className="bg-white rounded-t-3xl w-full flex flex-col max-h-[88vh] shadow-2xl animate-slideUp relative overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <DragHandle />
+                    <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
+                        <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><Tag size={18}/> Gắn nhãn nhanh</h2>
+                        <button onClick={() => setQuickTagCourse(null)} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
+                    </div>
+                    <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-4 pb-safe">
+                        <div>
+                            <p className="text-[11px] font-bold text-gray-500 mb-1">Môn học ngày {quickTagCourse.dateStr}:</p>
+                            <p className="text-sm font-bold text-[#003375] leading-tight">{quickTagCourse.subject_name}</p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-600">Chọn loại nhãn</label>
+                            <select value={quickTagData.type} onChange={(e) => setQuickTagData({...quickTagData, type: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50">
+                                {LABEL_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                            </select>
+                        </div>
+
+                        {quickTagData.type === 'Khác' && (
+                            <div className="space-y-3">
+                                <input type="text" placeholder="Nhập tên nhãn" value={quickTagData.text} onChange={(e) => setQuickTagData({...quickTagData, text: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                                <div className="flex flex-wrap gap-2">
+                                    {LABEL_COLORS.map(color => (
+                                        <button key={color.value} type="button" title={color.name} onClick={() => setQuickTagData({...quickTagData, color: color.value})} className={`w-8 h-8 rounded-full ${getLabelDotColor(color.value)} ${quickTagData.color === color.value ? 'ring-2 ring-offset-2 ring-[#003375]' : 'ring-1 ring-white'} shadow-sm`} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {quickTagData.type === 'Nghỉ' && (
+                            <div className="rounded-2xl border border-red-100 bg-red-50/70 p-3 space-y-3">
+                                <div className="flex items-center gap-2 text-red-700">
+                                    <CalendarDays size={15} />
+                                    <p className="text-xs font-bold">Lịch học bù</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-gray-600">Ngày học bù</label>
+                                    <input type="date" value={quickTagData.makeupDate} onChange={e => setQuickTagData({...quickTagData, makeupDate: e.target.value})} className="w-full px-3 py-2.5 border border-red-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-white" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-600">Thời gian</label>
+                                        <select value={quickTagData.makeupShift} onChange={e => setQuickTagData({...quickTagData, makeupShift: e.target.value})} className="w-full px-3 py-2.5 border border-red-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-white">
+                                            <option value="S">Sáng</option>
+                                            <option value="C">Chiều</option>
+                                            <option value="1-3">Tiết 1-3</option>
+                                            <option value="4-5">Tiết 4-5</option>
+                                            <option value="6-8">Tiết 6-8</option>
+                                            <option value="9-10">Tiết 9-10</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-600">Phòng học</label>
+                                        <input type="text" value={quickTagData.makeupRoom} onChange={e => setQuickTagData({...quickTagData, makeupRoom: e.target.value})} placeholder="B1.303" className="w-full px-3 py-2.5 border border-red-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-white" />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <div className="p-4 border-t border-gray-100 flex gap-2 shrink-0 bg-white">
+                        <button type="button" onClick={() => setQuickTagCourse(null)} className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 text-sm font-bold active:bg-gray-200">Hủy</button>
+                        <button type="button" onClick={handleQuickSaveLabel} disabled={isSavingQuickTag} className="flex-[1.4] py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] disabled:opacity-50 flex items-center justify-center gap-2">
+                            {isSavingQuickTag ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} Gắn nhãn
+                        </button>
+                    </div>
+                </div>
+            </div>, document.body
+        )}
 
         {/* MODAL MÔN ĐÃ LƯU */}
         {isMyScheduleModalOpen && createPortal(
