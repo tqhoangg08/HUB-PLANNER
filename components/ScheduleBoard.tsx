@@ -20,6 +20,15 @@ interface CourseLabel {
   text?: string; 
   color: string;
   date?: string; 
+  makeupId?: string;
+}
+
+interface MakeupScheduleItem {
+  id: string;
+  originalDate: string;
+  date: string;
+  shift: string;
+  room: string;
 }
 
 interface Course {
@@ -34,6 +43,7 @@ interface Course {
   campus: string;
   exam_date: string;
   exam_shift: string;
+  exam_room?: string;
   cohort: string;
   major: string;
   academic_program: string;
@@ -44,6 +54,7 @@ interface Course {
   user_schedule_id?: string;
   user?: UserProfile;
   labels?: CourseLabel[]; 
+  makeup_schedules?: MakeupScheduleItem[];
   dateStr?: string; 
 }
 
@@ -72,7 +83,8 @@ const FIXED_LABEL_COLORS: Record<string, string> = {
     'Thi giữa kỳ': 'yellow',
     'Thi cuối kỳ': 'rose',
     'Thuyết trình': 'orange',
-    'Học online': 'emerald'
+    'Học online': 'emerald',
+    'Học bù': 'blue'
 };
 
 const getLabelStyle = (color: string) => {
@@ -216,6 +228,75 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
   return null;
 };
 
+const createInitialTagData = () => ({ type: 'Nghỉ', text: '', color: 'red', makeupDate: '', makeupShift: 'S', makeupRoom: '' });
+
+const normalizeDateInputToDisplay = (value?: string) => {
+  const rawValue = (value || '').trim();
+  if (!rawValue) return '';
+
+  const isoMatch = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+
+  const slashMatch = rawValue.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/);
+  if (slashMatch) {
+    const day = slashMatch[1].padStart(2, '0');
+    const month = slashMatch[2].padStart(2, '0');
+    return slashMatch[3] ? `${day}/${month}/${slashMatch[3]}` : `${day}/${month}`;
+  }
+
+  return rawValue;
+};
+
+const buildLabelPayload = (course: Course, labelData: ReturnType<typeof createInitialTagData>, targetDate: string) => {
+  const finalColor = labelData.type === 'Khác' ? labelData.color : FIXED_LABEL_COLORS[labelData.type];
+  const updatedLabels: CourseLabel[] = [
+    ...(course.labels || []),
+    {
+      id: Math.random().toString(36).substr(2, 9),
+      type: labelData.type,
+      text: labelData.type === 'Khác' ? labelData.text : undefined,
+      color: finalColor,
+      date: targetDate
+    }
+  ];
+
+  const updatedMakeupSchedules = [...(course.makeup_schedules || [])];
+  if (labelData.type === 'Nghỉ') {
+    const makeupDate = normalizeDateInputToDisplay(labelData.makeupDate);
+    const makeupRoom = labelData.makeupRoom.trim();
+    const makeupShift = labelData.makeupShift.trim();
+
+    if (!targetDate || !makeupDate || !makeupShift || !makeupRoom) {
+      return { error: 'Vui lòng nhập đầy đủ ngày, thời gian và phòng học bù.' };
+    }
+
+    const makeupId = Math.random().toString(36).substr(2, 9);
+    updatedLabels[updatedLabels.length - 1] = {
+      ...updatedLabels[updatedLabels.length - 1],
+      makeupId
+    };
+
+    updatedMakeupSchedules.push({
+      id: makeupId,
+      originalDate: targetDate,
+      date: makeupDate,
+      shift: makeupShift,
+      room: makeupRoom
+    });
+
+    updatedLabels.push({
+      id: Math.random().toString(36).substr(2, 9),
+      type: 'Học bù',
+      text: `Bù ${targetDate.substring(0, 5)}`,
+      color: FIXED_LABEL_COLORS['Học bù'],
+      date: makeupDate,
+      makeupId
+    });
+  }
+
+  return { updatedLabels, updatedMakeupSchedules };
+};
+
 const colorPalette = [
     { bg: 'bg-emerald-50', border: 'border-l-emerald-500', text: 'text-emerald-900', label: 'text-emerald-700' },
     { bg: 'bg-blue-50', border: 'border-l-blue-500', text: 'text-blue-900', label: 'text-blue-700' },
@@ -253,7 +334,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   
   const [selectedCourseInfo, setSelectedCourseInfo] = useState<{
     course: Course;
-    details?: { day: number, shift: string, room: string, weeks: string };
+    details?: { day: number, shift: string, room: string, weeks: string, isMakeup?: boolean, originalDate?: string, id?: string };
     dateStr?: string;
   } | null>(null);
 
@@ -283,11 +364,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [newLabelData, setNewLabelData] = useState({ type: 'Nghỉ', text: '', color: 'red' });
 
   const [quickTagCourse, setQuickTagCourse] = useState<Course | null>(null);
-  const [quickTagData, setQuickTagData] = useState({ type: 'Nghỉ', text: '', color: 'red' });
+  const [quickTagData, setQuickTagData] = useState(createInitialTagData());
   const [isSavingQuickTag, setIsSavingQuickTag] = useState(false);
 
   const [showInlineLabelForm, setShowInlineLabelForm] = useState(false);
-  const [inlineLabelData, setInlineLabelData] = useState({ type: 'Nghỉ', text: '', color: 'red' });
+  const [inlineLabelData, setInlineLabelData] = useState(createInitialTagData());
   const [isSavingInlineLabel, setIsSavingInlineLabel] = useState(false);
 
   const [changedUserScheduleCourses, setChangedUserScheduleCourses] = useState<Course[]>([]); 
@@ -586,10 +667,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   };
 
   const handleRemoveLabel = (idToRemove: string) => {
-      setStudentEditData(prev => ({
-          ...prev,
-          labels: (prev.labels || []).filter(l => l.id !== idToRemove)
-      }));
+      setStudentEditData(prev => {
+          const labelToRemove = (prev.labels || []).find(item => item.id === idToRemove);
+          return {
+              ...prev,
+              labels: (prev.labels || []).filter(l => l.id !== idToRemove && (!labelToRemove?.makeupId || l.makeupId !== labelToRemove.makeupId)),
+              makeup_schedules: (prev.makeup_schedules || []).filter(item => !labelToRemove?.makeupId || item.id !== labelToRemove.makeupId)
+          };
+      });
   };
 
   const handleQuickSaveLabel = async () => {
@@ -599,23 +684,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       }
       setIsSavingQuickTag(true);
       try {
-          const finalColor = quickTagData.type === 'Khác' ? quickTagData.color : FIXED_LABEL_COLORS[quickTagData.type];
-          
           const targetDate = quickTagCourse.dateStr || '';
-
-          const newLabel: CourseLabel = {
-              id: Math.random().toString(36).substr(2, 9),
-              type: quickTagData.type,
-              text: quickTagData.type === 'Khác' ? quickTagData.text : undefined,
-              color: finalColor,
-              date: targetDate 
-          };
+          const labelPayload = buildLabelPayload(quickTagCourse, quickTagData, targetDate);
+          if ('error' in labelPayload) {
+              alert(labelPayload.error);
+              return;
+          }
 
           const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = quickTagCourse;
           
           const overrideData = {
               ...rest,
-              labels: [...(labels || []), newLabel]
+              labels: labelPayload.updatedLabels,
+              makeup_schedules: labelPayload.updatedMakeupSchedules
           };
 
           const { error } = await supabase
@@ -626,7 +707,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           if (error) throw error;
           
           setQuickTagCourse(null);
-          setQuickTagData({ type: 'Nghỉ', text: '', color: 'red' });
+          setQuickTagData(createInitialTagData());
           fetchMySchedule(); 
       } catch (err) {
           console.error(err);
@@ -650,23 +731,18 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       }
       setIsSavingInlineLabel(true);
       try {
-          const finalColor = inlineLabelData.type === 'Khác' ? inlineLabelData.color : FIXED_LABEL_COLORS[inlineLabelData.type];
-          
           const targetDate = selectedCourseInfo.dateStr || '';
-
-          const newLabel: CourseLabel = {
-              id: Math.random().toString(36).substr(2, 9),
-              type: inlineLabelData.type,
-              text: inlineLabelData.type === 'Khác' ? inlineLabelData.text : undefined,
-              color: finalColor,
-              date: targetDate 
-          };
+          const labelPayload = buildLabelPayload(course, inlineLabelData, targetDate);
+          if ('error' in labelPayload) {
+              alert(labelPayload.error);
+              return;
+          }
 
           const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = course;
-          const updatedLabels = [...(labels || []), newLabel];
           const overrideData = {
               ...rest,
-              labels: updatedLabels
+              labels: labelPayload.updatedLabels,
+              makeup_schedules: labelPayload.updatedMakeupSchedules
           };
 
           const { error } = await supabase
@@ -676,13 +752,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
           if (error) throw error;
 
-          const updatedCourse = { ...course, labels: updatedLabels };
+          const updatedCourse = { ...course, labels: labelPayload.updatedLabels, makeup_schedules: labelPayload.updatedMakeupSchedules };
           setSelectedCourseInfo({ ...selectedCourseInfo, course: updatedCourse });
           setMySchedule(prev => prev.map(c => c.id === course.id ? updatedCourse : c));
           setChangedUserScheduleCourses(prev => prev.map(c => c.id === course.id ? updatedCourse : c));
           
           setShowInlineLabelForm(false);
-          setInlineLabelData({ type: 'Nghỉ', text: '', color: 'red' });
+          setInlineLabelData(createInitialTagData());
       } catch (err) {
           console.error(err);
           alert("Lỗi khi thêm nhãn.");
@@ -698,10 +774,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       
       try {
           const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = course;
-          const updatedLabels = (labels || []).filter(l => l.id !== labelIdToRemove);
+          const labelToRemove = (labels || []).find(l => l.id === labelIdToRemove);
+          const updatedLabels = (labels || []).filter(l => l.id !== labelIdToRemove && (!labelToRemove?.makeupId || l.makeupId !== labelToRemove.makeupId));
+          const updatedMakeupSchedules = (course.makeup_schedules || []).filter(item => !labelToRemove?.makeupId || item.id !== labelToRemove.makeupId);
           const overrideData = {
               ...rest,
-              labels: updatedLabels
+              labels: updatedLabels,
+              makeup_schedules: updatedMakeupSchedules
           };
 
           const { error } = await supabase
@@ -711,7 +790,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
           if (error) throw error;
 
-          const updatedCourse = { ...course, labels: updatedLabels };
+          const updatedCourse = { ...course, labels: updatedLabels, makeup_schedules: updatedMakeupSchedules };
           setSelectedCourseInfo({ ...selectedCourseInfo, course: updatedCourse });
           setMySchedule(prev => prev.map(c => c.id === course.id ? updatedCourse : c));
           setChangedUserScheduleCourses(prev => prev.map(c => c.id === course.id ? updatedCourse : c));
@@ -892,6 +971,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
   const getCoursesForDate = (targetDate: Date, schedule: Course[]) => {
     const dayOfWeek = targetDate.getDay() === 0 ? 8 : targetDate.getDay() + 1; 
+    const targetDateStr = formatDateStr(targetDate);
 
     return schedule.map(course => {
       let startDate = new Date('2026-02-02T00:00:00'); 
@@ -912,6 +992,24 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       const results = [];
       if (sDetails) results.push({ course, details: sDetails, shiftType: 'S' });
       if (cDetails) results.push({ course, details: cDetails, shiftType: 'C' });
+      (course.makeup_schedules || [])
+        .filter(item => item.date === targetDateStr)
+        .forEach(item => {
+          const shiftType = getMainShiftType(item.shift) || 'S';
+          results.push({
+            course,
+            details: {
+              id: item.id,
+              day: dayOfWeek,
+              shift: item.shift,
+              room: item.room,
+              weeks: 'Học bù',
+              isMakeup: true,
+              originalDate: item.originalDate
+            },
+            shiftType
+          });
+        });
 
       return results;
     }).flat().filter(Boolean);
@@ -1403,6 +1501,22 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                     const details = getCourseDetailsForSlot(c, day, selectedWeek, shift);
                                                     return details ? { course: c, slotDetails: details } : null;
                                                 }).filter(Boolean);
+                                                const makeupSlotCourses = currentSemesterSchedule.flatMap(c => (c.makeup_schedules || [])
+                                                    .filter(item => item.date === cellDateStr && (getMainShiftType(item.shift) || 'S') === shift)
+                                                    .map(item => ({
+                                                        course: c,
+                                                        slotDetails: {
+                                                            id: item.id,
+                                                            day,
+                                                            shift: item.shift,
+                                                            room: item.room,
+                                                            weeks: 'Học bù',
+                                                            isMakeup: true,
+                                                            originalDate: item.originalDate
+                                                        }
+                                                    }))
+                                                );
+                                                const displaySlotCourses = [...slotCourses, ...makeupSlotCourses];
 
                                                 const slotExams = currentSemesterSchedule.filter(c => {
                                                     if (!c.exam_date || !c.exam_shift || selectedWeek === 0) return false; 
@@ -1413,12 +1527,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                 return (
                                                     <td key={`${shift}-${day}`} className={`border-r border-b border-gray-100 align-top p-1.5 h-[160px] transition-colors ${isTodayCol ? 'bg-[#F0F9FF]' : 'bg-white hover:bg-gray-50/30'}`}>
                                                         <div className="flex flex-col gap-2 w-full h-full">
-                                                            {slotCourses.map(({course, slotDetails}: any) => {
+                                                            {displaySlotCourses.map(({course, slotDetails}: any) => {
                                                                 const color = getColorForCourse(course.id);
                                                                 const cellLabels = course.labels?.filter((l: any) => l.date === cellDateStr) || [];
                                                                 
                                                                 return (
-                                                                <div key={course.id} onClick={() => setSelectedCourseInfo({ course, details: slotDetails, dateStr: cellDateStr })} className={`border-l-4 border-y border-r border-gray-100 ${color.border} ${color.bg} rounded-r-lg p-2 cursor-pointer transition-all hover:-translate-y-0.5 relative group w-full shrink-0 flex flex-col`}>
+                                                                <div key={`${course.id}-${slotDetails.isMakeup ? slotDetails.id : 'regular'}`} onClick={() => setSelectedCourseInfo({ course, details: slotDetails, dateStr: cellDateStr })} className={`border-l-4 border-y border-r border-gray-100 ${color.border} ${color.bg} rounded-r-lg p-2 cursor-pointer transition-all hover:-translate-y-0.5 relative group w-full shrink-0 flex flex-col`}>
                                                                     
                                                                     <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                                                         {selectedWeek !== 0 && (
@@ -1443,6 +1557,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
                                                                     <h4 className={`font-bold ${color.text} text-[11px] sm:text-xs leading-snug line-clamp-2 pr-10 mb-0.5 mt-0.5`}>{course.subject_name}</h4>
                                                                     <div className={`text-[9px] ${color.text} opacity-80 font-medium mb-1.5 truncate`}>{course.course_code} • Đợt {course.phase || '1'}</div>
+                                                                    {slotDetails.isMakeup && (
+                                                                        <div className={`text-[9px] ${color.label} font-bold mb-1`}>Học bù cho ngày {slotDetails.originalDate?.substring(0, 5)}</div>
+                                                                    )}
                                                                     
                                                                     <div className="mt-auto">
                                                                         <div className={`text-[10px] ${color.label} font-semibold flex items-center gap-1`}><MapPin size={10}/> P. {slotDetails.room}</div>
@@ -1457,6 +1574,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                                     <div className="text-[9px] font-black text-red-600 uppercase mb-1 tracking-wider flex items-center gap-1 bg-red-100 w-fit px-1.5 py-0.5 rounded"><Zap size={10} className="fill-current"/> Lịch thi</div>
                                                                     <h4 className="font-bold text-red-900 text-[11px] sm:text-xs leading-snug line-clamp-2 mb-1">{exam.subject_name}</h4>
                                                                     <div className="text-[10px] text-red-700 font-bold flex items-center gap-1"><Clock size={10}/> {exam.exam_shift} {getExamTime(exam.exam_shift) ? `(${getExamTime(exam.exam_shift)})` : ''}</div>
+                                                                    {exam.exam_room && <div className="text-[10px] text-red-700 font-semibold flex items-center gap-1 mt-0.5"><MapPin size={10}/> P. {exam.exam_room}</div>}
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -1545,6 +1663,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             let timeDisplayValue = '';
             if (details) {
                 timeDisplayValue = [`Thứ ${details.day}`, getShiftDisplay(details.shift), getCourseTimeLabel(details.shift)].filter(Boolean).join('\n');
+                if (details.isMakeup && details.originalDate) {
+                    timeDisplayValue += `\nHọc bù cho ngày ${details.originalDate}`;
+                }
             } else {
                 const dayArr = splitData(displayCourse.day_of_week);
                 const shiftArr = splitData(displayCourse.shift);
@@ -1623,6 +1744,30 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                             ))}
                                         </div>
                                     )}
+
+                                    {inlineLabelData.type === 'Nghỉ' && (
+                                        <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-2 p-2 rounded-lg border border-red-100 bg-red-50/60">
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-red-700">Ngày học bù</label>
+                                                <input type="date" value={inlineLabelData.makeupDate} onChange={e => setInlineLabelData({...inlineLabelData, makeupDate: e.target.value})} className="w-full px-2 py-1.5 text-xs border border-red-200 rounded outline-none focus:border-[#003375] bg-white" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-red-700">Thời gian</label>
+                                                <select value={inlineLabelData.makeupShift} onChange={e => setInlineLabelData({...inlineLabelData, makeupShift: e.target.value})} className="w-full px-2 py-1.5 text-xs border border-red-200 rounded outline-none focus:border-[#003375] bg-white">
+                                                    <option value="S">Sáng</option>
+                                                    <option value="C">Chiều</option>
+                                                    <option value="1-3">Tiết 1-3</option>
+                                                    <option value="4-5">Tiết 4-5</option>
+                                                    <option value="6-8">Tiết 6-8</option>
+                                                    <option value="9-10">Tiết 9-10</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-red-700">Phòng học</label>
+                                                <input type="text" value={inlineLabelData.makeupRoom} onChange={e => setInlineLabelData({...inlineLabelData, makeupRoom: e.target.value})} placeholder="B1.303" className="w-full px-2 py-1.5 text-xs border border-red-200 rounded outline-none focus:border-[#003375] bg-white" />
+                                            </div>
+                                        </div>
+                                    )}
                                     
                                     <div className="flex items-center gap-1 ml-auto">
                                         <button onClick={() => setShowInlineLabelForm(false)} className="bg-gray-100 text-gray-600 px-2 py-1.5 rounded hover:bg-gray-200 text-xs font-bold">
@@ -1666,6 +1811,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         <p className="text-sm font-bold text-gray-900">{displayCourse.exam_date || 'Đang cập nhật...'}</p>
                                         {displayCourse.exam_shift && (
                                             <p className="text-xs text-gray-500 mt-1 font-medium">Ca thi: {displayCourse.exam_shift} {getExamTime(displayCourse.exam_shift) ? `(${getExamTime(displayCourse.exam_shift)})` : ''}</p>
+                                        )}
+                                        {displayCourse.exam_room && (
+                                            <p className="text-xs text-gray-500 mt-1 font-medium">Phòng thi: {displayCourse.exam_room}</p>
                                         )}
                                     </div>
                                 </div>
@@ -1815,6 +1963,36 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     </div>
                                 </>
                             )}
+
+                            {quickTagData.type === 'Nghỉ' && (
+                                <div className="rounded-xl border border-red-100 bg-red-50/70 p-3 space-y-3">
+                                    <div className="flex items-center gap-2 text-red-700">
+                                        <CalendarDays size={15} />
+                                        <p className="text-xs font-bold">Lịch học bù</p>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-bold text-gray-600">Ngày học bù</label>
+                                            <input type="date" value={quickTagData.makeupDate} onChange={e => setQuickTagData({...quickTagData, makeupDate: e.target.value})} className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm outline-none focus:border-[#003375] bg-white" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-bold text-gray-600">Thời gian</label>
+                                            <select value={quickTagData.makeupShift} onChange={e => setQuickTagData({...quickTagData, makeupShift: e.target.value})} className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm outline-none focus:border-[#003375] bg-white">
+                                                <option value="S">Sáng</option>
+                                                <option value="C">Chiều</option>
+                                                <option value="1-3">Tiết 1-3</option>
+                                                <option value="4-5">Tiết 4-5</option>
+                                                <option value="6-8">Tiết 6-8</option>
+                                                <option value="9-10">Tiết 9-10</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-bold text-gray-600">Phòng học bù</label>
+                                        <input type="text" value={quickTagData.makeupRoom} onChange={e => setQuickTagData({...quickTagData, makeupRoom: e.target.value})} placeholder="VD: B1.303" className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm outline-none focus:border-[#003375] bg-white" />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -1902,6 +2080,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 <label className="text-xs font-bold text-gray-600">Ca thi (1, 2, 3...)</label>
                                 <input type="text" value={studentEditData.exam_shift || ''} onChange={e => setStudentEditData({...studentEditData, exam_shift: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Phòng thi (VD: B1.303)</label>
+                                <input type="text" value={studentEditData.exam_room || ''} onChange={e => setStudentEditData({...studentEditData, exam_room: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
                         </form>
                     </div>
                     <div className="p-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0 rounded-b-xl">
@@ -1967,6 +2149,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             <div className="space-y-1">
                                 <label className="text-xs font-bold text-gray-600">Ca thi (1, 2, 3...)</label>
                                 <input type="text" value={adminEditData.exam_shift || ''} onChange={e => setAdminEditData({...adminEditData, exam_shift: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-600">Phòng thi (VD: B1.303)</label>
+                                <input type="text" value={adminEditData.exam_room || ''} onChange={e => setAdminEditData({...adminEditData, exam_room: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" />
                             </div>
                         </form>
                     </div>
