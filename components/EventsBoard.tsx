@@ -76,6 +76,15 @@ const checkIsOverdue = (evt: HubEvent, currentDay: Date) => {
     return false;
 };
 
+const getEventDateKey = (dateValue: string | null) => {
+    if (!dateValue) return '';
+    try {
+        return new Date(dateValue).toISOString().split('T')[0];
+    } catch (e) {
+        return dateValue;
+    }
+};
+
 // --- Sub-Components (Modals) ---
 
 const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
@@ -631,7 +640,6 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
         registration_start_date: editingEvent?.registration_start_date || '',
         registration_start_time: formatTimeString(editingEvent?.registration_start_time ?? null) || '',
         category: editingEvent?.type || 'Hoạt động phong trào',
-        classification: editingEvent?.classification || '',
         criteria: editingEvent?.category || 'III',
         points: editingEvent?.score || '5',
         organizer: editingEvent?.organizer || '',
@@ -666,7 +674,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                 registration_start_date: formData.registration_start_date ? formData.registration_start_date : null,
                 registration_start_time: formData.registration_start_time ? formData.registration_start_time : null,
                 category: formData.category,
-                classification: formData.classification,
+                classification: null,
                 criteria: formData.criteria,
                 points: formData.points,
                 organizer: formData.organizer,
@@ -726,7 +734,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     </div>
 
                     {/* KHU VỰC THỜI GIAN ĐỘNG */}
-                    {(formData.category?.toLowerCase().includes('minigame') || formData.classification?.toLowerCase().includes('minigame')) ? (
+                    {formData.category?.toLowerCase().includes('minigame') ? (
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Ngày bắt đầu</label>
@@ -817,8 +825,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
+                    <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Loại hình</label>
                             <select 
                                 className="w-full border border-gray-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-[#003375]"
@@ -849,11 +856,6 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                                     onChange={e => setFormData({...formData, category: e.target.value})} 
                                 />
                             )}
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Phân loại (Text)</label>
-                            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" placeholder="VD: Minigame, Workshop..." value={formData.classification} onChange={e => setFormData({...formData, classification: e.target.value})} />
-                        </div>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1033,6 +1035,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
   const { isAdmin, isAuditor, isCTV, session, loading: roleLoading } = useUserRole();
     const canManage = isAdmin || isAuditor || isCTV;
+  const canPreviewStudentUI = isAdmin || isAuditor;
   
   const today = new Date();
 
@@ -1043,7 +1046,10 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [activeScope, setActiveScope] = useState('all');
+  const [activeEventType, setActiveEventType] = useState('all');
+  const [eventDateFilter, setEventDateFilter] = useState('');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'expiring_soon'>('newest'); 
+  const [isStudentPreview, setIsStudentPreview] = useState(false);
 
   const [participatedEvents, setParticipatedEvents] = useState<string[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -1051,12 +1057,25 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
 
   const [showCTVModal, setShowCTVModal] = useState(false);
+  const showManagementView = canManage && !isStudentPreview;
+
+  useEffect(() => {
+      if (!canPreviewStudentUI) setIsStudentPreview(false);
+  }, [canPreviewStudentUI]);
 
   const tabsList = useMemo(() => [
       {id:'all',l:'Tất cả'},
       {id:'participated', l:`Đã tham gia (${participatedEvents.length})`}, 
       {id:'I',l:'Mục I'},{id:'II',l:'Mục II'},{id:'III',l:'Mục III'},{id:'IV',l:'Mục IV'},{id:'V',l:'Mục V'}
   ], [participatedEvents.length]);
+
+  const eventTypes = useMemo(() => {
+      const uniqueTypes = new Set<string>();
+      events.forEach(evt => {
+          if (evt.type?.trim()) uniqueTypes.add(evt.type.trim());
+      });
+      return Array.from(uniqueTypes).sort((a, b) => a.localeCompare(b, 'vi'));
+  }, [events]);
 
   useEffect(() => {
       const updateIndicator = () => {
@@ -1315,8 +1334,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   const filteredEvents = events.filter(evt => {
     const matchesSearch = evt.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           evt.organizer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          evt.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          evt.classification.toLowerCase().includes(searchTerm.toLowerCase());
+                          evt.type.toLowerCase().includes(searchTerm.toLowerCase());
     
     let matchesTab = true;
     let isVisible = true;
@@ -1325,6 +1343,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
         matchesTab = participatedEvents.includes(evt.id);
     } else {
         if (evt.is_deleted) isVisible = false;
+        if (isStudentPreview && evt.status === 'pending') isVisible = false;
         if (activeTab !== 'all') {
             matchesTab = evt.category === activeTab;
         }
@@ -1333,7 +1352,9 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     const matchesScope = activeScope === 'all' || 
                          (activeScope === 'internal' && evt.scope === 'Trong trường') ||
                          (activeScope === 'external' && evt.scope === 'Ngoài trường');
-    return matchesSearch && matchesTab && matchesScope && isVisible;
+    const matchesType = activeEventType === 'all' || evt.type === activeEventType;
+    const matchesDate = !eventDateFilter || getEventDateKey(evt.event_date) === eventDateFilter;
+    return matchesSearch && matchesTab && matchesScope && matchesType && matchesDate && isVisible;
   }).sort((a, b) => {
       if (sortOrder === 'expiring_soon') {
           const now = today.getTime();
@@ -1457,9 +1478,9 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
         {/* TAGS */}
         <div className="flex flex-wrap items-center gap-1.5 mb-2.5 sm:mb-4">
-            {evt.classification && (
+            {evt.type && (
                 <span className="bg-purple-50 text-purple-600 border border-purple-100 text-[9px] sm:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md flex items-center gap-1">
-                    <Tag size={10}/> {evt.classification}
+                    <Tag size={10}/> {evt.type}
                 </span>
             )}
             <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border flex items-center gap-1 ${isLinkClosed || evt.is_deleted ? 'bg-gray-50 text-gray-500 border-gray-200' : 'bg-red-50 text-[#990000] border-red-100'}`}>
@@ -1476,7 +1497,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
         </div>
 
         {/* DATETIME */}
-        {evt.type?.toLowerCase().includes('minigame') || evt.classification?.toLowerCase().includes('minigame') ? (
+        {evt.type?.toLowerCase().includes('minigame') ? (
             <div className="flex flex-col gap-1 sm:gap-2 text-[11px] sm:text-xs text-gray-600 mb-2.5 sm:mb-4">
                 <div className="flex items-start gap-1.5 sm:gap-2">
                     <Clock size={12} className="sm:w-[14px] sm:h-[14px] text-gray-400 shrink-0 mt-0.5"/>
@@ -1498,8 +1519,8 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
             <div className="flex flex-col gap-1 sm:gap-2 text-[11px] sm:text-xs text-gray-600 mb-2.5 sm:mb-4">
                 <div className="flex items-start gap-1.5 sm:gap-2">
                     <CalendarClock size={12} className="sm:w-[14px] sm:h-[14px] text-gray-400 shrink-0 mt-0.5"/>
-                    <div className="flex flex-col">
-                        <span className="font-medium text-gray-500 mb-0.5">Thời gian đăng ký:</span>
+                    <div className="flex flex-wrap items-baseline gap-x-1.5">
+                        <span className="font-medium text-gray-500">Thời gian đăng ký:</span>
                         <span className={`font-bold ${isDeadlineToday && !isLinkClosed && !evt.is_deleted ? 'text-red-600' : 'text-gray-700'}`}>
                             {evt.registration_start_date ? `${formatTimeString(evt.registration_start_time)} ${formatDateString(evt.registration_start_date)}` : '...'}
                             {' - '}
@@ -1596,7 +1617,7 @@ return (
                     {canManage && (
                         <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-1 mb-1 border border-blue-200">
                             <Settings size={10} className="inline mr-1"/>
-                           {isAdmin ? 'Chế độ Admin: Quản lý danh sách' : (isAuditor ? 'Chế độ Auditor: Quản lý/Sửa/Đóng' : 'Chế độ CTV: Sửa/Đóng sự kiện')}
+                           {isStudentPreview ? 'Đang xem giao diện sinh viên' : (isAdmin ? 'Chế độ Admin: Quản lý danh sách' : (isAuditor ? 'Chế độ Auditor: Quản lý/Sửa/Đóng' : 'Chế độ CTV: Sửa/Đóng sự kiện'))}
                         </div>
                     )}
                     {!canManage && (
@@ -1606,26 +1627,25 @@ return (
 )}
                 </div>
                 
-                {/* Thanh Công Cụ (Filter & Actions) ĐÃ ĐƯỢC CHỐNG DÍNH CHÙM */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full xl:w-auto shrink-0 justify-start xl:justify-end">
+                {/* Thanh Công Cụ */}
+                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full xl:w-auto shrink-0 justify-start xl:justify-end">
                     
                     {/* Search Bar */}
-                    <div className="relative w-full sm:w-auto flex-grow sm:flex-grow-0 min-w-[200px]">
+                    <div className="relative w-full md:w-auto md:flex-grow-0 md:min-w-[260px]">
                         <input 
                             type="text" 
                             placeholder="Tìm tên, BTC, loại hình..." 
-                            className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-md text-xs outline-none focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-all" 
+                            className="w-full pl-8 pr-3 py-2 md:py-1.5 border border-gray-300 rounded-md text-xs outline-none focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-all" 
                             value={searchTerm} 
                             onChange={(e) => setSearchTerm(e.target.value)} 
                         />
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                     </div>
                     
-                    {/* Container hàng 2 trên Mobile (Dropdowns + Buttons) */}
-                    <div className="flex flex-row items-center gap-2 w-full sm:w-auto">
-                        {/* Dropdowns */}
-                        <div className="flex items-center gap-2 flex-1 sm:flex-none">
-                            <div className="relative flex-1 sm:flex-none">
+                    {/* Desktop filters */}
+                    <div className="hidden md:flex flex-row items-center gap-2 w-auto">
+                        <div className="flex items-center gap-2">
+                            <div className="relative">
                                 <select 
                                     value={activeScope} 
                                     onChange={(e) => { playClick(); setActiveScope(e.target.value); }} 
@@ -1638,8 +1658,34 @@ return (
                                 <Building2 className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
                                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
                             </div>
+
+                            <div className="relative">
+                                <select
+                                    value={activeEventType}
+                                    onChange={(e) => { playClick(); setActiveEventType(e.target.value); }}
+                                    className="w-full appearance-none pl-7 pr-6 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-400 transition-colors"
+                                >
+                                    <option value="all">Tất cả loại hình</option>
+                                    {eventTypes.map(type => (
+                                        <option key={type} value={type}>{type}</option>
+                                    ))}
+                                </select>
+                                <Tag className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+                            </div>
+
+                            <div className="relative">
+                                <input
+                                    type="date"
+                                    value={eventDateFilter}
+                                    onChange={(e) => { playClick(); setEventDateFilter(e.target.value); }}
+                                    className="w-full pl-7 pr-2 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-400 transition-colors"
+                                    title="Lọc theo ngày diễn ra"
+                                />
+                                <CalendarDays className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={12} />
+                            </div>
                             
-                            <div className="relative flex-1 sm:flex-none">
+                            <div className="relative">
                                 <select 
                                     value={sortOrder} 
                                     onChange={(e) => { playClick(); setSortOrder(e.target.value as 'newest' | 'oldest' | 'expiring_soon'); }} 
@@ -1654,7 +1700,6 @@ return (
                             </div>
                         </div>
 
-                        {/* Nút chức năng (Thu gọn thành icon trên mobile) */}
                         <div className="flex items-center gap-1.5 shrink-0">
                             <button onClick={() => { playClick(); fetchEvents(); }} className="p-1.5 sm:px-2 sm:py-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Làm mới">
                                 <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
@@ -1662,19 +1707,111 @@ return (
                             <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="p-1.5 sm:px-2 sm:py-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Xem bảng điểm">
                                 <FileText size={14} />
                             </button>
+
+                            {canPreviewStudentUI && (
+                                <button onClick={() => { playClick(); setIsStudentPreview(prev => !prev); }} className="p-1.5 sm:px-3 sm:py-1.5 bg-white border border-blue-200 hover:bg-blue-50 text-[#003375] rounded-md flex items-center justify-center text-xs font-bold transition-all active:scale-95" title={isStudentPreview ? "Quay lại quản lý" : "Xem giao diện sinh viên"}>
+                                    <RotateCcw size={14} />
+                                    <span className="hidden sm:inline sm:ml-1.5">{isStudentPreview ? 'Quản lý' : 'Sinh viên'}</span>
+                                </button>
+                            )}
                             
-                            {canManage ? (
+                            {showManagementView ? (
                                 <button onClick={handleOpenAdd} className="p-1.5 sm:px-3 sm:py-1.5 bg-[#003375] border border-transparent hover:bg-[#002855] text-white rounded-md flex items-center justify-center text-xs font-bold transition-all active:scale-95" title="Thêm mới">
                                     <PlusCircle size={14} />
                                     <span className="hidden sm:inline sm:ml-1.5">Thêm mới</span>
                                 </button>
-                            ) : (
+                            ) : !canManage ? (
                                 <button onClick={() => { playClick(); setShowContributeModal(true); }} className="p-1.5 sm:px-3 sm:py-1.5 bg-[#003375] border border-transparent hover:bg-[#002855] text-white rounded-md flex items-center justify-center text-xs font-bold transition-all active:scale-95" title="Gửi đóng góp">
                                     <PlusCircle size={14} />
                                     <span className="hidden sm:inline sm:ml-1.5">Gửi đóng góp</span>
                                 </button>
+                            ) : null}
+                        </div>
+                    </div>
+
+                    {/* Mobile compact filters */}
+                    <div className="md:hidden flex items-center gap-2 w-full">
+                        <div className="relative flex-1" onClick={(e) => e.stopPropagation()}>
+                            <button
+                                type="button"
+                                onClick={() => { playClick(); setActiveDropdown(activeDropdown === 'eventFilters' ? null : 'eventFilters'); }}
+                                className={`w-full h-9 px-3 rounded-md border text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all ${activeDropdown === 'eventFilters' || activeScope !== 'all' || activeEventType !== 'all' || eventDateFilter || sortOrder !== 'newest' ? 'bg-blue-50 border-blue-200 text-[#003375]' : 'bg-white border-gray-300 text-gray-700'}`}
+                            >
+                                <MoreHorizontal size={15} />
+                                Bộ lọc
+                                {(activeScope !== 'all' || activeEventType !== 'all' || eventDateFilter || sortOrder !== 'newest') && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                                )}
+                            </button>
+
+                            {activeDropdown === 'eventFilters' && (
+                                <div className="absolute left-0 right-0 top-11 z-50 bg-white border border-gray-200 rounded-xl p-3 shadow-xl animate-fadeIn">
+                                    <div className="grid grid-cols-1 gap-2">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Khu vực</label>
+                                        <select value={activeScope} onChange={(e) => { playClick(); setActiveScope(e.target.value); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium outline-none focus:border-[#003375] bg-white">
+                                            <option value="all">Tất cả khu vực</option>
+                                            <option value="internal">Trong trường</option>
+                                            <option value="external">Ngoài trường</option>
+                                        </select>
+
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase mt-1">Loại hình</label>
+                                        <select value={activeEventType} onChange={(e) => { playClick(); setActiveEventType(e.target.value); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium outline-none focus:border-[#003375] bg-white">
+                                            <option value="all">Tất cả loại hình</option>
+                                            {eventTypes.map(type => (
+                                                <option key={type} value={type}>{type}</option>
+                                            ))}
+                                        </select>
+
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase mt-1">Ngày diễn ra</label>
+                                        <input type="date" value={eventDateFilter} onChange={(e) => { playClick(); setEventDateFilter(e.target.value); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium outline-none focus:border-[#003375] bg-white" />
+
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase mt-1">Sắp xếp</label>
+                                        <select value={sortOrder} onChange={(e) => { playClick(); setSortOrder(e.target.value as 'newest' | 'oldest' | 'expiring_soon'); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium outline-none focus:border-[#003375] bg-white">
+                                            <option value="newest">Mới nhất</option>
+                                            <option value="oldest">Cũ nhất</option>
+                                            <option value="expiring_soon">Gần hết hạn</option>
+                                        </select>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                playClick();
+                                                setActiveScope('all');
+                                                setActiveEventType('all');
+                                                setEventDateFilter('');
+                                                setSortOrder('newest');
+                                            }}
+                                            className="mt-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-100"
+                                        >
+                                            Xóa bộ lọc
+                                        </button>
+                                    </div>
+                                </div>
                             )}
                         </div>
+
+                        <button onClick={() => { playClick(); fetchEvents(); }} className="h-9 w-9 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Làm mới">
+                            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+                        </button>
+                        <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="h-9 w-9 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Xem bảng điểm">
+                            <FileText size={14} />
+                        </button>
+
+                        {canPreviewStudentUI && (
+                            <button onClick={() => { playClick(); setIsStudentPreview(prev => !prev); }} className="h-9 w-9 bg-white border border-blue-200 hover:bg-blue-50 text-[#003375] rounded-md flex items-center justify-center transition-all active:scale-95" title={isStudentPreview ? "Quay lại quản lý" : "Xem giao diện sinh viên"}>
+                                <RotateCcw size={14} />
+                            </button>
+                        )}
+
+                        {showManagementView ? (
+                            <button onClick={handleOpenAdd} className="h-9 w-9 bg-[#003375] border border-transparent hover:bg-[#002855] text-white rounded-md flex items-center justify-center transition-all active:scale-95" title="Thêm mới">
+                                <PlusCircle size={14} />
+                            </button>
+                        ) : !canManage ? (
+                            <button onClick={() => { playClick(); setShowContributeModal(true); }} className="h-9 w-9 bg-[#003375] border border-transparent hover:bg-[#002855] text-white rounded-md flex items-center justify-center transition-all active:scale-95" title="Gửi đóng góp">
+                                <PlusCircle size={14} />
+                            </button>
+                        ) : null}
                     </div>
                 </div>
         </div>
@@ -1736,7 +1873,7 @@ return (
                 <p className="font-bold mb-2">Đã xảy ra lỗi</p>
                 <p>{error}</p>
             </div>
-        ) : canManage ? (
+        ) : showManagementView ? (
             /* ✨ BẢNG QUẢN LÝ DÀNH CHO ADMIN VÀ CTV ✨ */
             <div className="bg-white border border-gray-300 rounded-xl overflow-hidden animate-fadeIn">
                 <div className="overflow-x-auto custom-scrollbar max-h-[65vh]">
@@ -1775,12 +1912,12 @@ return (
                                             <td className="px-4 py-3 w-[30%] align-top">
                                                 <div className="font-bold text-[#003375] text-sm line-clamp-2 leading-snug">{evt.name}</div>
                                                 <div className="text-[10px] text-gray-500 mt-1.5 flex flex-wrap items-center gap-1.5">
-                                                    {evt.classification && <span className="bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded border border-purple-200 font-medium">{evt.classification}</span>}
-                                                    {evt.scope && <span className="font-medium">• {evt.scope}</span>}
+                                                    {evt.scope && <span className="font-medium">{evt.scope}</span>}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 align-top text-gray-700 w-[20%]">
                                                 <div className="text-xs font-bold line-clamp-2 mb-1">{evt.organizer}</div>
+                                                {evt.type && <div className="text-[10px] text-purple-600 bg-purple-50 border border-purple-200 rounded px-1.5 py-0.5 font-medium inline-flex items-center gap-1 mb-1"><Tag size={10}/> {evt.type}</div>}
                                                 <div className="text-[10px] text-gray-500 flex items-center gap-1"><MapPin size={10}/> {evt.location || 'Offline'}</div>
                                             </td>
                                             <td className="px-4 py-3 text-center align-top w-[10%]">
@@ -1790,7 +1927,7 @@ return (
                                                 <div className="text-[10px] text-gray-500 font-medium">Mục {evt.category}</div>
                                             </td>
                                             <td className="px-4 py-3 text-xs text-gray-600 align-top w-[20%]">
-                                                {evt.type?.toLowerCase().includes('minigame') || evt.classification?.toLowerCase().includes('minigame') ? (
+                                                {evt.type?.toLowerCase().includes('minigame') ? (
                                                     <div className="flex flex-col gap-0.5">
                                                         <span className="text-gray-400 font-medium">TG tham gia:</span>
                                                         <span className="font-semibold text-[#003375]">
