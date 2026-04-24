@@ -49,6 +49,8 @@ interface Course {
 
 const HK_START_DATE = new Date('2026-02-02T00:00:00');
 const HOLIDAY_WEEKS = [2, 3, 4]; 
+const SCHEDULE_UPDATE_NOTICE_STORAGE_KEY = 'hub_schedule_board_update_notice_hidden_v1';
+let hasShownScheduleUpdateNoticeThisLoad = false;
 
 // =======================================================================
 // CẤU HÌNH LABEL CÁ NHÂN (CẬP NHẬT MÀU CỐ ĐỊNH)
@@ -231,7 +233,7 @@ const getColorForCourse = (id: string) => {
 export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   useEffect(() => { document.title = "Thời khóa biểu | HUB Planner"; }, []);
 
-  const { session, isAdmin, isAuditor, loading } = useUserRole();
+  const { session, isAdmin, isAuditor, isStudent, loading } = useUserRole();
   const isAuthenticated = session !== null;
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -289,12 +291,41 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isSavingInlineLabel, setIsSavingInlineLabel] = useState(false);
 
   const [changedUserScheduleCourses, setChangedUserScheduleCourses] = useState<Course[]>([]); 
+  const [showScheduleUpdateNotice, setShowScheduleUpdateNotice] = useState(false);
 
   useEffect(() => {
     if (!loading) {
         setIsAdminView(isAdmin || isAuditor);
     }
   }, [isAdmin, isAuditor, loading]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!isAuthenticated || !isStudent || !!viewUserId || isAdminView) return;
+    if (hasShownScheduleUpdateNoticeThisLoad) return;
+
+    try {
+        if (localStorage.getItem(SCHEDULE_UPDATE_NOTICE_STORAGE_KEY) === 'true') return;
+    } catch (error) {
+        console.error('Khong the doc trang thai thong bao lich:', error);
+    }
+
+    hasShownScheduleUpdateNoticeThisLoad = true;
+    setShowScheduleUpdateNotice(true);
+  }, [loading, isAuthenticated, isStudent, viewUserId, isAdminView]);
+
+  const handleCloseScheduleUpdateNotice = () => {
+    setShowScheduleUpdateNotice(false);
+  };
+
+  const handleHideScheduleUpdateNoticeForever = () => {
+    try {
+        localStorage.setItem(SCHEDULE_UPDATE_NOTICE_STORAGE_KEY, 'true');
+    } catch (error) {
+        console.error('Khong the luu trang thai thong bao lich:', error);
+    }
+    setShowScheduleUpdateNotice(false);
+  };
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -987,6 +1018,52 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
   return (
     <div className={`w-full ${isAdminView ? '' : 'pb-10'}`}>
+        {showScheduleUpdateNotice && (
+            <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={handleCloseScheduleUpdateNotice}>
+                <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-2xl animate-scaleIn" onClick={(e) => e.stopPropagation()}>
+                    <div className="relative bg-gradient-to-r from-[#003375] via-[#0052cc] to-[#2563eb] px-5 py-4 text-white">
+                        <button onClick={handleCloseScheduleUpdateNotice} className="absolute right-4 top-4 rounded-full bg-white/15 p-1.5 text-white transition-colors hover:bg-white/25" aria-label="Dong thong bao">
+                            <X size={18} />
+                        </button>
+                        <div className="flex items-start gap-3 pr-8">
+                            <div className="mt-0.5 rounded-2xl bg-white/15 p-2.5">
+                                <Zap size={20} className="fill-yellow-300 text-yellow-300" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-100">Cập nhật mới</p>
+                                <h2 className="mt-1 text-xl font-extrabold leading-tight">Bạn đã có thể tự thay đổi lịch học, lịch thi và gắn nhãn để đánh dấu.</h2>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4 px-5 py-5 text-sm text-gray-600">
+                        <p className="leading-relaxed">
+                            Từ bây giờ, trong lịch cá nhân bạn có thể sửa thông tin môn học theo nhu cầu, cập nhật ngày thi hoặc ca thi, và gắn nhãn cho những ngày quan trọng.
+                        </p>
+                        <div className="grid gap-2 text-sm">
+                            <div className="flex items-start gap-2 rounded-xl bg-blue-50 px-3 py-2 text-blue-900">
+                                <Edit size={16} className="mt-0.5 shrink-0 text-blue-600" />
+                                <span>Tự thay đổi lịch học và lịch thi trên lịch cá nhân.</span>
+                            </div>
+                            <div className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-amber-900">
+                                <Tag size={16} className="mt-0.5 shrink-0 text-amber-600" />
+                                <span>Gắn nhãn để đánh dấu nghỉ học, thuyết trình, thi giữa kỳ, thi cuối kỳ hoặc ghi chú riêng.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:flex-row sm:justify-end">
+                        <button onClick={handleCloseScheduleUpdateNotice} className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-100">
+                            Đóng
+                        </button>
+                        <button onClick={handleHideScheduleUpdateNoticeForever} className="rounded-xl bg-[#003375] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#002855]">
+                            Không hiển thị ở lần sau
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {!isAdmin && <AdsBanner />}
 
         <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-1 sm:pb-4 -mt-2 mb-1 sm:mb-4 md:border-b md:border-transparent md:border-gray-200/60">
