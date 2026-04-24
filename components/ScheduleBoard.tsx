@@ -292,6 +292,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
   const [changedUserScheduleCourses, setChangedUserScheduleCourses] = useState<Course[]>([]); 
   const [showScheduleUpdateNotice, setShowScheduleUpdateNotice] = useState(false);
+  const [hideScheduleUpdateNoticeNextTime, setHideScheduleUpdateNoticeNextTime] = useState(false);
 
   useEffect(() => {
     if (!loading) {
@@ -318,11 +319,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     setShowScheduleUpdateNotice(false);
   };
 
-  const handleHideScheduleUpdateNoticeForever = () => {
-    try {
-        localStorage.setItem(SCHEDULE_UPDATE_NOTICE_STORAGE_KEY, 'true');
-    } catch (error) {
-        console.error('Khong the luu trang thai thong bao lich:', error);
+  const handleConfirmScheduleUpdateNotice = () => {
+    if (hideScheduleUpdateNoticeNextTime) {
+        try {
+            localStorage.setItem(SCHEDULE_UPDATE_NOTICE_STORAGE_KEY, 'true');
+        } catch (error) {
+            console.error('Khong the luu trang thai thong bao lich:', error);
+        }
     }
     setShowScheduleUpdateNotice(false);
   };
@@ -1020,45 +1023,52 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     <div className={`w-full ${isAdminView ? '' : 'pb-10'}`}>
         {showScheduleUpdateNotice && (
             <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={handleCloseScheduleUpdateNotice}>
-                <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-2xl animate-scaleIn" onClick={(e) => e.stopPropagation()}>
-                    <div className="relative bg-gradient-to-r from-[#003375] via-[#0052cc] to-[#2563eb] px-5 py-4 text-white">
-                        <button onClick={handleCloseScheduleUpdateNotice} className="absolute right-4 top-4 rounded-full bg-white/15 p-1.5 text-white transition-colors hover:bg-white/25" aria-label="Dong thong bao">
+                <div className="w-full max-w-md select-none overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl animate-scaleIn" onClick={(e) => e.stopPropagation()}>
+                    <div className="relative border-b border-gray-100 bg-gray-50 px-5 py-4">
+                        <button onClick={handleCloseScheduleUpdateNotice} className="absolute right-4 top-4 rounded-full border border-gray-200 bg-white p-1.5 text-gray-400 transition-colors hover:text-gray-700" aria-label="Dong thong bao">
                             <X size={18} />
                         </button>
                         <div className="flex items-start gap-3 pr-8">
-                            <div className="mt-0.5 rounded-2xl bg-white/15 p-2.5">
-                                <Zap size={20} className="fill-yellow-300 text-yellow-300" />
+                            <div className="mt-0.5 rounded-xl bg-blue-100 p-2 text-[#003375]">
+                                <Info size={18} />
                             </div>
                             <div>
-                                <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-100">Cập nhật mới</p>
-                                <h2 className="mt-1 text-xl font-extrabold leading-tight">Bạn đã có thể tự thay đổi lịch học, lịch thi và gắn nhãn để đánh dấu.</h2>
+                                <h2 className="text-lg font-bold leading-tight text-[#003375]">Tính năng mới: Chỉnh lịch học và lịch thi</h2>
+                                <p className="mt-1 text-sm leading-relaxed text-gray-600">
+                                    Cập nhật môn học, ngày thi, ca thi và gắn nhãn cho các ngày quan trọng ngay trên lịch cá nhân.
+                                </p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="space-y-4 px-5 py-5 text-sm text-gray-600">
-                        <p className="leading-relaxed">
-                            Từ bây giờ, trong lịch cá nhân bạn có thể sửa thông tin môn học theo nhu cầu, cập nhật ngày thi hoặc ca thi, và gắn nhãn cho những ngày quan trọng.
-                        </p>
-                        <div className="grid gap-2 text-sm">
-                            <div className="flex items-start gap-2 rounded-xl bg-blue-50 px-3 py-2 text-blue-900">
-                                <Edit size={16} className="mt-0.5 shrink-0 text-blue-600" />
-                                <span>Tự thay đổi lịch học và lịch thi trên lịch cá nhân.</span>
-                            </div>
-                            <div className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-amber-900">
-                                <Tag size={16} className="mt-0.5 shrink-0 text-amber-600" />
-                                <span>Gắn nhãn để đánh dấu nghỉ học, thuyết trình, thi giữa kỳ, thi cuối kỳ hoặc ghi chú riêng.</span>
-                            </div>
-                        </div>
+                    <div className="px-5 py-4">
+                        <ul className="space-y-2 text-sm leading-relaxed text-gray-600">
+                            <li className="flex items-start gap-2">
+                                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#003375]" />
+                                <span>Chỉnh lịch học, lịch thi ngay trên lịch cá nhân.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#003375]" />
+                                <span>Gắn nhãn ngày nghỉ, thuyết trình, thi giữa kỳ, thi cuối kỳ hoặc ghi chú riêng.</span>
+                            </li>
+                        </ul>
                     </div>
 
-                    <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:flex-row sm:justify-end">
-                        <button onClick={handleCloseScheduleUpdateNotice} className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-100">
-                            Đóng
-                        </button>
-                        <button onClick={handleHideScheduleUpdateNoticeForever} className="rounded-xl bg-[#003375] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#002855]">
-                            Không hiển thị ở lần sau
-                        </button>
+                    <div className="border-t border-gray-100 px-5 py-4">
+                        <label className="flex cursor-pointer items-start gap-3 text-sm text-gray-600">
+                            <input
+                                type="checkbox"
+                                checked={hideScheduleUpdateNoticeNextTime}
+                                onChange={(e) => setHideScheduleUpdateNoticeNextTime(e.target.checked)}
+                                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#003375] focus:ring-[#003375]"
+                            />
+                            <span>Không hiển thị lại thông báo này</span>
+                        </label>
+                        <div className="mt-4 flex justify-end">
+                            <button onClick={handleConfirmScheduleUpdateNotice} className="rounded-xl bg-[#003375] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#002855]">
+                                Đã hiểu
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
