@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, Tag } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
@@ -64,7 +64,7 @@ const SCHEDULE_UPDATE_NOTICE_STORAGE_KEY = 'hub_schedule_board_update_notice_hid
 let hasShownScheduleUpdateNoticeThisLoad = false;
 
 // =======================================================================
-// CẤU HÌNH LABEL CÁ NHÂN (CẬP NHẬT MÀU CỐ ĐỊNH)
+// CẤU HÌNH LABEL CÁ NHÂN 
 // =======================================================================
 const LABEL_TYPES = ['Nghỉ', 'Thi giữa kỳ', 'Thi cuối kỳ', 'Thuyết trình', 'Học online', 'Khác'];
 const LABEL_COLORS = [
