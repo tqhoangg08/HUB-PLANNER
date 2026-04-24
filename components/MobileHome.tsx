@@ -109,7 +109,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
     // =========================================================
     if (activeScreen === 'all-news') {
         return (
-            <div className="fixed inset-0 bg-[#F8FAFC] z-[100] flex flex-col animate-slideInRight pb-safe">
+            <div className="mobile-home-page mobile-home-news fixed inset-0 bg-[#F8FAFC] z-[100] flex flex-col animate-slideInRight pb-safe">
                 {/* Header */}
                 <div className="bg-[#003375] px-4 py-4 flex items-center gap-3 shadow-md shrink-0">
                     <button 
@@ -163,7 +163,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
     // MÀN HÌNH TRANG CHỦ CHÍNH
     // =========================================================
     return (
-        <div className="min-h-[100dvh] bg-[#F8FAFC] pb-24 font-sans animate-fadeIn">
+        <div className="mobile-page mobile-home-page min-h-[100dvh] bg-[#F8FAFC] pb-24 font-sans animate-fadeIn">
             {/* HEADER NỀN XANH CẬP NHẬT THÔNG TIN SINH VIÊN */}
             <div className="bg-[#003375] rounded-b-[32px] px-5 pt-12 pb-8 text-white relative shadow-md">
                 <div className="flex items-center justify-between">

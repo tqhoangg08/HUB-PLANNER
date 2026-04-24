@@ -878,9 +878,9 @@ const canManage = isAdmin || isAuditor || isCTV;
   };
 
 return (
-    <div className="w-full min-h-[100dvh] bg-[#F8FAFC] pb-24 animate-fadeIn">
+    <div className="mobile-page mobile-events-page w-full min-h-[100dvh] bg-[#F8FAFC] pb-24 animate-fadeIn">
       {/* Sticky Mobile Header */}
-      <div className="sticky top-0 z-40 bg-white pt-4 pb-2 px-4 shadow-sm">          
+      <div className="mobile-events-header sticky top-0 z-40 bg-white pt-4 pb-2 px-4 shadow-sm">
           <div className="flex items-center justify-between mb-4">
               <h2 className="text-[24px] font-extrabold text-[#003375] tracking-tight">Sự kiện ĐRL</h2>
               <div className="flex gap-2">

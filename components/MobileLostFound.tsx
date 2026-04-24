@@ -410,9 +410,9 @@ export const MobileLostFound: React.FC = () => {
   };
 
 return (
-    <div className="w-full min-h-[100dvh] bg-[#F8FAFC] pb-24 animate-fadeIn">
+    <div className="mobile-page mobile-lostfound-page w-full min-h-[100dvh] bg-[#F8FAFC] pb-24 animate-fadeIn">
       {/* --- MOBILE STICKY HEADER --- */}
-      <div className="sticky top-0 z-40 bg-white pt-4 pb-0 shadow-sm border-b border-gray-100">
+      <div className="mobile-lostfound-header sticky top-0 z-40 bg-white pt-4 pb-0 shadow-sm border-b border-gray-100">
           <div className="px-4 mb-3">
               <h2 className="text-[24px] font-extrabold text-[#003375] tracking-tight leading-none">Tìm đồ thất lạc</h2>
               <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1 italic"><Info size={12}/> Đây là khu vực trao đổi thông tin nội bộ hỗ trợ học tập</p>

@@ -777,7 +777,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
     setSelectedMonthIndex(now.getMonth());
   };
   return (
-    <div className="w-full pb-24 space-y-4 pt-1 animate-fadeIn">
+    <div className="mobile-page mobile-schedule-page w-full pb-24 space-y-4 pt-1 animate-fadeIn">
         {/* --- HEADER TKB --- */}
         <div className="relative top-0 z-40 bg-[#F8FAFC] px-0.3 pt-5.5 pb-2 mb-2">
             <h1 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">

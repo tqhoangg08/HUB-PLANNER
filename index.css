@@ -20,3 +20,289 @@
     @apply antialiased text-gray-900 bg-gray-50;
   }
 }
+
+@layer components {
+  .platform-ios {
+    --ios-bg: #F5F7FB;
+    --ios-bg-soft: #EEF4FF;
+    --ios-primary: #003B7A;
+    --ios-primary-2: #0B5ED7;
+    --ios-text: #0F172A;
+    --ios-muted: #667085;
+    --ios-border: rgba(255,255,255,0.55);
+    --ios-glass-bg: rgba(255,255,255,0.62);
+    --ios-glass-bg-strong: rgba(255,255,255,0.78);
+    --ios-glass-blue: rgba(0,59,122,0.78);
+    --ios-shadow: 0 18px 44px rgba(15,23,42,0.12);
+    --ios-shadow-soft: 0 10px 28px rgba(15,23,42,0.08);
+    --ios-radius-xl: 32px;
+    --ios-radius-lg: 26px;
+    --ios-radius-md: 20px;
+    --ios-radius-sm: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Be Vietnam Pro", sans-serif;
+  }
+
+  .platform-ios .ios-glass,
+  .platform-ios .ios-bottom-nav-surface,
+  .platform-ios .mobile-learning-tabs,
+  .platform-ios .mobile-page .bg-white[class*="rounded-2xl"],
+  .platform-ios .mobile-page .bg-white[class*="rounded-xl"],
+  .platform-ios .mobile-page .bg-white[class*="rounded-[24px]"],
+  .platform-ios .mobile-page .bg-white[class*="rounded-[32px]"] {
+    background: var(--ios-glass-bg);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    backdrop-filter: blur(22px) saturate(180%);
+    border-color: var(--ios-border);
+    box-shadow: var(--ios-shadow-soft);
+  }
+
+  .platform-ios .ios-glass-strong,
+  .platform-ios .mobile-dashboard-page .bg-white[class*="rounded"],
+  .platform-ios .mobile-schedule-page .bg-white[class*="rounded"],
+  .platform-ios .mobile-events-page .bg-white[class*="rounded"],
+  .platform-ios .mobile-profile-page .bg-white[class*="rounded"],
+  .platform-ios .mobile-lostfound-page .bg-white[class*="rounded"],
+  .platform-ios .mobile-handbook-page .bg-white[class*="rounded"] {
+    background: var(--ios-glass-bg-strong);
+    -webkit-backdrop-filter: blur(18px) saturate(170%);
+    backdrop-filter: blur(18px) saturate(170%);
+    border-color: rgba(255,255,255,0.72);
+  }
+
+  .platform-ios .ios-blue-glass,
+  .platform-ios .mobile-home-page > div:first-child,
+  .platform-ios .mobile-profile-page > div:first-child,
+  .platform-ios .mobile-handbook-header {
+    background: linear-gradient(145deg, rgba(0,59,122,0.94), rgba(11,94,215,0.78)) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.16);
+    box-shadow: 0 22px 48px rgba(0,59,122,0.18);
+    overflow: hidden;
+  }
+
+  .platform-ios .ios-blue-glass::after,
+  .platform-ios .mobile-home-page > div:first-child::after,
+  .platform-ios .mobile-profile-page > div:first-child::after,
+  .platform-ios .mobile-handbook-header::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 18% 0%, rgba(255,255,255,0.22), transparent 36%),
+      radial-gradient(circle at 96% 20%, rgba(255,255,255,0.14), transparent 30%);
+  }
+
+  .platform-ios.mobile-app-root,
+  .platform-ios .mobile-main,
+  .platform-ios .mobile-page,
+  .platform-ios.mobile-login-page,
+  .platform-ios .mobile-home-news,
+  .platform-ios .mobile-profile-history {
+    background:
+      radial-gradient(circle at -12% -8%, rgba(11,94,215,0.14), transparent 32%),
+      radial-gradient(circle at 106% 12%, rgba(0,59,122,0.10), transparent 30%),
+      radial-gradient(circle at 50% 112%, rgba(22,163,74,0.08), transparent 28%),
+      var(--ios-bg) !important;
+  }
+
+  .platform-ios .mobile-page {
+    color: var(--ios-text);
+    padding-bottom: calc(116px + env(safe-area-inset-bottom)) !important;
+    animation: iosPageIn 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .platform-ios .mobile-main {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .platform-ios .mobile-page h1,
+  .platform-ios .mobile-page h2 {
+    letter-spacing: 0;
+  }
+
+  .platform-ios .mobile-page h1 {
+    color: var(--ios-primary);
+    font-size: clamp(2rem, 9vw, 2.45rem);
+    line-height: 0.95;
+    font-weight: 800;
+  }
+
+  .platform-ios .mobile-home-page > div:first-child,
+  .platform-ios .mobile-profile-page > div:first-child {
+    border-radius: 0 0 38px 38px !important;
+    padding-top: calc(3rem + env(safe-area-inset-top)) !important;
+  }
+
+  .platform-ios .mobile-profile-page > div:nth-child(2) {
+    border-radius: 30px !important;
+    transform: translateY(-2px);
+  }
+
+  .platform-ios .mobile-learning-tabs {
+    margin: 10px 12px 0;
+    padding: 8px !important;
+    border: 1px solid var(--ios-border) !important;
+    border-radius: 28px;
+    box-shadow: var(--ios-shadow-soft) !important;
+    top: env(safe-area-inset-top) !important;
+  }
+
+  .platform-ios .mobile-learning-tabs > div {
+    background: rgba(255,255,255,0.38) !important;
+    border-radius: 22px !important;
+  }
+
+  .platform-ios .mobile-learning-tabs button {
+    min-height: 44px;
+    border-radius: 18px !important;
+  }
+
+  .platform-ios .mobile-dashboard-page,
+  .platform-ios .mobile-schedule-page,
+  .platform-ios .mobile-events-page,
+  .platform-ios .mobile-lostfound-page {
+    padding-top: 10px;
+  }
+
+  .platform-ios .mobile-dashboard-page .grid > div,
+  .platform-ios .mobile-schedule-page > div > div,
+  .platform-ios .mobile-events-page [class*="rounded-2xl"],
+  .platform-ios .mobile-lostfound-page [class*="rounded-2xl"] {
+    border-radius: var(--ios-radius-lg) !important;
+  }
+
+  .platform-ios .mobile-events-header,
+  .platform-ios .mobile-lostfound-header {
+    background: rgba(245,247,251,0.84) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+    border-color: rgba(255,255,255,0.72) !important;
+    box-shadow: 0 10px 26px rgba(15,23,42,0.08) !important;
+    padding-top: calc(1rem + env(safe-area-inset-top)) !important;
+  }
+
+  .platform-ios .mobile-events-header button,
+  .platform-ios .mobile-lostfound-header button,
+  .platform-ios .mobile-page button {
+    transition: transform 150ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease;
+  }
+
+  .platform-ios .mobile-events-header button:active,
+  .platform-ios .mobile-lostfound-header button:active,
+  .platform-ios .mobile-page button:active,
+  .platform-ios .mobile-page a:active {
+    transform: scale(0.98);
+  }
+
+  .platform-ios .mobile-page input,
+  .platform-ios .mobile-page select,
+  .platform-ios .mobile-page textarea {
+    min-height: 44px;
+    border-radius: 18px !important;
+    background: rgba(255,255,255,0.74) !important;
+    border-color: rgba(148,163,184,0.22) !important;
+  }
+
+  .platform-ios .mobile-page input:focus,
+  .platform-ios .mobile-page select:focus,
+  .platform-ios .mobile-page textarea:focus {
+    border-color: rgba(11,94,215,0.58) !important;
+    box-shadow: 0 0 0 4px rgba(11,94,215,0.12) !important;
+  }
+
+  .platform-ios .ios-bottom-nav {
+    left: 16px !important;
+    right: 16px !important;
+    bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: 0 !important;
+  }
+
+  .platform-ios .ios-bottom-nav-surface {
+    height: 78px !important;
+    border-radius: 32px !important;
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.72), rgba(255,255,255,0.42)),
+      radial-gradient(circle at 16% 92%, rgba(16,185,129,0.22), transparent 34%),
+      radial-gradient(circle at 92% 8%, rgba(11,94,215,0.16), transparent 32%) !important;
+    border: 1px solid rgba(255,255,255,0.72) !important;
+    box-shadow: 0 18px 44px rgba(15,23,42,0.16), inset 0 1px 0 rgba(255,255,255,0.78) !important;
+  }
+
+  .platform-ios .ios-bottom-nav a {
+    border-radius: 24px;
+    min-height: 62px;
+  }
+
+  .platform-ios .ios-bottom-nav a[aria-current="page"] {
+    background: rgba(255,255,255,0.28);
+  }
+
+  .platform-ios .mobile-ai-advisor {
+    z-index: 100001;
+  }
+
+  .platform-ios .mobile-ai-button {
+    width: 62px !important;
+    height: 62px !important;
+    background: linear-gradient(145deg, rgba(0,59,122,0.96), rgba(11,94,215,0.84)) !important;
+    border: 2px solid rgba(255,255,255,0.82) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    backdrop-filter: blur(16px) saturate(180%);
+    box-shadow: 0 16px 34px rgba(0,59,122,0.28) !important;
+  }
+
+  .platform-ios .mobile-ai-bubble {
+    background: rgba(255,255,255,0.82) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    backdrop-filter: blur(22px) saturate(180%);
+    border-color: rgba(255,255,255,0.72) !important;
+    box-shadow: var(--ios-shadow-soft) !important;
+  }
+
+  .platform-ios.mobile-login-page {
+    background:
+      radial-gradient(circle at 12% 0%, rgba(11,94,215,0.18), transparent 36%),
+      radial-gradient(circle at 95% 20%, rgba(0,59,122,0.18), transparent 32%),
+      var(--ios-bg) !important;
+  }
+
+  .platform-ios.mobile-login-page #tsparticles-mobile-login,
+  .platform-ios.mobile-login-page > div:first-child {
+    display: none !important;
+  }
+
+  .platform-ios.mobile-login-page > div:last-child {
+    background: var(--ios-glass-bg-strong) !important;
+    -webkit-backdrop-filter: blur(26px) saturate(190%);
+    backdrop-filter: blur(26px) saturate(190%);
+    border: 1px solid rgba(255,255,255,0.72);
+    border-radius: 34px 34px 0 0 !important;
+    box-shadow: 0 -22px 50px rgba(15,23,42,0.12) !important;
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .platform-ios .ios-glass,
+    .platform-ios .ios-bottom-nav-surface,
+    .platform-ios .mobile-learning-tabs,
+    .platform-ios .mobile-page .bg-white[class*="rounded"] {
+      background: rgba(255,255,255,0.94) !important;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .platform-ios *,
+    .platform-ios *::before,
+    .platform-ios *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  @keyframes iosPageIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}

@@ -36,9 +36,9 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
     }, [location]);
 
     return (
-        <div className="flex flex-col h-full w-full bg-[#F8FAFC] animate-fadeIn">
+        <div className="mobile-page mobile-learning-page flex flex-col h-full w-full bg-[#F8FAFC] animate-fadeIn">
             {/* THANH TAB TRƯỢT */}
-            <div className="bg-white px-4 py-3 border-b border-gray-200 sticky top-0 z-40 shadow-sm shrink-0">
+            <div className="mobile-learning-tabs bg-white px-4 py-3 border-b border-gray-200 sticky top-0 z-40 shadow-sm shrink-0">
                 <div className="flex bg-gray-100 p-1 rounded-xl relative">
                     <div 
                         className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-lg shadow-sm transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${activeTab === 'gpa' ? 'translate-x-0' : 'translate-x-[calc(100%+4px)]'}`}

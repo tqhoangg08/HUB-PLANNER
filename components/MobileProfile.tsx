@@ -151,7 +151,7 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
     // MÀN HÌNH LỊCH SỬ SỰ KIỆN (Giữ nguyên dạng trượt lên)
     if (showEvents) {
         return (
-            <div className="fixed inset-0 bg-[#F8FAFC] z-[100] flex flex-col animate-slideInRight pb-safe">
+            <div className="mobile-profile-page mobile-profile-history fixed inset-0 bg-[#F8FAFC] z-[100] flex flex-col animate-slideInRight pb-safe">
                 <div className="bg-[#003375] px-4 py-4 flex items-center gap-3 shadow-md shrink-0">
                     <button onClick={() => { playClick(); setShowEvents(false); }} className="p-1.5 text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors active:scale-95">
                         <ChevronLeft size={24} />
@@ -195,7 +195,7 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
     }
 
     return (
-        <div className="min-h-[100dvh] bg-[#F8FAFC] pb-24 animate-fadeIn">
+        <div className="mobile-page mobile-profile-page min-h-[100dvh] bg-[#F8FAFC] pb-24 animate-fadeIn">
             <div className="bg-[#003375] h-[170px] rounded-b-[40px] px-6 pt-10 relative">
                 <h1 className="text-[26px] font-extrabold text-white tracking-tight">Hồ sơ cá nhân</h1>
             </div>

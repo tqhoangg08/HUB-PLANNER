@@ -1180,7 +1180,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     }
 
  return (
-    <div className="w-full pb-10">
+    <div className="mobile-page mobile-dashboard-page w-full pb-10">
         {showAdminPanel ? (
             <div className="w-full space-y-4 pt-1 animate-fadeIn">
                 <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-3 -mt-2 mb-4 border-b border-gray-200/60 md:shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">                

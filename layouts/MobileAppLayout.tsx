@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Book, Calendar, LayoutDashboard, Search, User } from 'lucide-react';
 import { playClick } from '../utils/audio';
+import { usePlatform } from '../hooks/usePlatform';
 
 interface MobileAppLayoutProps {
   session: any;
@@ -56,18 +57,10 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
   const [slideDirection, setSlideDirection] = useState<'slide-left' | 'slide-right' | 'fade'>('fade');
   const [prevIndex, setPrevIndex] = useState(getTabIndex(location.pathname));
   
-  // State nhận diện hệ điều hành iOS
-  const [isIOS, setIsIOS] = useState(false);
+  const platform = usePlatform();
+  const isIOS = platform === 'ios';
 
   const currentStudentId = session?.user?.email?.split('@')[0] || 'guest';
-
-  // --- LOGIC NHẬN DIỆN OS & TAB CHÍNH ---
-  useEffect(() => {
-    // Nhận diện xem người dùng có đang xài iPhone, iPad hay không
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIOSDevice = /iphone|ipad|ipod/.test(userAgent) || (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
-    setIsIOS(isIOSDevice);
-  }, []);
 
   const EXACT_MAIN_PATHS = [
     '/dashboard',
@@ -151,11 +144,11 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] w-full relative pb-safe bg-white z-10 overflow-hidden">
+    <div className={`mobile-app-root app-root platform-${platform} flex flex-col h-[100dvh] w-full relative pb-safe bg-white z-10 overflow-hidden`}>
       <style>{ANIMATION_STYLES}</style>
 
       {/* KHU VỰC HIỂN THỊ NỘI DUNG */}
-      <main ref={mainRef} className="flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative bg-white">
+      <main ref={mainRef} className="mobile-main flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative bg-white">
         <div key={location.pathname} className={`w-full min-h-full flex flex-col animate-${slideDirection}`}>
           {children}
           {/* Vì thanh iOS lơ lửng nên phải cộng thêm padding để không bị che nội dung */}
@@ -169,8 +162,8 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
           // ==========================================
           // GIAO DIỆN iOS: LIQUID GLASS 
           // ==========================================
-          <div className="absolute bottom-6 left-4 right-4 z-50 pb-safe">
-            <div className="flex justify-around items-center h-[72px] px-2 bg-white/25 backdrop-blur-[40px] saturate-[200%] border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.1)] rounded-full">
+          <div className="mobile-bottom-nav ios-bottom-nav absolute bottom-6 left-4 right-4 z-50 pb-safe">
+            <div className="ios-bottom-nav-surface flex justify-around items-center h-[72px] px-2 bg-white/25 backdrop-blur-[40px] saturate-[200%] border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.1)] rounded-full">
               {NAV_ITEMS.map((item) => {
                 const isActive = checkIsActive(location.pathname, item.match);
                 const Icon = item.icon;
@@ -201,7 +194,7 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
           // ==========================================
           // GIAO DIỆN ANDROID: TRUYỀN THỐNG (Giữ nguyên)
           // ==========================================
-          <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-50 pb-safe">
+          <div className="mobile-bottom-nav android-bottom-nav absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-50 pb-safe">
             <div className="flex justify-around items-center h-[65px] px-2">
               {NAV_ITEMS.map((item) => {
                 const isActive = checkIsActive(location.pathname, item.match);

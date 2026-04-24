@@ -7,6 +7,7 @@ import { playClick } from '../utils/audio';
 import Particles from "react-particles";
 import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
+import { usePlatform } from '../hooks/usePlatform';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 
@@ -19,6 +20,7 @@ declare global {
 
 export const MobileLogin: React.FC = () => {
     const navigate = useNavigate();
+    const platform = usePlatform();
     const [activeTab, setActiveTab] = useState<'student' | 'admin'>('student');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -143,7 +145,7 @@ export const MobileLogin: React.FC = () => {
     }), []);
 
     return (
-        <div className="min-h-[100dvh] bg-[#003375] flex flex-col font-sans animate-fadeIn relative overflow-hidden">
+        <div className={`mobile-page mobile-login-page app-root platform-${platform} min-h-[100dvh] bg-[#003375] flex flex-col font-sans animate-fadeIn relative overflow-hidden`}>
             
             <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
             <Particles id="tsparticles-mobile-login" init={particlesInit} options={particlesOptions} className="absolute inset-0 z-0 pointer-events-none" />

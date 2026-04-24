@@ -885,8 +885,8 @@ export const MobileHandbook: React.FC = () => {
     const headerInfo = getTabHeaderInfo(activeTab);
 
     return (
-        <div className="w-full pb-10 min-h-[100dvh] bg-[#F8FAFC] flex flex-col font-sans relative">
-            <div className="bg-[#003375] px-4 pt-12 pb-4 text-white shrink-0 sticky top-0 z-40 shadow-md">
+        <div className="mobile-page mobile-handbook-page w-full pb-10 min-h-[100dvh] bg-[#F8FAFC] flex flex-col font-sans relative">
+            <div className="mobile-handbook-header bg-[#003375] px-4 pt-12 pb-4 text-white shrink-0 sticky top-0 z-40 shadow-md">
                 <div className="flex items-center justify-between">
                     <button onClick={() => { playClick(); navigate(-1); }} className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors active:scale-95 -ml-2">
                         <ChevronLeft size={24} />

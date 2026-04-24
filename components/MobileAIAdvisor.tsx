@@ -7,6 +7,7 @@ import { playClick } from '../utils/audio';
 import { supabase } from '../utils/supabase'; 
 import DOMPurify from 'dompurify';
 import { createPortal } from 'react-dom';
+import { usePlatform } from '../hooks/usePlatform';
 
 interface AIAdvisorProps {
   data: UserData;
@@ -33,6 +34,8 @@ interface ChatSessionLog {
 }
 
 export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
+  const platform = usePlatform();
+  const isIOS = platform === 'ios';
   const [isOpen, setIsOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false); 
   const [loading, setLoading] = useState(false);
@@ -67,7 +70,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   }, [bubbleDismissed, isOpen]);
 
   // --- DRAGGABLE FLOATING BUTTON STATE ---
-  const [pos, setPos] = useState({ x: window.innerWidth - 70, y: window.innerHeight - 150 });
+  const [pos, setPos] = useState({ x: window.innerWidth - 70, y: window.innerHeight - (isIOS ? 190 : 150) });
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef({ startX: 0, startY: 0, initX: 0, initY: 0 });
 
@@ -350,7 +353,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                   )
               }}
           >
-              <div className="relative w-56 bg-white text-gray-800 text-[11px] font-medium p-3 rounded-2xl shadow-xl border border-blue-100">
+              <div className="mobile-ai-bubble relative w-56 bg-white text-gray-800 text-[11px] font-medium p-3 rounded-2xl shadow-xl border border-blue-100">
                   <button 
                       onClick={(e) => { e.stopPropagation(); playClick(); setBubbleDismissed(true); setShowBubble(false); }} 
                       className="absolute -top-2 -right-2 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-full p-1 shadow-sm transition-colors"
@@ -370,7 +373,8 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       )}
 
       {/* DRAGGABLE CHAT BUBBLE ICON */}
-      <div 
+      <div
+        className="mobile-ai-advisor"
         style={{ left: pos.x, top: pos.y, position: 'fixed', touchAction: 'none', zIndex: 100001 }}
         onMouseDown={onDragStart}
         onMouseMove={onDragMove}
@@ -388,14 +392,14 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                         // ✨ ĐÃ SỬA: Ép tọa độ về góc dưới phải TRƯỚC KHI mở khung chat
                         setPos({
                             x: window.innerWidth - 70,
-                            y: window.innerHeight - 150
+                            y: window.innerHeight - (isIOS ? 190 : 150)
                         });
                     }
                     setIsOpen(!isOpen); 
                     setShowHistory(false); 
                 } 
             }}
-            className={`w-14 h-14 bg-[#003375] hover:bg-[#002855] text-white rounded-full shadow-[0_4px_20px_rgba(0,51,117,0.3)] flex items-center justify-center border-2 border-white transition-transform ${isDragging ? 'scale-90 cursor-grabbing' : 'cursor-grab hover:scale-105 active:scale-95 animate-float'} ${isOpen ? 'scale-90 bg-[#002855]' : ''}`}
+            className={`mobile-ai-button w-14 h-14 bg-[#003375] hover:bg-[#002855] text-white rounded-full shadow-[0_4px_20px_rgba(0,51,117,0.3)] flex items-center justify-center border-2 border-white transition-transform ${isDragging ? 'scale-90 cursor-grabbing' : 'cursor-grab hover:scale-105 active:scale-95 animate-float'} ${isOpen ? 'scale-90 bg-[#002855]' : ''}`}
         >
             {isOpen ? <X size={24} /> : <Sparkles size={24} className="text-yellow-300" />}
             
