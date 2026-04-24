@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, HelpCircle } from 'lucide-react';
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, HelpCircle, Tag } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
@@ -9,6 +9,28 @@ import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
 
 // --- Types ---
+interface UserProfile {
+  full_name?: string;
+  student_code?: string;
+}
+
+interface CourseLabel {
+  id: string;
+  type: string;
+  text?: string;
+  color: string;
+  date?: string;
+  makeupId?: string;
+}
+
+interface MakeupScheduleItem {
+  id: string;
+  originalDate: string;
+  date: string;
+  shift: string;
+  room: string;
+}
+
 interface Course {
   id: string;
   course_code: string;
@@ -21,6 +43,7 @@ interface Course {
   campus: string;
   exam_date: string;
   exam_shift: string;
+  exam_room?: string;
   cohort: string;
   major: string;
   academic_program: string;
@@ -28,6 +51,11 @@ interface Course {
   semester: string;   
   instructor?: string; 
   is_user_added?: boolean; 
+  user_schedule_id?: string;
+  user?: UserProfile;
+  labels?: CourseLabel[];
+  makeup_schedules?: MakeupScheduleItem[];
+  dateStr?: string;
 }
 
 interface MobileScheduleProps {
@@ -37,9 +65,79 @@ interface MobileScheduleProps {
 const HK_START_DATE = new Date('2026-02-02T00:00:00');
 const HOLIDAY_WEEKS = [2, 3, 4]; 
 
+const LABEL_TYPES = ['Nghỉ', 'Thi giữa kỳ', 'Thi cuối kỳ', 'Thuyết trình', 'Học online', 'Khác'];
+const LABEL_COLORS = [
+    { name: 'Đỏ', value: 'red' },
+    { name: 'Cam', value: 'orange' },
+    { name: 'Vàng', value: 'yellow' },
+    { name: 'Lục', value: 'emerald' },
+    { name: 'Lam', value: 'blue' },
+    { name: 'Tím', value: 'purple' },
+    { name: 'Hồng', value: 'rose' },
+    { name: 'Xám', value: 'gray' },
+];
+
+const FIXED_LABEL_COLORS: Record<string, string> = {
+    'Nghỉ': 'red',
+    'Thi giữa kỳ': 'yellow',
+    'Thi cuối kỳ': 'rose',
+    'Thuyết trình': 'orange',
+    'Học online': 'emerald',
+    'Học bù': 'blue'
+};
+
+const getLabelStyle = (color: string) => {
+    const styles: Record<string, string> = {
+        red: 'bg-red-50 text-red-700 border-red-200',
+        orange: 'bg-orange-50 text-orange-700 border-orange-200',
+        yellow: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+        emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        blue: 'bg-blue-50 text-blue-700 border-blue-200',
+        purple: 'bg-purple-50 text-purple-700 border-purple-200',
+        rose: 'bg-rose-50 text-rose-700 border-rose-200',
+        gray: 'bg-gray-50 text-gray-700 border-gray-200',
+    };
+    return styles[color] || styles.gray;
+};
+
+const getLabelDotColor = (color: string) => {
+    const styles: Record<string, string> = {
+        red: 'bg-red-500', orange: 'bg-orange-500', yellow: 'bg-yellow-500',
+        emerald: 'bg-emerald-500', blue: 'bg-blue-500', purple: 'bg-purple-500',
+        rose: 'bg-rose-500', gray: 'bg-gray-500',
+    };
+    return styles[color] || 'bg-gray-500';
+};
+
 // =======================================================================
 // HỆ THỐNG HELPER
 // =======================================================================
+const formatDateStr = (date: Date) => {
+    const d = date.getDate().toString().padStart(2, '0');
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const y = date.getFullYear();
+    return `${d}/${m}/${y}`;
+};
+
+const getWeekDatesFull = (weekNum: number, sem: string) => {
+    if (weekNum === 0) return ['', '', '', '', '', '', ''];
+    const dates = [];
+    const startDate = sem === 'HK1_2025_2026' ? new Date('2025-08-11T00:00:00') : new Date('2026-02-02T00:00:00');
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(startDate);
+        d.setDate(d.getDate() + (weekNum - 1) * 7 + i);
+        dates.push(formatDateStr(d));
+    }
+    return dates;
+};
+
+const getDayMonth = (dateStr?: string) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('/');
+  if (parts.length >= 2) return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}`;
+  return dateStr;
+};
+
 const getMainShiftType = (shiftStr?: string) => {
   if (!shiftStr) return '';
   const s = shiftStr.trim().toUpperCase();
@@ -131,6 +229,80 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
   return null;
 };
 
+const createInitialTagData = () => ({ type: 'Nghỉ', text: '', color: 'red', makeupDate: '', makeupShift: 'S', makeupRoom: '' });
+
+const normalizeDateInputToDisplay = (value?: string) => {
+  const rawValue = (value || '').trim();
+  if (!rawValue) return '';
+
+  const isoMatch = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+
+  const slashMatch = rawValue.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/);
+  if (slashMatch) {
+    const day = slashMatch[1].padStart(2, '0');
+    const month = slashMatch[2].padStart(2, '0');
+    return slashMatch[3] ? `${day}/${month}/${slashMatch[3]}` : `${day}/${month}`;
+  }
+
+  return rawValue;
+};
+
+const buildLabelPayload = (course: Course, labelData: ReturnType<typeof createInitialTagData>, targetDate: string) => {
+  const finalColor = labelData.type === 'Khác' ? labelData.color : FIXED_LABEL_COLORS[labelData.type];
+  const updatedLabels: CourseLabel[] = [
+    ...(course.labels || []),
+    {
+      id: Math.random().toString(36).substr(2, 9),
+      type: labelData.type,
+      text: labelData.type === 'Khác' ? labelData.text : undefined,
+      color: finalColor,
+      date: targetDate
+    }
+  ];
+
+  const updatedMakeupSchedules = [...(course.makeup_schedules || [])];
+  if (labelData.type === 'Nghỉ') {
+    const makeupDate = normalizeDateInputToDisplay(labelData.makeupDate);
+    const makeupRoom = labelData.makeupRoom.trim();
+    const makeupShift = labelData.makeupShift.trim();
+
+    if (!targetDate || !makeupDate || !makeupShift || !makeupRoom) {
+      return { error: 'Vui lòng nhập đầy đủ ngày, thời gian và phòng học bù.' };
+    }
+
+    const makeupId = Math.random().toString(36).substr(2, 9);
+    updatedLabels[updatedLabels.length - 1] = {
+      ...updatedLabels[updatedLabels.length - 1],
+      makeupId
+    };
+
+    updatedMakeupSchedules.push({
+      id: makeupId,
+      originalDate: targetDate,
+      date: makeupDate,
+      shift: makeupShift,
+      room: makeupRoom
+    });
+
+    updatedLabels.push({
+      id: Math.random().toString(36).substr(2, 9),
+      type: 'Học bù',
+      text: `Bù ${targetDate.substring(0, 5)}`,
+      color: FIXED_LABEL_COLORS['Học bù'],
+      date: makeupDate,
+      makeupId
+    });
+  }
+
+  return { updatedLabels, updatedMakeupSchedules };
+};
+
+const getLabelsForDate = (course: Course, dateStr?: string) => {
+  if (!dateStr) return course.labels || [];
+  return (course.labels || []).filter(label => label.date === dateStr || getDayMonth(label.date) === getDayMonth(dateStr));
+};
+
 const colorPalette = [
     { bg: 'bg-emerald-50', border: 'border-l-emerald-500', text: 'text-emerald-900', label: 'text-emerald-700' },
     { bg: 'bg-blue-50', border: 'border-l-blue-500', text: 'text-blue-900', label: 'text-blue-700' },
@@ -176,7 +348,8 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
   
   const [selectedCourseInfo, setSelectedCourseInfo] = useState<{
     course: Course;
-    details?: { day: number, shift: string, room: string, weeks: string };
+    details?: { day: number, shift: string, room: string, weeks: string, isMakeup?: boolean, originalDate?: string, id?: string };
+    dateStr?: string;
   } | null>(null);
 
   const [isMyScheduleModalOpen, setIsMyScheduleModalOpen] = useState(false);
@@ -199,6 +372,9 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
   const [isAdminEditModalOpen, setIsAdminEditModalOpen] = useState(false);
   const [adminEditData, setAdminEditData] = useState<Partial<Course>>({});
   const [isSavingAdminCourse, setIsSavingAdminCourse] = useState(false);
+  const [quickTagCourse, setQuickTagCourse] = useState<Course | null>(null);
+  const [quickTagData, setQuickTagData] = useState(createInitialTagData());
+  const [isSavingQuickTag, setIsSavingQuickTag] = useState(false);
 
   const today = new Date();
   const todayStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}`;
@@ -244,9 +420,22 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
     const targetId = viewUserId || user.id;
 
     try {
-      const { data, error } = await supabase.from('user_schedules').select(`course_id, semester, course_schedules (*)`).eq('user_id', targetId);
+      const { data, error } = await supabase.from('user_schedules').select(`id, course_id, semester, custom_data, course_schedules (*)`).eq('user_id', targetId);
       if (!error && data) {
-        setMySchedule(data.map((item: any) => item.course_schedules).filter(Boolean));
+        setMySchedule(data.map((item: any) => {
+            if (!item.course_schedules) return null;
+            let cData = item.custom_data;
+            if (typeof cData === 'string') {
+                try { cData = JSON.parse(cData); } catch(e) { cData = {}; }
+            }
+            return {
+                ...item.course_schedules,
+                ...(cData || {}),
+                id: item.course_schedules.id,
+                semester: item.semester || item.course_schedules.semester,
+                user_schedule_id: item.id
+            };
+        }).filter(Boolean));
       }
     } catch (error) { console.error("Lỗi kéo TKB:", error); }
   };
@@ -311,11 +500,52 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
     } catch (err) { setMySchedule(backup); }
   };
 
+  const handleQuickSaveLabel = async () => {
+      if (!quickTagCourse || !quickTagCourse.user_schedule_id) return;
+      if (quickTagData.type === 'Khác' && !quickTagData.text.trim()) {
+          alert("Vui lòng nhập tên nhãn!"); return;
+      }
+
+      setIsSavingQuickTag(true);
+      try {
+          const targetDate = quickTagCourse.dateStr || '';
+          const labelPayload = buildLabelPayload(quickTagCourse, quickTagData, targetDate);
+          if ('error' in labelPayload) {
+              alert(labelPayload.error);
+              return;
+          }
+
+          const { id, user_schedule_id, is_user_added, user, labels, dateStr, ...rest } = quickTagCourse;
+          const overrideData = {
+              ...rest,
+              labels: labelPayload.updatedLabels,
+              makeup_schedules: labelPayload.updatedMakeupSchedules
+          };
+
+          const { error } = await supabase
+              .from('user_schedules')
+              .update({ custom_data: overrideData })
+              .eq('id', quickTagCourse.user_schedule_id);
+
+          if (error) throw error;
+
+          setQuickTagCourse(null);
+          setQuickTagData(createInitialTagData());
+          await fetchMySchedule();
+      } catch (err) {
+          console.error(err);
+          alert("Lỗi khi gắn nhãn nhanh.");
+      } finally {
+          setIsSavingQuickTag(false);
+      }
+  };
+
   const getWeekDates = (weekNum: number) => {
     if (weekNum === 0) return ['', '', '', '', '', '', '']; 
     const dates = [];
+    const startDate = selectedSemester === 'HK1_2025_2026' ? new Date('2025-08-11T00:00:00') : HK_START_DATE;
     for (let i = 0; i < 7; i++) {
-      const d = new Date(HK_START_DATE);
+      const d = new Date(startDate);
       d.setDate(d.getDate() + (weekNum - 1) * 7 + i);
       dates.push(`${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`);
     }
@@ -422,6 +652,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
 
   const getCoursesForDate = (targetDate: Date, schedule: Course[]) => {
     const dayOfWeek = targetDate.getDay() === 0 ? 8 : targetDate.getDay() + 1; 
+    const targetDateStr = formatDateStr(targetDate);
     return schedule.map(course => {
       let startDate = new Date('2026-02-02T00:00:00'); 
       if (course.semester === 'HK1_2025_2026') startDate = new Date('2025-08-11T00:00:00'); 
@@ -440,6 +671,24 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
       const results = [];
       if (sDetails) results.push({ course, details: sDetails, shiftType: 'S' });
       if (cDetails) results.push({ course, details: cDetails, shiftType: 'C' });
+      (course.makeup_schedules || [])
+        .filter(item => item.date === targetDateStr || getDayMonth(item.date) === getDayMonth(targetDateStr))
+        .forEach(item => {
+          const shiftType = getMainShiftType(item.shift) || 'S';
+          results.push({
+            course,
+            details: {
+              id: item.id,
+              day: dayOfWeek,
+              shift: item.shift,
+              room: item.room,
+              weeks: 'Học bù',
+              isMakeup: true,
+              originalDate: item.originalDate
+            },
+            shiftType
+          });
+        });
       return results;
     }).flat().filter(Boolean);
   };
@@ -503,6 +752,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
   };
 
   const currentWeekDates = getWeekDates(selectedWeek);
+  const currentWeekDatesFull = getWeekDatesFull(selectedWeek, selectedSemester);
   const weekStartStr = currentWeekDates[0];
   const weekEndStr = currentWeekDates[6];
 
@@ -725,33 +975,68 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                                             </td>
                                             {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
                                                 const isTodayCol = selectedWeek !== 0 && currentWeekDates[index] === todayStr;
+                                                const cellDateShort = currentWeekDates[index];
+                                                const cellDateFull = currentWeekDatesFull[index];
                                                 const slotCourses = currentSemesterSchedule.map(c => {
                                                     const details = getCourseDetailsForSlot(c, day, selectedWeek, shift);
                                                     return details ? { course: c, slotDetails: details } : null;
                                                 }).filter(Boolean);
+                                                const makeupSlotCourses = currentSemesterSchedule.flatMap(c => (c.makeup_schedules || [])
+                                                    .filter(item => (item.date === cellDateFull || getDayMonth(item.date) === cellDateShort) && (getMainShiftType(item.shift) || 'S') === shift)
+                                                    .map(item => ({
+                                                        course: c,
+                                                        slotDetails: {
+                                                            id: item.id,
+                                                            day,
+                                                            shift: item.shift,
+                                                            room: item.room,
+                                                            weeks: 'Học bù',
+                                                            isMakeup: true,
+                                                            originalDate: item.originalDate
+                                                        }
+                                                    }))
+                                                );
+                                                const displaySlotCourses = [...slotCourses, ...makeupSlotCourses];
 
                                                 const slotExams = currentSemesterSchedule.filter(c => {
                                                     if (!c.exam_date || !c.exam_shift || selectedWeek === 0) return false; 
                                                     const examDM = getExamDayMonth(c.exam_date);
-                                                    return examDM === currentWeekDates[index] && isExamInShift(c.exam_shift, shift);
+                                                    return examDM === cellDateShort && isExamInShift(c.exam_shift, shift);
                                                 });
                                                 
                                                 return (
                                                     <td key={`${shift}-${day}`} className={`border-r border-b border-gray-100 align-top p-1 h-[120px] ${isTodayCol ? 'bg-[#F0F9FF]' : 'bg-white active:bg-gray-50'}`}>
                                                         <div className="flex flex-col gap-1.5 w-full h-full">
-                                                            {slotCourses.map(({course, slotDetails}: any) => {
+                                                            {displaySlotCourses.map(({course, slotDetails}: any) => {
                                                                 const color = getColorForCourse(course.id);
+                                                                const cellLabels = getLabelsForDate(course, cellDateFull);
                                                                 return (
-                                                                <div key={course.id} onClick={() => setSelectedCourseInfo({ course, details: slotDetails })} className={`border-l-4 ${color.border} ${color.bg} rounded-lg p-1.5 cursor-pointer w-full shrink-0 shadow-sm relative`}>
-                                                                    <h4 className={`font-bold ${color.text} text-[9px] leading-tight line-clamp-2 mb-1`}>{course.subject_name}</h4>
+                                                                <div key={`${course.id}-${slotDetails.isMakeup ? slotDetails.id : 'regular'}`} onClick={() => setSelectedCourseInfo({ course, details: slotDetails, dateStr: cellDateFull })} className={`border-l-4 ${color.border} ${color.bg} rounded-lg p-1.5 cursor-pointer w-full shrink-0 shadow-sm relative`}>
+                                                                    <button onClick={(e) => { e.stopPropagation(); setQuickTagCourse({ ...course, dateStr: cellDateFull }); }} className="absolute top-1 right-1 bg-white/90 text-blue-600 rounded p-0.5 shadow-sm border border-blue-100 active:scale-95" title="Gắn nhãn">
+                                                                        <Tag size={9}/>
+                                                                    </button>
+                                                                    {cellLabels.length > 0 && (
+                                                                        <div className="flex flex-wrap gap-0.5 mb-1 pr-5">
+                                                                            {cellLabels.slice(0, 2).map(label => (
+                                                                                <span key={label.id} className={`text-[7px] px-1 py-0.5 rounded border font-bold ${getLabelStyle(label.color)}`}>
+                                                                                    {label.type === 'Khác' ? label.text : label.type}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                    <h4 className={`font-bold ${color.text} text-[9px] leading-tight line-clamp-2 mb-1 pr-4`}>{course.subject_name}</h4>
+                                                                    {slotDetails.isMakeup && (
+                                                                        <div className={`text-[8px] ${color.label} font-bold mb-0.5`}>Học bù {slotDetails.originalDate?.substring(0, 5)}</div>
+                                                                    )}
                                                                     <div className={`text-[8px] ${color.label} font-semibold flex items-center gap-0.5`}><MapPin size={8}/> P.{slotDetails.room}</div>
                                                                 </div>
                                                                 );
                                                             })}
                                                             {slotExams.map(exam => (
-                                                                <div key={`exam-${exam.id}`} onClick={() => setSelectedCourseInfo({ course: exam })} className="border-l-2 border-l-red-500 bg-red-50 rounded-md p-1.5 cursor-pointer w-full shrink-0 shadow-sm">
+                                                                <div key={`exam-${exam.id}`} onClick={() => setSelectedCourseInfo({ course: exam, dateStr: cellDateFull })} className="border-l-2 border-l-red-500 bg-red-50 rounded-md p-1.5 cursor-pointer w-full shrink-0 shadow-sm">
                                                                     <div className="text-[7px] font-black text-white uppercase mb-0.5 bg-red-500 px-1 py-0.5 rounded w-fit">Lịch thi</div>
                                                                     <h4 className="font-bold text-red-900 text-[9px] leading-tight line-clamp-2">{exam.subject_name}</h4>
+                                                                    {exam.exam_room && <div className="text-[8px] text-red-700 font-semibold flex items-center gap-0.5 mt-0.5"><MapPin size={8}/> P.{exam.exam_room}</div>}
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -772,6 +1057,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                                     const dayCourses = getCoursesForDate(date, mySchedule);
                                     const dayExams = getExamsForDate(date, mySchedule);
                                     const isToday = new Date().toDateString() === date.toDateString();
+                                    const dateStr = formatDateStr(date);
                                     
                                     return (
                                         <div key={date.toISOString()} className={`bg-white min-h-[70px] p-1 ${isToday ? 'bg-[#F0F9FF]' : ''}`}>
@@ -781,14 +1067,16 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                                             <div className="flex flex-col gap-0.5 px-0.5">
                                                 {dayCourses.map((item: any, i: number) => {
                                                     const color = getColorForCourse(item.course.id);
+                                                    const itemLabels = getLabelsForDate(item.course, dateStr);
                                                     return (
-                                                        <div key={i} onClick={() => setSelectedCourseInfo({course: item.course, details: item.details})} className={`text-[7px] px-1 py-0.5 rounded truncate font-semibold ${color.bg} ${color.text} border-l-2 ${color.border}`}>
-                                                            {item.course.subject_name}
+                                                        <div key={i} onClick={() => setSelectedCourseInfo({course: item.course, details: item.details, dateStr})} className={`text-[7px] px-1 py-0.5 rounded truncate font-semibold ${color.bg} ${color.text} border-l-2 ${color.border}`}>
+                                                            {item.details?.isMakeup ? 'Bù: ' : ''}{item.course.subject_name}
+                                                            {itemLabels.length > 0 && <span className="ml-1 font-black">•</span>}
                                                         </div>
                                                     );
                                                 })}
                                                 {dayExams.map((exam: any, i: number) => (
-                                                    <div key={`exam-${i}`} onClick={() => setSelectedCourseInfo({course: exam})} className="text-[7px] px-1 py-0.5 rounded truncate bg-red-50 text-red-700 border-l-2 border-l-red-500 font-bold">
+                                                    <div key={`exam-${i}`} onClick={() => setSelectedCourseInfo({course: exam, dateStr})} className="text-[7px] px-1 py-0.5 rounded truncate bg-red-50 text-red-700 border-l-2 border-l-red-500 font-bold">
                                                         Thi: {exam.subject_name}
                                                     </div>
                                                 ))}
@@ -818,8 +1106,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
 
         {/* MODAL CHI TIẾT MÔN HỌC */}
         {selectedCourseInfo && (() => {
-            const course = selectedCourseInfo.course;
+            const baseCourse = selectedCourseInfo.course;
+            const course = currentSemesterSchedule.find(c => c.id === baseCourse.id) || baseCourse;
             const details = selectedCourseInfo.details;
+            const selectedDateStr = selectedCourseInfo.dateStr;
+            const modalLabels = getLabelsForDate(course, selectedDateStr);
             let timeDisplayValue = '';
             if (details) {
                 timeDisplayValue = [`Thứ ${details.day}`, getShiftDisplay(details.shift), getCourseTimeLabel(details.shift)].filter(Boolean).join('\n');

@@ -280,7 +280,7 @@ const PdfExportModal = ({
             >
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
-                        <Download size={18} className="text-[#003375]" /> Chọn phạm vi xuất PDF
+                        <Download size={18} className="text-[#003375]" /> Chọn phạm vi in PDF
                     </h3>
                     <button
                         onClick={onClose}
@@ -295,7 +295,7 @@ const PdfExportModal = ({
                     <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-sm font-bold text-[#003375]">Xuất bảng điểm toàn khóa</p>
+                                <p className="text-sm font-bold text-[#003375]">In bảng điểm toàn khóa</p>
                                 <p className="text-xs text-gray-600 mt-1">
                                     Gộp toàn bộ học kỳ hợp lệ vào một file PDF duy nhất.
                                 </p>
@@ -308,14 +308,14 @@ const PdfExportModal = ({
                             className="mt-4 w-full py-2.5 bg-[#003375] hover:bg-[#002759] text-white font-bold rounded-lg text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                            {isExporting ? 'Đang chuẩn bị PDF...' : 'Xuất toàn khóa'}
+                            {isExporting ? 'Đang chuẩn bị PDF...' : 'In toàn khóa'}
                         </button>
                     </div>
 
                     <div className="space-y-3">
                         <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
                             <Calendar className="w-4 h-4 text-[#003375]" />
-                            <span>Xuất bảng điểm theo năm học</span>
+                            <span>In bảng điểm theo năm học</span>
                         </div>
 
                         {yearOptions.length > 0 ? (
@@ -350,7 +350,7 @@ const PdfExportModal = ({
                             ))
                         ) : (
                             <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
-                                Chưa có năm học hợp lệ để xuất riêng.
+                                Chưa có năm học hợp lệ để in riêng.
                             </div>
                         )}
                     </div>
@@ -1421,7 +1421,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         playClick();
 
         if (validDataSemesters.length === 0) {
-            alert('Chưa có dữ liệu học kỳ hợp lệ để xuất PDF.');
+            alert('Chưa có dữ liệu học kỳ hợp lệ để in PDF.');
             return;
         }
 
@@ -1525,7 +1525,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     
                     <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
                         <button className="shrink-0 px-3 py-1.5 bg-white text-gray-600 text-xs font-semibold border border-gray-300 hover:bg-gray-50 rounded-lg flex items-center gap-1.5 transition-colors">
-                            <Download size={14} /> <span className="hidden sm:inline">Xuất danh sách</span><span className="sm:hidden">Xuất</span>
+                            <Download size={14} /> <span className="hidden sm:inline">In danh sách</span><span className="sm:hidden">In</span>
                         </button>
                         <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="shrink-0 px-3 py-1.5 bg-[#0052cc] border border-transparent text-white text-xs font-bold rounded-lg hover:bg-[#003d99] flex items-center gap-1.5 transition-colors">
                             <User size={14} /> Hồ sơ của tôi
@@ -2096,8 +2096,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 className="text-gray-600 bg-white border border-gray-300 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1 sm:gap-2 active:scale-95"
                             >
                                 <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
-                                <span className="hidden sm:inline">Xuất PDF</span>
-                                <span className="sm:hidden">Xuất</span>
+                                <span className="hidden sm:inline">In bảng điểm</span>
+                                <span className="sm:hidden">In</span>
                             </button>
 
                             <div>

@@ -55,10 +55,20 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
   
   const [slideDirection, setSlideDirection] = useState<'slide-left' | 'slide-right' | 'fade'>('fade');
   const [prevIndex, setPrevIndex] = useState(getTabIndex(location.pathname));
+  
+  // State nhận diện hệ điều hành iOS
+  const [isIOS, setIsIOS] = useState(false);
 
   const currentStudentId = session?.user?.email?.split('@')[0] || 'guest';
 
-  // --- LOGIC MỚI: Xác định khi nào hiển thị Bottom Navigation ---
+  // --- LOGIC NHẬN DIỆN OS & TAB CHÍNH ---
+  useEffect(() => {
+    // Nhận diện xem người dùng có đang xài iPhone, iPad hay không
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isIOSDevice = /iphone|ipad|ipod/.test(userAgent) || (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
+    setIsIOS(isIOSDevice);
+  }, []);
+
   const EXACT_MAIN_PATHS = [
     '/dashboard',
     '/mobile-home',
@@ -69,10 +79,7 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
     `/profile/${currentStudentId}`
   ];
 
-  // Loại bỏ dấu '/' ở cuối (nếu có) để so sánh URL chính xác nhất
   const currentPath = location.pathname.replace(/\/$/, '');
-  
-  // Biến cờ: true nếu URL hiện tại nằm trong danh sách các tab chính
   const showBottomNav = EXACT_MAIN_PATHS.includes(currentPath);
   // --------------------------------------------------------------
 
@@ -90,7 +97,6 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
     
     setPrevIndex(currentIndex);
 
-    // Cuộn lên đầu trang mượt mà
     if (mainRef.current) {
       mainRef.current.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
     }
@@ -128,7 +134,7 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
       match: ['/lost-found'], 
       icon: Search, 
       label: 'Tìm đồ', 
-      iconActiveStyle: 'stroke-[3px]' // Search dùng stroke thay vì fill
+      iconActiveStyle: 'stroke-[3px]' 
     },
     { 
       id: 'profile', 
@@ -148,44 +154,78 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
     <div className="flex flex-col h-[100dvh] w-full relative pb-safe bg-white z-10 overflow-hidden">
       <style>{ANIMATION_STYLES}</style>
 
-      {/* KHU VỰC HIỂN THỊ NỘI DUNG CÁC TRANG */}
+      {/* KHU VỰC HIỂN THỊ NỘI DUNG */}
       <main ref={mainRef} className="flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative bg-white">
         <div key={location.pathname} className={`w-full min-h-full flex flex-col animate-${slideDirection}`}>
           {children}
-          {/* Khoảng trống đệm: CHỈ HIỂN THỊ KHI CÓ THANH NAV ĐỂ TRÁNH BỊ LẤP NỘI DUNG */}
-          {showBottomNav && <div className="h-24 w-full shrink-0"></div>}
+          {/* Vì thanh iOS lơ lửng nên phải cộng thêm padding để không bị che nội dung */}
+          {showBottomNav && <div className={`${isIOS ? 'h-32' : 'h-24'} w-full shrink-0`}></div>}
         </div>
       </main>
 
-      {/* THANH MENU DƯỚI ĐÁY: CHỈ HIỂN THỊ KHI ĐANG Ở 5 TAB CHÍNH */}
+      {/* THANH MENU DƯỚI ĐÁY */}
       {showBottomNav && (
-        <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-50 pb-safe">
-          <div className="flex justify-around items-center h-[65px] px-2">
-            {NAV_ITEMS.map((item) => {
-              const isActive = checkIsActive(location.pathname, item.match);
-              const Icon = item.icon;
+        isIOS ? (
+          // ==========================================
+          // GIAO DIỆN iOS: LIQUID GLASS (Nổi bồng bềnh)
+          // ==========================================
+          <div className="absolute bottom-6 left-4 right-4 z-50 pb-safe">
+            <div className="flex justify-around items-center h-[72px] px-2 bg-white/70 backdrop-blur-2xl saturate-[150%] border border-white/50 shadow-[0_8px_32px_rgba(0,0,0,0.1)] rounded-[36px]">
+              {NAV_ITEMS.map((item) => {
+                const isActive = checkIsActive(location.pathname, item.match);
+                const Icon = item.icon;
 
-              return (
-                <NavLink 
-                  key={item.id}
-                  to={item.path} 
-                  onClick={playClick}
-                  className={`flex flex-col items-center justify-center w-full h-full gap-1.5 transition-colors ${
-                    isActive ? 'text-[#003375]' : 'text-gray-400 hover:text-gray-600'
-                  }`} 
-                >
-                  <Icon 
-                    size={24} 
-                    className={`transition-all duration-300 ${
-                      isActive ? `text-[#003375] ${item.iconActiveStyle}` : ''
+                return (
+                  <NavLink 
+                    key={item.id}
+                    to={item.path} 
+                    onClick={playClick}
+                    className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
+                      isActive ? 'text-[#003375]' : 'text-gray-400 hover:text-gray-500'
                     }`} 
-                  />
-                  <span className="text-[10px] font-bold">{item.label}</span>
-                </NavLink>
-              );
-            })}
+                  >
+                    <div className={`p-1.5 rounded-full transition-all duration-300 ${isActive ? 'bg-[#003375]/10 scale-110' : 'scale-100'}`}>
+                      <Icon 
+                        size={22} 
+                        className={`transition-all duration-300 ${isActive ? `text-[#003375] ${item.iconActiveStyle}` : ''}`} 
+                      />
+                    </div>
+                    <span className={`text-[10px] ${isActive ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : (
+          // ==========================================
+          // GIAO DIỆN ANDROID: TRUYỀN THỐNG (Giữ nguyên)
+          // ==========================================
+          <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-50 pb-safe">
+            <div className="flex justify-around items-center h-[65px] px-2">
+              {NAV_ITEMS.map((item) => {
+                const isActive = checkIsActive(location.pathname, item.match);
+                const Icon = item.icon;
+
+                return (
+                  <NavLink 
+                    key={item.id}
+                    to={item.path} 
+                    onClick={playClick}
+                    className={`flex flex-col items-center justify-center w-full h-full gap-1.5 transition-colors ${
+                      isActive ? 'text-[#003375]' : 'text-gray-400 hover:text-gray-600'
+                    }`} 
+                  >
+                    <Icon 
+                      size={24} 
+                      className={`transition-all duration-300 ${isActive ? `text-[#003375] ${item.iconActiveStyle}` : ''}`} 
+                    />
+                    <span className="text-[10px] font-bold">{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          </div>
+        )
       )}
     </div>
   );
