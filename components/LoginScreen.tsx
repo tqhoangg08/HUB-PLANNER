@@ -1,239 +1,353 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
-import { User, Key, ArrowLeft, Loader2, Shield, AlertCircle, GraduationCap, Mail, Lock, CheckCircle2, ShieldCheck } from 'lucide-react';
+import {
+    AlertCircle,
+    ArrowLeft,
+    CheckCircle2,
+    Eye,
+    EyeOff,
+    GraduationCap,
+    Loader2,
+    Lock,
+    Mail,
+    ShieldCheck,
+    Sparkles
+} from 'lucide-react';
 import { playClick } from '../utils/audio';
-
-import Particles from "react-particles";
-import { loadSlim } from "tsparticles-slim";
-import type { Engine, ISourceOptions } from "tsparticles-engine";
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 
+type LoginMode = 'student' | 'admin';
+
+const easingClass = 'transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]';
+
+const GoogleIcon = () => (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.24.81-.6z" fill="#FBBC05" />
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+    </svg>
+);
+
+const BrandMark = ({ compact = false }: { compact?: boolean }) => (
+    <div className={`flex items-center ${compact ? 'gap-2' : 'gap-3'}`}>
+        <div className={`${compact ? 'h-10 w-10' : 'h-12 w-12'} rounded-2xl bg-white/95 flex items-center justify-center border border-white/30 shadow-sm`}>
+            <img
+                src="/logo.png"
+                alt="HUB Planner"
+                className={`${compact ? 'h-7 w-7' : 'h-8 w-8'} object-contain`}
+                onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                }}
+            />
+        </div>
+        <div>
+            <p className="text-sm font-extrabold tracking-wide text-white">HUB PLANNER</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-100">Hỗ trợ sinh viên</p>
+        </div>
+    </div>
+);
+
+const TermsCheckbox = ({
+    checked,
+    onChange,
+    id
+}: {
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+    id: string;
+}) => (
+    <label htmlFor={id} className="flex cursor-pointer items-start gap-3 rounded-xl px-1 py-1 text-left">
+        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
+            <input
+                id={id}
+                type="checkbox"
+                className="peer sr-only"
+                checked={checked}
+                onChange={(e) => {
+                    playClick();
+                    onChange(e.target.checked);
+                }}
+            />
+            <span className="h-5 w-5 rounded-md border-2 border-slate-300 bg-white transition-colors peer-checked:border-[#003B7A] peer-checked:bg-[#003B7A] peer-focus-visible:ring-4 peer-focus-visible:ring-[rgba(11,94,215,0.14)]" />
+            <svg className={`pointer-events-none absolute h-3.5 w-3.5 text-white transition-transform ${checked ? 'scale-100' : 'scale-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+        </span>
+        <span className="text-xs leading-5 text-slate-500">
+            Tôi đồng ý với{' '}
+            <Link to="/terms" onClick={(e) => e.stopPropagation()} className="font-semibold text-[#003B7A] hover:underline">
+                Điều khoản sử dụng
+            </Link>{' '}
+            và{' '}
+            <Link to="/privacy" onClick={(e) => e.stopPropagation()} className="font-semibold text-[#003B7A] hover:underline">
+                Chính sách bảo mật
+            </Link>
+        </span>
+    </label>
+);
+
 export const LoginScreen: React.FC = () => {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<'student' | 'admin'>('student');
+    const [mode, setMode] = useState<LoginMode>('student');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [agreed, setAgreed] = useState(false); // Thêm state quản lý checkbox
+    const [agreed, setAgreed] = useState(false);
 
-    const particlesInit = useCallback(async (engine: Engine) => {
-        await loadSlim(engine);
-    }, []);
-
-    const particlesOptions = useMemo((): ISourceOptions => ({
-        fullScreen: { enable: false },
-        fpsLimit: 60,
-        particles: {
-            number: { value: 20, density: { enable: true, area: 800 } },
-            color: { value: ["#003375", "#93C5FD", "#E2E8F0"] },
-            shape: { type: "circle" },
-            opacity: {
-                value: { min: 0.1, max: 0.4 },
-                animation: { enable: true, speed: 0.5, minimumValue: 0.1, sync: false }
-            },
-            size: { value: { min: 2, max: 5 } },
-            move: { enable: true, speed: { min: 0.5, max: 1.5 }, direction: "top", random: true, outModes: { default: "out" } },
-        },
-        detectRetina: true,
-    }), []);
-
-    const handleAdminLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!agreed) return; // Bảo mật 2 lớp
-        if (!supabase) return setError("Chưa cấu hình kết nối Database.");
-        setLoading(true); setError(null); playClick();
-
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) setError("Thông tin đăng nhập không chính xác.");
-        else navigate('/');
-        
+    const switchMode = (nextMode: LoginMode) => {
+        if (mode === nextMode) return;
+        playClick();
+        setMode(nextMode);
+        setError(null);
         setLoading(false);
     };
 
-const handleGoogleLogin = async () => {
-        if (!agreed) return; 
-        if (!supabase) return setError("Chưa cấu hình kết nối Database.");
-        setLoading(true); setError(null); playClick();
+    const handleAdminLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!agreed) return;
+        if (!supabase) return setError('Chưa cấu hình kết nối Database.');
+
+        setLoading(true);
+        setError(null);
+        playClick();
+
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) setError('Email hoặc mật khẩu không chính xác.');
+        else navigate('/');
+
+        setLoading(false);
+    };
+
+    const handleGoogleLogin = async () => {
+        if (!agreed) return;
+        if (!supabase) return setError('Chưa cấu hình kết nối Database.');
+
+        setLoading(true);
+        setError(null);
+        playClick();
 
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                // 👇 Chỉ thẳng vào trang dashboard để không bị chuyển hướng làm rớt token
                 redirectTo: `${window.location.origin}/dashboard`,
                 queryParams: { hd: SCHOOL_DOMAIN, prompt: 'select_account' },
             },
         });
 
         if (error) {
-            setError(error.message);
+            setError(error.message || `Vui lòng sử dụng email sinh viên có đuôi @${SCHOOL_DOMAIN}.`);
             setLoading(false);
         }
     };
 
+    const panelTitle = mode === 'student' ? 'Xin chào sinh viên!' : 'Chào mừng quản trị viên!';
+    const panelDescription = mode === 'student'
+        ? 'Đăng nhập bằng tài khoản sinh viên HUB để tiếp tục sử dụng HUB Planner.'
+        : 'Đăng nhập để quản lý thông báo, dữ liệu và các tiện ích hỗ trợ sinh viên.';
+
     return (
-        <div className="h-[100dvh] w-full relative flex flex-col items-center justify-center p-4 bg-[#F8FAFC] overflow-hidden">
-            
-            {/* Background Decor */}
-            <div className="absolute top-[-10%] left-[-10%] w-72 h-72 bg-blue-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-30 animate-blob"></div>
-            <div className="absolute top-[20%] right-[-10%] w-72 h-72 bg-purple-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-blob animation-delay-2000"></div>
-            <div className="absolute bottom-[-10%] left-[20%] w-72 h-72 bg-[#003375] rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-blob animation-delay-4000"></div>
+        <div className="relative h-[100dvh] w-full overflow-hidden bg-[#F6F8FB] text-[#0F172A]">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-[rgba(11,94,215,0.08)] blur-3xl" />
+                <div className="absolute -bottom-48 right-[-10rem] h-[28rem] w-[28rem] rounded-full bg-[rgba(0,59,122,0.08)] blur-3xl" />
+            </div>
 
-            <Particles id="tsparticles-login" init={particlesInit} options={particlesOptions} className="absolute inset-0 z-0 pointer-events-none" />
-
-            {/* Nút quay lại */}
-            <button onClick={() => { playClick(); navigate('/'); }} className="absolute top-6 left-6 flex items-center gap-2 text-gray-500 hover:text-[#003375] font-bold transition-all z-30 bg-white/80 backdrop-blur-md p-2.5 sm:px-4 sm:py-2 rounded-xl shadow-sm border border-gray-200/50 hover:shadow-md hover:-translate-y-0.5">
-                <ArrowLeft size={18} /> <span className="hidden sm:inline text-sm">Trở về</span>
+            <button
+                type="button"
+                onClick={() => {
+                    playClick();
+                    navigate('/');
+                }}
+                className="absolute left-4 top-4 z-30 inline-flex h-10 items-center gap-2 rounded-xl border border-[#E5EAF1] bg-white/90 px-3 text-sm font-semibold text-slate-600 shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:text-[#003B7A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)] sm:left-6 sm:top-6"
+            >
+                <ArrowLeft size={17} />
+                <span className="hidden sm:inline">Về trang chủ</span>
             </button>
 
-            {/* Khung Đăng Nhập Chính */}
-            <div className="relative z-30 bg-white/90 backdrop-blur-xl rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.08)] w-full max-w-[420px] border border-white p-6 sm:p-8 animate-scaleIn flex flex-col">
-                
-                {/* Header & Logo */}
-                <div className="text-center mb-6">
-                    <div className="inline-flex items-center justify-center bg-white p-3 rounded-2xl shadow-sm mb-3 border border-gray-100">
-                        <img src="logo.png" alt="HUB Logo" className="h-10 w-10 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="h-10 w-10 bg-[#003375] rounded-xl flex items-center justify-center text-white font-black text-sm">HUB</div>'; }} />
+            <main className="relative z-10 flex h-[100dvh] w-full items-center justify-center px-4 py-14 sm:px-6">
+                <section className={`auth-shell relative grid h-[min(620px,calc(100dvh-96px))] w-[min(1120px,calc(100vw-48px))] overflow-hidden rounded-[28px] border border-[#E5EAF1] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.10)] ${easingClass} animate-[authCardEnter_520ms_cubic-bezier(0.22,1,0.36,1)_both] md:grid-cols-[60%_40%]`}>
+                    <div
+                        className={`order-1 bg-gradient-to-br from-[#003B7A] via-[#003B7A] to-[#0B5ED7] p-6 text-white sm:p-8 md:absolute md:inset-y-4 md:left-4 md:z-20 md:w-[calc(40%-16px)] md:rounded-[22px] md:p-9 lg:p-10 ${easingClass} ${mode === 'student' ? 'md:translate-x-[calc(150%+24px)]' : 'md:translate-x-0'}`}
+                    >
+                        <div className="mx-auto flex h-full min-h-[220px] max-w-md flex-col justify-between gap-6 md:min-h-0">
+                            <BrandMark />
+
+                            <div className={`${easingClass} ${mode === 'admin' ? 'md:translate-x-1' : 'md:translate-x-0'}`}>
+                                <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-blue-50 backdrop-blur">
+                                    {mode === 'student' ? <GraduationCap size={14} /> : <ShieldCheck size={14} />}
+                                    {mode === 'student' ? 'Sinh viên HUB' : 'Khu vực quản trị'}
+                                </div>
+                                <h1 className="max-w-sm text-[28px] font-extrabold leading-tight tracking-tight md:text-[32px]">
+                                    {panelTitle}
+                                </h1>
+                                <p className="mt-3 max-w-[23rem] text-sm leading-6 text-blue-50/90 md:text-[15px]">
+                                    {panelDescription}
+                                </p>
+                            </div>
+
+                            <div>
+                                <div className="mb-4 grid grid-cols-2 gap-2 text-xs text-blue-50/90">
+                                    <div className="rounded-2xl border border-white/15 bg-white/10 p-3">
+                                        <Sparkles size={15} className="mb-2" />
+                                        Theo dõi học tập
+                                    </div>
+                                    <div className="rounded-2xl border border-white/15 bg-white/10 p-3">
+                                        <CheckCircle2 size={15} className="mb-2" />
+                                        Tiện ích sinh viên
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => switchMode(mode === 'student' ? 'admin' : 'student')}
+                                    className="inline-flex h-11 items-center justify-center rounded-xl border border-white/30 bg-white px-5 text-sm font-bold text-[#003B7A] transition-all hover:-translate-y-0.5 hover:bg-blue-50 hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30"
+                                >
+                                    {mode === 'student' ? 'Đăng nhập quản trị' : 'Quay lại sinh viên'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Chào mừng trở lại</h2>
-                    <p className="text-sm text-gray-500 font-medium mt-1">Vui lòng đăng nhập để tiếp tục</p>
-                </div>
 
-                {/* Tab Switcher */}
-                <div className="flex p-1 bg-gray-100/80 rounded-xl mb-6 relative">
-                    <button 
-                        onClick={() => { setActiveTab('student'); setError(null); playClick(); }} 
-                        className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 relative z-10 ${activeTab === 'student' ? 'text-[#003375] shadow-sm bg-white' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        <GraduationCap size={18} /> Sinh viên
-                    </button>
-                    <button 
-                        onClick={() => { setActiveTab('admin'); setError(null); playClick(); }} 
-                        className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 relative z-10 ${activeTab === 'admin' ? 'text-[#990000] shadow-sm bg-white' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        <ShieldCheck size={18} /> Quản trị
-                    </button>
-                </div>
+                    <div className={`order-2 h-full items-center px-6 py-7 sm:px-10 md:absolute md:inset-y-0 md:left-0 md:flex md:w-[60%] md:px-12 md:py-8 lg:px-16 ${mode === 'student' ? 'flex' : 'hidden'} ${easingClass} ${mode === 'admin' ? 'md:pointer-events-none md:translate-x-[-18px] md:opacity-0' : 'md:pointer-events-auto md:translate-x-0 md:opacity-100'}`}>
+                        <div className="mx-auto w-full max-w-md">
+                            <div className="mb-6 text-center md:text-left">
+                                <p className="text-sm font-semibold text-[#0B5ED7]">HUB Planner</p>
+                                <h2 className="mt-2 text-[28px] font-extrabold leading-tight tracking-tight text-slate-950 md:text-[32px]">Chào mừng trở lại</h2>
+                                <p className="mt-2 text-sm leading-6 text-slate-500">Sử dụng tài khoản sinh viên HUB để tiếp tục.</p>
+                            </div>
 
-                {/* Nội dung Form */}
-                <div className="w-full">
-                    {error && (
-                        <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm flex items-start gap-2 border border-red-100 mb-5 animate-shake">
-                            <AlertCircle size={18} className="shrink-0 mt-0.5" /> 
-                            <span className="leading-snug font-semibold">{error}</span>
+                            {mode === 'student' && error && (
+                                <div className="mb-5 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-3 text-sm font-semibold text-[#DC2626]">
+                                    <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                                    <span>{error}</span>
+                                </div>
+                            )}
+
+                            <div className="mb-5 flex gap-3 rounded-2xl border border-blue-100 bg-blue-50/70 p-3.5 text-sm text-slate-600">
+                                <CheckCircle2 className="mt-0.5 shrink-0 text-[#0B5ED7]" size={18} />
+                                <span>Chỉ hỗ trợ email sinh viên có đuôi <strong className="font-bold text-[#003B7A]">@{SCHOOL_DOMAIN}</strong></span>
+                            </div>
+
+                            <TermsCheckbox checked={agreed} onChange={setAgreed} id="student-terms" />
+
+                            <button
+                                type="button"
+                                onClick={handleGoogleLogin}
+                                disabled={loading || !agreed || mode !== 'student'}
+                                className="mt-5 flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-800 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:bg-slate-50 hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)] disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none disabled:hover:translate-y-0"
+                            >
+                                {loading && mode === 'student' ? <Loader2 className="animate-spin" size={18} /> : <GoogleIcon />}
+                                {loading && mode === 'student' ? 'Đang kết nối...' : 'Tiếp tục với Google'}
+                            </button>
+
+                            <p className="mt-5 text-center text-sm text-slate-500">
+                                Bạn là quản trị viên?{' '}
+                                <button type="button" onClick={() => switchMode('admin')} className="font-bold text-[#003B7A] hover:underline focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)]">
+                                    Đăng nhập tại đây
+                                </button>
+                            </p>
                         </div>
-                    )}
+                    </div>
 
-                    {activeTab === 'admin' ? (
-                        <form onSubmit={handleAdminLogin} className="space-y-4 animate-fadeIn">
-                            <div className="space-y-1">
-                                <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider ml-1">Email quản trị</label>
-                                <div className="relative group">
-                                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#990000] transition-colors" size={18} />
-                                    <input 
-                                        type="email" required 
-                                        className="w-full pl-10 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#990000]/20 focus:border-[#990000] outline-none transition-all text-sm text-gray-900 font-medium placeholder-gray-400" 
-                                        placeholder="admin@domain.com" 
-                                        value={email} onChange={e => setEmail(e.target.value)} 
-                                    />
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider ml-1">Mật khẩu</label>
-                                <div className="relative group">
-                                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#990000] transition-colors" size={18} />
-                                    <input 
-                                        type="password" required 
-                                        className="w-full pl-10 pr-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#990000]/20 focus:border-[#990000] outline-none transition-all text-sm text-gray-900 font-medium placeholder-gray-400" 
-                                        placeholder="••••••••" 
-                                        value={password} onChange={e => setPassword(e.target.value)} 
-                                    />
-                                </div>
+                    <div className={`order-3 h-full items-center px-6 py-7 sm:px-10 md:absolute md:inset-y-0 md:right-0 md:flex md:w-[60%] md:px-12 md:py-8 lg:px-16 ${mode === 'admin' ? 'flex' : 'hidden'} ${easingClass} ${mode === 'admin' ? 'md:pointer-events-auto md:translate-x-0 md:opacity-100' : 'md:pointer-events-none md:translate-x-[18px] md:opacity-0'}`}>
+                        <form onSubmit={handleAdminLogin} className="mx-auto w-full max-w-md">
+                            <div className="mb-6 text-center md:text-left">
+                                <p className="text-sm font-semibold text-[#0B5ED7]">Khu vực quản trị</p>
+                                <h2 className="mt-2 text-[28px] font-extrabold leading-tight tracking-tight text-slate-950 md:text-[32px]">Đăng nhập quản trị</h2>
+                                <p className="mt-2 text-sm leading-6 text-slate-500">Dành cho cán bộ và quản trị viên hệ thống HUB Planner.</p>
                             </div>
 
-                            {/* Checkbox Đồng ý Admin */}
-                            <label className="flex items-start gap-2.5 cursor-pointer group px-1 pt-1">
-                                <div className="relative flex items-center justify-center mt-0.5 shrink-0">
-                                    <input 
-                                        type="checkbox" 
-                                        className="peer sr-only" 
-                                        checked={agreed} 
-                                        onChange={(e) => { playClick(); setAgreed(e.target.checked); }} 
-                                    />
-                                    <div className="w-4 h-4 rounded border-2 border-gray-300 peer-checked:bg-[#990000] peer-checked:border-[#990000] transition-all flex items-center justify-center bg-white group-hover:border-[#990000]/50">
-                                        <svg className={`w-3 h-3 text-white transition-transform duration-200 ${agreed ? 'scale-100' : 'scale-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                        </svg>
+                            {mode === 'admin' && error && (
+                                <div className="mb-5 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-3 text-sm font-semibold text-[#DC2626]">
+                                    <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                                    <span>{error}</span>
+                                </div>
+                            )}
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label htmlFor="admin-email" className="mb-1.5 block text-sm font-semibold text-slate-700">Email quản trị</label>
+                                    <div className="relative">
+                                        <Mail className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                        <input
+                                            id="admin-email"
+                                            type="email"
+                                            required
+                                            placeholder="admin@example.com"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            className="h-12 w-full rounded-xl border border-[#E5EAF1] bg-white pl-10 pr-4 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.14)]"
+                                        />
                                     </div>
                                 </div>
-                                <span className="text-[11px] text-gray-500 leading-snug select-none">
-                                    Tôi đồng ý với các <Link to="/terms" onClick={(e) => e.stopPropagation()} className="text-[#990000] font-bold hover:underline">Điều khoản sử dụng</Link> và <Link to="/privacy" onClick={(e) => e.stopPropagation()} className="text-[#990000] font-bold hover:underline">Chính sách bảo mật</Link>
-                                </span>
-                            </label>
 
-                            <button 
-                                type="submit" 
-                                disabled={loading || !agreed} 
-                                className="w-full bg-gradient-to-r from-[#990000] to-[#7a0000] text-white font-bold py-3 rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex justify-center items-center gap-2 disabled:opacity-50 disabled:hover:translate-y-0 disabled:cursor-not-allowed disabled:shadow-none mt-1"
+                                <div>
+                                    <label htmlFor="admin-password" className="mb-1.5 block text-sm font-semibold text-slate-700">Mật khẩu</label>
+                                    <div className="relative">
+                                        <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                        <input
+                                            id="admin-password"
+                                            type={showPassword ? 'text' : 'password'}
+                                            required
+                                            placeholder="Nhập mật khẩu"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            className="h-12 w-full rounded-xl border border-[#E5EAF1] bg-white pl-10 pr-11 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.14)]"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(prev => !prev)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 transition-colors hover:text-[#003B7A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)]"
+                                            aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                                        >
+                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-4">
+                                <TermsCheckbox checked={agreed} onChange={setAgreed} id="admin-terms" />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={loading || !agreed || mode !== 'admin'}
+                                className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#003B7A] px-4 text-sm font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#002F61] hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.18)] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-white disabled:shadow-none disabled:hover:translate-y-0"
                             >
-                                {loading ? <Loader2 className="animate-spin" size={18} /> : 'Đăng nhập'}
+                                {loading && mode === 'admin' ? <Loader2 className="animate-spin" size={18} /> : null}
+                                {loading && mode === 'admin' ? 'Đang đăng nhập...' : 'Đăng nhập'}
                             </button>
+
+                            <p className="mt-5 text-center text-sm text-slate-500">
+                                <button type="button" onClick={() => switchMode('student')} className="font-bold text-[#003B7A] hover:underline focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)]">
+                                    Quay lại đăng nhập sinh viên
+                                </button>
+                            </p>
                         </form>
-                    ) : (
-                        <div className="space-y-4 animate-fadeIn">
-                            <div className="bg-blue-50/70 p-3.5 rounded-xl border border-blue-100 flex gap-2.5 items-start">
-                                <CheckCircle2 className="text-[#003375] shrink-0 mt-0.5" size={16} />
-                                <div className="text-[11px] text-gray-600 leading-relaxed">
-                                    <p className="font-bold text-[#003375] mb-0.5">Dành cho sinh viên HUB</p>
-                                    Chỉ hỗ trợ tài khoản email có đuôi <strong className="text-[#003375]">@{SCHOOL_DOMAIN}</strong>.
-                                </div>
-                            </div>
+                    </div>
+                </section>
+            </main>
 
-                            {/* Checkbox Đồng ý Sinh viên */}
-                            <label className="flex items-start gap-2.5 cursor-pointer group px-1">
-                                <div className="relative flex items-center justify-center mt-0.5 shrink-0">
-                                    <input 
-                                        type="checkbox" 
-                                        className="peer sr-only" 
-                                        checked={agreed} 
-                                        onChange={(e) => { playClick(); setAgreed(e.target.checked); }} 
-                                    />
-                                    <div className="w-4 h-4 rounded border-2 border-gray-300 peer-checked:bg-[#003375] peer-checked:border-[#003375] transition-all flex items-center justify-center bg-white group-hover:border-[#003375]/50">
-                                        <svg className={`w-3 h-3 text-white transition-transform duration-200 ${agreed ? 'scale-100' : 'scale-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                    </div>
-                                </div>
-                                <span className="text-[11px] text-gray-500 leading-snug select-none">
-                                    Tôi đồng ý với các <Link to="/terms" onClick={(e) => e.stopPropagation()} className="text-[#003375] font-bold hover:underline">Điều khoản sử dụng</Link> và <Link to="/privacy" onClick={(e) => e.stopPropagation()} className="text-[#003375] font-bold hover:underline">Chính sách bảo mật</Link>
-                                </span>
-                            </label>
+            <style>{`
+                @keyframes authCardEnter {
+                    from { opacity: 0; transform: translateY(12px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
 
-                            <button 
-                                type="button" 
-                                onClick={handleGoogleLogin} 
-                                disabled={loading || !agreed} 
-                                className="w-full bg-white border-2 border-gray-200 text-gray-800 font-bold py-3.5 rounded-xl hover:bg-gray-50 hover:border-blue-300 hover:shadow-md transition-all duration-200 flex justify-center items-center gap-3 group disabled:opacity-50 disabled:hover:bg-white disabled:hover:border-gray-200 disabled:hover:shadow-none disabled:cursor-not-allowed"
-                            >
-                                <svg className={`w-5 h-5 transition-transform ${(!loading && agreed) ? 'group-hover:scale-110' : ''}`} viewBox="0 0 24 24">
-                                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.24.81-.6z" fill="#FBBC05" />
-                                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                                </svg>
-                                <span className="text-sm">{loading ? 'Đang kết nối...' : 'Tiếp tục với Google'}</span>
-                                {loading && <Loader2 className="animate-spin text-gray-500 absolute right-6" size={18} />}
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-            
-            {/* Footer Links - Dành riêng nếu cần, nhưng mình đã đưa links vào checkbox cho tinh gọn */}
-            <div className="absolute bottom-6 flex flex-col items-center gap-1.5 w-full z-10">
-                <p className="text-[10px] text-gray-400">© {new Date().getFullYear()} HUB Planner. All rights reserved.</p>
-            </div>
+                @media (max-width: 767px) {
+                    .auth-shell {
+                        width: calc(100vw - 32px);
+                        height: calc(100dvh - 88px);
+                        min-height: 0;
+                        overflow-y: auto;
+                    }
+                }
+            `}</style>
         </div>
     );
 };
