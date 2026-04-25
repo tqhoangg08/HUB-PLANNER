@@ -281,16 +281,15 @@
     box-shadow: 0 -22px 50px rgba(15,23,42,0.12) !important;
   }
 
-  /* Refined Liquid Glass pass for data-heavy mobile screens. */
+  /* iOS skin for learning/dashboard/schedule: keep the original UI, add only subtle iOS polish. */
   .platform-ios .mobile-dashboard-page,
   .platform-ios .mobile-schedule-page {
     background:
-      radial-gradient(circle at top left, rgba(11,94,215,0.08), transparent 320px),
-      radial-gradient(circle at bottom right, rgba(0,199,190,0.06), transparent 280px),
+      radial-gradient(circle at top left, rgba(11,94,215,0.045), transparent 300px),
+      radial-gradient(circle at bottom right, rgba(0,199,190,0.035), transparent 260px),
       #F8FAFC !important;
-    padding-top: 8px !important;
-    padding-inline: 20px !important;
-    padding-bottom: calc(132px + env(safe-area-inset-bottom)) !important;
+    padding-inline: 0 !important;
+    padding-bottom: calc(118px + env(safe-area-inset-bottom)) !important;
   }
 
   .platform-ios .mobile-dashboard-page > div:first-child,
@@ -300,15 +299,16 @@
     backdrop-filter: none !important;
     border: 0 !important;
     box-shadow: none !important;
-    padding: 22px 0 12px !important;
-    margin: 0 0 8px !important;
+    padding: 16px 0 8px !important;
+    margin: 0 0 4px !important;
   }
 
   .platform-ios .mobile-dashboard-page h1,
   .platform-ios .mobile-schedule-page h1 {
     color: #003B7A !important;
-    font-size: clamp(2.25rem, 8.8vw, 2.45rem) !important;
-    line-height: 1.02 !important;
+    background: transparent !important;
+    font-size: clamp(2.1rem, 8.2vw, 2.35rem) !important;
+    line-height: 0.98 !important;
     font-weight: 800 !important;
     letter-spacing: 0 !important;
   }
@@ -319,60 +319,66 @@
   }
 
   .platform-ios .mobile-learning-tabs {
-    margin: 8px 20px 4px !important;
+    margin: 8px 16px 0 !important;
     padding: 4px !important;
-    min-height: 56px !important;
-    border-radius: 24px !important;
-    background: rgba(255,255,255,0.72) !important;
-    -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
-    backdrop-filter: blur(18px) saturate(160%) !important;
-    border: 1px solid rgba(255,255,255,0.70) !important;
-    box-shadow: 0 8px 22px rgba(15,23,42,0.08) !important;
+    min-height: 48px !important;
+    border-radius: 16px !important;
+    background: rgba(243,244,246,0.86) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(140%) !important;
+    backdrop-filter: blur(14px) saturate(140%) !important;
+    border: 1px solid rgba(15,23,42,0.05) !important;
+    box-shadow: 0 2px 10px rgba(15,23,42,0.06) !important;
   }
 
   .platform-ios .mobile-learning-tabs > div {
-    min-height: 48px !important;
+    min-height: 40px !important;
     background: transparent !important;
-    border-radius: 20px !important;
+    border-radius: 12px !important;
   }
 
   .platform-ios .mobile-learning-tabs > div > div:first-child {
-    background: rgba(255,255,255,0.95) !important;
+    background: rgba(255,255,255,0.96) !important;
     border: 1px solid rgba(15,23,42,0.04) !important;
-    border-radius: 18px !important;
-    box-shadow: 0 4px 14px rgba(15,23,42,0.08) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 2px 8px rgba(15,23,42,0.08) !important;
   }
 
   .platform-ios .mobile-learning-tabs button {
-    min-height: 48px !important;
-    border-radius: 18px !important;
-    font-size: 0.95rem !important;
+    min-height: 40px !important;
+    border-radius: 12px !important;
+    font-size: 0.92rem !important;
   }
 
   .platform-ios .mobile-dashboard-page .bg-white[class*="rounded"],
   .platform-ios .mobile-schedule-page .bg-white[class*="rounded"] {
-    background: rgba(255,255,255,0.90) !important;
+    background: #FFFFFF !important;
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
-    border-color: rgba(15,23,42,0.07) !important;
-    box-shadow: 0 8px 24px rgba(15,23,42,0.07) !important;
+    border-color: rgba(15,23,42,0.13) !important;
+    box-shadow: 0 2px 8px rgba(15,23,42,0.05) !important;
+  }
+
+  .platform-ios .mobile-dashboard-page .rounded-xl,
+  .platform-ios .mobile-schedule-page .rounded-xl {
+    border-radius: 0.75rem !important;
+  }
+
+  .platform-ios .mobile-dashboard-page .rounded-2xl,
+  .platform-ios .mobile-schedule-page .rounded-2xl {
+    border-radius: 1rem !important;
+  }
+
+  .platform-ios .mobile-dashboard-page .grid > div,
+  .platform-ios .mobile-schedule-page > div > div {
+    border-radius: 0.75rem !important;
   }
 
   .platform-ios .mobile-dashboard-page .grid.grid-cols-2 > .bg-white,
   .platform-ios .mobile-dashboard-page .grid.grid-cols-2 > button.bg-white {
-    background: rgba(255,255,255,0.88) !important;
-    border-color: rgba(15,23,42,0.06) !important;
-    border-radius: 22px !important;
-    box-shadow: 0 8px 24px rgba(15,23,42,0.07) !important;
-  }
-
-  .platform-ios .mobile-dashboard-page .h-\[240px\],
-  .platform-ios .mobile-dashboard-page .sm\:min-h-\[340px\],
-  .platform-ios .mobile-schedule-page > div:nth-child(3) > .bg-white {
     background: #FFFFFF !important;
-    border-radius: 26px !important;
-    border-color: rgba(15,23,42,0.07) !important;
-    box-shadow: 0 10px 28px rgba(15,23,42,0.08) !important;
+    border-color: rgba(15,23,42,0.14) !important;
+    border-radius: 0.75rem !important;
+    box-shadow: 0 2px 8px rgba(15,23,42,0.05) !important;
   }
 
   .platform-ios .mobile-dashboard-page table,
@@ -395,21 +401,21 @@
   .platform-ios .mobile-schedule-page input,
   .platform-ios .mobile-schedule-page select,
   .platform-ios .mobile-schedule-page textarea {
-    border-radius: 14px !important;
-    background: rgba(255,255,255,0.92) !important;
+    border-radius: 0.5rem !important;
+    background: #FFFFFF !important;
   }
 
   .platform-ios .mobile-dashboard-page table input {
     min-height: 38px !important;
-    border-radius: 12px !important;
+    border-radius: 0.5rem !important;
     background: #FFFFFF !important;
     border-color: rgba(15,23,42,0.14) !important;
     box-shadow: none !important;
   }
 
   .platform-ios .mobile-schedule-page > div:nth-child(2) > .bg-white {
-    border-radius: 24px !important;
-    background: rgba(255,255,255,0.88) !important;
+    border-radius: 0.75rem !important;
+    background: #FFFFFF !important;
   }
 
   .platform-ios .mobile-schedule-page > div:nth-child(3) > .bg-white > div:first-child {
@@ -419,16 +425,17 @@
 
   .platform-ios .ios-bottom-nav-surface {
     height: 76px !important;
-    border-radius: 30px !important;
-    background: rgba(255,255,255,0.72) !important;
-    -webkit-backdrop-filter: blur(22px) saturate(160%) !important;
-    backdrop-filter: blur(22px) saturate(160%) !important;
+    border-radius: 24px !important;
+    background: rgba(255,255,255,0.76) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(145%) !important;
+    backdrop-filter: blur(18px) saturate(145%) !important;
     border: 1px solid rgba(255,255,255,0.72) !important;
-    box-shadow: 0 14px 34px rgba(15,23,42,0.13), inset 0 1px 0 rgba(255,255,255,0.78) !important;
+    box-shadow: 0 10px 26px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.78) !important;
   }
 
   .platform-ios .ios-bottom-nav a[aria-current="page"] {
-    background: rgba(0,59,122,0.06) !important;
+    background: rgba(11,94,215,0.08) !important;
+    border-radius: 18px !important;
   }
 
   .platform-ios .mobile-ai-button {
