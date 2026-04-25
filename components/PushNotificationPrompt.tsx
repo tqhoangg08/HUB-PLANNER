@@ -44,7 +44,7 @@ const PushNotificationPrompt = () => {
       const permission = await Notification.requestPermission();
       
       if (permission === 'granted') {
-        const registration = await navigator.serviceWorker.register('/sw.js');
+        const registration = await navigator.serviceWorker.register('/hub-sw.js');
         const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
         
         const subscription = await registration.pushManager.subscribe({
