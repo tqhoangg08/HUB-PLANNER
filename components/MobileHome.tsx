@@ -5,7 +5,7 @@ import { UserData } from '../types';
 import { playClick } from '../utils/audio';
 import { supabase } from '../utils/supabase';
 import NotificationBell from './NotificationBell';
-
+import PushNotificationPrompt from '../components/PushNotificationPrompt'; // Đường dẫn tùy sếp lưu ở đâu
 interface MobileHomeProps {
     data: UserData;
     displayName: string;
@@ -320,6 +320,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                     </div>
                 )}
             </div>
+            <PushNotificationPrompt />
         </div>
     );
 };

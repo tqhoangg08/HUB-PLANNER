@@ -18,12 +18,12 @@ import {
 import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter, Flame } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { playClick } from '../utils/audio';
-import { AdsBanner } from './AdsBanner';
 import SchoolAnnouncements from './SchoolAnnouncements';
 import { mapIdToDisplay } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
 import { useUserRole } from '../hooks/useUserRole';
 import { exportTranscriptToPdf } from '../utils/pdfExport';
+import PushNotificationPrompt from '../components/PushNotificationPrompt'; // Đường dẫn tùy sếp lưu ở đâu
 
 // ============================================================================
 // HELPERS CHO GIAO DIỆN ADMIN
@@ -1510,7 +1510,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
  return (
     <div className={`w-full ${showAdminPanel ? '' : 'pb-10'}`}>
-        {!isAdmin && <AdsBanner />}
 
         {showAdminPanel ? (
             <div className="w-full space-y-3 sm:space-y-4 animate-fadeIn">
@@ -2170,6 +2169,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             isExporting={isExportingPdf}
         />
         {showReportModal && <ReportErrorModal isOpen={showReportModal} onClose={() => setShowReportModal(false)} />}
+            <PushNotificationPrompt />
     </div>
   );
 };

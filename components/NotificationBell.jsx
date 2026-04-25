@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabase';
-// ĐÃ THÊM: Icon AlertCircle và Settings để trang trí thông báo hệ thống
 import { Bell, AlertCircle, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { formatDate, formatTime } from '../utils/dateUtils';
+// QUAN TRỌNG: Sếp nhớ import cái hàm helper này nhé
+import { urlBase64ToUint8Array } from '../utils/pushHelper'; 
 
 const NotificationBell = ({ currentUserId }) => {
   const [notifications, setNotifications] = useState([]);
@@ -11,6 +12,73 @@ const NotificationBell = ({ currentUserId }) => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
+
+  // --- STATE CHO PUSH NOTIFICATION ---
+  const [isPushEnabled, setIsPushEnabled] = useState(false);
+  const [isLoadingPush, setIsLoadingPush] = useState(false);
+
+  // --- KIỂM TRA QUYỀN TRÌNH DUYỆT KHI VỪA VÀO ---
+  useEffect(() => {
+    if ('Notification' in window && navigator.serviceWorker) {
+      setIsPushEnabled(Notification.permission === 'granted');
+    }
+  }, []);
+
+  // --- HÀM XỬ LÝ BẬT/TẮT PUSH NOTIFICATION ---
+  const handleTogglePush = async () => {
+    if (!('Notification' in window)) {
+      alert('Trình duyệt của bạn không hỗ trợ thông báo!');
+      return;
+    }
+
+    setIsLoadingPush(true);
+
+    try {
+      if (!isPushEnabled) {
+        // BẬT THÔNG BÁO
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          alert('Bạn cần cấp quyền thông báo trong cài đặt trình duyệt!');
+          setIsLoadingPush(false);
+          return;
+        }
+
+        const registration = await navigator.serviceWorker.ready;
+        const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+        
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+
+        if (currentUserId) {
+          await supabase.from('push_subscriptions').upsert({
+            user_id: currentUserId,
+            subscription: subscription.toJSON()
+          });
+          setIsPushEnabled(true);
+          alert('Đã bật thông báo thiết bị thành công! 🎉');
+        }
+      } else {
+        // TẮT THÔNG BÁO
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) {
+          await subscription.unsubscribe(); 
+          if (currentUserId) {
+            await supabase.from('push_subscriptions').delete().eq('user_id', currentUserId);
+          }
+        }
+        setIsPushEnabled(false);
+        alert('Đã tắt thông báo thiết bị!');
+      }
+    } catch (error) {
+      console.error('Lỗi khi cài đặt thông báo:', error);
+      alert('Có lỗi xảy ra, vui lòng thử lại sau.');
+    } finally {
+      setIsLoadingPush(false);
+    }
+  };
 
   useEffect(() => {
     if (!currentUserId) return;
@@ -50,7 +118,6 @@ const NotificationBell = ({ currentUserId }) => {
             filter: `receiver_id=eq.${currentUserId}`, 
           },
           async (payload) => {
-             // Thử lấy thông tin người gửi (actor) nếu có. Nếu là thông báo hệ thống (không có actor_id) thì bỏ qua bước này.
              let actorData = null;
              if (payload.new.actor_id) {
                  const { data } = await supabase
@@ -91,13 +158,10 @@ const NotificationBell = ({ currentUserId }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // HÀM XỬ LÝ KHI BẤM VÀO THÔNG BÁO (Đã nâng cấp)
   const handleRead = async (notif) => {
-    // Nếu thông báo có gắn link riêng (VD: '/schedule'), ưu tiên nhảy theo link đó
     if (notif.link) {
         navigate(notif.link);
     } 
-    // Nếu không có link riêng, nhưng có profile người gửi -> nhảy về trang cá nhân của họ
     else if (notif?.actor?.student_code) {
         navigate(`/profile/${notif.actor.student_code}`);
     }
@@ -126,9 +190,7 @@ const NotificationBell = ({ currentUserId }) => {
     setUnreadCount(0);
   }
 
-  // HÀM HELPER: RENDER NỘI DUNG VÀ AVATAR TÙY THEO LOẠI THÔNG BÁO
   const renderNotificationContent = (notif) => {
-      // 1. Trường hợp thông báo Hệ thống / Admin (Dùng khi bạn gửi SQL thủ công)
       if (notif.type === 'system_alert') {
           return {
               avatar: (
@@ -138,14 +200,12 @@ const NotificationBell = ({ currentUserId }) => {
               ),
               message: (
                   <span className="font-medium text-gray-800">
-                      {/* Ưu tiên hiện nội dung bạn gõ trong cột 'content', nếu không có thì hiện dòng mặc định */}
                       {notif.content || "Bạn có một thông báo mới từ hệ thống."}
                   </span>
               )
           };
       }
 
-      // 2. Trường hợp thông báo Follow (Như cũ)
       if (notif.type === 'follow') {
           return {
               avatar: (
@@ -169,7 +229,6 @@ const NotificationBell = ({ currentUserId }) => {
           };
       }
 
-      // 3. Trường hợp các loại thông báo chung (Like, Comment...) sau này bạn muốn làm thêm
       return {
           avatar: (
               <img 
@@ -219,6 +278,7 @@ const NotificationBell = ({ currentUserId }) => {
             max-w-[95vw]          
           "
         >
+          {/* HEADER THÔNG BÁO */}
           <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">
             <span className="font-bold text-gray-700 text-sm">Thông báo</span>
             {unreadCount > 0 && (
@@ -228,7 +288,8 @@ const NotificationBell = ({ currentUserId }) => {
             )}
           </div>
           
-          <div className="max-h-80 sm:max-h-96 overflow-y-auto custom-scrollbar"> 
+          {/* DANH SÁCH THÔNG BÁO */}
+          <div className="max-h-72 sm:max-h-80 overflow-y-auto custom-scrollbar"> 
             {notifications.length === 0 ? (
               <div className="p-8 text-center text-sm text-gray-500">Chưa có thông báo nào</div>
             ) : (
@@ -258,6 +319,29 @@ const NotificationBell = ({ currentUserId }) => {
               })
             )}
           </div>
+
+          {/* FOOTER: CÔNG TẮC BẬT TẮT THÔNG BÁO THIẾT BỊ */}
+          <div className="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-xs font-bold text-gray-700">Thông báo đẩy (Thiết bị)</span>
+              <span className="text-[10px] text-gray-500">Nhận thông báo khi tắt web</span>
+            </div>
+            
+            <button 
+              onClick={handleTogglePush}
+              disabled={isLoadingPush}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-300 focus:outline-none ${
+                isPushEnabled ? 'bg-blue-600' : 'bg-gray-300'
+              } ${isLoadingPush ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <span 
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-300 shadow-sm ${
+                  isPushEnabled ? 'translate-x-4' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
         </div>
       )}
     </div>
