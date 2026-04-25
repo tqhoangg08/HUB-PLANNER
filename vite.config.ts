@@ -12,7 +12,8 @@ export default defineConfig({
         enabled: true 
       },
       workbox: {
-        maximumFileSizeToCacheInBytes: 5000000
+        maximumFileSizeToCacheInBytes: 5000000,
+        importScripts: ['/hub-sw.js']
       },
       manifest: {
         id: "/",
