@@ -1,25 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { BellRing, X } from 'lucide-react';
+import { BellRing, X, AlertTriangle } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { urlBase64ToUint8Array } from '../utils/pushHelper';
 
-// ✨ KHÔNG CẦN TRUYỀN PROP NỮA
 const PushNotificationPrompt = () => {
   const [showPrompt, setShowPrompt] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  
+  // ✨ THÊM STATE ĐỂ BẮT LỖI KHI BỊ CHẶN HOẶC TẮT
+  const [deniedError, setDeniedError] = useState(false);
 
   useEffect(() => {
-    // 1. Tự động lấy ID người dùng từ Supabase
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) setUserId(user.id);
     };
     fetchUser();
 
-    // 2. Logic kiểm tra hiển thị popup
     if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
     if (Notification.permission !== 'default') return;
+    
+    const hasDismissed = localStorage.getItem('push_prompt_dismissed');
+    if (hasDismissed) return;
 
     const timer = setTimeout(() => {
       setShowPrompt(true);
@@ -30,10 +33,13 @@ const PushNotificationPrompt = () => {
 
   const handleDismiss = () => {
     setShowPrompt(false);
+    localStorage.setItem('push_prompt_dismissed', 'true');
   };
 
   const handleAllow = async () => {
     setIsSubscribing(true);
+    setDeniedError(false); // Reset lỗi mỗi lần bấm thử
+
     try {
       const permission = await Notification.requestPermission();
       
@@ -46,7 +52,6 @@ const PushNotificationPrompt = () => {
           applicationServerKey: urlBase64ToUint8Array(publicKey)
         });
 
-        // 3. Dùng ID tự lấy được để lưu DB
         if (userId) {
           await supabase.from('push_subscriptions').upsert({
             user_id: userId,
@@ -54,9 +59,15 @@ const PushNotificationPrompt = () => {
           });
         }
         
-        setShowPrompt(false);
-      } else {
-        handleDismiss(); 
+        setShowPrompt(false); // Thành công thì đóng popup
+      } 
+      else if (permission === 'denied') {
+        // ✨ NẾU BẤM CHẶN: Giữ nguyên popup, hiện cảnh báo hướng dẫn
+        setDeniedError(true);
+      } 
+      else {
+        // ✨ NẾU CHỈ BẤM DẤU 'X' TRÊN TRÌNH DUYỆT: Giữ nguyên popup (Không đóng)
+        // Không làm gì cả để họ có thể bấm lại nút "Cài đặt & Nhận thông báo"
       }
     } catch (error) {
       console.error('Lỗi khi bật thông báo:', error);
@@ -69,37 +80,58 @@ const PushNotificationPrompt = () => {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fadeIn">
-      <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl transform transition-all animate-slideUp">
+      <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl transform transition-all animate-slideUp relative">
+        
+        {/* Nút X nhỏ xíu trên góc để tắt (Không còn nút Để sau) */}
         <button 
           onClick={handleDismiss}
-          className="absolute top-4 right-4 p-1 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition"
+          className="absolute top-4 right-4 p-1.5 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition z-10"
         >
-          <X size={20} />
+          <X size={18} />
         </button>
+
         <div className="p-6 text-center pt-10">
-          <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <BellRing size={32} className="text-[#003375] animate-bounce" />
-          </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Không bỏ lỡ thông tin!</h3>
+          {deniedError ? (
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle size={32} className="text-red-500 animate-pulse" />
+            </div>
+          ) : (
+            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <BellRing size={32} className="text-[#003375] animate-bounce" />
+            </div>
+          )}
+          
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            {deniedError ? 'Bạn đã chặn thông báo' : 'Thông báo hệ thống'}
+          </h3>
+          
           <p className="text-sm text-gray-500 mb-6 px-2">
-            Bật thông báo để nhận ngay cập nhật về lịch thi, điểm số và các sự kiện mới nhất từ HUB Planner nhé.
+            {deniedError ? (
+              <span className="text-red-500 font-medium">
+                Vui lòng bấm vào <b className="text-gray-800">Biểu tượng 🔒 (Ổ khóa)</b> trên thanh địa chỉ URL của trình duyệt để cho phép nhận thông báo nhé!
+              </span>
+            ) : (
+              'Bật thông báo để nhận ngay cập nhật về lịch thi, điểm số và các sự kiện mới nhất từ HUB Planner nhé.'
+            )}
           </p>
+
           <div className="flex flex-col gap-3">
             <button 
               onClick={handleAllow}
-              disabled={isSubscribing}
-              className="w-full py-3.5 bg-[#003375] text-white font-bold rounded-2xl active:scale-95 transition-all flex justify-center items-center"
+              disabled={isSubscribing || deniedError} 
+              className={`w-full py-3.5 text-white font-bold rounded-2xl transition-all flex justify-center items-center shadow-lg ${
+                deniedError 
+                  ? 'bg-gray-400 cursor-not-allowed shadow-none' 
+                  : 'bg-[#003375] active:scale-95 shadow-blue-900/20'
+              }`}
             >
               {isSubscribing ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              ) : 'Bật thông báo ngay'}
+              ) : (
+                deniedError ? 'Đang đợi bạn mở quyền...' : 'Cài đặt & Nhận thông báo'
+              )}
             </button>
-            <button 
-              onClick={handleDismiss}
-              className="w-full py-3.5 bg-gray-50 text-gray-600 font-bold rounded-2xl active:scale-95 transition-all"
-            >
-              Để sau
-            </button>
+            {/* ĐÃ XÓA HOÀN TOÀN NÚT "ĐỂ SAU" Ở ĐÂY */}
           </div>
         </div>
       </div>

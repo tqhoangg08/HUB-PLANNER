@@ -273,7 +273,7 @@ const NotificationBell = ({ currentUserId }) => {
             shadow-xl 
             border border-gray-100 
             overflow-hidden 
-            z-50 
+            z-[100]  // ✨ SỬA Ở ĐÂY: Nâng từ z-50 lên z-[100] để đè bẹp thằng Glass Nav
             animate-fadeIn
             max-w-[95vw]          
           "
