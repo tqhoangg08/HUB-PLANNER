@@ -7,7 +7,6 @@ import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { parseSchedulePdf } from '../utils/schedulePdfImport';
 import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
-import { AdsBanner } from './AdsBanner';
 
 interface UserProfile {
   full_name?: string;
@@ -1172,7 +1171,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             </div>
         )}
 
-        {!isAdmin && <AdsBanner />}
 
         <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-1 sm:pb-4 -mt-2 mb-1 sm:mb-4 md:border-b md:border-transparent md:border-gray-200/60">
             <div className="flex flex-row justify-between items-end px-1 overflow-hidden shrink-0">
