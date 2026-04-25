@@ -70,14 +70,15 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   }, [bubbleDismissed, isOpen]);
 
   // --- DRAGGABLE FLOATING BUTTON STATE ---
-  const [pos, setPos] = useState({ x: window.innerWidth - 70, y: window.innerHeight - (isIOS ? 190 : 150) });
+  const getDockedX = () => window.innerWidth - (isIOS ? 82 : 70);
+  const [pos, setPos] = useState({ x: getDockedX(), y: window.innerHeight - (isIOS ? 190 : 150) });
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef({ startX: 0, startY: 0, initX: 0, initY: 0 });
 
   useEffect(() => {
     const handleResize = () => {
         setPos(prev => {
-            const newX = prev.x > window.innerWidth / 2 ? window.innerWidth - 70 : 10;
+            const newX = prev.x > window.innerWidth / 2 ? getDockedX() : 10;
             const newY = Math.min(Math.max(10, prev.y), window.innerHeight - 80);
             return { x: newX, y: newY };
         });
@@ -116,7 +117,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
   const onDragEnd = () => {
     if (isDragging) {
-        const snapX = pos.x > window.innerWidth / 2 ? window.innerWidth - 70 : 10;
+        const snapX = pos.x > window.innerWidth / 2 ? getDockedX() : 10;
         setPos(p => ({ ...p, x: snapX }));
     }
     dragRef.current = { startX: 0, startY: 0, initX: 0, initY: 0 };
