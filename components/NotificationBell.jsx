@@ -8,7 +8,6 @@ import {
   getCurrentPushSubscription,
   isPushSupported,
   subscribeToDeviceNotifications,
-  unsubscribeFromDeviceNotifications,
 } from '../utils/pushNotifications';
 
 const NotificationBell = ({ currentUserId }) => {
@@ -34,19 +33,29 @@ const NotificationBell = ({ currentUserId }) => {
     });
   };
 
-  useEffect(() => {
-    let isMounted = true;
+  const refreshPushState = async () => {
+    if (!isPushSupported()) {
+      setIsPushEnabled(false);
+      return;
+    }
 
-    const checkPushState = async () => {
-      if (!isPushSupported()) return;
-      const subscription = await getCurrentPushSubscription();
-      if (isMounted) setIsPushEnabled(Boolean(subscription));
+    const subscription = await getCurrentPushSubscription().catch(() => null);
+    setIsPushEnabled(Notification.permission === 'granted' && Boolean(subscription));
+  };
+
+  useEffect(() => {
+    refreshPushState();
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) refreshPushState();
     };
 
-    checkPushState();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', refreshPushState);
 
     return () => {
-      isMounted = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', refreshPushState);
     };
   }, []);
 
@@ -137,6 +146,7 @@ const NotificationBell = ({ currentUserId }) => {
     event.preventDefault();
     event.stopPropagation();
     updatePanelPosition();
+    refreshPushState();
     setIsOpen((prev) => !prev);
   };
 
@@ -149,19 +159,14 @@ const NotificationBell = ({ currentUserId }) => {
     setIsLoadingPush(true);
 
     try {
-      if (!isPushEnabled) {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          alert('Ban can cap quyen thong bao trong cai dat trinh duyet.');
-          return;
-        }
-
-        await subscribeToDeviceNotifications(currentUserId);
-        setIsPushEnabled(true);
-      } else {
-        await unsubscribeFromDeviceNotifications(currentUserId);
-        setIsPushEnabled(false);
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert('Ban can cap quyen thong bao trong cai dat trinh duyet.');
+        return;
       }
+
+      await subscribeToDeviceNotifications(currentUserId);
+      setIsPushEnabled(true);
     } catch (error) {
       console.error('Push notification toggle failed:', error);
       alert('Co loi xay ra, vui long thu lai sau.');
@@ -289,27 +294,25 @@ const NotificationBell = ({ currentUserId }) => {
         )}
       </div>
 
-      <div className="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-        <div className="flex flex-col">
-          <span className="text-xs font-bold text-gray-700">Thong bao day</span>
-          <span className="text-[10px] text-gray-500">Nhan thong bao khi tat web</span>
-        </div>
+      {!isPushEnabled && (
+        <div className="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="text-xs font-bold text-gray-700">Thong bao day</span>
+            <span className="text-[10px] text-gray-500">Nhan thong bao khi tat web</span>
+          </div>
 
-        <button
-          type="button"
-          onClick={handleTogglePush}
-          disabled={isLoadingPush}
-          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-300 focus:outline-none ${
-            isPushEnabled ? 'bg-blue-600' : 'bg-gray-300'
-          } ${isLoadingPush ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-300 shadow-sm ${
-              isPushEnabled ? 'translate-x-4' : 'translate-x-1'
+          <button
+            type="button"
+            onClick={handleTogglePush}
+            disabled={isLoadingPush}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full bg-gray-300 transition-colors duration-300 focus:outline-none ${
+              isLoadingPush ? 'opacity-50 cursor-not-allowed' : ''
             }`}
-          />
-        </button>
-      </div>
+          >
+            <span className="inline-block h-4 w-4 translate-x-1 rounded-full bg-white transition duration-300 shadow-sm" />
+          </button>
+        </div>
+      )}
     </div>,
     document.body
   ) : null;

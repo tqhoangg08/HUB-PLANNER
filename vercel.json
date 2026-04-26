@@ -5,7 +5,8 @@
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "crons": [
-    { "path": "/api/cron", "schedule": "0 12 * * *" }
+    { "path": "/api/cron", "schedule": "0 12 * * *" },
+    { "path": "/api/schedule-reminders", "schedule": "*/15 * * * *" }
   ],
   "headers": [
     { 
