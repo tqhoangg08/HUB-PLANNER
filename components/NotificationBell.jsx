@@ -16,6 +16,7 @@ const NotificationBell = ({ currentUserId }) => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
+  const panelRef = useRef(null);
 
   // --- STATE CHO PUSH NOTIFICATION ---
   const [isPushEnabled, setIsPushEnabled] = useState(false);
@@ -144,7 +145,10 @@ const NotificationBell = ({ currentUserId }) => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      const clickedBell = dropdownRef.current && dropdownRef.current.contains(event.target);
+      const clickedPanel = panelRef.current && panelRef.current.contains(event.target);
+
+      if (!clickedBell && !clickedPanel) {
         setIsOpen(false);
       }
     };
@@ -258,6 +262,8 @@ const NotificationBell = ({ currentUserId }) => {
 
       {isOpen && (
         <div 
+          ref={panelRef}
+          style={{ zIndex: 100000 }}
           className="
             fixed sm:absolute
             left-4 right-4 top-[calc(env(safe-area-inset-top)+132px)]

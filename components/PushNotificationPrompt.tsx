@@ -73,7 +73,7 @@ const PushNotificationPrompt = () => {
         // Không làm gì cả để họ có thể bấm lại nút "Cài đặt & Nhận thông báo"
       }
     } catch (error) {
-      setSubscribeError('Chua luu duoc thiet bi nhan thong bao. Vui long thu lai sau khi app cap nhat xong.');
+      setSubscribeError('Chua luu duoc thiet bi nhan thong bao. Hay dong popup, mo lai app va thu lai sau vai giay.');
       console.error('Lỗi khi bật thông báo:', error);
     } finally {
       setIsSubscribing(false);
@@ -83,7 +83,7 @@ const PushNotificationPrompt = () => {
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fadeIn">
       <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl transform transition-all animate-slideUp relative">
         
         {/* Nút X nhỏ xíu trên góc để tắt (Không còn nút Để sau) */}
