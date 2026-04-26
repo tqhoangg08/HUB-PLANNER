@@ -948,7 +948,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         while (hasMore) {
             const { data: profiles, error } = await supabase
                 .from('profiles')
-                .select('id, student_code, full_name, updated_at, data')
+                .select('id, student_code, full_name, created_at, updated_at, data')
                 .order('updated_at', { ascending: false })
                 .range(page * pageSize, (page + 1) * pageSize - 1);
             
@@ -1098,6 +1098,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
             }
             if (adminSort === 'cohort_asc') return (a.data?.cohort || '').localeCompare(b.data?.cohort || '');
             if (adminSort === 'cohort_desc') return (b.data?.cohort || '').localeCompare(a.data?.cohort || '');
+            if (adminSort === 'created_asc') return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+            if (adminSort === 'created_desc') return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
             if (adminSort === 'updated_asc') return new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
             
             return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
@@ -1554,6 +1556,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 <option value="excellent">Xuất sắc (&gt;3.6)</option>
                                 <option value="warning">Cảnh báo (&lt;2.0)</option>
                                 <option value="nogpa">Chưa có điểm</option>
+                            </select>
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3 pointer-events-none" />
+                        </div>
+
+                        <div className="relative shrink-0">
+                            <select value={adminSort} onChange={(e) => setAdminSort(e.target.value)} className="appearance-none bg-gray-50 border border-gray-300 rounded-lg py-1.5 pl-2.5 pr-7 text-xs text-gray-700 font-medium outline-none cursor-pointer hover:border-[#003375] w-[140px] truncate">
+                                <option value="updated_desc">Mới cập nhật</option>
+                                <option value="updated_asc">Cũ cập nhật</option>
+                                <option value="created_desc">Tạo mới nhất</option>
+                                <option value="created_asc">Tạo cũ nhất</option>
                             </select>
                             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3 pointer-events-none" />
                         </div>

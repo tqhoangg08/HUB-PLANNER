@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom'; 
 import { supabase } from '../utils/supabase';
 import { Link } from 'react-router-dom';
@@ -23,7 +23,7 @@ import { useForecastRank } from '../hooks/useForecastRank';
 import { useUserRole } from '../hooks/useUserRole';
 
 // ============================================================================
-// MODAL: BÁO LỖI HỆ THỐNG
+// MODAL: BÃO Lá»–I Há»† THá»NG
 // ============================================================================
 const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
     const [location, setLocation] = useState('');
@@ -36,13 +36,13 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!location.trim() || !description.trim()) {
-            setStatusMsg({text: 'Vui lòng điền đầy đủ thông tin.', type: 'error'});
+            setStatusMsg({text: 'Vui lÃ²ng Ä‘iá»n Ä‘áº§y Ä‘á»§ thÃ´ng tin.', type: 'error'});
             return;
         }
         setSubmitting(true);
         playClick();
         try {
-            if (!supabase) throw new Error("Chưa cấu hình database.");
+            if (!supabase) throw new Error("ChÆ°a cáº¥u hÃ¬nh database.");
             
             const { data: { session } } = await supabase.auth.getSession();
             
@@ -53,7 +53,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
             }]);
 
             if (error) throw error;
-            setStatusMsg({text: 'Đã gửi báo cáo thành công. Cảm ơn bạn!', type: 'success'});
+            setStatusMsg({text: 'ÄÃ£ gá»­i bÃ¡o cÃ¡o thÃ nh cÃ´ng. Cáº£m Æ¡n báº¡n!', type: 'success'});
             setTimeout(() => {
                 onClose();
                 setLocation('');
@@ -61,7 +61,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
                 setStatusMsg(null);
             }, 2000);
         } catch (err: any) {
-            setStatusMsg({text: err.message || 'Có lỗi xảy ra, vui lòng thử lại.', type: 'error'});
+            setStatusMsg({text: err.message || 'CÃ³ lá»—i xáº£y ra, vui lÃ²ng thá»­ láº¡i.', type: 'error'});
         } finally {
             setSubmitting(false);
         }
@@ -72,7 +72,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
             <div className="bg-white rounded-xl w-full max-w-md p-0 overflow-hidden animate-scaleIn shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="bg-red-600 p-4 flex justify-between items-center text-white shrink-0">
                     <h3 className="font-bold text-lg flex items-center gap-2">
-                        <AlertTriangle size={20}/> Báo cáo lỗi / Góp ý
+                        <AlertTriangle size={20}/> BÃ¡o cÃ¡o lá»—i / GÃ³p Ã½
                     </h3>
                     <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
                 </div>
@@ -84,27 +84,27 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
                     )}
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-bold text-gray-800 mb-1">Lỗi ở đâu? (Tính năng/Khu vực) <span className="text-red-500">*</span></label>
+                            <label className="block text-sm font-bold text-gray-800 mb-1">Lá»—i á»Ÿ Ä‘Ã¢u? (TÃ­nh nÄƒng/Khu vá»±c) <span className="text-red-500">*</span></label>
                             <input 
                                 type="text" required
                                 className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-red-500 transition-all text-sm"
-                                placeholder="VD: Tính điểm hệ 4, Nhập PDF, Bảng xếp hạng..."
+                                placeholder="VD: TÃ­nh Ä‘iá»ƒm há»‡ 4, Nháº­p PDF, Báº£ng xáº¿p háº¡ng..."
                                 value={location} onChange={e => setLocation(e.target.value)}
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-bold text-gray-800 mb-1">Mô tả chi tiết <span className="text-red-500">*</span></label>
+                            <label className="block text-sm font-bold text-gray-800 mb-1">MÃ´ táº£ chi tiáº¿t <span className="text-red-500">*</span></label>
                             <textarea 
                                 rows={4} required
                                 className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-red-500 resize-none text-sm transition-all"
-                                placeholder="Mô tả chi tiết vấn đề bạn đang gặp phải hoặc góp ý của bạn..."
+                                placeholder="MÃ´ táº£ chi tiáº¿t váº¥n Ä‘á» báº¡n Ä‘ang gáº·p pháº£i hoáº·c gÃ³p Ã½ cá»§a báº¡n..."
                                 value={description} onChange={e => setDescription(e.target.value)}
                             ></textarea>
                         </div>
                         <div className="flex gap-3 pt-2">
-                            <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all">Hủy</button>
+                            <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all">Há»§y</button>
                             <button type="submit" disabled={submitting} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
-                                {submitting ? <Loader2 className="animate-spin" size={18}/> : null} Gửi báo cáo
+                                {submitting ? <Loader2 className="animate-spin" size={18}/> : null} Gá»­i bÃ¡o cÃ¡o
                             </button>
                         </div>
                     </form>
@@ -115,7 +115,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
 };
 
 // ============================================================================
-// 1. MODAL: MÔN CHƯA ĐẠT
+// 1. MODAL: MÃ”N CHÆ¯A Äáº T
 // ============================================================================
 const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClose: () => void }) => {
     return createPortal(
@@ -123,7 +123,7 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
             <div className="bg-white rounded-xl w-full max-w-md flex flex-col shadow-xl animate-scaleIn overflow-hidden border border-gray-300" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
-                        <AlertTriangle size={18} className="text-[#990000]" /> Danh sách môn chưa đạt ({subjects.length})
+                        <AlertTriangle size={18} className="text-[#990000]" /> Danh sÃ¡ch mÃ´n chÆ°a Ä‘áº¡t ({subjects.length})
                     </h3>
                     <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors"><X size={18} /></button>
                 </div>
@@ -136,12 +136,12 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
                                     <div>
                                         <p className="font-bold text-gray-800 text-sm">{sub.name}</p>
                                         <div className="flex gap-3 mt-1 text-xs text-gray-500">
-                                            <span className="bg-gray-100 px-2 py-0.5 rounded font-medium">{sub.credits} tín chỉ</span>
+                                            <span className="bg-gray-100 px-2 py-0.5 rounded font-medium">{sub.credits} tÃ­n chá»‰</span>
                                         </div>
                                     </div>
                                     <div className="text-right">
                                         <span className="block text-xl font-bold text-[#990000]">{avg?.toFixed(1) || '0.0'}</span>
-                                        <span className="text-[10px] text-[#990000] font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-100">RỚT MÔN</span>
+                                        <span className="text-[10px] text-[#990000] font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Rá»šT MÃ”N</span>
                                     </div>
                                 </div>
                              )
@@ -149,7 +149,7 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
                     </div>
                 </div>
                 <div className="p-3 border-t border-gray-300 bg-white">
-                    <button onClick={onClose} className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Đóng</button>
+                    <button onClick={onClose} className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">ÄÃ³ng</button>
                 </div>
             </div>
         </div>, document.body
@@ -157,7 +157,7 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
 };
 
 // ============================================================================
-// 2. MODAL: TỔNG KẾT NĂM
+// 2. MODAL: Tá»”NG Káº¾T NÄ‚M
 // ============================================================================
 const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => void }) => {
     return createPortal(
@@ -165,7 +165,7 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
             <div className="bg-white rounded-xl w-full max-w-md flex flex-col shadow-xl animate-scaleIn overflow-hidden border border-gray-300" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
-                        <Calendar size={18} className="text-[#003375]" /> Tổng kết từng năm học
+                        <Calendar size={18} className="text-[#003375]" /> Tá»•ng káº¿t tá»«ng nÄƒm há»c
                     </h3>
                     <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors"><X size={18} /></button>
                 </div>
@@ -184,7 +184,7 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
                                     <div className="flex justify-between items-center text-xs text-gray-600">
                                         <div className="flex gap-2">
                                             <span className="bg-gray-100 px-2 py-1 rounded font-medium">TC: {year.totalCredits}</span>
-                                            <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 font-medium">Đạt: {year.passedCredits}</span>
+                                            <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 font-medium">Äáº¡t: {year.passedCredits}</span>
                                         </div>
                                         <span className="font-bold text-[#003375] bg-blue-50 px-2 py-1 rounded">{yearClass}</span>
                                     </div>
@@ -194,7 +194,7 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
                     </div>
                 </div>
                 <div className="p-3 border-t border-gray-300 bg-white">
-                    <button onClick={onClose} className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Đóng</button>
+                    <button onClick={onClose} className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">ÄÃ³ng</button>
                 </div>
             </div>
         </div>, document.body
@@ -202,7 +202,7 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
 };
 
 // ============================================================================
-// 3. COMPONENT: NHẬP ĐIỂM
+// 3. COMPONENT: NHáº¬P ÄIá»‚M
 // ============================================================================
 const ScoreInput = ({ value, onChange }: { value: number | null, onChange: (val: number | null) => void }) => {
   const [localValue, setLocalValue] = useState<string>(value?.toString() ?? '');
@@ -242,7 +242,7 @@ const ScoreInput = ({ value, onChange }: { value: number | null, onChange: (val:
 };
 
 // ============================================================================
-// 4. COMPONENT: BẢNG ĐIỂM HỌC KỲ (SEMESTER TABLE)
+// 4. COMPONENT: Báº¢NG ÄIá»‚M Há»ŒC Ká»² (SEMESTER TABLE)
 // ============================================================================
 interface SemesterTableProps {
   semester: Semester;
@@ -268,7 +268,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   const [showRankMenu, setShowRankMenu] = useState(false);
   const rankMenuRef = useRef<HTMLDivElement>(null);
     
-  const isValidFormat = /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(semester.name);
+  const isValidFormat = /^Há»c ká»³ (1|2|3|HÃ¨) NÄƒm há»c \d{4}-\d{4}$/.test(semester.name);
 
   const handleSubjectChange = (subjectId: string, field: keyof Subject, value: any) => {
     const updatedSubjects = semester.subjects.map(sub => {
@@ -292,7 +292,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
   const addSubject = () => {
     playClick();
-    const newSubject: Subject = { id: Date.now().toString(), name: 'Môn học mới', credits: 3, scoreCC: null, scoreProcess: null, scoreMid: null, scoreFinal: null, isNonGPA: false };
+    const newSubject: Subject = { id: Date.now().toString(), name: 'MÃ´n há»c má»›i', credits: 3, scoreCC: null, scoreProcess: null, scoreMid: null, scoreFinal: null, isNonGPA: false };
     onUpdateSemester({ ...semester, subjects: [...semester.subjects, newSubject] });
     setSearchTerm(''); 
   };
@@ -363,9 +363,9 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
     const gpa = semGPA4;
 
     const meetsRequirements = credits >= 15 && gpa >= 3.2 && drl >= 80;
-    if (!meetsRequirements) return { label: 'Không đạt', className: 'bg-gray-100 text-gray-500 border-gray-200' };
-    if (gpa >= 3.6 && drl >= 90) return { label: '🏆 HB Xuất sắc', className: 'bg-yellow-50 text-yellow-700 border-yellow-200' };
-    return { label: '💰 HB Giỏi', className: 'bg-green-50 text-green-700 border-green-200' };
+    if (!meetsRequirements) return { label: 'KhÃ´ng Ä‘áº¡t', className: 'bg-gray-100 text-gray-500 border-gray-200' };
+    if (gpa >= 3.6 && drl >= 90) return { label: 'ðŸ† HB Xuáº¥t sáº¯c', className: 'bg-yellow-50 text-yellow-700 border-yellow-200' };
+    return { label: 'ðŸ’° HB Giá»i', className: 'bg-green-50 text-green-700 border-green-200' };
   })();
 
   const handleOpenRankMenu = () => {
@@ -419,14 +419,14 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                     )}
                     
                     {!isValidFormat && (
-                         <option value="" disabled className="text-red-500 font-bold">👉 Vui lòng chọn lại tên học kỳ (Sai định dạng)</option>
+                         <option value="" disabled className="text-red-500 font-bold">ðŸ‘‰ Vui lÃ²ng chá»n láº¡i tÃªn há»c ká»³ (Sai Ä‘á»‹nh dáº¡ng)</option>
                     )}
                     
                     {allSemesterOptions.map(opt => {
                         const isUsed = usedSemesterNames.includes(opt) && opt !== semester.name;
                         return (
                             <option key={opt} value={opt} disabled={isUsed} className={isUsed ? 'text-gray-400 bg-gray-100' : 'text-gray-900'}>
-                                {opt} {isUsed ? '(Đã thêm)' : ''}
+                                {opt} {isUsed ? '(ÄÃ£ thÃªm)' : ''}
                             </option>
                         )
                     })}
@@ -446,31 +446,31 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                       <button 
                           onClick={handleOpenRankMenu}
                           className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border shadow-sm transition-all active:scale-95 hover:shadow-md ${showRankMenu ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
-                          title="Xếp hạng dự báo"
+                          title="Xáº¿p háº¡ng dá»± bÃ¡o"
                       >
                           <Crown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${rankingResult ? "fill-yellow-500 text-yellow-600" : "text-gray-400"}`}/> 
-                          <span className="font-bold text-[#003375]">Xếp hạng 👑</span>
+                          <span className="font-bold text-[#003375]">Xáº¿p háº¡ng ðŸ‘‘</span>
                       </button>
 
                       {showRankMenu && (
                           <div className="absolute top-full left-0 md:left-auto md:right-0 mt-2 w-72 sm:w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-[60] overflow-hidden animate-fadeIn origin-top-left md:origin-top-right">
                               <div className="bg-[#003375] px-4 py-3 text-white flex justify-between items-center shrink-0">
-                                  <h4 className="font-bold text-sm flex items-center gap-2"><BarChart2 size={16}/> Xếp Hạng Dự Báo</h4>
+                                  <h4 className="font-bold text-sm flex items-center gap-2"><BarChart2 size={16}/> Xáº¿p Háº¡ng Dá»± BÃ¡o</h4>
                                   <button onClick={() => { setShowRankMenu(false); resetSemesterRanks(); }} className="hover:bg-white/20 p-1 rounded-full transition-colors"><X size={14}/></button>
                               </div>
                               <div className="p-0">
                                   {rankingLoading ? (
                                       <div className="flex flex-col items-center justify-center py-8 text-[#003375]">
                                           <Loader2 size={32} className="animate-spin mb-2"/>
-                                          <span className="text-xs font-medium">Đang tính toán...</span>
+                                          <span className="text-xs font-medium">Äang tÃ­nh toÃ¡n...</span>
                                       </div>
                                   ) : rankingResult ? (
                                       <div className="p-4 bg-gradient-to-b from-blue-50 to-white">
-                                          <button onClick={() => resetResult()} className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#003375] mb-3 transition-colors"><ChevronLeft size={14}/> Chọn kỳ khác</button>
+                                          <button onClick={() => resetResult()} className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#003375] mb-3 transition-colors"><ChevronLeft size={14}/> Chá»n ká»³ khÃ¡c</button>
                                           <div className="text-center space-y-4">
-                                              <p className="text-xs text-gray-500 uppercase tracking-wide">So sánh với: <span className="font-bold text-[#003375]">{mapIdToDisplay(rankingResult.semesterId)}</span></p>
+                                              <p className="text-xs text-gray-500 uppercase tracking-wide">So sÃ¡nh vá»›i: <span className="font-bold text-[#003375]">{mapIdToDisplay(rankingResult.semesterId)}</span></p>
                                               <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
-                                                  <p className="text-sm text-gray-500 mb-1">Xếp hạng của bạn</p>
+                                                  <p className="text-sm text-gray-500 mb-1">Xáº¿p háº¡ng cá»§a báº¡n</p>
                                                   <p className="text-3xl font-black text-yellow-600 drop-shadow-sm">#{rankingResult.rank} <span className="text-sm font-medium text-gray-400">/ {rankingResult.totalStudents}</span></p>
                                               </div>
                                               <div className="bg-[#003375] text-white p-4 rounded-xl shadow-inner relative overflow-hidden">
@@ -482,23 +482,23 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                       </div>
                                   ) : (
                                       <div className="flex flex-col max-h-[300px]">
-                                          <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 italic">Chọn nguồn dữ liệu (Kỳ học cũ)...</div>
+                                          <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 italic">Chá»n nguá»“n dá»¯ liá»‡u (Ká»³ há»c cÅ©)...</div>
                                           <div className="overflow-y-auto custom-scrollbar p-2 space-y-1">
                                               {loadingSemesters ? (
-                                                  <div className="py-4 text-center text-xs text-gray-400">Đang tải...</div>
+                                                  <div className="py-4 text-center text-xs text-gray-400">Äang táº£i...</div>
                                               ) : availableSemesters.length > 0 ? (
                                                   availableSemesters.map((semId) => {
                                                       const semesterRank = semesterRanks[semId];
-                                                      const rankLabel = Number.isFinite(semesterRank) ? `Hạng #${semesterRank}` : loadingSemesterRanks ? 'Đang tải...' : 'Chưa có hạng';
+                                                      const rankLabel = Number.isFinite(semesterRank) ? `Háº¡ng #${semesterRank}` : loadingSemesterRanks ? 'Äang táº£i...' : 'ChÆ°a cÃ³ háº¡ng';
                                                       return (
                                                       <button key={semId} onClick={() => handleSelectReferenceSemester(semId)} className="w-full text-left px-3 py-2.5 hover:bg-blue-50 hover:text-[#003375] rounded-lg transition-all text-sm font-medium text-gray-700 flex justify-between items-center group">
-                                                          <span>Dữ liệu {mapIdToDisplay(semId)} - {rankLabel}</span>
+                                                          <span>Dá»¯ liá»‡u {mapIdToDisplay(semId)} - {rankLabel}</span>
                                                           <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400"/>
                                                       </button>
                                                       );
                                                   })
                                               ) : (
-                                                  <div className="py-6 text-center"><p className="text-xs text-gray-400 mb-2">Chưa có dữ liệu.</p></div>
+                                                  <div className="py-6 text-center"><p className="text-xs text-gray-400 mb-2">ChÆ°a cÃ³ dá»¯ liá»‡u.</p></div>
                                               )}
                                           </div>
                                           {rankingError && <div className="p-2 bg-red-50 text-red-600 text-xs text-center border-t border-red-100 flex items-center justify-center gap-1"><AlertCircle size={12}/> {rankingError}</div>}
@@ -526,7 +526,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
             </div>
 
             <div className="flex items-center gap-1 sm:gap-2 bg-white pl-2 pr-1 py-0.5 sm:pl-3 sm:pr-1 sm:py-1 rounded-lg border border-gray-200 shadow-sm transition-transform hover:scale-105">
-                <span className="text-gray-500 font-medium flex items-center gap-1"><Star className="text-yellow-500 fill-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">ĐRL:</span></span>
+                <span className="text-gray-500 font-medium flex items-center gap-1"><Star className="text-yellow-500 fill-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">ÄRL:</span></span>
                 <input 
                     type="number" min="0" max="100" placeholder="0"
                     disabled={!isValidFormat}
@@ -542,7 +542,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 <span>{isValidFormat ? scholarshipStatus.label : '---'}</span>
             </div>
             
-             <button onClick={onRemoveSemester} className="ml-auto md:ml-0 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all p-1.5 sm:p-2 rounded-full active:scale-90 hover:shadow-md" title="Xóa học kỳ">
+             <button onClick={onRemoveSemester} className="ml-auto md:ml-0 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all p-1.5 sm:p-2 rounded-full active:scale-90 hover:shadow-md" title="XÃ³a há»c ká»³">
              <Trash2 className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
             </button>
         </div>
@@ -552,13 +552,13 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
         <>
             {semester.subjects.length > 0 && (
                 <div className="px-3 py-2 sm:px-6 sm:py-2 bg-gray-50/50 border-b border-gray-100 flex flex-row gap-2 justify-between sm:justify-end items-center">
-                    <button onClick={handleSortToggle} className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg border text-[11px] sm:text-sm font-medium transition-all active:scale-95 ${sortOrder ? 'bg-blue-50 border-blue-200 text-[#003375] shadow-sm' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`} title="Sắp xếp theo điểm">
-                        {sortOrder === 'desc' ? (<><ArrowDown className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Cao ➝ Thấp</span></>) : sortOrder === 'asc' ? (<><ArrowUp className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Thấp ➝ Cao</span></>) : (<><ListFilter className="w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Sắp xếp</span></>)}
+                    <button onClick={handleSortToggle} className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg border text-[11px] sm:text-sm font-medium transition-all active:scale-95 ${sortOrder ? 'bg-blue-50 border-blue-200 text-[#003375] shadow-sm' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`} title="Sáº¯p xáº¿p theo Ä‘iá»ƒm">
+                        {sortOrder === 'desc' ? (<><ArrowDown className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Cao âž Tháº¥p</span></>) : sortOrder === 'asc' ? (<><ArrowUp className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Tháº¥p âž Cao</span></>) : (<><ListFilter className="w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Sáº¯p xáº¿p</span></>)}
                     </button>
 
                     <div className="relative flex-1 sm:w-64 sm:flex-none">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        <input type="text" placeholder="Tìm môn học..." className="w-full pl-8 pr-7 py-1.5 text-[11px] sm:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow hover:border-blue-300" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <input type="text" placeholder="TÃ¬m mÃ´n há»c..." className="w-full pl-8 pr-7 py-1.5 text-[11px] sm:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow hover:border-blue-300" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                         {searchTerm && (<button onClick={() => { playClick(); setSearchTerm(''); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:scale-110 transition-transform"><X className="w-3 h-3 sm:w-3.5 sm:h-3.5" /></button>)}
                     </div>
                 </div>
@@ -573,12 +573,12 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                         <th className="px-2 py-3 w-14 text-center">20%</th>
                         <th className="px-2 py-3 w-14 text-center">20%</th>
                         <th className="px-2 py-3 w-14 text-center">50%</th>
-                        <th className="px-3 py-3 min-w-[180px]">Môn học</th>
+                        <th className="px-3 py-3 min-w-[180px]">MÃ´n há»c</th>
                         <th className="px-2 py-3 w-12 text-center">TC</th>
                         <th className="px-2 py-3 w-14 text-center">TB(10)</th>
-                        <th className="px-2 py-3 w-14 text-center">Chữ</th>
+                        <th className="px-2 py-3 w-14 text-center">Chá»¯</th>
                         <th className="px-2 py-3 w-14 text-center">TB(4)</th>
-                        <th className="px-3 py-3 w-20 text-center">Trạng thái</th>
+                        <th className="px-3 py-3 w-20 text-center">Tráº¡ng thÃ¡i</th>
                         <th className="px-2 py-3 w-8"></th>
                     </tr>
                 </thead>
@@ -595,14 +595,14 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
                         if (status === GradeStatus.FAIL) {
                             statusClass = "bg-red-100 text-[#990000] font-bold";
-                            statusText = "Rớt";
+                            statusText = "Rá»›t";
                             rowClass = "bg-red-50/50 hover:bg-red-100/50";
                         } else if (status === GradeStatus.IMPROVE) {
                             statusClass = "bg-yellow-100 text-yellow-700";
-                            statusText = "Đạt";
+                            statusText = "Äáº¡t";
                         } else if (status === GradeStatus.PASS) {
                             statusClass = "bg-green-100 text-green-700 font-bold";
-                            statusText = "Đạt";
+                            statusText = "Äáº¡t";
                         }
 
                         return (
@@ -620,7 +620,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                     <div className="flex items-center gap-2 mt-1">
                                         <label className="text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
                                             <input type="checkbox" checked={subject.isNonGPA} onChange={(e) => { playClick(); handleSubjectChange(subject.id, 'isNonGPA', e.target.checked); }} className="rounded text-[#003375] border-gray-300 focus:ring-[#003375] w-3 h-3 mr-1" />
-                                            Không tính GPA
+                                            KhÃ´ng tÃ­nh GPA
                                         </label>
                                     </div>
                                 </td>
@@ -634,27 +634,27 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                 <td className="px-2 py-2 text-center font-bold text-[#003375]">{avg4 !== null ? avg4.toFixed(1) : '-'}</td>
                                 <td className="px-3 py-2 text-center"><span className={`px-2 py-1 rounded text-xs block w-full text-center ${statusClass}`}>{statusText}</span></td>
                                 <td className="px-2 py-2 text-center">
-                                    <button onClick={() => removeSubject(subject.id)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all p-1.5 border border-transparent hover:border-red-200 active:scale-90" title="Xóa môn"><Trash2 size={16} /></button>
+                                    <button onClick={() => removeSubject(subject.id)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all p-1.5 border border-transparent hover:border-red-200 active:scale-90" title="XÃ³a mÃ´n"><Trash2 size={16} /></button>
                                 </td>
                             </tr>
                         );
                         })
                     ) : (
-                        <tr><td colSpan={12} className="py-8 text-center text-gray-500">Không tìm thấy môn học nào phù hợp với "{searchTerm}"</td></tr>
+                        <tr><td colSpan={12} className="py-8 text-center text-gray-500">KhÃ´ng tÃ¬m tháº¥y mÃ´n há»c nÃ o phÃ¹ há»£p vá»›i "{searchTerm}"</td></tr>
                     )}
                 </tbody>
                 </table>
             </div>
             {!isReadOnly && (
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 rounded-b-xl flex justify-between items-center">
-                <button onClick={addSubject} className="flex items-center gap-1 text-sm font-medium text-[#003375] hover:text-blue-700 transition-all hover:translate-x-1 p-1 active:scale-95"><Plus size={16} /> Thêm môn học</button>
+                <button onClick={addSubject} className="flex items-center gap-1 text-sm font-medium text-[#003375] hover:text-blue-700 transition-all hover:translate-x-1 p-1 active:scale-95"><Plus size={16} /> ThÃªm mÃ´n há»c</button>
             </div> )}
         </>
       ) : (
           <div className="p-8 text-center bg-red-50/40 border-t border-red-100 flex flex-col items-center justify-center rounded-b-xl">
               <ShieldAlert className="text-red-400 mb-2 w-10 h-10 animate-pulse" />
-              <p className="text-red-600 font-bold mb-1">Nội dung học kỳ đang bị khóa</p>
-              <p className="text-red-500/80 text-xs max-w-sm">Tên học kỳ không hợp lệ. Vui lòng chọn một tên học kỳ có sẵn trong danh sách phía trên để mở khóa tính năng nhập điểm!</p>
+              <p className="text-red-600 font-bold mb-1">Ná»™i dung há»c ká»³ Ä‘ang bá»‹ khÃ³a</p>
+              <p className="text-red-500/80 text-xs max-w-sm">TÃªn há»c ká»³ khÃ´ng há»£p lá»‡. Vui lÃ²ng chá»n má»™t tÃªn há»c ká»³ cÃ³ sáºµn trong danh sÃ¡ch phÃ­a trÃªn Ä‘á»ƒ má»Ÿ khÃ³a tÃ­nh nÄƒng nháº­p Ä‘iá»ƒm!</p>
           </div>
       )}
     </div>
@@ -698,7 +698,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     onRequireOnboarding
 }) => {
     useEffect(() => {
-        document.title = "Tổng quan | HUB Planner";
+        document.title = "Tá»•ng quan | HUB Planner";
     }, []);
 
     const { isAdmin, isAuditor, loading } = useUserRole();
@@ -721,7 +721,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             ));
             
         } catch (error) {
-            console.error("Lỗi cập nhật user:", error);
+            console.error("Lá»—i cáº­p nháº­t user:", error);
         }
     };
     const [adminSearch, setAdminSearch] = useState('');
@@ -733,7 +733,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 }, [isAdmin, isAuditor, adminMode]);
     const [currentPage, setCurrentPage] = useState(1);
     const [pageInput, setPageInput] = useState('1');
-    const [adminSort, setAdminSort] = useState<'newest' | 'gpa_desc' | 'credits_desc'>('newest');
+    const [adminSort, setAdminSort] = useState<'newest' | 'gpa_desc' | 'credits_desc' | 'created_desc' | 'created_asc'>('newest');
     
     const [adminFilterCohort, setAdminFilterCohort] = useState<string>('all');
     const [adminFilterMajor, setAdminFilterMajor] = useState<string>('all');
@@ -773,7 +773,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
         while (hasMore) {
             const { data: profiles, error } = await supabase
                 .from('profiles')
-                .select('id, student_code, full_name, updated_at, data')
+                .select('id, student_code, full_name, created_at, updated_at, data')
                 .order('updated_at', { ascending: false })
                 .range(page * pageSize, (page + 1) * pageSize - 1);
             
@@ -816,7 +816,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             if (u.data?.majorName) mSet.add(u.data.majorName);
             if (u.data?.semesters) {
                 u.data.semesters.forEach((sem: any) => {
-                    if (/^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(sem.name)) {
+                    if (/^Há»c ká»³ (1|2|3|HÃ¨) NÄƒm há»c \d{4}-\d{4}$/.test(sem.name)) {
                         sSet.add(sem.name);
                     }
                 });
@@ -825,9 +825,9 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
         const sortedSems = Array.from(sSet).sort((a, b) => {
             const getW = (name: string) => {
-                const match = name.match(/Học kỳ (1|2|3|Hè) Năm học (\d{4})-(\d{4})/);
+                const match = name.match(/Há»c ká»³ (1|2|3|HÃ¨) NÄƒm há»c (\d{4})-(\d{4})/);
                 if (!match) return 0;
-                const hk = match[1] === 'Hè' ? 3 : parseInt(match[1]);
+                const hk = match[1] === 'HÃ¨' ? 3 : parseInt(match[1]);
                 const year = parseInt(match[2]);
                 return year * 10 + hk;
             };
@@ -844,7 +844,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     const baseFilteredUsers = useMemo(() => {
         return adminUsers
             .map(u => {
-                 let validSems = (u.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
+                 let validSems = (u.data?.semesters || []).filter((s:any) => /^Há»c ká»³ (1|2|3|HÃ¨) NÄƒm há»c \d{4}-\d{4}$/.test(s.name));
 
                  if (adminFilterSemester !== 'all') {
                      validSems = validSems.filter((s: any) => s.name === adminFilterSemester);
@@ -928,6 +928,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     return b._computedGpa - a._computedGpa;
                 } else if (adminSort === 'credits_desc') {
                     return b._computedCredits - a._computedCredits;
+                } else if (adminSort === 'created_desc') {
+                    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+                } else if (adminSort === 'created_asc') {
+                    return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
                 }
                 return 0;
             });
@@ -994,14 +998,14 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     const ALL_SEMESTERS = useMemo(() => {
         const options = [];
         for (let y = 2020; y <= 2026; y++) {
-            options.push(`Học kỳ 1 Năm học ${y}-${y+1}`);
-            options.push(`Học kỳ 2 Năm học ${y}-${y+1}`);
+            options.push(`Há»c ká»³ 1 NÄƒm há»c ${y}-${y+1}`);
+            options.push(`Há»c ká»³ 2 NÄƒm há»c ${y}-${y+1}`);
         }
         return options;
     }, []);
 
     const handleCascadeUpdate = (targetIndex: number, newName: string) => {
-        const match = newName.match(/Học kỳ (1|2) Năm học (\d{4})-(\d{4})/);
+        const match = newName.match(/Há»c ká»³ (1|2) NÄƒm há»c (\d{4})-(\d{4})/);
         if (!match) {
             handleLocalUpdateSemester(targetIndex, { ...activeData.semesters[targetIndex], name: newName });
             return;
@@ -1023,7 +1027,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             const currentYear = Math.floor(currentAbs / 2);
             const currentHk = (currentAbs % 2) + 1;
 
-            const seqName = `Học kỳ ${currentHk} Năm học ${currentYear}-${currentYear + 1}`;
+            const seqName = `Há»c ká»³ ${currentHk} NÄƒm há»c ${currentYear}-${currentYear + 1}`;
 
             if (newSemesters[i]) {
                 newSemesters[i] = { ...newSemesters[i], name: seqName };
@@ -1039,7 +1043,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
         handleLocalSetSemesters(newSemesters);
     };
-    // ✨ TÍNH NĂNG: TỰ ĐỘNG ĐIỀN ĐIỂM RÈN LUYỆN TỪ DB TRƯỜNG ✨
+    // âœ¨ TÃNH NÄ‚NG: Tá»° Äá»˜NG ÄIá»€N ÄIá»‚M RÃˆN LUYá»†N Tá»ª DB TRÆ¯á»œNG âœ¨
     useEffect(() => {
         const fetchAndFillTrainingScore = async () => {
             let targetStudentCode = (data as any).studentCode || (data as any).student_code; 
@@ -1062,9 +1066,9 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             for (let i = 0; i < newSemesters.length; i++) {
                 const sem = newSemesters[i];
                 if (sem.trainingScore === null || sem.trainingScore === undefined || sem.trainingScore === 0) {
-                    const match = sem.name.match(/Học kỳ (1|2|3|Hè) Năm học (\d{4})-(\d{4})/);
+                    const match = sem.name.match(/Há»c ká»³ (1|2|3|HÃ¨) NÄƒm há»c (\d{4})-(\d{4})/);
                     if (match) {
-                        const hk = match[1] === 'Hè' ? '3' : match[1]; 
+                        const hk = match[1] === 'HÃ¨' ? '3' : match[1];
                         const year1 = match[2];
                         const year2 = match[3];
                         const semId = `HK${hk}_${year1}_${year2}`;
@@ -1091,9 +1095,9 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     const sortedSemesters = useMemo(() => {
         const getWeight = (name: string) => {
             if (!name) return 999999;
-            const match = name.match(/Học kỳ (1|2|3|Hè) Năm học (\d{4})-(\d{4})/);
+            const match = name.match(/Há»c ká»³ (1|2|3|HÃ¨) NÄƒm há»c (\d{4})-(\d{4})/);
             if (!match) return 999998; 
-            const hk = match[1] === 'Hè' ? 3 : parseInt(match[1]);
+            const hk = match[1] === 'HÃ¨' ? 3 : parseInt(match[1]);
             const year = parseInt(match[2]);
             return year * 10 + hk;
         };
@@ -1105,7 +1109,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     const usedSemesterNames = activeData.semesters.map(s => s.name);
     const isLocked = isGuest && !activeData.hasOnboarded;
 
-    const validDataSemesters = activeData.semesters.filter(s => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
+    const validDataSemesters = activeData.semesters.filter(s => /^Há»c ká»³ (1|2|3|HÃ¨) NÄƒm há»c \d{4}-\d{4}$/.test(s.name));
 
     const stats = calculateCumulativeStats(validDataSemesters);
     const yearlyStats = calculateYearlyStats(validDataSemesters);
@@ -1130,23 +1134,23 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     }, {} as Record<string, number>);
 
     const pieData = [
-        { name: 'Giỏi/Xuất sắc (A)', value: gradeDist['A'] || 0, color: '#10B981' }, 
-        { name: 'Khá (B)', value: gradeDist['B'] || 0, color: '#3B82F6' }, 
-        { name: 'Trung bình (C)', value: gradeDist['C'] || 0, color: '#F59E0B' }, 
-        { name: 'Yếu/Rớt (D, F)', value: (gradeDist['D'] || 0) + (gradeDist['F'] || 0), color: '#EF4444' }, 
+        { name: 'Giá»i/Xuáº¥t sáº¯c (A)', value: gradeDist['A'] || 0, color: '#10B981' },
+        { name: 'KhÃ¡ (B)', value: gradeDist['B'] || 0, color: '#3B82F6' },
+        { name: 'Trung bÃ¬nh (C)', value: gradeDist['C'] || 0, color: '#F59E0B' },
+        { name: 'Yáº¿u/Rá»›t (D, F)', value: (gradeDist['D'] || 0) + (gradeDist['F'] || 0), color: '#EF4444' },
     ].filter(d => d.value > 0);
 
     const trendData = validDataSemesters.map(sem => {
         const semStats = calculateSemesterStats(sem.subjects);
         let shortName = sem.name;
-        if (shortName.includes('Học kỳ')) {
+        if (shortName.includes('Há»c ká»³')) {
             const parts = shortName.split('-');
-            if (sem.name.includes('Năm học')) {
+            if (sem.name.includes('NÄƒm há»c')) {
                 const yearPart = sem.name.match(/(\d{4})/);
-                const hkPart = sem.name.match(/Học kỳ (1|2|3|Hè)/);
+                const hkPart = sem.name.match(/Há»c ká»³ (1|2|3|HÃ¨)/);
                 if (yearPart && hkPart) shortName = `HK${hkPart[1]}/${yearPart[1].slice(2)}`;
             } else {
-                shortName = sem.name.replace('Năm ', 'N').replace(' - Học kỳ ', '.HK').replace('Học kỳ Hè', 'Hè');
+                shortName = sem.name.replace('NÄƒm ', 'N').replace(' - Há»c ká»³ ', '.HK').replace('Há»c ká»³ HÃ¨', 'HÃ¨');
             }
         }
         return {
@@ -1174,26 +1178,26 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     );
 
     let difficultyColor = "text-[#003375] bg-blue-50";
-    let difficultyText = "Tốt";
+    let difficultyText = "Tá»‘t";
     let scoreClass = "text-[#003375]";
 
     if (requiredAnalysis && requiredAnalysis.isPossible) {
         const req = requiredAnalysis.requiredGPA;
         if (req > 3.6) {
             difficultyColor = "text-[#990000] bg-red-50";
-            difficultyText = "Thử thách";
+            difficultyText = "Thá»­ thÃ¡ch";
             scoreClass = "text-[#990000]";
         } else if (req > 3.2) {
             difficultyColor = "text-orange-700 bg-orange-50";
-            difficultyText = "Cần nỗ lực";
+            difficultyText = "Cáº§n ná»— lá»±c";
             scoreClass = "text-orange-600";
         } else if (req > 2.5) {
             difficultyColor = "text-[#003375] bg-blue-50";
-            difficultyText = "Khả thi";
+            difficultyText = "Kháº£ thi";
             scoreClass = "text-[#003375]";
         } else {
             difficultyColor = "text-emerald-700 bg-emerald-50";
-            difficultyText = "Trong tầm tay";
+            difficultyText = "Trong táº§m tay";
             scoreClass = "text-emerald-600";
         }
     }
@@ -1206,9 +1210,9 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
                         <div>
                             <h1 className="text-[22px] sm:text-[28px] font-extrabold text-[#003375] tracking-tight leading-tight mb-0.5">
-                                Quản lý Sinh viên
+                                Quáº£n lÃ½ Sinh viÃªn
                             </h1>
-                            <p className="text-xs text-gray-500">Xem và theo dõi tiến độ học tập toàn trường</p>
+                            <p className="text-xs text-gray-500">Xem vÃ  theo dÃµi tiáº¿n Ä‘á»™ há»c táº­p toÃ n trÆ°á»ng</p>
                         </div>
                         
                         <div className="flex flex-col w-full lg:w-auto gap-2">
@@ -1217,7 +1221,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                                     <input 
                                         type="text" 
-                                        placeholder="Tìm MSSV hoặc Tên..." 
+                                        placeholder="TÃ¬m MSSV hoáº·c TÃªn..."
                                         value={adminSearch}
                                         onChange={e => setAdminSearch(e.target.value)}
                                         className="w-full h-10 pl-8 pr-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-[#003375] outline-none text-sm bg-white font-semibold"
@@ -1229,7 +1233,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     className={`h-10 px-3 rounded-xl border text-sm font-bold transition-colors shrink-0 flex items-center gap-1.5 ${showAdminFilters || activeAdminFilterCount > 0 ? 'bg-[#003375] text-white border-[#003375] shadow-sm' : 'bg-white text-[#003375] border-gray-300'}`}
                                 >
                                     <ListFilter size={16} />
-                                    <span>Lọc</span>
+                                    <span>Lá»c</span>
                                     {activeAdminFilterCount > 0 && (
                                         <span className={`min-w-5 h-5 rounded-full px-1.5 text-[11px] font-black flex items-center justify-center ${showAdminFilters ? 'bg-white text-[#003375]' : 'bg-[#003375] text-white'}`}>
                                             {activeAdminFilterCount}
@@ -1241,22 +1245,22 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     onClick={() => { playClick(); fetchAdminData(); }} 
                                     disabled={loadingAdmin}
                                     className="h-10 w-10 bg-white text-gray-500 border border-gray-300 hover:text-[#003375] hover:bg-blue-50 rounded-xl shadow-sm transition-colors disabled:opacity-50 shrink-0 flex items-center justify-center"
-                                    title="Làm mới danh sách"
+                                    title="LÃ m má»›i danh sÃ¡ch"
                                 >
                                     <RefreshCw size={18} className={loadingAdmin ? "animate-spin" : ""} />
                                 </button>
 
                                 <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="hidden sm:inline-flex h-10 items-center px-3 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] hover:bg-blue-50 rounded-xl shadow-sm whitespace-nowrap transition-colors shrink-0">
-                                    Hồ sơ của tôi
+                                    Há»“ sÆ¡ cá»§a tÃ´i
                                 </button>
                             </div>
                             
                             <div className={`${showAdminFilters ? 'grid' : 'hidden'} grid-cols-2 gap-2 w-full rounded-2xl border border-gray-200 bg-white p-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] animate-fadeIn`}>
                                 <div className="col-span-2 flex items-center justify-between">
-                                    <span className="text-xs font-black uppercase tracking-wide text-gray-500">Bộ lọc</span>
+                                    <span className="text-xs font-black uppercase tracking-wide text-gray-500">Bá»™ lá»c</span>
                                     {activeAdminFilterCount > 0 && (
                                         <button onClick={() => { playClick(); resetAdminFilters(); }} className="text-xs font-bold text-[#003375]">
-                                            Xóa lọc
+                                            XÃ³a lá»c
                                         </button>
                                     )}
                                 </div>
@@ -1267,10 +1271,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         onChange={(e) => setAdminFilterGpa(e.target.value as any)}
                                         className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[140px] truncate"
                                     >
-                                        <option value="all">Mọi mức điểm</option>
-                                        <option value="excellent">Xuất sắc (&gt;3.6)</option>
-                                        <option value="warning">Cảnh báo (&lt;2.0)</option>
-                                        <option value="nogpa">Chưa có điểm</option>
+                                        <option value="all">Má»i má»©c Ä‘iá»ƒm</option>
+                                        <option value="excellent">Xuáº¥t sáº¯c (&gt;3.6)</option>
+                                        <option value="warning">Cáº£nh bÃ¡o (&lt;2.0)</option>
+                                        <option value="nogpa">ChÆ°a cÃ³ Ä‘iá»ƒm</option>
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                                 </div>
@@ -1282,7 +1286,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         onChange={(e) => setAdminFilterMajor(e.target.value)}
                                         className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[140px] truncate"
                                     >
-                                        <option value="all">Tất cả Ngành</option>
+                                        <option value="all">Táº¥t cáº£ NgÃ nh</option>
                                         {adminMajors.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
@@ -1295,8 +1299,8 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         onChange={(e) => setAdminFilterSemester(e.target.value)}
                                         className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[150px] truncate"
                                     >
-                                        <option value="all">Tích lũy toàn khóa</option>
-                                        {adminSemesters.map(s => <option key={s} value={s}>{s.replace('Học kỳ ', 'HK').replace(' Năm học ', ' ')}</option>)}
+                                        <option value="all">TÃ­ch lÅ©y toÃ n khÃ³a</option>
+                                        {adminSemesters.map(s => <option key={s} value={s}>{s.replace('Há»c ká»³ ', 'HK').replace(' NÄƒm há»c ', ' ')}</option>)}
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                                 </div>
@@ -1308,9 +1312,11 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         onChange={(e) => setAdminSort(e.target.value as any)}
                                         className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full"
                                     >
-                                        <option value="newest">Mới cập nhật</option>
-                                        <option value="gpa_desc">GPA Cao nhất</option>
+                                        <option value="newest">Má»›i cáº­p nháº­t</option>
+                                        <option value="gpa_desc">GPA Cao nháº¥t</option>
                                         <option value="credits_desc">Nhiều Tín nhất</option>
+                                        <option value="created_desc">Tạo mới nhất</option>
+                                        <option value="created_asc">Tạo cũ nhất</option>
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                                 </div>
@@ -1319,14 +1325,14 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                {/* 3. BỐN THẺ THỐNG KÊ (GRID 2x2 MOBILE, 4x1 DESKTOP) */}
+                {/* 3. Bá»N THáºº THá»NG KÃŠ (GRID 2x2 MOBILE, 4x1 DESKTOP) */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
                     <button onClick={() => { playClick(); setAdminFilterGpa('all'); }} className={`bg-white p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'all' ? 'border-[#003375] ring-1 ring-[#003375] bg-blue-50/20' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'}`}>
                         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
                             <Users size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
                         <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Tổng SV</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Tá»•ng SV</p>
                             <span className="text-lg sm:text-xl font-black text-gray-900">{adminSummary.total}</span>
                         </div>
                     </button>
@@ -1349,7 +1355,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <AlertTriangle size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
                         <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-red-600/80 uppercase tracking-wider mb-0.5">Cảnh báo</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-red-600/80 uppercase tracking-wider mb-0.5">Cáº£nh bÃ¡o</p>
                             <span className="text-lg sm:text-xl font-black text-red-600">{adminSummary.warning}</span>
                         </div>
                     </button>
@@ -1359,7 +1365,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <Crown size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
                         <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-orange-500/80 uppercase tracking-wider mb-0.5">Xuất sắc</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-orange-500/80 uppercase tracking-wider mb-0.5">Xuáº¥t sáº¯c</p>
                             <span className="text-lg sm:text-xl font-black text-orange-500">{adminSummary.excellent}</span>
                         </div>
                     </button>
@@ -1371,16 +1377,16 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <thead className="bg-gray-50 text-gray-600 border-b border-gray-200 sticky top-0 z-10">
                                 <tr>
                                     <th className="px-4 py-3 font-bold">MSSV</th>
-                                    <th className="px-4 py-3 font-bold">Họ và Tên</th>
-                                    <th className="px-4 py-3 font-bold">Hệ / Khóa</th>
-                                    <th className="px-4 py-3 font-bold text-center">{adminFilterSemester === 'all' ? 'GPA Tích lũy' : 'GPA Học kỳ'}</th>
-                                    <th className="px-4 py-3 font-bold text-center">Tín chỉ</th>
-                                    <th className="px-4 py-3 font-bold text-right">Cập nhật lúc</th>
+                                    <th className="px-4 py-3 font-bold">Há» vÃ  TÃªn</th>
+                                    <th className="px-4 py-3 font-bold">Há»‡ / KhÃ³a</th>
+                                    <th className="px-4 py-3 font-bold text-center">{adminFilterSemester === 'all' ? 'GPA TÃ­ch lÅ©y' : 'GPA Há»c ká»³'}</th>
+                                    <th className="px-4 py-3 font-bold text-center">TÃ­n chá»‰</th>
+                                    <th className="px-4 py-3 font-bold text-right">Cáº­p nháº­t lÃºc</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {loadingAdmin ? (
-                                    <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/> <span className="text-gray-500">Đang tải toàn bộ dữ liệu ({adminUsers.length}+)...</span></td></tr>
+                                    <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/> <span className="text-gray-500">Äang táº£i toÃ n bá»™ dá»¯ liá»‡u ({adminUsers.length}+)...</span></td></tr>
                                 ) : (() => {
                                     const totalPages = Math.ceil(processedAdminUsers.length / itemsPerPage) || 1;
                                     const paginatedUsers = processedAdminUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -1390,9 +1396,9 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                             const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
                                             
                                             return (
-                                                <tr key={user.id} onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
+                                                <tr key={user.id} onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'ChÆ°a cÃ³ data' }); setAdminMode('detail'); window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
                                                     <td className="px-4 py-3 font-bold text-[#003375]">{user.student_code || '-'}</td>
-                                                    <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#003375] transition-colors">{user.full_name || user.data?.studentName || 'Chưa cập nhật'}</td>
+                                                    <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#003375] transition-colors">{user.full_name || user.data?.studentName || 'ChÆ°a cáº­p nháº­t'}</td>
                                                     <td className="px-4 py-3 text-gray-600">{user.data?.programName || '-'} / {user.data?.cohort || '-'}</td>
                                                     <td className="px-4 py-3 text-center font-bold text-emerald-600">{user._computedGpa > 0 ? user._computedGpa.toFixed(2) : '-'}</td>
                                                     <td className="px-4 py-3 text-center text-gray-600">{user._computedCredits || 0}</td>
@@ -1401,7 +1407,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                             )
                                         })
                                     ) : (
-                                        <tr><td colSpan={6} className="py-8 text-center text-gray-500">Không tìm thấy sinh viên nào phù hợp</td></tr>
+                                        <tr><td colSpan={6} className="py-8 text-center text-gray-500">KhÃ´ng tÃ¬m tháº¥y sinh viÃªn nÃ o phÃ¹ há»£p</td></tr>
                                     )
                                 })()}
                             </tbody>
@@ -1414,7 +1420,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                         return (
                             <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 gap-3">
                                 <span className="text-xs sm:text-sm text-gray-500">
-                                    Đang xem <span className="font-bold text-gray-700">{processedAdminUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> đến <span className="font-bold text-gray-700">{Math.min(currentPage * itemsPerPage, processedAdminUsers.length)}</span> trong tổng số <span className="font-bold text-gray-900">{processedAdminUsers.length}</span> sinh viên
+                                    Äang xem <span className="font-bold text-gray-700">{processedAdminUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> Ä‘áº¿n <span className="font-bold text-gray-700">{Math.min(currentPage * itemsPerPage, processedAdminUsers.length)}</span> trong tá»•ng sá»‘ <span className="font-bold text-gray-900">{processedAdminUsers.length}</span> sinh viÃªn
                                 </span>
                                 <div className="flex items-center gap-2">
                                     <button 
@@ -1422,7 +1428,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         disabled={currentPage === 1}
                                         className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
-                                        Trước
+                                        TrÆ°á»›c
                                     </button>
                                     
                                     <div className="flex items-center gap-1.5 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100 text-xs font-bold text-[#003375]">
@@ -1470,22 +1476,22 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('list'); window.history.pushState(null, '', '/dashboard/admin'); }}
                             className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
                         >
-                            <ChevronLeft size={16} /> Quay lại danh sách quản lý
+                            <ChevronLeft size={16} /> Quay láº¡i danh sÃ¡ch quáº£n lÃ½
                         </button>
                     )}
                     
                     <h1 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
-                Học tập
+                Há»c táº­p
             </h1>
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <span>Quản lý học tập</span><span>•</span><span className="font-bold text-gray-700">Bảng điểm và lộ trình</span>
+                <span>Quáº£n lÃ½ há»c táº­p</span><span>â€¢</span><span className="font-bold text-gray-700">Báº£ng Ä‘iá»ƒm vÃ  lá»™ trÃ¬nh</span>
             </div>
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                     <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng GPA tích lũy</span>
+                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tá»•ng GPA tÃ­ch lÅ©y</span>
                             <GraduationCap size={16} className="text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
                         <div className="flex items-baseline gap-1 mt-1">
@@ -1493,13 +1499,13 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <span className="text-[10px] sm:text-sm font-bold text-gray-400">/ 4.0</span>
                         </div>
                         <div className="text-[10px] sm:text-[11px] text-gray-500 mt-1.5 sm:mt-2 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#990000] shrink-0"></span> <span className="truncate">Hệ 10: <span className="font-bold text-gray-700">{stats.gpa10.toFixed(2)}</span></span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#990000] shrink-0"></span> <span className="truncate">Há»‡ 10: <span className="font-bold text-gray-700">{stats.gpa10.toFixed(2)}</span></span>
                         </div>
                     </div>
 
                     <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng TC tích lũy</span>
+                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tá»•ng TC tÃ­ch lÅ©y</span>
                             <BookOpen size={16} className="text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
                         <div className="flex items-baseline gap-1 mt-1">
@@ -1507,13 +1513,13 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <span className="text-[10px] sm:text-[13px] font-bold text-gray-500">TC</span>
                         </div>
                         <div className="text-[10px] sm:text-[11px] text-gray-500 mt-1.5 sm:mt-2 truncate">
-                            Mục tiêu: <span className="font-bold text-gray-700">{totalCreditsRequired}</span>
+                            Má»¥c tiÃªu: <span className="font-bold text-gray-700">{totalCreditsRequired}</span>
                         </div>
                     </div>
 
                     <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between cursor-pointer relative overflow-hidden" onClick={() => { if(!isLocked) { playClick(); setShowRankingModal(true); } }}>
                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">BXH môn học</span>
+                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">BXH mÃ´n há»c</span>
                             <Trophy size={16} className="text-yellow-500 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
                         
@@ -1522,7 +1528,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                 <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/80 z-20 flex items-center justify-center flex-col text-center rounded-lg cursor-pointer group hover:bg-white transition-colors border border-gray-200">
                                     <div className="bg-white px-3 py-1.5 rounded-xl border border-gray-300 flex flex-col items-center group-hover:scale-105 transition-transform">
                                         <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
-                                        <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
+                                        <p className="text-[10px] font-bold text-[#003375]">ÄÄƒng nháº­p Ä‘á»ƒ xem</p>
                                     </div>
                                 </Link>
                             )}
@@ -1531,18 +1537,18 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     <span className="text-[11px] sm:text-sm font-bold text-[#003375] line-clamp-1 leading-tight">{highestSubject.name}</span>
                                     <div className="mt-1 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
                                         <span className="text-sm sm:text-[15px] font-extrabold text-gray-900 leading-none">{highestSubject.avg.toFixed(1)}</span>
-                                        <span className="text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 whitespace-nowrap">Điểm {highestSubject.letter}</span>
+                                        <span className="text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 whitespace-nowrap">Äiá»ƒm {highestSubject.letter}</span>
                                     </div>
                                 </div>
                             ) : (
-                                <p className="text-[10px] sm:text-xs text-gray-400 italic mt-1.5 sm:mt-2">Chưa có dữ liệu</p>
+                                <p className="text-[10px] sm:text-xs text-gray-400 italic mt-1.5 sm:mt-2">ChÆ°a cÃ³ dá»¯ liá»‡u</p>
                             )}
                         </div>
                     </div>
 
                     <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dự báo mục tiêu</span>
+                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dá»± bÃ¡o má»¥c tiÃªu</span>
                             <Target size={16} className="text-[#003375] shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
 
@@ -1551,13 +1557,13 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                 <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/80 z-20 flex items-center justify-center flex-col text-center rounded-lg cursor-pointer group hover:bg-white transition-colors border border-gray-200">
                                     <div className="bg-white px-3 py-1.5 rounded-xl border border-gray-300 flex flex-col items-center group-hover:scale-105 transition-transform">
                                         <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
-                                        <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
+                                        <p className="text-[10px] font-bold text-[#003375]">ÄÄƒng nháº­p Ä‘á»ƒ xem</p>
                                     </div>
                                 </Link>
                             )}
                             <div className="flex flex-col gap-1 sm:gap-1 text-[9px] sm:text-[11px] text-gray-600 mt-1">
                                 <div className="flex justify-between items-center">
-                                    <span className="truncate">Mục tiêu:</span>
+                                    <span className="truncate">Má»¥c tiÃªu:</span>
                                     <div className="flex items-center group relative cursor-pointer border-b border-dashed border-gray-400 hover:border-[#003375]">
                                         <input
                                             type="number" min="0" max="4" step="0.1"
@@ -1568,15 +1574,15 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     </div>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="truncate">Hiện tại:</span>
+                                    <span className="truncate">Hiá»‡n táº¡i:</span>
                                     <span className="font-bold text-gray-900">{(Math.floor(stats.rawGPA4 * 100) / 100).toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="truncate">Trung bình một tín:</span>
+                                    <span className="truncate">Trung bÃ¬nh má»™t tÃ­n:</span>
                                     {requiredAnalysis && requiredAnalysis.isPossible ? (
                                         <span className={`font-bold border-b border-transparent ${scoreClass}`}>{Math.max(0, requiredAnalysis.requiredGPA).toFixed(2)}</span>
                                     ) : (
-                                        <span className="font-bold text-[#990000]">Không thể</span>
+                                        <span className="font-bold text-[#990000]">KhÃ´ng thá»ƒ</span>
                                     )}
                                 </div>
                             </div>
@@ -1588,10 +1594,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     <div className="flex flex-col gap-3 sm:gap-4">
                         <div className="bg-white p-3 sm:p-5 rounded-xl border border-gray-300 flex flex-col h-[240px] sm:h-auto sm:min-h-[340px]">
                             <div className="flex justify-between items-center mb-2 sm:mb-6">
-                                <h3 className="text-[12px] sm:text-[15px] font-bold text-gray-900 tracking-tight">Xu hướng học tập</h3>
+                                <h3 className="text-[12px] sm:text-[15px] font-bold text-gray-900 tracking-tight">Xu hÆ°á»›ng há»c táº­p</h3>
                                 <div className="flex items-center gap-2 sm:gap-3 text-[9px] sm:text-[11px] font-bold text-gray-600">
-                                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#003375]"></span>Hệ 4</span>
-                                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#990000]"></span>Hệ 10</span>
+                                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#003375]"></span>Há»‡ 4</span>
+                                    <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#990000]"></span>Há»‡ 10</span>
                                 </div>
                             </div>
                             
@@ -1600,8 +1606,8 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     <Link to="/login" onClick={playClick} className="absolute inset-0 bg-white/40 z-20 flex items-center justify-center flex-col text-center rounded-xl ml-5 sm:ml-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.7)] hover:bg-white/50 transition-colors cursor-pointer group">
                                         <div className="bg-white/90 p-4 rounded-2xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                             <Shield className="text-[#003375] mb-2 opacity-90" size={28} />
-                                            <p className="text-sm font-bold text-[#003375]">Biểu đồ đã bị khóa</p>
-                                            <p className="text-[11px] text-gray-500 mt-1 max-w-[200px]">Click để đăng nhập và mở khóa tính năng này.</p>
+                                            <p className="text-sm font-bold text-[#003375]">Biá»ƒu Ä‘á»“ Ä‘Ã£ bá»‹ khÃ³a</p>
+                                            <p className="text-[11px] text-gray-500 mt-1 max-w-[200px]">Click Ä‘á»ƒ Ä‘Äƒng nháº­p vÃ  má»Ÿ khÃ³a tÃ­nh nÄƒng nÃ y.</p>
                                         </div>
                                     </Link>
                                 )}
@@ -1613,12 +1619,12 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                             <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#6B7280', fontWeight: 500 }} axisLine={false} tickLine={false} dy={10} />
                                             <YAxis domain={[0, 10]} tickCount={6} tick={{ fontSize: 9, fill: '#6B7280', fontWeight: 500 }} axisLine={false} tickLine={false} />
                                             <RechartsTooltip contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', fontSize: '11px', padding: '6px 10px' }} cursor={{ stroke: '#9CA3AF', strokeWidth: 1, strokeDasharray: '4 4' }} />
-                                            <Line type="monotone" dataKey="gpa4" name="Hệ 4" stroke="#003375" strokeWidth={2} dot={{ r: 3, fill: '#fff', stroke: '#003375', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#003375', stroke: '#fff', strokeWidth: 2 }} />
-                                            <Line type="monotone" dataKey="gpa10" name="Hệ 10" stroke="#990000" strokeWidth={2} dot={{ r: 3, fill: '#fff', stroke: '#990000', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#990000', stroke: '#fff', strokeWidth: 2 }} />
+                                            <Line type="monotone" dataKey="gpa4" name="Há»‡ 4" stroke="#003375" strokeWidth={2} dot={{ r: 3, fill: '#fff', stroke: '#003375', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#003375', stroke: '#fff', strokeWidth: 2 }} />
+                                            <Line type="monotone" dataKey="gpa10" name="Há»‡ 10" stroke="#990000" strokeWidth={2} dot={{ r: 3, fill: '#fff', stroke: '#990000', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#990000', stroke: '#fff', strokeWidth: 2 }} />
                                         </LineChart>
                                     </ResponsiveContainer>
                                 ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs border border-dashed border-gray-300 rounded-xl ml-5 sm:ml-4">Chưa có dữ liệu học kỳ</div>
+                                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs border border-dashed border-gray-300 rounded-xl ml-5 sm:ml-4">ChÆ°a cÃ³ dá»¯ liá»‡u há»c ká»³</div>
                                 )}
                             </div>
                         </div>
@@ -1626,19 +1632,19 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                         <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 relative overflow-hidden">
                             <div className="flex-1 w-full">
                                 <h3 className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                                    <BarChart3 size={14} className="text-[#003375] sm:w-4 sm:h-4"/> Đánh giá hệ thống
+                                    <BarChart3 size={14} className="text-[#003375] sm:w-4 sm:h-4"/> ÄÃ¡nh giÃ¡ há»‡ thá»‘ng
                                 </h3>
                                 <p className="text-[10px] sm:text-xs text-gray-500 font-medium leading-snug">"{trendAnalysis}"</p>
                             </div>
                             <div className="shrink-0 w-full sm:w-auto mt-1 sm:mt-0">
                                 {failedCount > 0 ? (
                                     <button onClick={() => { playClick(); setShowFailedModal(true); }} className="w-full sm:w-auto flex items-center justify-between gap-3 px-3 py-2 bg-red-50 text-[#990000] border border-red-100 rounded-lg text-[11px] sm:text-xs font-bold hover:bg-red-100 transition-colors group">
-                                        <span className="flex items-center gap-1.5"><AlertTriangle size={14} /> Tồn đọng {failedCount} môn nợ</span>
+                                        <span className="flex items-center gap-1.5"><AlertTriangle size={14} /> Tá»“n Ä‘á»ng {failedCount} mÃ´n ná»£</span>
                                         <ChevronRight size={14} className="opacity-50 group-hover:opacity-100 transition-opacity" />
                                     </button>
                                 ) : (
                                     <div className="w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[11px] sm:text-xs font-bold">
-                                        <span className="flex items-center gap-1.5"><CheckCircle2 size={14} /> Không nợ môn</span>
+                                        <span className="flex items-center gap-1.5"><CheckCircle2 size={14} /> KhÃ´ng ná»£ mÃ´n</span>
                                     </div>
                                 )}
                             </div>
@@ -1647,14 +1653,14 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                     <div className="grid grid-cols-2 gap-3 sm:gap-4 shrink-0">
                         <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
-                            <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight mb-2 uppercase truncate">Phân bố điểm</h3>
+                            <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight mb-2 uppercase truncate">PhÃ¢n bá»‘ Ä‘iá»ƒm</h3>
                             
                             <div className="h-[100px] sm:h-[130px] w-full relative flex flex-col items-center justify-center shrink-0">
                                 {isLocked && (
                                     <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
                                         <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                             <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
-                                            <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
+                                            <p className="text-[10px] font-bold text-[#003375]">ÄÄƒng nháº­p Ä‘á»ƒ xem</p>
                                         </div>
                                     </Link>
                                 )}
@@ -1670,16 +1676,16 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         </PieChart>
                                     </ResponsiveContainer>
                                 ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">Chưa có dữ liệu</div>
+                                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">ChÆ°a cÃ³ dá»¯ liá»‡u</div>
                                 )}
                             </div>
                         </div>
 
                         <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                             <div className="flex justify-between items-center mb-2 sm:mb-3">
-                                <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 uppercase truncate">Tổng kết năm</h3>
+                                <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 uppercase truncate">Tá»•ng káº¿t nÄƒm</h3>
                                 {yearlyStats.length > 3 && !isLocked && (
-                                    <button onClick={() => { playClick(); setShowYearlyModal(true); }} className="text-[9px] sm:text-[10px] font-bold text-[#003375] hover:underline shrink-0 ml-1">Chi tiết</button>
+                                    <button onClick={() => { playClick(); setShowYearlyModal(true); }} className="text-[9px] sm:text-[10px] font-bold text-[#003375] hover:underline shrink-0 ml-1">Chi tiáº¿t</button>
                                 )}
                             </div>
                             
@@ -1688,18 +1694,18 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
                                         <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                             <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
-                                            <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
+                                            <p className="text-[10px] font-bold text-[#003375]">ÄÄƒng nháº­p Ä‘á»ƒ xem</p>
                                         </div>
                                     </Link>
                                 )}
                                 <div className="grid grid-cols-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
-                                    <span className="col-span-2">Năm</span>
+                                    <span className="col-span-2">NÄƒm</span>
                                     <span className="text-center">TC</span>
                                     <span className="text-right">GPA</span>
                                 </div>
                                 {yearlyStats.slice(0, 4).map((year) => (
                                     <div key={year.yearId} className="grid grid-cols-4 text-[10px] sm:text-xs items-center py-1 hover:bg-gray-50 rounded px-0.5 sm:px-1 transition-colors">
-                                        <span className="col-span-2 font-medium text-gray-700 truncate pr-1" title={year.label}>{year.label.replace('Năm học ', 'NH ')}</span>
+                                        <span className="col-span-2 font-medium text-gray-700 truncate pr-1" title={year.label}>{year.label.replace('NÄƒm há»c ', 'NH ')}</span>
                                         <span className="text-center text-gray-500">{year.hasData ? year.totalCredits : '-'}</span>
                                         <span className="text-right font-extrabold text-[#003375]">{year.hasData ? year.gpa4.toFixed(2) : '-'}</span>
                                     </div>
@@ -1711,7 +1717,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                 <div className="pt-2">
                     <div className="flex flex-row justify-between items-center flex-wrap mb-3 sm:mb-4 gap-2 border-t border-gray-200 pt-4 sm:pt-5 mt-2">
-                        <h2 className="text-[15px] sm:text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Chi tiết bảng điểm</h2>
+                        <h2 className="text-[15px] sm:text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Chi tiáº¿t báº£ng Ä‘iá»ƒm</h2>
 
                         <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
                             <button
@@ -1719,8 +1725,8 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                 className="text-red-600 bg-red-50 border border-red-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-red-100 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
                             >
                                 <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
-                                <span className="hidden sm:inline">Báo lỗi</span>
-                                <span className="sm:hidden">Lỗi</span>
+                                <span className="hidden sm:inline">BÃ¡o lá»—i</span>
+                                <span className="sm:hidden">Lá»—i</span>
                             </button>
                             
                             <button
@@ -1728,8 +1734,8 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                 className="text-gray-600 bg-white border border-gray-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
                             >
                                 <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
-                                <span className="hidden sm:inline">Xuất PDF</span>
-                                <span className="sm:hidden">Xuất</span>
+                                <span className="hidden sm:inline">Xuáº¥t PDF</span>
+                                <span className="sm:hidden">Xuáº¥t</span>
                             </button>
 
                             <div>
@@ -1743,8 +1749,8 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     className="bg-white text-[#003375] border border-gray-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:border-[#003375] hover:bg-blue-50 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm disabled:opacity-70 active:scale-95"
                                 >
                                     {isImporting ? <Loader2 className="animate-spin w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <FileUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                                    <span className="hidden sm:inline">Nhập điểm PDF</span>
-                                    <span className="sm:hidden">Nhập</span>
+                                    <span className="hidden sm:inline">Nháº­p Ä‘iá»ƒm PDF</span>
+                                    <span className="sm:hidden">Nháº­p</span>
                                 </button>
                             </div>
                         </div>
@@ -1771,16 +1777,16 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                         {activeData.semesters.length === 0 && (
                             <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-                                <p className="text-gray-500 mb-4 text-sm font-medium">Bạn chưa có học kỳ nào.</p>
+                                <p className="text-gray-500 mb-4 text-sm font-medium">Báº¡n chÆ°a cÃ³ há»c ká»³ nÃ o.</p>
                                 <button onClick={handleLocalAddSemester} className="text-[#003375] font-bold hover:underline flex items-center justify-center gap-1 mx-auto text-sm transition-colors">
-                                    <Plus size={16} /> Tạo thủ công
+                                    <Plus size={16} /> Táº¡o thá»§ cÃ´ng
                                 </button>
                             </div>
                         )}
                         
                         {!isInitialState && activeData.semesters.length > 0 && activeData.semesters.length < ALL_SEMESTERS.length && (
                             <button onClick={handleLocalAddSemester} className="w-full py-4 border-2 border-dashed border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-400 hover:bg-gray-50 rounded-xl font-semibold flex justify-center items-center gap-2 transition-all">
-                                <Plus size={18}/> Thêm học kỳ mới
+                                <Plus size={18}/> ThÃªm há»c ká»³ má»›i
                             </button>
                         )}
                     </div>
@@ -1789,7 +1795,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             </div>
         )}
 
-        {/* Các Modal */}
+        {/* CÃ¡c Modal */}
         {showRankingModal && <SubjectRankingModal subjects={validSubjects} onClose={() => setShowRankingModal(false)} />}
         {showFailedModal && <FailedSubjectsModal subjects={failedSubjectsList} onClose={() => setShowFailedModal(false)} />}
         {showYearlyModal && <YearlyStatsModal stats={yearlyStats} onClose={() => setShowYearlyModal(false)} />}
