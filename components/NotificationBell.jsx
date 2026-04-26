@@ -258,18 +258,19 @@ const NotificationBell = ({ currentUserId }) => {
       {isOpen && (
         <div 
           className="
-            absolute 
-            -right-16 sm:right-0  
-            mt-2 
-            w-72 sm:w-80          
+            fixed sm:absolute
+            left-4 right-4 top-[calc(env(safe-area-inset-top)+132px)]
+            sm:left-auto sm:right-0 sm:top-auto
+            sm:mt-2
+            w-auto sm:w-80
             bg-white 
-            rounded-xl 
-            shadow-xl 
+            rounded-2xl sm:rounded-xl
+            shadow-2xl sm:shadow-xl
             border border-gray-100 
             overflow-hidden 
             z-[100]  // ✨ SỬA Ở ĐÂY: Nâng từ z-50 lên z-[100] để đè bẹp thằng Glass Nav
             animate-fadeIn
-            max-w-[95vw]          
+            max-w-[calc(100vw-2rem)] sm:max-w-[95vw]
           "
         >
           {/* HEADER THÔNG BÁO */}
@@ -283,7 +284,7 @@ const NotificationBell = ({ currentUserId }) => {
           </div>
           
           {/* DANH SÁCH THÔNG BÁO */}
-          <div className="max-h-72 sm:max-h-80 overflow-y-auto custom-scrollbar"> 
+          <div className="max-h-[52dvh] sm:max-h-80 overflow-y-auto custom-scrollbar"> 
             {notifications.length === 0 ? (
               <div className="p-8 text-center text-sm text-gray-500">Chưa có thông báo nào</div>
             ) : (
