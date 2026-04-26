@@ -19,23 +19,16 @@ const getUserFromRequest = async (req: VercelRequest) => {
 };
 
 const deleteSubscriptionsByEndpoint = async (endpoint: string, exceptUserId?: string) => {
-  const { data, error } = await adminSupabase
-    .from('push_subscriptions')
-    .select('user_id, subscription');
-
-  if (error) throw error;
-
-  const staleUserIds = (data || [])
-    .filter((row) => row.subscription?.endpoint === endpoint && row.user_id !== exceptUserId)
-    .map((row) => row.user_id);
-
-  if (staleUserIds.length === 0) return;
-
-  const { error: deleteError } = await adminSupabase
+  let query = adminSupabase
     .from('push_subscriptions')
     .delete()
-    .in('user_id', staleUserIds);
+    .eq('endpoint', endpoint);
 
+  if (exceptUserId) {
+    query = query.neq('user_id', exceptUserId);
+  }
+
+  const { error: deleteError } = await query;
   if (deleteError) throw deleteError;
 };
 
@@ -63,10 +56,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     await deleteSubscriptionsByEndpoint(endpoint, user.id);
 
-    const { error } = await adminSupabase.from('push_subscriptions').upsert({
-      user_id: user.id,
-      subscription,
-    });
+    const { error } = await adminSupabase
+      .from('push_subscriptions')
+      .upsert(
+        {
+          user_id: user.id,
+          subscription,
+          endpoint,
+        },
+        { onConflict: 'endpoint' }
+      );
 
     if (error) throw error;
 

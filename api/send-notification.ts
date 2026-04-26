@@ -17,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { title, body, url, targetUserId } = req.body;
 
     // Lấy địa chỉ của sinh viên từ Supabase
-    let query = supabase.from('push_subscriptions').select('subscription');
+    let query = supabase.from('push_subscriptions').select('id, subscription');
     if (targetUserId) {
         query = query.eq('user_id', targetUserId); // Gửi riêng 1 người
     } // Nếu không truyền targetUserId sẽ gửi cho TOÀN BỘ sinh viên đã đăng ký
@@ -33,9 +33,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Bắn thông báo hàng loạt
     const sendPromises = subscriptions.map(sub => 
         webpush.sendNotification(sub.subscription, payload)
-            .catch(err => {
-                // Nếu báo lỗi (do sinh viên thu hồi quyền), sếp có thể xóa record này khỏi DB
+            .catch(async err => {
                 console.error('Lỗi gửi tới 1 device:', err);
+                if (err?.statusCode === 404 || err?.statusCode === 410) {
+                    await supabase
+                        .from('push_subscriptions')
+                        .delete()
+                        .eq('id', sub.id);
+                }
             })
     );
 
