@@ -7,6 +7,31 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY 
 );
 
+const ANNOUNCEMENT_PUSH_SPACING_MINUTES = 10;
+
+async function queueAnnouncementPushes(newItems) {
+  if (!newItems.length) return { queued: 0, skipped: true };
+
+  const now = Date.now();
+  const rows = newItems.map((item, index) => ({
+    announcement_id: item.id,
+    title: item.title,
+    link: item.link,
+    scheduled_at: new Date(now + index * ANNOUNCEMENT_PUSH_SPACING_MINUTES * 60 * 1000).toISOString(),
+  }));
+
+  const { error } = await supabase
+    .from('school_announcement_push_queue')
+    .upsert(rows, { onConflict: 'announcement_id' });
+
+  if (error) {
+    logger.error('Khong the xep hang push thong bao truong', { meta: { error: error.message } });
+    return { queued: 0, error: error.message };
+  }
+
+  return { queued: rows.length, spacingMinutes: ANNOUNCEMENT_PUSH_SPACING_MINUTES };
+}
+
 // ============================================================================
 // HÀM CHUẨN HÓA LINK
 // ============================================================================
@@ -212,27 +237,34 @@ export default async function handler(request, response) {
     });
 
     let actualInsertedCount = 0;
+    const insertedRecords = [];
     
     if (recordsToInsert.length > 0) {
         const insertChunks = chunkArray(recordsToInsert, 50);
         for (const chunk of insertChunks) {
             const insertPromises = chunk.map(async (item) => {
-                const { error } = await supabase
+                const { data, error } = await supabase
                     .from('school_announcements')
-                    .insert(item); 
+                    .insert(item)
+                    .select('id, title, link')
+                    .single();
                 
                 if (!error) {
                     actualInsertedCount++; 
+                    if (data) insertedRecords.push(data);
                 }
             });
             await Promise.all(insertPromises);
         }
     }
 
+    const pushQueueSummary = await queueAnnouncementPushes(insertedRecords);
+
     logger.info('Cào dữ liệu hoàn tất', { meta: { attempted: recordsToInsert.length, successful: actualInsertedCount }});
 
     return response.status(200).json({ 
         success: true, 
+        pushQueue: pushQueueSummary,
         message: `Đã quét ${SOURCES.reduce((acc, curr) => acc + curr.maxPages, 0)} trang. Đã chèn và lưu thực tế thành công ${actualInsertedCount} tin.`,
     });
 
