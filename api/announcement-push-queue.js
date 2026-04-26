@@ -1,48 +1,33 @@
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MINUTES = 10;
+const ANNOUNCEMENT_PUSH_SPACING_MINUTES = 10;
 
 webpush.setVapidDetails(
   'mailto:admin@hotrosinhvienhub.id.vn',
-  process.env.VITE_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
+  process.env.VITE_VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
 );
 
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.VITE_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const ANNOUNCEMENT_PUSH_SPACING_MINUTES = 10;
-
-type QueueRow = {
-  id: string;
-  title: string;
-  link: string;
-  attempts: number | null;
-};
-
-type AnnouncementRow = {
-  id: number;
-  title: string;
-  link: string;
-};
-
-const readBody = (body: unknown) => {
+const readBody = (body) => {
   if (!body) return {};
-  if (typeof body !== 'string') return body as Record<string, unknown>;
+  if (typeof body !== 'string') return body;
 
   try {
-    return JSON.parse(body || '{}') as Record<string, unknown>;
+    return JSON.parse(body || '{}');
   } catch {
     return {};
   }
 };
 
-const isAuthorized = (req: VercelRequest, body: Record<string, unknown>) => {
+const isAuthorized = (req, body) => {
   const token = req.query?.secret || body.secret || req.headers['x-secret-key'];
   const bearer = req.headers.authorization;
 
@@ -68,8 +53,7 @@ const enqueueRecentAnnouncements = async () => {
     return { queued: 0, error: announcementError?.message };
   }
 
-  const announcementRows = announcements as AnnouncementRow[];
-  const announcementIds = announcementRows.map((item) => item.id);
+  const announcementIds = announcements.map((item) => item.id);
   const { data: queuedRows, error: queuedError } = await supabase
     .from('school_announcement_push_queue')
     .select('announcement_id')
@@ -80,7 +64,7 @@ const enqueueRecentAnnouncements = async () => {
   }
 
   const queuedIds = new Set((queuedRows || []).map((item) => item.announcement_id));
-  const missingRows = announcementRows.filter((item) => !queuedIds.has(item.id));
+  const missingRows = announcements.filter((item) => !queuedIds.has(item.id));
 
   if (!missingRows.length) return { queued: 0 };
 
@@ -99,7 +83,7 @@ const enqueueRecentAnnouncements = async () => {
   return { queued: error ? 0 : rows.length, error: error?.message };
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -124,7 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: dueError.message });
   }
 
-  const item = (dueItems?.[0] || null) as QueueRow | null;
+  const item = dueItems?.[0] || null;
   if (!item) {
     return res.status(200).json({ success: true, sent: 0, backfill, message: 'No due announcement push' });
   }
@@ -156,7 +140,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const pushResponse = await webpush.sendNotification(sub.subscription, payload);
       return { ok: true, id: sub.id, statusCode: pushResponse.statusCode };
-    } catch (error: any) {
+    } catch (error) {
       if (error?.statusCode === 404 || error?.statusCode === 410) {
         await supabase
           .from('push_subscriptions')
