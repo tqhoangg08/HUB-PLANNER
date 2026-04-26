@@ -74,15 +74,22 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
     applicationServerKey: urlBase64ToUint8Array(publicKey),
   });
 
-  const resolvedUserId = userId || (await supabase.auth.getUser()).data.user?.id || null;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const resolvedUserId = userId || sessionData.session?.user?.id || null;
 
   if (resolvedUserId) {
-    const { error } = await supabase.from('push_subscriptions').upsert({
-      user_id: resolvedUserId,
-      subscription: subscription.toJSON(),
+    const response = await fetch('/api/push-subscription', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${sessionData.session?.access_token || ''}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ subscription: subscription.toJSON() }),
     });
 
-    if (error) throw error;
+    if (!response.ok) {
+      throw new Error('Khong the dong bo thiet bi nhan thong bao.');
+    }
   }
 
   return subscription;
@@ -92,15 +99,28 @@ export const unsubscribeFromDeviceNotifications = async (userId: string | null) 
   const subscription = await getCurrentPushSubscription();
 
   if (subscription) {
+    await unbindDeviceNotificationsForCurrentUser(userId);
     await subscription.unsubscribe();
   }
+};
 
-  if (userId) {
-    const { error } = await supabase
-      .from('push_subscriptions')
-      .delete()
-      .eq('user_id', userId);
+export const unbindDeviceNotificationsForCurrentUser = async (userId?: string | null) => {
+  const subscription = await getCurrentPushSubscription();
+  if (!subscription) return;
 
-    if (error) throw error;
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!userId || !sessionData.session?.access_token) return;
+
+  const response = await fetch('/api/push-subscription', {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${sessionData.session.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ subscription: subscription.toJSON() }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Khong the go lien ket thong bao cua thiet bi.');
   }
 };
