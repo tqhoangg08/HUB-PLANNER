@@ -88,6 +88,12 @@ const lostFoundBody = (item) => {
   return `${userName} ${action} ${itemName} ở ${location}.`;
 };
 
+const lostFoundPayload = (item) => ({
+  title: item.type === 'FOUND' ? 'Co do vua duoc nhat' : 'Co ban vua bao mat do',
+  body: lostFoundBody(item),
+  url: '/lost-found',
+});
+
 const enqueueRecentLostFoundItems = async () => {
   const recentCutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
 
@@ -167,6 +173,117 @@ const sendPushToAll = async (subscriptions, payload) => {
   return { sent, failed: results.length - sent, results };
 };
 
+const getActorRole = async (req) => {
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
+  if (!token) return null;
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !userData?.user?.id) return null;
+
+  const { data: roleData } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userData.user.id)
+    .maybeSingle();
+
+  return roleData?.role || 'student';
+};
+
+const approveLostFound = async (req, res, body) => {
+  const role = await getActorRole(req);
+  if (!['admin', 'editor'].includes(role || '')) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const itemId = Number(body.id);
+  if (!Number.isFinite(itemId)) {
+    return res.status(400).json({ error: 'Missing lost-found item id' });
+  }
+
+  const { data: existingItem, error: existingError } = await supabase
+    .from('lost_found_items')
+    .select('id, title, location, user_name, type, status, is_deleted')
+    .eq('id', itemId)
+    .maybeSingle();
+
+  if (existingError) return res.status(500).json({ error: existingError.message });
+  if (!existingItem || existingItem.is_deleted) return res.status(404).json({ error: 'Not found' });
+
+  let item = existingItem;
+  if (existingItem.status !== 'approved') {
+    const { data: approvedItem, error: approveError } = await supabase
+      .from('lost_found_items')
+      .update({ status: 'approved' })
+      .eq('id', itemId)
+      .select('id, title, location, user_name, type, status, is_deleted')
+      .single();
+
+    if (approveError) return res.status(500).json({ error: approveError.message });
+    item = approvedItem;
+  }
+
+  const { data: queueRow, error: queueReadError } = await supabase
+    .from('lost_found_push_queue')
+    .select('id, sent_at, attempts')
+    .eq('lost_found_item_id', item.id)
+    .maybeSingle();
+
+  if (queueReadError) return res.status(500).json({ error: queueReadError.message });
+  if (queueRow?.sent_at) {
+    return res.status(200).json({ success: true, approved: true, alreadySent: true, sent: 0 });
+  }
+
+  const payload = lostFoundPayload(item);
+  const nowIso = new Date().toISOString();
+  let queueId = queueRow?.id;
+
+  if (queueId) {
+    const { error: queueUpdateError } = await supabase
+      .from('lost_found_push_queue')
+      .update({
+        title: payload.title,
+        body: payload.body,
+        url: payload.url,
+        scheduled_at: nowIso,
+      })
+      .eq('id', queueId);
+
+    if (queueUpdateError) return res.status(500).json({ error: queueUpdateError.message });
+  } else {
+    const { data: insertedQueue, error: queueInsertError } = await supabase
+      .from('lost_found_push_queue')
+      .insert({
+        lost_found_item_id: item.id,
+        title: payload.title,
+        body: payload.body,
+        url: payload.url,
+        scheduled_at: nowIso,
+      })
+      .select('id')
+      .single();
+
+    if (queueInsertError) return res.status(500).json({ error: queueInsertError.message });
+    queueId = insertedQueue.id;
+  }
+
+  const subscriptions = await loadSubscriptions();
+  const pushResult = await sendPushToAll(subscriptions, payload);
+  await supabase
+    .from('lost_found_push_queue')
+    .update({
+      sent_at: new Date().toISOString(),
+      attempts: (queueRow?.attempts || 0) + 1,
+      last_error: pushResult.sent > 0 ? null : 'No push subscriptions',
+    })
+    .eq('id', queueId);
+
+  return res.status(200).json({
+    success: true,
+    approved: true,
+    ...pushResult,
+  });
+};
+
 const processQueue = async ({ table, select, payloadFor, emptyMessage, subscriptions }) => {
   const nowIso = new Date().toISOString();
   const { data: dueItems, error: dueError } = await supabase
@@ -223,6 +340,10 @@ export default async function handler(req, res) {
   }
 
   const body = readBody(req.body);
+  if (req.method === 'POST' && body.action === 'approve-lost-found') {
+    return approveLostFound(req, res, body);
+  }
+
   if (!isAuthorized(req, body)) {
     return res.status(403).json({ error: 'Forbidden' });
   }

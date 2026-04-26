@@ -348,13 +348,13 @@ export const LostFoundBoard: React.FC = () => {
       playClick();
       try {
           const { data: { session: currentSession } } = await supabase!.auth.getSession();
-          const response = await fetch('/api/approve-lost-found', {
+          const response = await fetch('/api/announcement-push-queue', {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
                   Authorization: `Bearer ${currentSession?.access_token || ''}`,
               },
-              body: JSON.stringify({ id }),
+              body: JSON.stringify({ action: 'approve-lost-found', id }),
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || 'Khong the duyet tin');
