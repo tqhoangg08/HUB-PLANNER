@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../utils/supabase';
-import { Bell, AlertCircle, Settings } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Bell, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../utils/supabase';
 import { formatDate, formatTime } from '../utils/dateUtils';
 import {
   getCurrentPushSubscription,
@@ -14,15 +15,25 @@ const NotificationBell = ({ currentUserId }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  const navigate = useNavigate();
-  const dropdownRef = useRef(null);
-  const panelRef = useRef(null);
-
-  // --- STATE CHO PUSH NOTIFICATION ---
   const [isPushEnabled, setIsPushEnabled] = useState(false);
   const [isLoadingPush, setIsLoadingPush] = useState(false);
+  const [panelPosition, setPanelPosition] = useState({ top: 96, right: 16 });
 
-  // --- KIỂM TRA QUYỀN TRÌNH DUYỆT KHI VỪA VÀO ---
+  const navigate = useNavigate();
+  const bellRef = useRef(null);
+  const panelRef = useRef(null);
+
+  const updatePanelPosition = () => {
+    const rect = bellRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const isMobile = window.innerWidth < 640;
+    setPanelPosition({
+      top: isMobile ? Math.max(rect.bottom + 12, 124) : rect.bottom + 8,
+      right: Math.max(window.innerWidth - rect.right, 16),
+    });
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -39,10 +50,99 @@ const NotificationBell = ({ currentUserId }) => {
     };
   }, []);
 
-  // --- HÀM XỬ LÝ BẬT/TẮT PUSH NOTIFICATION ---
+  useEffect(() => {
+    if (!currentUserId) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    const fetchNotifications = async () => {
+      const { data } = await supabase
+        .from('notifications')
+        .select('*, actor:profiles!actor_id(full_name, avatar_url, student_code)')
+        .eq('receiver_id', currentUserId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (data) {
+        setNotifications(data);
+        setUnreadCount(data.filter((item) => !item.is_read).length);
+      }
+    };
+
+    fetchNotifications();
+
+    const channel = supabase
+      .channel(`notifications:${currentUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `receiver_id=eq.${currentUserId}`,
+        },
+        async (payload) => {
+          let actorData = null;
+
+          if (payload.new.actor_id) {
+            const { data } = await supabase
+              .from('profiles')
+              .select('full_name, avatar_url, student_code')
+              .eq('id', payload.new.actor_id)
+              .single();
+            actorData = data;
+          }
+
+          setNotifications((prev) => [{ ...payload.new, actor: actorData }, ...prev]);
+          setUnreadCount((prev) => prev + 1);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId]);
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      const clickedBell = bellRef.current?.contains(event.target);
+      const clickedPanel = panelRef.current?.contains(event.target);
+
+      if (!clickedBell && !clickedPanel) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    updatePanelPosition();
+    window.addEventListener('resize', updatePanelPosition);
+    window.addEventListener('scroll', updatePanelPosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePanelPosition);
+      window.removeEventListener('scroll', updatePanelPosition, true);
+    };
+  }, [isOpen]);
+
+  const togglePanel = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    updatePanelPosition();
+    setIsOpen((prev) => !prev);
+  };
+
   const handleTogglePush = async () => {
-    if (!('Notification' in window)) {
-      alert('Trình duyệt của bạn không hỗ trợ thông báo!');
+    if (!isPushSupported()) {
+      alert('Trinh duyet cua ban khong ho tro thong bao.');
       return;
     }
 
@@ -50,303 +150,190 @@ const NotificationBell = ({ currentUserId }) => {
 
     try {
       if (!isPushEnabled) {
-        // BẬT THÔNG BÁO
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
-          alert('Bạn cần cấp quyền thông báo trong cài đặt trình duyệt!');
-          setIsLoadingPush(false);
+          alert('Ban can cap quyen thong bao trong cai dat trinh duyet.');
           return;
         }
 
         await subscribeToDeviceNotifications(currentUserId);
         setIsPushEnabled(true);
-        alert('Đã bật thông báo thiết bị thành công! 🎉');
       } else {
-        // TẮT THÔNG BÁO
         await unsubscribeFromDeviceNotifications(currentUserId);
         setIsPushEnabled(false);
-        alert('Đã tắt thông báo thiết bị!');
       }
     } catch (error) {
-      console.error('Lỗi khi cài đặt thông báo:', error);
-      alert('Có lỗi xảy ra, vui lòng thử lại sau.');
+      console.error('Push notification toggle failed:', error);
+      alert('Co loi xay ra, vui long thu lai sau.');
     } finally {
       setIsLoadingPush(false);
     }
   };
 
-  useEffect(() => {
-    if (!currentUserId) return;
-
-    // 1. Lấy thông báo cũ
-    const fetchNotifications = async () => {
-      try {
-        const { data } = await supabase
-          .from('notifications')
-          .select(`*, actor:profiles!actor_id(full_name, avatar_url, student_code)`)
-          .eq('receiver_id', currentUserId)
-          .order('created_at', { ascending: false })
-          .limit(20);
-        
-        if (data) {
-          setNotifications(data);
-          setUnreadCount(data.filter(n => !n.is_read).length);
-        }
-      } catch (error) {
-        console.log("Lỗi tải thông báo:", error);
-      }
-    };
-
-    fetchNotifications();
-
-    // 2. KẾT NỐI REALTIME
-    let channel;
-    try {
-      channel = supabase
-        .channel('public:notifications') 
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'notifications',
-            filter: `receiver_id=eq.${currentUserId}`, 
-          },
-          async (payload) => {
-             let actorData = null;
-             if (payload.new.actor_id) {
-                 const { data } = await supabase
-                  .from('profiles')
-                  .select('full_name, avatar_url, student_code')
-                  .eq('id', payload.new.actor_id)
-                  .single();
-                 actorData = data;
-             }
-
-            const newNotif = { ...payload.new, actor: actorData };
-            
-            setNotifications(prev => [newNotif, ...prev]);
-            setUnreadCount(prev => prev + 1);
-          }
-        )
-        .subscribe((status) => {
-           if (status === 'CHANNEL_ERROR') {
-             console.log('Realtime connection failed (safe mode)');
-           }
-        });
-    } catch (err) {
-      console.log("Realtime init error:", err);
-    }
-
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, [currentUserId]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      const clickedBell = dropdownRef.current && dropdownRef.current.contains(event.target);
-      const clickedPanel = panelRef.current && panelRef.current.contains(event.target);
-
-      if (!clickedBell && !clickedPanel) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   const handleRead = async (notif) => {
-    if (notif.link) {
-        navigate(notif.link);
-    } 
-    else if (notif?.actor?.student_code) {
-        navigate(`/profile/${notif.actor.student_code}`);
-    }
-
     setIsOpen(false);
+
+    if (notif.link) {
+      navigate(notif.link);
+    } else if (notif?.actor?.student_code) {
+      navigate(`/profile/${notif.actor.student_code}`);
+    }
 
     if (!notif.is_read) {
       await supabase
         .from('notifications')
         .update({ is_read: true })
         .eq('id', notif.id);
-      
-      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
-      setUnreadCount(prev => Math.max(0, prev - 1));
+
+      setNotifications((prev) => prev.map((item) => (
+        item.id === notif.id ? { ...item, is_read: true } : item
+      )));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
     }
   };
 
   const markAllRead = async () => {
+    if (!currentUserId) return;
+
     await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('receiver_id', currentUserId)
-        .eq('is_read', false);
-    
-    setNotifications(prev => prev.map(n => ({...n, is_read: true})));
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('receiver_id', currentUserId)
+      .eq('is_read', false);
+
+    setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
     setUnreadCount(0);
-  }
-
-  const renderNotificationContent = (notif) => {
-      if (notif.type === 'system_alert') {
-          return {
-              avatar: (
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center border border-blue-200">
-                      <Settings size={20} />
-                  </div>
-              ),
-              message: (
-                  <span className="font-medium text-gray-800">
-                      {notif.content || "Bạn có một thông báo mới từ hệ thống."}
-                  </span>
-              )
-          };
-      }
-
-      if (notif.type === 'follow') {
-          return {
-              avatar: (
-                  <>
-                      <img 
-                          src={notif.actor?.avatar_url || `https://ui-avatars.com/api/?name=${notif.actor?.full_name || 'User'}&background=random`} 
-                          className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200" 
-                          alt="avatar"
-                          onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${notif.actor?.full_name || 'U'}&background=random`; }}
-                      />
-                      <div className="absolute -bottom-1 -right-1 bg-[#003375] rounded-full p-0.5 border-2 border-white">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-                      </div>
-                  </>
-              ),
-              message: (
-                  <>
-                      <span className="font-bold">{notif.actor?.full_name || 'Người dùng'}</span> đã bắt đầu theo dõi bạn.
-                  </>
-              )
-          };
-      }
-
-      return {
-          avatar: (
-              <img 
-                  src={notif.actor?.avatar_url || `https://ui-avatars.com/api/?name=${notif.actor?.full_name || 'User'}&background=random`} 
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200" 
-                  alt="avatar"
-                  onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${notif.actor?.full_name || 'U'}&background=random`; }}
-              />
-          ),
-          message: (
-              <>
-                  <span className="font-bold">{notif.actor?.full_name || 'Người dùng'}</span> 
-                  {notif.content ? ` ${notif.content}` : ' đã tương tác với bạn.'}
-              </>
-          )
-      };
   };
 
+  const renderNotificationContent = (notif) => {
+    if (notif.type === 'system_alert') {
+      return {
+        avatar: (
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center border border-blue-200">
+            <Settings size={20} />
+          </div>
+        ),
+        message: (
+          <span className="font-medium text-gray-800">
+            {notif.content || 'Ban co mot thong bao moi tu he thong.'}
+          </span>
+        ),
+      };
+    }
+
+    const actorName = notif.actor?.full_name || 'Nguoi dung';
+
+    return {
+      avatar: (
+        <img
+          src={notif.actor?.avatar_url || `https://ui-avatars.com/api/?name=${actorName}&background=random`}
+          className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200"
+          alt="avatar"
+          onError={(event) => {
+            event.currentTarget.src = `https://ui-avatars.com/api/?name=${actorName}&background=random`;
+          }}
+        />
+      ),
+      message: notif.type === 'follow' ? (
+        <>
+          <span className="font-bold">{actorName}</span> da bat dau theo doi ban.
+        </>
+      ) : (
+        <>
+          <span className="font-bold">{actorName}</span>
+          {notif.content ? ` ${notif.content}` : ' da tuong tac voi ban.'}
+        </>
+      ),
+    };
+  };
+
+  const panel = isOpen ? createPortal(
+    <div
+      ref={panelRef}
+      style={{ top: panelPosition.top, right: panelPosition.right, zIndex: 100000 }}
+      className="fixed w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] sm:w-80 sm:max-w-[95vw] bg-white rounded-2xl sm:rounded-xl shadow-2xl border border-gray-100 overflow-hidden animate-fadeIn"
+    >
+      <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <span className="font-bold text-gray-700 text-sm">Thong bao</span>
+        {unreadCount > 0 && (
+          <button type="button" onClick={markAllRead} className="text-xs text-[#003375] hover:underline font-medium">
+            Danh dau da doc
+          </button>
+        )}
+      </div>
+
+      <div className="max-h-[52dvh] sm:max-h-80 overflow-y-auto custom-scrollbar">
+        {notifications.length === 0 ? (
+          <div className="p-8 text-center text-sm text-gray-500">Chua co thong bao nao</div>
+        ) : (
+          notifications.map((notif) => {
+            const { avatar, message } = renderNotificationContent(notif);
+
+            return (
+              <div
+                key={notif.id}
+                onClick={() => handleRead(notif)}
+                className={`p-3 flex items-start gap-3 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0 ${!notif.is_read ? 'bg-blue-50/60' : ''}`}
+              >
+                <div className="relative shrink-0">{avatar}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm text-gray-800 leading-snug">{message}</p>
+                  <p className="text-[10px] text-gray-400 mt-1 font-medium">
+                    {formatTime(notif.created_at)} - {formatDate(notif.created_at)}
+                  </p>
+                </div>
+                {!notif.is_read && <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 shrink-0" />}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+        <div className="flex flex-col">
+          <span className="text-xs font-bold text-gray-700">Thong bao day</span>
+          <span className="text-[10px] text-gray-500">Nhan thong bao khi tat web</span>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleTogglePush}
+          disabled={isLoadingPush}
+          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-300 focus:outline-none ${
+            isPushEnabled ? 'bg-blue-600' : 'bg-gray-300'
+          } ${isLoadingPush ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-300 shadow-sm ${
+              isPushEnabled ? 'translate-x-4' : 'translate-x-1'
+            }`}
+          />
+        </button>
+      </div>
+    </div>,
+    document.body
+  ) : null;
+
   return (
-    <div className="relative" ref={dropdownRef}>
-      <button 
-        onClick={() => setIsOpen(!isOpen)} 
+    <div className="relative z-[100001] pointer-events-auto" ref={bellRef}>
+      <button
         type="button"
-        className="p-2 relative hover:bg-gray-100 rounded-full transition-colors mt-1"
+        aria-label="Mo thong bao"
+        onPointerDown={togglePanel}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
+        className="p-3 relative hover:bg-gray-100 rounded-full transition-colors mt-1 pointer-events-auto touch-manipulation"
       >
         <Bell size={20} className="text-gray-600" />
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 h-4 w-4 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white animate-pulse">
+          <span className="absolute top-1 right-1 h-4 w-4 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white animate-pulse">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
-
-      {isOpen && (
-        <div 
-          ref={panelRef}
-          style={{ zIndex: 100000 }}
-          className="
-            fixed sm:absolute
-            left-4 right-4 top-[calc(env(safe-area-inset-top)+132px)]
-            sm:left-auto sm:right-0 sm:top-auto
-            sm:mt-2
-            w-auto sm:w-80
-            bg-white 
-            rounded-2xl sm:rounded-xl
-            shadow-2xl sm:shadow-xl
-            border border-gray-100 
-            overflow-hidden 
-            z-[100]  // ✨ SỬA Ở ĐÂY: Nâng từ z-50 lên z-[100] để đè bẹp thằng Glass Nav
-            animate-fadeIn
-            max-w-[calc(100vw-2rem)] sm:max-w-[95vw]
-            !z-[100000]
-          "
-        >
-          {/* HEADER THÔNG BÁO */}
-          <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-            <span className="font-bold text-gray-700 text-sm">Thông báo</span>
-            {unreadCount > 0 && (
-              <button onClick={markAllRead} className="text-xs text-[#003375] hover:underline font-medium">
-                Đánh dấu đã đọc
-              </button>
-            )}
-          </div>
-          
-          {/* DANH SÁCH THÔNG BÁO */}
-          <div className="max-h-[52dvh] sm:max-h-80 overflow-y-auto custom-scrollbar"> 
-            {notifications.length === 0 ? (
-              <div className="p-8 text-center text-sm text-gray-500">Chưa có thông báo nào</div>
-            ) : (
-              notifications.map((notif) => {
-                const { avatar, message } = renderNotificationContent(notif);
-
-                return (
-                    <div 
-                      key={notif.id} 
-                      onClick={() => handleRead(notif)}
-                      className={`p-3 flex items-start gap-3 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0 ${!notif.is_read ? 'bg-blue-50/60' : ''}`}
-                    >
-                      <div className="relative shrink-0"> 
-                          {avatar}
-                      </div>
-                      <div className="flex-1 min-w-0"> 
-                        <p className="text-xs sm:text-sm text-gray-800 leading-snug">
-                            {message}
-                        </p>
-                        <p className="text-[10px] text-gray-400 mt-1 font-medium">
-                          {formatTime(notif.created_at)} · {formatDate(notif.created_at)}
-                        </p>
-                      </div>
-                      {!notif.is_read && <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 shrink-0"></div>}
-                    </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* FOOTER: CÔNG TẮC BẬT TẮT THÔNG BÁO THIẾT BỊ */}
-          <div className="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-xs font-bold text-gray-700">Thông báo đẩy (Thiết bị)</span>
-              <span className="text-[10px] text-gray-500">Nhận thông báo khi tắt web</span>
-            </div>
-            
-            <button 
-              onClick={handleTogglePush}
-              disabled={isLoadingPush}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-300 focus:outline-none ${
-                isPushEnabled ? 'bg-blue-600' : 'bg-gray-300'
-              } ${isLoadingPush ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <span 
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-300 shadow-sm ${
-                  isPushEnabled ? 'translate-x-4' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
-
-        </div>
-      )}
+      {panel}
     </div>
   );
 };
