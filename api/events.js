@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { withLogging } from './middleware.js'; 
+import { withLogging } from '../server/middleware.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
