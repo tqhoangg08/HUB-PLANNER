@@ -3,8 +3,12 @@ import { supabase } from '../utils/supabase';
 import { Bell, AlertCircle, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { formatDate, formatTime } from '../utils/dateUtils';
-// QUAN TRỌNG: Sếp nhớ import cái hàm helper này nhé
-import { urlBase64ToUint8Array } from '../utils/pushHelper'; 
+import {
+  getCurrentPushSubscription,
+  isPushSupported,
+  subscribeToDeviceNotifications,
+  unsubscribeFromDeviceNotifications,
+} from '../utils/pushNotifications';
 
 const NotificationBell = ({ currentUserId }) => {
   const [notifications, setNotifications] = useState([]);
@@ -19,9 +23,19 @@ const NotificationBell = ({ currentUserId }) => {
 
   // --- KIỂM TRA QUYỀN TRÌNH DUYỆT KHI VỪA VÀO ---
   useEffect(() => {
-    if ('Notification' in window && navigator.serviceWorker) {
-      setIsPushEnabled(Notification.permission === 'granted');
-    }
+    let isMounted = true;
+
+    const checkPushState = async () => {
+      if (!isPushSupported()) return;
+      const subscription = await getCurrentPushSubscription();
+      if (isMounted) setIsPushEnabled(Boolean(subscription));
+    };
+
+    checkPushState();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // --- HÀM XỬ LÝ BẬT/TẮT PUSH NOTIFICATION ---
@@ -43,32 +57,12 @@ const NotificationBell = ({ currentUserId }) => {
           return;
         }
 
-        const registration = await navigator.serviceWorker.ready;
-        const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-        
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey)
-        });
-
-        if (currentUserId) {
-          await supabase.from('push_subscriptions').upsert({
-            user_id: currentUserId,
-            subscription: subscription.toJSON()
-          });
-          setIsPushEnabled(true);
-          alert('Đã bật thông báo thiết bị thành công! 🎉');
-        }
+        await subscribeToDeviceNotifications(currentUserId);
+        setIsPushEnabled(true);
+        alert('Đã bật thông báo thiết bị thành công! 🎉');
       } else {
         // TẮT THÔNG BÁO
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.getSubscription();
-        if (subscription) {
-          await subscription.unsubscribe(); 
-          if (currentUserId) {
-            await supabase.from('push_subscriptions').delete().eq('user_id', currentUserId);
-          }
-        }
+        await unsubscribeFromDeviceNotifications(currentUserId);
         setIsPushEnabled(false);
         alert('Đã tắt thông báo thiết bị!');
       }

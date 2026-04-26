@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BellRing, X, AlertTriangle } from 'lucide-react';
 import { supabase } from '../utils/supabase';
-import { urlBase64ToUint8Array } from '../utils/pushHelper';
+import { isPushSupported, subscribeToDeviceNotifications } from '../utils/pushNotifications';
 
 const PushNotificationPrompt = () => {
   const [showPrompt, setShowPrompt] = useState(false);
@@ -18,7 +18,7 @@ const PushNotificationPrompt = () => {
     };
     fetchUser();
 
-    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+    if (!isPushSupported()) return;
     if (Notification.permission !== 'default') return;
     
     const hasDismissed = localStorage.getItem('push_prompt_dismissed');
@@ -44,21 +44,8 @@ const PushNotificationPrompt = () => {
       const permission = await Notification.requestPermission();
       
       if (permission === 'granted') {
-        const registration = await navigator.serviceWorker.register('/hub-sw.js');
-        const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-        
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey)
-        });
+        await subscribeToDeviceNotifications(userId);
 
-        if (userId) {
-          await supabase.from('push_subscriptions').upsert({
-            user_id: userId,
-            subscription: subscription.toJSON()
-          });
-        }
-        
         setShowPrompt(false); // Thành công thì đóng popup
       } 
       else if (permission === 'denied') {
