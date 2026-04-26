@@ -5,6 +5,7 @@ import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
 import { createPortal } from 'react-dom';
 import { useUserRole } from '../hooks/useUserRole';
+import NotificationNudge from './NotificationNudge';
 
 // --- Types ---
 interface LostFoundItem {
@@ -457,6 +458,8 @@ return (
               </button>
           </div>
       </div>
+
+      <NotificationNudge variant="lost-found" className="mb-5" />
 
       {!canManage && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-start sm:items-center gap-3 text-sm text-amber-900 animate-fadeIn">

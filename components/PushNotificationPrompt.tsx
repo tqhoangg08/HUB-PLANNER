@@ -139,7 +139,7 @@ const PushNotificationPrompt = () => {
               {isSubscribing ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
               ) : (
-                deniedError ? 'Đang đợi bạn mở quyền...' : 'Cài đặt & Nhận thông báo'
+                deniedError ? 'Đang đợi bạn mở quyền...' : 'Bật thông báo'
               )}
             </button>
             {/* ĐÃ XÓA HOÀN TOÀN NÚT "ĐỂ SAU" Ở ĐÂY */}

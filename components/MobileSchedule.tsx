@@ -7,6 +7,7 @@ import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { parseSchedulePdf } from '../utils/schedulePdfImport';
 import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
+import NotificationNudge from './NotificationNudge';
 
 // --- Types ---
 interface UserProfile {
@@ -787,6 +788,8 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                 <span>Quản lý học tập</span><span>•</span><span className="font-bold text-gray-700">Lịch học & Thi</span>
             </div>
         </div>
+
+        <NotificationNudge variant="schedule" compact />
 
         {/* --- KHUNG TÌM KIẾM & LỌC --- */}
         <div>

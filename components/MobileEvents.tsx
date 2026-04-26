@@ -14,6 +14,7 @@ import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
 import { useUserRole } from '../hooks/useUserRole';
 import { CTVRegistrationForm } from './CTVRegistrationForm';
+import NotificationNudge from './NotificationNudge';
 
 // --- Types ---
 interface HubEvent {
@@ -920,6 +921,8 @@ return (
       </div>
 
       <div className="p-4">
+          <NotificationNudge variant="events" compact className="mb-4" />
+
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 mb-5 shadow-sm relative overflow-hidden">
               <div className="relative z-10 flex flex-col">
                   <div className="flex items-center gap-2 mb-1">

@@ -7,6 +7,7 @@ import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { parseSchedulePdf } from '../utils/schedulePdfImport';
 import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
+import NotificationNudge from './NotificationNudge';
 
 interface UserProfile {
   full_name?: string;
@@ -1187,6 +1188,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 )}
             </div>
         </div>
+
+        {!isAdminView && <NotificationNudge variant="schedule" className="mb-4" />}
 
         {isAdminView ? (
             <div className="w-full bg-white rounded-xl border border-gray-300 overflow-hidden flex flex-col h-[calc(100vh-150px)]">

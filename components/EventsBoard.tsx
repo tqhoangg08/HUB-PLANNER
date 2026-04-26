@@ -14,6 +14,7 @@ import { playClick } from '../utils/audio';
 import { CommentSection } from './CommentSection';
 import { useUserRole } from '../hooks/useUserRole';
 import { CTVRegistrationForm } from './CTVRegistrationForm';
+import NotificationNudge from './NotificationNudge';
 
 // --- Types ---
 interface HubEvent {
@@ -1873,6 +1874,8 @@ return (
                 </div>
             </div>
         )}
+
+        <NotificationNudge variant="events" className="mb-3" />
 
         {/* TABS LỌC CHUNG CHO CẢ ADMIN VÀ USER */}
         <div className="relative flex w-full justify-between overflow-x-auto no-scrollbar border-b border-gray-300 px-1 mb-4">
