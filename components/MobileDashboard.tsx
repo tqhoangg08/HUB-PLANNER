@@ -739,6 +739,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     const [adminFilterMajor, setAdminFilterMajor] = useState<string>('all');
     const [adminFilterGpa, setAdminFilterGpa] = useState<'all' | 'warning' | 'excellent' | 'nogpa'>('all');
     const [adminFilterSemester, setAdminFilterSemester] = useState<string>('all');
+    const [showAdminFilters, setShowAdminFilters] = useState(false);
 
     const itemsPerPage = 20;
 
@@ -889,6 +890,24 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             excellent
         };
     }, [baseFilteredUsers]);
+
+    const activeAdminFilterCount = useMemo(() => {
+        return [
+            adminFilterGpa !== 'all',
+            adminFilterMajor !== 'all',
+            adminFilterCohort !== 'all',
+            adminFilterSemester !== 'all',
+            adminSort !== 'newest'
+        ].filter(Boolean).length;
+    }, [adminFilterGpa, adminFilterMajor, adminFilterCohort, adminFilterSemester, adminSort]);
+
+    const resetAdminFilters = () => {
+        setAdminFilterGpa('all');
+        setAdminFilterMajor('all');
+        setAdminFilterCohort('all');
+        setAdminFilterSemester('all');
+        setAdminSort('newest');
+    };
 
     const processedAdminUsers = useMemo(() => {
         let result = [...baseFilteredUsers];
@@ -1183,10 +1202,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     <div className="mobile-page mobile-dashboard-page w-full pb-10">
         {showAdminPanel ? (
             <div className="w-full space-y-4 pt-1 animate-fadeIn">
-                <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-3 -mt-2 mb-4 border-b border-gray-200/60 md:shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">                
+                <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 -mt-2 mb-3 border-b border-gray-200/60 md:shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
                         <div>
-                            <h1 className="text-[24px] sm:text-[28px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
+                            <h1 className="text-[22px] sm:text-[28px] font-extrabold text-[#003375] tracking-tight leading-tight mb-0.5">
                                 Quản lý Sinh viên
                             </h1>
                             <p className="text-xs text-gray-500">Xem và theo dõi tiến độ học tập toàn trường</p>
@@ -1201,25 +1220,46 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         placeholder="Tìm MSSV hoặc Tên..." 
                                         value={adminSearch}
                                         onChange={e => setAdminSearch(e.target.value)}
-                                        className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-sm bg-white"
+                                        className="w-full h-10 pl-8 pr-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-[#003375] outline-none text-sm bg-white font-semibold"
                                     />
                                 </div>
                                 
+                                <button
+                                    onClick={() => { playClick(); setShowAdminFilters(prev => !prev); }}
+                                    className={`h-10 px-3 rounded-xl border text-sm font-bold transition-colors shrink-0 flex items-center gap-1.5 ${showAdminFilters || activeAdminFilterCount > 0 ? 'bg-[#003375] text-white border-[#003375] shadow-sm' : 'bg-white text-[#003375] border-gray-300'}`}
+                                >
+                                    <ListFilter size={16} />
+                                    <span>Lọc</span>
+                                    {activeAdminFilterCount > 0 && (
+                                        <span className={`min-w-5 h-5 rounded-full px-1.5 text-[11px] font-black flex items-center justify-center ${showAdminFilters ? 'bg-white text-[#003375]' : 'bg-[#003375] text-white'}`}>
+                                            {activeAdminFilterCount}
+                                        </span>
+                                    )}
+                                </button>
+
                                 <button 
                                     onClick={() => { playClick(); fetchAdminData(); }} 
                                     disabled={loadingAdmin}
-                                    className="p-1.5 bg-white text-gray-500 border border-gray-300 hover:text-[#003375] hover:bg-blue-50 rounded-lg shadow-sm transition-colors disabled:opacity-50 shrink-0"
+                                    className="h-10 w-10 bg-white text-gray-500 border border-gray-300 hover:text-[#003375] hover:bg-blue-50 rounded-xl shadow-sm transition-colors disabled:opacity-50 shrink-0 flex items-center justify-center"
                                     title="Làm mới danh sách"
                                 >
                                     <RefreshCw size={18} className={loadingAdmin ? "animate-spin" : ""} />
                                 </button>
 
-                                <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="px-3 py-1.5 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] hover:bg-blue-50 rounded-lg shadow-sm whitespace-nowrap transition-colors shrink-0">
+                                <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="hidden sm:inline-flex h-10 items-center px-3 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] hover:bg-blue-50 rounded-xl shadow-sm whitespace-nowrap transition-colors shrink-0">
                                     Hồ sơ của tôi
                                 </button>
                             </div>
                             
-                            <div className="flex flex-wrap items-center gap-2 w-full justify-end">
+                            <div className={`${showAdminFilters ? 'grid' : 'hidden'} grid-cols-2 gap-2 w-full rounded-2xl border border-gray-200 bg-white p-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] animate-fadeIn`}>
+                                <div className="col-span-2 flex items-center justify-between">
+                                    <span className="text-xs font-black uppercase tracking-wide text-gray-500">Bộ lọc</span>
+                                    {activeAdminFilterCount > 0 && (
+                                        <button onClick={() => { playClick(); resetAdminFilters(); }} className="text-xs font-bold text-[#003375]">
+                                            Xóa lọc
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="relative">
                                     <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
                                     <select 
