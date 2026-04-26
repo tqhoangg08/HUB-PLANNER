@@ -64,14 +64,14 @@ const notifyAllUsersAboutEvent = async (event: any) => {
     if (!event || event.status === 'pending') return;
 
     try {
-        const eventTitle = event.title || 'Co mot su kien moi';
-        const criteriaLabel = event.criteria ? ` - Muc ${event.criteria}` : '';
+        const eventTitle = event.title || 'Có một sự kiện mới';
+        const criteriaLabel = event.criteria ? ` - Mục ${event.criteria}` : '';
 
         const response = await fetch('/api/send-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                title: 'Sự kiện mới từ HUB Planner',
+                title: 'Sự kiện mới',
                 body: `${eventTitle}${criteriaLabel}`,
                 url: '/events'
             })
@@ -79,10 +79,10 @@ const notifyAllUsersAboutEvent = async (event: any) => {
 
         const result = await response.json().catch(() => null);
         if (!response.ok) {
-            throw new Error(result?.error || result?.message || 'Khong gui duoc push su kien.');
+            throw new Error(result?.error || result?.message || 'Không gửi được push sự kiện.');
         }
     } catch (error) {
-        console.error('Khong gui duoc push cho su kien moi:', error);
+        console.error('Không gửi được push cho sự kiện mới:', error);
     }
 };
 
