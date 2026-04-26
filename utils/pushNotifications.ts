@@ -121,7 +121,8 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
       }).finally(() => window.clearTimeout(timeoutId));
 
     if (!response.ok) {
-      throw new Error('Khong the dong bo thiet bi nhan thong bao.');
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`Khong the dong bo thiet bi nhan thong bao (${response.status}). ${errorText}`);
     }
   }
 

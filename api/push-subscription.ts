@@ -56,22 +56,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     await deleteSubscriptionsByEndpoint(endpoint, user.id);
 
-    const { error } = await adminSupabase
+    const { data: existingRows, error: lookupError } = await adminSupabase
       .from('push_subscriptions')
-      .upsert(
-        {
+      .select('id')
+      .eq('endpoint', endpoint)
+      .limit(1);
+
+    if (lookupError) throw lookupError;
+
+    if (existingRows && existingRows.length > 0) {
+      const { error: updateError } = await adminSupabase
+        .from('push_subscriptions')
+        .update({
           user_id: user.id,
           subscription,
           endpoint,
-        },
-        { onConflict: 'endpoint' }
-      );
+        })
+        .eq('id', existingRows[0].id);
 
-    if (error) throw error;
+      if (updateError) throw updateError;
+    } else {
+      const { error: insertError } = await adminSupabase
+        .from('push_subscriptions')
+        .insert({
+          user_id: user.id,
+          subscription,
+          endpoint,
+        });
+
+      if (insertError) throw insertError;
+    }
 
     return res.status(200).json({ success: true, userId: user.id });
   } catch (error) {
     console.error('Push subscription sync failed:', error);
-    return res.status(500).json({ error: 'Cannot sync push subscription' });
+    return res.status(500).json({
+      error: 'Cannot sync push subscription',
+      detail: error instanceof Error ? error.message : String(error),
+    });
   }
 }
