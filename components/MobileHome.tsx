@@ -175,16 +175,16 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                         </div>
                     </div>
                     
-                    <div className="relative z-[60] bg-white/10 hover:bg-white/20 transition-colors rounded-full backdrop-blur-sm flex items-center justify-center opacity-90 hover:opacity-100">
+                    <div className="relative z-[60] bg-white/10 hover:bg-white/20 transition-colors rounded-full flex items-center justify-center opacity-90 hover:opacity-100">
                         <NotificationBell currentUserId={currentUserId} />
                     </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2 mt-5">
-                    <span className="px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-full text-[11px] font-medium flex items-center gap-1.5 border border-white/10 shadow-sm">
+                    <span className="px-3 py-1.5 bg-white/10 rounded-full text-[11px] font-medium flex items-center gap-1.5 border border-white/10 shadow-sm">
                         <GraduationCap size={14} /> {display_Cohort || 'Chưa rõ khóa'}
                     </span>
-                    <span className="px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-full text-[11px] font-medium flex items-center gap-1.5 border border-white/10 shadow-sm max-w-full truncate">
+                    <span className="px-3 py-1.5 bg-white/10 rounded-full text-[11px] font-medium flex items-center gap-1.5 border border-white/10 shadow-sm max-w-full truncate">
                         <BookOpen size={14} className="shrink-0" /> <span className="truncate">{display_Major || 'Chưa chọn ngành'}</span>
                     </span>
                 </div>

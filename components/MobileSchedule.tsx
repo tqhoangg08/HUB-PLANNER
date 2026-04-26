@@ -945,7 +945,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
 
                     <div className="flex-1 overflow-x-auto custom-scrollbar bg-white relative">
                         {HOLIDAY_WEEKS.includes(selectedWeek) && viewMode === 'week' && (
-                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 backdrop-blur-sm px-4 text-center">
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 px-4 text-center">
                                 <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl font-bold text-xs border border-red-200 shadow-sm flex flex-col items-center gap-2">
                                     <Zap size={24} className="fill-current"/> Tuần nghỉ Lễ/Tết, không có lịch học!
                                 </div>
@@ -1137,7 +1137,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
             const modalWeeks = details ? details.weeks : course.weeks?.replace(/\n/g, ' / ');
 
             return createPortal(
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setSelectedCourseInfo(null)}>
+                <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setSelectedCourseInfo(null)}>
                     <div className="bg-white rounded-t-3xl w-full flex flex-col overflow-hidden animate-slideUp shadow-2xl relative max-h-[90vh]" onClick={e => e.stopPropagation()}>
                         <DragHandle />
                         <div className="p-4 border-b border-gray-100 flex justify-between items-start shrink-0">
@@ -1214,7 +1214,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
 
         {/* MODAL GẮN NHÃN NHANH */}
         {quickTagCourse && createPortal(
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setQuickTagCourse(null)}>
+            <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setQuickTagCourse(null)}>
                 <div className="bg-white rounded-t-3xl w-full flex flex-col max-h-[88vh] shadow-2xl animate-slideUp relative overflow-hidden" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
@@ -1287,7 +1287,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
 
         {/* MODAL MÔN ĐÃ LƯU */}
         {isMyScheduleModalOpen && createPortal(
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsMyScheduleModalOpen(false)}>
+            <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsMyScheduleModalOpen(false)}>
                 <div className="bg-white rounded-t-3xl w-full flex flex-col h-[75vh] shadow-2xl animate-slideUp relative overflow-hidden" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
@@ -1318,7 +1318,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
 
         {/* MODAL BÁO LỖI */}
         {isReportModalOpen && createPortal(
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsReportModalOpen(false)}>
+            <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsReportModalOpen(false)}>
                 <div className="bg-white rounded-t-3xl w-full shadow-2xl animate-slideUp flex flex-col relative" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
@@ -1338,7 +1338,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
 
         {/* MODAL YÊU CẦU THÊM MÔN */}
         {isCreateCourseModalOpen && createPortal(
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsCreateCourseModalOpen(false)}>
+            <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsCreateCourseModalOpen(false)}>
                 <div className="bg-white rounded-t-3xl w-full shadow-2xl animate-slideUp flex flex-col relative" onClick={e => e.stopPropagation()}>
                     <DragHandle />
                     <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">

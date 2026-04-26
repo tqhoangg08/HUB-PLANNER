@@ -168,7 +168,7 @@ export const ImportGuideModal: React.FC<ImportGuideModalProps> = ({ onClose, onF
     };
 
     return createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 animate-fadeIn">
+        <div className="fixed inset-0 bg-black/60 z-[100000] flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[85vh] flex flex-col overflow-hidden border border-gray-200 animate-scaleIn">
                 
                 {/* --- HEADER --- */}

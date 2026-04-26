@@ -131,7 +131,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-end justify-center animate-fadeIn" onClick={onClose}>
+        <div className="fixed inset-0 z-[99999] bg-black/60 flex items-end justify-center animate-fadeIn" onClick={onClose}>
             <div className="bg-white w-full rounded-t-3xl shadow-2xl flex flex-col h-[90vh] animate-slideUp relative" onClick={e => e.stopPropagation()}>
                 <DragHandle />
                 <div className="px-5 pt-2 pb-3 flex justify-between items-center shrink-0 border-b border-gray-100">
@@ -212,7 +212,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
     const isResolved = item.status === 'resolved';
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-end justify-center animate-fadeIn" onClick={onClose}>
+        <div className="fixed inset-0 z-[99999] bg-black/60 flex items-end justify-center animate-fadeIn" onClick={onClose}>
             <div className="bg-white w-full h-[95vh] rounded-t-3xl shadow-2xl overflow-hidden flex flex-col relative animate-slideUp" onClick={e => e.stopPropagation()}>
                 <button onClick={() => { playClick(); onClose(); }} className="absolute top-4 right-4 z-50 bg-black/50 text-white p-2 rounded-full active:scale-90"><X size={20} /></button>
                 
@@ -487,7 +487,7 @@ return (
                                 ) : (
                                     <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50"><ImageOff size={32} className="mb-2 opacity-30" /><span className="text-xs font-medium">Không có ảnh đính kèm</span></div>
                                 )}
-                                <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm text-white text-[10px] font-medium px-2 py-1 rounded-md flex items-center gap-1"><Calendar size={12} /> {new Date(item.created_at).toLocaleDateString('vi-VN')}</div>
+                                <div className="absolute top-3 right-3 bg-black/60 text-white text-[10px] font-medium px-2 py-1 rounded-md flex items-center gap-1"><Calendar size={12} /> {new Date(item.created_at).toLocaleDateString('vi-VN')}</div>
                                 
                                 <div className={`absolute top-3 left-3 text-[10px] font-bold px-2.5 py-1 rounded-md shadow-sm uppercase tracking-wide border ${
                                     isResolved ? 'bg-green-100 text-green-800 border-green-200' :

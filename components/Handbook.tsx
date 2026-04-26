@@ -743,15 +743,15 @@ const renderContent = () => {
 
                                     <div className="flex justify-center gap-4 mt-6">
                                         {/* Phone */}
-                                        <a href={`tel:${founder.phone}`} className="p-3 bg-white/10 hover:bg-white text-white hover:text-[#003375] rounded-full transition-all active:scale-95 backdrop-blur-sm relative group/icon">
+                                        <a href={`tel:${founder.phone}`} className="p-3 bg-white/10 hover:bg-white text-white hover:text-[#003375] rounded-full transition-all active:scale-95 relative group/icon">
                                             <Phone size={20} />
                                         </a>
                                         {/* Mail */}
-                                        <a href={`mailto:${founder.email}`} className="p-3 bg-white/10 hover:bg-white text-white hover:text-[#990000] rounded-full transition-all active:scale-95 backdrop-blur-sm relative group/icon">
+                                        <a href={`mailto:${founder.email}`} className="p-3 bg-white/10 hover:bg-white text-white hover:text-[#990000] rounded-full transition-all active:scale-95 relative group/icon">
                                             <Mail size={20} />
                                         </a>
                                         {/* FB */}
-                                        <a href={founder.fb} target="_blank" rel="noopener noreferrer" className="p-3 bg-white/10 hover:bg-white text-white hover:text-blue-600 rounded-full transition-all active:scale-95 backdrop-blur-sm relative group/icon">
+                                        <a href={founder.fb} target="_blank" rel="noopener noreferrer" className="p-3 bg-white/10 hover:bg-white text-white hover:text-blue-600 rounded-full transition-all active:scale-95 relative group/icon">
                                             <Facebook size={20} />
                                         </a>
                                     </div>

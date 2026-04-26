@@ -84,7 +84,7 @@ const PushNotificationPrompt = () => {
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4 animate-fadeIn">
       <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl transform transition-all animate-slideUp relative">
         
         {/* Nút X nhỏ xíu trên góc để tắt (Không còn nút Để sau) */}

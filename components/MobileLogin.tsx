@@ -152,7 +152,7 @@ export const MobileLogin: React.FC = () => {
 
             {/* HEADER NỬA TRÊN */}
             <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-6 pb-8 pt-12">
-                <button onClick={() => { playClick(); navigate('/'); }} className="absolute top-12 left-6 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-colors active:scale-90">
+                <button onClick={() => { playClick(); navigate('/'); }} className="absolute top-12 left-6 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors active:scale-90">
                     <ChevronLeft size={24} />
                 </button>
 

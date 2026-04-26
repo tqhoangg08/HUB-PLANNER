@@ -68,7 +68,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+        <div className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-xl w-full max-w-md p-0 overflow-hidden animate-scaleIn shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="bg-red-600 p-4 flex justify-between items-center text-white shrink-0">
                     <h3 className="font-bold text-lg flex items-center gap-2">
@@ -119,7 +119,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
 // ============================================================================
 const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClose: () => void }) => {
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+        <div className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-xl w-full max-w-md flex flex-col shadow-xl animate-scaleIn overflow-hidden border border-gray-300" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
@@ -161,7 +161,7 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
 // ============================================================================
 const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => void }) => {
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+        <div className="fixed inset-0 z-[99999] bg-black/50 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-xl w-full max-w-md flex flex-col shadow-xl animate-scaleIn overflow-hidden border border-gray-300" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
@@ -1479,7 +1479,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                         
                         <div className="relative flex-1 flex flex-col justify-center">
                             {isLocked && (
-                                <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/80 backdrop-blur-[2px] z-20 flex items-center justify-center flex-col text-center rounded-lg cursor-pointer group hover:bg-white transition-colors border border-gray-200">
+                                <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/80 z-20 flex items-center justify-center flex-col text-center rounded-lg cursor-pointer group hover:bg-white transition-colors border border-gray-200">
                                     <div className="bg-white px-3 py-1.5 rounded-xl border border-gray-300 flex flex-col items-center group-hover:scale-105 transition-transform">
                                         <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
                                         <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
@@ -1508,7 +1508,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                         <div className="relative flex-1 flex flex-col justify-center">
                             {isLocked && (
-                                <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/80 backdrop-blur-[2px] z-20 flex items-center justify-center flex-col text-center rounded-lg cursor-pointer group hover:bg-white transition-colors border border-gray-200">
+                                <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/80 z-20 flex items-center justify-center flex-col text-center rounded-lg cursor-pointer group hover:bg-white transition-colors border border-gray-200">
                                     <div className="bg-white px-3 py-1.5 rounded-xl border border-gray-300 flex flex-col items-center group-hover:scale-105 transition-transform">
                                         <Shield className="text-[#003375] mb-0.5 opacity-80" size={14} />
                                         <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
@@ -1557,7 +1557,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             
                             <div className="flex-1 w-full -ml-5 sm:-ml-4 relative min-h-[100px]">
                                 {isLocked && (
-                                    <Link to="/login" onClick={playClick} className="absolute inset-0 bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl ml-5 sm:ml-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.7)] hover:bg-white/50 transition-colors cursor-pointer group">
+                                    <Link to="/login" onClick={playClick} className="absolute inset-0 bg-white/40 z-20 flex items-center justify-center flex-col text-center rounded-xl ml-5 sm:ml-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.7)] hover:bg-white/50 transition-colors cursor-pointer group">
                                         <div className="bg-white/90 p-4 rounded-2xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                             <Shield className="text-[#003375] mb-2 opacity-90" size={28} />
                                             <p className="text-sm font-bold text-[#003375]">Biểu đồ đã bị khóa</p>
@@ -1611,7 +1611,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             
                             <div className="h-[100px] sm:h-[130px] w-full relative flex flex-col items-center justify-center shrink-0">
                                 {isLocked && (
-                                    <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
+                                    <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
                                         <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                             <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
                                             <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>
@@ -1645,7 +1645,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             
                             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 relative">
                                 {isLocked && (
-                                    <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 backdrop-blur-[4px] z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
+                                    <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
                                         <div className="bg-white/90 p-3 rounded-xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                             <Shield className="text-[#003375] mb-1 opacity-80" size={20} />
                                             <p className="text-[10px] font-bold text-[#003375]">Đăng nhập để xem</p>

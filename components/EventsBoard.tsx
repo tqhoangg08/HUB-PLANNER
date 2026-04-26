@@ -117,8 +117,8 @@ const getEventDateKey = (dateValue: string | null) => {
 const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
     if (!isOpen) return null;
     return createPortal(
-        <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
-            <div className="bg-white rounded-3xl max-w-md w-full p-6 animate-scaleIn relative flex flex-col border border-gray-300" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 animate-scaleIn relative flex flex-col border border-gray-300 shadow-2xl" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between items-start mb-2">
                     <div className="w-14 h-14 bg-blue-100 text-[#003375] rounded-full flex items-center justify-center border border-blue-200">
                         <UserPlus size={28} />
@@ -250,8 +250,8 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
     ];
 
     return createPortal(
-        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white rounded-xl max-w-4xl w-full h-[90vh] flex flex-col animate-scaleIn relative overflow-hidden border border-gray-300" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+            <div className="bg-white rounded-xl max-w-4xl w-full h-[90vh] flex flex-col animate-scaleIn relative overflow-hidden border border-gray-300 shadow-2xl" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b flex justify-between items-center bg-[#003375] text-white shrink-0">
                     <h3 className="text-xl font-bold flex items-center gap-2"><FileText /> Phụ lục Đánh giá Kết quả Rèn luyện</h3>
                     <button onClick={onClose} className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-full transition-colors"><X size={24} /></button>
@@ -318,7 +318,7 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
                     </div>
                     
                     <div className="mt-6 flex justify-end sticky bottom-0 pointer-events-none">
-                        <div className="bg-[#003375] text-white px-5 py-2.5 rounded-xl font-bold text-base flex items-center gap-3 pointer-events-auto border border-gray-300 transform hover:scale-105 transition-transform backdrop-blur-md">
+                        <div className="bg-[#003375] text-white px-5 py-2.5 rounded-xl font-bold text-base flex items-center gap-3 pointer-events-auto border border-gray-300 transform hover:scale-105 transition-transform">
                             <span className="font-bold text-sm uppercase tracking-wide">TỔNG ĐIỂM TỐI ĐA</span>
                             <span className="bg-white text-[#003375] px-2.5 py-0.5 rounded-lg">100</span>
                         </div>
@@ -418,8 +418,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
-            <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn border border-gray-300 relative flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+            <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn border border-gray-300 shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
                 <div className="bg-[#003375] p-4 flex justify-between items-center text-white sticky top-0 z-10 shrink-0">
                     <h3 className="font-bold text-lg flex items-center gap-2">
                         <PlusCircle size={20}/> Đóng góp Sự kiện mới
@@ -747,8 +747,8 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-            <div className="bg-white rounded-xl border border-gray-300 w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn flex flex-col">
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
+            <div className="bg-white rounded-xl border border-gray-300 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar animate-scaleIn flex flex-col">
                 <div className="bg-[#003375] p-4 flex justify-between items-center text-white sticky top-0 z-10 shrink-0">
                     <h3 className="font-bold text-lg flex items-center gap-2">
                         {editingEvent ? <Edit2 size={20}/> : <PlusCircle size={20}/>}
@@ -933,8 +933,8 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
 const DiscussionModal = ({ event, onClose }: { event: {id: string, name: string} | null; onClose: () => void }) => {
     if (!event) return null;
     return createPortal(
-        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white rounded-xl max-w-2xl w-full h-[80vh] flex flex-col animate-scaleIn relative overflow-hidden border border-gray-300" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+            <div className="bg-white rounded-xl max-w-2xl w-full h-[80vh] flex flex-col animate-scaleIn relative overflow-hidden border border-gray-300 shadow-2xl" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
                     <div>
                         <h3 className="font-bold text-[#003375] line-clamp-1">{event.name}</h3>
@@ -992,8 +992,8 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
-            <div className="bg-white rounded-xl w-full max-w-lg p-0 overflow-hidden animate-scaleIn border border-gray-300 relative flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+            <div className="bg-white rounded-xl w-full max-w-lg p-0 overflow-hidden animate-scaleIn border border-gray-300 shadow-2xl relative flex flex-col" onClick={e => e.stopPropagation()}>
                 
                 <div className="bg-red-600 p-4 flex justify-between items-center text-white shrink-0">
                     <h3 className="font-bold text-lg flex items-center gap-2">

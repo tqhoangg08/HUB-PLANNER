@@ -199,7 +199,7 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
+        <div className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
             <div className="bg-white w-full max-w-6xl h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-scaleIn relative border border-gray-200" onClick={e => e.stopPropagation()}>
                 {/* Header */}
                 <div className="bg-[#003375] p-4 flex justify-between items-center text-white shrink-0">

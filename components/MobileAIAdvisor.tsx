@@ -415,8 +415,8 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
         <div className="fixed top-0 left-0 w-full h-[100dvh] z-[100000] pointer-events-none">
           {/* Backdrop tối nhẹ */}
 <div 
-  className="fixed h-[100dvh] w-full top-0 left-0 bg-black/20 backdrop-blur-sm pointer-events-auto animate-fadeIn" 
-  onClick={() => setIsOpen(false)} 
+  className="fixed h-[100dvh] w-full top-0 left-0 bg-black/20 pointer-events-auto animate-fadeIn"
+  onClick={() => setIsOpen(false)}
 />
 
           {/* MŨI TÊN (TAIL) KẾT NỐI ICON VÀ KHUNG CHAT */}

@@ -275,7 +275,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
           <div className={`bg-white rounded-xl shadow-2xl flex flex-col h-[85vh] sm:h-[80vh] animate-slideUp relative overflow-hidden transition-all duration-300 w-full ${showSidebar ? 'max-w-4xl' : 'max-w-2xl'}`}>
             
             <div className="p-3 sm:p-4 border-b flex justify-between items-center bg-[#003375] text-white shrink-0 z-20 relative">
@@ -394,7 +394,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                     </div>
 
                     {showSidebar && (
-                        <div className="absolute inset-0 bg-black/20 z-[15] md:hidden backdrop-blur-sm" onClick={() => setShowSidebar(false)}></div>
+                        <div className="absolute inset-0 bg-black/20 z-[15] md:hidden" onClick={() => setShowSidebar(false)}></div>
                     )}
 
                     <div className="flex-1 flex flex-col min-w-0 bg-white relative z-0">

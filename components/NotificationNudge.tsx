@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BellRing, Loader2, X } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import {
@@ -14,8 +14,6 @@ interface NotificationNudgeProps {
   className?: string;
   compact?: boolean;
 }
-
-const DISMISS_MS = 7 * 24 * 60 * 60 * 1000;
 
 const COPY: Record<NotificationNudgeVariant, { title: string; body: string; cta: string }> = {
   events: {
@@ -35,15 +33,8 @@ const COPY: Record<NotificationNudgeVariant, { title: string; body: string; cta:
   },
 };
 
-const readDismissedAt = (key: string) => {
-  const raw = window.localStorage.getItem(key);
-  const value = raw ? Number(raw) : 0;
-  return Number.isFinite(value) ? value : 0;
-};
-
 const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, className = '', compact = false }) => {
   const copy = COPY[variant];
-  const dismissKey = useMemo(() => `push_nudge_hidden:${variant}`, [variant]);
   const [visible, setVisible] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [loading, setLoading] = useState(true);
@@ -61,12 +52,6 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
 
         const { data } = await supabase.auth.getSession();
         if (!data.session?.user?.id) {
-          if (alive) setVisible(false);
-          return;
-        }
-
-        const dismissedAt = readDismissedAt(dismissKey);
-        if (dismissedAt && Date.now() - dismissedAt < DISMISS_MS) {
           if (alive) setVisible(false);
           return;
         }
@@ -97,10 +82,9 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
       alive = false;
       listener.subscription.unsubscribe();
     };
-  }, [dismissKey]);
+  }, []);
 
   const handleDismiss = () => {
-    window.localStorage.setItem(dismissKey, String(Date.now()));
     setVisible(false);
   };
 
@@ -171,7 +155,6 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
               {saving && <Loader2 size={13} className="animate-spin" />}
               {blocked ? 'Đang bị chặn' : copy.cta}
             </button>
-            <span className="text-[11px] font-medium text-gray-400">Có thể tắt nhắc tạm thời.</span>
           </div>
         </div>
       </div>

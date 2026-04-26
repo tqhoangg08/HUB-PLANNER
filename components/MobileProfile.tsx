@@ -255,8 +255,8 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
 
             {/* ✨ THÊM MỚI: BẢNG HƯỚNG DẪN DÀNH RIÊNG CHO IOS */}
             {showIOSInstructions && (
-                <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-end justify-center sm:items-center p-4 animate-fadeIn" onClick={() => setShowIOSInstructions(false)}>
-                    <div className="bg-white w-full max-w-sm rounded-3xl p-6 relative animate-slideUp sm:animate-scaleIn" onClick={e => e.stopPropagation()}>
+                <div className="fixed inset-0 z-[200] bg-black/60 flex items-end justify-center sm:items-center p-4 animate-fadeIn" onClick={() => setShowIOSInstructions(false)}>
+                    <div className="bg-white w-full max-w-sm rounded-3xl p-6 relative animate-slideUp sm:animate-scaleIn shadow-2xl" onClick={e => e.stopPropagation()}>
                         <button onClick={() => setShowIOSInstructions(false)} className="absolute top-4 right-4 bg-gray-100 p-2 rounded-full text-gray-500 hover:bg-gray-200">
                             <X size={20} />
                         </button>

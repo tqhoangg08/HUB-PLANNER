@@ -95,7 +95,7 @@ export const RoleSelection: React.FC<RoleSelectionProps> = ({ onSelect }) => {
                 </div>
 
                 <div className="mt-6 md:mt-10 text-center space-y-2 max-w-2xl px-4 animate-fadeIn delay-200">
-                    <div className="text-[10px] md:text-[11px] rounded-lg p-3 shadow-sm backdrop-blur-md border bg-white/80 border-gray-200 text-gray-500">
+                    <div className="text-[10px] md:text-[11px] rounded-lg p-3 shadow-sm border bg-white/80 border-gray-200 text-gray-500">
                         <span className="font-bold text-[#003375]">Lưu ý:</span> Đây là dự án hỗ trợ sinh viên được phát triển bởi nhóm sinh viên, <strong>KHÔNG PHẢI</strong> là website chính thức của Trường Đại học Ngân hàng TP.HCM (HUB).
                     </div>
 

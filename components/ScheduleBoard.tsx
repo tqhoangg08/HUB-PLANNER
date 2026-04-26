@@ -1120,7 +1120,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   return (
     <div className={`w-full ${isAdminView ? '' : 'pb-10'}`}>
         {showScheduleUpdateNotice && (
-            <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={handleCloseScheduleUpdateNotice}>
+            <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4" onClick={handleCloseScheduleUpdateNotice}>
                 <div className="w-full max-w-md select-none overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl animate-scaleIn" onClick={(e) => e.stopPropagation()}>
                     <div className="relative border-b border-gray-100 bg-gray-50 px-5 py-4">
                         <button onClick={handleCloseScheduleUpdateNotice} className="absolute right-4 top-4 rounded-full border border-gray-200 bg-white p-1.5 text-gray-400 transition-colors hover:text-gray-700" aria-label="Dong thong bao">
@@ -1349,7 +1349,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     {/* Danh sách môn học gợi ý */}
                     <div className={`flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-gray-50/50 custom-scrollbar relative ${searchTerm.trim() ? 'block' : 'hidden lg:block'}`}>
                         {!isAuthenticated ? (
-                            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6 bg-white/80 backdrop-blur-sm animate-fadeIn">
+                            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6 bg-white/80 animate-fadeIn">
                                 <div className="w-14 h-14 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mb-3 border border-blue-200"><Lock size={24} /></div>
                                 <p className="text-xs text-gray-600 font-medium leading-relaxed">Đăng nhập bằng tài khoản sinh viên để xem lịch học.</p>
                             </div>
@@ -1457,7 +1457,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     {/* LƯỚI LỊCH (GRID) */}
                     <div className="flex-1 overflow-auto custom-scrollbar relative bg-white">
                         {HOLIDAY_WEEKS.includes(selectedWeek) && viewMode === 'week' && (
-                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 backdrop-blur-sm">
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
                                 <div className="bg-red-50 text-red-600 px-6 py-3 rounded-full font-bold text-sm border border-red-200 flex items-center gap-2 animate-bounce">
                                     <Zap size={18} className="fill-current"/> Tuần nghỉ Lễ/Tết, không có lịch học!
                                 </div>
@@ -1684,8 +1684,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             const modalWeeks = details ? details.weeks : displayCourse.weeks?.replace(/\n/g, ' / ');
 
             return (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={() => setSelectedCourseInfo(null)}>
-                    <div className="bg-white rounded-2xl w-full max-w-sm border border-gray-200 flex flex-col overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+                <div className="fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4" onClick={() => setSelectedCourseInfo(null)}>
+                    <div className="bg-white rounded-2xl w-full max-w-sm border border-gray-200 shadow-2xl flex flex-col overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-gray-100 relative bg-gray-50">
                             <button onClick={() => setSelectedCourseInfo(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-200"><X size={16}/></button>
                             <h2 className="text-lg font-bold text-[#003375] pr-8 leading-tight">{displayCourse.subject_name}</h2>
@@ -1847,8 +1847,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
         {/* MODAL DANH SÁCH MÔN ĐÃ LƯU */}
         {isMyScheduleModalOpen && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[99999] flex items-center justify-center p-4" onClick={() => setIsMyScheduleModalOpen(false)}>
-                <div className="bg-white rounded-2xl w-full max-w-md border border-gray-200 flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setIsMyScheduleModalOpen(false)}>
+                <div className="bg-white rounded-2xl w-full max-w-md border border-gray-200 shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="bg-gray-50 border-b border-gray-100 p-4 flex items-center justify-between shrink-0">
                         <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><List size={18}/> Môn học đã lưu ({currentSemesterSchedule.length})</h2>
                         <button onClick={() => setIsMyScheduleModalOpen(false)} className="text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-200"><X size={16}/></button>
@@ -1880,8 +1880,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
         {/* MODAL BÁO LỖI */}
         {isReportModalOpen && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[99999] flex items-center justify-center p-4" onClick={() => setIsReportModalOpen(false)}>
-                <div className="bg-white rounded-2xl w-full max-w-sm border border-gray-200 overflow-hidden flex flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setIsReportModalOpen(false)}>
+                <div className="bg-white rounded-2xl w-full max-w-sm border border-gray-200 shadow-2xl overflow-hidden flex flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 flex items-center justify-between border-b border-gray-100 bg-red-50 text-red-700">
                         <h2 className="font-bold text-base flex items-center gap-2"><AlertTriangle size={18}/> Báo lỗi môn học</h2>
                         <button onClick={() => setIsReportModalOpen(false)} className="text-red-400 hover:text-red-800"><X size={20}/></button>
@@ -1898,8 +1898,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
         {/* MODAL THÊM MÔN MỚI DÀNH CHO USER */}
         {isCreateCourseModalOpen && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[99999] flex items-center justify-center p-4" onClick={() => setIsCreateCourseModalOpen(false)}>
-                <div className="bg-white rounded-2xl w-full max-w-sm border border-gray-200 overflow-hidden flex flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setIsCreateCourseModalOpen(false)}>
+                <div className="bg-white rounded-2xl w-full max-w-sm border border-gray-200 shadow-2xl overflow-hidden flex flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 flex items-center justify-between border-b border-gray-100 bg-[#f8fafc]">
                         <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><BookPlus size={18}/> Yêu cầu thêm môn</h2>
                         <button onClick={() => setIsCreateCourseModalOpen(false)} className="text-gray-400 hover:text-gray-800"><X size={20}/></button>
@@ -1917,8 +1917,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
         {/* ✨ MODAL GẮN NHÃN NHANH (QUICK TAG) ✨ */}
         {quickTagCourse && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[99999] flex items-center justify-center p-4" onClick={() => setQuickTagCourse(null)}>
-                <div className="bg-white rounded-2xl w-full max-w-sm border-2 border-gray-100 flex flex-col overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setQuickTagCourse(null)}>
+                <div className="bg-white rounded-2xl w-full max-w-sm border-2 border-gray-100 shadow-2xl flex flex-col overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
                         <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><Tag size={18} /> Gắn nhãn nhanh</h2>
                         <button onClick={() => setQuickTagCourse(null)} className="text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-200 transition-colors"><X size={16}/></button>
@@ -2009,8 +2009,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
         {/* MODAL SINH VIÊN SỬA MÔN CÁ NHÂN VÀ GẮN NHÃN CHUNG (BẢNG LỚN) */}
         {isStudentEditModalOpen && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => setIsStudentEditModalOpen(false)}>
-                <div className="bg-white rounded-2xl w-full max-w-3xl border border-gray-200 flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => setIsStudentEditModalOpen(false)}>
+                <div className="bg-white rounded-2xl w-full max-w-3xl border border-gray-200 shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 sm:p-5 bg-[#003375] text-white flex justify-between items-center shrink-0">
                         <h2 className="font-bold text-lg flex items-center gap-2"><Edit size={18} /> Tùy chỉnh môn học cá nhân</h2>
                         <button onClick={() => setIsStudentEditModalOpen(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
@@ -2099,8 +2099,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
         {/* MODAL ADMIN: THÊM / SỬA MÔN HỌC */}
         {isAdminEditModalOpen && (
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => setIsAdminEditModalOpen(false)}>
-                <div className="bg-white rounded-2xl w-full max-w-3xl border border-gray-200 flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => setIsAdminEditModalOpen(false)}>
+                <div className="bg-white rounded-2xl w-full max-w-3xl border border-gray-200 shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 sm:p-5 bg-[#003375] text-white flex justify-between items-center shrink-0">
                         <h2 className="font-bold text-lg flex items-center gap-2"><Edit size={18} /> {adminEditData.id ? 'Sửa thông tin môn học' : 'Thêm môn học mới'}</h2>
                         <button onClick={() => setIsAdminEditModalOpen(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>

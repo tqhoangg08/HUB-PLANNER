@@ -24,12 +24,12 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ onClose }) => {
     }, []);
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
+        <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col animate-scaleIn border border-gray-200 overflow-hidden">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-[#003375] to-[#004b99] p-4 sm:p-5 flex justify-between items-center text-white shrink-0 shadow-md z-10 relative">
                     <div className="flex items-center gap-3">
-                        <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
+                        <div className="bg-white/20 p-2 rounded-xl">
                             <BookOpen size={24} className="text-yellow-300" />
                         </div>
                         <div>

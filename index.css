@@ -50,8 +50,8 @@
   .platform-ios .mobile-page .bg-white[class*="rounded-[24px]"],
   .platform-ios .mobile-page .bg-white[class*="rounded-[32px]"] {
     background: var(--ios-glass-bg);
-    -webkit-backdrop-filter: blur(22px) saturate(180%);
-    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     border-color: var(--ios-border);
     box-shadow: var(--ios-shadow-soft);
   }
@@ -64,8 +64,8 @@
   .platform-ios .mobile-lostfound-page .bg-white[class*="rounded"],
   .platform-ios .mobile-handbook-page .bg-white[class*="rounded"] {
     background: var(--ios-glass-bg-strong);
-    -webkit-backdrop-filter: blur(18px) saturate(170%);
-    backdrop-filter: blur(18px) saturate(170%);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     border-color: rgba(255,255,255,0.72);
   }
 
@@ -74,8 +74,8 @@
   .platform-ios .mobile-profile-page > div:first-child,
   .platform-ios .mobile-handbook-header {
     background: linear-gradient(145deg, rgba(0,59,122,0.94), rgba(11,94,215,0.78)) !important;
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     border: 1px solid rgba(255,255,255,0.16);
     box-shadow: 0 22px 48px rgba(0,59,122,0.18);
     overflow: hidden;
@@ -175,8 +175,8 @@
   .platform-ios .mobile-events-header,
   .platform-ios .mobile-lostfound-header {
     background: rgba(245,247,251,0.84) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     border-color: rgba(255,255,255,0.72) !important;
     box-shadow: 0 10px 26px rgba(15,23,42,0.08) !important;
     padding-top: calc(1rem + env(safe-area-inset-top)) !important;
@@ -247,15 +247,15 @@
     height: 62px !important;
     background: linear-gradient(145deg, rgba(0,59,122,0.96), rgba(11,94,215,0.84)) !important;
     border: 2px solid rgba(255,255,255,0.82) !important;
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
-    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     box-shadow: 0 16px 34px rgba(0,59,122,0.28) !important;
   }
 
   .platform-ios .mobile-ai-bubble {
     background: rgba(255,255,255,0.82) !important;
-    -webkit-backdrop-filter: blur(22px) saturate(180%);
-    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     border-color: rgba(255,255,255,0.72) !important;
     box-shadow: var(--ios-shadow-soft) !important;
   }
@@ -274,8 +274,8 @@
 
   .platform-ios.mobile-login-page > div:last-child {
     background: var(--ios-glass-bg-strong) !important;
-    -webkit-backdrop-filter: blur(26px) saturate(190%);
-    backdrop-filter: blur(26px) saturate(190%);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     border: 1px solid rgba(255,255,255,0.72);
     border-radius: 34px 34px 0 0 !important;
     box-shadow: 0 -22px 50px rgba(15,23,42,0.12) !important;
@@ -324,8 +324,8 @@
     min-height: 48px !important;
     border-radius: 16px !important;
     background: rgba(243,244,246,0.86) !important;
-    -webkit-backdrop-filter: blur(14px) saturate(140%) !important;
-    backdrop-filter: blur(14px) saturate(140%) !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     border: 1px solid rgba(15,23,42,0.05) !important;
     box-shadow: 0 2px 10px rgba(15,23,42,0.06) !important;
   }
@@ -427,8 +427,8 @@
     height: 76px !important;
     border-radius: 24px !important;
     background: rgba(255,255,255,0.76) !important;
-    -webkit-backdrop-filter: blur(18px) saturate(145%) !important;
-    backdrop-filter: blur(18px) saturate(145%) !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     border: 1px solid rgba(255,255,255,0.72) !important;
     box-shadow: 0 10px 26px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.78) !important;
   }
@@ -442,15 +442,6 @@
     width: 60px !important;
     height: 60px !important;
     box-shadow: 0 12px 28px rgba(0,59,122,0.24) !important;
-  }
-
-  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .platform-ios .ios-glass,
-    .platform-ios .ios-bottom-nav-surface,
-    .platform-ios .mobile-learning-tabs,
-    .platform-ios .mobile-page .bg-white[class*="rounded"] {
-      background: rgba(255,255,255,0.94) !important;
-    }
   }
 
   @media (prefers-reduced-motion: reduce) {

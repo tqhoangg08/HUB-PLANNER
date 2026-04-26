@@ -163,7 +163,7 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
           // GIAO DIỆN iOS: LIQUID GLASS 
           // ==========================================
           <div className="mobile-bottom-nav ios-bottom-nav absolute bottom-6 left-4 right-4 z-50 pb-safe">
-            <div className="ios-bottom-nav-surface flex justify-around items-center h-[72px] px-2 bg-white/25 backdrop-blur-[40px] saturate-[200%] border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.1)] rounded-full">
+            <div className="ios-bottom-nav-surface flex justify-around items-center h-[72px] px-2 bg-white/25 saturate-[200%] border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.1)] rounded-full">
               {NAV_ITEMS.map((item) => {
                 const isActive = checkIsActive(location.pathname, item.match);
                 const Icon = item.icon;
@@ -194,7 +194,7 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
           // ==========================================
           // GIAO DIỆN ANDROID: TRUYỀN THỐNG (Giữ nguyên)
           // ==========================================
-          <div className="mobile-bottom-nav android-bottom-nav absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-50 pb-safe">
+          <div className="mobile-bottom-nav android-bottom-nav absolute bottom-0 left-0 right-0 bg-white/90 border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-50 pb-safe">
             <div className="flex justify-around items-center h-[65px] px-2">
               {NAV_ITEMS.map((item) => {
                 const isActive = checkIsActive(location.pathname, item.match);

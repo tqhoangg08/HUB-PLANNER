@@ -91,7 +91,7 @@ const DragHandle = () => (
 const CTVModalWrapper = ({ isOpen, onClose, onShowToast }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
     if (!isOpen) return null;
     return createPortal(
-        <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-end justify-center animate-fadeIn sm:p-4" onClick={onClose}>
+        <div className="fixed inset-0 z-[100000] bg-black/60 flex items-end justify-center animate-fadeIn sm:p-4" onClick={onClose}>
             <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl animate-slideUp overflow-hidden" onClick={e => e.stopPropagation()}>
                 <DragHandle />
                 <div className="p-5 overflow-y-auto custom-scrollbar flex-1">
@@ -178,7 +178,7 @@ const ScoreGuideModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
     ];
 
     return createPortal(
-        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end sm:items-center justify-center animate-fadeIn backdrop-blur-sm" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end sm:items-center justify-center animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-t-3xl sm:rounded-xl w-full h-[90vh] flex flex-col animate-slideUp relative overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
                 <DragHandle />
                 <div className="px-4 pb-4 pt-2 border-b flex justify-between items-center bg-white shrink-0">
@@ -336,7 +336,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-end justify-center animate-fadeIn" onClick={onClose}>
+        <div className="fixed inset-0 z-[99999] bg-black/60 flex items-end justify-center animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-t-3xl w-full h-[90vh] flex flex-col overflow-hidden animate-slideUp relative shadow-2xl" onClick={e => e.stopPropagation()}>
                 <DragHandle />
                 <div className="px-5 pb-3 pt-2 flex justify-between items-center bg-white shrink-0 border-b border-gray-100">
@@ -501,8 +501,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
 const DiscussionModal = ({ event, onClose }: { event: {id: string, name: string} | null; onClose: () => void }) => {
     if (!event) return null;
     return createPortal(
-        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-white rounded-t-3xl w-full h-[85vh] flex flex-col animate-slideUp relative overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={onClose}>
+            <div className="bg-white rounded-t-3xl w-full h-[85vh] flex flex-col animate-slideUp relative overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
                 <DragHandle />
                 <div className="p-4 border-b flex justify-between items-center bg-white shrink-0">
                     <div className="flex-1 pr-2">
@@ -554,7 +554,7 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[100000] bg-black/60 backdrop-blur-sm flex items-end justify-center animate-fadeIn" onClick={onClose}>
+        <div className="fixed inset-0 z-[100000] bg-black/60 flex items-end justify-center animate-fadeIn" onClick={onClose}>
             <div className="bg-white rounded-t-3xl w-full flex flex-col shadow-2xl animate-slideUp overflow-hidden" onClick={e => e.stopPropagation()}>
                 <DragHandle />
                 <div className="px-5 pt-2 pb-3 flex justify-between items-center bg-white shrink-0 border-b border-gray-100">

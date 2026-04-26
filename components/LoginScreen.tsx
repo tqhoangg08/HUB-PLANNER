@@ -163,7 +163,7 @@ export const LoginScreen: React.FC = () => {
                     playClick();
                     navigate('/');
                 }}
-                className="absolute left-4 top-4 z-30 inline-flex h-10 items-center gap-2 rounded-xl border border-[#E5EAF1] bg-white/90 px-3 text-sm font-semibold text-slate-600 shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:text-[#003B7A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)] sm:left-6 sm:top-6"
+                className="absolute left-4 top-4 z-30 inline-flex h-10 items-center gap-2 rounded-xl border border-[#E5EAF1] bg-white/90 px-3 text-sm font-semibold text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:text-[#003B7A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)] sm:left-6 sm:top-6"
             >
                 <ArrowLeft size={17} />
                 <span className="hidden sm:inline">Về trang chủ</span>
@@ -178,7 +178,7 @@ export const LoginScreen: React.FC = () => {
                             <BrandMark />
 
                             <div className={`${easingClass} ${mode === 'admin' ? 'md:translate-x-1' : 'md:translate-x-0'}`}>
-                                <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-blue-50 backdrop-blur">
+                                <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-blue-50">
                                     {mode === 'student' ? <GraduationCap size={14} /> : <ShieldCheck size={14} />}
                                     {mode === 'student' ? 'Sinh viên HUB' : 'Khu vực quản trị'}
                                 </div>

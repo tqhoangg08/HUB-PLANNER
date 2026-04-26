@@ -18,7 +18,7 @@ export const SubjectRankingModal: React.FC<SubjectRankingModalProps> = ({ subjec
     }, []);
 
     return createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn p-4">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 animate-fadeIn p-4">
             <div className="bg-white rounded-xl w-full max-w-5xl shadow-2xl flex flex-col h-[90vh] animate-scaleIn border border-gray-200 overflow-hidden relative">
                 <div className="p-4 border-b bg-[#003375] text-white rounded-t-xl flex justify-between items-center shrink-0">
                     <h3 className="font-bold text-xl flex items-center gap-2">
