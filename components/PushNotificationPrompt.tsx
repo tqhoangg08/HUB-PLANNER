@@ -142,7 +142,7 @@ const PushNotificationPrompt = () => {
                 deniedError ? 'Đang đợi bạn mở quyền...' : 'Bật thông báo'
               )}
             </button>
-            {/* ĐÃ XÓA HOÀN TOÀN NÚT "ĐỂ SAU" Ở ĐÂY */}
+            {/* ĐÃ XÓA HOÀN TOÀN NÚT  "ĐỂ SAU" Ở ĐÂY */}
           </div>
         </div>
       </div>
