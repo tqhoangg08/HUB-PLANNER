@@ -65,6 +65,25 @@ const formatTimeString = (timeStr: string | null): string => {
     return timeStr;
 };
 
+const notifyAllUsersAboutEvent = async (event: any) => {
+    if (!event || event.status === 'pending') return;
+    try {
+        const eventTitle = event.title || 'Có một sự kiện mới';
+        const criteriaLabel = event.criteria ? ` - Mục ${event.criteria}` : '';
+        await fetch('/api/send-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: 'Sự kiện mới',
+                body: `${eventTitle}${criteriaLabel}`,
+                url: '/events'
+            })
+        });
+    } catch (error) {
+        console.error('Không gửi được push cho sự kiện mới:', error);
+    }
+};
+
 const checkIsOverdue = (evt: HubEvent, currentDay: Date) => {
     if (evt.deadlineDate) {
         return evt.deadlineDate < currentDay;
@@ -618,6 +637,10 @@ const canManage = isAdmin || isAuditor || isCTV;
   const [showCTVModal, setShowCTVModal] = useState(false);
   const [showScoreGuide, setShowScoreGuide] = useState(false);
   const [showContributeModal, setShowContributeModal] = useState(false);
+  const [isManagementView, setIsManagementView] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<HubEvent | null>(null);
+  const [eventEditData, setEventEditData] = useState<any>({});
+  const [isSavingEvent, setIsSavingEvent] = useState(false);
   const [discussEvent, setDiscussEvent] = useState<{id: string, name: string} | null>(null);
   const [reportingEvent, setReportingEvent] = useState<HubEvent | null>(null);
 
@@ -724,6 +747,94 @@ const canManage = isAdmin || isAuditor || isCTV;
 
   useEffect(() => { fetchEvents(); }, [canManage]);
 
+  useEffect(() => {
+      if (!canManage && isManagementView) setIsManagementView(false);
+  }, [canManage, isManagementView]);
+
+  const openEventEditor = (evt: HubEvent | null = null) => {
+      playClick();
+      setEditingEvent(evt);
+      setEventEditData({
+          title: evt?.name || '',
+          organizer: evt?.organizer || '',
+          criteria: evt?.category || 'III',
+          points: evt?.score || '5',
+          category: evt?.type || 'Hoạt động phong trào',
+          location_type: evt?.scope || 'Trong trường',
+          format: evt?.location || 'Offline',
+          link: evt?.link || '',
+          status: evt?.status || 'Sắp diễn ra',
+          event_date: evt?.event_date || '',
+          event_time: formatTimeString(evt?.event_time ?? null) || '',
+          deadline: evt?.deadlineDate ? evt.deadlineDate.toISOString().split('T')[0] : '',
+          deadline_time: evt?.deadline_time || '',
+          close_on_full: evt?.close_on_full || false,
+          description: evt?.description || '',
+      });
+  };
+
+  const closeEventEditor = () => {
+      setEditingEvent(null);
+      setEventEditData({});
+  };
+
+  const saveEventEdit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!canManage) return;
+      setIsSavingEvent(true);
+      try {
+          const payload = {
+              title: eventEditData.title,
+              organizer: eventEditData.organizer,
+              criteria: eventEditData.criteria,
+              points: eventEditData.points,
+              category: eventEditData.category,
+              location_type: eventEditData.location_type,
+              format: eventEditData.format,
+              link: eventEditData.link,
+              status: eventEditData.status,
+              event_date: eventEditData.event_date || null,
+              event_time: eventEditData.event_time || null,
+              deadline: eventEditData.close_on_full ? null : (eventEditData.deadline || null),
+              deadline_time: eventEditData.close_on_full ? null : (eventEditData.deadline_time || null),
+              close_on_full: !!eventEditData.close_on_full,
+              description: eventEditData.description || null,
+          };
+
+          const query = editingEvent
+              ? supabase!.from('events').update(payload).eq('id', editingEvent.id).select()
+              : supabase!.from('events').insert([payload]).select();
+          const { data, error } = await query;
+          if (error) throw error;
+          if ((!editingEvent || (editingEvent.status === 'pending' && payload.status !== 'pending')) && data?.[0]) {
+              await notifyAllUsersAboutEvent(data[0]);
+          }
+          showToast(editingEvent ? 'Cập nhật sự kiện thành công.' : 'Thêm sự kiện thành công.', 'success');
+          closeEventEditor();
+          await fetchEvents();
+      } catch (err: any) {
+          showToast('Lỗi: ' + (err.message || 'Không thể lưu sự kiện'), 'error');
+      } finally {
+          setIsSavingEvent(false);
+      }
+  };
+
+  const patchEvent = async (evt: HubEvent, patch: Record<string, any>, successMessage: string) => {
+      if (!canManage) return;
+      playClick();
+      try {
+          const { error } = await supabase!.from('events').update(patch).eq('id', evt.id);
+          if (error) throw error;
+          if (evt.status === 'pending' && patch.status && patch.status !== 'pending') {
+              await notifyAllUsersAboutEvent({ ...evt, ...patch, title: evt.name, criteria: patch.criteria || evt.category });
+          }
+          setEvents(prev => prev.map(item => item.id === evt.id ? { ...item, ...patch } : item));
+          showToast(successMessage, 'success');
+      } catch (err: any) {
+          showToast('Lỗi: ' + (err.message || 'Không thể cập nhật sự kiện'), 'error');
+      }
+  };
+
   const filteredEvents = events.filter(evt => {
     const matchesSearch = evt.name.toLowerCase().includes(searchTerm.toLowerCase()) || evt.organizer.toLowerCase().includes(searchTerm.toLowerCase());
     let matchesTab = true;
@@ -732,7 +843,8 @@ const canManage = isAdmin || isAuditor || isCTV;
     if (activeTab === 'participated') {
         matchesTab = participatedEvents.includes(evt.id);
     } else {
-        if (evt.is_deleted) isVisible = false;
+        if (evt.is_deleted && !isManagementView) isVisible = false;
+        if (evt.status === 'pending' && !isManagementView) isVisible = false;
         if (activeTab !== 'all') matchesTab = evt.category === activeTab;
     }
 
@@ -773,6 +885,46 @@ const canManage = isAdmin || isAuditor || isCTV;
             <button onClick={() => setNotification(null)} className="text-gray-400 p-1"><X size={18} /></button>
         </div>, document.body
     );
+  };
+
+  const renderManagementCard = (evt: HubEvent) => {
+      const isPending = evt.status === 'pending';
+      const isClosed = evt.is_manually_closed || evt.status === 'Đã kết thúc';
+
+      return (
+          <div key={evt.id} className={`bg-white rounded-2xl border border-gray-200 p-4 shadow-sm mb-3 ${evt.is_deleted ? 'opacity-60 grayscale' : ''}`}>
+              <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                          {isPending && <span className="text-[10px] font-bold px-2 py-1 rounded bg-yellow-50 text-yellow-700 border border-yellow-200">Chờ duyệt</span>}
+                          {evt.is_deleted && <span className="text-[10px] font-bold px-2 py-1 rounded bg-gray-100 text-gray-600 border border-gray-200">Đã ẩn</span>}
+                          {isClosed && !evt.is_deleted && <span className="text-[10px] font-bold px-2 py-1 rounded bg-gray-100 text-gray-600 border border-gray-200">Đã đóng</span>}
+                          <span className="text-[10px] font-bold px-2 py-1 rounded bg-blue-50 text-[#003375] border border-blue-100">Mục {evt.category}</span>
+                      </div>
+                      <h3 className="font-black text-[#003375] text-base leading-snug line-clamp-2">{evt.name}</h3>
+                      <p className="text-xs text-gray-500 mt-1 line-clamp-1">{evt.organizer} • {evt.location}</p>
+                  </div>
+                  <button onClick={() => openEventEditor(evt)} className="p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 shrink-0 active:scale-95" title="Chỉnh sửa">
+                      <Edit2 size={18}/>
+                  </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                  {isPending && (
+                      <button onClick={() => patchEvent(evt, { status: 'Sắp diễn ra', is_deleted: false }, 'Đã duyệt sự kiện.')} className="py-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center justify-center gap-1.5">
+                          <CheckCircle2 size={15}/> Duyệt
+                      </button>
+                  )}
+                  <button onClick={() => patchEvent(evt, { is_manually_closed: !evt.is_manually_closed }, evt.is_manually_closed ? 'Đã mở lại đăng ký.' : 'Đã đóng đăng ký.')} className="py-2.5 rounded-xl bg-orange-50 text-orange-700 border border-orange-200 text-xs font-bold flex items-center justify-center gap-1.5">
+                      {evt.is_manually_closed ? <ToggleRight size={15}/> : <ToggleLeft size={15}/>} {evt.is_manually_closed ? 'Mở lại' : 'Đóng ĐK'}
+                  </button>
+                  {isAdmin && (
+                      <button onClick={() => patchEvent(evt, { is_deleted: !evt.is_deleted }, evt.is_deleted ? 'Đã hiện lại sự kiện.' : 'Đã ẩn sự kiện.')} className="py-2.5 rounded-xl bg-red-50 text-red-700 border border-red-200 text-xs font-bold flex items-center justify-center gap-1.5">
+                          {evt.is_deleted ? <RotateCcw size={15}/> : <Trash2 size={15}/>} {evt.is_deleted ? 'Hiện lại' : 'Ẩn'}
+                      </button>
+                  )}
+              </div>
+          </div>
+      );
   };
 
   const renderEventCard = (evt: HubEvent) => {
@@ -886,9 +1038,16 @@ return (
               <h2 className="text-[24px] font-extrabold text-[#003375] tracking-tight">Sự kiện ĐRL</h2>
               <div className="flex gap-2">
                   <button onClick={() => { playClick(); fetchEvents(); }} className="p-2.5 bg-gray-50 rounded-full text-[#003375] active:bg-gray-100"><RefreshCw size={20} className={loading ? "animate-spin" : ""} /></button>
-                  <button onClick={() => { playClick(); setShowContributeModal(true); }} className="p-2.5 bg-[#003375] text-white rounded-full shadow-md active:scale-95"><PlusCircle size={20} /></button>
+                  <button onClick={() => { isManagementView ? openEventEditor(null) : (playClick(), setShowContributeModal(true)); }} className="p-2.5 bg-[#003375] text-white rounded-full shadow-md active:scale-95"><PlusCircle size={20} /></button>
               </div>
           </div>
+
+          {canManage && (
+              <div className="grid grid-cols-2 gap-2 mb-3 rounded-2xl bg-gray-100 p-1 border border-gray-200">
+                  <button onClick={() => { playClick(); setIsManagementView(false); }} className={`py-2 rounded-xl text-xs font-black transition-all ${!isManagementView ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Giao diện SV</button>
+                  <button onClick={() => { playClick(); setIsManagementView(true); }} className={`py-2 rounded-xl text-xs font-black transition-all ${isManagementView ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Quản lý</button>
+              </div>
+          )}
 
           <div className="flex gap-2 mb-3">
               <div className="relative flex-1">
@@ -923,7 +1082,7 @@ return (
       <div className="p-4">
           <NotificationNudge variant="events" compact className="mb-4" />
 
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 mb-5 shadow-sm relative overflow-hidden">
+          {!canManage && <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 mb-5 shadow-sm relative overflow-hidden">
               <div className="relative z-10 flex flex-col">
                   <div className="flex items-center gap-2 mb-1">
                       <UserPlus className="text-blue-600" size={18} />
@@ -933,14 +1092,14 @@ return (
                   <button onClick={() => { playClick(); setShowCTVModal(true); }} className="bg-[#003375] text-white text-xs font-bold py-2.5 px-5 rounded-lg self-start active:scale-95 shadow-sm">Đăng ký ngay</button>
               </div>
               <Users size={120} className="absolute right-[-20px] bottom-[-20px] text-blue-100 opacity-50" />
-          </div>
+          </div>}
 
           {/* List Events */}
           <div className="space-y-0">
              {loading ? (
                 <div className="flex flex-col items-center justify-center py-10"><Loader2 size={32} className="text-[#003375] animate-spin mb-3" /><p className="text-gray-500 text-sm">Đang tải...</p></div>
              ) : filteredEvents.length > 0 ? (
-                filteredEvents.map(evt => renderEventCard(evt))
+                filteredEvents.map(evt => isManagementView ? renderManagementCard(evt) : renderEventCard(evt))
              ) : (
                 <div className="py-12 text-center bg-white rounded-xl border border-dashed border-gray-300">
                     <Calendar className="mx-auto text-gray-300 mb-2" size={32}/>
@@ -956,6 +1115,50 @@ return (
       <CTVModalWrapper isOpen={showCTVModal} onClose={() => setShowCTVModal(false)} onShowToast={showToast} />
       <ScoreGuideModal isOpen={showScoreGuide} onClose={() => setShowScoreGuide(false)} />
       <ReportEventModal isOpen={!!reportingEvent} onClose={() => setReportingEvent(null)} event={reportingEvent} onShowToast={showToast} />
+      {(editingEvent || Object.keys(eventEditData).length > 0) && createPortal(
+          <div className="fixed inset-0 bg-black/60 z-[100000] flex items-end justify-center animate-fadeIn" onClick={closeEventEditor}>
+              <div className="bg-white rounded-t-3xl w-full max-h-[90vh] flex flex-col shadow-2xl animate-slideUp overflow-hidden" onClick={e => e.stopPropagation()}>
+                  <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-3 mb-1 shrink-0" />
+                  <div className="px-4 pt-2 pb-3 border-b border-gray-100 flex items-center justify-between">
+                      <h3 className="font-black text-[#003375] text-lg flex items-center gap-2">{editingEvent ? <Edit2 size={18}/> : <PlusCircle size={18}/>} {editingEvent ? 'Chỉnh sửa sự kiện' : 'Thêm sự kiện'}</h3>
+                      <button onClick={closeEventEditor} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
+                  </div>
+                  <form onSubmit={saveEventEdit} className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 pb-safe">
+                      <input required placeholder="Tên sự kiện" value={eventEditData.title || ''} onChange={e => setEventEditData({...eventEditData, title: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                      <input placeholder="BTC" value={eventEditData.organizer || ''} onChange={e => setEventEditData({...eventEditData, organizer: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                      <div className="grid grid-cols-2 gap-3">
+                          <select value={eventEditData.criteria || 'III'} onChange={e => setEventEditData({...eventEditData, criteria: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50">
+                              <option value="I">Mục I</option><option value="II">Mục II</option><option value="III">Mục III</option><option value="IV">Mục IV</option><option value="V">Mục V</option><option value="Chưa biết">Chưa biết</option>
+                          </select>
+                          <input placeholder="Điểm cộng" value={eventEditData.points || ''} onChange={e => setEventEditData({...eventEditData, points: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                          <input placeholder="Loại hình" value={eventEditData.category || ''} onChange={e => setEventEditData({...eventEditData, category: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                          <select value={eventEditData.status || 'Sắp diễn ra'} onChange={e => setEventEditData({...eventEditData, status: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50">
+                              <option value="pending">Chờ duyệt</option><option value="Sắp diễn ra">Sắp diễn ra</option><option value="Đang diễn ra">Đang diễn ra</option><option value="Đã kết thúc">Đã kết thúc</option>
+                          </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                          <select value={eventEditData.location_type || 'Trong trường'} onChange={e => setEventEditData({...eventEditData, location_type: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50">
+                              <option value="Trong trường">Trong trường</option><option value="Ngoài trường">Ngoài trường</option>
+                          </select>
+                          <select value={eventEditData.format || 'Offline'} onChange={e => setEventEditData({...eventEditData, format: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50">
+                              <option value="Offline">Offline</option><option value="Online">Online</option><option value="Hybrid">Hybrid</option>
+                          </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                          <input type="date" value={eventEditData.event_date || ''} onChange={e => setEventEditData({...eventEditData, event_date: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50" />
+                          <input type="time" value={eventEditData.event_time || ''} onChange={e => setEventEditData({...eventEditData, event_time: e.target.value})} className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none bg-gray-50" />
+                      </div>
+                      <input placeholder="Link đăng ký" value={eventEditData.link || ''} onChange={e => setEventEditData({...eventEditData, link: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                      <textarea rows={3} placeholder="Mô tả" value={eventEditData.description || ''} onChange={e => setEventEditData({...eventEditData, description: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50 resize-none" />
+                      <button type="submit" disabled={isSavingEvent} className="w-full py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] disabled:opacity-50 flex items-center justify-center gap-2">
+                          {isSavingEvent ? <Loader2 size={16} className="animate-spin"/> : <Save size={16}/>} Lưu sự kiện
+                      </button>
+                  </form>
+              </div>
+          </div>, document.body
+      )}
     </div>
   );
 };

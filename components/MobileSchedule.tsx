@@ -376,6 +376,9 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
   const [quickTagCourse, setQuickTagCourse] = useState<Course | null>(null);
   const [quickTagData, setQuickTagData] = useState(createInitialTagData());
   const [isSavingQuickTag, setIsSavingQuickTag] = useState(false);
+  const [isStudentEditModalOpen, setIsStudentEditModalOpen] = useState(false);
+  const [studentEditData, setStudentEditData] = useState<Partial<Course>>({});
+  const [isSavingStudentCourse, setIsSavingStudentCourse] = useState(false);
 
   const today = new Date();
   const todayStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}`;
@@ -538,6 +541,42 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
           alert("Lỗi khi gắn nhãn nhanh.");
       } finally {
           setIsSavingQuickTag(false);
+      }
+  };
+
+  const openStudentEditModal = (course: Course) => {
+      if (!course.user_schedule_id) return;
+      playClick();
+      setStudentEditData(course);
+      setSelectedCourseInfo(null);
+      setIsMyScheduleModalOpen(false);
+      setIsStudentEditModalOpen(true);
+  };
+
+  const handleStudentSaveCourse = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!studentEditData.user_schedule_id) return;
+      if (!studentEditData.subject_name || !studentEditData.course_code) {
+          alert('Vui lòng nhập tên môn học và mã học phần.');
+          return;
+      }
+
+      setIsSavingStudentCourse(true);
+      try {
+          const { id, user_schedule_id, is_user_added, user, dateStr, ...overrideData } = studentEditData;
+          const { error } = await supabase
+              .from('user_schedules')
+              .update({ custom_data: overrideData })
+              .eq('id', user_schedule_id);
+
+          if (error) throw error;
+          await fetchMySchedule();
+          setIsStudentEditModalOpen(false);
+      } catch (err: any) {
+          console.error(err);
+          alert('Không thể lưu chỉnh sửa: ' + (err.message || 'Lỗi không xác định'));
+      } finally {
+          setIsSavingStudentCourse(false);
       }
   };
 
@@ -1200,6 +1239,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                                         <Tag size={18} />
                                     </button>
                                 )}
+                                {course.user_schedule_id && (
+                                    <button onClick={() => openStudentEditModal(course)} className="p-3.5 rounded-xl border border-blue-100 bg-blue-50 text-blue-600 active:bg-blue-100 shrink-0" title="Chỉnh sửa">
+                                        <Edit size={18} />
+                                    </button>
+                                )}
                                 {!currentSemesterSchedule.some(c => c.id === course.id) ? (
                                     <button onClick={() => { addToSchedule(course); setSelectedCourseInfo(null); }} className="flex-1 py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] transition-colors shadow-md flex items-center justify-center gap-2"><Plus size={16}/> Thêm vào Lịch</button>
                                 ) : (
@@ -1307,6 +1351,9 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                                         <h4 className="font-bold text-gray-800 text-[13px] leading-tight mb-1">{course.subject_name}</h4>
                                         <p className="text-[10px] text-gray-500 font-medium">{course.course_code} <span className="mx-1">•</span> Đợt {course.phase || '1'}</p>
                                     </div>
+                                    {course.user_schedule_id && (
+                                        <button onClick={(e) => { e.stopPropagation(); openStudentEditModal(course); }} className="text-blue-600 bg-blue-50 p-2 rounded-lg active:bg-blue-100 shrink-0" title="Chỉnh sửa"><Edit size={16}/></button>
+                                    )}
                                     <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="text-red-500 bg-red-50 p-2 rounded-lg active:bg-red-100 shrink-0"><Trash2 size={16}/></button>
                                 </div>
                             ))
@@ -1317,6 +1364,42 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
         )}
 
         {/* MODAL BÁO LỖI */}
+        {isStudentEditModalOpen && createPortal(
+            <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsStudentEditModalOpen(false)}>
+                <div className="bg-white rounded-t-3xl w-full flex flex-col max-h-[90vh] shadow-2xl animate-slideUp relative overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <DragHandle />
+                    <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b border-gray-100 shrink-0">
+                        <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><Edit size={18}/> Chỉnh sửa môn học</h2>
+                        <button onClick={() => setIsStudentEditModalOpen(false)} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
+                    </div>
+                    <form onSubmit={handleStudentSaveCourse} className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 pb-safe">
+                        <input required placeholder="Tên môn học" value={studentEditData.subject_name || ''} onChange={e => setStudentEditData({...studentEditData, subject_name: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                        <div className="grid grid-cols-2 gap-3">
+                            <input required placeholder="Mã học phần" value={studentEditData.course_code || ''} onChange={e => setStudentEditData({...studentEditData, course_code: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                            <input type="number" min="0" placeholder="Tín chỉ" value={studentEditData.credits ?? ''} onChange={e => setStudentEditData({...studentEditData, credits: Number(e.target.value)})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                        </div>
+                        <input placeholder="Giảng viên" value={studentEditData.instructor || ''} onChange={e => setStudentEditData({...studentEditData, instructor: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                        <div className="grid grid-cols-2 gap-3">
+                            <input placeholder="Thứ, VD: 2 hoặc 2 4" value={studentEditData.day_of_week || ''} onChange={e => setStudentEditData({...studentEditData, day_of_week: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                            <input placeholder="Ca / Tiết, VD: S, C, 1-3" value={studentEditData.shift || ''} onChange={e => setStudentEditData({...studentEditData, shift: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <input placeholder="Phòng" value={studentEditData.room || ''} onChange={e => setStudentEditData({...studentEditData, room: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                            <input placeholder="Tuần học, VD: 1-12" value={studentEditData.weeks || ''} onChange={e => setStudentEditData({...studentEditData, weeks: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            <input placeholder="Đợt" value={studentEditData.phase || ''} onChange={e => setStudentEditData({...studentEditData, phase: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                            <input placeholder="Ngày thi" value={studentEditData.exam_date || ''} onChange={e => setStudentEditData({...studentEditData, exam_date: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                            <input placeholder="Ca thi" value={studentEditData.exam_shift || ''} onChange={e => setStudentEditData({...studentEditData, exam_shift: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                        </div>
+                        <button type="submit" disabled={isSavingStudentCourse} className="w-full py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] disabled:opacity-50 flex items-center justify-center gap-2">
+                            {isSavingStudentCourse ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} Lưu chỉnh sửa
+                        </button>
+                    </form>
+                </div>
+            </div>, document.body
+        )}
+
         {isReportModalOpen && createPortal(
             <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setIsReportModalOpen(false)}>
                 <div className="bg-white rounded-t-3xl w-full shadow-2xl animate-slideUp flex flex-col relative" onClick={e => e.stopPropagation()}>

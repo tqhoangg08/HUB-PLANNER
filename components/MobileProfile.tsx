@@ -304,9 +304,9 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
             <div className="mx-4 mt-6 mb-6">
                 <h3 className="text-[13px] font-extrabold text-gray-500 mb-3 px-1">Về HUB Planner</h3>
                 <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-gray-100 overflow-hidden">
-                    <MenuItem icon={Info} iconColor="text-gray-500" iconBg="bg-gray-50" title="Giới thiệu" rightText="Về chúng mình" onClick={() => { playClick(); navigate('/mobile-handbook/about'); }} />
-                    <MenuItem icon={HelpCircle} iconColor="text-gray-500" iconBg="bg-gray-50" title="Gửi phản hồi & Góp ý" onClick={() => { playClick(); navigate('/mobile-handbook/feedback'); }} />
-                    <MenuItem icon={Coffee} iconColor="text-gray-500" iconBg="bg-gray-50" title="Ủng hộ (Donate)" onClick={() => { playClick(); navigate('/mobile-handbook/donate'); }} />
+                    <MenuItem icon={Info} iconColor="text-gray-500" iconBg="bg-gray-50" title="Giới thiệu" rightText="Về chúng mình" onClick={() => { playClick(); navigate('/handbook/about'); }} />
+                    <MenuItem icon={HelpCircle} iconColor="text-gray-500" iconBg="bg-gray-50" title="Gửi phản hồi & Góp ý" onClick={() => { playClick(); navigate('/handbook/feedback'); }} />
+                    <MenuItem icon={Coffee} iconColor="text-gray-500" iconBg="bg-gray-50" title="Ủng hộ (Donate)" onClick={() => { playClick(); navigate('/handbook/donate'); }} />
                     <MenuItem icon={FileText} iconColor="text-gray-500" iconBg="bg-gray-50" title="Điều khoản dịch vụ" onClick={() => { playClick(); navigate('/terms'); }} />
                     <MenuItem icon={Lock} iconColor="text-gray-500" iconBg="bg-gray-50" title="Chính sách bảo mật" onClick={() => { playClick(); navigate('/privacy'); }} />
                 </div>

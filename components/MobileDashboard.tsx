@@ -1210,9 +1210,9 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
                         <div>
                             <h1 className="text-[22px] sm:text-[28px] font-extrabold text-[#003375] tracking-tight leading-tight mb-0.5">
-                                Quáº£n lÃ½ Sinh viÃªn
+                                Quản lý Sinh viên
                             </h1>
-                            <p className="text-xs text-gray-500">Xem vÃ  theo dÃµi tiáº¿n Ä‘á»™ há»c táº­p toÃ n trÆ°á»ng</p>
+                            <p className="text-xs text-gray-500">Xem và theo dõi tiến độ học tập toàn trường</p>
                         </div>
                         
                         <div className="flex flex-col w-full lg:w-auto gap-2">
@@ -1221,7 +1221,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                                     <input 
                                         type="text" 
-                                        placeholder="TÃ¬m MSSV hoáº·c TÃªn..."
+                                        placeholder="Tìm MSSV hoặc Tên..."
                                         value={adminSearch}
                                         onChange={e => setAdminSearch(e.target.value)}
                                         className="w-full h-10 pl-8 pr-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-[#003375] outline-none text-sm bg-white font-semibold"
@@ -1233,7 +1233,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     className={`h-10 px-3 rounded-xl border text-sm font-bold transition-colors shrink-0 flex items-center gap-1.5 ${showAdminFilters || activeAdminFilterCount > 0 ? 'bg-[#003375] text-white border-[#003375] shadow-sm' : 'bg-white text-[#003375] border-gray-300'}`}
                                 >
                                     <ListFilter size={16} />
-                                    <span>Lá»c</span>
+                                    <span>Lọc</span>
                                     {activeAdminFilterCount > 0 && (
                                         <span className={`min-w-5 h-5 rounded-full px-1.5 text-[11px] font-black flex items-center justify-center ${showAdminFilters ? 'bg-white text-[#003375]' : 'bg-[#003375] text-white'}`}>
                                             {activeAdminFilterCount}
@@ -1245,22 +1245,22 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     onClick={() => { playClick(); fetchAdminData(); }} 
                                     disabled={loadingAdmin}
                                     className="h-10 w-10 bg-white text-gray-500 border border-gray-300 hover:text-[#003375] hover:bg-blue-50 rounded-xl shadow-sm transition-colors disabled:opacity-50 shrink-0 flex items-center justify-center"
-                                    title="LÃ m má»›i danh sÃ¡ch"
+                                    title="Làm mới danh sách"
                                 >
                                     <RefreshCw size={18} className={loadingAdmin ? "animate-spin" : ""} />
                                 </button>
 
                                 <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="hidden sm:inline-flex h-10 items-center px-3 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] hover:bg-blue-50 rounded-xl shadow-sm whitespace-nowrap transition-colors shrink-0">
-                                    Há»“ sÆ¡ cá»§a tÃ´i
+                                    Hồ sơ của tôi
                                 </button>
                             </div>
                             
                             <div className={`${showAdminFilters ? 'grid' : 'hidden'} grid-cols-2 gap-2 w-full rounded-2xl border border-gray-200 bg-white p-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] animate-fadeIn`}>
                                 <div className="col-span-2 flex items-center justify-between">
-                                    <span className="text-xs font-black uppercase tracking-wide text-gray-500">Bá»™ lá»c</span>
+                                    <span className="text-xs font-black uppercase tracking-wide text-gray-500">Bộ lọc</span>
                                     {activeAdminFilterCount > 0 && (
                                         <button onClick={() => { playClick(); resetAdminFilters(); }} className="text-xs font-bold text-[#003375]">
-                                            XÃ³a lá»c
+                                            Xóa lọc
                                         </button>
                                     )}
                                 </div>
@@ -1271,10 +1271,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         onChange={(e) => setAdminFilterGpa(e.target.value as any)}
                                         className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[140px] truncate"
                                     >
-                                        <option value="all">Má»i má»©c Ä‘iá»ƒm</option>
-                                        <option value="excellent">Xuáº¥t sáº¯c (&gt;3.6)</option>
-                                        <option value="warning">Cáº£nh bÃ¡o (&lt;2.0)</option>
-                                        <option value="nogpa">ChÆ°a cÃ³ Ä‘iá»ƒm</option>
+                                        <option value="all">Mọi mức điểm</option>
+                                        <option value="excellent">Xuất sắc (&gt;3.6)</option>
+                                        <option value="warning">Cảnh báo (&lt;2.0)</option>
+                                        <option value="nogpa">Chưa có điểm</option>
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                                 </div>
@@ -1286,7 +1286,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         onChange={(e) => setAdminFilterMajor(e.target.value)}
                                         className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[140px] truncate"
                                     >
-                                        <option value="all">Táº¥t cáº£ NgÃ nh</option>
+                                        <option value="all">Tất cả Ngành</option>
                                         {adminMajors.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
@@ -1299,8 +1299,8 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         onChange={(e) => setAdminFilterSemester(e.target.value)}
                                         className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[150px] truncate"
                                     >
-                                        <option value="all">TÃ­ch lÅ©y toÃ n khÃ³a</option>
-                                        {adminSemesters.map(s => <option key={s} value={s}>{s.replace('Há»c ká»³ ', 'HK').replace(' NÄƒm há»c ', ' ')}</option>)}
+                                        <option value="all">Tích lũy toàn khóa</option>
+                                        {adminSemesters.map(s => <option key={s} value={s}>{s.replace('Học kỳ ', 'HK').replace(' Năm học ', ' ')}</option>)}
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                                 </div>
@@ -1312,8 +1312,8 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         onChange={(e) => setAdminSort(e.target.value as any)}
                                         className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full"
                                     >
-                                        <option value="newest">Má»›i cáº­p nháº­t</option>
-                                        <option value="gpa_desc">GPA Cao nháº¥t</option>
+                                        <option value="newest">Mới cập nhật</option>
+                                        <option value="gpa_desc">GPA Cao nhất</option>
                                         <option value="credits_desc">Nhiều Tín nhất</option>
                                         <option value="created_desc">Tạo mới nhất</option>
                                         <option value="created_asc">Tạo cũ nhất</option>
@@ -1325,14 +1325,14 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                {/* 3. Bá»N THáºº THá»NG KÃŠ (GRID 2x2 MOBILE, 4x1 DESKTOP) */}
+                {/* 3. Bốn thẻ thống kê (grid 2x2 mobile, 4x1 desktop) */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
                     <button onClick={() => { playClick(); setAdminFilterGpa('all'); }} className={`bg-white p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'all' ? 'border-[#003375] ring-1 ring-[#003375] bg-blue-50/20' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'}`}>
                         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
                             <Users size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
                         <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Tá»•ng SV</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Tổng SV</p>
                             <span className="text-lg sm:text-xl font-black text-gray-900">{adminSummary.total}</span>
                         </div>
                     </button>
@@ -1355,7 +1355,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <AlertTriangle size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
                         <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-red-600/80 uppercase tracking-wider mb-0.5">Cáº£nh bÃ¡o</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-red-600/80 uppercase tracking-wider mb-0.5">Cảnh báo</p>
                             <span className="text-lg sm:text-xl font-black text-red-600">{adminSummary.warning}</span>
                         </div>
                     </button>
@@ -1365,7 +1365,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <Crown size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
                         <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-orange-500/80 uppercase tracking-wider mb-0.5">Xuáº¥t sáº¯c</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-orange-500/80 uppercase tracking-wider mb-0.5">Xuất sắc</p>
                             <span className="text-lg sm:text-xl font-black text-orange-500">{adminSummary.excellent}</span>
                         </div>
                     </button>
@@ -1377,16 +1377,16 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <thead className="bg-gray-50 text-gray-600 border-b border-gray-200 sticky top-0 z-10">
                                 <tr>
                                     <th className="px-4 py-3 font-bold">MSSV</th>
-                                    <th className="px-4 py-3 font-bold">Há» vÃ  TÃªn</th>
-                                    <th className="px-4 py-3 font-bold">Há»‡ / KhÃ³a</th>
-                                    <th className="px-4 py-3 font-bold text-center">{adminFilterSemester === 'all' ? 'GPA TÃ­ch lÅ©y' : 'GPA Há»c ká»³'}</th>
-                                    <th className="px-4 py-3 font-bold text-center">TÃ­n chá»‰</th>
-                                    <th className="px-4 py-3 font-bold text-right">Cáº­p nháº­t lÃºc</th>
+                                    <th className="px-4 py-3 font-bold">Họ và Tên</th>
+                                    <th className="px-4 py-3 font-bold">Hệ / Khóa</th>
+                                    <th className="px-4 py-3 font-bold text-center">{adminFilterSemester === 'all' ? 'GPA Tích lũy' : 'GPA Học kỳ'}</th>
+                                    <th className="px-4 py-3 font-bold text-center">Tín chỉ</th>
+                                    <th className="px-4 py-3 font-bold text-right">Cập nhật lúc</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {loadingAdmin ? (
-                                    <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/> <span className="text-gray-500">Äang táº£i toÃ n bá»™ dá»¯ liá»‡u ({adminUsers.length}+)...</span></td></tr>
+                                    <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/> <span className="text-gray-500">Đang tải toàn bộ dữ liệu ({adminUsers.length}+)...</span></td></tr>
                                 ) : (() => {
                                     const totalPages = Math.ceil(processedAdminUsers.length / itemsPerPage) || 1;
                                     const paginatedUsers = processedAdminUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -1396,9 +1396,9 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                             const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
                                             
                                             return (
-                                                <tr key={user.id} onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'ChÆ°a cÃ³ data' }); setAdminMode('detail'); window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
+                                                <tr key={user.id} onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
                                                     <td className="px-4 py-3 font-bold text-[#003375]">{user.student_code || '-'}</td>
-                                                    <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#003375] transition-colors">{user.full_name || user.data?.studentName || 'ChÆ°a cáº­p nháº­t'}</td>
+                                                    <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#003375] transition-colors">{user.full_name || user.data?.studentName || 'Chưa cập nhật'}</td>
                                                     <td className="px-4 py-3 text-gray-600">{user.data?.programName || '-'} / {user.data?.cohort || '-'}</td>
                                                     <td className="px-4 py-3 text-center font-bold text-emerald-600">{user._computedGpa > 0 ? user._computedGpa.toFixed(2) : '-'}</td>
                                                     <td className="px-4 py-3 text-center text-gray-600">{user._computedCredits || 0}</td>
@@ -1407,7 +1407,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                             )
                                         })
                                     ) : (
-                                        <tr><td colSpan={6} className="py-8 text-center text-gray-500">KhÃ´ng tÃ¬m tháº¥y sinh viÃªn nÃ o phÃ¹ há»£p</td></tr>
+                                        <tr><td colSpan={6} className="py-8 text-center text-gray-500">Không tìm thấy sinh viên nào phù hợp</td></tr>
                                     )
                                 })()}
                             </tbody>
@@ -1420,7 +1420,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                         return (
                             <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 gap-3">
                                 <span className="text-xs sm:text-sm text-gray-500">
-                                    Äang xem <span className="font-bold text-gray-700">{processedAdminUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> Ä‘áº¿n <span className="font-bold text-gray-700">{Math.min(currentPage * itemsPerPage, processedAdminUsers.length)}</span> trong tá»•ng sá»‘ <span className="font-bold text-gray-900">{processedAdminUsers.length}</span> sinh viÃªn
+                                    Đang xem <span className="font-bold text-gray-700">{processedAdminUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> đến <span className="font-bold text-gray-700">{Math.min(currentPage * itemsPerPage, processedAdminUsers.length)}</span> trong tổng số <span className="font-bold text-gray-900">{processedAdminUsers.length}</span> sinh viên
                                 </span>
                                 <div className="flex items-center gap-2">
                                     <button 
@@ -1428,7 +1428,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         disabled={currentPage === 1}
                                         className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
-                                        TrÆ°á»›c
+                                        Trước
                                     </button>
                                     
                                     <div className="flex items-center gap-1.5 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100 text-xs font-bold text-[#003375]">
@@ -1476,22 +1476,22 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('list'); window.history.pushState(null, '', '/dashboard/admin'); }}
                             className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
                         >
-                            <ChevronLeft size={16} /> Quay láº¡i danh sÃ¡ch quáº£n lÃ½
+                            <ChevronLeft size={16} /> Quay lại danh sách quản lý
                         </button>
                     )}
                     
                     <h1 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
-                Há»c táº­p
+                Học tập
             </h1>
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <span>Quáº£n lÃ½ há»c táº­p</span><span>â€¢</span><span className="font-bold text-gray-700">Báº£ng Ä‘iá»ƒm vÃ  lá»™ trÃ¬nh</span>
+                <span>Quản lý học tập</span><span>•</span><span className="font-bold text-gray-700">Bảng điểm và lộ trình</span>
             </div>
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                     <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tá»•ng GPA tÃ­ch lÅ©y</span>
+                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng GPA tích lũy</span>
                             <GraduationCap size={16} className="text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
                         <div className="flex items-baseline gap-1 mt-1">
@@ -1499,13 +1499,13 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <span className="text-[10px] sm:text-sm font-bold text-gray-400">/ 4.0</span>
                         </div>
                         <div className="text-[10px] sm:text-[11px] text-gray-500 mt-1.5 sm:mt-2 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#990000] shrink-0"></span> <span className="truncate">Há»‡ 10: <span className="font-bold text-gray-700">{stats.gpa10.toFixed(2)}</span></span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#990000] shrink-0"></span> <span className="truncate">Hệ 10: <span className="font-bold text-gray-700">{stats.gpa10.toFixed(2)}</span></span>
                         </div>
                     </div>
 
                     <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tá»•ng TC tÃ­ch lÅ©y</span>
+                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng TC tích lũy</span>
                             <BookOpen size={16} className="text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
                         <div className="flex items-baseline gap-1 mt-1">
