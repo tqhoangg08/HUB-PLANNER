@@ -346,11 +346,26 @@ export const LostFoundBoard: React.FC = () => {
   const handleApprove = async (id: number) => {
       if (!canManage) return;
       playClick();
-      const { error } = await supabase!.from('lost_found_items').update({ status: 'approved' }).eq('id', id);
-      if (error) showToast("Lỗi duyệt: " + error.message, 'error');
-      else {
-          showToast("Đã duyệt tin thành công", 'success');
+      try {
+          const { data: { session: currentSession } } = await supabase!.auth.getSession();
+          const response = await fetch('/api/approve-lost-found', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${currentSession?.access_token || ''}`,
+              },
+              body: JSON.stringify({ id }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Khong the duyet tin');
+
+          const suffix = result.alreadySent ? '' : `, da gui ${result.sent || 0} thiet bi`;
+          showToast(`Da duyet tin thanh cong${suffix}`, 'success');
           setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'approved' } : i));
+          return;
+      } catch (error: any) {
+          showToast("Loi duyet: " + error.message, 'error');
+          return;
       }
   };
 
