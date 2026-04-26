@@ -16,11 +16,19 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const ANNOUNCEMENT_PUSH_SPACING_MINUTES = 10;
+
 type QueueRow = {
   id: string;
   title: string;
   link: string;
   attempts: number | null;
+};
+
+type AnnouncementRow = {
+  id: number;
+  title: string;
+  link: string;
 };
 
 const readBody = (body: unknown) => {
@@ -44,6 +52,53 @@ const isAuthorized = (req: VercelRequest, body: Record<string, unknown>) => {
 
 const retryAt = () => new Date(Date.now() + RETRY_DELAY_MINUTES * 60 * 1000).toISOString();
 
+const enqueueRecentAnnouncements = async () => {
+  const recentCutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
+  const { data: announcements, error: announcementError } = await supabase
+    .from('school_announcements')
+    .select('id, title, link')
+    .eq('is_new', true)
+    .eq('is_hidden', false)
+    .gte('created_at', recentCutoff)
+    .order('created_at', { ascending: true })
+    .limit(20);
+
+  if (announcementError || !announcements?.length) {
+    return { queued: 0, error: announcementError?.message };
+  }
+
+  const announcementRows = announcements as AnnouncementRow[];
+  const announcementIds = announcementRows.map((item) => item.id);
+  const { data: queuedRows, error: queuedError } = await supabase
+    .from('school_announcement_push_queue')
+    .select('announcement_id')
+    .in('announcement_id', announcementIds);
+
+  if (queuedError) {
+    return { queued: 0, error: queuedError.message };
+  }
+
+  const queuedIds = new Set((queuedRows || []).map((item) => item.announcement_id));
+  const missingRows = announcementRows.filter((item) => !queuedIds.has(item.id));
+
+  if (!missingRows.length) return { queued: 0 };
+
+  const now = Date.now();
+  const rows = missingRows.map((item, index) => ({
+    announcement_id: item.id,
+    title: item.title,
+    link: item.link,
+    scheduled_at: new Date(now + index * ANNOUNCEMENT_PUSH_SPACING_MINUTES * 60 * 1000).toISOString(),
+  }));
+
+  const { error } = await supabase
+    .from('school_announcement_push_queue')
+    .upsert(rows, { onConflict: 'announcement_id' });
+
+  return { queued: error ? 0 : rows.length, error: error?.message };
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -54,6 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
+  const backfill = await enqueueRecentAnnouncements();
   const nowIso = new Date().toISOString();
   const { data: dueItems, error: dueError } = await supabase
     .from('school_announcement_push_queue')
@@ -70,7 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const item = (dueItems?.[0] || null) as QueueRow | null;
   if (!item) {
-    return res.status(200).json({ success: true, sent: 0, message: 'No due announcement push' });
+    return res.status(200).json({ success: true, sent: 0, backfill, message: 'No due announcement push' });
   }
 
   const { data: subscriptions, error: subscriptionError } = await supabase
@@ -87,7 +143,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .update({ sent_at: nowIso, last_error: 'No push subscriptions' })
       .eq('id', item.id);
 
-    return res.status(200).json({ success: true, sent: 0, skipped: true, message: 'No subscriptions' });
+    return res.status(200).json({ success: true, sent: 0, skipped: true, backfill, message: 'No subscriptions' });
   }
 
   const payload = JSON.stringify({
@@ -126,7 +182,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .update({ sent_at: new Date().toISOString(), attempts: (item.attempts || 0) + 1 })
       .eq('id', item.id);
 
-    return res.status(200).json({ success: true, sent, failed, results });
+    return res.status(200).json({ success: true, sent, failed, backfill, results });
   }
 
   const attempts = (item.attempts || 0) + 1;
@@ -140,5 +196,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     })
     .eq('id', item.id);
 
-  return res.status(502).json({ success: false, sent, failed, attempts, results });
+  return res.status(502).json({ success: false, sent, failed, attempts, backfill, results });
 }
