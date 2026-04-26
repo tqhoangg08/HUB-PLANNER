@@ -126,9 +126,25 @@ const App: React.FC = () => {
     useEffect(() => {
         if (!session?.user?.id || !isPushSupported() || Notification.permission !== 'granted') return;
 
-        subscribeToDeviceNotifications(session.user.id).catch((error) => {
-            console.error('Không thể đồng bộ thiết bị nhận thông báo:', error);
-        });
+        const syncPushDevice = () => {
+            subscribeToDeviceNotifications(session.user.id).catch((error) => {
+                console.error('Không thể đồng bộ thiết bị nhận thông báo:', error);
+            });
+        };
+
+        syncPushDevice();
+        const retryTimer = window.setTimeout(syncPushDevice, 2500);
+
+        const handleVisibilityChange = () => {
+            if (!document.hidden) syncPushDevice();
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.clearTimeout(retryTimer);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, [session?.user?.id]);
 
     // ==========================================

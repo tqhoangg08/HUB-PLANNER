@@ -12,16 +12,30 @@ const PushNotificationPrompt = () => {
   const [deniedError, setDeniedError] = useState(false);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
-    };
-    fetchUser();
+    let isMounted = true;
 
-    if (!isPushSupported()) return;
+    const loadUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (isMounted) setUserId(session?.user?.id || null);
+    };
+
+    loadUser();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user?.id || null);
+    });
+
+    return () => {
+      isMounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!userId || !isPushSupported()) return;
     if (Notification.permission !== 'default') return;
     
-    const hasDismissed = localStorage.getItem('push_prompt_dismissed');
+    const hasDismissed = localStorage.getItem(`push_prompt_dismissed:${userId}`);
     if (hasDismissed) return;
 
     const timer = setTimeout(() => {
@@ -29,11 +43,11 @@ const PushNotificationPrompt = () => {
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [userId]);
 
   const handleDismiss = () => {
     setShowPrompt(false);
-    localStorage.setItem('push_prompt_dismissed', 'true');
+    if (userId) localStorage.setItem(`push_prompt_dismissed:${userId}`, 'true');
   };
 
   const handleAllow = async () => {
