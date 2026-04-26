@@ -7,13 +7,13 @@ self.addEventListener('push', function(event) {
     } catch (error) {
         data = {
             title: 'HUB Planner',
-            body: event.data ? event.data.text() : 'Ban co thong bao moi.',
+            body: event.data ? event.data.text() : 'Bạn có thông báo mới.',
         };
     }
 
     const title = data.title || 'HUB Planner';
     const options = {
-        body: data.body || 'Ban co thong bao moi.',
+        body: data.body || 'Bạn có thông báo mới.',
         icon: '/logo192.png',
         badge: '/logo192.png',
         vibrate: [100, 50, 100],

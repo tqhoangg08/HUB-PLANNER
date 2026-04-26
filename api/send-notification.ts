@@ -39,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const payload = JSON.stringify({
         title: title || 'HUB Planner',
-        body: body || 'Ban co thong bao moi.',
+        body: body || 'Bạn có thông báo mới.',
         url: url || '/',
     });
 

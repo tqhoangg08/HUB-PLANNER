@@ -152,7 +152,7 @@ const NotificationBell = ({ currentUserId }) => {
 
   const handleTogglePush = async () => {
     if (!isPushSupported()) {
-      alert('Trinh duyet cua ban khong ho tro thong bao.');
+      alert('Trình duyệt của bạn không hỗ trợ thông báo.');
       return;
     }
 
@@ -161,7 +161,7 @@ const NotificationBell = ({ currentUserId }) => {
     try {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
-        alert('Ban can cap quyen thong bao trong cai dat trinh duyet.');
+        alert('Bạn cần cấp quyền thông báo trong cài đặt trình duyệt.');
         return;
       }
 
@@ -220,7 +220,7 @@ const NotificationBell = ({ currentUserId }) => {
         ),
         message: (
           <span className="font-medium text-gray-800">
-            {notif.content || 'Ban co mot thong bao moi tu he thong.'}
+            {notif.content || 'Bạn có thông báo mới từ hệ thống.'}
           </span>
         ),
       };
@@ -259,7 +259,7 @@ const NotificationBell = ({ currentUserId }) => {
       className="fixed w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] sm:w-80 sm:max-w-[95vw] bg-white rounded-2xl sm:rounded-xl shadow-2xl border border-gray-100 overflow-hidden animate-fadeIn"
     >
       <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-        <span className="font-bold text-gray-700 text-sm">Thong bao</span>
+        <span className="font-bold text-gray-700 text-sm">Thông báo</span>
         {unreadCount > 0 && (
           <button type="button" onClick={markAllRead} className="text-xs text-[#003375] hover:underline font-medium">
             Danh dau da doc
@@ -269,7 +269,7 @@ const NotificationBell = ({ currentUserId }) => {
 
       <div className="max-h-[52dvh] sm:max-h-80 overflow-y-auto custom-scrollbar">
         {notifications.length === 0 ? (
-          <div className="p-8 text-center text-sm text-gray-500">Chua co thong bao nao</div>
+          <div className="p-8 text-center text-sm text-gray-500">Chưa có thông báo nào</div>
         ) : (
           notifications.map((notif) => {
             const { avatar, message } = renderNotificationContent(notif);
@@ -297,7 +297,7 @@ const NotificationBell = ({ currentUserId }) => {
       {!isPushEnabled && (
         <div className="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
           <div className="flex flex-col">
-            <span className="text-xs font-bold text-gray-700">Thong bao day</span>
+            <span className="text-xs font-bold text-gray-700">Thông báo đẩy</span>
             <span className="text-[10px] text-gray-500">Nhan thong bao khi tat web</span>
           </div>
 

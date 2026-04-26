@@ -131,7 +131,7 @@ export default async function handler(req, res) {
   }
 
   const payload = JSON.stringify({
-    title: 'Thong bao moi tu truong',
+    title: 'Thông báo mới từ trường',
     body: item.title,
     url: item.link || '/dashboard',
   });
