@@ -7,6 +7,7 @@ const PushNotificationPrompt = () => {
   const [showPrompt, setShowPrompt] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [subscribeError, setSubscribeError] = useState<string | null>(null);
   
   // ✨ THÊM STATE ĐỂ BẮT LỖI KHI BỊ CHẶN HOẶC TẮT
   const [deniedError, setDeniedError] = useState(false);
@@ -52,6 +53,7 @@ const PushNotificationPrompt = () => {
 
   const handleAllow = async () => {
     setIsSubscribing(true);
+    setSubscribeError(null);
     setDeniedError(false); // Reset lỗi mỗi lần bấm thử
 
     try {
@@ -71,6 +73,7 @@ const PushNotificationPrompt = () => {
         // Không làm gì cả để họ có thể bấm lại nút "Cài đặt & Nhận thông báo"
       }
     } catch (error) {
+      setSubscribeError('Chua luu duoc thiet bi nhan thong bao. Vui long thu lai sau khi app cap nhat xong.');
       console.error('Lỗi khi bật thông báo:', error);
     } finally {
       setIsSubscribing(false);
@@ -115,6 +118,12 @@ const PushNotificationPrompt = () => {
               'Bật thông báo để nhận ngay cập nhật về lịch thi, điểm số và các sự kiện mới nhất từ HUB Planner nhé.'
             )}
           </p>
+
+          {subscribeError && (
+            <p className="text-xs text-red-500 font-semibold mb-4 px-2 leading-relaxed">
+              {subscribeError}
+            </p>
+          )}
 
           <div className="flex flex-col gap-3">
             <button 

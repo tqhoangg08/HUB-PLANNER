@@ -175,10 +175,8 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                         </div>
                     </div>
                     
-                    <div className="relative z-[60] bg-white/10 hover:bg-white/20 transition-colors rounded-full backdrop-blur-sm flex items-center justify-center">
-                        <div className="scale-90 opacity-90 hover:opacity-100">
-                            <NotificationBell currentUserId={currentUserId} />
-                        </div>
+                    <div className="relative z-[60] bg-white/10 hover:bg-white/20 transition-colors rounded-full backdrop-blur-sm flex items-center justify-center opacity-90 hover:opacity-100">
+                        <NotificationBell currentUserId={currentUserId} />
                     </div>
                 </div>
 

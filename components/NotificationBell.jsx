@@ -245,6 +245,7 @@ const NotificationBell = ({ currentUserId }) => {
     <div className="relative" ref={dropdownRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)} 
+        type="button"
         className="p-2 relative hover:bg-gray-100 rounded-full transition-colors mt-1"
       >
         <Bell size={20} className="text-gray-600" />
@@ -271,6 +272,7 @@ const NotificationBell = ({ currentUserId }) => {
             z-[100]  // ✨ SỬA Ở ĐÂY: Nâng từ z-50 lên z-[100] để đè bẹp thằng Glass Nav
             animate-fadeIn
             max-w-[calc(100vw-2rem)] sm:max-w-[95vw]
+            !z-[100000]
           "
         >
           {/* HEADER THÔNG BÁO */}
