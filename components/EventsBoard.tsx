@@ -60,6 +60,32 @@ const formatTimeString = (timeStr: string | null): string => {
     return timeStr;
 };
 
+const notifyAllUsersAboutEvent = async (event: any) => {
+    if (!event || event.status === 'pending') return;
+
+    try {
+        const eventTitle = event.title || 'Co mot su kien moi';
+        const criteriaLabel = event.criteria ? ` - Muc ${event.criteria}` : '';
+
+        const response = await fetch('/api/send-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: 'Sự kiện mới từ HUB Planner',
+                body: `${eventTitle}${criteriaLabel}`,
+                url: '/events'
+            })
+        });
+
+        const result = await response.json().catch(() => null);
+        if (!response.ok) {
+            throw new Error(result?.error || result?.message || 'Khong gui duoc push su kien.');
+        }
+    } catch (error) {
+        console.error('Khong gui duoc push cho su kien moi:', error);
+    }
+};
+
 const checkIsOverdue = (evt: HubEvent, currentDay: Date) => {
     if (evt.deadlineDate) {
         return evt.deadlineDate < currentDay;
@@ -694,6 +720,9 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     .select();
 
                 if (error) throw error;
+                if (editingEvent.status === 'pending' && payload.status !== 'pending' && data?.[0]) {
+                    await notifyAllUsersAboutEvent(data[0]);
+                }
                 if (!data || data.length === 0) {
                     throw new Error("Bảo mật RLS đang chặn bạn sửa! Vui lòng chạy lệnh SQL để cấp quyền Admin.");
                 }
@@ -701,6 +730,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
             } else {
                 const { data, error } = await supabase!.from('events').insert([payload]).select();
                 if (error) throw error;
+                if (data?.[0]) await notifyAllUsersAboutEvent(data[0]);
                 if (!data || data.length === 0) {
                     throw new Error("Bảo mật RLS đang chặn bạn thêm! Vui lòng chạy lệnh SQL để cấp quyền Admin.");
                 }
