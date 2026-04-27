@@ -331,6 +331,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
 
   const { session, isAdmin, isAuditor, loading } = useUserRole();
   const isAuthenticated = session !== null;
+  const canManageSchedule = isAdmin || isAuditor;
 
   const [searchTerm, setSearchTerm] = useState('');
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
@@ -816,16 +817,34 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
     setSelectedWeek(weekNum);
     setSelectedMonthIndex(now.getMonth());
   };
+
+  const studentEditInputClass = "w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50";
+  const renderStudentEditField = (label: string, field: React.ReactNode) => (
+    <label className="block space-y-1">
+      <span className="block text-[11px] font-black uppercase tracking-wide text-gray-500">{label}</span>
+      {field}
+    </label>
+  );
+
   return (
     <div className="mobile-page mobile-schedule-page w-full pb-24 space-y-4 pt-1 animate-fadeIn">
         {/* --- HEADER TKB --- */}
-        <div className="relative top-0 z-40 bg-[#F8FAFC] px-0.3 pt-5.5 pb-2 mb-2">
-            <h1 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
-                Thời khóa biểu
-            </h1>
-            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <span>Quản lý học tập</span><span>•</span><span className="font-bold text-gray-700">Lịch học & Thi</span>
+        <div className="relative top-0 z-40 bg-[#F8FAFC] px-0.3 pt-5.5 pb-2 mb-2 space-y-3">
+            <div>
+                <h1 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
+                    Thời khóa biểu
+                </h1>
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <span>Quản lý học tập</span><span>•</span><span className="font-bold text-gray-700">Lịch học & Thi</span>
+                </div>
             </div>
+
+            {canManageSchedule && (
+                <div className="grid grid-cols-2 gap-2 rounded-2xl bg-gray-100 p-1 border border-gray-200">
+                    <button onClick={() => { playClick(); setIsAdminView(false); }} className={`py-2 rounded-xl text-xs font-black transition-all ${!isAdminView ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Giao diện SV</button>
+                    <button onClick={() => { playClick(); setIsAdminView(true); }} className={`py-2 rounded-xl text-xs font-black transition-all ${isAdminView ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Quản lý</button>
+                </div>
+            )}
         </div>
 
         <NotificationNudge variant="schedule" compact />
@@ -882,9 +901,9 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
             </div>
 
             {/* DANH SÁCH MÔN HỌC TÌM KIẾM ĐƯỢC */}
-            {isAuthenticated && searchTerm && availableCourses.length > 0 && (
+            {isAuthenticated && (searchTerm || isAdminView) && availableCourses.length > 0 && (
                 <div className="mt-3 flex flex-col gap-2.5 max-h-[300px] overflow-y-auto custom-scrollbar bg-white p-2.5 rounded-xl border border-gray-200 shadow-sm">
-                    <p className="text-[11px] text-gray-500 font-bold px-1">Kết quả ({availableCourses.length})</p>
+                    <p className="text-[11px] text-gray-500 font-bold px-1">{isAdminView ? 'Danh sách môn học' : 'Kết quả'} ({availableCourses.length})</p>
                     {availableCourses.map((course) => {
                         const color = getColorForCourse(course.id);
                         return (
@@ -1373,24 +1392,24 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                         <button onClick={() => setIsStudentEditModalOpen(false)} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={16}/></button>
                     </div>
                     <form onSubmit={handleStudentSaveCourse} className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 pb-safe">
-                        <input required placeholder="Tên môn học" value={studentEditData.subject_name || ''} onChange={e => setStudentEditData({...studentEditData, subject_name: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                        {renderStudentEditField('Tên môn học', <input required placeholder="Tên môn học" value={studentEditData.subject_name || ''} onChange={e => setStudentEditData({...studentEditData, subject_name: e.target.value})} className={studentEditInputClass} />)}
                         <div className="grid grid-cols-2 gap-3">
-                            <input required placeholder="Mã học phần" value={studentEditData.course_code || ''} onChange={e => setStudentEditData({...studentEditData, course_code: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
-                            <input type="number" min="0" placeholder="Tín chỉ" value={studentEditData.credits ?? ''} onChange={e => setStudentEditData({...studentEditData, credits: Number(e.target.value)})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                            {renderStudentEditField('Mã học phần', <input required placeholder="Mã học phần" value={studentEditData.course_code || ''} onChange={e => setStudentEditData({...studentEditData, course_code: e.target.value})} className={studentEditInputClass} />)}
+                            {renderStudentEditField('Tín chỉ', <input type="number" min="0" placeholder="Tín chỉ" value={studentEditData.credits ?? ''} onChange={e => setStudentEditData({...studentEditData, credits: Number(e.target.value)})} className={studentEditInputClass} />)}
                         </div>
-                        <input placeholder="Giảng viên" value={studentEditData.instructor || ''} onChange={e => setStudentEditData({...studentEditData, instructor: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                        {renderStudentEditField('Giảng viên', <input placeholder="Giảng viên" value={studentEditData.instructor || ''} onChange={e => setStudentEditData({...studentEditData, instructor: e.target.value})} className={studentEditInputClass} />)}
                         <div className="grid grid-cols-2 gap-3">
-                            <input placeholder="Thứ, VD: 2 hoặc 2 4" value={studentEditData.day_of_week || ''} onChange={e => setStudentEditData({...studentEditData, day_of_week: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
-                            <input placeholder="Ca / Tiết, VD: S, C, 1-3" value={studentEditData.shift || ''} onChange={e => setStudentEditData({...studentEditData, shift: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                            {renderStudentEditField('Thứ', <input placeholder="VD: 2 hoặc 2 4" value={studentEditData.day_of_week || ''} onChange={e => setStudentEditData({...studentEditData, day_of_week: e.target.value})} className={studentEditInputClass} />)}
+                            {renderStudentEditField('Ca / Tiết', <input placeholder="VD: S, C, 1-3" value={studentEditData.shift || ''} onChange={e => setStudentEditData({...studentEditData, shift: e.target.value})} className={studentEditInputClass} />)}
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                            <input placeholder="Phòng" value={studentEditData.room || ''} onChange={e => setStudentEditData({...studentEditData, room: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
-                            <input placeholder="Tuần học, VD: 1-12" value={studentEditData.weeks || ''} onChange={e => setStudentEditData({...studentEditData, weeks: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                            {renderStudentEditField('Phòng', <input placeholder="VD: A207" value={studentEditData.room || ''} onChange={e => setStudentEditData({...studentEditData, room: e.target.value})} className={studentEditInputClass} />)}
+                            {renderStudentEditField('Tuần học', <input placeholder="VD: 1-12" value={studentEditData.weeks || ''} onChange={e => setStudentEditData({...studentEditData, weeks: e.target.value})} className={studentEditInputClass} />)}
                         </div>
                         <div className="grid grid-cols-3 gap-3">
-                            <input placeholder="Đợt" value={studentEditData.phase || ''} onChange={e => setStudentEditData({...studentEditData, phase: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
-                            <input placeholder="Ngày thi" value={studentEditData.exam_date || ''} onChange={e => setStudentEditData({...studentEditData, exam_date: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
-                            <input placeholder="Ca thi" value={studentEditData.exam_shift || ''} onChange={e => setStudentEditData({...studentEditData, exam_shift: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50" />
+                            {renderStudentEditField('Đợt', <input placeholder="Đợt" value={studentEditData.phase || ''} onChange={e => setStudentEditData({...studentEditData, phase: e.target.value})} className={studentEditInputClass} />)}
+                            {renderStudentEditField('Ngày thi', <input placeholder="dd/mm/yyyy" value={studentEditData.exam_date || ''} onChange={e => setStudentEditData({...studentEditData, exam_date: e.target.value})} className={studentEditInputClass} />)}
+                            {renderStudentEditField('Ca thi', <input placeholder="VD: Ca 4" value={studentEditData.exam_shift || ''} onChange={e => setStudentEditData({...studentEditData, exam_shift: e.target.value})} className={studentEditInputClass} />)}
                         </div>
                         <button type="submit" disabled={isSavingStudentCourse} className="w-full py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] disabled:opacity-50 flex items-center justify-center gap-2">
                             {isSavingStudentCourse ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} Lưu chỉnh sửa

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { MobileDashboard } from './MobileDashboard'; 
+import { MobileDashboard } from './MobileDashboard';
 import { MobileSchedule } from './MobileSchedule';
 import { UserData, Semester } from '../types';
 
@@ -37,33 +37,27 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
 
     return (
         <div className="mobile-page mobile-learning-page flex flex-col h-full w-full bg-[#F8FAFC] animate-fadeIn">
-            {/* THANH TAB TRƯỢT */}
-            <div className="mobile-learning-tabs bg-white px-4 py-3 border-b border-gray-200 sticky top-0 z-40 shadow-sm shrink-0">
-                <div className="flex bg-gray-100 p-1 rounded-xl relative">
-                    <div 
-                        className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-white rounded-lg shadow-sm transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${activeTab === 'gpa' ? 'translate-x-0' : 'translate-x-[calc(100%+4px)]'}`}
-                    ></div>
-                    
+            <div className="mobile-learning-tabs bg-[#F8FAFC] px-4 pt-4 pb-2 sticky top-0 z-40 shrink-0">
+                <div className="grid grid-cols-2 gap-2 rounded-2xl bg-gray-100 p-1 border border-gray-200">
                     <button
                         onClick={() => setActiveTab('gpa')}
-                        className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors z-10 ${activeTab === 'gpa' ? 'text-[#003375]' : 'text-gray-500'}`}
+                        className={`py-2 rounded-xl text-xs font-black transition-all ${activeTab === 'gpa' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}
                     >
                         Điểm số & Lộ trình
                     </button>
                     <button
                         onClick={() => setActiveTab('schedule')}
-                        className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors z-10 ${activeTab === 'schedule' ? 'text-[#003375]' : 'text-gray-500'}`}
+                        className={`py-2 rounded-xl text-xs font-black transition-all ${activeTab === 'schedule' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}
                     >
                         Lịch học & Thi
                     </button>
                 </div>
             </div>
 
-            {/* NỘI DUNG HIỂN THỊ Ở DƯỚI */}
             <div className="flex-1 w-full overflow-y-auto overflow-x-hidden px-4">
                 {activeTab === 'gpa' ? (
                     <div className="animate-fadeIn pt-3 pb-8">
-                        <MobileDashboard 
+                        <MobileDashboard
                             data={props.data}
                             onSetSemesters={props.onSetSemesters}
                             isGuest={props.isGuest}
