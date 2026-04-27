@@ -37,8 +37,8 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
 
     return (
         <div className="mobile-page mobile-learning-page flex flex-col h-full w-full bg-[#F8FAFC] animate-fadeIn">
-            <div className="mobile-learning-tabs bg-[#F8FAFC] px-4 pt-4 pb-2 sticky top-0 z-40 shrink-0">
-                <div className="grid grid-cols-2 gap-2 rounded-2xl bg-gray-100 p-1 border border-gray-200">
+            <div className="mobile-learning-tabs sticky top-0 z-40 bg-white pt-4 pb-2 px-4 shadow-sm shrink-0">
+                <div className="grid grid-cols-2 gap-2 mb-3 rounded-2xl bg-gray-100 p-1 border border-gray-200">
                     <button
                         onClick={() => setActiveTab('gpa')}
                         className={`py-2 rounded-xl text-xs font-black transition-all ${activeTab === 'gpa' ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}
