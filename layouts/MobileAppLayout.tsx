@@ -144,7 +144,7 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
   };
 
   return (
-    <div className={`mobile-app-root app-root platform-${platform} flex flex-col h-[100dvh] w-full relative pb-safe bg-white z-10 overflow-hidden`}>
+    <div className={`mobile-app-root app-root platform-${platform} flex flex-col h-[100dvh] w-screen min-w-[100dvw] max-w-none relative pb-safe bg-white z-10 overflow-hidden`}>
       <style>{ANIMATION_STYLES}</style>
 
       {/* KHU VỰC HIỂN THỊ NỘI DUNG */}

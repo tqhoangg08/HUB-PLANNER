@@ -19,6 +19,18 @@
   body {
     @apply antialiased text-gray-900 bg-gray-50;
   }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    min-width: 100%;
+    max-width: none;
+    height: 100%;
+    min-height: 100%;
+    background: #F8FAFC;
+    overflow-x: hidden;
+  }
 }
 
 @layer components {
@@ -40,6 +52,39 @@
     --ios-radius-md: 20px;
     --ios-radius-sm: 16px;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Be Vietnam Pro", sans-serif;
+  }
+
+  .mobile-app-root {
+    width: 100vw;
+    min-width: 100vw;
+    max-width: none;
+  }
+
+  @supports (width: 100dvw) {
+    .mobile-app-root {
+      width: 100dvw;
+      min-width: 100dvw;
+    }
+  }
+
+  .platform-ios.mobile-app-root::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: env(safe-area-inset-top);
+    pointer-events: none;
+    background:
+      radial-gradient(circle at top left, rgba(11,94,215,0.08), transparent 320px),
+      var(--ios-bg);
+    z-index: 0;
+  }
+
+  @supports (width: 100dvw) {
+    .platform-ios.mobile-app-root::before {
+      width: 100dvw;
+    }
   }
 
   .platform-ios .ios-glass,
@@ -436,6 +481,31 @@
   .platform-ios .ios-bottom-nav a[aria-current="page"] {
     background: rgba(11,94,215,0.08) !important;
     border-radius: 18px !important;
+  }
+
+  .platform-ios .mobile-learning-page .mobile-learning-tabs {
+    margin: 0 !important;
+    padding: 10px 16px 8px !important;
+    width: 100% !important;
+    border-radius: 0 !important;
+    border: 0 !important;
+    background: rgba(255,255,255,0.96) !important;
+    box-shadow: 0 2px 12px rgba(15,23,42,0.06) !important;
+    top: 0 !important;
+  }
+
+  .platform-ios .mobile-learning-page .mobile-learning-tabs > div {
+    margin-bottom: 0 !important;
+    min-height: 44px !important;
+    border-radius: 16px !important;
+    background: rgba(243,244,246,0.92) !important;
+  }
+
+  .platform-ios .mobile-learning-page .mobile-dashboard-page > div:first-child,
+  .platform-ios .mobile-learning-page .mobile-schedule-page > div:first-child {
+    padding-top: 4px !important;
+    background: transparent !important;
+    box-shadow: none !important;
   }
 
   .platform-ios .mobile-ai-button {

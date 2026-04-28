@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <script>
     window.onerror = function(message, source, lineno, colno, error) {
       if (!message.includes('ResizeObserver')) {
@@ -76,7 +76,15 @@
   </script>
 
   <style>
-    html, body, #root { width: 100%; max-width: 100%; }
+    html, body, #root {
+      width: 100%;
+      min-width: 100%;
+      max-width: none;
+      height: 100%;
+      min-height: 100%;
+      background: #F8FAFC;
+      overflow-x: hidden;
+    }
     body { margin: 0; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }

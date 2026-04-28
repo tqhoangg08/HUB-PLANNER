@@ -56,7 +56,7 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
 
             <div className="flex-1 w-full overflow-y-auto overflow-x-hidden px-4">
                 {activeTab === 'gpa' ? (
-                    <div className="animate-fadeIn pt-3 pb-8">
+                    <div className="animate-fadeIn pt-0 pb-8">
                         <MobileDashboard
                             data={props.data}
                             onSetSemesters={props.onSetSemesters}
@@ -75,7 +75,7 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                         />
                     </div>
                 ) : (
-                    <div className="animate-fadeIn pb-10">
+                    <div className="animate-fadeIn pt-0 pb-10">
                         <MobileSchedule viewUserId={props.viewUserId} />
                     </div>
                 )}
