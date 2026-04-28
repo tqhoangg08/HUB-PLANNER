@@ -31,6 +31,21 @@
     background: #F8FAFC;
     overflow-x: hidden;
   }
+
+  html.mobile-shell-locked,
+  body.mobile-shell-locked {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    background: #F8FAFC;
+  }
+
+  body.mobile-shell-locked {
+    position: fixed;
+    inset: 0;
+  }
 }
 
 @layer components {
@@ -55,15 +70,24 @@
   }
 
   .mobile-app-root {
+    position: fixed;
+    inset: 0;
     width: 100vw;
     min-width: 100vw;
+    height: 100vh;
+    min-height: 100vh;
     max-width: none;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: pan-y;
   }
 
   @supports (width: 100dvw) {
     .mobile-app-root {
       width: 100dvw;
       min-width: 100dvw;
+      height: 100dvh;
+      min-height: 100dvh;
     }
   }
 
@@ -73,12 +97,17 @@
     top: 0;
     left: 0;
     width: 100vw;
-    height: env(safe-area-inset-top);
+    height: calc(env(safe-area-inset-top) + 2px);
     pointer-events: none;
     background:
       radial-gradient(circle at top left, rgba(11,94,215,0.08), transparent 320px),
       var(--ios-bg);
-    z-index: 0;
+    z-index: 80;
+  }
+
+  .platform-ios.mobile-route-home.mobile-app-root::before,
+  .platform-ios.mobile-route-profile.mobile-app-root::before {
+    background: linear-gradient(145deg, rgba(0,59,122,0.96), rgba(11,94,215,0.82));
   }
 
   @supports (width: 100dvw) {
@@ -159,6 +188,8 @@
 
   .platform-ios .mobile-main {
     padding-top: env(safe-area-inset-top);
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .platform-ios .mobile-page h1,

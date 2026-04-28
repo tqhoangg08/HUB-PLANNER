@@ -74,9 +74,54 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
 
   const currentPath = location.pathname.replace(/\/$/, '');
   const showBottomNav = EXACT_MAIN_PATHS.includes(currentPath);
+  const mobileRouteClass = currentPath.includes('/profile')
+    ? 'mobile-route-profile'
+    : (currentPath.includes('/dashboard') || currentPath.includes('/mobile-home'))
+      ? 'mobile-route-home'
+      : '';
   // --------------------------------------------------------------
 
   // 3. Tính toán hướng trượt
+  useEffect(() => {
+    document.documentElement.classList.add('mobile-shell-locked');
+    document.body.classList.add('mobile-shell-locked');
+
+    return () => {
+      document.documentElement.classList.remove('mobile-shell-locked');
+      document.body.classList.remove('mobile-shell-locked');
+    };
+  }, []);
+
+  useEffect(() => {
+    const scrollEl = mainRef.current;
+    if (!scrollEl) return;
+
+    let startY = 0;
+
+    const handleTouchStart = (event: TouchEvent) => {
+      startY = event.touches[0]?.clientY ?? 0;
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const currentY = event.touches[0]?.clientY ?? startY;
+      const deltaY = currentY - startY;
+      const atTop = scrollEl.scrollTop <= 0;
+      const atBottom = Math.ceil(scrollEl.scrollTop + scrollEl.clientHeight) >= scrollEl.scrollHeight;
+
+      if ((atTop && deltaY > 0) || (atBottom && deltaY < 0)) {
+        event.preventDefault();
+      }
+    };
+
+    scrollEl.addEventListener('touchstart', handleTouchStart, { passive: true });
+    scrollEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      scrollEl.removeEventListener('touchstart', handleTouchStart);
+      scrollEl.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
+
   useEffect(() => {
     const currentIndex = getTabIndex(location.pathname);
     
@@ -144,7 +189,7 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
   };
 
   return (
-    <div className={`mobile-app-root app-root platform-${platform} flex flex-col h-[100dvh] w-screen min-w-[100dvw] max-w-none relative pb-safe bg-white z-10 overflow-hidden`}>
+    <div className={`mobile-app-root app-root platform-${platform} ${mobileRouteClass} flex flex-col h-[100dvh] w-screen min-w-[100dvw] max-w-none fixed inset-0 pb-safe bg-white z-10 overflow-hidden`}>
       <style>{ANIMATION_STYLES}</style>
 
       {/* KHU VỰC HIỂN THỊ NỘI DUNG */}
