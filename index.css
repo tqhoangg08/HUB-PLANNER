@@ -19,29 +19,6 @@
   body {
     @apply antialiased text-gray-900 bg-gray-50;
   }
-
-  html,
-  body,
-  #root {
-    width: 100%;
-    min-width: 100%;
-    max-width: none;
-    height: 100%;
-    min-height: 100%;
-    background: #F8FAFC;
-    overflow-x: hidden;
-  }
-
-  html.mobile-shell-locked,
-  body.mobile-shell-locked {
-    width: 100%;
-    height: 100%;
-    min-height: 100%;
-    overflow: hidden;
-    overscroll-behavior: none;
-    background: #F8FAFC;
-  }
-
 }
 
 @layer components {
@@ -63,58 +40,6 @@
     --ios-radius-md: 20px;
     --ios-radius-sm: 16px;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Be Vietnam Pro", sans-serif;
-  }
-
-  .mobile-app-root {
-    width: 100vw;
-    min-width: 100vw;
-    max-width: none;
-    height: 100vh;
-    min-height: 100vh;
-    overflow: hidden;
-    overscroll-behavior: none;
-  }
-
-  @supports (width: 100dvw) {
-    .mobile-app-root {
-      width: 100dvw;
-      min-width: 100dvw;
-    }
-  }
-
-  @supports (height: 100dvh) {
-    .mobile-app-root {
-      height: 100dvh;
-      min-height: 100dvh;
-    }
-  }
-
-  .platform-ios.mobile-app-root::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: calc(env(safe-area-inset-top) + 2px);
-    pointer-events: none;
-    background:
-      radial-gradient(circle at top left, rgba(11,94,215,0.08), transparent 320px),
-      var(--ios-bg);
-    z-index: 80;
-  }
-
-  .platform-ios.mobile-route-home.mobile-app-root::before,
-  .platform-ios.mobile-route-profile.mobile-app-root::before {
-    background:
-      radial-gradient(circle at 18% 0%, rgba(255,255,255,0.22), transparent 36%),
-      radial-gradient(circle at 96% 20%, rgba(255,255,255,0.14), transparent 30%),
-      linear-gradient(145deg, rgba(0,59,122,0.94), rgba(11,94,215,0.78));
-  }
-
-  @supports (width: 100dvw) {
-    .platform-ios.mobile-app-root::before {
-      width: 100dvw;
-    }
   }
 
   .platform-ios .ios-glass,
@@ -189,8 +114,6 @@
 
   .platform-ios .mobile-main {
     padding-top: env(safe-area-inset-top);
-    overscroll-behavior-y: contain;
-    -webkit-overflow-scrolling: touch;
   }
 
   .platform-ios .mobile-page h1,
@@ -256,7 +179,7 @@
     backdrop-filter: none;
     border-color: rgba(255,255,255,0.72) !important;
     box-shadow: 0 10px 26px rgba(15,23,42,0.08) !important;
-    padding-top: 1rem !important;
+    padding-top: calc(1rem + env(safe-area-inset-top)) !important;
   }
 
   .platform-ios .mobile-events-header button,
@@ -515,81 +438,10 @@
     border-radius: 18px !important;
   }
 
-  .platform-ios .mobile-learning-page .mobile-learning-tabs {
-    margin: 0 !important;
-    padding: 10px 16px 8px !important;
-    width: 100% !important;
-    border-radius: 0 !important;
-    border: 0 !important;
-    background: rgba(255,255,255,0.96) !important;
-    box-shadow: 0 2px 12px rgba(15,23,42,0.06) !important;
-    top: 0 !important;
-  }
-
-  .platform-ios .mobile-learning-page .mobile-learning-tabs > div {
-    margin-bottom: 0 !important;
-    min-height: 44px !important;
-    border-radius: 16px !important;
-    background: rgba(243,244,246,0.92) !important;
-  }
-
-  .platform-ios .mobile-learning-page .mobile-dashboard-page > div:first-child,
-  .platform-ios .mobile-learning-page .mobile-schedule-page > div:first-child {
-    padding-top: 4px !important;
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
   .platform-ios .mobile-ai-button {
     width: 60px !important;
     height: 60px !important;
     box-shadow: 0 12px 28px rgba(0,59,122,0.24) !important;
-  }
-
-  .mobile-app-root .mobile-page {
-    padding-bottom: 0 !important;
-  }
-
-  .mobile-app-root .mobile-page > .p-4 {
-    padding-bottom: 0 !important;
-  }
-
-  .mobile-app-root .mobile-page > :last-child {
-    margin-bottom: 0 !important;
-  }
-
-  .platform-ios .ios-bottom-nav {
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    padding: 0 !important;
-    background: transparent !important;
-    pointer-events: none;
-  }
-
-  .platform-ios .ios-bottom-nav-surface {
-    height: calc(76px + env(safe-area-inset-bottom)) !important;
-    padding: 0 16px !important;
-    border-radius: 24px 24px 0 0 !important;
-    background: rgba(255,255,255,0.72) !important;
-    pointer-events: auto;
-  }
-
-  .platform-ios .ios-bottom-nav a {
-    justify-content: flex-end !important;
-    padding-bottom: max(2px, calc(env(safe-area-inset-bottom) * 0.18)) !important;
-  }
-
-  .platform-android .android-bottom-nav {
-    bottom: 0 !important;
-    padding-bottom: 0 !important;
-    background: rgba(255,255,255,0.72) !important;
-  }
-
-  .platform-android .android-bottom-nav > div {
-    height: calc(65px + env(safe-area-inset-bottom)) !important;
-    align-items: flex-end !important;
-    padding-bottom: max(2px, calc(env(safe-area-inset-bottom) * 0.18)) !important;
   }
 
   @media (prefers-reduced-motion: reduce) {
