@@ -69,6 +69,8 @@
     width: 100vw;
     min-width: 100vw;
     max-width: none;
+    height: 100vh;
+    min-height: 100vh;
     overflow: hidden;
     overscroll-behavior: none;
   }
@@ -77,6 +79,13 @@
     .mobile-app-root {
       width: 100dvw;
       min-width: 100dvw;
+    }
+  }
+
+  @supports (height: 100dvh) {
+    .mobile-app-root {
+      height: 100dvh;
+      min-height: 100dvh;
     }
   }
 
@@ -552,7 +561,7 @@
   .platform-ios .ios-bottom-nav {
     left: 16px !important;
     right: 16px !important;
-    bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+    bottom: max(2px, env(safe-area-inset-bottom)) !important;
     padding: 0 !important;
     background: transparent !important;
     pointer-events: none;
