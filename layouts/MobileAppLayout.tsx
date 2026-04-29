@@ -196,8 +196,6 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
       <main ref={mainRef} className="mobile-main flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative bg-white">
         <div key={location.pathname} className={`w-full min-h-full flex flex-col animate-${slideDirection}`}>
           {children}
-          {/* Vì thanh iOS lơ lửng nên phải cộng thêm padding để không bị che nội dung */}
-          {showBottomNav && <div className={`${isIOS ? 'h-32' : 'h-24'} w-full shrink-0`}></div>}
         </div>
       </main>
 
