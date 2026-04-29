@@ -537,6 +537,36 @@
     box-shadow: 0 12px 28px rgba(0,59,122,0.24) !important;
   }
 
+  .mobile-app-root .mobile-events-page {
+    padding-bottom: 0 !important;
+  }
+
+  .mobile-app-root .mobile-events-page > .p-4 {
+    padding-bottom: 0 !important;
+  }
+
+  .mobile-app-root .mobile-events-page .space-y-0 > :last-child {
+    margin-bottom: 0 !important;
+  }
+
+  .platform-ios .ios-bottom-nav {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    padding: 8px 16px 0 !important;
+    background: linear-gradient(to top, var(--ios-bg) 0%, rgba(248,250,252,0.96) 72%, transparent 100%) !important;
+  }
+
+  .platform-ios .ios-bottom-nav-surface {
+    height: calc(76px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+    border-radius: 24px 24px 0 0 !important;
+  }
+
+  .platform-android .android-bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom) !important;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .platform-ios *,
     .platform-ios *::before,
