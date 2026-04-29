@@ -107,7 +107,7 @@
 
   .platform-ios.mobile-route-home.mobile-app-root::before,
   .platform-ios.mobile-route-profile.mobile-app-root::before {
-    background: linear-gradient(145deg, rgba(0,59,122,0.96), rgba(11,94,215,0.82));
+    background: linear-gradient(145deg, rgba(0,59,122,0.94), rgba(11,94,215,0.78));
   }
 
   @supports (width: 100dvw) {
@@ -192,11 +192,6 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  .platform-ios.mobile-route-home .mobile-main,
-  .platform-ios.mobile-route-profile .mobile-main {
-    padding-top: 0;
-  }
-
   .platform-ios .mobile-page h1,
   .platform-ios .mobile-page h2 {
     letter-spacing: 0;
@@ -212,7 +207,12 @@
   .platform-ios .mobile-home-page > div:first-child,
   .platform-ios .mobile-profile-page > div:first-child {
     border-radius: 0 0 38px 38px !important;
-    padding-top: calc(3rem + env(safe-area-inset-top)) !important;
+    margin-top: calc(-1 * env(safe-area-inset-top));
+    padding-top: calc(3rem + env(safe-area-inset-top) + env(safe-area-inset-top)) !important;
+  }
+
+  .platform-ios .mobile-profile-page > div:first-child {
+    height: calc(170px + env(safe-area-inset-top)) !important;
   }
 
   .platform-ios .mobile-profile-page > div:nth-child(2) {
@@ -260,7 +260,7 @@
     backdrop-filter: none;
     border-color: rgba(255,255,255,0.72) !important;
     box-shadow: 0 10px 26px rgba(15,23,42,0.08) !important;
-    padding-top: calc(1rem + env(safe-area-inset-top)) !important;
+    padding-top: 1rem !important;
   }
 
   .platform-ios .mobile-events-header button,
