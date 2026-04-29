@@ -211,6 +211,20 @@ const App: React.FC = () => {
 });
         }
     };
+    useEffect(() => {
+        const searchParams = new URLSearchParams(location.search);
+        if (searchParams.get('install') === 'true') {
+            // Đợi 1 giây để giao diện load xong, sau đó nảy bảng cài đặt lên
+            const timer = setTimeout(() => {
+                handleInstallApp();
+                
+                // (Tuỳ chọn) Dọn dẹp URL cho đẹp, xóa chữ ?install=true đi sau khi đã hiện bảng
+                window.history.replaceState({}, document.title, location.pathname);
+            }, 1000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [location, handleInstallApp]);
     // ==========================================
 
     // ==========================================
