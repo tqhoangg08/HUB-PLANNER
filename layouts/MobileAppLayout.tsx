@@ -193,11 +193,9 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
       <style>{ANIMATION_STYLES}</style>
 
       {/* KHU VỰC HIỂN THỊ NỘI DUNG */}
-      <main ref={mainRef} className="mobile-main flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative bg-white">
+      <main ref={mainRef} className="mobile-main flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative bg-white">
         <div key={location.pathname} className={`w-full min-h-full flex flex-col animate-${slideDirection}`}>
           {children}
-          {/* Vì thanh iOS lơ lửng nên phải cộng thêm padding để không bị che nội dung */}
-          {showBottomNav && <div className={`${isIOS ? 'h-32' : 'h-24'} w-full shrink-0`}></div>}
         </div>
       </main>
 
@@ -207,7 +205,7 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
           // ==========================================
           // GIAO DIỆN iOS: LIQUID GLASS 
           // ==========================================
-          <div className="mobile-bottom-nav ios-bottom-nav absolute bottom-6 left-4 right-4 z-50 pb-safe">
+          <div className="mobile-bottom-nav ios-bottom-nav shrink-0 z-50">
             <div className="ios-bottom-nav-surface flex justify-around items-center h-[72px] px-2 bg-white/25 saturate-[200%] border border-white/40 shadow-[0_8px_32px_rgba(0,0,0,0.1)] rounded-full">
               {NAV_ITEMS.map((item) => {
                 const isActive = checkIsActive(location.pathname, item.match);
@@ -239,7 +237,7 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
           // ==========================================
           // GIAO DIỆN ANDROID: TRUYỀN THỐNG (Giữ nguyên)
           // ==========================================
-          <div className="mobile-bottom-nav android-bottom-nav absolute bottom-0 left-0 right-0 bg-white/90 border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-50 pb-safe">
+          <div className="mobile-bottom-nav android-bottom-nav shrink-0 bg-white/90 border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-50 pb-safe">
             <div className="flex justify-around items-center h-[65px] px-2">
               {NAV_ITEMS.map((item) => {
                 const isActive = checkIsActive(location.pathname, item.match);
