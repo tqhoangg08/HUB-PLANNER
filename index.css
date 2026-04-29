@@ -174,7 +174,7 @@
 
   .platform-ios .mobile-page {
     color: var(--ios-text);
-    padding-bottom: 24px !important;
+    padding-bottom: calc(116px + env(safe-area-inset-bottom)) !important;
     animation: iosPageIn 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
@@ -280,11 +280,10 @@
   }
 
   .platform-ios .ios-bottom-nav {
-    position: relative !important;
-    left: auto !important;
-    right: auto !important;
-    bottom: auto !important;
-    padding: 8px 16px calc(10px + env(safe-area-inset-bottom)) !important;
+    left: 16px !important;
+    right: 16px !important;
+    bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: 0 !important;
   }
 
   .platform-ios .ios-bottom-nav-surface {
@@ -358,7 +357,7 @@
       radial-gradient(circle at bottom right, rgba(0,199,190,0.035), transparent 260px),
       #F8FAFC !important;
     padding-inline: 0 !important;
-    padding-bottom: 24px !important;
+    padding-bottom: calc(118px + env(safe-area-inset-bottom)) !important;
   }
 
   .platform-ios .mobile-dashboard-page > div:first-child,
