@@ -192,6 +192,11 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  .platform-ios.mobile-route-home .mobile-main,
+  .platform-ios.mobile-route-profile .mobile-main {
+    padding-top: 0;
+  }
+
   .platform-ios .mobile-page h1,
   .platform-ios .mobile-page h2 {
     letter-spacing: 0;
