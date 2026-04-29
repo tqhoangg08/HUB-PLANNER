@@ -559,25 +559,37 @@
   }
 
   .platform-ios .ios-bottom-nav {
-    left: 16px !important;
-    right: 16px !important;
-    bottom: max(2px, env(safe-area-inset-bottom)) !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
     padding: 0 !important;
     background: transparent !important;
     pointer-events: none;
   }
 
   .platform-ios .ios-bottom-nav-surface {
-    height: 76px !important;
-    padding-bottom: 0 !important;
-    border-radius: 24px !important;
+    height: calc(76px + env(safe-area-inset-bottom)) !important;
+    padding: 0 16px !important;
+    border-radius: 24px 24px 0 0 !important;
     background: rgba(255,255,255,0.72) !important;
     pointer-events: auto;
   }
 
+  .platform-ios .ios-bottom-nav a {
+    justify-content: flex-end !important;
+    padding-bottom: max(2px, calc(env(safe-area-inset-bottom) * 0.18)) !important;
+  }
+
   .platform-android .android-bottom-nav {
-    padding-bottom: env(safe-area-inset-bottom) !important;
+    bottom: 0 !important;
+    padding-bottom: 0 !important;
     background: rgba(255,255,255,0.72) !important;
+  }
+
+  .platform-android .android-bottom-nav > div {
+    height: calc(65px + env(safe-area-inset-bottom)) !important;
+    align-items: flex-end !important;
+    padding-bottom: max(2px, calc(env(safe-area-inset-bottom) * 0.18)) !important;
   }
 
   @media (prefers-reduced-motion: reduce) {
