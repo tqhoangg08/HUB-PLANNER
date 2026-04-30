@@ -1036,9 +1036,6 @@ body.mobile-standalone {
     pointer-events: none;
     z-index: 2147483000;
 
-    background:
-      radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.06), transparent 320px),
-      radial-gradient(circle at 88% 100%, rgba(0, 51, 117, 0.08), transparent 360px),
-      #ffffff !important;
+    background: transparent !important;
   }
 }
