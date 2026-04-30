@@ -254,6 +254,15 @@
     animation: iosPageIn 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
+  .mobile-app-root .mobile-page {
+    padding-bottom: calc(128px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .mobile-app-root .mobile-dashboard-page,
+  .mobile-app-root .mobile-schedule-page {
+    padding-bottom: calc(136px + env(safe-area-inset-bottom)) !important;
+  }
+
   .platform-ios .mobile-page h1,
   .platform-ios .mobile-page h2 {
     letter-spacing: 0;
