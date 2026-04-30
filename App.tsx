@@ -131,18 +131,50 @@ const App: React.FC = () => {
         /iPhone|iPad|iPod/i.test(window.navigator.userAgent) ||
         ((window.navigator as any).platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
 
-    html.classList.toggle('mobile-browser', isMobileBrowser);
-    body.classList.toggle('mobile-browser', isMobileBrowser);
+    const applyClasses = () => {
+        html.classList.toggle('mobile-browser', isMobileBrowser);
+        body.classList.toggle('mobile-browser', isMobileBrowser);
 
-    html.classList.toggle('mobile-standalone', isAppMode && isMobileScreen);
-    body.classList.toggle('mobile-standalone', isAppMode && isMobileScreen);
+        html.classList.toggle('mobile-standalone', isAppMode && isMobileScreen);
+        body.classList.toggle('mobile-standalone', isAppMode && isMobileScreen);
 
-    html.classList.toggle('platform-ios', isIOSDevice);
-    body.classList.toggle('platform-ios', isIOSDevice);
+        html.classList.toggle('platform-ios', isIOSDevice);
+        body.classList.toggle('platform-ios', isIOSDevice);
+    };
+
+    const applyViewportVars = () => {
+        const visualViewport = window.visualViewport;
+        const viewportHeight = visualViewport?.height ?? window.innerHeight;
+        const viewportOffsetTop = visualViewport?.offsetTop ?? 0;
+
+        const bottomGap = Math.max(
+            0,
+            window.innerHeight - viewportHeight - viewportOffsetTop
+        );
+
+        html.style.setProperty('--app-vh', `${viewportHeight * 0.01}px`);
+        html.style.setProperty('--app-bottom-gap', `${bottomGap}px`);
+    };
+
+    applyClasses();
+    applyViewportVars();
+
+    window.addEventListener('resize', applyViewportVars);
+    window.addEventListener('orientationchange', applyViewportVars);
+    window.visualViewport?.addEventListener('resize', applyViewportVars);
+    window.visualViewport?.addEventListener('scroll', applyViewportVars);
 
     return () => {
+        window.removeEventListener('resize', applyViewportVars);
+        window.removeEventListener('orientationchange', applyViewportVars);
+        window.visualViewport?.removeEventListener('resize', applyViewportVars);
+        window.visualViewport?.removeEventListener('scroll', applyViewportVars);
+
         html.classList.remove('mobile-browser', 'mobile-standalone', 'platform-ios');
         body.classList.remove('mobile-browser', 'mobile-standalone', 'platform-ios');
+
+        html.style.removeProperty('--app-vh');
+        html.style.removeProperty('--app-bottom-gap');
     };
 }, [isMobileBrowser, isAppMode, isMobileScreen]);
     useEffect(() => {

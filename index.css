@@ -4,10 +4,20 @@
    BASE
    ========================================================= */
 @layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
   html {
     font-size: 14px;
     width: 100%;
     max-width: 100%;
+    min-height: 100%;
+    background-color: #F8FAFC;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   @media (min-width: 1024px) {
@@ -21,11 +31,14 @@
     margin: 0;
     width: 100%;
     max-width: 100%;
+    min-height: 100%;
+    background-color: #F8FAFC;
   }
 
   #root {
     width: 100%;
     max-width: 100%;
+    min-height: 100%;
   }
 }
 
@@ -143,6 +156,8 @@
 
 /* =========================================================
    IOS / MOBILE APP SKIN
+   Dùng cho giao diện PWA / mobile app.
+   Mobile browser sẽ được override riêng ở cuối file.
    ========================================================= */
 @layer components {
   .platform-ios {
@@ -221,6 +236,7 @@
   }
 
   .platform-ios.mobile-app-root,
+  .platform-ios .mobile-app-root,
   .platform-ios .mobile-main,
   .platform-ios .mobile-page,
   .platform-ios.mobile-login-page,
@@ -388,7 +404,8 @@
     box-shadow: var(--ios-shadow-soft) !important;
   }
 
-  .platform-ios.mobile-login-page {
+  .platform-ios.mobile-login-page,
+  .platform-ios .mobile-login-page {
     background:
       radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.18), transparent 36%),
       radial-gradient(circle at 95% 20%, rgba(0, 59, 122, 0.18), transparent 32%),
@@ -396,11 +413,14 @@
   }
 
   .platform-ios.mobile-login-page #tsparticles-mobile-login,
-  .platform-ios.mobile-login-page > div:first-child {
+  .platform-ios.mobile-login-page > div:first-child,
+  .platform-ios .mobile-login-page #tsparticles-mobile-login,
+  .platform-ios .mobile-login-page > div:first-child {
     display: none !important;
   }
 
-  .platform-ios.mobile-login-page > div:last-child {
+  .platform-ios.mobile-login-page > div:last-child,
+  .platform-ios .mobile-login-page > div:last-child {
     background: var(--ios-glass-bg-strong) !important;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -587,11 +607,12 @@
 
 /* =========================================================
    STANDALONE PWA SAFE AREA
-   Chỉ dùng nền xanh khi app đã được cài ra màn hình chính.
+   Chỉ áp dụng khi app đã được cài ra màn hình chính.
    Không áp nền xanh này cho mobile browser.
    ========================================================= */
 html.mobile-standalone,
-html.mobile-standalone body {
+html.mobile-standalone body,
+body.mobile-standalone {
   background-color: #003375 !important;
 }
 
@@ -612,19 +633,18 @@ html.mobile-standalone body {
    - body là vùng cuộn thật
    - không khóa app ở 100dvh
    - không dùng div con overflow-y-auto làm vùng cuộn chính
-   - bỏ padding/spacer dưới để nội dung thật chạy xuống dưới URL bar
-   - ẩn bubble trắng của AI để không làm vùng sau URL bar bị trắng
+   - giúp nội dung chạy xuống dưới thanh URL iOS Safari
+   - xử lý nền phía sau URL bar không bị trắng
    ========================================================= */
 @media (hover: none) and (pointer: coarse) {
-  html.mobile-browser,
-  html.mobile-browser body,
-  html.mobile-browser #root {
+  html.mobile-browser {
     height: auto !important;
-    min-height: 100lvh !important;
+    min-height: 100% !important;
     width: 100% !important;
     max-width: 100% !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
+    overscroll-behavior-y: auto;
     background:
       radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.06), transparent 320px),
       radial-gradient(circle at 88% 100%, rgba(0, 51, 117, 0.08), transparent 360px),
@@ -632,21 +652,82 @@ html.mobile-standalone body {
     background-color: #F8FAFC !important;
   }
 
+  html.mobile-browser body {
+    position: static !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    min-height: 100svh !important;
+    min-height: 100lvh !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background:
+      radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.06), transparent 320px),
+      radial-gradient(circle at 88% 100%, rgba(0, 51, 117, 0.08), transparent 360px),
+      #F8FAFC !important;
+    background-color: #F8FAFC !important;
+  }
+
+  html.mobile-browser #root {
+    position: relative !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    min-height: 100svh !important;
+    min-height: 100lvh !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  /*
+    App root.
+    Có hỗ trợ cả trường hợp bạn đã thêm class app-shell/mobile-browser-shell,
+    và fallback cho #root > div nếu chưa thêm class.
+  */
   html.mobile-browser .app-shell,
   html.mobile-browser .mobile-browser-shell,
   html.mobile-browser #root > div {
+    position: relative !important;
+    display: block !important;
     height: auto !important;
+    min-height: 100vh !important;
+    min-height: 100svh !important;
     min-height: 100lvh !important;
     max-height: none !important;
     overflow: visible !important;
     overflow-x: hidden !important;
     overflow-y: visible !important;
-    display: block !important;
     background: transparent !important;
     background-color: transparent !important;
   }
 
-  html.mobile-browser .desktop-page-scroll {
+  /*
+    Fallback nếu có wrapper Tailwind h-[100dvh] ở trong app.
+    Dùng để tránh khóa màn hình theo viewport động của Safari.
+  */
+  html.mobile-browser .app-shell > .h-\[100dvh\],
+  html.mobile-browser .app-shell > .h-\[100svh\],
+  html.mobile-browser .app-shell > .h-\[100lvh\] {
+    height: auto !important;
+    min-height: 100lvh !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /*
+    Tắt kiểu scroll nội bộ của DesktopLayout trên mobile browser.
+    Đây là phần quan trọng để body trở thành vùng cuộn thật.
+  */
+  html.mobile-browser .desktop-page-scroll,
+  html.mobile-browser #root > div > .flex-1.w-full.overflow-y-auto,
+  html.mobile-browser #root > div > .flex-1.w-full.overflow-x-hidden {
     display: block !important;
     height: auto !important;
     min-height: 0 !important;
@@ -661,7 +742,11 @@ html.mobile-standalone body {
     -webkit-overflow-scrolling: auto !important;
   }
 
-  html.mobile-browser .desktop-page-main {
+  html.mobile-browser .desktop-page-main,
+  html.mobile-browser .desktop-page-scroll > main,
+  html.mobile-browser #root > div > .flex-1.w-full.overflow-y-auto > main,
+  html.mobile-browser #root > div > .flex-1.w-full.overflow-x-hidden > main {
+    display: block !important;
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
@@ -676,6 +761,7 @@ html.mobile-standalone body {
 
   html.mobile-browser .desktop-page-main > .flex-1,
   html.mobile-browser .desktop-page-scroll > main > .flex-1 {
+    min-height: 0 !important;
     padding-bottom: 0 !important;
     margin-bottom: 0 !important;
   }
@@ -685,11 +771,15 @@ html.mobile-standalone body {
     Dù mobile browser hiện đang đi qua DesktopLayout, vẫn giữ phần này để an toàn.
   */
   html.mobile-browser .mobile-app-root,
-  html.mobile-browser .platform-ios .mobile-app-root,
   html.mobile-browser .mobile-main,
-  html.mobile-browser .platform-ios .mobile-main {
+  html.mobile-browser .platform-ios .mobile-app-root,
+  html.mobile-browser .platform-ios .mobile-main,
+  html.mobile-browser.platform-ios .mobile-app-root,
+  html.mobile-browser.platform-ios .mobile-main {
     height: auto !important;
-    min-height: 100dvh !important;
+    min-height: 100vh !important;
+    min-height: 100svh !important;
+    min-height: 100lvh !important;
     max-height: none !important;
     overflow: visible !important;
     overflow-x: hidden !important;
@@ -701,24 +791,31 @@ html.mobile-standalone body {
   }
 
   html.mobile-browser .mobile-page,
-  html.mobile-browser .platform-ios .mobile-page,
   html.mobile-browser .mobile-dashboard-page,
-  html.mobile-browser .platform-ios .mobile-dashboard-page,
   html.mobile-browser .mobile-schedule-page,
-  html.mobile-browser .platform-ios .mobile-schedule-page,
   html.mobile-browser .mobile-events-page,
-  html.mobile-browser .platform-ios .mobile-events-page,
   html.mobile-browser .mobile-lostfound-page,
-  html.mobile-browser .platform-ios .mobile-lostfound-page,
   html.mobile-browser .mobile-handbook-page,
-  html.mobile-browser .platform-ios .mobile-handbook-page {
+  html.mobile-browser .platform-ios .mobile-page,
+  html.mobile-browser .platform-ios .mobile-dashboard-page,
+  html.mobile-browser .platform-ios .mobile-schedule-page,
+  html.mobile-browser .platform-ios .mobile-events-page,
+  html.mobile-browser .platform-ios .mobile-lostfound-page,
+  html.mobile-browser .platform-ios .mobile-handbook-page,
+  html.mobile-browser.platform-ios .mobile-page,
+  html.mobile-browser.platform-ios .mobile-dashboard-page,
+  html.mobile-browser.platform-ios .mobile-schedule-page,
+  html.mobile-browser.platform-ios .mobile-events-page,
+  html.mobile-browser.platform-ios .mobile-lostfound-page,
+  html.mobile-browser.platform-ios .mobile-handbook-page {
     padding-bottom: 0 !important;
     margin-bottom: 0 !important;
     background-color: transparent !important;
   }
 
   html.mobile-browser .mobile-bottom-spacer,
-  html.mobile-browser .platform-ios .mobile-bottom-spacer {
+  html.mobile-browser .platform-ios .mobile-bottom-spacer,
+  html.mobile-browser.platform-ios .mobile-bottom-spacer {
     display: none !important;
     height: 0 !important;
     min-height: 0 !important;
@@ -727,13 +824,28 @@ html.mobile-standalone body {
   }
 
   /*
-    Phần này xử lý nguyên nhân hay làm vùng sau URL bar trắng:
+    Nền particles cố định theo màn hình lớn.
+    Tránh canvas bị tính theo 100dvh rồi tạo cảm giác bị đóng khung.
+  */
+  html.mobile-browser #app-particles,
+  html.mobile-browser #app-particles canvas {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100lvh !important;
+    pointer-events: none !important;
+  }
+
+  /*
+    Xử lý nguyên nhân hay làm vùng sau URL bar trắng:
     - bubble AI desktop màu trắng
     - bubble AI mobile màu trắng
+    - hint fixed bottom của desktop
   */
   html.mobile-browser .desktop-ai-hint,
   html.mobile-browser .mobile-ai-bubble,
-  html.mobile-browser .fixed.bottom-\[85px\].right-6.z-50 {
+  html.mobile-browser [class*="bottom-[85px]"][class*="right-6"][class*="z-50"] {
     display: none !important;
     opacity: 0 !important;
     visibility: hidden !important;
@@ -741,8 +853,8 @@ html.mobile-standalone body {
   }
 
   /*
-    Giữ nút AI nhưng đẩy lên trên URL bar một chút.
-    Nếu muốn ẩn luôn nút AI trên mobile browser, đổi display thành none.
+    Giữ nút AI nhưng đẩy lên trên URL bar.
+    Nếu vẫn còn trắng, có thể đổi display thành none để test.
   */
   html.mobile-browser .mobile-ai-advisor {
     bottom: 92px !important;
@@ -753,21 +865,22 @@ html.mobile-standalone body {
   }
 
   /*
-    Header/menu fixed trên mobile browser vẫn bình thường,
-    nhưng tránh việc nó tạo scroll container phụ.
+    Header/menu vẫn bình thường,
+    nhưng không cho nó tạo scroll container phụ.
   */
   html.mobile-browser header {
     flex-shrink: 0 !important;
+    background-color: rgba(255, 255, 255, 0.96) !important;
   }
 
   html.mobile-browser footer {
     margin-bottom: 0 !important;
+    background-color: transparent !important;
   }
 
   /*
-    Làm card trắng hơi trong hơn một chút trên mobile browser.
-    Mục tiêu là khi URL bar blur, phía sau không bị trắng phẳng hoàn toàn.
-    Nếu bạn muốn giữ card trắng 100%, có thể xóa block này.
+    Làm card trắng hơi trong hơn trên mobile browser.
+    Khi URL bar blur, phía sau không bị trắng phẳng hoàn toàn.
   */
   html.mobile-browser .desktop-page-main .bg-white,
   html.mobile-browser .desktop-page-scroll .bg-white {
@@ -790,6 +903,16 @@ html.mobile-standalone body {
   html.mobile-browser .notification-section .bg-white {
     background: rgba(255, 255, 255, 0.88) !important;
   }
+
+  /*
+    Mobile drawer vẫn fixed, nhưng chỉ khi mở menu.
+    Không để nó ảnh hưởng layout chính.
+  */
+  html.mobile-browser .fixed.inset-0,
+  html.mobile-browser .fixed.top-0.left-0 {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
 }
 
 /* =========================================================
@@ -803,5 +926,92 @@ html.mobile-standalone body {
   html.mobile-browser main {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  html.mobile-browser .desktop-page-main {
+    padding-bottom: 0 !important;
+  }
+}
+/* =========================================================
+   HARD FIX: IOS SAFARI MOBILE BROWSER BOTTOM URL BAR
+   ========================================================= */
+@media (hover: none) and (pointer: coarse) {
+  html.mobile-browser,
+  html.mobile-browser body {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    background:
+      radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.06), transparent 320px),
+      radial-gradient(circle at 88% 100%, rgba(0, 51, 117, 0.08), transparent 360px),
+      #F8FAFC !important;
+    background-color: #F8FAFC !important;
+  }
+
+  html.mobile-browser #root,
+  html.mobile-browser .app-shell,
+  html.mobile-browser .mobile-browser-shell {
+    height: auto !important;
+    min-height: calc((var(--app-vh, 1vh) * 100) + var(--app-bottom-gap, 0px)) !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  html.mobile-browser .desktop-page-scroll,
+  html.mobile-browser .desktop-page-main {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  html.mobile-browser footer {
+    display: none !important;
+  }
+
+  html.mobile-browser #app-particles,
+  html.mobile-browser #app-particles canvas {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100lvh !important;
+    pointer-events: none !important;
+  }
+
+  html.mobile-browser .mobile-browser-bottom-bleed {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(150px + var(--app-bottom-gap, 0px) + env(safe-area-inset-bottom));
+    pointer-events: none;
+    z-index: 0;
+    background: red !important;
+  }
+
+  html.mobile-browser .desktop-ai-hint,
+  html.mobile-browser .mobile-ai-advisor,
+  html.mobile-browser .mobile-ai-bubble,
+  html.mobile-browser .mobile-ai-button {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  html.mobile-browser .desktop-page-main .bg-white,
+  html.mobile-browser .desktop-page-scroll .bg-white {
+    background-color: rgba(255, 255, 255, 0.94) !important;
   }
 }
