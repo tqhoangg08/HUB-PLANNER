@@ -122,6 +122,7 @@ const App: React.FC = () => {
     }, []);
 
     const useMobileLayout = isAppMode && isMobileScreen;
+    const isMobileBrowser = isMobileScreen && !isAppMode;
 
     useEffect(() => {
         if (!session?.user?.id || !isPushSupported() || Notification.permission !== 'granted') return;
@@ -1524,9 +1525,15 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         const LayoutComponent = (useMobileLayout ? MobileAppLayout : DesktopLayout) as any;
         const currentRoutes = useMobileLayout ? mobileRoutes : desktopRoutes;
 
-        return (
-            <div className="h-[100dvh] bg-[#F8FAFC] font-sans text-gray-800 flex flex-col relative overflow-hidden">
-                <Particles id="app-particles" init={particlesInit} options={particlesOptions} className="absolute inset-0 z-0 pointer-events-none" />
+       return (
+    <div
+        className={
+            isMobileBrowser
+                ? "app-shell mobile-browser-shell min-h-screen bg-[#F8FAFC] font-sans text-gray-800 relative overflow-x-hidden"
+                : "app-shell h-[100dvh] bg-[#F8FAFC] font-sans text-gray-800 flex flex-col relative overflow-hidden"
+        }
+    >
+        <Particles id="app-particles" init={particlesInit} options={particlesOptions} className="absolute inset-0 z-0 pointer-events-none" />
                 
                 <LayoutComponent
                     // ✨ TRUYỀN HÀM XỬ LÝ CÀI ĐẶT APP XUỐNG CHO GIAO DIỆN

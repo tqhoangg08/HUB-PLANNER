@@ -495,7 +495,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
           </div>
       </header>
 
-      <div className="flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10">
+      <div className="desktop-page-scroll flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10">
           <main className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-2 sm:pt-3 min-h-full flex flex-col">
               <div className="flex-1">
                   {children}
