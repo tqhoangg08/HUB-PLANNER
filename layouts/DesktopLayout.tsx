@@ -499,37 +499,37 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
             <div
           className={
-              isMobileBrowser
-                  ? "desktop-page-scroll w-full overflow-visible overflow-x-hidden relative z-10"
-                  : "desktop-page-scroll flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10"
-          }
-      >
-          <main
-              className={
-                  isMobileBrowser
-                      ? "desktop-page-main w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-0 pt-2 min-h-0 flex flex-col"
-                      : "desktop-page-main w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-2 sm:pt-3 min-h-full flex flex-col"
-              }
-          >
-              <div className="flex-1">
-                  {children}
-              </div>
+        isMobileBrowser
+            ? "desktop-page-scroll w-full overflow-visible overflow-x-hidden relative z-10"
+            : "desktop-page-scroll flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10"
+    }
+>
+    <main
+        className={
+            isMobileBrowser
+                ? "desktop-page-main w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-0 pt-2 min-h-0 flex flex-col"
+                : "desktop-page-main w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-2 sm:pt-3 min-h-full flex flex-col"
+        }
+    >
+        <div className="flex-1">
+            {children}
+        </div>
 
-              {!isMobileBrowser && (
-                  <footer className="text-center py-6 mt-10 border-t border-gray-200 text-gray-500 bg-[#F8FAFC]">
-                      <p className="text-xs font-medium tracking-wide mb-1 uppercase">Web designed by tqhoangg</p>
-                      <p className="text-[10px] opacity-80 px-4 mb-3">
-                          HUB Planner có thể mắc sai sót, vui lòng xác minh lại thông tin khi cần thiết.
-                      </p>
-                      <div className="text-xs flex items-center justify-center gap-3">
-                          <Link to="/terms" className="hover:text-gray-900 transition-colors">Điều khoản sử dụng</Link>
-                          <span className="opacity-50">•</span>
-                          <Link to="/privacy" className="hover:text-gray-900 transition-colors">Chính sách bảo mật</Link>
-                      </div>
-                  </footer>
-              )}
-          </main>
-      </div>
+        {!isMobileBrowser && (
+            <footer className="text-center py-6 mt-10 border-t border-gray-200 text-gray-500 bg-[#F8FAFC]">
+                <p className="text-xs font-medium tracking-wide mb-1 uppercase">Web designed by tqhoangg</p>
+                <p className="text-[10px] opacity-80 px-4 mb-3">
+                    HUB Planner có thể mắc sai sót, vui lòng xác minh lại thông tin khi cần thiết.
+                </p>
+                <div className="text-xs flex items-center justify-center gap-3">
+                    <Link to="/terms" className="hover:text-gray-900 transition-colors">Điều khoản sử dụng</Link>
+                    <span className="opacity-50">•</span>
+                    <Link to="/privacy" className="hover:text-gray-900 transition-colors">Chính sách bảo mật</Link>
+                </div>
+            </footer>
+        )}
+    </main>
+</div>
 
       <div className="fixed bottom-6 left-6 z-40 hidden md:flex flex-col gap-3">
           <a href="https://www.facebook.com/hubplannerr" target="_blank" rel="noopener noreferrer" className="h-10 w-10 rounded-full bg-white text-[#1877F2] flex items-center justify-center shadow-md border border-gray-200 hover:scale-110 transition-transform">
