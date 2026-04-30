@@ -1015,21 +1015,30 @@ body.mobile-standalone {
     background-color: rgba(255, 255, 255, 0.94) !important;
   }
 }
-/* DEBUG: kiểm tra index.css có thật sự được load không */
-body::after {
-  content: "DEBUG CSS";
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 180px;
-  background: red !important;
-  color: white !important;
-  font-size: 24px;
-  font-weight: 900;
-  z-index: 2147483647 !important;
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* =========================================================
+   IOS SAFARI BOTTOM URL BAR BLEED
+   Tạo nền chạy xuống dưới thanh URL Safari mobile.
+   ========================================================= */
+@media (hover: none) and (pointer: coarse) {
+  html.mobile-browser body::after {
+    content: "";
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    /*
+      Không để cao 180px nữa vì sẽ che nội dung.
+      92px là gần bằng chiều cao thanh URL Safari dưới.
+    */
+    height: calc(92px + env(safe-area-inset-bottom));
+
+    pointer-events: none;
+    z-index: 2147483000;
+
+    background:
+      radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.06), transparent 320px),
+      radial-gradient(circle at 88% 100%, rgba(0, 51, 117, 0.08), transparent 360px),
+      #F8FAFC !important;
+  }
 }
