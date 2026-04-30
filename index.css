@@ -1016,18 +1016,12 @@ body.mobile-standalone {
   }
 }
 /* =========================================================
-   IOS SAFARI MOBILE BROWSER - REAL CONTENT UNDER URL BAR
-   Không thêm nền giả, không dùng ::after, không dùng bottom bleed.
+   IOS SAFARI BOTTOM URL BAR - BACK LAYER ONLY
+   Lớp nền rất mỏng, nằm SAU nội dung, không che chữ/card.
    ========================================================= */
 @media (hover: none) and (pointer: coarse) {
   html.mobile-browser,
   html.mobile-browser body {
-    height: auto !important;
-    min-height: 100% !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
     background:
       radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.06), transparent 320px),
       radial-gradient(circle at 88% 100%, rgba(0, 51, 117, 0.08), transparent 360px),
@@ -1035,65 +1029,62 @@ body.mobile-standalone {
     background-color: #F8FAFC !important;
   }
 
+  html.mobile-browser body {
+    position: relative !important;
+    isolation: isolate;
+    overflow-x: hidden !important;
+  }
+
+  /*
+    Lớp này nằm SAU app-shell.
+    Không dùng z-index cao nữa, nên không che nội dung.
+  */
+  html.mobile-browser body::before {
+    content: "";
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    /*
+      Kéo nhỏ hết cỡ. Nếu vẫn còn hở trắng thì tăng 52px -> 64px.
+    */
+    height: calc(52px + env(safe-area-inset-bottom));
+
+    pointer-events: none;
+    z-index: 0;
+
+    /*
+      Nền rất nhẹ, gần như trong suốt.
+      Không tạo mảng đậm như debug đỏ / nền mỏng cũ.
+    */
+    background:
+      linear-gradient(
+        to top,
+        rgba(248, 250, 252, 0.88),
+        rgba(248, 250, 252, 0.38),
+        rgba(248, 250, 252, 0)
+      ) !important;
+  }
+
+  /*
+    Toàn bộ app nằm trên lớp ::before.
+  */
   html.mobile-browser #root,
   html.mobile-browser .app-shell,
-  html.mobile-browser .mobile-browser-shell {
-    height: auto !important;
-    min-height: 100lvh !important;
-    max-height: none !important;
-    overflow: visible !important;
-    overflow-x: hidden !important;
-    overflow-y: visible !important;
+  html.mobile-browser .mobile-browser-shell,
+  html.mobile-browser .desktop-page-scroll,
+  html.mobile-browser .desktop-page-main {
+    position: relative !important;
+    z-index: 1 !important;
     background: transparent !important;
     background-color: transparent !important;
   }
 
   html.mobile-browser .desktop-page-scroll,
   html.mobile-browser .desktop-page-main {
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: none !important;
     overflow: visible !important;
-    overflow-x: hidden !important;
-    overflow-y: visible !important;
-    margin-bottom: 0 !important;
-    background: transparent !important;
-    background-color: transparent !important;
-    -webkit-overflow-scrolling: auto !important;
-  }
-
-  /*
-    Không để footer hoặc spacer trắng tạo cảm giác bị đóng khung dưới URL bar.
-    Nếu muốn giữ footer, bỏ block footer display none này.
-  */
-  html.mobile-browser footer {
-    display: none !important;
-  }
-
-  html.mobile-browser .mobile-bottom-spacer {
-    display: none !important;
-    height: 0 !important;
-    min-height: 0 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-
-  /*
-    Quan trọng: không thêm padding-bottom lớn.
-    Nội dung thật sẽ tự chạy xuống dưới URL bar khi body là vùng cuộn.
-  */
-  html.mobile-browser .desktop-page-main {
-    padding-bottom: 0 !important;
-  }
-
-  /*
-    Tắt các bubble/fixed layer ở đáy vì dễ tạo nền trắng hoặc che nội dung.
-  */
-  html.mobile-browser .desktop-ai-hint,
-  html.mobile-browser .mobile-ai-bubble {
-    display: none !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
+    height: auto !important;
+    max-height: none !important;
   }
 }
