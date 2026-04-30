@@ -341,7 +341,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </div>
                   </div>
 
-                  {/* CÁC NÚT ĐIỀU KHIỂN & HAMBURGER NẰM BÊN PHẢI TRÊN MOBILE */}
+                  {/* CÁC NÚT ĐIỀU KHIỂN &  HAMBURGER NẰM BÊN PHẢI TRÊN MOBILE */}
                   <div className="flex items-center justify-end flex-1 sm:hidden gap-2 shrink-0">
                       {showInstallButton && (
                           <button 

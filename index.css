@@ -503,3 +503,41 @@ html, body {
     background-color: #003375 !important;
   }
 }
+
+@media (hover: none) and (pointer: coarse) {
+  html.mobile-browser,
+  html.mobile-browser body {
+    height: auto !important;
+    min-height: 100%;
+    overflow-y: auto !important;
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  html.mobile-browser .mobile-app-root {
+    height: auto !important;
+    min-height: 100dvh !important;
+    overflow: visible !important;
+    padding-bottom: 0 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  html.mobile-browser .mobile-main {
+    flex: none !important;
+    height: auto !important;
+    min-height: 100dvh !important;
+    overflow: visible !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    -webkit-overflow-scrolling: auto !important;
+  }
+
+  html.mobile-browser .mobile-page {
+    padding-bottom: 0 !important;
+  }
+
+  html.mobile-browser .mobile-bottom-spacer {
+    display: none !important;
+  }
+}
