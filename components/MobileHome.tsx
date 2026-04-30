@@ -166,7 +166,10 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
         <div className="mobile-page mobile-home-page min-h-[100dvh] bg-[#F8FAFC] pb-24 font-sans animate-fadeIn">
             {/* HEADER NỀN XANH CẬP NHẬT THÔNG TIN SINH VIÊN */}
             {/* ĐÃ SỬA: Thay pt-12 bằng pt-[calc(...)] để tự động né tai thỏ */}
-            <div className="bg-[#003375] rounded-b-[32px] px-5 pt-[calc(env(safe-area-inset-top)+48px)] pb-8 text-white relative shadow-md">
+           <div 
+    className="bg-[#003375] rounded-b-[32px] px-5 pb-8 text-white relative shadow-md"
+    style={{ paddingTop: 'calc(env(safe-area-inset-top) + 48px)' }}
+>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {renderAvatar()}

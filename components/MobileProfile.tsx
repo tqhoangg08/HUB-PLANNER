@@ -196,7 +196,10 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
 
     return (
         <div className="mobile-page mobile-profile-page min-h-[100dvh] bg-[#F8FAFC] pb-24 animate-fadeIn">
-            <div className="bg-[#003375] rounded-b-[40px] px-6 pt-[calc(env(safe-area-inset-top)+40px)] pb-[100px] relative">
+            <div 
+    className="bg-[#003375] rounded-b-[40px] px-6 pb-[100px] relative"
+    style={{ paddingTop: 'calc(env(safe-area-inset-top) + 40px)' }}
+>
     <h1 className="text-[26px] font-extrabold text-white tracking-tight">Hồ sơ cá nhân</h1>
 </div>
 
