@@ -539,7 +539,7 @@
   }
 
   .platform-ios .mobile-dashboard-page thead {
-    background: #003B7A !important;
+    background: #ffffff !important;
     color: #FFFFFF !important;
   }
 
@@ -613,7 +613,7 @@
 html.mobile-standalone,
 html.mobile-standalone body,
 body.mobile-standalone {
-  background-color: #003375 !important;
+  background-color: #ffffff !important;
 }
 
 .platform-ios .mobile-app-root,
