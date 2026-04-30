@@ -110,10 +110,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               }`}>
                   
                   {/* HEADER LOGO & NÚT X (CHỈ HIỆN TRÊN MOBILE) */}
-                  <div 
-    className="md:hidden flex items-center justify-between px-6 border-b border-[#003375] shrink-0 bg-[#003375] pb-3"
-    style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}
->
+                  <div className="md:hidden h-16 flex items-center justify-between px-6 border-b border-[#003375] shrink-0 bg-[#003375]">
                       <Link to="/dashboard" className="flex items-center gap-3 transition-transform hover:scale-105" onClick={() => { playClick(); setIsMobileMenuOpen(false); }}>
                           <img src="/logo.png" alt="HUB Logo" className="h-8 w-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="h-8 w-8 bg-white rounded flex items-center justify-center text-[#003375] font-bold text-xs">HUB</div>'; }} />
                           <div className="leading-tight">
@@ -329,10 +326,11 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   // ==============================================================================================
   return (
     <>
-     <header 
-    className="bg-white border-b border-gray-200 w-full z-40 shrink-0 h-auto sm:h-14 shadow-sm px-3 pb-3 sm:px-0 sm:pb-0 relative"
-    style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}
->
+     {/* Thêm sticky top-0 để dính lên nóc, và paddingTop để lót tai thỏ */}
+      <header 
+          className="sticky top-0 left-0 right-0 bg-white/95 backdrop-blur-md border-b border-gray-200 w-full z-50 shrink-0 h-auto sm:h-14 shadow-sm px-3 pb-3 sm:p-0"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}
+      >
           <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-8">
               <div className="w-full flex flex-row items-center justify-between sm:w-auto sm:gap-3 shrink-0">
                   
@@ -501,15 +499,18 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
           </div>
       </header>
 
-      <div className="flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative z-10">
+      {/* ĐÃ XÓA overflow-y-auto để thả rông cho nội dung tràn xuống đáy Safari */}
+      <div className="flex-1 w-full relative z-10">
           <main className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-2 sm:pt-3 min-h-full flex flex-col">
               <div className="flex-1">
                   {children}
               </div>
+              
+              {/* Thêm đệm dưới cùng cho footer để kéo quá đà vẫn thấy chữ */}
               <footer 
-    className="text-center pt-6 mt-10 border-t border-gray-200 text-gray-500 bg-[#F8FAFC]"
-    style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
->
+                  className="text-center pt-6 mt-10 border-t border-gray-200 text-gray-500 bg-[#F8FAFC]"
+                  style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
+              >
                   <p className="text-xs font-medium tracking-wide mb-1 uppercase">Web designed by tqhoangg</p>
                   <p className="text-[10px] opacity-80 px-4 mb-3">HUB Planner có thể mắc sai sót, vui lòng xác minh lại thông tin khi cần thiết.</p>
                   <div className="text-xs flex items-center justify-center gap-3">
