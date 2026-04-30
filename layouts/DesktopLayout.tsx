@@ -828,7 +828,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   <ShieldCheck size={20} className={location.pathname === '/privacy' ? 'text-[#0052cc]' : 'text-gray-500'} />
                   <span>Chính sách bảo mật</span>
               </Link>
-
+              <div className="mobile-menu-bottom-spacer shrink-0" aria-hidden="true" />
           </div>
           </aside>
       </div>

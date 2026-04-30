@@ -1007,9 +1007,10 @@ html.mobile-menu-open main {
 }
 
 .mobile-menu-panel {
-  height: 100vh;
-  height: calc(var(--app-vh, 1vh) * 100);
-  max-height: calc(var(--app-vh, 1vh) * 100);
+  top: 0;
+  bottom: calc(108px + var(--app-bottom-gap, 0px) + env(safe-area-inset-bottom));
+  height: auto;
+  max-height: none;
   overflow: hidden;
   touch-action: auto;
   overscroll-behavior: contain;
@@ -1019,9 +1020,13 @@ html.mobile-menu-open main {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   touch-action: pan-y;
-  padding-bottom: calc(7rem + var(--app-bottom-gap, 0px) + env(safe-area-inset-bottom));
-  scroll-padding-bottom: calc(7rem + var(--app-bottom-gap, 0px) + env(safe-area-inset-bottom));
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+  scroll-padding-bottom: calc(8rem + var(--app-bottom-gap, 0px) + env(safe-area-inset-bottom));
   pointer-events: auto !important;
+}
+
+.mobile-menu-bottom-spacer {
+  height: calc(10rem + var(--app-bottom-gap, 0px) + env(safe-area-inset-bottom));
 }
 
 /* =========================================================
