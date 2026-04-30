@@ -645,10 +645,7 @@ body.mobile-standalone {
     overflow-x: hidden !important;
     overflow-y: auto !important;
     overscroll-behavior-y: auto;
-    background:
-      radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.06), transparent 320px),
-      radial-gradient(circle at 88% 100%, rgba(0, 51, 117, 0.08), transparent 360px),
-      #F8FAFC !important;
+    background: #F8FAFC !important;
     background-color: #F8FAFC !important;
   }
 
@@ -664,10 +661,7 @@ body.mobile-standalone {
     overflow-y: auto !important;
     overscroll-behavior-y: auto;
     -webkit-overflow-scrolling: touch;
-    background:
-      radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.06), transparent 320px),
-      radial-gradient(circle at 88% 100%, rgba(0, 51, 117, 0.08), transparent 360px),
-      #F8FAFC !important;
+    background: #F8FAFC !important;
     background-color: #F8FAFC !important;
   }
 
@@ -682,8 +676,8 @@ body.mobile-standalone {
     overflow: visible !important;
     overflow-x: hidden !important;
     overflow-y: visible !important;
-    background: transparent !important;
-    background-color: transparent !important;
+    background: #F8FAFC !important;
+    background-color: #F8FAFC !important;
   }
 
   /*
@@ -704,8 +698,8 @@ body.mobile-standalone {
     overflow: visible !important;
     overflow-x: hidden !important;
     overflow-y: visible !important;
-    background: transparent !important;
-    background-color: transparent !important;
+    background: #F8FAFC !important;
+    background-color: #F8FAFC !important;
   }
 
   /*
@@ -887,6 +881,11 @@ body.mobile-standalone {
 
   html.mobile-browser .desktop-page-scroll {
     padding-top: 64px !important;
+    background-color: #F8FAFC !important;
+  }
+
+  html.mobile-browser .desktop-page-main {
+    background-color: #F8FAFC !important;
   }
 
   html.mobile-browser footer {
@@ -1055,10 +1054,7 @@ html.mobile-menu-open main {
     min-height: 100% !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
-    background:
-      radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.06), transparent 320px),
-      radial-gradient(circle at 88% 100%, rgba(0, 51, 117, 0.08), transparent 360px),
-      #F8FAFC !important;
+    background: #F8FAFC !important;
     background-color: #F8FAFC !important;
   }
 
@@ -1071,8 +1067,8 @@ html.mobile-menu-open main {
     overflow: visible !important;
     overflow-x: hidden !important;
     overflow-y: visible !important;
-    background: transparent !important;
-    background-color: transparent !important;
+    background: #F8FAFC !important;
+    background-color: #F8FAFC !important;
   }
 
   html.mobile-browser .desktop-page-scroll,
@@ -1085,8 +1081,8 @@ html.mobile-menu-open main {
     overflow-y: visible !important;
     padding-bottom: 0 !important;
     margin-bottom: 0 !important;
-    background: transparent !important;
-    background-color: transparent !important;
+    background: #F8FAFC !important;
+    background-color: #F8FAFC !important;
   }
 
   html.mobile-browser footer {
