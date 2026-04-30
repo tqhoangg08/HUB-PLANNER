@@ -368,7 +368,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   // ==============================================================================================
   return (
     <>
-      <header className="bg-white border-b border-gray-200 w-full z-40 shrink-0 h-auto sm:h-14 shadow-sm p-3 sm:p-0 relative">
+      <header className="mobile-browser-header bg-white border-b border-gray-200 w-full z-40 shrink-0 h-auto sm:h-14 shadow-sm p-3 sm:p-0 sticky top-0 sm:relative">
           <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-8">
               <div className="w-full flex flex-row items-center justify-between sm:w-auto sm:gap-3 shrink-0">
                   

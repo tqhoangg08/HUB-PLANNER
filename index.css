@@ -873,6 +873,22 @@ body.mobile-standalone {
     background-color: rgba(255, 255, 255, 0.96) !important;
   }
 
+  html.mobile-browser .mobile-browser-header {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 90 !important;
+    width: 100% !important;
+    background-color: rgba(255, 255, 255, 0.96) !important;
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+  }
+
+  html.mobile-browser .desktop-page-scroll {
+    padding-top: 64px !important;
+  }
+
   html.mobile-browser footer {
     margin-bottom: 0 !important;
     background-color: transparent !important;
