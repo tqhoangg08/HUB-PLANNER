@@ -1,26 +1,149 @@
 @import "tailwindcss";
 
+/* =========================================================
+   BASE
+   ========================================================= */
 @layer base {
-
-  /* 1. CẤU HÌNH SIZE CHỮ TOÀN WEB */
   html {
-    /* 📱 MOBILE: Mặc định 14px */
     font-size: 14px;
+    width: 100%;
+    max-width: 100%;
   }
 
-  /* 💻 LAPTOP (Màn hình > 1024px) */
   @media (min-width: 1024px) {
     html {
-      font-size: 14px; 
+      font-size: 14px;
     }
   }
 
-  /* 👇 2. CẤU HÌNH BODY (GIỮ NGUYÊN CŨ) */
   body {
     @apply antialiased text-gray-900 bg-gray-50;
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 100%;
   }
 }
 
+/* =========================================================
+   COMMON UTILITIES / ANIMATIONS
+   ========================================================= */
+@layer utilities {
+  .animate-fadeIn {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  .animate-slideUp {
+    animation: slideUp 0.5s ease-out forwards;
+  }
+
+  .animate-slideInRight {
+    animation: slideInRight 0.3s ease-out forwards;
+  }
+
+  .animate-scaleIn {
+    animation: scaleIn 0.3s ease-out forwards;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .mask-edges {
+    -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
+    mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes iosPageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =========================================================
+   IOS / MOBILE APP SKIN
+   ========================================================= */
 @layer components {
   .platform-ios {
     --ios-bg: #F8FAFC;
@@ -29,16 +152,18 @@
     --ios-primary-2: #0B5ED7;
     --ios-text: #0F172A;
     --ios-muted: #667085;
-    --ios-border: rgba(255,255,255,0.58);
-    --ios-glass-bg: rgba(255,255,255,0.70);
-    --ios-glass-bg-strong: rgba(255,255,255,0.88);
-    --ios-glass-blue: rgba(0,59,122,0.78);
-    --ios-shadow: 0 16px 38px rgba(15,23,42,0.10);
-    --ios-shadow-soft: 0 8px 24px rgba(15,23,42,0.07);
+    --ios-border: rgba(255, 255, 255, 0.58);
+    --ios-glass-bg: rgba(255, 255, 255, 0.70);
+    --ios-glass-bg-strong: rgba(255, 255, 255, 0.88);
+    --ios-glass-blue: rgba(0, 59, 122, 0.78);
+    --ios-shadow: 0 16px 38px rgba(15, 23, 42, 0.10);
+    --ios-shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.07);
+
     --ios-radius-xl: 32px;
     --ios-radius-lg: 26px;
     --ios-radius-md: 20px;
     --ios-radius-sm: 16px;
+
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Be Vietnam Pro", sans-serif;
   }
 
@@ -66,18 +191,19 @@
     background: var(--ios-glass-bg-strong);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    border-color: rgba(255,255,255,0.72);
+    border-color: rgba(255, 255, 255, 0.72);
   }
 
   .platform-ios .ios-blue-glass,
   .platform-ios .mobile-home-page > div:first-child,
   .platform-ios .mobile-profile-page > div:first-child,
   .platform-ios .mobile-handbook-header {
-    background: linear-gradient(145deg, rgba(0,59,122,0.94), rgba(11,94,215,0.78)) !important;
+    position: relative;
+    background: linear-gradient(145deg, rgba(0, 59, 122, 0.94), rgba(11, 94, 215, 0.78)) !important;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    border: 1px solid rgba(255,255,255,0.16);
-    box-shadow: 0 22px 48px rgba(0,59,122,0.18);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 22px 48px rgba(0, 59, 122, 0.18);
     overflow: hidden;
   }
 
@@ -90,8 +216,8 @@
     inset: 0;
     pointer-events: none;
     background:
-      radial-gradient(circle at 18% 0%, rgba(255,255,255,0.22), transparent 36%),
-      radial-gradient(circle at 96% 20%, rgba(255,255,255,0.14), transparent 30%);
+      radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.22), transparent 36%),
+      radial-gradient(circle at 96% 20%, rgba(255, 255, 255, 0.14), transparent 30%);
   }
 
   .platform-ios.mobile-app-root,
@@ -101,8 +227,8 @@
   .platform-ios .mobile-home-news,
   .platform-ios .mobile-profile-history {
     background:
-      radial-gradient(circle at top left, rgba(11,94,215,0.08), transparent 320px),
-      radial-gradient(circle at bottom right, rgba(0,199,190,0.06), transparent 280px),
+      radial-gradient(circle at top left, rgba(11, 94, 215, 0.08), transparent 320px),
+      radial-gradient(circle at bottom right, rgba(0, 199, 190, 0.06), transparent 280px),
       var(--ios-bg) !important;
   }
 
@@ -145,7 +271,7 @@
   }
 
   .platform-ios .mobile-learning-tabs > div {
-    background: rgba(255,255,255,0.38) !important;
+    background: rgba(255, 255, 255, 0.38) !important;
     border-radius: 22px !important;
   }
 
@@ -170,18 +296,22 @@
 
   .platform-ios .mobile-events-header,
   .platform-ios .mobile-lostfound-header {
-    background: rgba(245,247,251,0.84) !important;
+    background: rgba(245, 247, 251, 0.84) !important;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    border-color: rgba(255,255,255,0.72) !important;
-    box-shadow: 0 10px 26px rgba(15,23,42,0.08) !important;
+    border-color: rgba(255, 255, 255, 0.72) !important;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08) !important;
     padding-top: calc(1rem + env(safe-area-inset-top)) !important;
   }
 
   .platform-ios .mobile-events-header button,
   .platform-ios .mobile-lostfound-header button,
   .platform-ios .mobile-page button {
-    transition: transform 150ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease;
+    transition:
+      transform 150ms ease,
+      box-shadow 180ms ease,
+      background-color 180ms ease,
+      color 180ms ease;
   }
 
   .platform-ios .mobile-events-header button:active,
@@ -196,15 +326,15 @@
   .platform-ios .mobile-page textarea {
     min-height: 44px;
     border-radius: 18px !important;
-    background: rgba(255,255,255,0.74) !important;
-    border-color: rgba(148,163,184,0.22) !important;
+    background: rgba(255, 255, 255, 0.74) !important;
+    border-color: rgba(148, 163, 184, 0.22) !important;
   }
 
   .platform-ios .mobile-page input:focus,
   .platform-ios .mobile-page select:focus,
   .platform-ios .mobile-page textarea:focus {
-    border-color: rgba(11,94,215,0.58) !important;
-    box-shadow: 0 0 0 4px rgba(11,94,215,0.12) !important;
+    border-color: rgba(11, 94, 215, 0.58) !important;
+    box-shadow: 0 0 0 4px rgba(11, 94, 215, 0.12) !important;
   }
 
   .platform-ios .ios-bottom-nav {
@@ -218,11 +348,13 @@
     height: 78px !important;
     border-radius: 32px !important;
     background:
-      linear-gradient(135deg, rgba(255,255,255,0.72), rgba(255,255,255,0.42)),
-      radial-gradient(circle at 16% 92%, rgba(16,185,129,0.22), transparent 34%),
-      radial-gradient(circle at 92% 8%, rgba(11,94,215,0.16), transparent 32%) !important;
-    border: 1px solid rgba(255,255,255,0.72) !important;
-    box-shadow: 0 18px 44px rgba(15,23,42,0.16), inset 0 1px 0 rgba(255,255,255,0.78) !important;
+      linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.42)),
+      radial-gradient(circle at 16% 92%, rgba(16, 185, 129, 0.22), transparent 34%),
+      radial-gradient(circle at 92% 8%, rgba(11, 94, 215, 0.16), transparent 32%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.72) !important;
+    box-shadow:
+      0 18px 44px rgba(15, 23, 42, 0.16),
+      inset 0 1px 0 rgba(255, 255, 255, 0.78) !important;
   }
 
   .platform-ios .ios-bottom-nav a {
@@ -231,7 +363,7 @@
   }
 
   .platform-ios .ios-bottom-nav a[aria-current="page"] {
-    background: rgba(255,255,255,0.28);
+    background: rgba(255, 255, 255, 0.28);
   }
 
   .platform-ios .mobile-ai-advisor {
@@ -241,25 +373,25 @@
   .platform-ios .mobile-ai-button {
     width: 62px !important;
     height: 62px !important;
-    background: linear-gradient(145deg, rgba(0,59,122,0.96), rgba(11,94,215,0.84)) !important;
-    border: 2px solid rgba(255,255,255,0.82) !important;
+    background: linear-gradient(145deg, rgba(0, 59, 122, 0.96), rgba(11, 94, 215, 0.84)) !important;
+    border: 2px solid rgba(255, 255, 255, 0.82) !important;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    box-shadow: 0 16px 34px rgba(0,59,122,0.28) !important;
+    box-shadow: 0 16px 34px rgba(0, 59, 122, 0.28) !important;
   }
 
   .platform-ios .mobile-ai-bubble {
-    background: rgba(255,255,255,0.82) !important;
+    background: rgba(255, 255, 255, 0.82) !important;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    border-color: rgba(255,255,255,0.72) !important;
+    border-color: rgba(255, 255, 255, 0.72) !important;
     box-shadow: var(--ios-shadow-soft) !important;
   }
 
   .platform-ios.mobile-login-page {
     background:
-      radial-gradient(circle at 12% 0%, rgba(11,94,215,0.18), transparent 36%),
-      radial-gradient(circle at 95% 20%, rgba(0,59,122,0.18), transparent 32%),
+      radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.18), transparent 36%),
+      radial-gradient(circle at 95% 20%, rgba(0, 59, 122, 0.18), transparent 32%),
       var(--ios-bg) !important;
   }
 
@@ -272,17 +404,17 @@
     background: var(--ios-glass-bg-strong) !important;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    border: 1px solid rgba(255,255,255,0.72);
+    border: 1px solid rgba(255, 255, 255, 0.72);
     border-radius: 34px 34px 0 0 !important;
-    box-shadow: 0 -22px 50px rgba(15,23,42,0.12) !important;
+    box-shadow: 0 -22px 50px rgba(15, 23, 42, 0.12) !important;
   }
 
-  /* iOS skin for learning/dashboard/schedule: keep the original UI, add only subtle iOS polish. */
+  /* Dashboard / Schedule iOS polish */
   .platform-ios .mobile-dashboard-page,
   .platform-ios .mobile-schedule-page {
     background:
-      radial-gradient(circle at top left, rgba(11,94,215,0.045), transparent 300px),
-      radial-gradient(circle at bottom right, rgba(0,199,190,0.035), transparent 260px),
+      radial-gradient(circle at top left, rgba(11, 94, 215, 0.045), transparent 300px),
+      radial-gradient(circle at bottom right, rgba(0, 199, 190, 0.035), transparent 260px),
       #F8FAFC !important;
     padding-inline: 0 !important;
     padding-bottom: calc(118px + env(safe-area-inset-bottom)) !important;
@@ -319,11 +451,11 @@
     padding: 4px !important;
     min-height: 48px !important;
     border-radius: 16px !important;
-    background: rgba(243,244,246,0.86) !important;
+    background: rgba(243, 244, 246, 0.86) !important;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    border: 1px solid rgba(15,23,42,0.05) !important;
-    box-shadow: 0 2px 10px rgba(15,23,42,0.06) !important;
+    border: 1px solid rgba(15, 23, 42, 0.05) !important;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06) !important;
   }
 
   .platform-ios .mobile-learning-tabs > div {
@@ -333,10 +465,10 @@
   }
 
   .platform-ios .mobile-learning-tabs > div > div:first-child {
-    background: rgba(255,255,255,0.96) !important;
-    border: 1px solid rgba(15,23,42,0.04) !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    border: 1px solid rgba(15, 23, 42, 0.04) !important;
     border-radius: 12px !important;
-    box-shadow: 0 2px 8px rgba(15,23,42,0.08) !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08) !important;
   }
 
   .platform-ios .mobile-learning-tabs button {
@@ -350,8 +482,8 @@
     background: #FFFFFF !important;
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
-    border-color: rgba(15,23,42,0.13) !important;
-    box-shadow: 0 2px 8px rgba(15,23,42,0.05) !important;
+    border-color: rgba(15, 23, 42, 0.13) !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
   }
 
   .platform-ios .mobile-dashboard-page .rounded-xl,
@@ -372,9 +504,9 @@
   .platform-ios .mobile-dashboard-page .grid.grid-cols-2 > .bg-white,
   .platform-ios .mobile-dashboard-page .grid.grid-cols-2 > button.bg-white {
     background: #FFFFFF !important;
-    border-color: rgba(15,23,42,0.14) !important;
+    border-color: rgba(15, 23, 42, 0.14) !important;
     border-radius: 0.75rem !important;
-    box-shadow: 0 2px 8px rgba(15,23,42,0.05) !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
   }
 
   .platform-ios .mobile-dashboard-page table,
@@ -405,7 +537,7 @@
     min-height: 38px !important;
     border-radius: 0.5rem !important;
     background: #FFFFFF !important;
-    border-color: rgba(15,23,42,0.14) !important;
+    border-color: rgba(15, 23, 42, 0.14) !important;
     box-shadow: none !important;
   }
 
@@ -416,28 +548,30 @@
 
   .platform-ios .mobile-schedule-page > div:nth-child(3) > .bg-white > div:first-child {
     background: #FFFFFF !important;
-    border-color: rgba(15,23,42,0.06) !important;
+    border-color: rgba(15, 23, 42, 0.06) !important;
   }
 
   .platform-ios .ios-bottom-nav-surface {
     height: 76px !important;
     border-radius: 24px !important;
-    background: rgba(255,255,255,0.76) !important;
+    background: rgba(255, 255, 255, 0.76) !important;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    border: 1px solid rgba(255,255,255,0.72) !important;
-    box-shadow: 0 10px 26px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.78) !important;
+    border: 1px solid rgba(255, 255, 255, 0.72) !important;
+    box-shadow:
+      0 10px 26px rgba(15, 23, 42, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.78) !important;
   }
 
   .platform-ios .ios-bottom-nav a[aria-current="page"] {
-    background: rgba(11,94,215,0.08) !important;
+    background: rgba(11, 94, 215, 0.08) !important;
     border-radius: 18px !important;
   }
 
   .platform-ios .mobile-ai-button {
     width: 60px !important;
     height: 60px !important;
-    box-shadow: 0 12px 28px rgba(0,59,122,0.24) !important;
+    box-shadow: 0 12px 28px rgba(0, 59, 122, 0.24) !important;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -449,69 +583,136 @@
       scroll-behavior: auto !important;
     }
   }
-
-  @keyframes iosPageIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
 }
-/* ========================================== */
-/* 🔥 BÙA CHÚ PHÁ VỠ TAI THỎ APPLE 🔥 */
-/* ========================================== */
+
+/* =========================================================
+   STANDALONE PWA SAFE AREA
+   Chỉ dùng nền xanh khi app đã được cài ra màn hình chính.
+   Không áp nền xanh này cho mobile browser.
+   ========================================================= */
 html.mobile-standalone,
 html.mobile-standalone body {
   background-color: #003375 !important;
 }
 
-.platform-ios .mobile-app-root, 
+.platform-ios .mobile-app-root,
 .platform-ios .mobile-main {
-    padding-top: 0px !important; /* Xóa sổ cái khoảng trắng đẩy web xuống */
-    background-color: transparent !important;
+  padding-top: 0 !important;
+  background-color: transparent !important;
 }
 
-/* Đảm bảo cái nền xanh trong MobileHome và Profile phóng thẳng lên nóc */
 .platform-ios .mobile-home-page > div:first-child,
 .platform-ios .mobile-profile-page > div:first-child {
-    padding-top: calc(env(safe-area-inset-top) + 38px) !important;
+  padding-top: calc(env(safe-area-inset-top) + 38px) !important;
 }
 
-/* Mobile browser: cho nội dung thật chạy xuống dưới thanh URL iPhone */
+/* =========================================================
+   MOBILE BROWSER MODE
+   Mục tiêu:
+   - body là vùng cuộn thật
+   - không khóa app ở 100dvh
+   - không dùng div con overflow-y-auto làm vùng cuộn chính
+   - bỏ padding/spacer dưới để nội dung thật chạy xuống dưới URL bar
+   - ẩn bubble trắng của AI để không làm vùng sau URL bar bị trắng
+   ========================================================= */
 @media (hover: none) and (pointer: coarse) {
   html.mobile-browser,
   html.mobile-browser body,
   html.mobile-browser #root {
     height: auto !important;
     min-height: 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     background:
       radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.06), transparent 320px),
       radial-gradient(circle at 88% 100%, rgba(0, 51, 117, 0.08), transparent 360px),
       #F8FAFC !important;
+    background-color: #F8FAFC !important;
   }
 
+  /*
+    App root.
+    Có hỗ trợ cả trường hợp bạn đã thêm class app-shell/mobile-browser-shell,
+    và fallback cho #root > div nếu chưa thêm class.
+  */
   html.mobile-browser .app-shell,
-  html.mobile-browser .mobile-browser-shell {
+  html.mobile-browser .mobile-browser-shell,
+  html.mobile-browser #root > div {
     height: auto !important;
     min-height: 100vh !important;
+    min-height: 100dvh !important;
+    max-height: none !important;
     overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
     display: block !important;
     background: transparent !important;
+    background-color: transparent !important;
   }
 
+  /*
+    Tắt kiểu scroll nội bộ của DesktopLayout trên mobile browser.
+    Nếu bạn đã thêm class desktop-page-scroll / desktop-page-main thì selector đầu sẽ bắt.
+    Nếu chưa thêm, fallback phía sau vẫn cố bắt đúng container.
+  */
   html.mobile-browser .desktop-page-scroll,
-  html.mobile-browser .desktop-page-main {
+  html.mobile-browser #root > div > .flex-1.w-full.overflow-y-auto,
+  html.mobile-browser #root > div > .flex-1.w-full.overflow-x-hidden {
     height: auto !important;
     min-height: 0 !important;
+    max-height: none !important;
     overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
     padding-bottom: 0 !important;
     margin-bottom: 0 !important;
     background: transparent !important;
+    background-color: transparent !important;
+    -webkit-overflow-scrolling: auto !important;
   }
 
-  html.mobile-browser .desktop-page-main > .flex-1 {
+  html.mobile-browser .desktop-page-main,
+  html.mobile-browser .desktop-page-scroll > main,
+  html.mobile-browser #root > div > .flex-1.w-full.overflow-y-auto > main,
+  html.mobile-browser #root > div > .flex-1.w-full.overflow-x-hidden > main {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
     padding-bottom: 0 !important;
     margin-bottom: 0 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  html.mobile-browser .desktop-page-main > .flex-1,
+  html.mobile-browser .desktop-page-scroll > main > .flex-1 {
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  /*
+    MobileAppLayout fallback.
+    Dù mobile browser hiện đang đi qua DesktopLayout, vẫn giữ phần này để an toàn.
+  */
+  html.mobile-browser .mobile-app-root,
+  html.mobile-browser .platform-ios .mobile-app-root,
+  html.mobile-browser .mobile-main,
+  html.mobile-browser .platform-ios .mobile-main {
+    height: auto !important;
+    min-height: 100dvh !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    padding-bottom: 0 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    -webkit-overflow-scrolling: auto !important;
   }
 
   html.mobile-browser .mobile-page,
@@ -519,24 +720,103 @@ html.mobile-standalone body {
   html.mobile-browser .mobile-dashboard-page,
   html.mobile-browser .platform-ios .mobile-dashboard-page,
   html.mobile-browser .mobile-schedule-page,
-  html.mobile-browser .platform-ios .mobile-schedule-page {
+  html.mobile-browser .platform-ios .mobile-schedule-page,
+  html.mobile-browser .mobile-events-page,
+  html.mobile-browser .platform-ios .mobile-events-page,
+  html.mobile-browser .mobile-lostfound-page,
+  html.mobile-browser .platform-ios .mobile-lostfound-page,
+  html.mobile-browser .mobile-handbook-page,
+  html.mobile-browser .platform-ios .mobile-handbook-page {
     padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+    background-color: transparent !important;
   }
 
   html.mobile-browser .mobile-bottom-spacer,
-  html.mobile-browser .platform-ios .mobile-bottom-spacer,
-  html.mobile-browser .desktop-ai-hint,
-  html.mobile-browser .mobile-ai-bubble {
+  html.mobile-browser .platform-ios .mobile-bottom-spacer {
     display: none !important;
     height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
+  /*
+    Phần này xử lý nguyên nhân hay làm vùng sau URL bar trắng:
+    - bubble AI desktop màu trắng
+    - bubble AI mobile màu trắng
+  */
+  html.mobile-browser .desktop-ai-hint,
+  html.mobile-browser .mobile-ai-bubble,
+  html.mobile-browser .fixed.bottom-\[85px\].right-6.z-50 {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  /*
+    Giữ nút AI nhưng đẩy lên trên URL bar một chút.
+    Nếu muốn ẩn luôn nút AI trên mobile browser, đổi display thành none.
+  */
   html.mobile-browser .mobile-ai-advisor {
     bottom: 92px !important;
   }
 
-  html.mobile-standalone,
-  html.mobile-standalone body {
-    background-color: #003375 !important;
+  html.mobile-browser .mobile-ai-button {
+    bottom: 92px !important;
+  }
+
+  /*
+    Header/menu fixed trên mobile browser vẫn bình thường,
+    nhưng tránh việc nó tạo scroll container phụ.
+  */
+  html.mobile-browser header {
+    flex-shrink: 0 !important;
+  }
+
+  html.mobile-browser footer {
+    margin-bottom: 0 !important;
+  }
+
+  /*
+    Làm card trắng hơi trong hơn một chút trên mobile browser.
+    Mục tiêu là khi URL bar blur, phía sau không bị trắng phẳng hoàn toàn.
+    Nếu bạn muốn giữ card trắng 100%, có thể xóa block này.
+  */
+  html.mobile-browser .desktop-page-main .bg-white,
+  html.mobile-browser .desktop-page-scroll .bg-white {
+    background-color: rgba(255, 255, 255, 0.94) !important;
+  }
+
+  /*
+    Section thông báo nếu bạn có gắn class riêng.
+    Nếu JSX chưa có class này thì block này không ảnh hưởng.
+  */
+  html.mobile-browser .school-announcements-section,
+  html.mobile-browser .notification-section {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(232, 240, 255, 0.92)) !important;
+  }
+
+  html.mobile-browser .school-announcements-section .bg-white,
+  html.mobile-browser .notification-section .bg-white {
+    background: rgba(255, 255, 255, 0.88) !important;
+  }
+}
+
+/* =========================================================
+   MOBILE BROWSER: SMALLER SCREENS
+   ========================================================= */
+@media (hover: none) and (pointer: coarse) and (max-width: 767px) {
+  html.mobile-browser body {
+    overscroll-behavior-y: auto;
+  }
+
+  html.mobile-browser main {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 }
