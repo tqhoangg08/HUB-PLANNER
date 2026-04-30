@@ -510,49 +510,34 @@ html, body {
     height: auto !important;
     min-height: 100%;
     overflow-y: auto !important;
-    background: #F8FAFC !important;
-    background-color: #F8FAFC !important;
-  }
-
-  html.mobile-browser #root {
-    min-height: calc(100dvh + 120px) !important;
-    background: #F8FAFC !important;
+    background: transparent !important;
+    background-color: transparent !important;
   }
 
   html.mobile-browser .mobile-app-root {
     height: auto !important;
-    min-height: calc(100dvh + 120px) !important;
+    min-height: 100dvh !important;
     overflow: visible !important;
     padding-bottom: 0 !important;
-    background: #F8FAFC !important;
-    background-color: #F8FAFC !important;
+    background: transparent !important;
+    background-color: transparent !important;
   }
 
   html.mobile-browser .mobile-main {
     flex: none !important;
     height: auto !important;
-    min-height: calc(100dvh + 120px) !important;
+    min-height: 100dvh !important;
     overflow: visible !important;
-    background: #F8FAFC !important;
-    background-color: #F8FAFC !important;
+    background: transparent !important;
+    background-color: transparent !important;
     -webkit-overflow-scrolling: auto !important;
   }
 
   html.mobile-browser .mobile-page {
-    min-height: calc(100dvh + 120px) !important;
-    padding-bottom: max(120px, calc(88px + env(safe-area-inset-bottom))) !important;
-    background-color: #F8FAFC !important;
-  }
-
-  html.mobile-browser .mobile-learning-page > div:last-child {
-    flex: none !important;
-    overflow: visible !important;
-    padding-bottom: max(120px, calc(88px + env(safe-area-inset-bottom))) !important;
+    padding-bottom: 0 !important;
   }
 
   html.mobile-browser .mobile-bottom-spacer {
-    display: block !important;
-    height: max(120px, calc(88px + env(safe-area-inset-bottom))) !important;
-    background: #F8FAFC !important;
+    display: none !important;
   }
 }
