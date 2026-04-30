@@ -54,7 +54,7 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                 </div>
             </div>
 
-            <div className="flex-1 w-full overflow-y-auto overflow-x-hidden px-4">
+            <div className="mobile-learning-content flex-1 w-full overflow-y-auto overflow-x-hidden px-4 pt-8">
                 {activeTab === 'gpa' ? (
                     <div className="animate-fadeIn pt-0 pb-8">
                         <MobileDashboard
