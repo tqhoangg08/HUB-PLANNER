@@ -144,15 +144,14 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
   };
 
   return (
-    <div className={`mobile-app-root app-root platform-${platform} flex flex-col h-[100dvh] w-full relative pb-safe bg-white z-10 overflow-hidden`}>
+    <div className={`mobile-app-root app-root platform-${platform} flex flex-col h-[100dvh] w-full relative pb-safe bg-[#F8FAFC] z-10 overflow-hidden`}>
       <style>{ANIMATION_STYLES}</style>
 
       {/* KHU VỰC HIỂN THỊ NỘI DUNG */}
-      <main ref={mainRef} className="mobile-main flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative bg-white">
+      <main ref={mainRef} className="mobile-main flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar relative bg-[#F8FAFC]">
         <div key={location.pathname} className={`w-full min-h-full flex flex-col animate-${slideDirection}`}>
           {children}
           {/* Vì thanh iOS lơ lửng nên phải cộng thêm padding để không bị che nội dung */}
-          {showBottomNav && <div className={`mobile-bottom-spacer ${isIOS ? 'h-32' : 'h-24'} w-full shrink-0`}></div>}
         </div>
       </main>
 
