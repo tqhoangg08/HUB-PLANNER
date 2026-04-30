@@ -214,7 +214,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               </aside>
 
               <div className="flex-1 flex flex-col min-w-0 relative">
-                  <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 shrink-0 relative z-40">
+                  <header className="sticky top-0 left-0 right-0 bg-white/90 backdrop-blur-md border-b border-gray-200 w-full z-40 shrink-0 h-auto sm:h-14 shadow-sm p-3 sm:p-0">
                       
                       {/* BÊN TRÁI HEADER: LOGO HOẶC BREADCRUMB */}
                       <div className="flex items-center gap-2">
