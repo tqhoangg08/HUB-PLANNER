@@ -1031,7 +1031,7 @@ body.mobile-standalone {
       Không để cao 180px nữa vì sẽ che nội dung.
       92px là gần bằng chiều cao thanh URL Safari dưới.
     */
-    height: calc(0px + env(safe-area-inset-bottom));
+    height: calc(10px + env(safe-area-inset-bottom));
 
     pointer-events: none;
     z-index: 2147483000;
@@ -1039,6 +1039,6 @@ body.mobile-standalone {
     background:
       radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.06), transparent 320px),
       radial-gradient(circle at 88% 100%, rgba(0, 51, 117, 0.08), transparent 360px),
-      #F8FAFC !important;
+      #ffffff !important;
   }
 }
