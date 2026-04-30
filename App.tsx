@@ -123,7 +123,28 @@ const App: React.FC = () => {
 
     const useMobileLayout = isAppMode && isMobileScreen;
     const isMobileBrowser = isMobileScreen && !isAppMode;
+    useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
 
+    const isIOSDevice =
+        /iPhone|iPad|iPod/i.test(window.navigator.userAgent) ||
+        ((window.navigator as any).platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
+
+    html.classList.toggle('mobile-browser', isMobileBrowser);
+    body.classList.toggle('mobile-browser', isMobileBrowser);
+
+    html.classList.toggle('mobile-standalone', isAppMode && isMobileScreen);
+    body.classList.toggle('mobile-standalone', isAppMode && isMobileScreen);
+
+    html.classList.toggle('platform-ios', isIOSDevice);
+    body.classList.toggle('platform-ios', isIOSDevice);
+
+    return () => {
+        html.classList.remove('mobile-browser', 'mobile-standalone', 'platform-ios');
+        body.classList.remove('mobile-browser', 'mobile-standalone', 'platform-ios');
+    };
+}, [isMobileBrowser, isAppMode, isMobileScreen]);
     useEffect(() => {
         if (!session?.user?.id || !isPushSupported() || Notification.permission !== 'granted') return;
 
@@ -1529,8 +1550,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
     <div
         className={
             isMobileBrowser
-                ? "app-shell mobile-browser-shell min-h-screen bg-[#F8FAFC] font-sans text-gray-800 relative overflow-x-hidden"
-                : "app-shell h-[100dvh] bg-[#F8FAFC] font-sans text-gray-800 flex flex-col relative overflow-hidden"
+    ? "app-shell mobile-browser-shell min-h-[100lvh] bg-[#F8FAFC] font-sans text-gray-800 relative overflow-x-hidden overflow-y-visible"
+    : "app-shell h-[100dvh] bg-[#F8FAFC] font-sans text-gray-800 flex flex-col relative overflow-hidden"
         }
     >
         <Particles id="app-particles" init={particlesInit} options={particlesOptions} className="absolute inset-0 z-0 pointer-events-none" />

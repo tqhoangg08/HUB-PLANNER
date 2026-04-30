@@ -620,7 +620,7 @@ html.mobile-standalone body {
   html.mobile-browser body,
   html.mobile-browser #root {
     height: auto !important;
-    min-height: 100% !important;
+    min-height: 100lvh !important;
     width: 100% !important;
     max-width: 100% !important;
     overflow-x: hidden !important;
@@ -632,17 +632,11 @@ html.mobile-standalone body {
     background-color: #F8FAFC !important;
   }
 
-  /*
-    App root.
-    Có hỗ trợ cả trường hợp bạn đã thêm class app-shell/mobile-browser-shell,
-    và fallback cho #root > div nếu chưa thêm class.
-  */
   html.mobile-browser .app-shell,
   html.mobile-browser .mobile-browser-shell,
   html.mobile-browser #root > div {
     height: auto !important;
-    min-height: 100vh !important;
-    min-height: 100dvh !important;
+    min-height: 100lvh !important;
     max-height: none !important;
     overflow: visible !important;
     overflow-x: hidden !important;
@@ -652,14 +646,8 @@ html.mobile-standalone body {
     background-color: transparent !important;
   }
 
-  /*
-    Tắt kiểu scroll nội bộ của DesktopLayout trên mobile browser.
-    Nếu bạn đã thêm class desktop-page-scroll / desktop-page-main thì selector đầu sẽ bắt.
-    Nếu chưa thêm, fallback phía sau vẫn cố bắt đúng container.
-  */
-  html.mobile-browser .desktop-page-scroll,
-  html.mobile-browser #root > div > .flex-1.w-full.overflow-y-auto,
-  html.mobile-browser #root > div > .flex-1.w-full.overflow-x-hidden {
+  html.mobile-browser .desktop-page-scroll {
+    display: block !important;
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
@@ -673,10 +661,7 @@ html.mobile-standalone body {
     -webkit-overflow-scrolling: auto !important;
   }
 
-  html.mobile-browser .desktop-page-main,
-  html.mobile-browser .desktop-page-scroll > main,
-  html.mobile-browser #root > div > .flex-1.w-full.overflow-y-auto > main,
-  html.mobile-browser #root > div > .flex-1.w-full.overflow-x-hidden > main {
+  html.mobile-browser .desktop-page-main {
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
