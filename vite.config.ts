@@ -27,7 +27,7 @@ export default defineConfig({
         display_override: ["window-controls-overlay", "tabbed", "standalone"],
         display: "standalone",
         theme_color: "#003375",
-        background_color: "#F8FAFC",
+        background_color: "#003375",
         
         categories: ["education", "productivity", "utilities"],
         iarc_rating_id: "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",

@@ -455,3 +455,21 @@
     to { opacity: 1; transform: translateY(0); }
   }
 }
+/* ========================================== */
+/* 🔥 BÙA CHÚ PHÁ VỠ TAI THỎ APPLE 🔥 */
+/* ========================================== */
+html, body {
+    background-color: #003375 !important; /* Ép viền nảy của iOS thành màu xanh */
+}
+
+.platform-ios .mobile-app-root, 
+.platform-ios .mobile-main {
+    padding-top: 0px !important; /* Xóa sổ cái khoảng trắng đẩy web xuống */
+    background-color: transparent !important;
+}
+
+/* Đảm bảo cái nền xanh trong MobileHome và Profile phóng thẳng lên nóc */
+.platform-ios .mobile-home-page > div:first-child,
+.platform-ios .mobile-profile-page > div:first-child {
+    padding-top: calc(env(safe-area-inset-top) + 38px) !important;
+}
