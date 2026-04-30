@@ -1525,7 +1525,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         const currentRoutes = useMobileLayout ? mobileRoutes : desktopRoutes;
 
         return (
-            <div className={`bg-[#F8FAFC] font-sans text-gray-800 flex flex-col relative ${isAppMode ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh]'}`}>
+            <div className="h-[100dvh] bg-[#F8FAFC] font-sans text-gray-800 flex flex-col relative overflow-hidden">
                 <Particles id="app-particles" init={particlesInit} options={particlesOptions} className="absolute inset-0 z-0 pointer-events-none" />
                 
                 <LayoutComponent

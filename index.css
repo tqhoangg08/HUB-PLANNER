@@ -473,13 +473,3 @@ html, body {
 .platform-ios .mobile-profile-page > div:first-child {
     padding-top: calc(env(safe-area-inset-top) + 38px) !important;
 }
-/* ========================================================= */
-/* MỞ KHÓA CUỘN TỰ NHIÊN CHO TRÌNH DUYỆT (HIỆU ỨNG KÍNH MỜ SAFARI) */
-/* ========================================================= */
-@media all and (display-mode: browser) {
-    html, body, #root, #root > div {
-        height: auto !important;
-        min-height: 100vh !important;
-        overflow: visible !important;
-    }
-}
