@@ -475,150 +475,68 @@ html.mobile-standalone body {
     padding-top: calc(env(safe-area-inset-top) + 38px) !important;
 }
 
-/* Mobile browser: do not tint the browser chrome; let the page sit under it.
-   Standalone PWA keeps the original blue app safe-area behavior. */
-@media (hover: none) and (pointer: coarse) {
-  html.mobile-browser,
-  html.mobile-browser body,
-  html.mobile-browser .platform-ios .mobile-app-root,
-  html.mobile-browser .platform-ios .mobile-main {
-    background: transparent !important;
-    background-color: transparent !important;
-  }
-
-  html.mobile-browser .platform-ios .mobile-page {
-    padding-bottom: 24px !important;
-  }
-
-  html.mobile-browser .platform-ios .mobile-bottom-spacer {
-    height: 24px !important;
-  }
-
-  html.mobile-browser .platform-ios .mobile-home-page > div:first-child,
-  html.mobile-browser .platform-ios .mobile-profile-page > div:first-child {
-    padding-top: 38px !important;
-  }
-
-  html.mobile-standalone,
-  html.mobile-standalone body {
-    background-color: #003375 !important;
-  }
-}
-
-@media (hover: none) and (pointer: coarse) {
-  html.mobile-browser,
-  html.mobile-browser body {
-    height: auto !important;
-    min-height: 100%;
-    overflow-y: auto !important;
-    background: transparent !important;
-    background-color: transparent !important;
-  }
-
-  html.mobile-browser .mobile-app-root {
-    height: auto !important;
-    min-height: 100dvh !important;
-    overflow: visible !important;
-    padding-bottom: 0 !important;
-    background: transparent !important;
-    background-color: transparent !important;
-  }
-
-  html.mobile-browser .mobile-main {
-    flex: none !important;
-    height: auto !important;
-    min-height: 100dvh !important;
-    overflow: visible !important;
-    background: transparent !important;
-    background-color: transparent !important;
-    -webkit-overflow-scrolling: auto !important;
-  }
-
-  html.mobile-browser .mobile-page {
-    padding-bottom: 0 !important;
-  }
-
-  html.mobile-browser .mobile-bottom-spacer {
-    display: none !important;
-  }
-}
-@media (hover: none) and (pointer: coarse) {
-  html.mobile-browser,
-  html.mobile-browser body {
-    height: auto !important;
-    min-height: 100%;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-    background: #F8FAFC !important;
-    background-color: #F8FAFC !important;
-  }
-
-  html.mobile-browser #root {
-    height: auto !important;
-    min-height: 100%;
-    overflow: visible !important;
-  }
-
-  html.mobile-browser .mobile-browser-shell {
-    height: auto !important;
-    min-height: 100vh !important;
-    overflow-x: hidden !important;
-    overflow-y: visible !important;
-    display: block !important;
-  }
-
-  html.mobile-browser .desktop-page-scroll {
-    height: auto !important;
-    min-height: auto !important;
-    overflow: visible !important;
-  }
-}
-/* Cho nội dung chạy xuống dưới thanh địa chỉ iPhone trong mobile browser */
+/* Mobile browser: cho nội dung thật chạy xuống dưới thanh URL iPhone */
 @media (hover: none) and (pointer: coarse) {
   html.mobile-browser,
   html.mobile-browser body,
   html.mobile-browser #root {
     height: auto !important;
-    min-height: 100%;
+    min-height: 100% !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
+    background:
+      radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.06), transparent 320px),
+      radial-gradient(circle at 88% 100%, rgba(0, 51, 117, 0.08), transparent 360px),
+      #F8FAFC !important;
   }
 
+  html.mobile-browser .app-shell,
   html.mobile-browser .mobile-browser-shell {
     height: auto !important;
     min-height: 100vh !important;
-    overflow-x: hidden !important;
-    overflow-y: visible !important;
+    overflow: visible !important;
     display: block !important;
+    background: transparent !important;
   }
 
-  html.mobile-browser .desktop-page-scroll {
+  html.mobile-browser .desktop-page-scroll,
+  html.mobile-browser .desktop-page-main {
     height: auto !important;
-    min-height: auto !important;
+    min-height: 0 !important;
     overflow: visible !important;
     padding-bottom: 0 !important;
     margin-bottom: 0 !important;
+    background: transparent !important;
   }
 
-  html.mobile-browser .desktop-page-scroll main {
+  html.mobile-browser .desktop-page-main > .flex-1 {
     padding-bottom: 0 !important;
     margin-bottom: 0 !important;
   }
 
   html.mobile-browser .mobile-page,
-  html.mobile-browser .platform-ios .mobile-page {
+  html.mobile-browser .platform-ios .mobile-page,
+  html.mobile-browser .mobile-dashboard-page,
+  html.mobile-browser .platform-ios .mobile-dashboard-page,
+  html.mobile-browser .mobile-schedule-page,
+  html.mobile-browser .platform-ios .mobile-schedule-page {
     padding-bottom: 0 !important;
   }
 
   html.mobile-browser .mobile-bottom-spacer,
-  html.mobile-browser .platform-ios .mobile-bottom-spacer {
+  html.mobile-browser .platform-ios .mobile-bottom-spacer,
+  html.mobile-browser .desktop-ai-hint,
+  html.mobile-browser .mobile-ai-bubble {
     display: none !important;
     height: 0 !important;
   }
-}
-@media (hover: none) and (pointer: coarse) {
-  html.mobile-browser .school-announcements-section,
-  html.mobile-browser .notification-section {
-    margin-bottom: 0 !important;
+
+  html.mobile-browser .mobile-ai-advisor {
+    bottom: 92px !important;
+  }
+
+  html.mobile-standalone,
+  html.mobile-standalone body {
+    background-color: #003375 !important;
   }
 }

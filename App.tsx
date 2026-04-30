@@ -1098,8 +1098,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
 
         const commonModals = (
             <>
-                {!useMobileLayout && (
-                    <div className="fixed bottom-[85px] right-6 z-50 flex flex-col items-end pointer-events-none">
+                {!useMobileLayout && !isMobileScreen && (
+    <div className="desktop-ai-hint fixed bottom-[85px] right-6 z-50 flex flex-col items-end pointer-events-none">
                         <div
                             className={`relative w-60 bg-white text-gray-800 text-sm font-medium p-3 rounded-2xl shadow-xl border border-blue-100 transition-all duration-500 ease-in-out transform origin-bottom-right ${
                                 showBubble ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-50 translate-y-4'
@@ -1111,11 +1111,11 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                     </div>
                 )}
 
-                {useMobileLayout ? (
-                    <MobileAIAdvisor data={data} userId={session?.user?.id} />
-                ) : (
-                    <AIAdvisor data={data} userId={session?.user?.id} />
-                )}
+                {isMobileScreen ? (
+    <MobileAIAdvisor data={data} userId={session?.user?.id} />
+) : (
+    <AIAdvisor data={data} userId={session?.user?.id} />
+)}
 
                 {showImportLoadingToast && (
                     <div className="fixed bottom-6 right-6 bg-white shadow-xl p-4 rounded-xl border border-gray-200 flex items-start gap-3 z-[100] animate-slideInRight max-w-xs">
