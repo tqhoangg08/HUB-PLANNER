@@ -1007,10 +1007,9 @@ html.mobile-menu-open main {
 }
 
 .mobile-menu-panel {
-  top: 0;
-  bottom: calc(108px + var(--app-bottom-gap, 0px) + env(safe-area-inset-bottom));
-  height: auto;
-  max-height: none;
+  height: 100vh;
+  height: calc(var(--app-vh, 1vh) * 100);
+  max-height: calc(var(--app-vh, 1vh) * 100);
   overflow: hidden;
   touch-action: auto;
   overscroll-behavior: contain;
@@ -1026,7 +1025,7 @@ html.mobile-menu-open main {
 }
 
 .mobile-menu-bottom-spacer {
-  height: calc(10rem + var(--app-bottom-gap, 0px) + env(safe-area-inset-bottom));
+  height: calc(14rem + var(--app-bottom-gap, 0px) + env(safe-area-inset-bottom));
 }
 
 /* =========================================================
