@@ -573,3 +573,52 @@ html.mobile-standalone body {
     overflow: visible !important;
   }
 }
+/* Cho nội dung chạy xuống dưới thanh địa chỉ iPhone trong mobile browser */
+@media (hover: none) and (pointer: coarse) {
+  html.mobile-browser,
+  html.mobile-browser body,
+  html.mobile-browser #root {
+    height: auto !important;
+    min-height: 100%;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+
+  html.mobile-browser .mobile-browser-shell {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    display: block !important;
+  }
+
+  html.mobile-browser .desktop-page-scroll {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  html.mobile-browser .desktop-page-scroll main {
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  html.mobile-browser .mobile-page,
+  html.mobile-browser .platform-ios .mobile-page {
+    padding-bottom: 0 !important;
+  }
+
+  html.mobile-browser .mobile-bottom-spacer,
+  html.mobile-browser .platform-ios .mobile-bottom-spacer {
+    display: none !important;
+    height: 0 !important;
+  }
+}
+@media (hover: none) and (pointer: coarse) {
+  html.mobile-browser .school-announcements-section,
+  html.mobile-browser .notification-section {
+    margin-bottom: 0 !important;
+  }
+}
