@@ -909,10 +909,73 @@ body.mobile-standalone {
     Không để nó ảnh hưởng layout chính.
   */
   html.mobile-browser .fixed.inset-0,
-  html.mobile-browser .fixed.top-0.left-0 {
+  html.mobile-browser .fixed.top-0.left-0:not(.mobile-browser-drawer) {
     -webkit-transform: translateZ(0);
     transform: translateZ(0);
   }
+
+  html.mobile-browser .mobile-browser-drawer {
+    height: calc(var(--app-vh, 1vh) * 100) !important;
+    max-height: calc(var(--app-vh, 1vh) * 100) !important;
+    overflow: hidden !important;
+    overscroll-behavior: contain;
+  }
+
+  html.mobile-browser .mobile-browser-drawer-scroll {
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+html.mobile-browser .mobile-browser-drawer {
+  height: calc(var(--app-vh, 1vh) * 100) !important;
+  max-height: calc(var(--app-vh, 1vh) * 100) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+html.mobile-browser .mobile-browser-drawer-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+html.mobile-browser .mobile-browser-drawer-scroll {
+  flex: none !important;
+  min-height: auto !important;
+  overflow: visible !important;
+  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)) !important;
+}
+
+html.mobile-menu-open,
+body.mobile-menu-open {
+  overflow: hidden !important;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+}
+
+html.mobile-menu-open .app-shell,
+html.mobile-menu-open .desktop-page-scroll,
+html.mobile-menu-open .desktop-page-main,
+html.mobile-menu-open main {
+  overflow: hidden !important;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+}
+
+html.mobile-menu-open .mobile-browser-drawer {
+  overflow-y: auto !important;
+  touch-action: none !important;
+  pointer-events: auto !important;
+  overscroll-behavior: contain !important;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* =========================================================
