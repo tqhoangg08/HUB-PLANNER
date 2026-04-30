@@ -1016,30 +1016,11 @@ body.mobile-standalone {
   }
 }
 /* =========================================================
-   IOS SAFARI BOTTOM URL BAR - BACK LAYER ONLY
-   Lớp nền rất mỏng, nằm SAU nội dung, không che chữ/card.
+   IOS SAFARI BOTTOM URL BAR BLEED
+   Tạo nền chạy xuống dưới thanh URL Safari mobile.
    ========================================================= */
 @media (hover: none) and (pointer: coarse) {
-  html.mobile-browser,
-  html.mobile-browser body {
-    background:
-      radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.06), transparent 320px),
-      radial-gradient(circle at 88% 100%, rgba(0, 51, 117, 0.08), transparent 360px),
-      #F8FAFC !important;
-    background-color: #F8FAFC !important;
-  }
-
-  html.mobile-browser body {
-    position: relative !important;
-    isolation: isolate;
-    overflow-x: hidden !important;
-  }
-
-  /*
-    Lớp này nằm SAU app-shell.
-    Không dùng z-index cao nữa, nên không che nội dung.
-  */
-  html.mobile-browser body::before {
+  html.mobile-browser body::after {
     content: "";
     position: fixed;
     left: 0;
@@ -1047,44 +1028,17 @@ body.mobile-standalone {
     bottom: 0;
 
     /*
-      Kéo nhỏ hết cỡ. Nếu vẫn còn hở trắng thì tăng 52px -> 64px.
+      Không để cao 180px nữa vì sẽ che nội dung.
+      92px là gần bằng chiều cao thanh URL Safari dưới.
     */
-    height: calc(52px + env(safe-area-inset-bottom));
+    height: calc(0px + env(safe-area-inset-bottom));
 
     pointer-events: none;
-    z-index: 0;
+    z-index: 2147483000;
 
-    /*
-      Nền rất nhẹ, gần như trong suốt.
-      Không tạo mảng đậm như debug đỏ / nền mỏng cũ.
-    */
     background:
-      linear-gradient(
-        to top,
-        rgba(248, 250, 252, 0.88),
-        rgba(248, 250, 252, 0.38),
-        rgba(248, 250, 252, 0)
-      ) !important;
-  }
-
-  /*
-    Toàn bộ app nằm trên lớp ::before.
-  */
-  html.mobile-browser #root,
-  html.mobile-browser .app-shell,
-  html.mobile-browser .mobile-browser-shell,
-  html.mobile-browser .desktop-page-scroll,
-  html.mobile-browser .desktop-page-main {
-    position: relative !important;
-    z-index: 1 !important;
-    background: transparent !important;
-    background-color: transparent !important;
-  }
-
-  html.mobile-browser .desktop-page-scroll,
-  html.mobile-browser .desktop-page-main {
-    overflow: visible !important;
-    height: auto !important;
-    max-height: none !important;
+      radial-gradient(circle at 12% 0%, rgba(11, 94, 215, 0.06), transparent 320px),
+      radial-gradient(circle at 88% 100%, rgba(0, 51, 117, 0.08), transparent 360px),
+      #F8FAFC !important;
   }
 }
