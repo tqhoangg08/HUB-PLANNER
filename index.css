@@ -908,7 +908,7 @@ body.mobile-standalone {
     Mobile drawer vẫn fixed, nhưng chỉ khi mở menu.
     Không để nó ảnh hưởng layout chính.
   */
-  html.mobile-browser .fixed.inset-0,
+  html.mobile-browser .fixed.inset-0:not(.mobile-menu-layer),
   html.mobile-browser .fixed.top-0.left-0:not(.mobile-browser-drawer) {
     -webkit-transform: translateZ(0);
     transform: translateZ(0);
@@ -957,7 +957,6 @@ html.mobile-browser .mobile-browser-drawer-scroll {
 html.mobile-menu-open,
 body.mobile-menu-open {
   overflow: hidden !important;
-  touch-action: none !important;
   overscroll-behavior: none !important;
 }
 
@@ -966,16 +965,46 @@ html.mobile-menu-open .desktop-page-scroll,
 html.mobile-menu-open .desktop-page-main,
 html.mobile-menu-open main {
   overflow: hidden !important;
-  touch-action: none !important;
   overscroll-behavior: none !important;
 }
 
-html.mobile-menu-open .mobile-browser-drawer {
-  overflow-y: auto !important;
-  touch-action: none !important;
-  pointer-events: auto !important;
-  overscroll-behavior: contain !important;
+@keyframes mobileMenuPanelIn {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slideInLeft {
+  animation: mobileMenuPanelIn 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mobile-menu-layer {
+  height: 100vh;
+  height: calc(var(--app-vh, 1vh) * 100);
+  max-height: calc(var(--app-vh, 1vh) * 100);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.mobile-menu-panel {
+  height: 100vh;
+  height: calc(var(--app-vh, 1vh) * 100);
+  max-height: calc(var(--app-vh, 1vh) * 100);
+  overflow: hidden;
+  touch-action: auto;
+  overscroll-behavior: contain;
+}
+
+.mobile-menu-scroll {
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  pointer-events: auto !important;
 }
 
 /* =========================================================

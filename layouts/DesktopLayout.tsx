@@ -51,9 +51,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileHandbookOpen, setIsMobileHandbookOpen] = useState(false);
   const handbookMenuRef = useRef<HTMLDivElement>(null);
-  const mobileDrawerRef = useRef<HTMLDivElement>(null);
   const lockedScrollYRef = useRef(0);
-  const drawerTouchYRef = useRef(0);
   const navRefs = useRef<(HTMLAnchorElement | HTMLDivElement | null)[]>([]);
   const [navIndicator, setNavIndicator] = useState({ left: 0, width: 0, opacity: 0 });
 
@@ -102,106 +100,34 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       const html = document.documentElement;
       const body = document.body;
       const previousHtmlOverflow = html.style.overflow;
-      const previousHtmlTouchAction = html.style.touchAction;
       const previousBodyPosition = body.style.position;
       const previousBodyTop = body.style.top;
       const previousBodyLeft = body.style.left;
       const previousBodyRight = body.style.right;
       const previousBodyWidth = body.style.width;
       const previousBodyOverflow = body.style.overflow;
-      const previousBodyTouchAction = body.style.touchAction;
 
       html.classList.add('mobile-menu-open');
       body.classList.add('mobile-menu-open');
       html.style.overflow = 'hidden';
-      html.style.touchAction = 'none';
       body.style.position = 'fixed';
       body.style.top = `-${lockedScrollYRef.current}px`;
       body.style.left = '0';
       body.style.right = '0';
       body.style.width = '100%';
       body.style.overflow = 'hidden';
-      body.style.touchAction = 'none';
 
       return () => {
           html.classList.remove('mobile-menu-open');
           body.classList.remove('mobile-menu-open');
           html.style.overflow = previousHtmlOverflow;
-          html.style.touchAction = previousHtmlTouchAction;
           body.style.position = previousBodyPosition;
           body.style.top = previousBodyTop;
           body.style.left = previousBodyLeft;
           body.style.right = previousBodyRight;
           body.style.width = previousBodyWidth;
           body.style.overflow = previousBodyOverflow;
-          body.style.touchAction = previousBodyTouchAction;
           window.scrollTo(0, lockedScrollYRef.current);
-      };
-  }, [isMobileMenuOpen]);
-
-  const handleMobileDrawerTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-      if (event.touches.length !== 1) return;
-      drawerTouchYRef.current = event.touches[0].clientY;
-  };
-
-  const handleMobileDrawerTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-      if (event.touches.length !== 1) return;
-
-      const drawer = mobileDrawerRef.current;
-      if (!drawer) return;
-
-      const currentY = event.touches[0].clientY;
-      const deltaY = drawerTouchYRef.current - currentY;
-      drawerTouchYRef.current = currentY;
-
-      const maxScrollTop = Math.max(0, drawer.scrollHeight - drawer.clientHeight);
-      if (maxScrollTop > 0) {
-          drawer.scrollTop = Math.min(maxScrollTop, Math.max(0, drawer.scrollTop + deltaY));
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-  };
-
-  useEffect(() => {
-      if (!isMobileMenuOpen) return;
-
-      const drawer = mobileDrawerRef.current;
-      if (!drawer) return;
-
-      const handleDrawerTouchStart = (event: TouchEvent) => {
-          if (event.touches.length !== 1) return;
-          drawerTouchYRef.current = event.touches[0].clientY;
-      };
-
-      const handleDrawerTouchMove = (event: TouchEvent) => {
-          if (event.touches.length !== 1) return;
-
-          const currentY = event.touches[0].clientY;
-          const deltaY = drawerTouchYRef.current - currentY;
-          drawerTouchYRef.current = currentY;
-
-          const maxScrollTop = Math.max(0, drawer.scrollHeight - drawer.clientHeight);
-          if (maxScrollTop > 0) {
-              drawer.scrollTop = Math.min(maxScrollTop, Math.max(0, drawer.scrollTop + deltaY));
-          }
-
-          if (event.cancelable) event.preventDefault();
-          event.stopPropagation();
-      };
-
-      const stopDocumentTouch = (event: TouchEvent) => {
-          if (event.cancelable) event.preventDefault();
-      };
-
-      drawer.addEventListener('touchstart', handleDrawerTouchStart, { passive: true });
-      drawer.addEventListener('touchmove', handleDrawerTouchMove, { passive: false });
-      document.addEventListener('touchmove', stopDocumentTouch, { passive: false, capture: true });
-
-      return () => {
-          drawer.removeEventListener('touchstart', handleDrawerTouchStart);
-          drawer.removeEventListener('touchmove', handleDrawerTouchMove);
-          document.removeEventListener('touchmove', stopDocumentTouch, { capture: true });
       };
   }, [isMobileMenuOpen]);
 
@@ -655,30 +581,16 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       {/* KHỐI MENU TRƯỢT DÀNH CHO MOBILE */}
       {/* ======================================================================= */}
       
-      <div 
-          className={`fixed inset-0 bg-black/60 z-[100] transition-opacity duration-300 sm:hidden ${
-              isMobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'
-          }`}
-          onClick={() => setIsMobileMenuOpen(false)}
-      />
+      {isMobileMenuOpen && (
+      <div className="mobile-menu-layer fixed inset-0 z-[100] sm:hidden">
+          <button
+              type="button"
+              aria-label="Đóng menu"
+              className="absolute inset-0 bg-black/60"
+              onClick={() => setIsMobileMenuOpen(false)}
+          />
 
-      <div 
-          ref={mobileDrawerRef}
-          className={`mobile-browser-drawer fixed top-0 left-0 h-[100dvh] w-[85%] max-w-[320px] bg-white z-[101] flex flex-col shadow-2xl transition-transform duration-300 ease-in-out sm:hidden ${
-              isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
-          onTouchStartCapture={handleMobileDrawerTouchStart}
-          onTouchMoveCapture={handleMobileDrawerTouchMove}
-          style={{
-              height: 'calc(var(--app-vh, 1vh) * 100)',
-              maxHeight: 'calc(var(--app-vh, 1vh) * 100)',
-              overflowY: 'auto',
-              WebkitOverflowScrolling: 'touch',
-              overscrollBehavior: 'contain',
-              touchAction: 'none',
-              transform: isMobileMenuOpen ? 'none' : 'translate3d(-100%, 0, 0)'
-          } as React.CSSProperties}
-      >
+          <aside className="mobile-menu-panel absolute inset-y-0 left-0 w-[85%] max-w-[320px] bg-white z-[101] flex flex-col shadow-2xl animate-slideInLeft">
           <div className="mobile-browser-drawer-header bg-[#003375] p-5 flex items-center justify-between shrink-0 shadow-md">
               <div className="flex flex-col text-white">
                   <span className="font-extrabold text-lg tracking-tight">HUB PLANNER</span>
@@ -692,7 +604,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               </button>
           </div>
 
-          <div className="mobile-browser-drawer-scroll shrink-0 overflow-visible py-5 px-4 flex flex-col gap-1 custom-scrollbar bg-white">
+          <div className="mobile-menu-scroll flex-1 min-h-0 overflow-y-scroll py-5 px-4 flex flex-col gap-1 custom-scrollbar bg-white">
               
               {/* Lời chào cá nhân hóa */}
               {!isGuest ? (
@@ -918,7 +830,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               </Link>
 
           </div>
+          </aside>
       </div>
+      )}
     </>
   );
 };
