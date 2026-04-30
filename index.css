@@ -1015,3 +1015,21 @@ body.mobile-standalone {
     background-color: rgba(255, 255, 255, 0.94) !important;
   }
 }
+/* DEBUG: kiểm tra index.css có thật sự được load không */
+body::after {
+  content: "DEBUG CSS";
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 180px;
+  background: red !important;
+  color: white !important;
+  font-size: 24px;
+  font-weight: 900;
+  z-index: 2147483647 !important;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
