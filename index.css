@@ -474,14 +474,28 @@ html, body {
     padding-top: calc(env(safe-area-inset-top) + 38px) !important;
 }
 
-/* Mobile browser only: keep Safari/Chrome top and bottom chrome light.
+/* Mobile browser: do not tint the browser chrome; let the page sit under it.
    Standalone PWA keeps the original blue app safe-area behavior. */
 @media (hover: none) and (pointer: coarse) {
   html.mobile-browser,
   html.mobile-browser body,
   html.mobile-browser .platform-ios .mobile-app-root,
   html.mobile-browser .platform-ios .mobile-main {
-    background-color: #F8FAFC !important;
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+
+  html.mobile-browser .platform-ios .mobile-page {
+    padding-bottom: 24px !important;
+  }
+
+  html.mobile-browser .platform-ios .mobile-bottom-spacer {
+    height: 24px !important;
+  }
+
+  html.mobile-browser .platform-ios .mobile-home-page > div:first-child,
+  html.mobile-browser .platform-ios .mobile-profile-page > div:first-child {
+    padding-top: 38px !important;
   }
 
   html.mobile-standalone,

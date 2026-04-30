@@ -4,8 +4,6 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#F8FAFC">
-  
   <meta name="apple-mobile-web-app-capable" content="yes">
   
   <meta charset="UTF-8" />
@@ -25,11 +23,19 @@
       var root = document.documentElement;
       var themeMeta = document.querySelector('meta[name="theme-color"]');
 
-      if (!isTouchMobile) return;
+      if (isTouchMobile) {
+        root.classList.add(isStandalone ? 'mobile-standalone' : 'mobile-browser');
+      }
 
-      root.classList.add(isStandalone ? 'mobile-standalone' : 'mobile-browser');
-      if (themeMeta) {
-        themeMeta.setAttribute('content', isStandalone ? '#003375' : '#F8FAFC');
+      if (isStandalone) {
+        if (!themeMeta) {
+          themeMeta = document.createElement('meta');
+          themeMeta.setAttribute('name', 'theme-color');
+          document.head.appendChild(themeMeta);
+        }
+        themeMeta.setAttribute('content', '#003375');
+      } else if (themeMeta) {
+        themeMeta.remove();
       }
     })();
   </script>
