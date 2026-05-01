@@ -1,9 +1,86 @@
-import { defineConfig } from 'vite'
+import fs from 'node:fs'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-export default defineConfig({
+const devApiPlugin = (): Plugin => ({
+  name: 'hub-planner-dev-api',
+  apply: 'serve',
+  configureServer(server) {
+    server.middlewares.use(async (req: any, res: any, next) => {
+      const requestUrl = req.url || ''
+      const parsedUrl = new URL(requestUrl, 'http://localhost')
+      if (!parsedUrl.pathname.startsWith('/api/')) return next()
+
+      const routeName = parsedUrl.pathname.replace(/^\/api\//, '').replace(/\/$/, '')
+      const jsPath = `/api/${routeName}.js`
+      const tsPath = `/api/${routeName}.ts`
+      const modulePath = fs.existsSync(`${process.cwd()}${jsPath}`) ? jsPath : fs.existsSync(`${process.cwd()}${tsPath}`) ? tsPath : null
+
+      if (!modulePath) {
+        res.statusCode = 404
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ error: 'API route not found' }))
+        return
+      }
+
+      try {
+        let rawBody = ''
+        await new Promise<void>((resolve, reject) => {
+          req.on('data', (chunk: Buffer) => {
+            rawBody += chunk.toString()
+          })
+          req.on('end', resolve)
+          req.on('error', reject)
+        })
+
+        const contentType = String(req.headers['content-type'] || '')
+        req.query = Object.fromEntries(parsedUrl.searchParams.entries())
+        req.body = contentType.includes('application/json') && rawBody ? JSON.parse(rawBody) : rawBody
+
+        const response = {
+          status(code: number) {
+            res.statusCode = code
+            return response
+          },
+          setHeader(name: string, value: string) {
+            res.setHeader(name, value)
+            return response
+          },
+          json(payload: unknown) {
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify(payload))
+          },
+          send(payload: unknown) {
+            if (typeof payload === 'object') {
+              res.setHeader('Content-Type', 'application/json')
+              res.end(JSON.stringify(payload))
+              return
+            }
+            res.end(String(payload ?? ''))
+          },
+          end(payload?: unknown) {
+            res.end(payload)
+          },
+        }
+
+        const mod = await server.ssrLoadModule(modulePath)
+        await mod.default(req, response)
+      } catch (error: any) {
+        res.statusCode = 500
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ error: error.message || 'Local API error' }))
+      }
+    })
+  },
+})
+
+export default defineConfig(({ mode }) => {
+  Object.assign(process.env, loadEnv(mode, process.cwd(), ''))
+
+  return {
   plugins: [
+    devApiPlugin(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -144,4 +221,5 @@ export default defineConfig({
     target: "esnext",
     sourcemap: false,
   },
+}
 })

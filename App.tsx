@@ -9,7 +9,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { ActivityLogModal } from './components/ActivityLogModal';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfUse } from './components/TermsOfUse';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, HeartCrack, ArrowLeft, RefreshCw, ClipboardList, Share, PlusSquare } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, HeartCrack, ArrowLeft, RefreshCw, ClipboardList, Share, PlusSquare, Lock, Eye, EyeOff } from 'lucide-react';
 import { parseHubPdf } from './utils/pdfImport';
 import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
@@ -35,7 +35,7 @@ import { MobileLearning } from './components/MobileLearning';
 import { MobileEvents } from './components/MobileEvents';
 import { MobileLostFound } from './components/MobileLostFound';
 import { MobileProfile } from './components/MobileProfile'; 
-import { MobileLogin } from './components/MobileLogin';
+import { PasswordSetupModal } from './components/PasswordSetupModal';
 import Swal from 'sweetalert2';
 import { MobileHandbook } from './components/MobileHandbook';
 import {
@@ -51,6 +51,19 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
+const OTP_RESEND_COOLDOWN_SECONDS = 10 * 60;
+
+const normalizeOtpEmail = (email: string) => email.trim().toLowerCase();
+const otpCooldownKey = (email: string, purpose: 'register' | 'forgot_password') =>
+    `hubplanner:otp-cooldown:${purpose}:${normalizeOtpEmail(email)}`;
+const getStoredOtpCooldown = (email: string, purpose: 'register' | 'forgot_password') => {
+    const until = Number(localStorage.getItem(otpCooldownKey(email, purpose)) || 0);
+    return Math.max(0, Math.ceil((until - Date.now()) / 1000));
+};
+const storeOtpCooldown = (email: string, purpose: 'register' | 'forgot_password', seconds = OTP_RESEND_COOLDOWN_SECONDS) => {
+    localStorage.setItem(otpCooldownKey(email, purpose), String(Date.now() + seconds * 1000));
+};
+const formatOtpCooldown = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
 const COHORT_OPTIONS: Record<string, string[]> = {
     'standard': ['K38', 'K39', 'K40', 'K41'],
@@ -99,6 +112,8 @@ const App: React.FC = () => {
 
     const isGuest = !session;
     const [forceGuestOnboarding, setForceGuestOnboarding] = useState(false);
+    const [passwordSetAt, setPasswordSetAt] = useState<string | null | undefined>(undefined);
+    const [passwordSetupSchemaMissing, setPasswordSetupSchemaMissing] = useState(false);
 
     // ==========================================
     // ✨ PWA MODE & RESPONSIVE DETECTOR
@@ -198,6 +213,46 @@ const App: React.FC = () => {
         return () => {
             window.clearTimeout(retryTimer);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [session?.user?.id]);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadPasswordStatus = async () => {
+            setPasswordSetupSchemaMissing(false);
+            if (!session?.user?.id || !supabase) {
+                if (isMounted) setPasswordSetAt(undefined);
+                return;
+            }
+
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('password_set_at')
+                .eq('id', session.user.id)
+                .maybeSingle();
+
+            if (!isMounted) return;
+
+            if (error) {
+                const message = `${error.message || ''} ${error.details || ''}`;
+                const missingPasswordStatusColumn =
+                    message.includes('password_set_at') ||
+                    (error as any).code === '42703' ||
+                    (error as any).code === 'PGRST204';
+                console.warn('Không thể kiểm tra trạng thái mật khẩu:', error);
+                setPasswordSetupSchemaMissing(missingPasswordStatusColumn);
+                setPasswordSetAt(undefined);
+                return;
+            }
+
+            setPasswordSetAt((data as any)?.password_set_at ?? null);
+        };
+
+        loadPasswordStatus();
+
+        return () => {
+            isMounted = false;
         };
     }, [session?.user?.id]);
 
@@ -403,6 +458,18 @@ const App: React.FC = () => {
     const [draftAvatarPreview, setDraftAvatarPreview] = useState('');
     const [profileSaving, setProfileSaving] = useState(false);
     const [profileError, setProfileError] = useState<string | null>(null);
+    const [showPasswordChange, setShowPasswordChange] = useState(false);
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [accountPasswordOtp, setAccountPasswordOtp] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmNewPassword, setConfirmNewPassword] = useState('');
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [isAccountPasswordOtpMode, setIsAccountPasswordOtpMode] = useState(false);
+    const [accountPasswordOtpCooldownRemaining, setAccountPasswordOtpCooldownRemaining] = useState(0);
+    const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
+    const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null);
+    const [passwordChangeNotice, setPasswordChangeNotice] = useState<string | null>(null);
 
     const [draftStudentName, setDraftStudentName] = useState('');
     const [draftProgram, setDraftProgram] = useState<Program | null>(null);
@@ -659,6 +726,16 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             setDraftAvatarFile(null);
             setDraftAvatarPreview('');
             setProfileError(null);
+            setShowPasswordChange(false);
+            setCurrentPassword('');
+            setAccountPasswordOtp('');
+            setNewPassword('');
+            setConfirmNewPassword('');
+            setShowCurrentPassword(false);
+            setShowNewPassword(false);
+            setIsAccountPasswordOtpMode(false);
+            setPasswordChangeError(null);
+            setPasswordChangeNotice(null);
             
             setDraftStudentName(data.studentName || '');
             
@@ -683,6 +760,22 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             }
         }
     }, [showAccountSettings, profileFullName, profileAvatarUrl, data]);
+
+    useEffect(() => {
+        const email = session?.user?.email;
+        if (!email) {
+            setAccountPasswordOtpCooldownRemaining(0);
+            return;
+        }
+
+        const syncCooldown = () => {
+            setAccountPasswordOtpCooldownRemaining(getStoredOtpCooldown(email, 'forgot_password'));
+        };
+
+        syncCooldown();
+        const timer = window.setInterval(syncCooldown, 1000);
+        return () => window.clearInterval(timer);
+    }, [session?.user?.email]);
 
     useEffect(() => {
         return () => {
@@ -787,7 +880,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 body: { 
                     email: session?.user?.email, 
                     passcode: otp, 
-                    time: timeString 
+                    time: timeString,
+                    purpose: 'delete_data'
                 }
             });
 
@@ -935,6 +1029,139 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         setShowAccountSettings(false);
     };
 
+    const validateAccountPasswordChange = () => {
+        if (isAccountPasswordOtpMode && accountPasswordOtp.length !== 6) return 'Nhập mã OTP gồm 6 chữ số.';
+        if (!isAccountPasswordOtpMode && !currentPassword) return 'Nhập mật khẩu cũ để xác nhận.';
+        if (newPassword.length < 8) return 'Mật khẩu mới cần ít nhất 8 ký tự.';
+        if (newPassword !== confirmNewPassword) return 'Mật khẩu mới và nhập lại mật khẩu mới chưa trùng khớp.';
+        if (!isAccountPasswordOtpMode && currentPassword === newPassword) return 'Mật khẩu mới cần khác mật khẩu cũ.';
+        return null;
+    };
+
+    const handleChangeAccountPassword = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!session?.user?.email || !supabase) return;
+
+        const invalid = validateAccountPasswordChange();
+        if (invalid) {
+            setPasswordChangeError(invalid);
+            setPasswordChangeNotice(null);
+            return;
+        }
+
+        setPasswordChangeLoading(true);
+        setPasswordChangeError(null);
+        setPasswordChangeNotice(null);
+        playClick();
+
+        try {
+            const email = session.user.email;
+            if (isAccountPasswordOtpMode) {
+                const response = await fetch('/api/auth-otp-verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        purpose: 'forgot_password',
+                        email,
+                        otp: accountPasswordOtp,
+                        password: newPassword,
+                        confirmPassword: confirmNewPassword,
+                    }),
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(payload.error || 'Mã OTP không chính xác hoặc đã hết hạn.');
+            } else {
+                const { error: verifyError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password: currentPassword,
+                });
+                if (verifyError) throw new Error('Mật khẩu cũ không chính xác.');
+
+                const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+                if (updateError) throw updateError;
+            }
+
+            try {
+                await supabase.rpc('mark_password_set');
+            } catch {
+                await supabase
+                    .from(STUDENT_PROFILE_TABLE)
+                    .update({ password_set_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+                    .eq('id', session.user.id);
+            }
+
+            setPasswordSetAt(new Date().toISOString());
+            localStorage.removeItem(otpCooldownKey(session.user.email, 'forgot_password'));
+            setAccountPasswordOtpCooldownRemaining(0);
+            setCurrentPassword('');
+            setAccountPasswordOtp('');
+            setNewPassword('');
+            setConfirmNewPassword('');
+            setIsAccountPasswordOtpMode(false);
+            setPasswordChangeNotice('Đã cập nhật mật khẩu thành công.');
+        } catch (error: any) {
+            setPasswordChangeError(error.message || 'Không thể cập nhật mật khẩu lúc này.');
+        } finally {
+            setPasswordChangeLoading(false);
+        }
+    };
+
+    const handleForgotAccountPassword = async () => {
+        if (!session?.user?.email || !supabase) return;
+        const email = session.user.email;
+        const storedCooldown = getStoredOtpCooldown(email, 'forgot_password');
+
+        if (storedCooldown > 0) {
+            setShowPasswordChange(true);
+            setIsAccountPasswordOtpMode(true);
+            setAccountPasswordOtpCooldownRemaining(storedCooldown);
+            setPasswordChangeError(null);
+            setPasswordChangeNotice(`M\u00e3 OTP \u0111\u00e3 \u0111\u01b0\u1ee3c g\u1eedi \u0111\u1ebfn ${email}. B\u1ea1n c\u00f3 th\u1ec3 g\u1eedi l\u1ea1i sau ${formatOtpCooldown(storedCooldown)}.`);
+            return;
+        }
+
+        setPasswordChangeLoading(true);
+        setPasswordChangeError(null);
+        setPasswordChangeNotice(null);
+        playClick();
+
+        try {
+            const response = await fetch('/api/auth-otp-send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ purpose: 'forgot_password', email }),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                if (response.status === 429 && payload.retryAfterSeconds) {
+                    const retryAfterSeconds = Number(payload.retryAfterSeconds);
+                    storeOtpCooldown(email, 'forgot_password', retryAfterSeconds);
+                    setAccountPasswordOtpCooldownRemaining(retryAfterSeconds);
+                    setShowPasswordChange(true);
+                    setIsAccountPasswordOtpMode(true);
+                    setPasswordChangeNotice(`M\u00e3 OTP \u0111\u00e3 \u0111\u01b0\u1ee3c g\u1eedi \u0111\u1ebfn ${email}. B\u1ea1n c\u00f3 th\u1ec3 g\u1eedi l\u1ea1i sau ${formatOtpCooldown(retryAfterSeconds)}.`);
+                    return;
+                }
+                throw new Error(payload.error || 'Kh\u00f4ng th\u1ec3 g\u1eedi m\u00e3 OTP \u0111\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u.');
+            }
+
+            const cooldownSeconds = Number(payload.retryAfterSeconds || payload.expiresInSeconds || OTP_RESEND_COOLDOWN_SECONDS);
+            storeOtpCooldown(email, 'forgot_password', cooldownSeconds);
+            setAccountPasswordOtpCooldownRemaining(cooldownSeconds);
+            setShowPasswordChange(true);
+            setIsAccountPasswordOtpMode(true);
+            setCurrentPassword('');
+            setAccountPasswordOtp('');
+            setNewPassword('');
+            setConfirmNewPassword('');
+            setPasswordChangeNotice(`\u0110\u00e3 g\u1eedi m\u00e3 OTP \u0111\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u \u0111\u1ebfn ${email}.`);
+        } catch (error: any) {
+            setPasswordChangeError(error.message || 'Kh\u00f4ng th\u1ec3 g\u1eedi m\u00e3 OTP \u0111\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u.');
+        } finally {
+            setPasswordChangeLoading(false);
+        }
+    };
+
     const displayName = useMemo(() => {
         if (profileFullName.trim()) return profileFullName.trim();
         return session?.user?.email ?? 'HUB User';
@@ -1045,6 +1272,9 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
     };
 
     const renderProtectedApp = () => {
+        const isPrivilegedUser = isAdmin || isAuditor || isCTV;
+        const requiresPasswordSetup = Boolean(session?.user && !isPrivilegedUser && passwordSetAt === null);
+
         if (!isLoaded) return null;
 
         if (isAccessDenied && !isAdmin && !isAuditor && !isCTV) {
@@ -1422,7 +1652,149 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                 </div>
 
                                 <div>
-                                    <h4 className="text-xs font-black text-[#003375] uppercase tracking-wider mb-3 border-b border-gray-100 pb-1">2. Thông tin lộ trình</h4>
+                                    <div className="mb-3 flex items-center justify-between gap-3 border-b border-gray-100 pb-1">
+                                        <h4 className="text-xs font-black text-[#003375] uppercase tracking-wider">2. Bảo mật tài khoản</h4>
+                                        <button
+                                            type="button"
+                                            onClick={handleForgotAccountPassword}
+                                            disabled={passwordChangeLoading || accountPasswordOtpCooldownRemaining > 0}
+                                            className="text-xs font-black text-[#003375] hover:underline disabled:cursor-not-allowed disabled:text-gray-400"
+                                        >
+                                            {accountPasswordOtpCooldownRemaining > 0
+                                                ? `Gửi lại sau ${formatOtpCooldown(accountPasswordOtpCooldownRemaining)}`
+                                                : isAccountPasswordOtpMode ? 'Gửi lại mã OTP' : 'Quên mật khẩu?'}
+                                        </button>
+                                    </div>
+
+                                    {passwordChangeError && (
+                                        <div className="mb-3 rounded-lg border border-red-100 bg-red-50 p-3 text-sm font-semibold text-red-600">
+                                            {passwordChangeError}
+                                        </div>
+                                    )}
+                                    {passwordChangeNotice && (
+                                        <div className="mb-3 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm font-semibold text-[#003375]">
+                                            {passwordChangeNotice}
+                                        </div>
+                                    )}
+
+                                    {!showPasswordChange ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                playClick();
+                                                setShowPasswordChange(true);
+                                                setIsAccountPasswordOtpMode(false);
+                                                setAccountPasswordOtp('');
+                                                setPasswordChangeError(null);
+                                                setPasswordChangeNotice(null);
+                                            }}
+                                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-[#003375]"
+                                        >
+                                            <Lock size={16} />
+                                            Cài lại mật khẩu
+                                        </button>
+                                    ) : (
+                                        <form onSubmit={handleChangeAccountPassword} className="space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
+                                            <div className="space-y-1.5">
+                                                <label className="text-xs font-bold text-gray-500">{isAccountPasswordOtpMode ? 'M\u00e3 OTP' : 'M\u1eadt kh\u1ea9u c\u0169'}</label>
+                                                <div className="relative">
+                                                    <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                                    <input
+                                                        type={isAccountPasswordOtpMode ? 'text' : showCurrentPassword ? 'text' : 'password'}
+                                                        value={isAccountPasswordOtpMode ? accountPasswordOtp : currentPassword}
+                                                        onChange={(event) => {
+                                                            if (isAccountPasswordOtpMode) {
+                                                                setAccountPasswordOtp(event.target.value.replace(/\D/g, '').slice(0, 6));
+                                                            } else {
+                                                                setCurrentPassword(event.target.value);
+                                                            }
+                                                        }}
+                                                        className="w-full rounded-lg border border-gray-300 bg-white px-9 py-2 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
+                                                        placeholder={isAccountPasswordOtpMode ? 'Nh\u1eadp 6 ch\u1eef s\u1ed1' : 'Nh\u1eadp m\u1eadt kh\u1ea9u hi\u1ec7n t\u1ea1i'}
+                                                        autoComplete={isAccountPasswordOtpMode ? 'one-time-code' : 'current-password'}
+                                                    />
+                                                    {!isAccountPasswordOtpMode && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowCurrentPassword(prev => !prev)}
+                                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:text-[#003375]"
+                                                            aria-label={showCurrentPassword ? '\u1ea8n m\u1eadt kh\u1ea9u c\u0169' : 'Hi\u1ec7n m\u1eadt kh\u1ea9u c\u0169'}
+                                                        >
+                                                            {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <label className="text-xs font-bold text-gray-500">Mật khẩu mới</label>
+                                                <div className="relative">
+                                                    <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                                    <input
+                                                        type={showNewPassword ? 'text' : 'password'}
+                                                        value={newPassword}
+                                                        onChange={(event) => setNewPassword(event.target.value)}
+                                                        className="w-full rounded-lg border border-gray-300 bg-white px-9 py-2 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
+                                                        placeholder="Ít nhất 8 ký tự"
+                                                        autoComplete="new-password"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowNewPassword(prev => !prev)}
+                                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:text-[#003375]"
+                                                        aria-label={showNewPassword ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
+                                                    >
+                                                        {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <label className="text-xs font-bold text-gray-500">Nhập lại mật khẩu mới</label>
+                                                <div className="relative">
+                                                    <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                                    <input
+                                                        type={showNewPassword ? 'text' : 'password'}
+                                                        value={confirmNewPassword}
+                                                        onChange={(event) => setConfirmNewPassword(event.target.value)}
+                                                        className="w-full rounded-lg border border-gray-300 bg-white px-9 py-2 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
+                                                        placeholder="Nhập lại mật khẩu mới"
+                                                        autoComplete="new-password"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setShowPasswordChange(false);
+                                                        setCurrentPassword('');
+                                                        setAccountPasswordOtp('');
+                                                        setNewPassword('');
+                                                        setConfirmNewPassword('');
+                                                        setIsAccountPasswordOtpMode(false);
+                                                        setPasswordChangeError(null);
+                                                        setPasswordChangeNotice(null);
+                                                    }}
+                                                    className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100"
+                                                >
+                                                    Hủy
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    disabled={passwordChangeLoading}
+                                                    className="flex-[1.4] rounded-lg bg-[#003375] px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-[#002855] disabled:cursor-not-allowed disabled:bg-gray-300"
+                                                >
+                                                    {passwordChangeLoading ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <h4 className="text-xs font-black text-[#003375] uppercase tracking-wider mb-3 border-b border-gray-100 pb-1">3. Thông tin lộ trình</h4>
                                     <div className="space-y-4">
                                         <div className="space-y-1.5">
                                             <label className="text-xs font-bold text-gray-500">Tên sinh viên (Tùy chọn)</label>
@@ -1605,6 +1977,25 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 </LayoutComponent>
                 
                 {commonModals}
+                {passwordSetupSchemaMissing && !isPrivilegedUser && (
+                    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/65 p-4">
+                        <div className="w-full max-w-md rounded-[24px] border border-amber-200 bg-white p-6 shadow-2xl sm:p-8">
+                            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+                                <AlertTriangle size={28} />
+                            </div>
+                            <h2 className="text-2xl font-black tracking-normal text-slate-950">Cần cập nhật Database</h2>
+                            <p className="mt-2 text-sm leading-6 text-slate-600">
+                                Hệ thống cần cột <strong className="font-black text-slate-900">profiles.password_set_at</strong> để nhận biết tài khoản nào chưa có mật khẩu riêng và bắt buộc cập nhật mật khẩu. Vui lòng chạy migration <strong className="font-black text-slate-900">20260501090000_add_password_setup_tracking.sql</strong> trước khi cho sinh viên dùng tiếp.
+                            </p>
+                        </div>
+                    </div>
+                )}
+                {requiresPasswordSetup && (
+                    <PasswordSetupModal
+                        email={session?.user?.email}
+                        onComplete={() => setPasswordSetAt(new Date().toISOString())}
+                    />
+                )}
             </div>
         );
     };
@@ -1622,7 +2013,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         <Routes>
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfUse />} />
-            <Route path="/login" element={useMobileLayout ? <MobileLogin /> : <LoginScreen />} />
+            <Route path="/login" element={<LoginScreen />} />
             
             <Route path="/" element={<Navigate to={useMobileLayout ? "/mobile-home" : "/dashboard"} replace />} />
             <Route path="/*" element={renderProtectedApp()} />
