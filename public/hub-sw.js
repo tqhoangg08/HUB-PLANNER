@@ -1,3 +1,11 @@
+self.addEventListener('install', function() {
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', function(event) {
+    event.waitUntil(self.clients.claim());
+});
+
 // Lang nghe su kien khi co Push gui toi
 self.addEventListener('push', function(event) {
     let data = {};

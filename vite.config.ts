@@ -89,7 +89,11 @@ export default defineConfig(({ mode }) => {
         enabled: true 
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         maximumFileSizeToCacheInBytes: 5000000,
+        navigateFallbackDenylist: [/^\/api\//],
         importScripts: ['/hub-sw.js']
       },
       manifest: {

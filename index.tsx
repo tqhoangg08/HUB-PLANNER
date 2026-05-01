@@ -4,6 +4,27 @@ import { BrowserRouter } from 'react-router-dom';
 import './index.css';
 import App from './App';
 
+if ('serviceWorker' in navigator) {
+  let isRefreshing = false;
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (isRefreshing) return;
+    isRefreshing = true;
+    window.location.reload();
+  });
+
+  const checkForServiceWorkerUpdate = () => {
+    navigator.serviceWorker.getRegistration()
+      .then((registration) => registration?.update())
+      .catch(() => {});
+  };
+
+  window.addEventListener('load', checkForServiceWorkerUpdate);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkForServiceWorkerUpdate();
+  });
+}
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");
