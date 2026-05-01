@@ -887,15 +887,20 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             const otp = Math.floor(100000 + Math.random() * 900000).toString();
             setGeneratedOtp(otp);
 
-            const expireTime = new Date();
-            expireTime.setMinutes(expireTime.getMinutes() + 15);
-            const timeString = expireTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            const expireTime = new Date(Date.now() + 15 * 60 * 1000);
+            const timeString = expireTime.toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+                timeZone: 'Asia/Ho_Chi_Minh',
+            });
 
             const { data, error } = await supabase.functions.invoke('send-otp-email', {
                 body: { 
                     email: session?.user?.email, 
                     passcode: otp, 
                     time: timeString,
+                    expiresAt: expireTime.toISOString(),
                     purpose: 'delete_data'
                 }
             });
