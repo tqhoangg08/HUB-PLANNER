@@ -91,6 +91,11 @@ const markPasswordProfile = async (userId, email) => {
     }, { onConflict: 'id' });
 };
 
+const deleteRows = async (table, column, value) => {
+  const { error } = await supabase.from(table).delete().eq(column, value);
+  if (error) console.error(`Skip cleanup ${table}:`, error.message);
+};
+
 const sendEmail = async ({ email, otp, purpose }) => {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -347,6 +352,64 @@ const verifyOtp = async (request, response) => {
   return response.status(200).json({ email, passwordUpdated: true });
 };
 
+const deleteAccount = async (request, response) => {
+  const token = String(request.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!token) return response.status(401).json({ error: 'Thieu phien dang nhap.' });
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !userData?.user?.id) {
+    return response.status(401).json({ error: 'Phien dang nhap khong hop le.' });
+  }
+
+  const userId = userData.user.id;
+  const email = normalizeEmail(userData.user.email || '');
+
+  try {
+    const { data: avatarFiles, error: avatarError } = await supabase.storage.from('avatars').list(userId);
+    if (!avatarError && avatarFiles?.length) {
+      await supabase.storage
+        .from('avatars')
+        .remove(avatarFiles.map((file) => `${userId}/${file.name}`));
+    }
+  } catch (error) {
+    console.error('Skip avatar cleanup:', error.message);
+  }
+
+  const userIdTables = [
+    'activity_logs',
+    'ai_chat_logs',
+    'benchmark_rankings',
+    'bug_reports',
+    'comment_likes',
+    'comments',
+    'course_reports',
+    'ctv_requests',
+    'donations',
+    'event_reports',
+    'feedback',
+    'lost_found_items',
+    'user_schedules',
+    'user_participations',
+    'user_course_requests',
+    'user_roles',
+    'notifications',
+    'push_subscriptions',
+    'schedule_reminders',
+  ];
+
+  for (const table of userIdTables) {
+    await deleteRows(table, 'user_id', userId);
+  }
+
+  if (email) await deleteRows('auth_otp_codes', 'email', email);
+  await deleteRows('profiles', 'id', userId);
+
+  const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
+  if (deleteError) throw deleteError;
+
+  return response.status(200).json({ deleted: true });
+};
+
 async function handler(request, response) {
   if (request.method !== 'POST') {
     return response.status(405).json({ error: 'Chi ho tro phuong thuc POST.' });
@@ -357,6 +420,7 @@ async function handler(request, response) {
     if (action === 'resolve-identifier') return await resolveIdentifier(request, response);
     if (action === 'send-otp') return await sendOtp(request, response);
     if (action === 'verify-otp') return await verifyOtp(request, response);
+    if (action === 'delete-account') return await deleteAccount(request, response);
     return response.status(400).json({ error: 'Thao tac auth khong hop le.' });
   } catch (error) {
     const statusCode = error.statusCode || 500;

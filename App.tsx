@@ -936,29 +936,16 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
     const executeResetData = async () => {
         try {
             if (!isGuest && session?.user?.id && supabase) {
-                try {
-                    const { data: listFiles } = await supabase.storage.from('avatars').list(session.user.id);
-                    if (listFiles && listFiles.length > 0) {
-                        const filesToRemove = listFiles.map(x => `${session.user.id}/${x.name}`);
-                        await supabase.storage.from('avatars').remove(filesToRemove);
-                    }
-                } catch (e) { console.error("Lỗi xóa Avatar:", e); }
-
-                const tables = ['user_schedules', 'user_participations', 'notifications', 'profiles'];
-                for (const table of tables) {
-                    try {
-                        const col = table === 'profiles' ? 'id' : 'user_id';
-                        await supabase.from(table).delete().eq(col, session.user.id);
-                    } catch (e) {
-                        console.error(`Bỏ qua lỗi dọn dẹp bảng ${table}:`, e);
-                    }
-                }
-
-                try {
-                    await supabase.rpc('delete_my_account');
-                } catch (e) {
-                    console.error("Lỗi xóa tài khoản Auth:", e);
-                }
+                const response = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({ action: 'delete-account' }),
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(payload.error || 'Không thể xóa tài khoản.');
             }
 
             await new Promise(resolve => setTimeout(resolve, 3000));
@@ -1451,7 +1438,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 {showGuide && <UserGuideModal onClose={() => setShowGuide(false)} />}
                 {showActivityLog && <ActivityLogModal onClose={() => setShowActivityLog(false)} />}
                 
-                {/* MODAL XÁC NHẬN OTP ĐỂ RESET DATA */}
+                {/* MODAL XÁC NHẬN OTP ĐỂ XÓA TÀI KHOẢN */}
                 {showResetModal && (
                     <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
                         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn border border-gray-200">
@@ -1484,8 +1471,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                         <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-sm mb-3 text-red-600 border border-red-100">
                                             <ShieldAlert size={28} />
                                         </div>
-                                        <h3 className="text-xl font-bold text-red-700">Cảnh báo xóa dữ liệu</h3>
-                                        <p className="text-sm text-red-600/80 font-medium mt-1">Hành động này không thể hoàn tác.</p>
+                                        <h3 className="text-xl font-bold text-red-700">Cảnh báo xóa tài khoản</h3>
+                                        <p className="text-sm text-red-600/80 font-medium mt-1">Tài khoản và toàn bộ dữ liệu sẽ bị xóa vĩnh viễn.</p>
                                     </div>
                                     
                                     <div className="p-6">
@@ -1578,7 +1565,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                             disabled={otpInput.length !== 6} 
                                             className="w-full py-3.5 bg-[#003375] text-white font-bold rounded-xl hover:bg-[#002855] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-md hover:shadow-lg mb-6 flex items-center justify-center gap-2 active:scale-[0.98]"
                                         >
-                                            Xác nhận xóa vĩnh viễn
+                                            Xác nhận xóa tài khoản
                                         </button>
 
                                         <div className="flex flex-col items-center gap-5 w-full border-t border-gray-100 pt-5">
