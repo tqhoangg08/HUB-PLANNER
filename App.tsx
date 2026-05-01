@@ -1775,7 +1775,6 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                                         Tải ảnh lên
                                                     </label>
                                                     <p className="mt-1 text-[11px] font-medium leading-4 text-gray-400">
-                                                        Ảnh sẽ tự cắt vuông, nén WebP rồi lưu trên Cloudflare R2.
                                                     </p>
                                                 </div>
                                             </div>
