@@ -1,4 +1,4 @@
-import { createHash, randomInt } from 'crypto';
+import { createHash, createHmac, randomInt } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { withLogging } from '../server/middleware.js';
 
@@ -7,6 +7,9 @@ const OTP_TTL_MINUTES = 10;
 const OTP_COOLDOWN_SECONDS = 10 * 60;
 const MAX_ATTEMPTS = 5;
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
+const R2_ENDPOINT = process.env.R2_ACCOUNT_ID
+  ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+  : '';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -14,6 +17,17 @@ const supabase = createClient(
 );
 
 const normalizeEmail = (value = '') => value.trim().toLowerCase();
+
+const encodeR2Path = (key) => key.split('/').map(encodeURIComponent).join('/');
+
+const hmac = (key, value, encoding) => createHmac('sha256', key).update(value).digest(encoding);
+
+const getSignatureKey = (secretKey, dateStamp, region, service) => {
+  const kDate = hmac(`AWS4${secretKey}`, dateStamp);
+  const kRegion = hmac(kDate, region);
+  const kService = hmac(kRegion, service);
+  return hmac(kService, 'aws4_request');
+};
 
 const formatVietnamTime = (date) => date.toLocaleTimeString('vi-VN', {
   hour: '2-digit',
@@ -410,6 +424,82 @@ const deleteAccount = async (request, response) => {
   return response.status(200).json({ deleted: true });
 };
 
+const createAvatarUpload = async (request, response) => {
+  const token = String(request.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!token) return response.status(401).json({ error: 'Thieu phien dang nhap.' });
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !userData?.user?.id) {
+    return response.status(401).json({ error: 'Phien dang nhap khong hop le.' });
+  }
+
+  const bucket = process.env.R2_BUCKET_NAME;
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  const publicBaseUrl = process.env.R2_PUBLIC_URL;
+
+  if (!R2_ENDPOINT || !bucket || !accessKeyId || !secretAccessKey || !publicBaseUrl) {
+    return response.status(500).json({
+      error: 'Chua cau hinh R2. Can R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL.',
+    });
+  }
+
+  const contentType = String(request.body?.contentType || 'image/webp');
+  const size = Number(request.body?.size || 0);
+  if (!contentType.startsWith('image/')) {
+    return response.status(400).json({ error: 'File avatar phai la anh.' });
+  }
+  if (!size || size > 350 * 1024) {
+    return response.status(400).json({ error: 'Avatar can nho hon 350KB sau khi nen.' });
+  }
+
+  const extension = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp';
+  const userId = userData.user.id;
+  const key = `avatars/${userId}/${Date.now()}.${extension}`;
+  const encodedKey = encodeR2Path(key);
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+  const dateStamp = amzDate.slice(0, 8);
+  const region = 'auto';
+  const service = 's3';
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const host = `${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  const expires = 300;
+
+  const queryParams = new URLSearchParams({
+    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+    'X-Amz-Credential': `${accessKeyId}/${credentialScope}`,
+    'X-Amz-Date': amzDate,
+    'X-Amz-Expires': String(expires),
+    'X-Amz-SignedHeaders': 'host',
+  });
+
+  const canonicalRequest = [
+    'PUT',
+    `/${bucket}/${encodedKey}`,
+    queryParams.toString(),
+    `host:${host}\n`,
+    'host',
+    'UNSIGNED-PAYLOAD',
+  ].join('\n');
+
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    amzDate,
+    credentialScope,
+    createHash('sha256').update(canonicalRequest).digest('hex'),
+  ].join('\n');
+
+  const signingKey = getSignatureKey(secretAccessKey, dateStamp, region, service);
+  const signature = hmac(signingKey, stringToSign, 'hex');
+  queryParams.set('X-Amz-Signature', signature);
+
+  const uploadUrl = `${R2_ENDPOINT}/${bucket}/${encodedKey}?${queryParams.toString()}`;
+  const publicUrl = `${publicBaseUrl.replace(/\/$/, '')}/${encodedKey}`;
+
+  return response.status(200).json({ uploadUrl, publicUrl, key, expiresInSeconds: expires });
+};
+
 async function handler(request, response) {
   if (request.method !== 'POST') {
     return response.status(405).json({ error: 'Chi ho tro phuong thuc POST.' });
@@ -421,6 +511,7 @@ async function handler(request, response) {
     if (action === 'send-otp') return await sendOtp(request, response);
     if (action === 'verify-otp') return await verifyOtp(request, response);
     if (action === 'delete-account') return await deleteAccount(request, response);
+    if (action === 'create-avatar-upload') return await createAvatarUpload(request, response);
     return response.status(400).json({ error: 'Thao tac auth khong hop le.' });
   } catch (error) {
     const statusCode = error.statusCode || 500;

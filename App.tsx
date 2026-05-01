@@ -65,6 +65,44 @@ const storeOtpCooldown = (email: string, purpose: 'register' | 'forgot_password'
 };
 const formatOtpCooldown = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
+const resizeAvatarImage = (file: File) => new Promise<Blob>((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    image.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        const size = 512;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const context = canvas.getContext('2d');
+        if (!context) {
+            reject(new Error('Không thể xử lý ảnh avatar.'));
+            return;
+        }
+
+        const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
+        const sourceX = Math.max(0, (image.naturalWidth - sourceSize) / 2);
+        const sourceY = Math.max(0, (image.naturalHeight - sourceSize) / 2);
+
+        context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                reject(new Error('Không thể nén ảnh avatar.'));
+                return;
+            }
+            resolve(blob);
+        }, 'image/webp', 0.78);
+    };
+
+    image.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('File ảnh không hợp lệ.'));
+    };
+
+    image.src = objectUrl;
+});
+
 const COHORT_OPTIONS: Record<string, string[]> = {
     'standard': ['K38', 'K39', 'K40', 'K41'],
     'tabp': ['CLCK10', 'CLCK11', 'CLCK12', 'CLCK13'],
@@ -500,6 +538,21 @@ const App: React.FC = () => {
     const [otpError, setOtpError] = useState('');
     const [resendCountdown, setResendCountdown] = useState(0);
 
+    const resetDeleteAccountModal = useCallback(() => {
+        setShowResetModal(false);
+        setResetStep(1);
+        setGeneratedOtp('');
+        setOtpInput('');
+        setOtpError('');
+        setResendCountdown(0);
+    }, []);
+
+    useEffect(() => {
+        if (!session?.user?.id && showResetModal) {
+            resetDeleteAccountModal();
+        }
+    }, [session?.user?.id, showResetModal, resetDeleteAccountModal]);
+
     // ==========================================
     // ✨ THUẬT TOÁN CAPTCHA NÂNG CAO ✨
     // ==========================================
@@ -843,7 +896,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             
             localStorage.clear();
             sessionStorage.clear();
-            
+            resetDeleteAccountModal();
+
             navigate('/login', { replace: true });
         }
     };
@@ -976,22 +1030,40 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         let avatarUrlToSave = draftAvatarUrl.trim();
 
         if (draftAvatarFile) {
-            const fileExt = draftAvatarFile.name.split('.').pop() || 'png';
-            const filePath = `${session.user.id}/${Date.now()}.${fileExt}`;
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, draftAvatarFile, { upsert: true });
+            try {
+                const avatarBlob = await resizeAvatarImage(draftAvatarFile);
+                const response = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({
+                        action: 'create-avatar-upload',
+                        contentType: avatarBlob.type || 'image/webp',
+                        size: avatarBlob.size,
+                    }),
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok || !payload.uploadUrl || !payload.publicUrl) {
+                    throw new Error(payload.error || 'Không thể tạo liên kết tải ảnh lên.');
+                }
 
-            if (uploadError) {
-                setProfileError('Không thể tải ảnh lên. Vui lòng thử lại.');
+                const uploadResponse = await fetch(payload.uploadUrl, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': avatarBlob.type || 'image/webp' },
+                    body: avatarBlob,
+                });
+                if (!uploadResponse.ok) {
+                    throw new Error('Không thể tải ảnh avatar lên R2.');
+                }
+
+                avatarUrlToSave = payload.publicUrl;
+            } catch (error: any) {
+                setProfileError(error.message || 'Không thể tải ảnh lên. Vui lòng thử lại.');
                 setProfileSaving(false);
                 return;
             }
-
-            const { data: publicData } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(filePath);
-            avatarUrlToSave = publicData.publicUrl;
         }
 
         const userEmail = session.user.email || '';
@@ -1649,11 +1721,63 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                                     <button
                                                         key={color}
                                                         type="button"
-                                                        onClick={() => setDraftAvatarUrl(color)}
+                                                        onClick={() => {
+                                                            setDraftAvatarUrl(color);
+                                                            setDraftAvatarFile(null);
+                                                            if (draftAvatarPreview) {
+                                                                URL.revokeObjectURL(draftAvatarPreview);
+                                                                setDraftAvatarPreview('');
+                                                            }
+                                                        }}
                                                         className={`h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 ${draftAvatarUrl === color ? 'border-gray-900 scale-110' : 'border-transparent'}`}
                                                         style={{ backgroundColor: color }}
                                                     />
                                                 ))}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold text-gray-500">Ảnh Avatar</label>
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-50">
+                                                    {draftAvatarPreview ? (
+                                                        <img src={draftAvatarPreview} alt="Avatar xem trước" className="h-full w-full object-cover" />
+                                                    ) : draftAvatarUrl && !draftAvatarUrl.startsWith('#') ? (
+                                                        <img src={draftAvatarUrl} alt="Avatar hiện tại" className="h-full w-full object-cover" />
+                                                    ) : (
+                                                        <div className="flex h-full w-full items-center justify-center text-sm font-black text-white" style={{ backgroundColor: draftAvatarUrl || '#1f2937' }}>
+                                                            {avatarSeed}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <input
+                                                        id="avatar-upload"
+                                                        type="file"
+                                                        accept="image/png,image/jpeg,image/webp"
+                                                        className="hidden"
+                                                        onChange={(event) => {
+                                                            const file = event.target.files?.[0];
+                                                            if (!file) return;
+                                                            if (!file.type.startsWith('image/')) {
+                                                                setProfileError('Vui lòng chọn đúng file ảnh.');
+                                                                return;
+                                                            }
+                                                            if (draftAvatarPreview) URL.revokeObjectURL(draftAvatarPreview);
+                                                            setDraftAvatarFile(file);
+                                                            setDraftAvatarUrl('');
+                                                            setDraftAvatarPreview(URL.createObjectURL(file));
+                                                        }}
+                                                    />
+                                                    <label
+                                                        htmlFor="avatar-upload"
+                                                        className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-[#003375] transition-colors hover:bg-blue-50"
+                                                    >
+                                                        Tải ảnh lên
+                                                    </label>
+                                                    <p className="mt-1 text-[11px] font-medium leading-4 text-gray-400">
+                                                        Ảnh sẽ tự cắt vuông, nén WebP rồi lưu trên Cloudflare R2.
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
