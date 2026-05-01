@@ -131,17 +131,28 @@ const resolveEmail = async (rawValue) => {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('email')
+    .select('id')
     .eq('student_code', identifier)
     .maybeSingle();
 
   if (error) throw error;
-  if (!data?.email) {
+  if (!data?.id) {
     const notFound = new Error('Không tìm thấy MSSV trong hệ thống.');
     notFound.statusCode = 404;
     throw notFound;
   }
-  return normalizeEmail(data.email);
+  const { data: privateProfile, error: privateError } = await supabase
+    .from('profile_private_data')
+    .select('email')
+    .eq('user_id', data.id)
+    .maybeSingle();
+  if (privateError) throw privateError;
+  if (!privateProfile?.email) {
+    const notFound = new Error('KhÃ´ng tÃ¬m tháº¥y email cá»§a MSSV nÃ y.');
+    notFound.statusCode = 404;
+    throw notFound;
+  }
+  return normalizeEmail(privateProfile.email);
 };
 
 const passwordError = (password, confirmPassword) => {
@@ -162,16 +173,34 @@ const getAuthUserByEmail = async (email) => {
   return null;
 };
 
+const getPrivateProfileByEmail = async (email) => {
+  const { data, error } = await supabase
+    .from('profile_private_data')
+    .select('user_id, email')
+    .eq('email', email)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+};
+
 const markPasswordProfile = async (userId, email) => {
   await supabase
     .from('profiles')
     .upsert({
       id: userId,
-      email,
       student_code: email.split('@')[0],
-      password_set_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }, { onConflict: 'id' });
+
+  await supabase
+    .from('profile_private_data')
+    .upsert({
+      user_id: userId,
+      email,
+      data: {},
+      password_set_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
 };
 
 const deleteRows = async (table, column, value) => {
@@ -245,16 +274,12 @@ const sendOtp = async (request, response) => {
 
   const email = await resolveEmail(request.body?.email || request.body?.identifier);
 
-  const { data: existingProfile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('email', email)
-    .maybeSingle();
+  const existingProfile = await getPrivateProfileByEmail(email);
 
-  if (purpose === 'register' && existingProfile?.id) {
+  if (purpose === 'register' && existingProfile?.user_id) {
     return response.status(409).json({ error: 'Email này đã được đăng ký. Hãy chuyển sang đăng nhập.' });
   }
-  if (purpose === 'forgot_password' && !existingProfile?.id) {
+  if (purpose === 'forgot_password' && !existingProfile?.user_id) {
     return response.status(404).json({ error: 'Không tìm thấy tài khoản HUB/MSSV này.' });
   }
 
@@ -366,20 +391,15 @@ const verifyOtp = async (request, response) => {
   await verifyOtpRecord({ email, purpose, otp });
 
   if (purpose === 'register') {
-    const { data: existingProfile, error: existingProfileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', email)
-      .maybeSingle();
-    if (existingProfileError) throw existingProfileError;
+    const existingProfile = await getPrivateProfileByEmail(email);
 
-    if (existingProfile?.id) {
-      const { error: updateExistingError } = await supabase.auth.admin.updateUserById(existingProfile.id, {
+    if (existingProfile?.user_id) {
+      const { error: updateExistingError } = await supabase.auth.admin.updateUserById(existingProfile.user_id, {
         password,
         user_metadata: { password_set_at: true },
       });
       if (updateExistingError) throw updateExistingError;
-      await markPasswordProfile(existingProfile.id, email);
+      await markPasswordProfile(existingProfile.user_id, email);
       return response.status(200).json({ email, created: false, passwordUpdated: true });
     }
 
@@ -416,16 +436,18 @@ const verifyOtp = async (request, response) => {
     return response.status(200).json({ email, created: true });
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('email', email)
-    .maybeSingle();
-  if (profileError) throw profileError;
+  const profile = await getPrivateProfileByEmail(email);
+  const profileError = null;
+  if (profile?.user_id) profile.id = profile.user_id;
   if (!profile?.id) throw new Error('Không tìm thấy tài khoản cần đặt lại mật khẩu.');
 
   const { error: updateError } = await supabase.auth.admin.updateUserById(profile.id, { password });
   if (updateError) throw updateError;
+
+  await supabase
+    .from('profile_private_data')
+    .update({ password_set_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('user_id', profile.id);
 
   await supabase
     .from('profiles')

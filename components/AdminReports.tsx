@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Loader2, CheckCircle2, AlertTriangle, Bug, BookOpen, UserPlus, CalendarDays, MessageSquare, Trash2, Calendar } from 'lucide-react';
+import { fetchProfilePrivateMap } from '../utils/profilePrivate';
+import { Link } from 'react-router-dom';
+import { Loader2, CheckCircle2, AlertTriangle, Bug, BookOpen, UserPlus, CalendarDays, MessageSquare, Trash2, Calendar, Edit2 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 type TabType = 'course_reports' | 'bug_reports' | 'ctv_requests' | 'event_reports' | 'feedback';
@@ -55,12 +57,13 @@ export const AdminReports: React.FC = () => {
                 if (userIds.length > 0) {
                     const { data: profilesData } = await supabase
                         .from('profiles')
-                        .select('id, full_name, student_code, email')
+                        .select('id, full_name, student_code')
                         .in('id', userIds);
+                    const privateMap = await fetchProfilePrivateMap(userIds);
                         
                     if (profilesData) {
                         profilesData.forEach(p => {
-                            profilesMap[p.id] = p;
+                            profilesMap[p.id] = { ...p, email: privateMap[p.id]?.email };
                         });
                     }
                 }
@@ -183,6 +186,7 @@ export const AdminReports: React.FC = () => {
                     {activeTab === 'event_reports' && (
                         <>
                             <p><strong className="text-gray-600">Sự kiện:</strong> <span className="font-bold text-[#003375]">{item.event_name}</span> (ID: {item.event_id})</p>
+                            <p><strong className="text-gray-600">ID sự kiện:</strong> <span className="font-mono font-bold bg-purple-50 text-purple-700 border border-purple-100 px-2 py-0.5 rounded">{item.event_id || '---'}</span></p>
                             <p><strong className="text-gray-600">BTC:</strong> {item.organizer}</p>
                             <p><strong className="text-gray-600">Chi tiết sai sót:</strong> <span className="whitespace-pre-line text-red-600 font-medium">{item.issue_description}</span></p>
                         </>
@@ -209,6 +213,15 @@ export const AdminReports: React.FC = () => {
 
                 {/* Footer Actions */}
                 <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                    {activeTab === 'event_reports' && item.event_id && (
+                        <Link
+                            to={`/events/edit/${encodeURIComponent(String(item.event_id))}`}
+                            onClick={() => playClick()}
+                            className="px-3 py-1.5 text-xs font-bold text-[#003375] bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-1 border border-blue-100"
+                        >
+                            <Edit2 size={14}/> Sửa sự kiện
+                        </Link>
+                    )}
                     <button 
                         onClick={() => handleDelete(item.id)}
                         disabled={updatingId === item.id}

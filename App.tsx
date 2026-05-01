@@ -43,6 +43,7 @@ import {
     subscribeToDeviceNotifications,
     unbindDeviceNotificationsForCurrentUser,
 } from './utils/pushNotifications';
+import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from './utils/profilePrivate';
 
 let globalDeferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -52,6 +53,26 @@ window.addEventListener('beforeinstallprompt', (e) => {
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
 const OTP_RESEND_COOLDOWN_SECONDS = 10 * 60;
+
+const isMissingLegacyProfileColumn = (error: any, columnName: string) => {
+    const message = `${error?.message || ''} ${error?.details || ''}`;
+    return message.includes(columnName) || error?.code === '42703' || error?.code === 'PGRST204';
+};
+
+const fetchLegacyProfileData = async (userId: string) => {
+    const { data, error } = await supabase
+        .from(STUDENT_PROFILE_TABLE)
+        .select('data')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (error) {
+        if (!isMissingLegacyProfileColumn(error, 'data')) console.warn('Không thể đọc profiles.data legacy:', error);
+        return null;
+    }
+
+    return (data as any)?.data || null;
+};
 
 const normalizeOtpEmail = (email: string) => email.trim().toLowerCase();
 const otpCooldownKey = (email: string, purpose: 'register' | 'forgot_password') =>
@@ -274,15 +295,22 @@ const App: React.FC = () => {
                 return;
             }
 
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('password_set_at')
-                .eq('id', session.user.id)
-                .maybeSingle();
+            let profilePasswordSetAt: string | null | undefined;
+            let privateProfileMissing = false;
+
+            try {
+                const privateProfile = await fetchProfilePrivate(session.user.id);
+                profilePasswordSetAt = privateProfile?.password_set_at;
+                privateProfileMissing = !privateProfile;
+            } catch (error: any) {
+                console.warn('Không thể kiểm tra trạng thái mật khẩu private:', error);
+                privateProfileMissing = true;
+            }
 
             if (!isMounted) return;
 
-            if (error) {
+            if (false as boolean) {
+                const error = { message: '', details: '', code: '' } as any;
                 const message = `${error.message || ''} ${error.details || ''}`;
                 const missingPasswordStatusColumn =
                     message.includes('password_set_at') ||
@@ -294,16 +322,32 @@ const App: React.FC = () => {
                 return;
             }
 
-            const profilePasswordSetAt = (data as any)?.password_set_at;
+            if (!profilePasswordSetAt) {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('password_set_at')
+                    .eq('id', session.user.id)
+                    .maybeSingle();
+
+                if (!isMounted) return;
+
+                if (error) {
+                    if (!isMissingLegacyProfileColumn(error, 'password_set_at')) {
+                        console.warn('Không thể kiểm tra trạng thái mật khẩu legacy:', error);
+                    }
+                } else {
+                    profilePasswordSetAt = (data as any)?.password_set_at;
+                }
+            }
             const metadataPasswordSet = Boolean((session.user.user_metadata as any)?.password_set_at);
             if (!profilePasswordSetAt && metadataPasswordSet) {
                 const markedAt = new Date().toISOString();
                 setPasswordSetAt(markedAt);
-                supabase
-                    .from(STUDENT_PROFILE_TABLE)
-                    .update({ password_set_at: markedAt, updated_at: markedAt })
-                    .eq('id', session.user.id)
-                    .then(({ error: updateError }) => {
+                const syncPrivate = privateProfileMissing
+                    ? upsertProfilePrivate({ user_id: session.user.id, email: session.user.email, data: {}, password_set_at: markedAt, updated_at: markedAt })
+                    : updateProfilePrivate(session.user.id, { password_set_at: markedAt, updated_at: markedAt });
+                syncPrivate
+                    .catch((updateError) => {
                         if (updateError) console.warn('Không thể đồng bộ trạng thái mật khẩu:', updateError);
                     });
                 return;
@@ -661,16 +705,18 @@ const App: React.FC = () => {
             if ((userRolePref === 'school' || userRolePref === 'admin') && session?.user?.id && supabase) {
                 
                 if ((isAdmin || isAuditor) && viewingUser) {
-                    const { data: profileData } = await supabase
-                        .from(STUDENT_PROFILE_TABLE)
-                        .select('data')
-                        .eq('id', viewingUser.id)
-                        .maybeSingle();
+                    let privateData: Record<string, any> | null | undefined = null;
+                    try {
+                        privateData = (await fetchProfilePrivate(viewingUser.id))?.data;
+                    } catch (error) {
+                        console.warn('Không thể đọc dữ liệu học tập private:', error);
+                    }
+                    const legacyData = privateData ? null : await fetchLegacyProfileData(viewingUser.id);
 
                     if (!isActive) return;
 
-                    if (profileData && profileData.data) {
-                        setData({ ...INITIAL_DATA, ...profileData.data });
+                    if (privateData || legacyData) {
+                        setData({ ...INITIAL_DATA, ...(privateData || legacyData) });
                     } else {
                         setData(INITIAL_DATA); 
                     }
@@ -682,17 +728,25 @@ const App: React.FC = () => {
 
                 const { data: profileData } = await supabase
                     .from(STUDENT_PROFILE_TABLE)
-                    .select('data, full_name, avatar_url')
+                    .select('full_name, avatar_url')
                     .eq('id', session.user.id)
                     .maybeSingle();
+                let privateData: Record<string, any> | null | undefined = null;
+                try {
+                    privateData = (await fetchProfilePrivate(session.user.id))?.data;
+                } catch (error) {
+                    console.warn('Không thể đọc dữ liệu học tập private:', error);
+                }
+                const legacyData = privateData ? null : await fetchLegacyProfileData(session.user.id);
 
                 if (!isActive) return;
 
-                if (profileData?.data) {
-                    setData({ ...INITIAL_DATA, ...profileData.data });
-                    setProfileFullName(profileData.full_name || ''); 
-                    setProfileAvatarUrl(profileData.avatar_url || ''); 
-                    localStorage.setItem(storageKey, JSON.stringify(profileData.data));
+                if (privateData || legacyData) {
+                    const loadedData = privateData || legacyData;
+                    setData({ ...INITIAL_DATA, ...loadedData });
+                    setProfileFullName(profileData?.full_name || ''); 
+                    setProfileAvatarUrl(profileData?.avatar_url || ''); 
+                    localStorage.setItem(storageKey, JSON.stringify(loadedData));
                     dataOwnerIdRef.current = session.user.id;
                     setIsLoaded(true);
                     return;
@@ -752,11 +806,15 @@ const App: React.FC = () => {
 if (dataOwnerIdRef.current !== targetUserId) return;
 
 if (isAdmin && viewingUser) {
+    try {
+        await updateProfilePrivate(targetUserId, { data });
+    } catch (privateError) {
+        console.error("Lá»—i Admin update data user private:", privateError);
+    }
     // Admin được quyền lưu
     const { error } = await supabase
         .from(STUDENT_PROFILE_TABLE)
         .update({ 
-            data: data,
             updated_at: new Date().toISOString()
         })
         .eq('id', targetUserId);
@@ -772,17 +830,26 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
 
     const payload = {
         id: session.user.id,
-        email: userEmail,
         student_code: studentCode,
         full_name: nameToSave,
         avatar_url: profileAvatarUrl,
-        data,
         updated_at: new Date().toISOString(),
     };
 
     const { error } = await supabase
         .from(STUDENT_PROFILE_TABLE)
         .upsert(payload, { onConflict: 'id' });
+
+    try {
+        await upsertProfilePrivate({
+            user_id: session.user.id,
+            email: userEmail,
+            data,
+            updated_at: new Date().toISOString(),
+        });
+    } catch (privateError) {
+        console.error("Lỗi lưu profile_private_data:", privateError);
+    }
 
     if (!error && !profileFullName && nameToSave) {
         setProfileFullName(nameToSave);
@@ -1078,7 +1145,6 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 full_name: draftFullName.trim(),
                 avatar_url: avatarUrlToSave,
                 student_code: studentCode,
-                email: userEmail,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', session.user.id);
@@ -1096,6 +1162,23 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             URL.revokeObjectURL(draftAvatarPreview);
             setDraftAvatarPreview('');
         }
+
+        const nextData = {
+            ...data,
+            studentName: draftStudentName.trim(),
+            programName: draftProgram?.name || data.programName,
+            cohort: draftCohort || data.cohort,
+            majorName: draftMajor?.name || data.majorName,
+            specializationName: draftSpecialization?.name || data.specializationName,
+            totalCreditsRequired: draftSpecialization?.credits || data.totalCreditsRequired
+        };
+
+        await upsertProfilePrivate({
+            user_id: session.user.id,
+            email: userEmail,
+            data: nextData,
+            updated_at: new Date().toISOString(),
+        });
 
         setData(prev => ({
             ...prev,
@@ -1167,11 +1250,9 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             try {
                 await supabase.rpc('mark_password_set');
             } catch {
-                await supabase
-                    .from(STUDENT_PROFILE_TABLE)
-                    .update({ password_set_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-                    .eq('id', session.user.id);
+                await updateProfilePrivate(session.user.id, { password_set_at: new Date().toISOString() });
             }
+            await updateProfilePrivate(session.user.id, { password_set_at: new Date().toISOString() });
 
             setPasswordSetAt(new Date().toISOString());
             localStorage.removeItem(otpCooldownKey(session.user.email, 'forgot_password'));
@@ -1427,7 +1508,9 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                     </div>
                 } />
                 <Route path="/schedule" element={<ScheduleBoard viewUserId={viewingUser?.id} />} />
+                <Route path="/schedule/:studentCode" element={<ScheduleBoard viewUserId={viewingUser?.id} />} />
                 <Route path="/events" element={<EventsBoard viewUserId={viewingUser?.id} />} />
+                <Route path="/events/edit/:eventId" element={<EventsBoard viewUserId={viewingUser?.id} />} />
                 <Route path="/events/:eventId" element={<EventsBoard viewUserId={viewingUser?.id} />} />
                 <Route path="/lost-found" element={<LostFoundBoard />} />
                 <Route path="/handbook/:tab?" element={<Handbook />} />
@@ -1445,6 +1528,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/mobile-home" element={<MobileHome data={data} displayName={displayName} avatarUrl={profileAvatarUrl} avatarSeed={avatarSeed} isGuest={isGuest} showSecurityNotice={!session} onRequireOnboarding={() => setForceGuestOnboarding(true)} />} />
                 <Route path="/learning" element={<MobileLearning data={data} onSetSemesters={(sems) => setData(prev => ({ ...prev, semesters: sems }))} isGuest={isGuest} onRequireOnboarding={() => setForceGuestOnboarding(true)} onTargetChange={(newTarget) => setData(prev => ({ ...prev, targetGPA: newTarget }))} showSecurityNotice={!session} onUpdateSemester={updateSemester} onRemoveSemester={removeSemester} onAddSemester={addSemester} onExportPDF={handleExportPDF} onImportPDF={() => { playClick(); setShowImportGuide(true); }} isImporting={isImporting} fileInputRef={fileInputRef} onFileUpload={handleFileUpload} viewUserId={viewingUser?.id} />} />
                 <Route path="/events" element={<MobileEvents viewUserId={viewingUser?.id} />} />
+                <Route path="/events/edit/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/events/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/lost-found" element={<MobileLostFound />} />
                 <Route path="/handbook/:tab?" element={<MobileHandbook />} />

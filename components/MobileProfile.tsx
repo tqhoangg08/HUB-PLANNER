@@ -7,6 +7,7 @@ import {
     Download, Share, PlusSquare, X
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
+import { fetchProfilePrivate } from '../utils/profilePrivate';
 import { playClick } from '../utils/audio';
 import { useNavigate } from 'react-router-dom';
 
@@ -74,7 +75,8 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
             setSession(session);
             if (session?.user) {
                 const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-                if (data) setProfile(data);
+                const privateProfile = await fetchProfilePrivate(session.user.id).catch(() => null);
+                if (data) setProfile({ ...data, data: privateProfile?.data, email: privateProfile?.email });
             }
             setLoading(false);
         };

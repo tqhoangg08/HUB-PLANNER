@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { 
   Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, 
@@ -1062,8 +1062,12 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
 
 export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { eventId: routeEventId } = useParams<{ eventId?: string }>();
-  const eventId = routeEventId ? decodeURIComponent(routeEventId) : null;
+  const decodedRouteEventId = routeEventId ? decodeURIComponent(routeEventId) : null;
+  const isEditRoute = location.pathname.startsWith('/events/edit/');
+  const eventId = isEditRoute ? null : decodedRouteEventId;
+  const editEventId = isEditRoute ? decodedRouteEventId : null;
 
   useEffect(() => {
     document.title = "Sự kiện ĐRL | HUB Planner";
@@ -1215,6 +1219,8 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   };
 
   const getEventPath = (id: string) => `/events/${encodeURIComponent(id)}`;
+
+  const getEventEditPath = (id: string) => `/events/edit/${encodeURIComponent(id)}`;
 
   const getEventUrl = (id: string) => `${window.location.origin}${getEventPath(id)}`;
 
@@ -1374,6 +1380,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       playClick();
       setEditingEvent(evt);
       setShowManageModal(true);
+      navigate(getEventEditPath(evt.id));
   };
 
   const handleOpenAdd = () => {
@@ -1381,6 +1388,32 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       setEditingEvent(null);
       setShowManageModal(true);
   };
+
+  const handleCloseManageModal = () => {
+      setShowManageModal(false);
+      setEditingEvent(null);
+      if (editEventId) navigate('/events');
+  };
+
+  useEffect(() => {
+      if (!editEventId || roleLoading || loading) return;
+
+      if (!canManage) {
+          showToast('Bạn không có quyền chỉnh sửa sự kiện này.', 'error');
+          navigate(getEventPath(editEventId), { replace: true });
+          return;
+      }
+
+      const targetEvent = events.find(evt => evt.id === editEventId);
+      if (targetEvent) {
+          setIsStudentPreview(false);
+          setEditingEvent(targetEvent);
+          setShowManageModal(true);
+      } else {
+          setShowManageModal(false);
+          setEditingEvent(null);
+      }
+  }, [editEventId, roleLoading, loading, canManage, events, navigate]);
 
   const filteredEvents = events.filter(evt => {
     const matchesSearch = evt.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1994,6 +2027,7 @@ return (
                                             <td className="px-4 py-3 w-[30%] align-top">
                                                 <div className="font-bold text-[#003375] text-sm line-clamp-2 leading-snug">{evt.name}</div>
                                                 <div className="text-[10px] text-gray-500 mt-1.5 flex flex-wrap items-center gap-1.5">
+                                                    <span className="font-mono font-bold text-gray-600 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5">ID: {evt.id}</span>
                                                     {evt.scope && <span className="font-medium">{evt.scope}</span>}
                                                 </div>
                                             </td>
@@ -2109,7 +2143,7 @@ return (
       <DiscussionModal event={discussEvent} onClose={() => setDiscussEvent(null)} />
       {showContributeModal && <ContributeEventModal isOpen={showContributeModal} onClose={() => setShowContributeModal(false)} onShowToast={showToast} />}
       {showScoreGuide && <ScoreGuideModal isOpen={showScoreGuide} onClose={() => setShowScoreGuide(false)} />}
-      {showManageModal && <ManageEventModal isOpen={showManageModal} onClose={() => setShowManageModal(false)} onShowToast={showToast} editingEvent={editingEvent} fetchEvents={fetchEvents} />}
+      {showManageModal && <ManageEventModal key={editingEvent?.id || 'new-event'} isOpen={showManageModal} onClose={handleCloseManageModal} onShowToast={showToast} editingEvent={editingEvent} fetchEvents={fetchEvents} />}
       <CTVModalWrapper isOpen={showCTVModal} onClose={() => setShowCTVModal(false)} onShowToast={showToast} />
       
       <ReportEventModal 

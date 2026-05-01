@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AlertCircle, Eye, EyeOff, Loader2, Lock, ShieldCheck } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { playClick } from '../utils/audio';
+import { updateProfilePrivate } from '../utils/profilePrivate';
 
 type PasswordSetupModalProps = {
     email?: string | null;
@@ -38,11 +39,12 @@ export const PasswordSetupModal: React.FC<PasswordSetupModalProps> = ({ email, o
 
             const { error: markError } = await supabase.rpc('mark_password_set');
             if (markError) {
-                const { error: profileError } = await supabase
-                    .from('profiles')
-                    .update({ password_set_at: new Date().toISOString() })
-                    .eq('email', email);
-                if (profileError) throw profileError;
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user?.id) throw markError;
+                await updateProfilePrivate(user.id, { password_set_at: new Date().toISOString() });
+            } else {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user?.id) await updateProfilePrivate(user.id, { password_set_at: new Date().toISOString() });
             }
 
             onComplete();

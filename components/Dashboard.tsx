@@ -23,6 +23,7 @@ import { mapIdToDisplay } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
 import { useUserRole } from '../hooks/useUserRole';
 import { exportTranscriptToPdf } from '../utils/pdfExport';
+import { fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
 import PushNotificationPrompt from '../components/PushNotificationPrompt'; // Đường dẫn tùy sếp lưu ở đâu
 
 // ============================================================================
@@ -881,10 +882,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const saveAdminUserUpdate = async (newData: UserData) => {
     if (!selectedAdminUserId || isAuditor) return;
         try {
-            await supabase.from('profiles').update({
-                data: newData,
-                updated_at: new Date().toISOString()
-            }).eq('id', selectedAdminUserId);
+            await updateProfilePrivate(selectedAdminUserId, { data: newData });
 
             setAdminUsers(prevUsers => prevUsers.map(u => 
                 u.id === selectedAdminUserId ? { ...u, data: newData, updated_at: new Date().toISOString() } : u
@@ -940,39 +938,53 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const fetchAdminData = async () => {
         setLoadingAdmin(true);
-        let allProfiles: any[] = [];
-        let hasMore = true;
-        let page = 0;
-        const pageSize = 1000;
+        try {
+            let allProfiles: any[] = [];
+            let hasMore = true;
+            let page = 0;
+            const pageSize = 1000;
 
-        while (hasMore) {
-            const { data: profiles, error } = await supabase
-                .from('profiles')
-                .select('id, student_code, full_name, created_at, updated_at, data')
-                .order('updated_at', { ascending: false })
-                .range(page * pageSize, (page + 1) * pageSize - 1);
-            
-            if (error) {
-                console.error(error);
-                break;
-            }
-            
-            if (profiles && profiles.length > 0) {
-                allProfiles = [...allProfiles, ...profiles];
-                if (profiles.length < pageSize) {
-                    hasMore = false; 
-                } else {
-                    page++; 
+            while (hasMore) {
+                const { data: profiles, error } = await supabase
+                    .from('profiles')
+                    .select('id, student_code, full_name, created_at, updated_at')
+                    .order('updated_at', { ascending: false })
+                    .range(page * pageSize, (page + 1) * pageSize - 1);
+                
+                if (error) {
+                    console.error(error);
+                    break;
                 }
-            } else {
-                hasMore = false;
+                
+                if (profiles && profiles.length > 0) {
+                    allProfiles = [...allProfiles, ...profiles];
+                    if (profiles.length < pageSize) {
+                        hasMore = false; 
+                    } else {
+                        page++; 
+                    }
+                } else {
+                    hasMore = false;
+                }
             }
+            
+            let privateMap: Record<string, any> = {};
+            try {
+                privateMap = await fetchProfilePrivateMap(allProfiles.map(profile => profile.id));
+            } catch (error) {
+                console.error('Không thể tải dữ liệu private của sinh viên:', error);
+            }
+            setAdminUsers(allProfiles.map(profile => ({
+                ...profile,
+                data: privateMap[profile.id]?.data || {},
+                updated_at: privateMap[profile.id]?.updated_at || profile.updated_at,
+                email: privateMap[profile.id]?.email,
+            })));
+            setCurrentPage(1);
+            setPageInput('1');
+        } finally {
+            setLoadingAdmin(false);
         }
-        
-        setAdminUsers(allProfiles);
-        setLoadingAdmin(false);
-        setCurrentPage(1);
-        setPageInput('1');
     };
 
     useEffect(() => {

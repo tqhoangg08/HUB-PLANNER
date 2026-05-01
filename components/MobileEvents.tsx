@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { 
   Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, 
@@ -614,8 +614,12 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
 // --- Main Component ---
 export const MobileEvents: React.FC<MobileEventsProps> = ({ viewUserId }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { eventId: routeEventId } = useParams<{ eventId?: string }>();
-  const eventId = routeEventId ? decodeURIComponent(routeEventId) : null;
+  const decodedRouteEventId = routeEventId ? decodeURIComponent(routeEventId) : null;
+  const isEditRoute = location.pathname.startsWith('/events/edit/');
+  const eventId = isEditRoute ? null : decodedRouteEventId;
+  const editEventId = isEditRoute ? decodedRouteEventId : null;
 
   useEffect(() => {
     document.title = "Sự kiện ĐRL | HUB Planner";
@@ -716,6 +720,8 @@ const canManage = isAdmin || isAuditor || isCTV;
 
   const getEventPath = (id: string) => `/events/${encodeURIComponent(id)}`;
 
+  const getEventEditPath = (id: string) => `/events/edit/${encodeURIComponent(id)}`;
+
   const getEventUrl = (id: string) => `${window.location.origin}${getEventPath(id)}`;
 
   const handleCopyEventUrl = async (evt: HubEvent) => {
@@ -791,12 +797,50 @@ const canManage = isAdmin || isAuditor || isCTV;
           close_on_full: evt?.close_on_full || false,
           description: evt?.description || '',
       });
+      if (evt) navigate(getEventEditPath(evt.id));
   };
 
   const closeEventEditor = () => {
       setEditingEvent(null);
       setEventEditData({});
+      if (editEventId) navigate('/events');
   };
+
+  useEffect(() => {
+      if (!editEventId || loading) return;
+
+      if (!canManage) {
+          showToast('Bạn không có quyền chỉnh sửa sự kiện này.', 'error');
+          navigate(getEventPath(editEventId), { replace: true });
+          return;
+      }
+
+      const target = events.find(evt => evt.id === editEventId);
+      if (!target) {
+          setEditingEvent(null);
+          setEventEditData({});
+          return;
+      }
+
+      setEditingEvent(target);
+      setEventEditData({
+          title: target.name || '',
+          organizer: target.organizer || '',
+          criteria: target.category || 'III',
+          points: target.score || '5',
+          category: target.type || 'Hoạt động phong trào',
+          location_type: target.scope || 'Trong trường',
+          format: target.location || 'Offline',
+          link: target.link || '',
+          status: target.status || 'Sắp diễn ra',
+          event_date: target.event_date || '',
+          event_time: formatTimeString(target.event_time ?? null) || '',
+          deadline: target.deadlineDate ? target.deadlineDate.toISOString().split('T')[0] : '',
+          deadline_time: target.deadline_time || '',
+          close_on_full: target.close_on_full || false,
+          description: target.description || '',
+      });
+  }, [editEventId, loading, canManage, events, navigate]);
 
   const saveEventEdit = async (e: React.FormEvent) => {
       e.preventDefault();
