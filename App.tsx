@@ -103,6 +103,16 @@ const resizeAvatarImage = (file: File) => new Promise<Blob>((resolve, reject) =>
     image.src = objectUrl;
 });
 
+const blobToBase64 = (blob: Blob) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+        const result = String(reader.result || '');
+        resolve(result.includes(',') ? result.split(',')[1] : result);
+    };
+    reader.onerror = () => reject(new Error('Không thể đọc ảnh avatar.'));
+    reader.readAsDataURL(blob);
+});
+
 const COHORT_OPTIONS: Record<string, string[]> = {
     'standard': ['K38', 'K39', 'K40', 'K41'],
     'tabp': ['CLCK10', 'CLCK11', 'CLCK12', 'CLCK13'],
@@ -1032,6 +1042,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         if (draftAvatarFile) {
             try {
                 const avatarBlob = await resizeAvatarImage(draftAvatarFile);
+                const base64 = await blobToBase64(avatarBlob);
                 const response = await fetch('/api/auth', {
                     method: 'POST',
                     headers: {
@@ -1039,23 +1050,15 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                         Authorization: `Bearer ${session.access_token}`,
                     },
                     body: JSON.stringify({
-                        action: 'create-avatar-upload',
+                        action: 'upload-avatar',
                         contentType: avatarBlob.type || 'image/webp',
                         size: avatarBlob.size,
+                        base64,
                     }),
                 });
                 const payload = await response.json().catch(() => ({}));
-                if (!response.ok || !payload.uploadUrl || !payload.publicUrl) {
-                    throw new Error(payload.error || 'Không thể tạo liên kết tải ảnh lên.');
-                }
-
-                const uploadResponse = await fetch(payload.uploadUrl, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': avatarBlob.type || 'image/webp' },
-                    body: avatarBlob,
-                });
-                if (!uploadResponse.ok) {
-                    throw new Error('Không thể tải ảnh avatar lên R2.');
+                if (!response.ok || !payload.publicUrl) {
+                    throw new Error(payload.error || 'Không thể tải ảnh avatar lên R2.');
                 }
 
                 avatarUrlToSave = payload.publicUrl;
