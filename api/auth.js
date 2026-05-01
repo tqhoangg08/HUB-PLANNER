@@ -22,11 +22,11 @@ const hashOtp = (email, purpose, otp) => {
 
 const resolveEmail = async (rawValue) => {
   const identifier = normalizeEmail(rawValue);
-  if (!identifier) throw new Error('Thieu Gmail HUB hoac MSSV.');
+  if (!identifier) throw new Error('Thiếu Gmail HUB hoặc MSSV.');
 
   if (identifier.includes('@')) {
     if (!identifier.endsWith(`@${SCHOOL_DOMAIN}`)) {
-      const error = new Error(`Chi ho tro Gmail HUB @${SCHOOL_DOMAIN}.`);
+      const error = new Error(`Chỉ hỗ trợ Gmail HUB @${SCHOOL_DOMAIN}.`);
       error.statusCode = 400;
       throw error;
     }
@@ -34,7 +34,7 @@ const resolveEmail = async (rawValue) => {
   }
 
   if (!/^[a-z0-9._-]{3,64}$/.test(identifier)) {
-    const error = new Error('MSSV khong hop le.');
+    const error = new Error('MSSV không hợp lệ.');
     error.statusCode = 400;
     throw error;
   }
@@ -47,7 +47,7 @@ const resolveEmail = async (rawValue) => {
 
   if (error) throw error;
   if (!data?.email) {
-    const notFound = new Error('Khong tim thay MSSV trong he thong.');
+    const notFound = new Error('Không tìm thấy MSSV trong hệ thống.');
     notFound.statusCode = 404;
     throw notFound;
   }
@@ -55,8 +55,8 @@ const resolveEmail = async (rawValue) => {
 };
 
 const passwordError = (password, confirmPassword) => {
-  if (!password || password.length < 8) return 'Mat khau can it nhat 8 ky tu.';
-  if (confirmPassword !== undefined && password !== confirmPassword) return 'Hai mat khau chua trung khop.';
+  if (!password || password.length < 8) return 'Mật khẩu cần ít nhất 8 ký tự.';
+  if (confirmPassword !== undefined && password !== confirmPassword) return 'Hai mật khẩu chưa trùng khớp.';
   return null;
 };
 
@@ -70,7 +70,7 @@ const sendEmail = async ({ email, otp, purpose }) => {
     });
 
     if (error || data?.error) {
-      throw new Error(data?.error || error?.message || 'Chua cau hinh RESEND_API_KEY hoac Edge Function gui OTP.');
+      throw new Error(data?.error || error?.message || 'Chưa cấu hình RESEND_API_KEY hoac Edge Function gui OTP.');
     }
     return;
   }
@@ -107,7 +107,7 @@ const sendEmail = async ({ email, otp, purpose }) => {
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.message || 'Khong the gui email OTP.');
+    throw new Error(payload.message || 'Không thể gửi email OTP.');
   }
 };
 
@@ -119,7 +119,7 @@ const resolveIdentifier = async (request, response) => {
 const sendOtp = async (request, response) => {
   const purpose = request.body?.purpose;
   if (!['register', 'forgot_password'].includes(purpose)) {
-    return response.status(400).json({ error: 'Loai OTP khong hop le.' });
+    return response.status(400).json({ error: 'Loại OTP không hợp lệ.' });
   }
 
   const email = await resolveEmail(request.body?.email || request.body?.identifier);
@@ -131,10 +131,10 @@ const sendOtp = async (request, response) => {
     .maybeSingle();
 
   if (purpose === 'register' && existingProfile?.id) {
-    return response.status(409).json({ error: 'Email nay da duoc dang ky. Hay chuyen sang dang nhap.' });
+    return response.status(409).json({ error: 'Email này đã được đăng ký. Hãy chuyển sang đăng nhập.' });
   }
   if (purpose === 'forgot_password' && !existingProfile?.id) {
-    return response.status(404).json({ error: 'Khong tim thay tai khoan voi Gmail HUB/MSSV nay.' });
+    return response.status(404).json({ error: 'Không tìm thấy tài khoản HUB/MSSV này.' });
   }
 
   const { data: latestOtp, error: latestOtpError } = await supabase
@@ -153,7 +153,7 @@ const sendOtp = async (request, response) => {
     if (retryAfterSeconds > 0) {
       return response.status(429).json({
         email,
-        error: `Vui long cho ${Math.ceil(retryAfterSeconds / 60)} phut truoc khi gui lai ma OTP.`,
+        error: `Vui lòng chờ ${Math.ceil(retryAfterSeconds / 60)} phút trước khi gửi lại mã OTP.`,
         retryAfterSeconds,
         cooldownUntil: new Date(Date.now() + retryAfterSeconds * 1000).toISOString(),
       });
@@ -203,9 +203,9 @@ const verifyOtpRecord = async ({ email, purpose, otp }) => {
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) throw new Error('Ma OTP khong ton tai hoac da duoc su dung.');
-  if (new Date(data.expires_at).getTime() < Date.now()) throw new Error('Ma OTP da het han.');
-  if (data.attempts >= MAX_ATTEMPTS) throw new Error('Ban da nhap sai qua nhieu lan. Hay gui lai ma moi.');
+  if (!data) throw new Error('Mã OTP không tồn tại hoặc đã được sử dụng.');
+  if (new Date(data.expires_at).getTime() < Date.now()) throw new Error('Mã OTP đã hết hạn.');
+  if (data.attempts >= MAX_ATTEMPTS) throw new Error('Bạn đã nhập sai quá nhiều lần. Hãy gửi lại mã mới.');
 
   const expectedHash = hashOtp(email, purpose, otp);
   if (data.otp_hash !== expectedHash) {
@@ -213,7 +213,7 @@ const verifyOtpRecord = async ({ email, purpose, otp }) => {
       .from('auth_otp_codes')
       .update({ attempts: data.attempts + 1 })
       .eq('id', data.id);
-    throw new Error('Ma OTP khong chinh xac.');
+    throw new Error('Mã OTP không chính xác.');
   }
 
   await supabase
@@ -230,13 +230,13 @@ const verifyOtp = async (request, response) => {
   const confirmPassword = request.body?.confirmPassword !== undefined ? String(request.body.confirmPassword) : undefined;
 
   if (!['register', 'forgot_password'].includes(purpose)) {
-    return response.status(400).json({ error: 'Loai OTP khong hop le.' });
+    return response.status(400).json({ error: 'Loại OTP không hợp lệ.' });
   }
   if (!email.endsWith(`@${SCHOOL_DOMAIN}`)) {
-    return response.status(400).json({ error: `Chi ho tro Gmail HUB @${SCHOOL_DOMAIN}.` });
+    return response.status(400).json({ error: `Chỉ hỗ trợ Gmail HUB @${SCHOOL_DOMAIN}.` });
   }
   if (otp.length !== 6) {
-    return response.status(400).json({ error: 'Ma OTP can du 6 chu so.' });
+    return response.status(400).json({ error: 'Mã OTP cần đủ 6 chữ số.' });
   }
 
   const invalidPassword = passwordError(password, confirmPassword);
@@ -274,7 +274,7 @@ const verifyOtp = async (request, response) => {
     .eq('email', email)
     .maybeSingle();
   if (profileError) throw profileError;
-  if (!profile?.id) throw new Error('Khong tim thay tai khoan can dat lai mat khau.');
+  if (!profile?.id) throw new Error('Không tìm thấy tài khoản cần đặt lại mật khẩu.');
 
   const { error: updateError } = await supabase.auth.admin.updateUserById(profile.id, { password });
   if (updateError) throw updateError;
@@ -301,8 +301,8 @@ async function handler(request, response) {
   } catch (error) {
     const statusCode = error.statusCode || 500;
     const message = error.message?.includes('already been registered')
-      ? 'Email nay da duoc dang ky. Hay chuyen sang dang nhap.'
-      : error.message || 'Khong the xu ly xac thuc.';
+      ? 'Email này đã được đăng ký. Hãy chuyển sang đăng nhập.'
+      : error.message || 'Không thể xử lý xác thực.';
     return response.status(statusCode).json({ error: message });
   }
 }
