@@ -170,10 +170,10 @@ export const LoginScreen: React.FC = () => {
             return email;
         }
 
-        const response = await fetch('/api/auth-resolve-identifier', {
+        const response = await fetch('/api/auth', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ identifier: value }),
+            body: JSON.stringify({ action: 'resolve-identifier', identifier: value }),
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok || !payload.email) {
@@ -191,10 +191,10 @@ export const LoginScreen: React.FC = () => {
             return false;
         }
 
-        const response = await fetch('/api/auth-otp-send', {
+        const response = await fetch('/api/auth', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ purpose, email }),
+            body: JSON.stringify({ action: 'send-otp', purpose, email }),
         });
         const payload = await response.json().catch(() => ({}));
 
@@ -330,10 +330,11 @@ export const LoginScreen: React.FC = () => {
             const invalidPassword = passwordError(password, confirmPassword);
             if (invalidPassword) throw new Error(invalidPassword);
 
-            const response = await fetch('/api/auth-otp-verify', {
+            const response = await fetch('/api/auth', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    action: 'verify-otp',
                     purpose: otpState.purpose,
                     email: otpState.email,
                     otp,

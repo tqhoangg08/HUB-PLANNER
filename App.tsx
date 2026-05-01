@@ -1057,10 +1057,11 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         try {
             const email = session.user.email;
             if (isAccountPasswordOtpMode) {
-                const response = await fetch('/api/auth-otp-verify', {
+                const response = await fetch('/api/auth', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        action: 'verify-otp',
                         purpose: 'forgot_password',
                         email,
                         otp: accountPasswordOtp,
@@ -1126,10 +1127,10 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         playClick();
 
         try {
-            const response = await fetch('/api/auth-otp-send', {
+            const response = await fetch('/api/auth', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ purpose: 'forgot_password', email }),
+                body: JSON.stringify({ action: 'send-otp', purpose: 'forgot_password', email }),
             });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) {
