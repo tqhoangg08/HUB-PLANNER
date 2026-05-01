@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { 
   Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, 
@@ -74,7 +75,7 @@ const notifyAllUsersAboutEvent = async (event: any) => {
             body: JSON.stringify({
                 title: 'Sự kiện mới',
                 body: `${eventTitle}${criteriaLabel}`,
-                url: '/events'
+                url: event.id ? `/events/${event.id}` : '/events'
             })
         });
 
@@ -1060,6 +1061,10 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
 };
 
 export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) => {
+  const navigate = useNavigate();
+  const { eventId: routeEventId } = useParams<{ eventId?: string }>();
+  const eventId = routeEventId ? decodeURIComponent(routeEventId) : null;
+
   useEffect(() => {
     document.title = "Sự kiện ĐRL | HUB Planner";
   }, []);
@@ -1207,6 +1212,21 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   const showToast = (message: string, type: 'success' | 'error') => {
       setNotification({ message, type });
       setTimeout(() => setNotification(null), 4000);
+  };
+
+  const getEventPath = (id: string) => `/events/${encodeURIComponent(id)}`;
+
+  const getEventUrl = (id: string) => `${window.location.origin}${getEventPath(id)}`;
+
+  const handleCopyEventUrl = async (evt: HubEvent) => {
+      playClick();
+      const url = getEventUrl(evt.id);
+      try {
+          await navigator.clipboard.writeText(url);
+          showToast('Đã sao chép đường link sự kiện.', 'success');
+      } catch {
+          showToast(url, 'success');
+      }
   };
 
   const fetchEvents = async () => {
@@ -1423,13 +1443,16 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       return d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
   };
 
-  const openingEvents = filteredEvents.filter(evt => {
+  const routeEvent = eventId ? events.find(evt => evt.id === eventId) || null : null;
+  const displayedEvents = eventId ? (routeEvent ? [routeEvent] : []) : filteredEvents;
+
+  const openingEvents = displayedEvents.filter(evt => {
       const isNotExpired = !checkIsOverdue(evt, today);
       const isOpenStatus = !evt.is_manually_closed && evt.status !== 'Đã kết thúc';
       return isNotExpired && isOpenStatus;
   });
 
-  const expiredEvents = filteredEvents.filter(evt => {
+  const expiredEvents = displayedEvents.filter(evt => {
       const isExpiredTime = checkIsOverdue(evt, today);
       const isClosedStatus = evt.is_manually_closed || evt.status === 'Đã kết thúc';
       return isExpiredTime || isClosedStatus;
@@ -1607,6 +1630,17 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                     title="Báo lỗi"
                 >
                     <AlertTriangle size={16} className="sm:w-[18px] sm:h-[18px]"/>
+                </button>
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (eventId === evt.id) handleCopyEventUrl(evt);
+                        else { playClick(); navigate(getEventPath(evt.id)); }
+                    }}
+                    className="p-1.5 sm:p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 hover:bg-blue-50 hover:text-[#003375] hover:border-blue-200 transition-colors flex items-center justify-center"
+                    title={eventId === evt.id ? 'Sao chép link sự kiện' : 'Mở link riêng của sự kiện'}
+                >
+                    <LinkIcon size={16} className="sm:w-[18px] sm:h-[18px]"/>
                 </button>
             </div>
 
@@ -1877,8 +1911,23 @@ return (
 
         <NotificationNudge variant="events" className="mb-3" />
 
+        {eventId && (
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm">
+                <div>
+                    <p className="font-bold text-[#003375]">Đang mở đường link riêng của sự kiện</p>
+                    <p className="text-blue-800/80">{routeEvent ? routeEvent.name : 'Không tìm thấy sự kiện này hoặc sự kiện đã bị ẩn.'}</p>
+                </div>
+                <button
+                    onClick={() => { playClick(); navigate('/events'); }}
+                    className="shrink-0 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-[#003375] hover:bg-blue-100 transition-colors"
+                >
+                    Xem tất cả sự kiện
+                </button>
+            </div>
+        )}
+
         {/* TABS LỌC CHUNG CHO CẢ ADMIN VÀ USER */}
-        <div className="relative flex w-full justify-between overflow-x-auto no-scrollbar border-b border-gray-300 px-1 mb-4">
+        {!eventId && <div className="relative flex w-full justify-between overflow-x-auto no-scrollbar border-b border-gray-300 px-1 mb-4">
             {tabsList.map((tab, idx) => (
                 <button 
                     key={tab.id} 
@@ -1893,7 +1942,7 @@ return (
                 className="absolute bottom-0 h-[2px] bg-[#003375] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-20 rounded-t-full"
                 style={{ left: `${indicatorStyle.left}px`, width: `${indicatorStyle.width}px` }}
             />
-        </div>
+        </div>}
 
         {/* KHU VỰC HIỂN THỊ DỮ LIỆU */}
         {loading ? (
@@ -1922,10 +1971,10 @@ return (
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {filteredEvents.length === 0 ? (
+                            {displayedEvents.length === 0 ? (
                                 <tr><td colSpan={6} className="py-8 text-center text-gray-500 font-medium">Không có sự kiện nào phù hợp.</td></tr>
                             ) : (
-                                filteredEvents.map(evt => {
+                                displayedEvents.map(evt => {
                                     const isPending = evt.status === 'pending';
                                     const isStatusClosed = evt.status === 'Đã kết thúc';
                                     const isActive = evt.status === 'Đang diễn ra';
@@ -2045,7 +2094,7 @@ return (
                     </div>
                 )}
 
-                {filteredEvents.length === 0 && (
+                {displayedEvents.length === 0 && (
                     <div className="col-span-full py-16 text-center bg-white rounded-xl border border-gray-300">
                         <div className="w-16 h-16 bg-gray-50 rounded-full border border-gray-200 flex items-center justify-center mx-auto mb-4 text-gray-300"><Calendar size={32} /></div>
                         <p className="text-gray-500 font-medium">

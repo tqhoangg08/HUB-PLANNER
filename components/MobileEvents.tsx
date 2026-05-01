@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { 
   Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, 
@@ -76,7 +77,7 @@ const notifyAllUsersAboutEvent = async (event: any) => {
             body: JSON.stringify({
                 title: 'Sự kiện mới',
                 body: `${eventTitle}${criteriaLabel}`,
-                url: '/events'
+                url: event.id ? `/events/${event.id}` : '/events'
             })
         });
     } catch (error) {
@@ -612,6 +613,10 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
 
 // --- Main Component ---
 export const MobileEvents: React.FC<MobileEventsProps> = ({ viewUserId }) => {
+  const navigate = useNavigate();
+  const { eventId: routeEventId } = useParams<{ eventId?: string }>();
+  const eventId = routeEventId ? decodeURIComponent(routeEventId) : null;
+
   useEffect(() => {
     document.title = "Sự kiện ĐRL | HUB Planner";
   }, []);
@@ -707,6 +712,21 @@ const canManage = isAdmin || isAuditor || isCTV;
   const showToast = (message: string, type: 'success' | 'error') => {
       setNotification({ message, type });
       setTimeout(() => setNotification(null), 3000);
+  };
+
+  const getEventPath = (id: string) => `/events/${encodeURIComponent(id)}`;
+
+  const getEventUrl = (id: string) => `${window.location.origin}${getEventPath(id)}`;
+
+  const handleCopyEventUrl = async (evt: HubEvent) => {
+      playClick();
+      const url = getEventUrl(evt.id);
+      try {
+          await navigator.clipboard.writeText(url);
+          showToast('Đã sao chép đường link sự kiện.', 'success');
+      } catch {
+          showToast(url, 'success');
+      }
   };
 
   const fetchEvents = async () => {
@@ -871,6 +891,9 @@ const canManage = isAdmin || isAuditor || isCTV;
       return sortOrder === 'newest' ? dateB - dateA : dateA - dateB; 
   });
 
+  const routeEvent = eventId ? events.find(evt => evt.id === eventId) || null : null;
+  const displayedEvents = eventId ? (routeEvent ? [routeEvent] : []) : filteredEvents;
+
   const NotificationToast = () => {
     if (!notification) return null;
     return createPortal(
@@ -1015,6 +1038,15 @@ const canManage = isAdmin || isAuditor || isCTV;
             <button onClick={() => { playClick(); setDiscussEvent({ id: evt.id, name: evt.name }); }} className="p-3 bg-white border border-gray-200 rounded-xl text-gray-500 active:bg-gray-50 flex items-center justify-center">
                 <MessageCircle size={20}/>
             </button>
+            <button
+                onClick={() => {
+                    if (eventId === evt.id) handleCopyEventUrl(evt);
+                    else { playClick(); navigate(getEventPath(evt.id)); }
+                }}
+                className="p-3 bg-white border border-gray-200 rounded-xl text-gray-500 active:bg-gray-50 flex items-center justify-center"
+            >
+                <LinkIcon size={20}/>
+            </button>
             
             {evt.link && !isLinkClosed && !evt.is_deleted ? (
                 <a href={formattedLink} target="_blank" rel="noopener noreferrer" className="flex-1 text-white text-sm font-bold py-3 rounded-xl flex items-center justify-center shadow-sm bg-[#003375] active:bg-[#002855]">
@@ -1049,7 +1081,7 @@ return (
               </div>
           )}
 
-          <div className="flex gap-2 mb-3">
+          {!eventId && <div className="flex gap-2 mb-3">
               <div className="relative flex-1">
                   <input type="text" placeholder="Tìm tên, BTC..." className="pl-10 pr-4 py-3 w-full bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375]" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -1057,32 +1089,45 @@ return (
               <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-600 active:bg-gray-100">
                   <FileText size={20} />
               </button>
-          </div>
+          </div>}
 
-          <div className="grid grid-cols-2 gap-2 mb-2">
+          {!eventId && <div className="grid grid-cols-2 gap-2 mb-2">
               <select value={activeScope} onChange={(e) => setActiveScope(e.target.value)} className="appearance-none bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 outline-none">
                   <option value="all">Khu vực: Tất cả</option><option value="internal">Trong trường</option><option value="external">Ngoài trường</option>
               </select>
               <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} className="appearance-none bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 outline-none">
                   <option value="newest">Sắp xếp: Mới nhất</option><option value="expiring_soon">Sắp hết hạn</option>
               </select>
-          </div>
+          </div>}
 
           {/* Scrollable Tabs */}
-          <div className="relative flex w-full overflow-x-auto no-scrollbar pt-2">
+          {!eventId && <div className="relative flex w-full overflow-x-auto no-scrollbar pt-2">
             {tabsList.map((tab, idx) => (
                 <button key={tab.id} ref={(el) => { tabsRef.current[idx] = el; }} onClick={() => { playClick(); setActiveTab(tab.id); }} className={`flex-none px-4 pb-2.5 text-[14px] font-bold whitespace-nowrap z-10 transition-colors ${activeTab === tab.id ? 'text-[#003375]' : 'text-gray-400'}`}>
                     {tab.l}
                 </button>
             ))}
             <div className="absolute bottom-0 h-0.5 bg-[#003375] transition-all duration-300 rounded-t-full" style={{ left: `${indicatorStyle.left}px`, width: `${indicatorStyle.width}px` }} />
-          </div>
+          </div>}
       </div>
 
       <div className="p-4">
           <NotificationNudge variant="events" compact className="mb-4" />
 
-          {!canManage && <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 mb-5 shadow-sm relative overflow-hidden">
+          {eventId && (
+              <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                  <p className="text-sm font-black text-[#003375]">Đang mở link riêng của sự kiện</p>
+                  <p className="mt-1 text-xs leading-relaxed text-blue-800/80">{routeEvent ? routeEvent.name : 'Không tìm thấy sự kiện này hoặc sự kiện đã bị ẩn.'}</p>
+                  <button
+                      onClick={() => { playClick(); navigate('/events'); }}
+                      className="mt-3 w-full rounded-xl bg-white border border-blue-200 py-2.5 text-xs font-black text-[#003375] active:bg-blue-100"
+                  >
+                      Xem tất cả sự kiện
+                  </button>
+              </div>
+          )}
+
+          {!eventId && !canManage && <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 mb-5 shadow-sm relative overflow-hidden">
               <div className="relative z-10 flex flex-col">
                   <div className="flex items-center gap-2 mb-1">
                       <UserPlus className="text-blue-600" size={18} />
@@ -1098,8 +1143,8 @@ return (
           <div className="space-y-0">
              {loading ? (
                 <div className="flex flex-col items-center justify-center py-10"><Loader2 size={32} className="text-[#003375] animate-spin mb-3" /><p className="text-gray-500 text-sm">Đang tải...</p></div>
-             ) : filteredEvents.length > 0 ? (
-                filteredEvents.map(evt => isManagementView ? renderManagementCard(evt) : renderEventCard(evt))
+             ) : displayedEvents.length > 0 ? (
+                displayedEvents.map(evt => isManagementView ? renderManagementCard(evt) : renderEventCard(evt))
              ) : (
                 <div className="py-12 text-center bg-white rounded-xl border border-dashed border-gray-300">
                     <Calendar className="mx-auto text-gray-300 mb-2" size={32}/>

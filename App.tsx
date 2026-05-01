@@ -1428,6 +1428,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 } />
                 <Route path="/schedule" element={<ScheduleBoard viewUserId={viewingUser?.id} />} />
                 <Route path="/events" element={<EventsBoard viewUserId={viewingUser?.id} />} />
+                <Route path="/events/:eventId" element={<EventsBoard viewUserId={viewingUser?.id} />} />
                 <Route path="/lost-found" element={<LostFoundBoard />} />
                 <Route path="/handbook/:tab?" element={<Handbook />} />
                 
@@ -1444,6 +1445,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/mobile-home" element={<MobileHome data={data} displayName={displayName} avatarUrl={profileAvatarUrl} avatarSeed={avatarSeed} isGuest={isGuest} showSecurityNotice={!session} onRequireOnboarding={() => setForceGuestOnboarding(true)} />} />
                 <Route path="/learning" element={<MobileLearning data={data} onSetSemesters={(sems) => setData(prev => ({ ...prev, semesters: sems }))} isGuest={isGuest} onRequireOnboarding={() => setForceGuestOnboarding(true)} onTargetChange={(newTarget) => setData(prev => ({ ...prev, targetGPA: newTarget }))} showSecurityNotice={!session} onUpdateSemester={updateSemester} onRemoveSemester={removeSemester} onAddSemester={addSemester} onExportPDF={handleExportPDF} onImportPDF={() => { playClick(); setShowImportGuide(true); }} isImporting={isImporting} fileInputRef={fileInputRef} onFileUpload={handleFileUpload} viewUserId={viewingUser?.id} />} />
                 <Route path="/events" element={<MobileEvents viewUserId={viewingUser?.id} />} />
+                <Route path="/events/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/lost-found" element={<MobileLostFound />} />
                 <Route path="/handbook/:tab?" element={<MobileHandbook />} />
                 <Route path="/handbook" element={<MobileHandbook />} />
