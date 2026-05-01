@@ -60,6 +60,30 @@ const passwordError = (password, confirmPassword) => {
   return null;
 };
 
+const getAuthUserByEmail = async (email) => {
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+
+    const user = data?.users?.find((item) => normalizeEmail(item.email) === email);
+    if (user) return user;
+    if (!data?.users || data.users.length < 1000) return null;
+  }
+  return null;
+};
+
+const markPasswordProfile = async (userId, email) => {
+  await supabase
+    .from('profiles')
+    .upsert({
+      id: userId,
+      email,
+      student_code: email.split('@')[0],
+      password_set_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' });
+};
+
 const sendEmail = async ({ email, otp, purpose }) => {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -245,24 +269,51 @@ const verifyOtp = async (request, response) => {
   await verifyOtpRecord({ email, purpose, otp });
 
   if (purpose === 'register') {
+    const { data: existingProfile, error: existingProfileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+    if (existingProfileError) throw existingProfileError;
+
+    if (existingProfile?.id) {
+      const { error: updateExistingError } = await supabase.auth.admin.updateUserById(existingProfile.id, {
+        password,
+        user_metadata: { password_set_at: true },
+      });
+      if (updateExistingError) throw updateExistingError;
+      await markPasswordProfile(existingProfile.id, email);
+      return response.status(200).json({ email, created: false, passwordUpdated: true });
+    }
+
     const { data, error } = await supabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
       user_metadata: { password_set_at: true },
     });
-    if (error) throw error;
+    if (error) {
+      if (error.message?.includes('already been registered') || error.message?.includes('already registered')) {
+        const existingUser = await getAuthUserByEmail(email);
+        if (!existingUser?.id) throw error;
+
+        const { error: updateExistingAuthError } = await supabase.auth.admin.updateUserById(existingUser.id, {
+          password,
+          user_metadata: {
+            ...(existingUser.user_metadata || {}),
+            password_set_at: true,
+          },
+        });
+        if (updateExistingAuthError) throw updateExistingAuthError;
+
+        await markPasswordProfile(existingUser.id, email);
+        return response.status(200).json({ email, created: false, passwordUpdated: true });
+      }
+      throw error;
+    }
 
     if (data.user?.id) {
-      await supabase
-        .from('profiles')
-        .upsert({
-          id: data.user.id,
-          email,
-          student_code: email.split('@')[0],
-          password_set_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'id' });
+      await markPasswordProfile(data.user.id, email);
     }
 
     return response.status(200).json({ email, created: true });

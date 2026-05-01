@@ -246,7 +246,22 @@ const App: React.FC = () => {
                 return;
             }
 
-            setPasswordSetAt((data as any)?.password_set_at ?? null);
+            const profilePasswordSetAt = (data as any)?.password_set_at;
+            const metadataPasswordSet = Boolean((session.user.user_metadata as any)?.password_set_at);
+            if (!profilePasswordSetAt && metadataPasswordSet) {
+                const markedAt = new Date().toISOString();
+                setPasswordSetAt(markedAt);
+                supabase
+                    .from(STUDENT_PROFILE_TABLE)
+                    .update({ password_set_at: markedAt, updated_at: markedAt })
+                    .eq('id', session.user.id)
+                    .then(({ error: updateError }) => {
+                        if (updateError) console.warn('Không thể đồng bộ trạng thái mật khẩu:', updateError);
+                    });
+                return;
+            }
+
+            setPasswordSetAt(profilePasswordSetAt ?? null);
         };
 
         loadPasswordStatus();
