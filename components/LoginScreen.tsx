@@ -16,7 +16,7 @@ import {
     UserRound,
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
-
+import { Turnstile } from '@marsidev/react-turnstile';
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const OTP_RESEND_COOLDOWN_SECONDS = 10 * 60;
 
@@ -85,7 +85,7 @@ export const LoginScreen: React.FC = () => {
     const [notice, setNotice] = useState<string | null>(null);
     const [agreed, setAgreed] = useState(false);
     const [otpCooldownRemaining, setOtpCooldownRemaining] = useState(0);
-
+    const [captchaToken, setCaptchaToken] = useState('');
     useEffect(() => {
         if (!supabase) return;
 
@@ -227,7 +227,15 @@ export const LoginScreen: React.FC = () => {
 
         try {
             const email = await resolveLoginEmail(identifier);
-            const { error } = await supabase.auth.signInWithPassword({ email, password: loginPassword });
+                        // Chặn nếu chưa xác minh CAPTCHA
+            if (!captchaToken) throw new Error('Vui lòng xác minh bạn không phải robot.');
+                        // Bắn token lên cho Supabase kiểm tra
+            const { error } = await supabase.auth.signInWithPassword({ 
+                email, 
+                password: loginPassword,
+                options: { captchaToken } 
+            });
+            
             if (error) throw new Error('MSSV/Gmail HUB hoặc mật khẩu không chính xác.');
             navigate('/dashboard', { replace: true });
         } catch (err: any) {
@@ -616,7 +624,13 @@ export const LoginScreen: React.FC = () => {
                             <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-slate-600">
                                 Nếu trước đây bạn chỉ đăng nhập Google, hệ thống có thể yêu cầu đặt mật khẩu riêng để đăng nhập nhanh bằng MSSV/Gmail ở lần sau.
                             </div>
-
+                        <div className="flex justify-center py-2">
+                                <Turnstile
+                                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+                                    onSuccess={(token) => setCaptchaToken(token)}
+                                    onError={() => setCaptchaToken('')}
+                                />
+                            </div>
                             <button
                                 type="submit"
                                 disabled={loading || googleLoading}

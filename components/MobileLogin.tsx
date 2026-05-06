@@ -8,7 +8,7 @@ import Particles from "react-particles";
 import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
 import { usePlatform } from '../hooks/usePlatform';
-
+import { Turnstile } from '@marsidev/react-turnstile';
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 
 // Khai báo để TypeScript không báo lỗi thư viện Google
