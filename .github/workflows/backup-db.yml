@@ -1,0 +1,32 @@
+name: Tự động sao lưu Supabase lên Cloudflare R2
+
+on:
+  schedule:
+    # Chạy tự động mỗi 12 tiếng một lần
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Cho phép sếp bấm nút chạy bằng tay bất cứ lúc nào
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Cài đặt đồ nghề (PostgreSQL & AWS CLI)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client awscli
+
+      - name: 2. Lấy mốc thời gian hiện tại
+        id: date
+        run: echo "CURRENT_DATE=$(date +'%Y-%m-%d_%H-%M')" >> $GITHUB_ENV
+
+      - name: 3. Rút ruột Database và nén lại (.sql.gz)
+        run: |
+          pg_dump "${{ secrets.SUPABASE_DB_URL }}" | gzip > hubplanner_backup_${{ env.CURRENT_DATE }}.sql.gz
+
+      - name: 4. Chở hàng sang kho Cloudflare R2 cất giấu
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          aws s3 cp hubplanner_backup_${{ env.CURRENT_DATE }}.sql.gz s3://${{ secrets.R2_BUCKET_NAME }}/database_backups/hubplanner_backup_${{ env.CURRENT_DATE }}.sql.gz --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
