@@ -10,10 +10,10 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Cài đặt đồ nghề (PostgreSQL & AWS CLI)
+      - name: 1. Cài đặt đồ nghề (PostgreSQL Client)
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client awscli
+          sudo apt-get install -y postgresql-client
 
       - name: 2. Lấy mốc thời gian hiện tại
         id: date
