@@ -101,8 +101,9 @@
    ========================================================= */
 .hub-alert-container {
   z-index: 1000000;
-  background: rgba(15, 23, 42, 0.48);
-  backdrop-filter: blur(5px);
+  background: rgba(0, 0, 0, 0.72);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .hub-alert-popup {

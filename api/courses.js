@@ -211,6 +211,9 @@ const handleSyncUserSchedule = async (request, response) => {
   const body = typeof request.body === 'string' ? JSON.parse(request.body || '{}') : (request.body || {});
   const { userScheduleId } = body;
   if (!userScheduleId) return response.status(400).json({ error: 'Missing userScheduleId' });
+  const selectedFieldKeys = Array.isArray(body.fieldKeys)
+    ? [...new Set(body.fieldKeys.map((key) => String(key || '').trim()).filter(Boolean))]
+    : [];
 
   const { data: row, error: readError } = await supabase
     .from('user_schedules')
@@ -223,20 +226,26 @@ const handleSyncUserSchedule = async (request, response) => {
 
   const customData = parseCustomData(row.custom_data);
   const updates = getSyncableDiff(row);
+  const syncKeys = selectedFieldKeys.length > 0 ? selectedFieldKeys : Object.keys(updates);
+  const selectedUpdates = syncKeys.reduce((result, key) => {
+    if (!Object.prototype.hasOwnProperty.call(updates, key)) return result;
+    result[key] = updates[key];
+    return result;
+  }, {});
 
-  if (Object.keys(updates).length === 0) {
+  if (Object.keys(selectedUpdates).length === 0) {
     return response.status(200).json({ success: true, data: { updates: {}, remainingCustomData: customData } });
   }
 
   const { error: updateError } = await supabase
     .from('course_schedules')
-    .update(updates)
+    .update(selectedUpdates)
     .eq('id', row.course_schedules.id);
 
   if (updateError) throw updateError;
 
   const remainingCustomData = Object.entries(customData).reduce((result, [key, value]) => {
-    if (!SYNCABLE_COURSE_FIELDS.includes(key)) result[key] = value;
+    if (!Object.prototype.hasOwnProperty.call(selectedUpdates, key)) result[key] = value;
     return result;
   }, {});
 
@@ -247,7 +256,7 @@ const handleSyncUserSchedule = async (request, response) => {
 
   if (customError) throw customError;
 
-  return response.status(200).json({ success: true, data: { updates, remainingCustomData } });
+  return response.status(200).json({ success: true, data: { updates: selectedUpdates, remainingCustomData } });
 };
 
 const handleProfilePrivateMap = async (request, response) => {

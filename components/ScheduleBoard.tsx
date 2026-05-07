@@ -100,6 +100,39 @@ const SYNCABLE_COURSE_FIELDS: { key: keyof Course; label: string }[] = [
 
 const normalizeDiffValue = (value: any) => value === undefined || value === null ? '' : String(value).trim();
 
+const normalizeSortText = (value: any) => normalizeDiffValue(value);
+
+const sortChangedUserScheduleCourses = (courses: Course[]) => {
+    return [...courses].sort((a, b) => {
+        const codeCompare = normalizeSortText(a.course_code).localeCompare(
+            normalizeSortText(b.course_code),
+            'vi',
+            { numeric: true, sensitivity: 'base' }
+        );
+        if (codeCompare !== 0) return codeCompare;
+
+        const nameCompare = normalizeSortText(a.subject_name).localeCompare(
+            normalizeSortText(b.subject_name),
+            'vi',
+            { numeric: true, sensitivity: 'base' }
+        );
+        if (nameCompare !== 0) return nameCompare;
+
+        const studentNameCompare = normalizeSortText(a.user?.full_name || a.user?.student_code).localeCompare(
+            normalizeSortText(b.user?.full_name || b.user?.student_code),
+            'vi',
+            { numeric: true, sensitivity: 'base' }
+        );
+        if (studentNameCompare !== 0) return studentNameCompare;
+
+        return normalizeSortText(a.user?.student_code).localeCompare(
+            normalizeSortText(b.user?.student_code),
+            'vi',
+            { numeric: true, sensitivity: 'base' }
+        );
+    });
+};
+
 // =======================================================================
 // CẤU HÌNH LABEL CÁ NHÂN 
 // =======================================================================
@@ -559,7 +592,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             phase: selectedPhase,
             search: searchTerm.trim()
         });
-        setChangedUserScheduleCourses(data);
+        setChangedUserScheduleCourses(sortChangedUserScheduleCourses(data));
     } catch (err: any) {
         console.error("Lỗi:", err);
         setAdminScheduleError(err?.message || 'Không tải được dữ liệu TKB sinh viên.');
@@ -581,11 +614,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         .filter(diff => normalizeDiffValue(diff.originalValue) !== normalizeDiffValue(diff.changedValue));
   };
 
-  const handleSyncChangedCourse = async () => {
+  const handleSyncChangedField = async (fieldKey: string, fieldLabel: string) => {
     if (!selectedChangedCourse?.user_schedule_id || isAuditor) return;
     const diffs = getChangedCourseDiffs(selectedChangedCourse);
-    if (diffs.length === 0) return;
-    if (!await showConfirm(`Đồng bộ ${diffs.length} thay đổi này vào dữ liệu gốc của môn ${selectedChangedCourse.course_code}?`)) return;
+    const selectedDiff = diffs.find(diff => String(diff.key) === fieldKey);
+    if (!selectedDiff) return;
+    if (!await showConfirm(`Đồng bộ riêng trường "${fieldLabel}" của môn ${selectedChangedCourse.course_code}?`)) return;
 
     setIsSyncingChangedCourse(true);
     try {
@@ -598,14 +632,52 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 Authorization: `Bearer ${token}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ userScheduleId: selectedChangedCourse.user_schedule_id })
+            body: JSON.stringify({
+                userScheduleId: selectedChangedCourse.user_schedule_id,
+                fieldKeys: [fieldKey]
+            })
         });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error || 'Không đồng bộ được dữ liệu gốc.');
 
-        setSelectedChangedCourse(null);
-        await fetchChangedUserScheduleCourses();
-        await fetchCourses();
+        const syncedValue = payload?.data?.updates?.[fieldKey] ?? selectedDiff.changedValue;
+        const syncedCourseId = selectedChangedCourse.id;
+
+        const updateCourseOriginal = (course: Course): Course => {
+            if (course.id !== syncedCourseId) return course;
+
+            const nextOriginalCourse = {
+                ...(course.original_course || {}),
+                [fieldKey]: syncedValue,
+            };
+
+            const nextCustomData = { ...(course.custom_data || {}) };
+            if (course.user_schedule_id === selectedChangedCourse.user_schedule_id) {
+                delete nextCustomData[fieldKey];
+            }
+
+            return {
+                ...course,
+                ...(course.user_schedule_id === selectedChangedCourse.user_schedule_id ? { [fieldKey]: syncedValue } : {}),
+                original_course: nextOriginalCourse,
+                custom_data: nextCustomData,
+            };
+        };
+
+        const nextSelectedCourse = updateCourseOriginal(selectedChangedCourse);
+        setSelectedChangedCourse(nextSelectedCourse);
+        setChangedUserScheduleCourses(prev =>
+            sortChangedUserScheduleCourses(
+                prev
+                    .map(updateCourseOriginal)
+                    .filter(course => getChangedCourseDiffs(course).length > 0)
+            )
+        );
+        setAvailableCourses(prev => prev.map(course => (
+            course.id === syncedCourseId
+                ? { ...course, [fieldKey]: syncedValue }
+                : course
+        )));
     } catch (err: any) {
         console.error(err);
         alert(err?.message || 'Có lỗi xảy ra khi đồng bộ dữ liệu gốc.');
@@ -1280,6 +1352,16 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       );
   });
   const selectedChangedCourseDiffs = getChangedCourseDiffs(selectedChangedCourse);
+  const changedCourseCodeCounts = changedUserScheduleCourses.reduce((map, course) => {
+      const key = (course.course_code || '').trim();
+      if (!key) return map;
+      map.set(key, (map.get(key) || 0) + 1);
+      return map;
+  }, new Map<string, number>());
+
+  const closeChangedCourseModal = () => {
+      setSelectedChangedCourse(null);
+  };
 
     if (loading) {
         return (
@@ -1393,9 +1475,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
                 <div className="px-4 pt-4 border-b border-gray-200 flex gap-6 bg-white shrink-0 overflow-x-auto custom-scrollbar">
                     <button onClick={() => setAdminTab('system')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'system' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn hệ thống gốc</button>
-                    <button onClick={() => setAdminTab('user')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'user' ? 'border-b-2 border-purple-600 text-purple-700' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên thêm</button>
-                    <button onClick={() => setAdminTab('user_changed')} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'user_changed' ? 'border-b-2 border-orange-600 text-orange-700' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên thay đổi</button>
-                    <button onClick={() => { setAdminTab('student_schedules'); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); if (selectedRouteStudentCode) navigate('/schedule'); }} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'student_schedules' ? 'border-b-2 border-emerald-600 text-emerald-700' : 'text-gray-500 hover:text-gray-800'}`}>Quản lý TKB sinh viên</button>
+                    <button onClick={() => setAdminTab('user')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'user' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên thêm</button>
+                    <button onClick={() => setAdminTab('user_changed')} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'user_changed' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên thay đổi</button>
+                    <button onClick={() => { setAdminTab('student_schedules'); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); if (selectedRouteStudentCode) navigate('/schedule'); }} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'student_schedules' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Quản lý TKB sinh viên</button>
                 </div>
 
                 <div className="flex-1 overflow-auto custom-scrollbar bg-white">
@@ -1429,6 +1511,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     <table className="w-full text-left border-collapse text-sm min-w-[900px]">
                                         <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
                                             <tr>
+                                                <th className="p-3 border-b border-gray-200 font-bold text-center w-14">STT</th>
                                                 <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">Mã Học Phần</th>
                                                 <th className="p-3 border-b border-gray-200 font-bold">Tên Môn Học</th>
                                                 <th className="p-3 border-b border-gray-200 font-bold text-center">TC</th>
@@ -1439,8 +1522,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {selectedStudentCourses.map(course => (
+                                            {selectedStudentCourses.map((course, index) => (
                                                 <tr key={course.user_schedule_id || course.id} className="border-b border-gray-100 hover:bg-emerald-50/30 transition-colors">
+                                                    <td className="p-3 text-center font-bold text-gray-500">{index + 1}</td>
                                                     <td className="p-3 font-semibold text-[#003375] whitespace-nowrap">{course.course_code}</td>
                                                     <td className="p-3 font-bold text-gray-800">{course.subject_name}</td>
                                                     <td className="p-3 text-center font-medium">{course.credits}</td>
@@ -1476,9 +1560,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 <p>Không tìm thấy sinh viên nào đã thêm môn vào TKB.</p>
                             </div>
                         ) : (
-                            <table className="w-full text-left border-collapse text-sm min-w-[760px]">
+                                <table className="w-full text-left border-collapse text-sm min-w-[760px]">
                                 <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
                                     <tr>
+                                        <th className="p-3 border-b border-gray-200 font-bold text-center w-14">STT</th>
                                         <th className="p-3 border-b border-gray-200 font-bold">Sinh viên</th>
                                         <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">MSSV</th>
                                         <th className="p-3 border-b border-gray-200 font-bold">Email</th>
@@ -1487,8 +1572,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredStudentScheduleSummaries.map(student => (
+                                    {filteredStudentScheduleSummaries.map((student, index) => (
                                         <tr key={student.user_id} onClick={() => openStudentSchedule(student)} className="border-b border-gray-100 hover:bg-emerald-50/50 transition-colors cursor-pointer group">
+                                            <td className="p-3 text-center font-bold text-gray-500">{index + 1}</td>
                                             <td className="p-3 font-bold text-gray-800">{student.full_name}</td>
                                             <td className="p-3 font-mono font-bold text-emerald-700 whitespace-nowrap">{student.student_code}</td>
                                             <td className="p-3 text-gray-600">{student.email || '-'}</td>
@@ -1512,9 +1598,20 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     ) : filteredAdminCourses.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-gray-500"><Search size={40} className="mb-3 text-gray-300"/><p>Không có dữ liệu trong mục này.</p></div>
                     ) : adminTab === 'user_changed' ? (
-                        <table className="w-full text-left border-collapse text-sm min-w-[1000px]">
+                        <table className="w-full table-fixed text-left border-collapse text-sm min-w-[1080px]">
+                            <colgroup>
+                                <col className="w-14" />
+                                <col className="w-[170px]" />
+                                <col className="w-[110px]" />
+                                <col className="w-[150px]" />
+                                <col className="w-[220px]" />
+                                <col className="w-[150px]" />
+                                <col className="w-[220px]" />
+                                <col className="w-[88px]" />
+                            </colgroup>
                             <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
                                 <tr>
+                                    <th className="p-3 border-b border-gray-200 font-bold text-center w-14">STT</th>
                                     <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">Tên Sinh Viên</th>
                                     <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">MSSV</th>
                                     <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">Mã Học Phần</th>
@@ -1525,14 +1622,31 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredAdminCourses.map(c => (
-                                    <tr key={c.user_schedule_id} onClick={() => setSelectedChangedCourse(c)} className="border-b hover:bg-orange-50/50 transition-colors group cursor-pointer">
-                                        <td className="p-3 font-bold text-gray-800 whitespace-nowrap">{c.user?.full_name || 'Không xác định'}</td>
-                                        <td className="p-3 font-semibold text-orange-700 whitespace-nowrap">{c.user?.student_code || '-'}</td>
-                                        <td className="p-3 font-semibold text-[#003375] whitespace-nowrap">{c.course_code}</td>
-                                        <td className="p-3 font-bold text-gray-800">{c.subject_name}</td>
-                                        <td className="p-3 text-gray-600 font-medium">{c.instructor || '-'}</td>
-                                        <td className="p-3 text-xs text-gray-600 leading-relaxed">
+                                {filteredAdminCourses.map((c, index) => {
+                                    const duplicateCount = changedCourseCodeCounts.get((c.course_code || '').trim()) || 0;
+                                    const isDuplicateCourse = duplicateCount > 1;
+                                    return (
+                                    <tr
+                                        key={c.user_schedule_id}
+                                        onClick={() => setSelectedChangedCourse(c)}
+                                        className={`border-b transition-colors group cursor-pointer ${isDuplicateCourse ? 'bg-amber-50/80 hover:bg-amber-100/80 border-amber-200' : 'hover:bg-blue-50/50'}`}
+                                    >
+                                        <td className={`p-3 text-center font-bold ${isDuplicateCourse ? 'text-amber-700' : 'text-gray-500'}`}>{index + 1}</td>
+                                        <td className="p-3 font-bold text-gray-800 break-words leading-snug">{c.user?.full_name || 'Không xác định'}</td>
+                                        <td className="p-3 font-semibold text-orange-700 whitespace-nowrap overflow-hidden text-ellipsis">{c.user?.student_code || '-'}</td>
+                                        <td className={`p-3 font-semibold whitespace-nowrap ${isDuplicateCourse ? 'text-amber-800' : 'text-[#003375]'}`}>
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <span>{c.course_code}</span>
+                                                {isDuplicateCourse && (
+                                                    <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold border border-amber-300">
+                                                        Trùng {duplicateCount}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="p-3 font-bold text-gray-800 break-words leading-snug">{c.subject_name}</td>
+                                        <td className="p-3 text-gray-600 font-medium break-words leading-snug">{c.instructor || '-'}</td>
+                                        <td className="p-3 text-xs text-gray-600 leading-relaxed break-words">
                                             <span className="font-bold text-gray-800">Thứ {c.day_of_week} ({c.shift})</span> • P.{c.room}<br/>
                                             Tuần: {c.weeks}
                                             {c.labels && c.labels.length > 0 && (
@@ -1549,13 +1663,25 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                             </button>
                                         </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </table>
                     ) : (
-                        <table className="w-full text-left border-collapse text-sm min-w-[900px]">
+                        <table className="w-full table-fixed text-left border-collapse text-sm min-w-[960px]">
+                            <colgroup>
+                                <col className="w-14" />
+                                <col className="w-[160px]" />
+                                <col />
+                                <col className="w-14" />
+                                <col className="w-16" />
+                                <col className="w-[170px]" />
+                                <col className="w-[220px]" />
+                                <col className="w-28" />
+                            </colgroup>
                             <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
                                 <tr>
+                                    <th className="p-3 border-b border-gray-200 font-bold text-center w-14">STT</th>
                                     <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">Mã Học Phần</th>
                                     <th className="p-3 border-b border-gray-200 font-bold">Tên Môn Học</th>
                                     <th className="p-3 border-b border-gray-200 font-bold text-center">TC</th>
@@ -1566,14 +1692,15 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredAdminCourses.map(c => (
+                                {filteredAdminCourses.map((c, index) => (
                                     <tr key={c.id} className="border-b border-gray-100 hover:bg-blue-50/30 transition-colors group">
-                                        <td className="p-3 font-semibold text-[#003375] whitespace-nowrap">{c.course_code}</td>
-                                        <td className="p-3 font-bold text-gray-800">{c.subject_name}</td>
+                                        <td className="p-3 text-center font-bold text-gray-500">{index + 1}</td>
+                                        <td className="p-3 font-semibold text-[#003375] whitespace-nowrap overflow-hidden text-ellipsis">{c.course_code}</td>
+                                        <td className="p-3 font-bold text-gray-800 overflow-hidden text-ellipsis">{c.subject_name}</td>
                                         <td className="p-3 text-center font-medium">{c.credits}</td>
                                         <td className="p-3 text-center"><span className="px-2 py-0.5 bg-gray-100 rounded text-xs font-bold text-gray-600">{c.phase || '1'}</span></td>
-                                        <td className="p-3 text-gray-600 font-medium">{c.instructor || '-'}</td>
-                                        <td className="p-3 text-xs text-gray-600 leading-relaxed"><span className="font-bold text-gray-800">Thứ {c.day_of_week} ({c.shift})</span> • P.{c.room}<br/>Tuần: {c.weeks}</td>
+                                        <td className="p-3 text-gray-600 font-medium overflow-hidden text-ellipsis">{c.instructor || '-'}</td>
+                                        <td className="p-3 text-xs text-gray-600 leading-relaxed overflow-hidden text-ellipsis"><span className="font-bold text-gray-800">Thứ {c.day_of_week} ({c.shift})</span> • P.{c.room}<br/>Tuần: {c.weeks}</td>
                                         <td className="p-3 text-center">
                                             <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button onClick={() => { setAdminEditData(c); setIsAdminEditModalOpen(true); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Chỉnh sửa"><Edit size={16}/></button>
@@ -2382,25 +2509,25 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         )}
 
         {selectedChangedCourse && (
-            <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => setSelectedChangedCourse(null)}>
+            <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={closeChangedCourseModal}>
                 <div className="bg-white rounded-2xl w-full max-w-5xl border border-gray-200 shadow-2xl flex flex-col max-h-[82vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
-                    <div className="p-4 sm:p-5 bg-orange-600 text-white flex justify-between items-start gap-4 shrink-0">
+                    <div className="p-4 sm:p-5 bg-[#003375] text-white flex justify-between items-start gap-4 shrink-0">
                         <div>
                             <h2 className="font-bold text-lg flex items-center gap-2"><Info size={18} /> So sánh thay đổi môn học</h2>
-                            <p className="mt-1 text-sm text-orange-50">
+                            <p className="mt-1 text-sm text-blue-50">
                                 {selectedChangedCourse.course_code} - {selectedChangedCourse.subject_name}
                             </p>
-                            <p className="mt-1 text-xs text-orange-100">
+                            <p className="mt-1 text-xs text-blue-100">
                                 {selectedChangedCourse.user?.full_name || 'Không xác định'} • MSSV {selectedChangedCourse.user?.student_code || '-'}
                             </p>
                         </div>
-                        <button onClick={() => setSelectedChangedCourse(null)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
+                        <button onClick={closeChangedCourseModal} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
                     </div>
 
-                    <div className="p-5 overflow-y-auto custom-scrollbar flex-1 bg-gray-50">
+                    <div className="p-5 overflow-y-auto custom-scrollbar flex-1 bg-blue-50/40">
                         {selectedChangedCourseDiffs.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-                                <CheckCircle size={36} className="mb-3 text-emerald-400"/>
+                                <CheckCircle size={36} className="mb-3 text-[#0052cc]"/>
                                 <p className="font-bold">Không còn khác biệt cần đồng bộ.</p>
                             </div>
                         ) : (
@@ -2410,6 +2537,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         <th className="p-3 border-b border-gray-200 font-bold w-44">Trường dữ liệu</th>
                                         <th className="p-3 border-b border-gray-200 font-bold">Dữ liệu gốc</th>
                                         <th className="p-3 border-b border-gray-200 font-bold">Sinh viên đã chỉnh</th>
+                                        <th className="p-3 border-b border-gray-200 font-bold text-center w-28">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2419,8 +2547,18 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                             <td className="p-3 text-gray-500 bg-gray-50">
                                                 {normalizeDiffValue(diff.originalValue) || <span className="text-gray-300">Trống</span>}
                                             </td>
-                                            <td className="p-3 text-orange-700 font-semibold bg-orange-50/60">
-                                                {normalizeDiffValue(diff.changedValue) || <span className="text-orange-300">Trống</span>}
+                                            <td className="p-3 text-[#0052cc] font-semibold bg-blue-50/70">
+                                                {normalizeDiffValue(diff.changedValue) || <span className="text-blue-300">Trống</span>}
+                                            </td>
+                                            <td className="p-3 text-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSyncChangedField(String(diff.key), diff.label)}
+                                                    disabled={isSyncingChangedCourse}
+                                                    className="px-3 py-1.5 rounded-lg bg-[#0052cc] hover:bg-[#003d99] text-white text-xs font-bold transition-colors disabled:opacity-50"
+                                                >
+                                                    Đồng bộ
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}
@@ -2431,15 +2569,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
                     <div className="p-4 border-t border-gray-100 bg-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0 rounded-b-xl">
                         <p className="text-xs text-gray-500">
-                            Đồng bộ sẽ cập nhật bảng dữ liệu gốc và bỏ các field đã đồng bộ khỏi chỉnh sửa cá nhân của sinh viên này.
+                            Mỗi dòng có nút đồng bộ riêng để giữ những trường đặc thù của sinh viên.
                         </p>
                         <div className="flex justify-end gap-3">
-                            <button type="button" onClick={() => setSelectedChangedCourse(null)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors text-sm">Đóng</button>
-                            {!isAuditor && (
-                                <button type="button" onClick={handleSyncChangedCourse} disabled={isSyncingChangedCourse || selectedChangedCourseDiffs.length === 0} className="px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg shadow-md transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
-                                    {isSyncingChangedCourse ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} Đồng bộ với dữ liệu gốc
-                                </button>
-                            )}
+                            <button type="button" onClick={closeChangedCourseModal} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors text-sm">Đóng</button>
                         </div>
                     </div>
                 </div>
