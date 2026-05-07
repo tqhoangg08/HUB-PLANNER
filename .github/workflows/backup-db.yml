@@ -10,10 +10,14 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Cài đặt đồ nghề (PostgreSQL Client)
+      - name: 1. Cài đặt đồ nghề (PostgreSQL Client 17)
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y curl ca-certificates lsb-release
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql-keyring.gpg] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
 
       - name: 2. Lấy mốc thời gian hiện tại
         id: date
