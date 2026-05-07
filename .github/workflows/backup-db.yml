@@ -25,8 +25,8 @@ jobs:
 
       - name: 3. Rút ruột Database và nén lại (.sql.gz)
         run: |
-          # Xuất ra file riêng trước để nếu lỗi là GitHub văng đỏ ngay
-          pg_dump "${{ secrets.SUPABASE_DB_URL }}" > dump.sql
+          # Gọi đích danh đường dẫn của bản 17 vừa cài
+          /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.SUPABASE_DB_URL }}" > dump.sql
           # Xong mới đem đi nén
           gzip -c dump.sql > hubplanner_backup_${{ env.CURRENT_DATE }}.sql.gz
 
