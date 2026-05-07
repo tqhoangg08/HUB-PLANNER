@@ -21,7 +21,10 @@ jobs:
 
       - name: 3. Rút ruột Database và nén lại (.sql.gz)
         run: |
-          pg_dump "${{ secrets.SUPABASE_DB_URL }}" | gzip > hubplanner_backup_${{ env.CURRENT_DATE }}.sql.gz
+          # Xuất ra file riêng trước để nếu lỗi là GitHub văng đỏ ngay
+          pg_dump "${{ secrets.SUPABASE_DB_URL }}" > dump.sql
+          # Xong mới đem đi nén
+          gzip -c dump.sql > hubplanner_backup_${{ env.CURRENT_DATE }}.sql.gz
 
       - name: 4. Chở hàng sang kho Cloudflare R2 cất giấu
         env:
