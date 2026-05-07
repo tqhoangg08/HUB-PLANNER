@@ -25,6 +25,7 @@ import Particles from "react-particles";
 import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
 import { AdminReports } from './components/AdminReports';
+import { AdminEventCandidates } from './components/AdminEventCandidates';
 import { AIAdvisor } from './components/AIAdvisor';
 import { MobileAIAdvisor } from './components/MobileAIAdvisor'; 
 import { ACADEMIC_PROGRAMS, Program, Major, Specialization, getMajors } from './utils/programs';
@@ -1498,6 +1499,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/profile/:id" element={<ProfilePage />} />
                 
                 <Route path="/admin-reports" element={(isAdmin || isAuditor) ? <AdminReports /> : <Navigate to="/dashboard" replace />} />
+                <Route path="/admin/event-candidates" element={(isAdmin || isAuditor) ? <AdminEventCandidates /> : <Navigate to="/dashboard" replace />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
         );
@@ -1513,6 +1515,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/lost-found" element={<MobileLostFound />} />
                 <Route path="/handbook/:tab?" element={<MobileHandbook />} />
                 <Route path="/handbook" element={<MobileHandbook />} />
+                <Route path="/admin/event-candidates" element={(isAdmin || isAuditor) ? <AdminEventCandidates /> : <Navigate to="/mobile-home" replace />} />
                 
                 <Route path="/profile/:id" element={
                     <MobileProfileComponent 

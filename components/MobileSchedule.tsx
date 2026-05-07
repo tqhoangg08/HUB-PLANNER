@@ -8,6 +8,7 @@ import { parseSchedulePdf } from '../utils/schedulePdfImport';
 import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
 import NotificationNudge from './NotificationNudge';
+import { notifyModerators } from '../utils/moderatorNotifications';
 
 // --- Types ---
 interface UserProfile {
@@ -763,9 +764,10 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
 
     setIsSubmittingReport(true);
     try {
-      await supabase.from('course_reports').insert({ 
+      const { data } = await supabase.from('course_reports').insert({ 
         course_code: reportData.course_code, subject_name: reportData.subject_name, error_description: reportData.description, user_id: user.id
-      });
+      }).select('id').single();
+      void notifyModerators('course_report', data?.id);
       alert("✅ Gửi báo cáo thành công! Cảm ơn bạn.");
       setIsReportModalOpen(false);
       setReportData({ course_code: '', subject_name: '', description: '' });
@@ -782,9 +784,10 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
 
     setIsSubmittingCourse(true);
     try {
-      await supabase.from('user_course_requests').insert({ 
+      const { data } = await supabase.from('user_course_requests').insert({ 
         subject_name: newCourseData.subject_name, course_code: newCourseData.course_code, instructor: newCourseData.instructor || 'Chưa rõ', user_id: user.id
-      });
+      }).select('id').single();
+      void notifyModerators('user_course_request', data?.id);
       alert("✅ Gửi yêu cầu thành công!");
       setIsCreateCourseModalOpen(false);
       setNewCourseData({ subject_name: '', course_code: '', instructor: '' });

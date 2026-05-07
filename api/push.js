@@ -1,5 +1,9 @@
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
+ 
+const RESOURCE_SEND = 'send';
+const RESOURCE_SUBSCRIPTION = 'subscription';
+const RESOURCE_ANNOUNCEMENT_QUEUE = 'announcement-queue';
 
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MINUTES = 10;
@@ -36,6 +40,170 @@ const isAuthorized = (req, body) => {
 };
 
 const retryAt = () => new Date(Date.now() + RETRY_DELAY_MINUTES * 60 * 1000).toISOString();
+
+const parseResource = (req, body) => String(req.query?.resource || body.resource || '').trim().toLowerCase();
+
+const getPushUserFromRequest = async (req) => {
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
+  if (!token) return null;
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user?.id) return null;
+
+  return data.user;
+};
+
+const deleteSubscriptionsByEndpoint = async (endpoint, exceptUserId) => {
+  let query = supabase
+    .from('push_subscriptions')
+    .delete()
+    .eq('endpoint', endpoint);
+
+  if (exceptUserId) {
+    query = query.neq('user_id', exceptUserId);
+  }
+
+  const { error } = await query;
+  if (error) throw error;
+};
+
+const handlePushSubscription = async (req, res, body) => {
+  if (req.method !== 'POST' && req.method !== 'DELETE') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const user = await getPushUserFromRequest(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+  const subscription = body.subscription;
+  const endpoint = subscription?.endpoint;
+
+  if (!endpoint) {
+    return res.status(400).json({ error: 'Missing subscription endpoint' });
+  }
+
+  if (req.method === 'DELETE') {
+    await deleteSubscriptionsByEndpoint(endpoint);
+    return res.status(200).json({ success: true });
+  }
+
+  try {
+    await deleteSubscriptionsByEndpoint(endpoint, user.id);
+
+    const { data: existingRows, error: lookupError } = await supabase
+      .from('push_subscriptions')
+      .select('id')
+      .eq('endpoint', endpoint)
+      .limit(1);
+
+    if (lookupError) throw lookupError;
+
+    if (existingRows && existingRows.length > 0) {
+      const { error: updateError } = await supabase
+        .from('push_subscriptions')
+        .update({
+          user_id: user.id,
+          subscription,
+          endpoint,
+        })
+        .eq('id', existingRows[0].id);
+
+      if (updateError) throw updateError;
+    } else {
+      const { error: insertError } = await supabase
+        .from('push_subscriptions')
+        .insert({
+          user_id: user.id,
+          subscription,
+          endpoint,
+        });
+
+      if (insertError) throw insertError;
+    }
+
+    return res.status(200).json({ success: true, userId: user.id });
+  } catch (error) {
+    console.error('Push subscription sync failed:', error);
+    return res.status(500).json({
+      error: 'Cannot sync push subscription',
+      detail: error instanceof Error ? error.message : String(error),
+    });
+  }
+};
+
+const handleSendNotification = async (req, res, body) => {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { title, body: messageBody, url, targetUserId } = body;
+
+  let query = supabase
+    .from('push_subscriptions')
+    .select('id, endpoint, user_id, subscription');
+
+  if (targetUserId) {
+    query = query.eq('user_id', targetUserId);
+  }
+
+  const { data: subscriptions, error } = await query;
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  if (!subscriptions || subscriptions.length === 0) {
+    return res.status(404).json({ error: 'Khong tim thay nguoi nhan' });
+  }
+
+  const payload = JSON.stringify({
+    title: title || 'HUB Planner',
+    body: messageBody || 'Báº¡n cÃ³ thÃ´ng bÃ¡o má»›i.',
+    url: url || '/',
+  });
+
+  const results = await Promise.all(subscriptions.map(async (sub) => {
+    try {
+      const pushResponse = await webpush.sendNotification(sub.subscription, payload);
+
+      return {
+        id: sub.id,
+        endpoint: sub.endpoint || sub.subscription?.endpoint,
+        ok: true,
+        statusCode: pushResponse.statusCode,
+      };
+    } catch (err) {
+      console.error('Push delivery failed:', err);
+
+      if (err?.statusCode === 404 || err?.statusCode === 410) {
+        await supabase
+          .from('push_subscriptions')
+          .delete()
+          .eq('id', sub.id);
+      }
+
+      return {
+        id: sub.id,
+        endpoint: sub.endpoint || sub.subscription?.endpoint,
+        ok: false,
+        statusCode: err?.statusCode,
+        body: err?.body,
+        message: err?.message,
+      };
+    }
+  }));
+
+  const sent = results.filter(result => result.ok).length;
+  const failed = results.length - sent;
+
+  return res.status(sent > 0 ? 200 : 502).json({
+    success: sent > 0,
+    message: `Da gui ${sent}/${subscriptions.length} thiet bi`,
+    sent,
+    failed,
+    results,
+  });
+};
 
 const enqueueRecentAnnouncements = async () => {
   const recentCutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
@@ -335,13 +503,27 @@ const processQueue = async ({ table, select, payloadFor, emptyMessage, subscript
 };
 
 export default async function handler(req, res) {
+  const body = readBody(req.body);
+  const resource = parseResource(req, body);
+
+  if (resource === RESOURCE_SUBSCRIPTION) {
+    return handlePushSubscription(req, res, body);
+  }
+
+  if (resource === RESOURCE_SEND) {
+    return handleSendNotification(req, res, body);
+  }
+
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const body = readBody(req.body);
   if (req.method === 'POST' && body.action === 'approve-lost-found') {
     return approveLostFound(req, res, body);
+  }
+
+  if (resource !== RESOURCE_ANNOUNCEMENT_QUEUE) {
+    return res.status(400).json({ error: 'Missing or invalid resource' });
   }
 
   if (!isAuthorized(req, body)) {

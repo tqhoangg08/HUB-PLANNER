@@ -17,6 +17,7 @@ import { CommentSection } from './CommentSection';
 import { useUserRole } from '../hooks/useUserRole';
 import { CTVRegistrationForm } from './CTVRegistrationForm';
 import NotificationNudge from './NotificationNudge';
+import { notifyModerators } from '../utils/moderatorNotifications';
 
 // --- Types ---
 interface HubEvent {
@@ -70,7 +71,7 @@ const notifyAllUsersAboutEvent = async (event: any) => {
         const eventTitle = event.title || 'Có một sự kiện mới';
         const criteriaLabel = event.criteria ? ` - Mục ${event.criteria}` : '';
 
-        const response = await fetch('/api/send-notification', {
+        const response = await fetch('/api/push?resource=send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -398,11 +399,14 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 is_manually_closed: false 
             };
 
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('events')
-                .insert([payload]);
+                .insert([payload])
+                .select('id')
+                .single();
 
             if (error) throw error;
+            void notifyModerators('event_pending', data?.id);
 
             onShowToast("Đóng góp của bạn đã được gửi và đang chờ Admin duyệt. Cảm ơn bạn!", "success");
             
@@ -979,8 +983,9 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
                 status: 'pending' 
             };
 
-            const { error } = await supabase!.from('event_reports').insert([payload]);
+            const { data, error } = await supabase!.from('event_reports').insert([payload]).select('id').single();
             if (error) throw error;
+            void notifyModerators('event_report', data?.id);
 
             onShowToast("Đã gửi báo cáo thành công. Đội ngũ sẽ khắc phục sớm nhất!", "success");
             setIssue('');

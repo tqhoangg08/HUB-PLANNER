@@ -1,8 +1,9 @@
-import React, { useRef, useState, useEffect } from 'react';
+﻿import React, { useRef, useState, useEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Book, Calendar, ChevronDown, ClipboardList, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Settings, Menu, X, FileText, ShieldCheck } from 'lucide-react';
+import { Book, Calendar, ChevronDown, ClipboardList, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Settings, Menu, X, FileText, ShieldCheck, Sparkles } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import NotificationBell from '../components/NotificationBell';
+import { supabase } from '../utils/supabase';
 
 interface DesktopLayoutProps {
   session: any;
@@ -54,6 +55,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   const lockedScrollYRef = useRef(0);
   const navRefs = useRef<(HTMLAnchorElement | HTMLDivElement | null)[]>([]);
   const [navIndicator, setNavIndicator] = useState({ left: 0, width: 0, opacity: 0 });
+  const [pendingReportCount, setPendingReportCount] = useState(0);
+  const [pendingCandidateCount, setPendingCandidateCount] = useState(0);
 
   useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
@@ -130,6 +133,64 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
           window.scrollTo(0, lockedScrollYRef.current);
       };
   }, [isMobileMenuOpen]);
+
+  useEffect(() => {
+      if (!(isAdmin || isAuditor)) {
+          setPendingReportCount(0);
+          setPendingCandidateCount(0);
+          return;
+      }
+
+      let cancelled = false;
+      const unresolvedStatuses = new Set(['ok', 'resolved']);
+      const reportTables = ['course_reports', 'bug_reports', 'ctv_requests', 'event_reports', 'feedback'];
+
+      const loadPendingCounts = async () => {
+          try {
+              const reportCounts = await Promise.all(reportTables.map(async (table) => {
+                  const { data, error } = await supabase
+                      .from(table)
+                      .select('id,status');
+
+                  if (error) {
+                      console.warn(`Không thể tải số báo cáo chờ xử lý từ ${table}:`, error.message);
+                      return 0;
+                  }
+
+                  return (data || []).filter((item: any) => {
+                      const status = String(item?.status || '').toLowerCase();
+                      return !unresolvedStatuses.has(status);
+                  }).length;
+              }));
+
+              const { count: candidateCount, error: candidateError } = await supabase
+                  .from('event_candidates')
+                  .select('id', { count: 'exact', head: true })
+                  .eq('review_status', 'pending');
+
+              if (candidateError) {
+                  console.warn('Không thể tải số candidate chờ duyệt:', candidateError.message);
+              }
+
+              if (!cancelled) {
+                  setPendingReportCount(reportCounts.reduce((sum, value) => sum + value, 0));
+                  setPendingCandidateCount(candidateError ? 0 : (candidateCount || 0));
+              }
+          } catch (error) {
+              console.warn('Không thể tải badge sidebar:', error);
+              if (!cancelled) {
+                  setPendingReportCount(0);
+                  setPendingCandidateCount(0);
+              }
+          }
+      };
+
+      loadPendingCounts();
+
+      return () => {
+          cancelled = true;
+      };
+  }, [isAdmin, isAuditor, location.pathname]);
 
   // ==============================================================================================
   // ✨ 1. GIAO DIỆN ADMIN & AUDITOR ✨
@@ -213,7 +274,17 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           <div className="flex items-center gap-3">
                               <ClipboardList size={16} /> Xử lý báo cáo
                           </div>
-                          <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                          {pendingReportCount > 0 && (
+                              <div className="w-2 h-2 rounded-full bg-red-500" title={`${pendingReportCount} mục chờ xử lý`}></div>
+                          )}
+                      </NavLink>
+                      <NavLink to="/admin/event-candidates" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center justify-between px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
+                          <div className="flex items-center gap-3">
+                              <Sparkles size={16} /> Event candidate
+                          </div>
+                          {pendingCandidateCount > 0 && (
+                              <div className="w-2 h-2 rounded-full bg-red-500" title={`${pendingCandidateCount} candidate chờ duyệt`}></div>
+                          )}
                       </NavLink>
                   </div>
 
@@ -243,7 +314,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </div>
                       <div className="flex-1 min-w-0">
                           <div className="text-sm font-bold text-gray-900 truncate">{displayName}</div>
-                          <div className="text-[11px] text-gray-500 font-medium truncate">{studentId || (isAdmin ? 'Quản trị viên' : 'Kiểm duyệt viên')}</div>
+                                  <span className="text-[10px] text-gray-400 font-medium leading-none mt-1">{studentId || (isAdmin ? 'Quản trị viên' : 'Kiểm duyệt viên')}</span>
                       </div>
                       {isUserMenuOpen && (
                           <div className="absolute bottom-full left-0 mb-3 w-full bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
@@ -276,7 +347,13 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               <span>HUB Planner</span>
                               <span className="opacity-50">/</span>
                               <span className="text-gray-900 font-bold truncate max-w-[150px] sm:max-w-full">
-                                  {location.pathname.includes('admin-reports') ? 'Xử lý báo cáo' : location.pathname.includes('dashboard') ? 'Quản lý Sinh viên' : 'Hệ thống'}
+                                  {location.pathname.includes('admin/event-candidates')
+                                      ? 'Event candidate'
+                                      : location.pathname.includes('admin-reports')
+                                          ? 'Xử lý báo cáo'
+                                          : location.pathname.includes('dashboard')
+                                              ? 'Quản lý Sinh viên'
+                                              : 'Hệ thống'}
                               </span>
                           </div>
                       </div>
@@ -334,8 +411,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               
                               {isUserMenuOpen && (
                                   <div className="absolute right-0 top-full mt-3 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
-                                      <button type="button" onClick={() => { setIsMobileMenuOpen(false); const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
-                                      <button type="button" onClick={() => { setIsMobileMenuOpen(false); setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
+                              <button type="button" onClick={() => { setIsMobileMenuOpen(false); const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
+                              <button type="button" onClick={() => { setIsMobileMenuOpen(false); setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
                                       <button type="button" onClick={() => { setIsMobileMenuOpen(false); handleMenuLogout(); }} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
                                   </div>
                               )}
@@ -379,7 +456,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </Link>
                       <div className="leading-tight">
                           <h1 className="text-[15px] font-extrabold text-[#003375] tracking-tight">HUB PLANNER</h1>
-                          <p className="text-[9px] text-gray-500 uppercase tracking-widest font-semibold hidden sm:block">Hỗ trợ sinh viên</p>
+                              <p className="text-[9px] text-gray-500 uppercase tracking-widest font-semibold">Hỗ trợ sinh viên</p>
                       </div>
                   </div>
 
@@ -450,7 +527,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                                       </Link>
                                       <div className="h-px bg-gray-100 my-1 mx-2"></div>
                                       <Link to="/handbook/faqs" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-indigo-600 rounded-lg transition-colors group">
-                                          <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors"><HelpCircle size={16} /></div> FAQs
+                          <HelpCircle size={16} /> Trợ giúp
                                       </Link>
                                       <Link to="/handbook/feedback" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-teal-600 rounded-lg transition-colors group">
                                           <div className="bg-teal-100 p-1.5 rounded-lg text-teal-600 group-hover:bg-teal-600 group-hover:text-white transition-colors"><MessageSquarePlus size={16} /></div> Góp ý
@@ -515,8 +592,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           
                           {isUserMenuOpen && (
                               <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
-                                  <button type="button" onClick={() => { setIsMobileMenuOpen(false); const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
-                                  <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
+                              <button type="button" onClick={() => { setIsMobileMenuOpen(false); const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
+                              <button type="button" onClick={() => { setIsMobileMenuOpen(false); setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
                                   <button type="button" onClick={() => { handleRequestReset(); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
                                   <button type="button" onClick={() => { handleMenuLogout(); setIsMobileMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
                               </div>
@@ -559,7 +636,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
             <footer className="text-center py-6 mt-10 border-t border-gray-200 text-gray-500 bg-[#F8FAFC]">
                 <p className="text-xs font-medium tracking-wide mb-1 uppercase">Web designed by tqhoangg</p>
                 <p className="text-[10px] opacity-80 px-4 mb-3">
-                    HUB Planner có thể mắc sai sót, vui lòng xác minh lại thông tin khi cần thiết.
+                    HUB Planner có thể mặc sai sót, vui lòng xác minh lại thông tin khi cần thiết.
                 </p>
                 <div className="text-xs flex items-center justify-center gap-3">
                     <Link to="/terms" className="hover:text-gray-900 transition-colors">Điều khoản sử dụng</Link>
@@ -687,7 +764,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           <span>Làm mới dữ liệu</span>
                       </button>
                       <button 
-                          onClick={() => { handleMenuLogout(); setIsMobileMenuOpen(false); playClick(); }} 
+                          onClick={() => { handleMenuLogout(); setIsMobileMenuOpen(false); }} 
                           className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-bold text-red-600 hover:bg-red-50 transition-colors"
                       >
                           <LogOut size={20} className="text-red-500" />
@@ -756,7 +833,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               <div className="h-px bg-gray-100 w-full my-3"></div>
               
               {/* TIỆN ÍCH & HỖ TRỢ MỚI TRÊN MOBILE */}
-              <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider mt-1">TIỆN ÍCH & HỖ TRỢ</div>
+              <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider mt-1">TIỆN ÍCH & HỔ TRỢ</div>
               
               <div className="flex flex-col">
                   <button 

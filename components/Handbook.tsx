@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { supabase } from '../utils/supabase';
+import { notifyModerators } from '../utils/moderatorNotifications';
 
 type TabType = 'contacts' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about' | 'feedback' | 'donate';
 
@@ -105,11 +106,14 @@ export const Handbook: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('feedback')
-                .insert([{ type: feedbackType, content: feedbackContent, contact: contactInfo }]);
+                .insert([{ type: feedbackType, content: feedbackContent, contact: contactInfo }])
+                .select('id')
+                .single();
 
             if (error) throw error;
+            void notifyModerators('feedback', data?.id);
 
             setSubmitStatus('success');
             setFeedbackContent('');

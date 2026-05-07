@@ -17,6 +17,7 @@ import { CommentSection } from './CommentSection';
 import { useUserRole } from '../hooks/useUserRole';
 import { CTVRegistrationForm } from './CTVRegistrationForm';
 import NotificationNudge from './NotificationNudge';
+import { notifyModerators } from '../utils/moderatorNotifications';
 
 // --- Types ---
 interface HubEvent {
@@ -72,7 +73,7 @@ const notifyAllUsersAboutEvent = async (event: any) => {
     try {
         const eventTitle = event.title || 'Có một sự kiện mới';
         const criteriaLabel = event.criteria ? ` - Mục ${event.criteria}` : '';
-        await fetch('/api/send-notification', {
+        await fetch('/api/push?resource=send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -343,8 +344,9 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 status: 'pending', is_manually_closed: false 
             };
 
-            const { error } = await supabase.from('events').insert([payload]);
+            const { data, error } = await supabase.from('events').insert([payload]).select('id').single();
             if (error) throw error;
+            void notifyModerators('event_pending', data?.id);
 
             onShowToast("Đóng góp của bạn đã được gửi. Cảm ơn bạn!", "success");
             localStorage.removeItem(DRAFT_KEY);
@@ -561,8 +563,9 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
                 event_id: parseInt(event.id) || null, user_id: session?.user?.id || null, 
                 event_name: event.name, organizer: event.organizer, issue_description: issue, status: 'pending' 
             };
-            const { error } = await supabase.from('event_reports').insert([payload]);
+            const { data, error } = await supabase.from('event_reports').insert([payload]).select('id').single();
             if (error) throw error;
+            void notifyModerators('event_report', data?.id);
 
             onShowToast("Đã gửi báo cáo thành công!", "success");
             setIssue('');

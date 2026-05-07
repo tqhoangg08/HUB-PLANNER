@@ -10,6 +10,7 @@ import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import NotificationNudge from './NotificationNudge';
+import { notifyModerators } from '../utils/moderatorNotifications';
 
 interface UserProfile {
   id?: string;
@@ -1279,10 +1280,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
     setIsSubmittingReport(true);
     try {
-      const { error } = await supabase.from('course_reports').insert({ 
+      const { data, error } = await supabase.from('course_reports').insert({ 
         course_code: reportData.course_code, subject_name: reportData.subject_name, error_description: reportData.description, user_id: user.id
-      });
+      }).select('id').single();
       if (error) throw error;
+      void notifyModerators('course_report', data?.id);
       alert("✅ Gửi báo cáo thành công! Cảm ơn bạn đã đóng góp.");
       setIsReportModalOpen(false); setReportData({ course_code: '', subject_name: '', description: '' });
     } catch (error) { alert("Đã xảy ra lỗi khi gửi báo cáo."); } 
@@ -1298,10 +1300,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
     setIsSubmittingCourse(true);
     try {
-      const { error } = await supabase.from('user_course_requests').insert({ 
+      const { data, error } = await supabase.from('user_course_requests').insert({ 
         subject_name: newCourseData.subject_name, course_code: newCourseData.course_code, instructor: newCourseData.instructor || 'Chưa rõ', user_id: user.id
-      });
+      }).select('id').single();
       if (error) throw error;
+      void notifyModerators('user_course_request', data?.id);
       alert("✅ Gửi yêu cầu thành công! Admin sẽ kiểm tra và cập nhật môn này.");
       setIsCreateCourseModalOpen(false); setNewCourseData({ subject_name: '', course_code: '', instructor: '' });
     } catch (error) { alert("Đã xảy ra lỗi khi gửi yêu cầu."); } 

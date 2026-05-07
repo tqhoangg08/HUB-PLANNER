@@ -7,6 +7,7 @@ import { CommentSection } from './CommentSection';
 import { createPortal } from 'react-dom';
 import { useUserRole } from '../hooks/useUserRole';
 import NotificationNudge from './NotificationNudge';
+import { notifyModerators } from '../utils/moderatorNotifications';
 
 // --- Types ---
 interface LostFoundItem {
@@ -113,12 +114,13 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                 if (error) throw error;
                 onShowToast("Cập nhật thành công!", 'success');
             } else {
-                const { error } = await supabase.from('lost_found_items').insert([{
+                const { data, error } = await supabase.from('lost_found_items').insert([{
                     title: formData.title, description: formData.description, location: formData.location,
                     contact_info: formData.contact_info, user_name: formData.user_name || 'Ẩn danh',
                     image_url: imageUrl, type: type, user_id: currentUserId || null, status: 'pending'
-                }]);
+                }]).select('id').single();
                 if (error) throw error;
+                void notifyModerators('lost_found_pending', data?.id);
                 onShowToast("Đăng tin thành công! Tin sẽ hiển thị sau khi duyệt.", 'success');
             }
             onClose();
@@ -347,7 +349,7 @@ export const MobileLostFound: React.FC = () => {
       playClick();
       try {
           const { data: { session: currentSession } } = await supabase!.auth.getSession();
-          const response = await fetch('/api/announcement-push-queue', {
+          const response = await fetch('/api/push?resource=announcement-queue', {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',

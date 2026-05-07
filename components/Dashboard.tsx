@@ -25,6 +25,7 @@ import { useUserRole } from '../hooks/useUserRole';
 import { exportTranscriptToPdf } from '../utils/pdfExport';
 import { fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
 import PushNotificationPrompt from '../components/PushNotificationPrompt'; // Đường dẫn tùy sếp lưu ở đâu
+import { notifyModerators } from '../utils/moderatorNotifications';
 
 // ============================================================================
 // HELPERS CHO GIAO DIỆN ADMIN
@@ -83,13 +84,14 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
             
             const { data: { session } } = await supabase.auth.getSession();
             
-            const { error } = await supabase.from('bug_reports').insert([{
+            const { data, error } = await supabase.from('bug_reports').insert([{
                 user_id: session?.user?.id || null,
                 error_location: location,
                 description: description
-            }]);
+            }]).select('id').single();
 
             if (error) throw error;
+            void notifyModerators('bug_report', data?.id);
             setStatusMsg({text: 'Đã gửi báo cáo thành công. Cảm ơn bạn!', type: 'success'});
             setTimeout(() => {
                 onClose();

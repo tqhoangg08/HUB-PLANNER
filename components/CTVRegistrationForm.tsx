@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../utils/supabase';
 import { User, BookOpen, GraduationCap, Phone, Send, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { playClick } from '../utils/audio';
+import { notifyModerators } from '../utils/moderatorNotifications';
 
 interface CTVRegistrationFormProps {
     onSuccess?: () => void;
@@ -39,7 +40,7 @@ export const CTVRegistrationForm: React.FC<CTVRegistrationFormProps> = ({ onSucc
             }
 
             // Insert Data (Guest Mode - No user_id required)
-            const { error: insertError } = await supabase
+            const { data, error: insertError } = await supabase
                 .from('ctv_requests')
                 .insert([
                     {
@@ -50,7 +51,9 @@ export const CTVRegistrationForm: React.FC<CTVRegistrationFormProps> = ({ onSucc
                         status: 'pending' // Default status
                         // user_id is omitted as requested
                     }
-                ]);
+                ])
+                .select('id')
+                .single();
 
             if (insertError) {
                 // Handle duplicate request or other DB errors
@@ -62,6 +65,7 @@ export const CTVRegistrationForm: React.FC<CTVRegistrationFormProps> = ({ onSucc
 
             // Success
             setSuccess(true);
+            void notifyModerators('ctv_request', data?.id);
             if (onSuccess) onSuccess();
 
         } catch (err: any) {

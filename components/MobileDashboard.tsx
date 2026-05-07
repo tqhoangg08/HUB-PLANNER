@@ -22,6 +22,7 @@ import { mapIdToDisplay } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
 import { useUserRole } from '../hooks/useUserRole';
 import { fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
+import { notifyModerators } from '../utils/moderatorNotifications';
 
 // ============================================================================
 // MODAL: BÁO LỖI HỆ THỐNG
@@ -47,13 +48,14 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
             
             const { data: { session } } = await supabase.auth.getSession();
             
-            const { error } = await supabase.from('bug_reports').insert([{
+            const { data, error } = await supabase.from('bug_reports').insert([{
                 user_id: session?.user?.id || null,
                 error_location: location,
                 description: description
-            }]);
+            }]).select('id').single();
 
             if (error) throw error;
+            void notifyModerators('bug_report', data?.id);
             setStatusMsg({text: 'Đã gửi báo cáo thành công. Cảm ơn bạn!', type: 'success'});
             setTimeout(() => {
                 onClose();
