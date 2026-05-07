@@ -12,6 +12,7 @@ import {
   Bookmark, BookmarkCheck, ArrowDownUp, AlertTriangle, CalendarDays, MoreHorizontal, UserPlus
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
+import { showConfirm } from '../utils/appNotifications';
 import { CommentSection } from './CommentSection';
 import { useUserRole } from '../hooks/useUserRole';
 import { CTVRegistrationForm } from './CTVRegistrationForm';
@@ -1340,7 +1341,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   const handleDeleteEvent = async (id: string) => {
       if (!isAdmin) return;
       playClick();
-      if (!window.confirm("Bạn có chắc chắn muốn xóa sự kiện này? Nó sẽ ẩn khỏi bảng tin chung nhưng vẫn hiện với người đã tham gia.")) return;
+      if (!await showConfirm("Bạn có chắc chắn muốn xóa sự kiện này? Nó sẽ ẩn khỏi bảng tin chung nhưng vẫn hiện với người đã tham gia.")) return;
 
       try {
           const { error } = await supabase!

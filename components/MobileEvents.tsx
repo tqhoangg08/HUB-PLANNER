@@ -12,6 +12,7 @@ import {
   Bookmark, BookmarkCheck, ArrowDownUp, AlertTriangle, CalendarDays, MoreHorizontal, UserPlus
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
+import { showConfirm } from '../utils/appNotifications';
 import { CommentSection } from './CommentSection';
 import { useUserRole } from '../hooks/useUserRole';
 import { CTVRegistrationForm } from './CTVRegistrationForm';
@@ -301,8 +302,8 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         }
     }, [formData, isOpen]);
 
-    const handleClearDraft = () => {
-        if (window.confirm("Bạn có chắc muốn xóa toàn bộ nội dung nháp?")) {
+    const handleClearDraft = async () => {
+        if (await showConfirm("Bạn có chắc muốn xóa toàn bộ nội dung nháp?")) {
             playClick();
             setFormData({
                 title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '',

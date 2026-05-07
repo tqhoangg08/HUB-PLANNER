@@ -31,7 +31,7 @@ self.addEventListener('push', function(event) {
     event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// Lang nghe su kien khi nguoi dung click vao thong bao
+// Lang nghe su  kien khi nguoi dung click vao thong bao
 self.addEventListener('notificationclick', function(event) {
     const targetUrl = event.notification.data?.url || '/';
     event.notification.close();

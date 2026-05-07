@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, MessageSquare, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield } from 'lucide-react';
 import { playClick } from '../utils/audio';
+import { showConfirm } from '../utils/appNotifications';
 import { CommentSection } from './CommentSection';
 import { createPortal } from 'react-dom';
 import { useUserRole } from '../hooks/useUserRole';
@@ -375,7 +376,7 @@ export const LostFoundBoard: React.FC = () => {
       if (!isAdmin && session?.user?.id !== item.user_id) return;
       
       playClick();
-      if (!window.confirm("Bạn có chắc chắn muốn xóa tin này không?")) return;
+      if (!await showConfirm("Bạn có chắc chắn muốn xóa tin này không?")) return;
       
       const { error } = await supabase!
         .from('lost_found_items')
@@ -391,7 +392,7 @@ export const LostFoundBoard: React.FC = () => {
 
   const handleResolve = async (id: number) => {
       playClick();
-      if (!window.confirm("Bạn xác nhận là đã giải quyết xong (Tìm thấy đồ / Đã trả lại đồ) cho bài đăng này?")) return;
+      if (!await showConfirm("Bạn xác nhận là đã giải quyết xong (Tìm thấy đồ / Đã trả lại đồ) cho bài đăng này?")) return;
       
       const { error } = await supabase!
         .from('lost_found_items')

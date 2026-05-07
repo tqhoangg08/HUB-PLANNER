@@ -4,6 +4,7 @@ import { fetchProfilePrivateMap } from '../utils/profilePrivate';
 import { Link } from 'react-router-dom';
 import { Loader2, CheckCircle2, AlertTriangle, Bug, BookOpen, UserPlus, CalendarDays, MessageSquare, Trash2, Calendar, Edit2 } from 'lucide-react';
 import { playClick } from '../utils/audio';
+import { showConfirm } from '../utils/appNotifications';
 
 type TabType = 'course_reports' | 'bug_reports' | 'ctv_requests' | 'event_reports' | 'feedback';
 
@@ -113,7 +114,7 @@ export const AdminReports: React.FC = () => {
     };
 
     const handleDelete = async (id: any) => {
-        if (!window.confirm("Bạn có chắc chắn muốn xóa báo cáo này vĩnh viễn?")) return;
+        if (!await showConfirm("Bạn có chắc chắn muốn xóa báo cáo này vĩnh viễn?")) return;
         if (!supabase) return;
         playClick();
         setUpdatingId(id);

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { UserData } from '../types';
 import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
 import { playClick } from '../utils/audio';
+import { showConfirm } from '../utils/appNotifications';
 import { supabase } from '../utils/supabase'; 
 import DOMPurify from 'dompurify';
 import { createPortal } from 'react-dom';
@@ -285,7 +286,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
   const deleteSession = async (id: number) => {
       playClick();
-      if(!window.confirm("Xóa cuộc trò chuyện này khỏi danh sách?")) return;
+      if(!await showConfirm("Xóa cuộc trò chuyện này khỏi danh sách?")) return;
       setSavedSessions(prev => prev.map(s => s.id === id ? { ...s, is_deleted: true } : s));
       setActiveDropdown(null);
       if (chatHistory.length > 0 && chatHistory.some(m => m.logId === id)) setChatHistory([]);

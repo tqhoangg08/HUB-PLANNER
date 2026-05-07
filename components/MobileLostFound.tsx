@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, MessageSquare, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield } from 'lucide-react';
 import { playClick } from '../utils/audio';
+import { showConfirm } from '../utils/appNotifications';
 import { CommentSection } from './CommentSection';
 import { createPortal } from 'react-dom';
 import { useUserRole } from '../hooks/useUserRole';
@@ -370,7 +371,7 @@ export const MobileLostFound: React.FC = () => {
   const handleDelete = async (item: LostFoundItem) => {
       if (!isAdmin && session?.user?.id !== item.user_id) return;
       playClick();
-      if (!window.confirm("Bạn có chắc chắn muốn xóa tin này không?")) return;
+      if (!await showConfirm("Bạn có chắc chắn muốn xóa tin này không?")) return;
       
       const { error } = await supabase!.from('lost_found_items').update({ is_deleted: true }).eq('id', item.id);
       if (error) showToast("Lỗi xóa: " + error.message, 'error');
@@ -382,7 +383,7 @@ export const MobileLostFound: React.FC = () => {
 
   const handleResolve = async (id: number) => {
       playClick();
-      if (!window.confirm("Xác nhận đã giải quyết xong bài đăng này?")) return;
+      if (!await showConfirm("Xác nhận đã giải quyết xong bài đăng này?")) return;
       
       const { error } = await supabase!.from('lost_found_items').update({ status: 'resolved' }).eq('id', id);
       if (error) showToast("Lỗi cập nhật: " + error.message, 'error');

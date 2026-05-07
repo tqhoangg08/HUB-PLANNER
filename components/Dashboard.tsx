@@ -875,6 +875,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const { isAdmin, isAuditor, loading } = useUserRole();
     const [adminUsers, setAdminUsers] = useState<any[]>([]);
     const [loadingAdmin, setLoadingAdmin] = useState(false);
+    const [loadingAdminDetails, setLoadingAdminDetails] = useState(false);
     const [selectedUserOverview, setSelectedUserOverview] = useState<UserData | null>(null);
     const [selectedAdminUserId, setSelectedAdminUserId] = useState<string | null>(null);
     const isViewingAsAuditor = isAuditor && selectedUserOverview !== null;
@@ -938,6 +939,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const fetchAdminData = async () => {
         setLoadingAdmin(true);
+        setLoadingAdminDetails(false);
         try {
             let allProfiles: any[] = [];
             let hasMore = true;
@@ -967,12 +969,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     hasMore = false;
                 }
             }
+
+            const baseUsers = allProfiles.map(profile => ({
+                ...profile,
+                data: {},
+            }));
+
+            setAdminUsers(baseUsers);
+            setCurrentPage(1);
+            setPageInput('1');
             
             let privateMap: Record<string, any> = {};
+            setLoadingAdmin(false);
+            setLoadingAdminDetails(allProfiles.length > 0);
             try {
                 privateMap = await fetchProfilePrivateMap(allProfiles.map(profile => profile.id));
             } catch (error) {
                 console.error('Không thể tải dữ liệu private của sinh viên:', error);
+            } finally {
+                setLoadingAdminDetails(false);
             }
             setAdminUsers(allProfiles.map(profile => ({
                 ...profile,
@@ -980,8 +995,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 updated_at: privateMap[profile.id]?.updated_at || profile.updated_at,
                 email: privateMap[profile.id]?.email,
             })));
-            setCurrentPage(1);
-            setPageInput('1');
         } finally {
             setLoadingAdmin(false);
         }
@@ -1600,6 +1613,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
+                {loadingAdminDetails && (
+                    <div className="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-[#0052cc] text-xs font-semibold flex items-center gap-2">
+                        <Loader2 size={14} className="animate-spin" />
+                        Đang cập nhật điểm và GPA, danh sách vẫn có thể dùng bình thường.
+                    </div>
+                )}
+
                 {/* 3. BỐN THẺ THỐNG KÊ (GRID 2x2 MOBILE, 4x1 DESKTOP) */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
                     <button onClick={() => { playClick(); setAdminFilterGpa('all'); }} className={`bg-white p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'all' ? 'border-[#003375] ring-1 ring-[#003375] bg-blue-50/20' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'}`}>
@@ -1673,7 +1693,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {loadingAdmin ? (
+                                {loadingAdmin && adminUsers.length === 0 ? (
                                     <tr><td colSpan={6} className="py-10 text-center"><Loader2 className="animate-spin text-[#0052cc] mx-auto mb-2" size={24}/> <span className="text-xs text-gray-500">Đang tải dữ liệu...</span></td></tr>
                                 ) : (() => {
                                     const paginatedUsers = processedAdminUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);

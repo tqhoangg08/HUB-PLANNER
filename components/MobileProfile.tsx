@@ -9,6 +9,7 @@ import {
 import { supabase } from '../utils/supabase';
 import { fetchProfilePrivate } from '../utils/profilePrivate';
 import { playClick } from '../utils/audio';
+import { showConfirm } from '../utils/appNotifications';
 import { useNavigate } from 'react-router-dom';
 
 interface MobileProfileProps {
@@ -104,7 +105,7 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
 
     const handleLogout = async () => {
         playClick();
-        if (window.confirm("Bạn có chắc chắn muốn đăng xuất?")) {
+        if (await showConfirm("Bạn có chắc chắn muốn đăng xuất?")) {
             await supabase.auth.signOut();
             localStorage.clear();
             sessionStorage.clear();
@@ -117,9 +118,9 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
         alert("Tính năng đang được cập nhật, bạn quay lại sau nhé!");
     };
 
-    const handleClearCache = () => {
+    const handleClearCache = async () => {
         playClick();
-        if (window.confirm("Bạn muốn xóa bộ nhớ đệm cục bộ? (Không làm đăng xuất tài khoản)")) {
+        if (await showConfirm("Bạn muốn xóa bộ nhớ đệm cục bộ? (Không làm đăng xuất tài khoản)")) {
             Object.keys(localStorage).forEach(key => {
                 if (!key.startsWith('sb-')) localStorage.removeItem(key);
             });

@@ -27,6 +27,7 @@ export const MobileLogin: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [agreed, setAgreed] = useState(false);
+    const [captchaToken, setCaptchaToken] = useState('');
 
     // ==========================================
     // ✨ TÍCH HỢP GOOGLE ONE TAP (IN-APP POPUP)
@@ -116,11 +117,16 @@ export const MobileLogin: React.FC = () => {
     const handleAdminLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!agreed) return; 
-        if (!supabase) return setError("Chưa cấu hình kết nối Database.");
+        if (!supabase) return setError("Ch?a c?u h?nh k?t n?i Database.");
+        if (!captchaToken) return setError("Vui l?ng x?c minh b?n kh?ng ph?i robot.");
         setLoading(true); setError(null); playClick();
 
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) setError("Thông tin đăng nhập không chính xác.");
+        const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+            options: { captchaToken }
+        });
+        if (error) setError("Th?ng tin ??ng nh?p kh?ng ch?nh x?c.");
         else navigate('/');
         
         setLoading(false);
@@ -236,8 +242,16 @@ export const MobileLogin: React.FC = () => {
                                     </span>
                                 </label>
 
+                                <div className="flex justify-center py-2">
+                                    <Turnstile
+                                        siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+                                        onSuccess={(token) => setCaptchaToken(token)}
+                                        onError={() => setCaptchaToken('')}
+                                    />
+                                </div>
+
                                 <button 
-                                    type="submit" disabled={loading || !agreed} 
+                                    type="submit" disabled={loading || !agreed || !captchaToken} 
                                     className="w-full bg-[#990000] text-white font-bold py-4 rounded-xl active:bg-[#7a0000] transition-colors flex justify-center items-center gap-2 disabled:opacity-50 disabled:active:bg-[#990000] shadow-md text-[15px]"
                                 >
                                     {loading ? <Loader2 className="animate-spin" size={20} /> : 'Đăng nhập'}

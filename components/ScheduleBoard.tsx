@@ -8,6 +8,7 @@ import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { parseSchedulePdf } from '../utils/schedulePdfImport';
 import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
+import { showConfirm } from '../utils/appNotifications';
 import NotificationNudge from './NotificationNudge';
 
 interface UserProfile {
@@ -584,7 +585,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     if (!selectedChangedCourse?.user_schedule_id || isAuditor) return;
     const diffs = getChangedCourseDiffs(selectedChangedCourse);
     if (diffs.length === 0) return;
-    if (!window.confirm(`Đồng bộ ${diffs.length} thay đổi này vào dữ liệu gốc của môn ${selectedChangedCourse.course_code}?`)) return;
+    if (!await showConfirm(`Đồng bộ ${diffs.length} thay đổi này vào dữ liệu gốc của môn ${selectedChangedCourse.course_code}?`)) return;
 
     setIsSyncingChangedCourse(true);
     try {
@@ -1014,7 +1015,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
   const handleAdminDeleteCourse = async (id: string) => {
     if (isAuditor) { alert("⚠️ Tính năng này bị khóa đối với tài khoản Auditor."); return; }
-      if (!window.confirm("BẠN CÓ CHẮC CHẮN MUỐN XÓA?\nHành động này sẽ xóa môn học khỏi cơ sở dữ liệu và tự động xóa khỏi Thời khóa biểu của tất cả sinh viên đang lưu môn này!")) return;
+      if (!await showConfirm("BẠN CÓ CHẮC CHẮN MUỐN XÓA?\nHành động này sẽ xóa môn học khỏi cơ sở dữ liệu và tự động xóa khỏi Thời khóa biểu của tất cả sinh viên đang lưu môn này!")) return;
       try {
           const { error } = await supabase.from('course_schedules').delete().eq('id', id);
           if (error) throw error; fetchCourses();
