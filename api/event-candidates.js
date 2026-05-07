@@ -2,6 +2,7 @@ import Groq from 'groq-sdk';
 import { createClient } from '@supabase/supabase-js';
 import { withLogging } from '../server/middleware.js';
 import { sendModeratorAlert } from '../server/moderator-notifications.shared.js';
+import { analyzeEventCandidate } from '../server/event-candidate-ai.shared.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -15,8 +16,24 @@ const GROQ_KEYS = [
   process.env.GROQ_API_KEY_3,
   process.env.GROQ_API_KEY_4,
   process.env.GROQ_API_KEY_5,
+  process.env.GROQ_CHAT_KEY,
 ].filter(Boolean);
 const GROQ_MODEL = process.env.GROQ_EVENT_CANDIDATE_MODEL || process.env.GROQ_MODEL || 'llama-3.1-70b-versatile';
+const EVENT_CATEGORIES = [
+  'Hoạt động phong trào',
+  'Minigame',
+  'Tình nguyện',
+  'Cuộc thi học thuật',
+  'Cổ vũ',
+  'Talkshow',
+  'Tọa đàm',
+  'Hội thảo',
+  'Sự kiện offline',
+  'Teambuilding',
+  'Hoạt động thể thao',
+  'Khác (Tự nhập)',
+];
+const DEFAULT_EVENT_CATEGORY = EVENT_CATEGORIES[0];
 
 const allowedModeratorRoles = new Set(['admin', 'auditor']);
 
@@ -41,6 +58,11 @@ const normalizeText = (value) => String(value || '').trim();
 const normalizeOptionalText = (value) => {
   const text = normalizeText(value);
   return text ? text : null;
+};
+const normalizeCategory = (value) => {
+  const text = normalizeOptionalText(value);
+  if (!text) return DEFAULT_EVENT_CATEGORY;
+  return EVENT_CATEGORIES.includes(text) ? text : DEFAULT_EVENT_CATEGORY;
 };
 const normalizeBoolean = (value) => Boolean(value);
 const normalizeDate = (value) => {
@@ -100,7 +122,7 @@ const cleanAiResult = (result) => {
 const buildEventDraft = (candidate, aiResult = {}) => {
   const title = normalizeOptionalText(aiResult.title) || normalizeOptionalText(candidate.source_name) || 'Sự kiện mới';
   const organizer = normalizeOptionalText(aiResult.organizer) || normalizeOptionalText(candidate.source_name);
-  const category = normalizeOptionalText(aiResult.category) || 'Hoạt động phong trào';
+  const category = normalizeCategory(aiResult.category);
   const criteria = normalizeOptionalText(aiResult.criteria) || 'III';
   const points = normalizePoints(aiResult.points) || '0';
   const format = normalizeOptionalText(aiResult.format) || 'Offline';
@@ -141,7 +163,7 @@ const buildEventDraft = (candidate, aiResult = {}) => {
 
 const getGroqClient = () => {
   if (GROQ_KEYS.length === 0) {
-    throw new Error('Thiếu GROQ_API_KEY');
+    throw new Error('Thiếu GROQ_API_KEY hoặc GROQ_CHAT_KEY');
   }
   const apiKey = GROQ_KEYS[Math.floor(Math.random() * GROQ_KEYS.length)];
   return new Groq({ apiKey });
@@ -384,7 +406,16 @@ const analyzeCandidateAction = async (request, response, body) => {
     return response.status(404).json({ success: false, error: 'Candidate not found' });
   }
 
-  const aiResult = await analyzeCandidate(candidate);
+  let aiResult;
+  try {
+    aiResult = await analyzeEventCandidate(candidate);
+  } catch (error) {
+    return response.status(500).json({
+      success: false,
+      error: error?.message || 'Không phân tích được candidate',
+      details: error?.details || null,
+    });
+  }
 
   const { data: updated, error: updateError } = await supabase
     .from('event_candidates')

@@ -1,7 +1,71 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+
+const apiRoot = path.join(process.cwd(), 'api')
+
+const existsFile = (candidatePath: string) => fs.existsSync(candidatePath) && fs.statSync(candidatePath).isFile()
+const existsDir = (candidatePath: string) => fs.existsSync(candidatePath) && fs.statSync(candidatePath).isDirectory()
+
+const resolveApiModule = (pathname: string): string | null => {
+  const raw = pathname.replace(/^\/api\//, '').replace(/\/$/, '')
+  if (!raw) return null
+
+  const segments = raw.split('/').filter(Boolean)
+  const tryFile = (candidateBase: string) => {
+    const jsPath = `${candidateBase}.js`
+    const tsPath = `${candidateBase}.ts`
+    if (existsFile(jsPath)) return jsPath
+    if (existsFile(tsPath)) return tsPath
+    return null
+  }
+
+  if (segments.length === 1) {
+    const direct = tryFile(path.join(apiRoot, segments[0]))
+    if (direct) return direct
+  }
+
+  const walk = (currentDir: string, remaining: string[]): string | null => {
+    if (remaining.length === 0) {
+      const indexJs = path.join(currentDir, 'index.js')
+      const indexTs = path.join(currentDir, 'index.ts')
+      if (existsFile(indexJs)) return indexJs
+      if (existsFile(indexTs)) return indexTs
+      return null
+    }
+
+    const [segment, ...rest] = remaining
+
+    if (rest.length === 0) {
+      const direct = tryFile(path.join(currentDir, segment))
+      if (direct) return direct
+    }
+
+    if (!existsDir(currentDir)) return null
+
+    const entries = fs.readdirSync(currentDir, { withFileTypes: true })
+    const dirMatches = entries
+      .filter((entry) => entry.isDirectory() && (entry.name === segment || /^\[[^\]]+\]$/.test(entry.name)))
+      .map((entry) => path.join(currentDir, entry.name))
+
+    for (const dirPath of dirMatches) {
+      const resolved = walk(dirPath, rest)
+      if (resolved) return resolved
+    }
+
+    const fileCandidate = tryFile(path.join(currentDir, segment))
+    if (fileCandidate && rest.length === 0) return fileCandidate
+
+    return null
+  }
+
+  const nested = walk(apiRoot, segments)
+  if (nested) return nested
+
+  return null
+}
 
 const devApiPlugin = (): Plugin => ({
   name: 'hub-planner-dev-api',
@@ -12,10 +76,7 @@ const devApiPlugin = (): Plugin => ({
       const parsedUrl = new URL(requestUrl, 'http://localhost')
       if (!parsedUrl.pathname.startsWith('/api/')) return next()
 
-      const routeName = parsedUrl.pathname.replace(/^\/api\//, '').replace(/\/$/, '')
-      const jsPath = `/api/${routeName}.js`
-      const tsPath = `/api/${routeName}.ts`
-      const modulePath = fs.existsSync(`${process.cwd()}${jsPath}`) ? jsPath : fs.existsSync(`${process.cwd()}${tsPath}`) ? tsPath : null
+      const modulePath = resolveApiModule(parsedUrl.pathname)
 
       if (!modulePath) {
         res.statusCode = 404
