@@ -25,8 +25,9 @@ jobs:
 
       - name: 3. Rút ruột Database và nén lại (.sql.gz)
         run: |
-          # Gọi đích danh đường dẫn của bản 17 vừa cài
-          /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.SUPABASE_DB_URL }}" > dump.sql
+          # Thêm --column-inserts để nó tạo file siêu thân thiện
+          /usr/lib/postgresql/17/bin/pg_dump "${{ secrets.SUPABASE_DB_URL }}" --column-inserts > dump.sql
+          
           # Xong mới đem đi nén
           gzip -c dump.sql > hubplanner_backup_${{ env.CURRENT_DATE }}.sql.gz
 
