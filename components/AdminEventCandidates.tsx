@@ -665,11 +665,17 @@ export const AdminEventCandidates: React.FC = () => {
         Authorization: `Bearer ${session.access_token}`,
       },
     });
-    const payload = await response.json().catch(() => null);
+    const responseText = await response.text();
+    let payload: any = null;
+    try {
+      payload = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      payload = null;
+    }
     if (!response.ok) {
       const message = payload?.error || 'Không phân tích được candidate';
-      const details = payload?.details ? `\n${payload.details}` : '';
-      const error = new Error(`${message}${details}`.trim());
+      const details = payload?.details || (!payload && responseText ? responseText : '');
+      const error = new Error([message, details].filter(Boolean).join('\n'));
       (error as any).details = payload?.details || null;
       throw error;
     }

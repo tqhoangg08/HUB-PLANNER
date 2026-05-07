@@ -40,7 +40,11 @@ async function handler(req, res) {
 
   const role = await getActorRole(req);
   if (!role || !allowedRoles.has(role)) {
-    return res.status(401).json({ success: false, error: 'Unauthorized' });
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized',
+      details: 'Admin or auditor session is required to analyze event candidates.',
+    });
   }
 
   const candidateId = getCandidateId(req);

@@ -85,6 +85,24 @@ const normalizePoints = (value) => {
   if (value === undefined || value === null || value === '') return null;
   return String(value).trim();
 };
+const getAnalyzeCandidateId = (request, body = {}) => {
+  const fromQuery = normalizeText(request.query?.id);
+  if (fromQuery) return fromQuery;
+
+  const fromBody = normalizeText(body.id || body.candidate_id);
+  if (fromBody) return fromBody;
+
+  const rawUrl = String(request.url || '').split('?')[0];
+  const match = rawUrl.match(/\/api\/event-candidates\/([^/]+)\/analyze\/?$/i);
+  return match?.[1] ? decodeURIComponent(match[1]).trim() : '';
+};
+const isAnalyzeRoute = (request) => {
+  const resource = normalizeText(request.query?.resource).toLowerCase();
+  if (resource === 'analyze') return true;
+
+  const rawUrl = String(request.url || '').split('?')[0];
+  return /\/api\/event-candidates\/[^/]+\/analyze\/?$/i.test(rawUrl);
+};
 const toIsoTimestamp = (value) => {
   if (!value) return null;
   const date = new Date(value);
@@ -254,7 +272,17 @@ const getActor = async (request) => {
     .eq('user_id', userId)
     .maybeSingle();
 
-  const role = String(roleRow?.role || '').trim();
+  if (roleRow?.role) {
+    return { userId, role: String(roleRow.role).trim() };
+  }
+
+  const { data: fallbackRoleRow } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle();
+
+  const role = String(fallbackRoleRow?.role || '').trim();
   return { userId, role };
 };
 
@@ -386,13 +414,23 @@ const ingestCandidate = async (request, response, body) => {
   return response.status(201).json({ success: true, candidate: data });
 };
 
-const analyzeCandidateAction = async (request, response, body) => {
+const analyzeCandidateAction = async (request, response, body, candidateIdOverride = '') => {
   const actor = await requireModerator(request);
-  if (!actor) return response.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!actor) {
+    return response.status(401).json({
+      success: false,
+      error: 'Unauthorized',
+      details: 'Admin or auditor session is required to analyze event candidates.',
+    });
+  }
 
-  const candidateId = normalizeText(body.id || body.candidate_id);
+  const candidateId = normalizeText(candidateIdOverride || body.id || body.candidate_id);
   if (!candidateId) {
-    return response.status(400).json({ success: false, error: 'Missing candidate id' });
+    return response.status(400).json({
+      success: false,
+      error: 'Missing candidate id',
+      details: 'Call POST /api/event-candidates/{id}/analyze or provide id in the request.',
+    });
   }
 
   const { data: candidate, error } = await supabase
@@ -406,13 +444,22 @@ const analyzeCandidateAction = async (request, response, body) => {
     return response.status(404).json({ success: false, error: 'Candidate not found' });
   }
 
+  if (!normalizeText(candidate.raw_content)) {
+    return response.status(400).json({
+      success: false,
+      error: 'raw_content is empty',
+      details: 'Candidate has no raw_content to analyze.',
+    });
+  }
+
   let aiResult;
   try {
     aiResult = await analyzeEventCandidate(candidate);
   } catch (error) {
+    const isGroqError = error?.message === 'Groq API error';
     return response.status(500).json({
       success: false,
-      error: error?.message || 'Không phân tích được candidate',
+      error: isGroqError ? 'Groq API error' : (error?.message || 'Analyze failed'),
       details: error?.details || null,
     });
   }
@@ -580,6 +627,10 @@ async function handler(request, response) {
   }
 
   if (request.method === 'POST') {
+    if (isAnalyzeRoute(request)) {
+      return analyzeCandidateAction(request, response, body, getAnalyzeCandidateId(request, body));
+    }
+
     const authHeader = String(request.headers.authorization || '');
     if (authHeader === `Bearer ${INGEST_SECRET}`) {
       return ingestCandidate(request, response, body);
