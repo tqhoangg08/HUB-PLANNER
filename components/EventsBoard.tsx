@@ -1367,14 +1367,20 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     setError(null);
 
     try {
-      const res = await fetch(apiUrl(`/events?t=${new Date().getTime()}`), {
+      const requestUrl = apiUrl(`/events?t=${new Date().getTime()}`);
+      const res = await fetch(requestUrl, {
           headers: {
               'Cache-Control': 'no-cache, no-store, must-revalidate',
               'Pragma': 'no-cache',
               'Expires': '0'
           }
       });
-      const json = await res.json();
+      const responseText = await res.text();
+      const json = responseText ? JSON.parse(responseText) : {};
+
+      if (!res.ok) {
+        throw new Error(json.error || json.details || `Không tải được sự kiện (${res.status}) từ ${requestUrl}`);
+      }
 
       if (!res.ok) {
         throw new Error(json.error || 'Lỗi khi tải dữ liệu sự kiện');
@@ -1427,6 +1433,11 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       setLoading(false);
     } catch (err) {
       console.error(err);
+      const message = err instanceof Error ? err.message : 'Không tải được dữ liệu sự kiện';
+      setError(message);
+      setEvents([]);
+      setLoading(false);
+      return;
       
       const mockEvents: HubEvent[] = [
           {
