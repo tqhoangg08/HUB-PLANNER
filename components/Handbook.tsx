@@ -106,11 +106,50 @@ export const Handbook: React.FC = () => {
 
         setIsSubmitting(true);
         try {
-            const { data, error } = await supabase
+            const { data: sessionData } = await supabase.auth.getSession();
+            const user = sessionData?.session?.user || null;
+            let profile: { full_name?: string | null; student_code?: string | null; email?: string | null } | null = null;
+
+            if (user?.id) {
+                const { data: profileData } = await supabase
+                    .from('profiles')
+                    .select('full_name, student_code, email')
+                    .eq('id', user.id)
+                    .maybeSingle();
+                profile = profileData;
+            }
+
+            const feedbackPayload = {
+                type: feedbackType,
+                content: feedbackContent,
+                contact: contactInfo,
+                user_id: user?.id || null,
+                full_name: profile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || null,
+                student_code: profile?.student_code || user?.email?.split('@')[0] || null,
+                email: profile?.email || user?.email || null,
+            };
+
+            let { data, error } = await supabase
                 .from('feedback')
-                .insert([{ type: feedbackType, content: feedbackContent, contact: contactInfo }])
+                .insert([feedbackPayload])
                 .select('id')
                 .single();
+
+            if (error && String(error.message || '').toLowerCase().includes('column')) {
+                const fallbackPayload = {
+                    type: feedbackType,
+                    content: feedbackContent,
+                    contact: contactInfo,
+                    user_id: user?.id || null,
+                };
+                const fallback = await supabase
+                    .from('feedback')
+                    .insert([fallbackPayload])
+                    .select('id')
+                    .single();
+                data = fallback.data;
+                error = fallback.error;
+            }
 
             if (error) throw error;
             void notifyModerators('feedback', data?.id);

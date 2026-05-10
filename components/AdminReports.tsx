@@ -153,7 +153,7 @@ export const AdminReports: React.FC = () => {
                         <div>
                             <p className="font-bold text-gray-900 text-sm">{item.profile?.full_name || item.full_name || 'Người dùng ẩn danh'}</p>
                             <p className="text-xs text-gray-500 font-medium">
-                                MSSV: {item.profile?.student_code || '---'} | Email: {item.profile?.email || '---'}
+                                MSSV: {item.profile?.student_code || item.student_code || '---'} | Email: {item.profile?.email || item.email || '---'}
                             </p>
                         </div>
                     </div>
