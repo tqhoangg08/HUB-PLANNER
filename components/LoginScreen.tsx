@@ -16,6 +16,7 @@ import {
     UserRound,
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
+import { apiUrl } from '../utils/api';
 import { Turnstile } from '@marsidev/react-turnstile';
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const OTP_RESEND_COOLDOWN_SECONDS = 10 * 60;
@@ -170,7 +171,7 @@ export const LoginScreen: React.FC = () => {
             return email;
         }
 
-        const response = await fetch('/api/auth', {
+        const response = await fetch(apiUrl('/auth'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'resolve-identifier', identifier: value }),
@@ -191,7 +192,7 @@ export const LoginScreen: React.FC = () => {
             return false;
         }
 
-        const response = await fetch('/api/auth', {
+        const response = await fetch(apiUrl('/auth'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'send-otp', purpose, email }),
@@ -338,7 +339,7 @@ export const LoginScreen: React.FC = () => {
             const invalidPassword = passwordError(password, confirmPassword);
             if (invalidPassword) throw new Error(invalidPassword);
 
-            const response = await fetch('/api/auth', {
+            const response = await fetch(apiUrl('/auth'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -154,6 +154,7 @@ const buildEventDraft = (candidate, aiResult = {}) => {
   const registrationStartDate = normalizeDate(aiResult.registration_start_date);
   const registrationStartTime = normalizeTime(aiResult.registration_start_time);
   const description = normalizeOptionalText(aiResult.description) || normalizeOptionalText(candidate.raw_content);
+  const imageUrl = normalizeOptionalText(aiResult.image_url) || normalizeOptionalText(candidate.image_url);
 
   return {
     title,
@@ -163,6 +164,7 @@ const buildEventDraft = (candidate, aiResult = {}) => {
     points,
     format,
     link,
+    image_url: imageUrl,
     location_type: locationType,
     classification,
     event_date: eventDate,
@@ -609,6 +611,7 @@ const approveCandidateAction = async (request, response, body) => {
     points: normalizePoints(mergedDraft.points) || '3',
     format: normalizeOptionalText(mergedDraft.format) || 'Offline',
     link: normalizeOptionalText(mergedDraft.link) || normalizeText(candidate.post_url),
+    image_url: normalizeOptionalText(mergedDraft.image_url) || normalizeOptionalText(candidate.image_url),
     location_type: normalizeOptionalText(mergedDraft.location_type) || 'Trong trường',
     classification: normalizeOptionalText(mergedDraft.classification),
     event_date: normalizeDate(mergedDraft.event_date),

@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { apiUrl } from './api';
 
 export const PROFILE_PRIVATE_TABLE = 'profile_private_data';
 
@@ -38,7 +39,7 @@ export const fetchProfilePrivateMap = async (userIds: string[]) => {
       const token = sessionData?.session?.access_token;
 
       if (token) {
-        const response = await fetch('/api/courses?resource=profile-private-map', {
+        const response = await fetch(apiUrl('/courses?resource=profile-private-map'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

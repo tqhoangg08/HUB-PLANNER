@@ -11,6 +11,7 @@ import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
+import { apiUrl } from '../utils/api';
 
 interface UserProfile {
   id?: string;
@@ -575,7 +576,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
     params.set('resource', 'user-schedules');
 
-    const response = await fetch(`/api/courses?${params.toString()}`, {
+    const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
         headers: { Authorization: `Bearer ${token}` }
     });
     const payload = await response.json();
@@ -627,7 +628,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         const token = session?.access_token;
         if (!token) throw new Error('Admin session is missing');
 
-        const response = await fetch('/api/courses?resource=user-schedules', {
+        const response = await fetch(apiUrl('/courses?resource=user-schedules'), {
             method: 'PATCH',
             headers: {
                 Authorization: `Bearer ${token}`,

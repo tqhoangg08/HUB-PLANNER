@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { apiUrl } from './api';
 
 export type ModeratorNotificationKind =
   | 'event_pending'
@@ -15,7 +16,7 @@ export const notifyModerators = async (kind: ModeratorNotificationKind, recordId
 
   try {
     const { data } = await supabase.auth.getSession();
-    await fetch('/api/moderator-notifications', {
+    await fetch(apiUrl('/moderator-notifications'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

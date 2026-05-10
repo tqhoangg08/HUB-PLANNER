@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { urlBase64ToUint8Array } from './pushHelper';
+import { apiUrl } from './api';
 
 const ROOT_SCOPE = '/';
 const SERVICE_WORKER_TIMEOUT_MS = 8000;
@@ -110,7 +111,7 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), API_SYNC_TIMEOUT_MS);
 
-    const response = await fetch('/api/push?resource=subscription', {
+    const response = await fetch(apiUrl('/push?resource=subscription'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${sessionData.session?.access_token || ''}`,
@@ -145,7 +146,7 @@ export const unbindDeviceNotificationsForCurrentUser = async (userId?: string | 
   const { data: sessionData } = await supabase.auth.getSession();
   if (!userId || !sessionData.session?.access_token) return;
 
-  const response = await fetch('/api/push?resource=subscription', {
+  const response = await fetch(apiUrl('/push?resource=subscription'), {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${sessionData.session.access_token}`,

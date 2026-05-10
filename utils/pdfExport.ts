@@ -22,8 +22,13 @@ interface TranscriptExportOptions {
 const VALID_SEMESTER_NAME_REGEX = /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/;
 
 // Hàm nạp font từ thư mục public/fonts và chuyển sang Base64
+const FONT_FALLBACK_ORIGIN = 'https://hotrosinhvienhub.id.vn';
+
 const fetchFontBase64 = async (url: string): Promise<string> => {
-    const response = await fetch(url);
+    let response = await fetch(url, { cache: 'force-cache' }).catch(() => null);
+    if (!response?.ok) {
+        response = await fetch(`${FONT_FALLBACK_ORIGIN}${url.startsWith('/') ? url : `/${url}`}`, { cache: 'force-cache' });
+    }
     if (!response.ok) throw new Error(`Lỗi tải font từ: ${url}`);
 
     const blob = await response.blob();

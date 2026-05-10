@@ -25,6 +25,7 @@ import { formatDate, formatTime } from '../utils/dateUtils';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import { useUserRole } from '../hooks/useUserRole';
+import { apiUrl } from '../utils/api';
 
 type ReviewStatus = 'pending' | 'approved' | 'rejected' | string;
 
@@ -575,7 +576,7 @@ export const AdminEventCandidates: React.FC = () => {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/event-candidates?review_status=all&limit=200', {
+      const response = await fetch(apiUrl('/event-candidates?review_status=all&limit=200'), {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
@@ -643,7 +644,7 @@ export const AdminEventCandidates: React.FC = () => {
 
   const candidateApi = async (body: Record<string, any>) => {
     if (!session?.access_token) throw new Error('Thiếu phiên đăng nhập');
-    const response = await fetch('/api/event-candidates', {
+    const response = await fetch(apiUrl('/event-candidates'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -658,7 +659,7 @@ export const AdminEventCandidates: React.FC = () => {
 
   const analyzeCandidateApi = async (candidateId: string | number) => {
     if (!session?.access_token) throw new Error('Thiếu phiên đăng nhập');
-    const response = await fetch(`/api/event-candidates/${candidateId}/analyze`, {
+    const response = await fetch(apiUrl(`/event-candidates-analyze?id=${candidateId}`), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

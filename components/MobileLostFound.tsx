@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, MessageSquare, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield } from 'lucide-react';
+import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
-import { CommentSection } from './CommentSection';
 import { createPortal } from 'react-dom';
 import { useUserRole } from '../hooks/useUserRole';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
+import { apiUrl } from '../utils/api';
 
 // --- Types ---
 interface LostFoundItem {
@@ -273,12 +273,6 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
                         </div>
                     </div>
 
-                    <div className="h-2 w-full bg-gray-100 shrink-0"></div>
-
-                    {/* COMMENT SECTION */}
-                    <div className="flex-1 bg-white min-h-[400px]">
-                        <CommentSection contextId={`lost_found_${item.id}`} title={item.type === 'FOUND' ? 'Trao đổi nhận đồ' : 'Hỏi thăm / Manh mối'} className="h-full pb-safe"/>
-                    </div>
                 </div>
             </div>
         </div>, document.body
@@ -349,7 +343,7 @@ export const MobileLostFound: React.FC = () => {
       playClick();
       try {
           const { data: { session: currentSession } } = await supabase!.auth.getSession();
-          const response = await fetch('/api/push?resource=announcement-queue', {
+          const response = await fetch(apiUrl('/push?resource=announcement-queue'), {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
@@ -553,7 +547,7 @@ return (
                                 )}
 
                                 <button onClick={() => { playClick(); setSelectedItem(item); }} className="w-full py-3 bg-gray-50 active:bg-gray-100 text-gray-700 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border border-gray-200">
-                                    <MessageSquare size={16} className="text-[#003375]" /> Xem chi tiết & Liên hệ
+                                    <Info size={16} className="text-[#003375]" /> Xem chi tiết & Liên hệ
                                 </button>
                             </div>
 

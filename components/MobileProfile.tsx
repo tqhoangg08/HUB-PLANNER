@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    User, History, Trash2, Moon, Bell, RefreshCw, 
+    User, Trash2, Moon, Bell, RefreshCw, 
     Info, HelpCircle, Coffee, FileText, Lock, 
-    ChevronRight, LogOut, CheckCircle2, ChevronLeft,
-    Calendar, MapPin, Clock, Loader2,
+    ChevronRight, LogOut, CheckCircle2,
     Download, Share, PlusSquare, X
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
@@ -66,10 +65,6 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
             alert("Trình duyệt của bạn không hỗ trợ cài đặt hoặc bạn đã cài app rồi.");
         }
     };
-    const [showEvents, setShowEvents] = useState(false);
-    const [joinedEvents, setJoinedEvents] = useState<any[]>([]);
-    const [loadingEvents, setLoadingEvents] = useState(false);
-
     useEffect(() => {
         const fetchUser = async () => {
             const { data: { session } } = await supabase.auth.getSession();
@@ -83,25 +78,6 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
         };
         fetchUser();
     }, []);
-
-    useEffect(() => {
-        if (showEvents && session?.user) fetchJoinedEvents();
-    }, [showEvents, session]);
-
-    const fetchJoinedEvents = async () => {
-        setLoadingEvents(true);
-        const { data, error } = await supabase
-            .from('user_participations')
-            .select('*, events(*)')
-            .eq('user_id', session.user.id)
-            .order('created_at', { ascending: false });
-        
-        if (!error && data) {
-            const events = data.map(d => d.events).filter(e => e != null);
-            setJoinedEvents(events);
-        }
-        setLoadingEvents(false);
-    };
 
     const handleLogout = async () => {
         playClick();
@@ -151,52 +127,6 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
         </button>
     );
 
-    // MÀN HÌNH LỊCH SỬ SỰ KIỆN (Giữ nguyên dạng trượt lên)
-    if (showEvents) {
-        return (
-            <div className="mobile-profile-page mobile-profile-history fixed inset-0 bg-[#F8FAFC] z-[100] flex flex-col animate-slideInRight pb-safe">
-                <div className="bg-[#003375] px-4 py-4 flex items-center gap-3 shadow-md shrink-0">
-                    <button onClick={() => { playClick(); setShowEvents(false); }} className="p-1.5 text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors active:scale-95">
-                        <ChevronLeft size={24} />
-                    </button>
-                    <h2 className="text-lg font-bold text-white tracking-tight">Lịch sử tham gia</h2>
-                </div>
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
-                    {isGuest ? (
-                        <div className="text-center py-12 px-4 bg-white rounded-xl border border-dashed border-gray-300">
-                            <Lock size={32} className="mx-auto text-gray-300 mb-3" />
-                            <p className="text-sm font-medium text-gray-500">Đăng nhập để xem lịch sử tham gia sự kiện của bạn.</p>
-                        </div>
-                    ) : loadingEvents ? (
-                        <div className="flex justify-center py-8"><Loader2 className="animate-spin text-[#003375]" size={24} /></div>
-                    ) : joinedEvents.length === 0 ? (
-                        <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-                            <Calendar size={32} className="mx-auto text-gray-300 mb-3" />
-                            <p className="text-sm font-medium text-gray-500">Bạn chưa nhấn tham gia sự kiện nào.</p>
-                        </div>
-                    ) : (
-                        joinedEvents.map((ev, idx) => (
-                            <div key={idx} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex gap-3">
-                                <div className="w-12 h-12 bg-blue-50 text-[#003375] rounded-xl flex items-center justify-center shrink-0">
-                                    <Calendar size={20} />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-gray-900 text-sm mb-1 leading-snug line-clamp-2">{ev.title}</h3>
-                                    <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-0.5">
-                                        <Clock size={12} /> {ev.date ? new Date(ev.date).toLocaleDateString('vi-VN') : 'Đang cập nhật'}
-                                    </div>
-                                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                                        <MapPin size={12} /> {ev.location || 'Đang cập nhật'}
-                                    </div>
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="mobile-page mobile-profile-page min-h-[100dvh] bg-[#F8FAFC] pb-24 animate-fadeIn">
             <div 
@@ -234,7 +164,6 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                 <h3 className="text-[13px] font-extrabold text-gray-500 mb-3 px-1">Tài khoản</h3>
                 <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-gray-100 overflow-hidden">
                     <MenuItem icon={User} iconColor="text-orange-500" iconBg="bg-orange-50" title="Cập nhật thông tin" onClick={() => { playClick(); setShowAccountSettings?.(true); }} />
-                    <MenuItem icon={History} iconColor="text-blue-500" iconBg="bg-blue-50" title="Lịch sử tham gia sự kiện" onClick={() => { playClick(); setShowEvents(true); }} />
                     <MenuItem icon={Trash2} iconColor="text-red-500" iconBg="bg-red-50" title="Xóa dữ liệu" isDestructive={true} onClick={() => { playClick(); handleRequestReset?.(); }} />
                 </div>
             </div>

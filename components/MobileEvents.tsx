@@ -6,18 +6,18 @@ import {
   Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, 
   AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, 
   Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, 
-  MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, 
+  ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, 
   Save, ToggleLeft, ToggleRight, Settings, Tag, RotateCcw,
   Info, ExternalLink, CalendarClock,
   Bookmark, BookmarkCheck, ArrowDownUp, AlertTriangle, CalendarDays, MoreHorizontal, UserPlus
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
-import { CommentSection } from './CommentSection';
 import { useUserRole } from '../hooks/useUserRole';
 import { CTVRegistrationForm } from './CTVRegistrationForm';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
+import { apiUrl } from '../utils/api';
 
 // --- Types ---
 interface HubEvent {
@@ -73,7 +73,7 @@ const notifyAllUsersAboutEvent = async (event: any) => {
     try {
         const eventTitle = event.title || 'Có một sự kiện mới';
         const criteriaLabel = event.criteria ? ` - Mục ${event.criteria}` : '';
-        await fetch('/api/push?resource=send', {
+        await fetch(apiUrl('/push?resource=send'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -521,27 +521,6 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     );
 };
 
-const DiscussionModal = ({ event, onClose }: { event: {id: string, name: string} | null; onClose: () => void }) => {
-    if (!event) return null;
-    return createPortal(
-        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={onClose}>
-            <div className="bg-white rounded-t-3xl w-full h-[85vh] flex flex-col animate-slideUp relative overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
-                <DragHandle />
-                <div className="p-4 border-b flex justify-between items-center bg-white shrink-0">
-                    <div className="flex-1 pr-2">
-                        <h3 className="font-bold text-[#003375] text-base line-clamp-1">{event.name}</h3>
-                        <p className="text-xs text-gray-500">Thảo luận & Hỏi đáp</p>
-                    </div>
-                    <button onClick={onClose} className="p-2 bg-gray-100 text-gray-500 rounded-full active:scale-95"><X size={18} /></button>
-                </div>
-                <div className="flex-1 overflow-hidden relative pb-safe">
-                      <CommentSection contextId={`event_${event.id}`} title="Bình luận" className="h-full border-0 shadow-none rounded-none"/>
-                </div>
-            </div>
-        </div>, document.body
-    );
-};
-
 const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boolean; onClose: () => void; event: HubEvent | null; onShowToast: (msg: string, type: 'success' | 'error') => void }) => {
     const { session } = useUserRole(); 
     const [issue, setIssue] = useState('');
@@ -654,7 +633,6 @@ const canManage = isAdmin || isAuditor || isCTV;
   const [editingEvent, setEditingEvent] = useState<HubEvent | null>(null);
   const [eventEditData, setEventEditData] = useState<any>({});
   const [isSavingEvent, setIsSavingEvent] = useState(false);
-  const [discussEvent, setDiscussEvent] = useState<{id: string, name: string} | null>(null);
   const [reportingEvent, setReportingEvent] = useState<HubEvent | null>(null);
 
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -742,7 +720,7 @@ const canManage = isAdmin || isAuditor || isCTV;
   const fetchEvents = async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`/api/events?t=${new Date().getTime()}`);
+      const res = await fetch(apiUrl(`/events?t=${new Date().getTime()}`));
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Lỗi tải dữ liệu');
 
@@ -1083,9 +1061,6 @@ const canManage = isAdmin || isAuditor || isCTV;
             <button onClick={() => toggleParticipation(evt.id)} className={`p-3 rounded-xl border flex items-center justify-center transition-colors ${isParticipated ? 'bg-green-50 border-green-300 text-green-600' : 'bg-white border-gray-200 text-gray-500 active:bg-gray-50'}`}>
                 {isParticipated ? <BookmarkCheck size={20}/> : <Bookmark size={20}/>}
             </button>
-            <button onClick={() => { playClick(); setDiscussEvent({ id: evt.id, name: evt.name }); }} className="p-3 bg-white border border-gray-200 rounded-xl text-gray-500 active:bg-gray-50 flex items-center justify-center">
-                <MessageCircle size={20}/>
-            </button>
             <button
                 onClick={() => {
                     if (eventId === evt.id) handleCopyEventUrl(evt);
@@ -1203,7 +1178,6 @@ return (
       </div>
 
       <NotificationToast />
-      <DiscussionModal event={discussEvent} onClose={() => setDiscussEvent(null)} />
       {showContributeModal && <ContributeEventModal isOpen={showContributeModal} onClose={() => setShowContributeModal(false)} onShowToast={showToast} />}
       <CTVModalWrapper isOpen={showCTVModal} onClose={() => setShowCTVModal(false)} onShowToast={showToast} />
       <ScoreGuideModal isOpen={showScoreGuide} onClose={() => setShowScoreGuide(false)} />

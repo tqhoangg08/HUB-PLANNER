@@ -127,10 +127,6 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ onClose }) => {
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <ArrowRight size={16} className="text-orange-400 mt-0.5 shrink-0" />
-                                        <span><strong>Theo dõi Minh chứng:</strong> Bấm vào biểu tượng <em>Cờ lưu (Bookmark)</em> ở những sự kiện bạn đã tham gia. Hệ thống sẽ gom chúng vào một Tab riêng để cuối kỳ bạn có thể lấy link điền minh chứng một cách nhanh chóng.</span>
-                                    </li>
-                                    <li className="flex items-start gap-2">
-                                        <ArrowRight size={16} className="text-orange-400 mt-0.5 shrink-0" />
                                         <span><strong>Quyền lực thuộc về người dùng:</strong> Bạn tìm thấy một minigame mới trên Fanpage trường? Hãy dùng nút "Đóng góp sự kiện" để chia sẻ cho mọi người. Nếu thấy thông tin sự kiện bị sai, bấm "Báo cáo ngay" để Admin tiến hành đính chính.</span>
                                     </li>
                                 </ul>
@@ -151,10 +147,6 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({ onClose }) => {
                                 <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100 hover:bg-purple-50 transition-colors">
                                     <p className="font-bold text-purple-800 mb-2 flex items-center gap-2"><BookOpen size={16}/> Cẩm nang sổ tay</p>
                                     <p className="text-xs text-gray-600 leading-relaxed">Kho dữ liệu số hóa chứa sơ đồ phòng học các cơ sở, link download biểu mẫu đơn từ, và tóm tắt nhanh các quy chế học vụ quan trọng.</p>
-                                </div>
-                                <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100 hover:bg-purple-50 transition-colors sm:col-span-2">
-                                    <p className="font-bold text-purple-800 mb-2 flex items-center gap-2"><MessageSquare size={16}/> Tính năng Thảo luận (Comments)</p>
-                                    <p className="text-xs text-gray-600 leading-relaxed">Được tích hợp ở hầu hết các phân hệ (Sự kiện, Tìm đồ...). Bạn có thể để lại bình luận, tag tên bạn bè hoặc hỏi đáp trực tiếp với Admin ngay bên dưới mỗi bài viết.</p>
                                 </div>
                             </div>
                         </section>

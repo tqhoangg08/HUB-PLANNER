@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, MessageSquare, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield } from 'lucide-react';
+import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
-import { CommentSection } from './CommentSection';
 import { createPortal } from 'react-dom';
 import { useUserRole } from '../hooks/useUserRole';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
+import { apiUrl } from '../utils/api';
 
 // --- Types ---
 interface LostFoundItem {
@@ -240,9 +240,9 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
 
     return createPortal(
         <div className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
-            <div className="bg-white w-full max-w-6xl h-[90vh] md:h-[85vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row relative animate-scaleIn">
+            <div className="bg-white w-full max-w-3xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col relative animate-scaleIn">
                 <button onClick={() => { playClick(); onClose(); }} className="absolute top-4 right-4 z-50 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors active:scale-90"><X size={20} /></button>
-                <div className="w-full md:w-[40%] bg-gray-50 flex flex-col border-b md:border-b-0 md:border-r border-gray-200 overflow-y-auto custom-scrollbar shrink-0 h-[45%] md:h-full">
+                <div className="w-full bg-gray-50 flex flex-col border-b border-gray-200 overflow-y-auto custom-scrollbar">
                     <div className="w-full bg-black/5 flex items-center justify-center relative min-h-[200px] md:min-h-[300px]">
                          {item.image_url ? (
                             <img src={item.image_url} alt="Item" className={`w-full h-full object-contain max-h-[40vh] md:max-h-[50vh] ${isResolved ? 'grayscale opacity-70' : ''}`} />
@@ -280,9 +280,6 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
                             <div className="flex items-start gap-2 text-sm text-gray-600 mt-2"><MapPin size={16} className="mt-0.5 shrink-0" /><span>Khu vực: <strong>{item.location}</strong></span></div>
                         </div>
                     </div>
-                </div>
-                <div className="w-full md:w-[60%] h-[55%] md:h-full bg-white flex flex-col relative z-0">
-                    <CommentSection contextId={`lost_found_${item.id}`} title={item.type === 'FOUND' ? 'Trao đổi nhận đồ' : 'Manh mối / Hỏi thăm'} className="flex flex-col h-full bg-white"/>
                 </div>
             </div>
         </div>, document.body
@@ -353,7 +350,7 @@ export const LostFoundBoard: React.FC = () => {
       playClick();
       try {
           const { data: { session: currentSession } } = await supabase!.auth.getSession();
-          const response = await fetch('/api/push?resource=announcement-queue', {
+          const response = await fetch(apiUrl('/push?resource=announcement-queue'), {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
@@ -560,7 +557,7 @@ return (
                             )}
 
                             <button onClick={() => { playClick(); setSelectedItem(item); }} className="w-full py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-500 hover:text-[#003375] rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-gray-200">
-                                <MessageSquare size={16} /> 💬 Chi tiết & Liên hệ
+                                <Info size={16} /> Chi tiết & Liên hệ
                             </button>
                         </div>
 

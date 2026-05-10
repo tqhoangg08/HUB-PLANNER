@@ -5,7 +5,8 @@ import { UserData } from '../types';
 import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
-import { supabase } from '../utils/supabase'; 
+import { supabase } from '../utils/supabase';
+import { apiUrl } from '../utils/api';
 import DOMPurify from 'dompurify';
 import { createPortal } from 'react-dom';
 import { usePlatform } from '../hooks/usePlatform';
@@ -201,7 +202,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       const studentContext = getStudentContext();
       const cleanHistoryForAI = chatHistory.map(msg => ({ role: msg.role, content: msg.content }));
 
-      const res = await fetch('/api/bot', {
+      const res = await fetch(apiUrl('/bot'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

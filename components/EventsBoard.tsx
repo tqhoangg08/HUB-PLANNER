@@ -6,18 +6,18 @@ import {
   Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, 
   AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, 
   Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, 
-  MessageCircle, ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, 
+  ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, 
   Save, ToggleLeft, ToggleRight, Settings, Tag, RotateCcw,
   Info, ExternalLink, CalendarClock,
-  Bookmark, BookmarkCheck, ArrowDownUp, AlertTriangle, CalendarDays, MoreHorizontal, UserPlus
+  Bookmark, BookmarkCheck, ArrowDownUp, AlertTriangle, CalendarDays, MoreHorizontal, UserPlus, ImageOff
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
-import { CommentSection } from './CommentSection';
 import { useUserRole } from '../hooks/useUserRole';
 import { CTVRegistrationForm } from './CTVRegistrationForm';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
+import { apiUrl } from '../utils/api';
 
 // --- Types ---
 interface HubEvent {
@@ -44,6 +44,7 @@ interface HubEvent {
   event_time: string | null;
   registration_start_date: string | null;
   registration_start_time: string | null;
+  image_url: string | null;
 }
 
 // --- Helper ---
@@ -71,7 +72,7 @@ const notifyAllUsersAboutEvent = async (event: any) => {
         const eventTitle = event.title || 'Có một sự kiện mới';
         const criteriaLabel = event.criteria ? ` - Mục ${event.criteria}` : '';
 
-        const response = await fetch('/api/push?resource=send', {
+        const response = await fetch(apiUrl('/push?resource=send'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -347,6 +348,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         points: '5',
         organizer: '',
         link: '',
+        image_url: '',
         format: 'Offline',
         location_type: 'Trong trường', 
         description: '' 
@@ -392,6 +394,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 points: formData.points,
                 organizer: formData.organizer,
                 link: formData.link,
+                image_url: formData.image_url || null,
                 format: formData.format,
                 description: formData.description, 
                 location_type: formData.location_type,
@@ -412,7 +415,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
             
             setFormData({
                 title: '', deadline: '', deadline_time: '', close_on_full: false, event_date: '', event_time: '', registration_start_date: '', registration_start_time: '', category: 'Hoạt động phong trào', criteria: 'III', points: '5',
-                organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: ''
+                organizer: '', link: '', image_url: '', format: 'Offline', location_type: 'Trong trường', description: ''
             });
             onClose();
         } catch (err: any) {
@@ -446,6 +449,17 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                                 placeholder="VD: Cuộc thi Tiếng Anh Star Awards..."
                                 value={formData.title} 
                                 onChange={e => setFormData({...formData, title: e.target.value})} 
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Ảnh sự kiện (URL Cloudflare R2 hoặc ảnh public)</label>
+                            <input
+                                type="url"
+                                className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-[#003375] transition-all"
+                                placeholder="https://cdn.example.com/events/poster.jpg"
+                                value={formData.image_url}
+                                onChange={e => setFormData({...formData, image_url: e.target.value})}
                             />
                         </div>
 
@@ -677,6 +691,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
         points: editingEvent?.score || '5',
         organizer: editingEvent?.organizer || '',
         link: editingEvent?.link || '',
+        image_url: editingEvent?.image_url || '',
         location_type: editingEvent?.scope || 'Trong trường',
         format: editingEvent?.location || 'Offline',
         status: editingEvent?.status || 'Sắp diễn ra',
@@ -712,6 +727,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                 points: formData.points,
                 organizer: formData.organizer,
                 link: formData.link,
+                image_url: formData.image_url || null,
                 location_type: formData.location_type,
                 format: formData.format,
                 status: formData.status,
@@ -768,6 +784,17 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">Tên sự kiện <span className="text-red-500">*</span></label>
                         <input type="text" required className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Ảnh sự kiện (URL Cloudflare R2 hoặc ảnh public)</label>
+                        <input
+                            type="url"
+                            className="w-full border border-gray-300 rounded-lg p-2 outline-none focus:ring-2 focus:ring-[#003375]"
+                            placeholder="https://cdn.example.com/events/poster.jpg"
+                            value={formData.image_url}
+                            onChange={e => setFormData({...formData, image_url: e.target.value})}
+                        />
                     </div>
 
                     {/* KHU VỰC THỜI GIAN ĐỘNG */}
@@ -936,20 +963,114 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
     );
 };
 
-const DiscussionModal = ({ event, onClose }: { event: {id: string, name: string} | null; onClose: () => void }) => {
+const EventDetailModal = ({
+    event,
+    onClose,
+    currentDay,
+    isParticipated,
+    onToggleParticipation,
+    onReport,
+    onCopyUrl,
+}: {
+    event: HubEvent | null;
+    onClose: () => void;
+    currentDay: Date;
+    isParticipated: boolean;
+    onToggleParticipation: (id: string) => void;
+    onReport: (event: HubEvent) => void;
+    onCopyUrl: (event: HubEvent) => void;
+}) => {
     if (!event) return null;
+
+    const isStatusClosed = event.status === 'Đã kết thúc' || event.status === 'ÄÃ£ káº¿t thÃºc';
+    const isLinkClosed = isStatusClosed || checkIsOverdue(event, currentDay) || event.is_manually_closed;
+    const formattedLink = event.link && !event.link.startsWith('http') ? `https://${event.link}` : event.link;
+    const scoreText = event.score?.includes('+') ? event.score : `+${event.score || 0}`;
+    const fallback = 'Chưa cập nhật';
+    const details = [
+        ['BTC', event.organizer],
+        ['Loại hình', event.type],
+        ['Mục ĐRL', event.category],
+        ['Điểm', scoreText],
+        ['Hình thức', event.location],
+        ['Khu vực', event.scope],
+        ['Phân loại', event.classification],
+        ['Trạng thái', event.status],
+        ['Mở đăng ký', event.registration_start_date ? `${formatTimeString(event.registration_start_time)} ${formatDateString(event.registration_start_date)}` : fallback],
+        ['Hạn đăng ký', event.close_on_full ? 'Đóng khi đủ số lượng' : (event.deadlineDate ? `${formatTimeString(event.deadline_time)} ${event.time}` : fallback)],
+        ['Diễn ra', event.event_date ? `${formatTimeString(event.event_time)} ${formatDateString(event.event_date)}` : fallback],
+    ];
+
     return createPortal(
-        <div className="fixed inset-0 bg-black/60 z-[99999] flex items-center justify-center p-4 animate-fadeIn" onClick={onClose}>
-            <div className="bg-white rounded-xl max-w-2xl w-full h-[80vh] flex flex-col animate-scaleIn relative overflow-hidden border border-gray-300 shadow-2xl" onClick={e => e.stopPropagation()}>
-                <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
-                    <div>
-                        <h3 className="font-bold text-[#003375] line-clamp-1">{event.name}</h3>
-                        <p className="text-xs text-gray-500">Thảo luận & Hỏi đáp</p>
+        <div className="fixed inset-0 z-[99999] bg-black/65 flex items-center justify-center p-3 sm:p-4 animate-fadeIn" onClick={onClose}>
+            <div className="bg-white rounded-xl w-full max-w-5xl max-h-[92vh] overflow-hidden border border-gray-300 shadow-2xl animate-scaleIn flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="bg-[#003375] text-white px-4 sm:px-5 py-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <h3 className="text-lg sm:text-xl font-black line-clamp-2">{event.name}</h3>
+                        <p className="text-xs sm:text-sm text-white/80 mt-1 truncate">{event.organizer}</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
+                    <button onClick={onClose} className="shrink-0 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+                        <X size={20} />
+                    </button>
                 </div>
-                <div className="flex-1 overflow-hidden relative">
-                      <CommentSection contextId={`event_${event.id}`} title="Bình luận" className="h-full border-0 shadow-none rounded-none"/>
+
+                <div className="border-b border-gray-200 bg-white px-4 sm:px-5 py-3 text-sm font-bold text-[#003375]">
+                    Chi tiết
+                </div>
+
+                <div className="overflow-y-auto custom-scrollbar p-4 sm:p-5">
+                        <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5">
+                            <div className="space-y-4">
+                                <div className="aspect-video rounded-xl border border-gray-300 bg-gray-50 overflow-hidden">
+                                    {event.image_url ? (
+                                        <img src={event.image_url} alt={event.name} className="w-full h-full object-cover" loading="lazy" />
+                                    ) : (
+                                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-2">
+                                            <ImageOff size={38} />
+                                            <span className="text-sm font-semibold">Chưa có ảnh</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button type="button" onClick={() => onToggleParticipation(event.id)} className={`rounded-lg border px-3 py-2 text-sm font-bold flex items-center justify-center gap-2 ${isParticipated ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
+                                        {isParticipated ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
+                                        {isParticipated ? 'Đã lưu' : 'Lưu'}
+                                    </button>
+                                    <button type="button" onClick={() => onCopyUrl(event)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2">
+                                        <LinkIcon size={16} /> Link
+                                    </button>
+                                    <button type="button" onClick={() => onReport(event)} className="rounded-lg border border-orange-200 px-3 py-2 text-sm font-bold text-orange-700 hover:bg-orange-50 flex items-center justify-center gap-2">
+                                        <AlertTriangle size={16} /> Báo lỗi
+                                    </button>
+                                    {formattedLink && !isLinkClosed && !event.is_deleted ? (
+                                        <a href={formattedLink} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#003375] px-3 py-2 text-sm font-bold text-white hover:bg-[#002855] flex items-center justify-center gap-2">
+                                            <ExternalLink size={16} /> Đăng ký
+                                        </a>
+                                    ) : (
+                                        <button type="button" disabled className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-bold text-gray-400 flex items-center justify-center gap-2">
+                                            <Lock size={16} /> Đã đóng
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {details.map(([label, value]) => (
+                                        <div key={label} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                            <div className="text-[11px] font-bold uppercase text-gray-500">{label}</div>
+                                            <div className="mt-1 text-sm font-semibold text-gray-900 break-words">{value || fallback}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="rounded-xl border border-gray-200 overflow-hidden">
+                                    <div className="bg-gray-50 px-4 py-3 text-sm font-bold text-gray-700 border-b border-gray-200">Mô tả</div>
+                                    <div className="p-4 text-sm text-gray-700 whitespace-pre-line leading-relaxed max-h-72 overflow-y-auto custom-scrollbar">
+                                        {event.description || fallback}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                 </div>
             </div>
         </div>, document.body
@@ -1215,7 +1336,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   const [showContributeModal, setShowContributeModal] = useState(false);
   const [showManageModal, setShowManageModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<HubEvent | null>(null);
-  const [discussEvent, setDiscussEvent] = useState<{id: string, name: string} | null>(null);
+  const [detailEvent, setDetailEvent] = useState<HubEvent | null>(null);
   const [reportingEvent, setReportingEvent] = useState<HubEvent | null>(null);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
@@ -1246,7 +1367,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     setError(null);
 
     try {
-      const res = await fetch(`/api/events?t=${new Date().getTime()}`, {
+      const res = await fetch(apiUrl(`/events?t=${new Date().getTime()}`), {
           headers: {
               'Cache-Control': 'no-cache, no-store, must-revalidate',
               'Pragma': 'no-cache',
@@ -1296,7 +1417,8 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                   event_date: row.event_date || null,
                   event_time: row.event_time || null,
                   registration_start_date: row.registration_start_date || null,
-                  registration_start_time: row.registration_start_time || null
+                  registration_start_time: row.registration_start_time || null,
+                  image_url: row.image_url || null
               };
           });
 
@@ -1330,7 +1452,8 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
               event_date: '2026-04-05',
               event_time: '08:00',
               registration_start_date: null,
-              registration_start_time: null
+              registration_start_time: null,
+              image_url: null
           }
       ];
       
@@ -1553,6 +1676,21 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
     return (
       <div key={evt.id} className={`bg-white rounded-xl border border-gray-300 p-3.5 sm:p-5 flex flex-col h-full transition-all duration-300 hover:border-blue-400 hover:-translate-y-1 relative group ${evt.is_deleted ? 'opacity-60 grayscale' : ''}`}>
+        <button
+            type="button"
+            onClick={() => { playClick(); setDetailEvent(evt); }}
+            className="relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-gray-50 border border-gray-200 mb-3 text-left"
+            title="Xem chi tiết sự kiện"
+        >
+            {evt.image_url ? (
+                <img src={evt.image_url} alt={evt.name} loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+            ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-2">
+                    <ImageOff size={34} />
+                    <span className="text-xs font-semibold">Chưa có ảnh</span>
+                </div>
+            )}
+        </button>
         
         {/* HEADER: Organizer & Status */}
         <div className="flex justify-between items-start gap-2 mb-2 sm:mb-3">
@@ -1589,6 +1727,15 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
             )}
         </div>
 
+        <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); playClick(); setDetailEvent(evt); }}
+            className="mb-3 w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-[#003375] hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
+        >
+            <Info size={14} /> Xem chi tiết
+        </button>
+
+        <div className="hidden">
         {/* DATETIME */}
         {evt.type?.toLowerCase().includes('minigame') ? (
             <div className="flex flex-col gap-1 sm:gap-2 text-[11px] sm:text-xs text-gray-600 mb-2.5 sm:mb-4">
@@ -1644,6 +1791,8 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
             </details>
         )}
 
+        </div>
+
         {/* FOOTER ACTIONS (Pushed to bottom) */}
         <div className="mt-auto pt-3 sm:pt-4 border-t border-gray-200 flex items-center gap-1.5 sm:gap-2 w-full">
             
@@ -1655,13 +1804,6 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                     title={isParticipated ? "Đã tham gia (Bấm hủy)" : "Đánh dấu tham gia"}
                 >
                     {isParticipated ? <BookmarkCheck size={16} className="sm:w-[18px] sm:h-[18px]"/> : <Bookmark size={16} className="sm:w-[18px] sm:h-[18px]"/>}
-                </button>
-                <button 
-                    onClick={(e) => { e.stopPropagation(); playClick(); setDiscussEvent({ id: evt.id, name: evt.name }); }} 
-                    className="p-1.5 sm:p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 hover:bg-blue-50 hover:text-[#003375] hover:border-blue-200 transition-colors flex items-center justify-center" 
-                    title="Thảo luận"
-                >
-                    <MessageCircle size={16} className="sm:w-[18px] sm:h-[18px]"/>
                 </button>
                 <button 
                     onClick={(e) => { e.stopPropagation(); playClick(); setReportingEvent(evt); }} 
@@ -2146,7 +2288,15 @@ return (
         )}
 
       <NotificationToast />
-      <DiscussionModal event={discussEvent} onClose={() => setDiscussEvent(null)} />
+      <EventDetailModal
+          event={detailEvent}
+          onClose={() => setDetailEvent(null)}
+          currentDay={today}
+          isParticipated={detailEvent ? participatedEvents.includes(detailEvent.id) : false}
+          onToggleParticipation={(id) => toggleParticipation(id)}
+          onReport={(event) => { setDetailEvent(null); setReportingEvent(event); }}
+          onCopyUrl={(event) => handleCopyEventUrl(event)}
+      />
       {showContributeModal && <ContributeEventModal isOpen={showContributeModal} onClose={() => setShowContributeModal(false)} onShowToast={showToast} />}
       {showScoreGuide && <ScoreGuideModal isOpen={showScoreGuide} onClose={() => setShowScoreGuide(false)} />}
       {showManageModal && <ManageEventModal key={editingEvent?.id || 'new-event'} isOpen={showManageModal} onClose={handleCloseManageModal} onShowToast={showToast} editingEvent={editingEvent} fetchEvents={fetchEvents} />}

@@ -1,4 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import { apiUrl } from './api';
 import { UserData, Semester, Subject } from '../types';
 
 // Set worker for PDF.js
@@ -92,7 +93,7 @@ const extractFullTranscriptWithAI = async (text: string): Promise<any> => {
     try {
         const fullMessage = `${AI_SYSTEM_PROMPT}\n\nVĂN BẢN ĐẦU VÀO:\n${text}`;
         
-        const response = await fetch('/api/chat', {
+        const response = await fetch(apiUrl('/chat'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: fullMessage })

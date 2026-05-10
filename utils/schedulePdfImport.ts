@@ -1,4 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import { apiUrl } from './api';
 
 // Set worker for PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
@@ -69,7 +70,7 @@ export const parseSchedulePdf = async (file: File) => {
 
     try {
         const fullMessage = `${SCHEDULE_PROMPT}\n\nVĂN BẢN ĐẦU VÀO:\n${fullText}`;
-        const response = await fetch('/api/chat', {
+        const response = await fetch(apiUrl('/chat'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: fullMessage })

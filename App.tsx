@@ -45,6 +45,7 @@ import {
     unbindDeviceNotificationsForCurrentUser,
 } from './utils/pushNotifications';
 import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from './utils/profilePrivate';
+import { apiUrl } from './utils/api';
 
 let globalDeferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -1048,7 +1049,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
     const executeResetData = async () => {
         try {
             if (!isGuest && session?.user?.id && supabase) {
-                const response = await fetch('/api/auth', {
+                const response = await fetch(apiUrl('/auth'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1091,7 +1092,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             try {
                 const avatarBlob = await resizeAvatarImage(draftAvatarFile);
                 const base64 = await blobToBase64(avatarBlob);
-                const response = await fetch('/api/auth', {
+                const response = await fetch(apiUrl('/auth'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1203,7 +1204,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         try {
             const email = session.user.email;
             if (isAccountPasswordOtpMode) {
-                const response = await fetch('/api/auth', {
+                const response = await fetch(apiUrl('/auth'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1271,7 +1272,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         playClick();
 
         try {
-            const response = await fetch('/api/auth', {
+            const response = await fetch(apiUrl('/auth'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'send-otp', purpose: 'forgot_password', email }),
