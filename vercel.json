@@ -4,6 +4,7 @@
     { "source": "/api/send-notification", "destination": "/api/push?resource=send" },
     { "source": "/api/push-subscription", "destination": "/api/push?resource=subscription" },
     { "source": "/api/announcement-push-queue", "destination": "/api/push?resource=announcement-queue" },
+    { "source": "/api/event-candidates/:id/analyze", "destination": "/api/event-candidates?resource=analyze&id=:id" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],

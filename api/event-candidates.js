@@ -306,6 +306,24 @@ const getDuplicateCandidate = async (postUrl) => {
   return Array.isArray(data) ? data[0] || null : data || null;
 };
 
+const analyzeAndUpdateCandidate = async (candidate) => {
+  const aiResult = await analyzeEventCandidate(candidate);
+  const { data: updated, error } = await supabase
+    .from('event_candidates')
+    .update({
+      ai_is_event: aiResult.is_event,
+      ai_confidence: aiResult.confidence,
+      ai_reason: aiResult.reason,
+      ai_result: aiResult,
+    })
+    .eq('id', candidate.id)
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return { candidate: updated, ai_result: aiResult };
+};
+
 const listCandidates = async (request, response) => {
   const actor = await requireModerator(request);
   if (!actor) return response.status(401).json({ success: false, error: 'Unauthorized' });
@@ -368,6 +386,29 @@ const ingestCandidate = async (request, response, body) => {
 
   const existing = await getDuplicateCandidate(postUrl);
   if (existing) {
+    if (!existing.ai_result && normalizeText(existing.raw_content)) {
+      try {
+        const analyzed = await analyzeAndUpdateCandidate(existing);
+        return response.status(200).json({
+          success: true,
+          candidate: analyzed.candidate,
+          ai_result: analyzed.ai_result,
+          message: 'Candidate already exists',
+          analyzed: true,
+        });
+      } catch (error) {
+        console.warn('Auto analyze existing candidate failed:', error?.details || error?.message || error);
+        return response.status(200).json({
+          success: true,
+          candidate: existing,
+          message: 'Candidate already exists',
+          analyzed: false,
+          analyze_error: error?.message || 'Auto analyze failed',
+          analyze_details: error?.details || null,
+        });
+      }
+    }
+
     return response.status(200).json({
       success: true,
       candidate: existing,
@@ -394,6 +435,20 @@ const ingestCandidate = async (request, response, body) => {
   if (error) {
     if (String(error.code || '') === '23505') {
       const duplicate = await getDuplicateCandidate(postUrl);
+      if (duplicate && !duplicate.ai_result && normalizeText(duplicate.raw_content)) {
+        try {
+          const analyzed = await analyzeAndUpdateCandidate(duplicate);
+          return response.status(200).json({
+            success: true,
+            candidate: analyzed.candidate,
+            ai_result: analyzed.ai_result,
+            message: 'Candidate already exists',
+            analyzed: true,
+          });
+        } catch (analyzeError) {
+          console.warn('Auto analyze duplicate candidate failed:', analyzeError?.details || analyzeError?.message || analyzeError);
+        }
+      }
       return response.status(200).json({
         success: true,
         candidate: duplicate,
@@ -401,6 +456,21 @@ const ingestCandidate = async (request, response, body) => {
       });
     }
     throw error;
+  }
+
+  let candidateForResponse = data;
+  let aiResult = null;
+  let analyzeError = null;
+  try {
+    const analyzed = await analyzeAndUpdateCandidate(data);
+    candidateForResponse = analyzed.candidate;
+    aiResult = analyzed.ai_result;
+  } catch (error) {
+    analyzeError = {
+      error: error?.message || 'Auto analyze failed',
+      details: error?.details || null,
+    };
+    console.warn('Auto analyze event candidate failed:', error?.details || error?.message || error);
   }
 
   void sendModeratorAlert({
@@ -411,7 +481,13 @@ const ingestCandidate = async (request, response, body) => {
     content: `${sourceName} vừa gửi bài mới cần duyệt.`,
   }).catch((err) => console.warn('Không gửi được alert moderator cho candidate mới:', err));
 
-  return response.status(201).json({ success: true, candidate: data });
+  return response.status(201).json({
+    success: true,
+    candidate: candidateForResponse,
+    ai_result: aiResult,
+    analyzed: Boolean(aiResult),
+    analyze_error: analyzeError,
+  });
 };
 
 const analyzeCandidateAction = async (request, response, body, candidateIdOverride = '') => {
