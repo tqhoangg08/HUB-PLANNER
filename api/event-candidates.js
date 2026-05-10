@@ -142,7 +142,7 @@ const buildEventDraft = (candidate, aiResult = {}) => {
   const organizer = normalizeOptionalText(aiResult.organizer) || normalizeOptionalText(candidate.source_name);
   const category = normalizeCategory(aiResult.category);
   const criteria = normalizeOptionalText(aiResult.criteria) || 'III';
-  const points = normalizePoints(aiResult.points) || '0';
+  const points = normalizePoints(aiResult.points) || '3';
   const format = normalizeOptionalText(aiResult.format) || 'Offline';
   const locationType = normalizeOptionalText(aiResult.location_type) || 'Trong trường';
   const classification = normalizeOptionalText(aiResult.classification);
@@ -172,7 +172,7 @@ const buildEventDraft = (candidate, aiResult = {}) => {
     description,
     registration_start_date: registrationStartDate,
     registration_start_time: registrationStartTime,
-    status: 'Sắp diễn ra',
+    status: 'Đang diễn ra',
     is_manually_closed: false,
     is_deleted: false,
     close_on_full: false,
@@ -606,7 +606,7 @@ const approveCandidateAction = async (request, response, body) => {
     organizer: normalizeOptionalText(mergedDraft.organizer),
     category: normalizeOptionalText(mergedDraft.category) || 'Hoạt động phong trào',
     criteria: normalizeOptionalText(mergedDraft.criteria) || 'III',
-    points: normalizePoints(mergedDraft.points) || '0',
+    points: normalizePoints(mergedDraft.points) || '3',
     format: normalizeOptionalText(mergedDraft.format) || 'Offline',
     link: normalizeOptionalText(mergedDraft.link) || normalizeText(candidate.post_url),
     location_type: normalizeOptionalText(mergedDraft.location_type) || 'Trong trường',
@@ -618,7 +618,7 @@ const approveCandidateAction = async (request, response, body) => {
     description: normalizeOptionalText(mergedDraft.description),
     registration_start_date: normalizeDate(mergedDraft.registration_start_date),
     registration_start_time: normalizeTime(mergedDraft.registration_start_time),
-    status: normalizeOptionalText(mergedDraft.status) || 'Sắp diễn ra',
+    status: normalizeOptionalText(mergedDraft.status) || 'Đang diễn ra',
     is_manually_closed: normalizeBoolean(mergedDraft.is_manually_closed),
     is_deleted: false,
     close_on_full: normalizeBoolean(mergedDraft.close_on_full),
