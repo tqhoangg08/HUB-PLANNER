@@ -1368,13 +1368,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
     try {
       const requestUrl = apiUrl(`/events?t=${new Date().getTime()}`);
-      const res = await fetch(requestUrl, {
-          headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache',
-              'Expires': '0'
-          }
-      });
+      const res = await fetch(requestUrl);
       const responseText = await res.text();
       const json = responseText ? JSON.parse(responseText) : {};
 
