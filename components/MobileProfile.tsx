@@ -3,13 +3,14 @@ import {
     User, Trash2, Moon, Bell, RefreshCw, 
     Info, HelpCircle, Coffee, FileText, Lock, 
     ChevronRight, LogOut, CheckCircle2,
-    Download, Share, PlusSquare, X
+    Download, Share, PlusSquare, X, Crown
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 import { fetchProfilePrivate } from '../utils/profilePrivate';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import { useNavigate } from 'react-router-dom';
+import { useSubscription } from '../hooks/useSubscription';
 
 interface MobileProfileProps {
     setShowAccountSettings?: (v: boolean) => void;
@@ -150,7 +151,10 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                     )}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h2 className="text-[17px] font-extrabold text-gray-900 leading-tight truncate">{displayName}</h2>
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-[17px] font-extrabold text-gray-900 leading-tight truncate">{displayName}</h2>
+                        {session && <PremiumBadgeInline userId={session?.user?.id} />}
+                    </div>
                     <p className="text-[11px] text-gray-500 mt-1 mb-2 font-medium truncate">{displaySub}</p>
                     {!isGuest && (
                         <div className="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-bold">
@@ -163,6 +167,7 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
             <div className="mx-4 mt-6">
                 <h3 className="text-[13px] font-extrabold text-gray-500 mb-3 px-1">Tài khoản</h3>
                 <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-gray-100 overflow-hidden">
+                    <MenuItem icon={Crown} iconColor="text-orange-500" iconBg="bg-gradient-to-br from-yellow-50 to-orange-50" title={session ? "HUB Premium" : "Nâng cấp Premium"} rightText={session ? undefined : "Mới"} onClick={() => navigate('/pricing')} />
                     <MenuItem icon={User} iconColor="text-orange-500" iconBg="bg-orange-50" title="Cập nhật thông tin" onClick={() => { playClick(); setShowAccountSettings?.(true); }} />
                     <MenuItem icon={Trash2} iconColor="text-red-500" iconBg="bg-red-50" title="Xóa dữ liệu" isDestructive={true} onClick={() => { playClick(); handleRequestReset?.(); }} />
                 </div>
@@ -259,5 +264,19 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                 )}
             </div>
         </div>
+    );
+};
+
+
+
+// Component hiển thị badge Premium nhỏ bên cạnh tên user
+const PremiumBadgeInline: React.FC<{ userId?: string }> = ({ userId }) => {
+    const { isPremium } = useSubscription(userId);
+    if (!isPremium) return null;
+    return (
+        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gradient-to-r from-yellow-100 to-orange-100 rounded-full border border-orange-200 shrink-0">
+            <Crown size={10} className="text-orange-500" />
+            <span className="text-[9px] font-bold text-orange-600">PRO</span>
+        </span>
     );
 };
