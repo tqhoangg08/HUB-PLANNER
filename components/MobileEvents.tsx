@@ -881,6 +881,14 @@ const canManage = isAdmin || isAuditor || isCTV;
       }
   };
 
+  const isDeadlineEventToday = (evt: HubEvent) => {
+      if (!evt.deadlineDate) return false;
+      if (evt.is_manually_closed || evt.status === 'Đã kết thúc' || evt.status === 'pending' || evt.is_deleted) return false;
+      return evt.deadlineDate.getDate() === today.getDate()
+          && evt.deadlineDate.getMonth() === today.getMonth()
+          && evt.deadlineDate.getFullYear() === today.getFullYear();
+  };
+
   const filteredEvents = events.filter(evt => {
     const matchesSearch = evt.name.toLowerCase().includes(searchTerm.toLowerCase()) || evt.organizer.toLowerCase().includes(searchTerm.toLowerCase());
     let matchesTab = true;
@@ -897,6 +905,9 @@ const canManage = isAdmin || isAuditor || isCTV;
     const matchesScope = activeScope === 'all' || (activeScope === 'internal' && evt.scope === 'Trong trường') || (activeScope === 'external' && evt.scope === 'Ngoài trường');
     return matchesSearch && matchesTab && matchesScope && isVisible;
   }).sort((a, b) => {
+      const deadlinePriority = Number(isDeadlineEventToday(b)) - Number(isDeadlineEventToday(a));
+      if (deadlinePriority !== 0) return deadlinePriority;
+
       if (sortOrder === 'expiring_soon') {
           const now = today.getTime();
           const getScore = (evt: HubEvent) => {

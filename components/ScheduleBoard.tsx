@@ -418,7 +418,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isMyScheduleModalOpen, setIsMyScheduleModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
-  const [reportData, setReportData] = useState({ course_code: '', subject_name: '', description: '' });
+  const [reportData, setReportData] = useState({ course_code: '', subject_name: '', description: '', suggested_correction: '' });
   const [isCreateCourseModalOpen, setIsCreateCourseModalOpen] = useState(false);
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
   const [newCourseData, setNewCourseData] = useState({ subject_name: '', course_code: '', instructor: '' });
@@ -1282,12 +1282,16 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     setIsSubmittingReport(true);
     try {
       const { data, error } = await supabase.from('course_reports').insert({ 
-        course_code: reportData.course_code, subject_name: reportData.subject_name, error_description: reportData.description, user_id: user.id
+        course_code: reportData.course_code,
+        subject_name: reportData.subject_name,
+        error_description: reportData.description,
+        suggested_correction: reportData.suggested_correction.trim() || null,
+        user_id: user.id
       }).select('id').single();
       if (error) throw error;
       void notifyModerators('course_report', data?.id);
       alert("✅ Gửi báo cáo thành công! Cảm ơn bạn đã đóng góp.");
-      setIsReportModalOpen(false); setReportData({ course_code: '', subject_name: '', description: '' });
+      setIsReportModalOpen(false); setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' });
     } catch (error) { alert("Đã xảy ra lỗi khi gửi báo cáo."); } 
     finally { setIsSubmittingReport(false); }
   };
@@ -1751,7 +1755,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </div>
 
                         <div className="flex gap-2">
-                            <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '' }); setIsReportModalOpen(true); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] sm:text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><AlertTriangle size={14} /> Báo lỗi môn</button>
+                            <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] sm:text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><AlertTriangle size={14} /> Báo lỗi môn</button>
                             <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><BookPlus size={14} /> Yêu cầu thêm</button>
                         </div>
 
@@ -2237,7 +2241,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
                         </div>
                         <div className="p-4 bg-white border-t border-gray-100 flex gap-2">
-                            <button onClick={() => { setReportData({ course_code: displayCourse.course_code, subject_name: displayCourse.subject_name, description: '' }); setIsReportModalOpen(true); setSelectedCourseInfo(null); }} className="px-3 py-2.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors" title="Báo lỗi thông tin">
+                            <button onClick={() => { setReportData({ course_code: displayCourse.course_code, subject_name: displayCourse.subject_name, description: '', suggested_correction: '' }); setIsReportModalOpen(true); setSelectedCourseInfo(null); }} className="px-3 py-2.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors" title="Báo lỗi thông tin">
                                 <AlertTriangle size={18} />
                             </button>
                             {!isSaved ? (
@@ -2305,6 +2309,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         <div><input required placeholder="Mã học phần (VD: ACC718_2521_L04)" value={reportData.course_code} onChange={e => setReportData({...reportData, course_code: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"/></div>
                         <div><input required placeholder="Tên môn học" value={reportData.subject_name} onChange={e => setReportData({...reportData, subject_name: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"/></div>
                         <div><textarea required rows={3} placeholder="Chi tiết lỗi (VD: Đổi phòng, đổi giờ)..." value={reportData.description} onChange={e => setReportData({...reportData, description: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none transition-colors"></textarea></div>
+                        <div><textarea rows={3} placeholder="Sửa lại như nào cho đúng? (VD: Phòng đúng là B2.904, giờ đúng là 13:00...)" value={reportData.suggested_correction} onChange={e => setReportData({...reportData, suggested_correction: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none transition-colors"></textarea></div>
                         <button type="submit" disabled={isSubmittingReport} className="w-full py-2.5 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors ">{isSubmittingReport ? 'Đang gửi...' : 'Gửi báo cáo'}</button>
                     </form>
                 </div>

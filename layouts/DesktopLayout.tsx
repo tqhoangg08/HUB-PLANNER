@@ -1,6 +1,6 @@
-﻿import React, { useRef, useState, useEffect } from 'react';
+﻿import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Book, Calendar, ChevronDown, ClipboardList, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Settings, Menu, X, FileText, ShieldCheck, Sparkles } from 'lucide-react';
+import { Book, Calendar, ChevronDown, ClipboardList, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Menu, X, FileText, ShieldCheck, Sparkles } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import NotificationBell from '../components/NotificationBell';
 import { supabase } from '../utils/supabase';
@@ -41,7 +41,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   isMobileBrowser = false,
   adminSearchMssv, isSearchingUser, setAdminSearchMssv, handleAdminSearchUser,
   handleRequestReset, handleLogout, setShowGuide, setShowActivityLog,
-  setIsUserMenuOpen, isUserMenuOpen, setShowAccountSettings, handleMenuLogout, 
+  setIsUserMenuOpen, isUserMenuOpen, handleMenuLogout, 
   handleExitAdminView, handleSyncDB, navigate, children,
   onInstallApp, showInstallButton
 }) => {
@@ -52,11 +52,26 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileHandbookOpen, setIsMobileHandbookOpen] = useState(false);
   const handbookMenuRef = useRef<HTMLDivElement>(null);
+  const navContainerRef = useRef<HTMLElement>(null);
+  const navRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([]);
   const lockedScrollYRef = useRef(0);
-  const navRefs = useRef<(HTMLAnchorElement | HTMLDivElement | null)[]>([]);
   const [navIndicator, setNavIndicator] = useState({ left: 0, width: 0, opacity: 0 });
   const [pendingReportCount, setPendingReportCount] = useState(0);
   const [pendingCandidateCount, setPendingCandidateCount] = useState(0);
+  const [profileSearchMssv, setProfileSearchMssv] = useState('');
+  const [isProfileSearchOpen, setIsProfileSearchOpen] = useState(false);
+
+  const handleProfileSearch = (event: React.FormEvent) => {
+      event.preventDefault();
+      const keyword = profileSearchMssv.trim();
+      if (!keyword) return;
+
+      const studentCode = keyword.includes('@') ? keyword.split('@')[0] : keyword;
+      navigate(`/profile/${encodeURIComponent(studentCode)}`);
+      setProfileSearchMssv('');
+      setIsProfileSearchOpen(false);
+      playClick();
+  };
 
   useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
@@ -68,32 +83,53 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-      if (isAdmin || isAuditor) return; 
+  useLayoutEffect(() => {
+      if (isAdmin || isAuditor) return;
 
+      const getActiveIndex = () => {
+          if (location.pathname.includes('/dashboard')) return 0;
+          if (location.pathname.includes('/schedule')) return 1;
+          if (location.pathname.includes('/events')) return 2;
+          if (location.pathname.includes('/lost-found')) return 3;
+          if (location.pathname.includes('/handbook') || isHandbookMenuOpen || location.pathname.includes('/admin-reports')) return 4;
+          return -1;
+      };
+
+      let frame = 0;
       const updateNavIndicator = () => {
-          let activeIndex = -1;
-          if (location.pathname.includes('/dashboard')) activeIndex = 0;
-          else if (location.pathname.includes('/schedule')) activeIndex = 1;
-          else if (location.pathname.includes('/events')) activeIndex = 2;
-          else if (location.pathname.includes('/lost-found')) activeIndex = 3;
-          else if (location.pathname.includes('/handbook') || isHandbookMenuOpen || location.pathname.includes('/admin-reports')) activeIndex = 4;
-
-          if (activeIndex !== -1 && navRefs.current[activeIndex]) {
-              const el = navRefs.current[activeIndex];
-              if (el) {
-                  setNavIndicator({ left: el.offsetLeft, width: el.offsetWidth, opacity: 1 });
+          window.cancelAnimationFrame(frame);
+          frame = window.requestAnimationFrame(() => {
+              const nav = navContainerRef.current;
+              const activeEl = navRefs.current[getActiveIndex()];
+              if (!nav || !activeEl) {
+                  setNavIndicator(prev => ({ ...prev, opacity: 0 }));
+                  return;
               }
-          } else {
-              setNavIndicator(prev => ({ ...prev, opacity: 0 }));
-          }
+
+              const navRect = nav.getBoundingClientRect();
+              const activeRect = activeEl.getBoundingClientRect();
+              setNavIndicator({
+                  left: activeRect.left - navRect.left + nav.scrollLeft,
+                  width: activeRect.width,
+                  opacity: 1,
+              });
+          });
       };
 
       updateNavIndicator();
+      const resizeObserver = new ResizeObserver(updateNavIndicator);
+      if (navContainerRef.current) resizeObserver.observe(navContainerRef.current);
+      navRefs.current.forEach(el => {
+          if (el) resizeObserver.observe(el);
+      });
       window.addEventListener('resize', updateNavIndicator);
-      setTimeout(updateNavIndicator, 100); 
-      return () => window.removeEventListener('resize', updateNavIndicator);
-  }, [location.pathname, isHandbookMenuOpen, isAdmin, isAuditor]);
+
+      return () => {
+          window.cancelAnimationFrame(frame);
+          resizeObserver.disconnect();
+          window.removeEventListener('resize', updateNavIndicator);
+      };
+  }, [location.pathname, isHandbookMenuOpen, isAdmin, isAuditor, isProfileSearchOpen]);
 
   useEffect(() => {
       if (!isMobileMenuOpen) return;
@@ -288,11 +324,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </NavLink>
                   </div>
 
-                  {/* NÚT CÀI ĐẶT / TRỢ GIÚP / ĐĂNG XUẤT MOBILE */}
+                  {/* NÚT TRỢ GIÚP / ĐĂNG XUẤT MOBILE */}
                   <div className="p-4 border-t border-gray-100 flex flex-col gap-1.5 bg-gray-50/50">
-                      <button onClick={() => { setIsMobileMenuOpen(false); setShowAccountSettings(true); }} className="flex items-center gap-3 px-3 py-2.5 text-[13px] font-semibold text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors">
-                          <Settings size={16} /> Cài đặt thông tin
-                      </button>
                       <button onClick={() => { setIsMobileMenuOpen(false); setShowGuide(true); }} className="flex items-center gap-3 px-3 py-2.5 text-[13px] font-semibold text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors">
                           <HelpCircle size={16} /> Trợ giúp
                       </button>
@@ -319,7 +352,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       {isUserMenuOpen && (
                           <div className="absolute bottom-full left-0 mb-3 w-full bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
                               <button type="button" onClick={() => { setIsMobileMenuOpen(false); const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
-                              <button type="button" onClick={() => { setIsMobileMenuOpen(false); setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
                               <button type="button" onClick={() => { setIsMobileMenuOpen(false); handleMenuLogout(); }} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
                           </div>
                       )}
@@ -412,7 +444,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               {isUserMenuOpen && (
                                   <div className="absolute right-0 top-full mt-3 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
                               <button type="button" onClick={() => { setIsMobileMenuOpen(false); const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
-                              <button type="button" onClick={() => { setIsMobileMenuOpen(false); setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
                                       <button type="button" onClick={() => { setIsMobileMenuOpen(false); handleMenuLogout(); }} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
                                   </div>
                               )}
@@ -488,27 +519,27 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               </div>
 
               {/* DESKTOP TOP NAV */}
-              <nav className="hidden sm:flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
+              <nav ref={navContainerRef} className="hidden sm:flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
                   
-                  <NavLink to="/dashboard" ref={(el: any) => { navRefs.current[0] = el; }} onClick={playClick} className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
+                  <NavLink to="/dashboard" ref={(el: any) => { navRefs.current[0] = el; }} onClick={playClick} className={({ isActive }) => `relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
                       <LayoutDashboard size={20} className="sm:hidden" />
                       <span className="hidden sm:block">Tổng quan</span>
                   </NavLink>
-                  <NavLink to="/schedule" ref={(el: any) => { navRefs.current[1] = el; }} onClick={playClick} className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
+                  <NavLink to="/schedule" ref={(el: any) => { navRefs.current[1] = el; }} onClick={playClick} className={({ isActive }) => `relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
                       <Calendar size={20} className="sm:hidden" />
                       <span className="hidden sm:block">Thời khóa biểu</span>
                   </NavLink>
-                  <NavLink to="/events" ref={(el: any) => { navRefs.current[2] = el; }} onClick={playClick} className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
+                  <NavLink to="/events" ref={(el: any) => { navRefs.current[2] = el; }} onClick={playClick} className={({ isActive }) => `relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
                       <Zap size={20} className="sm:hidden" />
                       <span className="hidden sm:block">Sự kiện ĐRL</span>
                   </NavLink>
-                  <NavLink to="/lost-found" ref={(el: any) => { navRefs.current[3] = el; }} onClick={playClick} className={({ isActive }) => `flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
+                  <NavLink to="/lost-found" ref={(el: any) => { navRefs.current[3] = el; }} onClick={playClick} className={({ isActive }) => `relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
                       <Search size={20} className="sm:hidden" />
                       <span className="hidden sm:block">Tìm đồ thất lạc</span>
                   </NavLink>
 
-                  <div className="relative flex items-center justify-center sm:h-full shrink-0 z-10" ref={(el: any) => { handbookMenuRef.current = el; navRefs.current[4] = el; }} onMouseEnter={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(true)} onMouseLeave={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(false)}>
-                      <button onClick={(e) => { e.preventDefault(); playClick(); setIsHandbookMenuOpen(!isHandbookMenuOpen); }} className={`flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-all whitespace-nowrap rounded-full sm:rounded-none ${location.pathname.includes('/handbook') || isHandbookMenuOpen ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
+                  <div className="relative flex items-center justify-center sm:h-full shrink-0 z-10" ref={handbookMenuRef} onMouseEnter={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(true)} onMouseLeave={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(false)}>
+                      <button ref={(el) => { navRefs.current[4] = el; }} onClick={(e) => { e.preventDefault(); playClick(); setIsHandbookMenuOpen(!isHandbookMenuOpen); }} className={`relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none ${location.pathname.includes('/handbook') || isHandbookMenuOpen ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
                           <Book size={20} className="sm:hidden" />
                           <span className="hidden sm:flex items-center gap-1">Cẩm nang <ChevronDown size={14} className={`transition-transform duration-200 ml-1 ${isHandbookMenuOpen ? 'rotate-180' : ''}`}/></span>
                       </button>
@@ -549,8 +580,53 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           </div>
                       )}
                   </div>
-                  <div className="hidden sm:block absolute bottom-0 h-[2px] bg-[#0052cc] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-20 rounded-t-full" style={{ left: `${navIndicator.left}px`, width: `${navIndicator.width}px`, opacity: navIndicator.opacity }} />
+                  <div
+                      className="hidden sm:block absolute left-0 bottom-0 h-[2px] bg-[#0052cc] transition-[transform,width,opacity] duration-200 ease-out z-20 rounded-t-full pointer-events-none"
+                      style={{
+                          transform: `translateX(${navIndicator.left}px)`,
+                          width: `${navIndicator.width}px`,
+                          opacity: navIndicator.opacity,
+                      }}
+                  />
               </nav>
+
+              {session && !isGuest && !(isAdmin || isAuditor) && (
+                  <form
+                      onSubmit={handleProfileSearch}
+                      onMouseEnter={() => {
+                          setIsProfileSearchOpen(true);
+                          window.setTimeout(() => document.getElementById('profile-mssv-search')?.focus(), 0);
+                      }}
+                      onMouseLeave={() => setIsProfileSearchOpen(false)}
+                      className="hidden lg:flex items-center justify-end shrink-0"
+                  >
+                      <div className={`relative flex items-center overflow-hidden rounded-lg border bg-white transition-all duration-200 ${
+                          isProfileSearchOpen
+                              ? 'w-44 border-blue-200'
+                              : 'w-9 border-gray-200 hover:border-blue-200 hover:bg-blue-50'
+                      }`}>
+                          <button
+                              type="submit"
+                              className="inline-flex h-9 w-9 shrink-0 items-center justify-center text-gray-500 transition-colors hover:text-[#0052cc]"
+                              title="Tìm hồ sơ theo MSSV"
+                          >
+                              <Search size={16} />
+                          </button>
+                          <input
+                              id="profile-mssv-search"
+                              type="text"
+                              value={profileSearchMssv}
+                              onChange={(event) => setProfileSearchMssv(event.target.value)}
+                              onFocus={() => setIsProfileSearchOpen(true)}
+                              onBlur={() => {
+                                  if (!profileSearchMssv.trim()) setIsProfileSearchOpen(false);
+                              }}
+                              placeholder="Tìm MSSV..."
+                              className="h-9 min-w-0 flex-1 bg-transparent pr-3 text-xs font-semibold text-gray-700 outline-none placeholder:text-gray-400"
+                          />
+                      </div>
+                  </form>
+              )}
 
               {/* DESKTOP RIGHT AVATAR SECTION */}
               <div className="hidden sm:flex items-center gap-1.5 lg:gap-3 shrink-0 pl-2 lg:pl-4 border-l border-gray-200">
@@ -595,7 +671,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           {isUserMenuOpen && (
                               <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
                               <button type="button" onClick={() => { setIsMobileMenuOpen(false); const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
-                              <button type="button" onClick={() => { setIsMobileMenuOpen(false); setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cài đặt thông tin</button>
                                   <button type="button" onClick={() => { handleRequestReset(); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
                                   <button type="button" onClick={() => { handleMenuLogout(); setIsMobileMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
                               </div>
@@ -752,13 +827,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       >
                           <User size={20} className="text-gray-500" />
                           <span>Hồ sơ cá nhân</span>
-                      </button>
-                      <button 
-                          onClick={() => { setShowAccountSettings(true); setIsMobileMenuOpen(false); playClick(); }} 
-                          className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                          <Settings size={20} className="text-gray-500" />
-                          <span>Cài đặt thông tin</span>
                       </button>
                       <button 
                           onClick={() => { handleRequestReset(); setIsMobileMenuOpen(false); playClick(); }} 

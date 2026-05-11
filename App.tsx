@@ -46,6 +46,7 @@ import {
 } from './utils/pushNotifications';
 import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from './utils/profilePrivate';
 import { apiUrl } from './utils/api';
+import { calculateCumulativeStats } from './utils/calculations';
 
 let globalDeferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -543,6 +544,12 @@ const App: React.FC = () => {
     const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
     const [draftFullName, setDraftFullName] = useState('');
     const [draftAvatarUrl, setDraftAvatarUrl] = useState('');
+    const [draftBio, setDraftBio] = useState('');
+    const [draftClassName, setDraftClassName] = useState('');
+    const [defaultClassName, setDefaultClassName] = useState('');
+    const [draftProfileTags, setDraftProfileTags] = useState('');
+    const [draftShowProfileStats, setDraftShowProfileStats] = useState(false);
+    const [profileRefreshKey, setProfileRefreshKey] = useState(0);
     const [draftAvatarFile, setDraftAvatarFile] = useState<File | null>(null);
     const [draftAvatarPreview, setDraftAvatarPreview] = useState('');
     const [profileSaving, setProfileSaving] = useState(false);
@@ -710,7 +717,7 @@ const App: React.FC = () => {
 
                 const { data: profileData } = await supabase
                     .from(STUDENT_PROFILE_TABLE)
-                    .select('full_name, avatar_url')
+                    .select('full_name, avatar_url, bio, class_name, profile_tags, show_profile_stats')
                     .eq('id', session.user.id)
                     .maybeSingle();
                 let privateData: Record<string, any> | null | undefined = null;
@@ -806,21 +813,17 @@ if (isAdmin && viewingUser) {
 else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR LẠI
     // User thường mới được tự động save (Auditor thì bị chặn lại không cho save)
     const userEmail = session.user.email || '';
-    const studentCode = userEmail.split('@')[0];
     const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
     const nameToSave = profileFullName || metaName;
 
-    const payload = {
-        id: session.user.id,
-        student_code: studentCode,
-        full_name: nameToSave,
-        avatar_url: profileAvatarUrl,
-        updated_at: new Date().toISOString(),
-    };
-
     const { error } = await supabase
         .from(STUDENT_PROFILE_TABLE)
-        .upsert(payload, { onConflict: 'id' });
+        .update({ 
+            full_name: nameToSave,
+            avatar_url: profileAvatarUrl,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', session.user.id);
 
     try {
         await upsertProfilePrivate({
@@ -850,6 +853,22 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         if (showAccountSettings) {
             setDraftFullName(profileFullName);
             setDraftAvatarUrl(profileAvatarUrl);
+            const loadPublicProfileDraft = async () => {
+                if (!session?.user?.id || !supabase) return;
+                const studentCode = (session.user.email || '').split('@')[0] || '';
+                const { data: publicProfile } = await supabase
+                    .from(STUDENT_PROFILE_TABLE)
+                    .select('bio, class_name, profile_tags, show_profile_stats, class_name_overridden')
+                    .eq('id', session.user.id)
+                    .maybeSingle();
+                const officialClassName = await fetchDefaultClassName(studentCode);
+                setDefaultClassName(officialClassName);
+                setDraftBio((publicProfile as any)?.bio || '');
+                setDraftClassName((publicProfile as any)?.class_name || officialClassName || '');
+                setDraftProfileTags(Array.isArray((publicProfile as any)?.profile_tags) ? (publicProfile as any).profile_tags.join(', ') : '');
+                setDraftShowProfileStats(Boolean((publicProfile as any)?.show_profile_stats));
+            };
+            void loadPublicProfileDraft();
             setDraftAvatarFile(null);
             setDraftAvatarPreview('');
             setProfileError(null);
@@ -871,13 +890,11 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             setDraftCohort(data.cohort || '');
             
             if (prog && data.cohort) {
-                const majors = getMajors(prog.id, data.cohort);
-                const maj = majors.find(m => m.name === data.majorName) || null;
+                const maj = findMajorFromSavedProfile(prog, data.cohort, data.majorName, data.specializationName);
                 setDraftMajor(maj);
                 
                 if (maj) {
-                    const spec = maj.specializations.find(s => s.name === data.specializationName) || null;
-                    setDraftSpecialization(spec);
+                    setDraftSpecialization(findSpecializationFromSavedProfile(maj, data.specializationName));
                 } else {
                     setDraftSpecialization(null);
                 }
@@ -1081,6 +1098,77 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         }
     };
 
+    const fetchDefaultClassName = async (studentCode: string) => {
+        const normalizedCode = studentCode.trim();
+        if (!normalizedCode || !supabase) return '';
+
+        try {
+            const { data: orderedData, error: orderedError } = await supabase
+                .from('v_drl_ranking')
+                .select('class_name, semester_id')
+                .eq('student_code', normalizedCode)
+                .not('class_name', 'is', null)
+                .order('semester_id', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (!orderedError && orderedData?.class_name) {
+                return String(orderedData.class_name).trim();
+            }
+        } catch (error) {
+            console.warn('Không thể đọc lớp mặc định theo semester_id:', error);
+        }
+
+        try {
+            const { data: fallbackData, error: fallbackError } = await supabase
+                .from('v_drl_ranking')
+                .select('class_name')
+                .eq('student_code', normalizedCode)
+                .not('class_name', 'is', null)
+                .limit(1)
+                .maybeSingle();
+
+            if (!fallbackError && fallbackData?.class_name) {
+                return String(fallbackData.class_name).trim();
+            }
+        } catch (error) {
+            console.warn('Không thể đọc lớp mặc định:', error);
+        }
+
+        return '';
+    };
+
+    const findMajorFromSavedProfile = (
+        program: Program,
+        cohort: string,
+        savedMajorName?: string,
+        savedSpecializationName?: string,
+    ) => {
+        const majors = getMajors(program.id, cohort);
+        const normalize = (value?: string) => (value || '').trim().toLowerCase();
+        const majorKey = normalize(savedMajorName);
+        const specializationKey = normalize(savedSpecializationName);
+
+        return (
+            majors.find(major => normalize(major.name) === majorKey) ||
+            majors.find(major => major.specializations.some(spec => normalize(spec.name) === specializationKey)) ||
+            null
+        );
+    };
+
+    const findSpecializationFromSavedProfile = (
+        major: Major,
+        savedSpecializationName?: string,
+    ) => {
+        const normalize = (value?: string) => (value || '').trim().toLowerCase();
+        const specializationKey = normalize(savedSpecializationName);
+
+        return (
+            major.specializations.find(spec => normalize(spec.name) === specializationKey) ||
+            (major.specializations.length === 1 ? major.specializations[0] : null)
+        );
+    };
+
     const handleSaveProfile = async () => {
         if (!session?.user?.id || !supabase) return;
         setProfileSaving(true);
@@ -1120,19 +1208,42 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
 
         const userEmail = session.user.email || '';
         const studentCode = userEmail.split('@')[0];
+        const officialClassName = defaultClassName || await fetchDefaultClassName(studentCode);
+        const classNameInput = draftClassName.trim();
+        const classNameToSave = classNameInput || officialClassName || null;
+        const classNameOverridden = Boolean(classNameInput && (!officialClassName || classNameInput !== officialClassName));
+        const validPublicSemesters = data.semesters.filter((sem: any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(sem.name) && Array.isArray(sem.subjects) && sem.subjects.length > 0);
+        const publicStats = calculateCumulativeStats(validPublicSemesters as any);
+        const profileTags = draftProfileTags
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(Boolean)
+            .slice(0, 6);
+
+        const profileUpdatePayload = {
+            full_name: draftFullName.trim(),
+            avatar_url: avatarUrlToSave,
+            bio: draftBio.trim() || null,
+            class_name: classNameToSave,
+            class_name_overridden: classNameOverridden,
+            profile_tags: profileTags,
+            show_profile_stats: draftShowProfileStats,
+            public_gpa: draftShowProfileStats ? Number(publicStats.rawGPA4.toFixed(2)) : null,
+            public_completed_semesters: draftShowProfileStats ? validPublicSemesters.length : null,
+            public_credits: draftShowProfileStats ? publicStats.passedCredits : null,
+            updated_at: new Date().toISOString(),
+        };
+
+        console.debug('Profile update payload:', profileUpdatePayload);
 
         const { error } = await supabase
             .from(STUDENT_PROFILE_TABLE)
-            .update({
-                full_name: draftFullName.trim(),
-                avatar_url: avatarUrlToSave,
-                student_code: studentCode,
-                updated_at: new Date().toISOString(),
-            })
+            .update(profileUpdatePayload)
             .eq('id', session.user.id);
 
         if (error) {
-            setProfileError('Không thể lưu thông tin. Vui lòng thử lại.');
+            console.error('Không thể lưu thông tin hồ sơ:', error);
+            setProfileError([error.message, error.details, error.hint, error.code].filter(Boolean).join(' | ') || 'Không thể lưu thông tin. Vui lòng thử lại.');
             setProfileSaving(false);
             return;
         }
@@ -1155,12 +1266,19 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             totalCreditsRequired: draftSpecialization?.credits || data.totalCreditsRequired
         };
 
-        await upsertProfilePrivate({
-            user_id: session.user.id,
-            email: userEmail,
-            data: nextData,
-            updated_at: new Date().toISOString(),
-        });
+        try {
+            await upsertProfilePrivate({
+                user_id: session.user.id,
+                email: userEmail,
+                data: nextData,
+                updated_at: new Date().toISOString(),
+            });
+        } catch (privateError: any) {
+            console.error('Không thể lưu dữ liệu học tập riêng tư:', privateError);
+            setProfileError(privateError?.message || 'Không thể lưu dữ liệu học tập riêng tư. Vui lòng thử lại.');
+            setProfileSaving(false);
+            return;
+        }
 
         setData(prev => ({
             ...prev,
@@ -1172,6 +1290,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             totalCreditsRequired: draftSpecialization?.credits || prev.totalCreditsRequired
         }));
 
+        setProfileRefreshKey(prev => prev + 1);
         setProfileSaving(false);
         setShowAccountSettings(false);
     };
@@ -1497,7 +1616,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/lost-found" element={<LostFoundBoard />} />
                 <Route path="/handbook/:tab?" element={<Handbook />} />
                 
-                <Route path="/profile/:id" element={<ProfilePage />} />
+                <Route path="/profile/:id" element={<ProfilePage refreshKey={profileRefreshKey} onEditProfile={() => setShowAccountSettings(true)} />} />
                 
                 <Route path="/admin-reports" element={(isAdmin || isAuditor) ? <AdminReports /> : <Navigate to="/dashboard" replace />} />
                 <Route path="/admin/event-candidates" element={(isAdmin || isAuditor) ? <AdminEventCandidates /> : <Navigate to="/dashboard" replace />} />
@@ -1787,6 +1906,26 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                             <label className="text-xs font-bold text-gray-500">Tên hiển thị (Góc phải)</label>
                                             <input type="text" value={draftFullName} onChange={(e) => setDraftFullName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="Nhập tên..." />
                                         </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-bold text-gray-500">Bio cá nhân</label>
+                                            <textarea value={draftBio} onChange={(e) => setDraftBio(e.target.value)} rows={3} maxLength={220} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm resize-none" placeholder="VD: Sinh viên năm 3, đam mê công nghệ..." />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-bold text-gray-500">Lớp</label>
+                                            <input type="text" value={draftClassName} onChange={(e) => setDraftClassName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder={defaultClassName ? `Mặc định: ${defaultClassName}` : 'VD: DH22KTA'} />
+                                            <p className="text-[11px] text-gray-500">Nếu để trống, hệ thống sẽ dùng lớp mặc định theo MSSV khi có dữ liệu.</p>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-bold text-gray-500">Tag hồ sơ, cách nhau bằng dấu phẩy</label>
+                                            <input type="text" value={draftProfileTags} onChange={(e) => setDraftProfileTags(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="VD: Khoa Kế toán, CLB Tin học" />
+                                        </div>
+                                        <label className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-sm">
+                                            <input type="checkbox" checked={draftShowProfileStats} onChange={(e) => setDraftShowProfileStats(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#003375] focus:ring-[#003375]" />
+                                            <span>
+                                                <span className="block font-bold text-[#003375]">Hiển thị thành tích học tập trên hồ sơ công khai</span>
+                                                <span className="text-xs text-gray-600">Công khai GPA tích lũy, số học kỳ hoàn thành và tín chỉ tích lũy. Dữ liệu chi tiết từng môn vẫn riêng tư.</span>
+                                            </span>
+                                        </label>
                                         <div className="space-y-2">
                                             <label className="text-xs font-bold text-gray-500">Màu Avatar</label>
                                             <div className="flex gap-3">

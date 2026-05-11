@@ -358,7 +358,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
   const [isMyScheduleModalOpen, setIsMyScheduleModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
-  const [reportData, setReportData] = useState({ course_code: '', subject_name: '', description: '' });
+  const [reportData, setReportData] = useState({ course_code: '', subject_name: '', description: '', suggested_correction: '' });
   
   const [isCreateCourseModalOpen, setIsCreateCourseModalOpen] = useState(false);
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
@@ -765,12 +765,16 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
     setIsSubmittingReport(true);
     try {
       const { data } = await supabase.from('course_reports').insert({ 
-        course_code: reportData.course_code, subject_name: reportData.subject_name, error_description: reportData.description, user_id: user.id
+        course_code: reportData.course_code,
+        subject_name: reportData.subject_name,
+        error_description: reportData.description,
+        suggested_correction: reportData.suggested_correction.trim() || null,
+        user_id: user.id
       }).select('id').single();
       void notifyModerators('course_report', data?.id);
       alert("✅ Gửi báo cáo thành công! Cảm ơn bạn.");
       setIsReportModalOpen(false);
-      setReportData({ course_code: '', subject_name: '', description: '' });
+      setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' });
     } catch (error) { alert("Đã xảy ra lỗi khi gửi báo cáo."); } 
     finally { setIsSubmittingReport(false); }
   };
@@ -889,7 +893,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
 
                 {/* Dòng 3: Cụm Nút Action Gọn Gàng Bằng Icon */}
                 <div className="flex gap-2 pt-1">
-                    <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '' }); setIsReportModalOpen(true); }} className="flex-1 py-1.5 bg-red-50 text-red-600 rounded-lg flex flex-col items-center justify-center gap-1 active:bg-red-100 border border-red-100 disabled:opacity-50 transition-colors shadow-sm">
+                    <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }} className="flex-1 py-1.5 bg-red-50 text-red-600 rounded-lg flex flex-col items-center justify-center gap-1 active:bg-red-100 border border-red-100 disabled:opacity-50 transition-colors shadow-sm">
                         <AlertTriangle size={16}/> <span className="text-[10px] font-bold">Báo lỗi</span>
                     </button>
                     <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex-1 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg flex flex-col items-center justify-center gap-1 active:bg-emerald-100 border border-emerald-100 disabled:opacity-50 transition-colors shadow-sm">
@@ -1253,7 +1257,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                             )}
 
                             <div className="flex gap-2 pt-3 mt-3 border-t border-gray-100">
-                                <button onClick={() => { setReportData({ course_code: course.course_code, subject_name: course.subject_name, description: '' }); setIsReportModalOpen(true); setSelectedCourseInfo(null); }} className="p-3.5 rounded-xl border border-gray-200 text-gray-500 active:bg-gray-100 shrink-0" title="Báo lỗi">
+                                <button onClick={() => { setReportData({ course_code: course.course_code, subject_name: course.subject_name, description: '', suggested_correction: '' }); setIsReportModalOpen(true); setSelectedCourseInfo(null); }} className="p-3.5 rounded-xl border border-gray-200 text-gray-500 active:bg-gray-100 shrink-0" title="Báo lỗi">
                                     <AlertTriangle size={18} />
                                 </button>
                                 {selectedDateStr && course.user_schedule_id && (
@@ -1435,6 +1439,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                         <input required placeholder="Mã học phần (VD: ACC...)" value={reportData.course_code} onChange={e => setReportData({...reportData, course_code: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 bg-gray-50"/>
                         <input required placeholder="Tên môn học" value={reportData.subject_name} onChange={e => setReportData({...reportData, subject_name: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 bg-gray-50"/>
                         <textarea required rows={4} placeholder="Mô tả lỗi chi tiết..." value={reportData.description} onChange={e => setReportData({...reportData, description: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 resize-none bg-gray-50"></textarea>
+                        <textarea rows={3} placeholder="Sửa lại như nào cho đúng? (VD: Phòng đúng là B2.904, giờ đúng là 13:00...)" value={reportData.suggested_correction} onChange={e => setReportData({...reportData, suggested_correction: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 resize-none bg-gray-50"></textarea>
                         <button type="submit" disabled={isSubmittingReport} className="w-full py-3 rounded-xl bg-red-600 text-white text-[13px] font-bold active:bg-red-700 transition-colors shadow-md mt-2 flex items-center justify-center gap-2">{isSubmittingReport ? <Loader2 size={16} className="animate-spin"/> : <Send size={16}/>} Gửi báo cáo</button>
                     </form>
                 </div>

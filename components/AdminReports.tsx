@@ -172,6 +172,9 @@ export const AdminReports: React.FC = () => {
                         <>
                             <p><strong className="text-gray-600">Môn học:</strong> <span className="font-bold">{item.subject_name}</span> ({item.course_code})</p>
                             <p><strong className="text-gray-600">Lỗi:</strong> <span className="whitespace-pre-line bg-orange-50 text-orange-800 px-2 py-1 rounded inline-block w-full mt-1 border border-orange-100">{item.error_description}</span></p>
+                            {item.suggested_correction && (
+                                <p><strong className="text-gray-600">Sửa đúng:</strong> <span className="whitespace-pre-line bg-blue-50 text-blue-800 px-2 py-1 rounded inline-block w-full mt-1 border border-blue-100">{item.suggested_correction}</span></p>
+                            )}
                         </>
                     )}
 

@@ -1351,6 +1351,12 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
   const getEventUrl = (id: string) => `${window.location.origin}${getEventPath(id)}`;
 
+  const handleOpenEventDetail = (evt: HubEvent) => {
+      playClick();
+      setDetailEvent(evt);
+      if (eventId !== evt.id) navigate(getEventPath(evt.id));
+  };
+
   const handleCopyEventUrl = async (evt: HubEvent) => {
       playClick();
       const url = getEventUrl(evt.id);
@@ -1549,6 +1555,14 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       }
   }, [editEventId, roleLoading, loading, canManage, events, navigate]);
 
+  const isDeadlineEventToday = (evt: HubEvent) => {
+      if (!evt.deadlineDate) return false;
+      if (evt.is_manually_closed || evt.status === 'Đã kết thúc' || evt.status === 'pending' || evt.is_deleted) return false;
+      return evt.deadlineDate.getDate() === today.getDate()
+          && evt.deadlineDate.getMonth() === today.getMonth()
+          && evt.deadlineDate.getFullYear() === today.getFullYear();
+  };
+
   const filteredEvents = events.filter(evt => {
     const matchesSearch = evt.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           evt.organizer.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1574,6 +1588,9 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     const matchesDate = !eventDateFilter || getEventDateKey(evt.event_date) === eventDateFilter;
     return matchesSearch && matchesTab && matchesScope && matchesType && matchesDate && isVisible;
   }).sort((a, b) => {
+      const deadlinePriority = Number(isDeadlineEventToday(b)) - Number(isDeadlineEventToday(a));
+      if (deadlinePriority !== 0) return deadlinePriority;
+
       if (sortOrder === 'expiring_soon') {
           const now = today.getTime();
           const getScore = (evt: HubEvent) => {
@@ -1612,6 +1629,11 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
   const routeEvent = eventId ? events.find(evt => evt.id === eventId) || null : null;
   const displayedEvents = eventId ? (routeEvent ? [routeEvent] : []) : filteredEvents;
+
+  useEffect(() => {
+      if (!eventId || loading) return;
+      if (routeEvent) setDetailEvent(routeEvent);
+  }, [eventId, loading, routeEvent]);
 
   const openingEvents = displayedEvents.filter(evt => {
       const isNotExpired = !checkIsOverdue(evt, today);
@@ -1683,7 +1705,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       <div key={evt.id} className={`bg-white rounded-xl border border-gray-300 p-3.5 sm:p-5 flex flex-col h-full transition-all duration-300 hover:border-blue-400 hover:-translate-y-1 relative group ${evt.is_deleted ? 'opacity-60 grayscale' : ''}`}>
         <button
             type="button"
-            onClick={() => { playClick(); setDetailEvent(evt); }}
+            onClick={() => handleOpenEventDetail(evt)}
             className="relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-gray-50 border border-gray-200 mb-3 text-left"
             title="Xem chi tiết sự kiện"
         >
@@ -1734,7 +1756,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
         <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); playClick(); setDetailEvent(evt); }}
+            onClick={(e) => { e.stopPropagation(); handleOpenEventDetail(evt); }}
             className="mb-3 w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-[#003375] hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
         >
             <Info size={14} /> Xem chi tiết
@@ -2295,7 +2317,10 @@ return (
       <NotificationToast />
       <EventDetailModal
           event={detailEvent}
-          onClose={() => setDetailEvent(null)}
+          onClose={() => {
+              setDetailEvent(null);
+              if (eventId) navigate('/events');
+          }}
           currentDay={today}
           isParticipated={detailEvent ? participatedEvents.includes(detailEvent.id) : false}
           onToggleParticipation={(id) => toggleParticipation(id)}
