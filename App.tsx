@@ -38,6 +38,8 @@ import { MobileLostFound } from './components/MobileLostFound';
 import { MobileProfile } from './components/MobileProfile'; 
 import { PasswordSetupModal } from './components/PasswordSetupModal';
 import { MobileHandbook } from './components/MobileHandbook';
+import { PricingPage } from './components/PricingPage';
+import { useSubscription } from './hooks/useSubscription';
 import { showAlert, showConfirm } from './utils/appNotifications';
 import {
     isPushSupported,
@@ -178,6 +180,7 @@ const INITIAL_DATA: UserData = {
 const App: React.FC = () => {
     const { isAdmin, isAuditor, isCTV, session, loading: loadingRole } = useUserRole();
     console.log("Kiểm tra quyền hiện tại:", { isAdmin, isAuditor, isCTV });
+    const { isPremium, plan: currentPlan } = useSubscription(session?.user?.id);
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -1498,6 +1501,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/handbook/:tab?" element={<Handbook />} />
                 
                 <Route path="/profile/:id" element={<ProfilePage />} />
+                <Route path="/pricing" element={<PricingPage userId={session?.user?.id} isPremium={isPremium} currentPlan={currentPlan} />} />
                 
                 <Route path="/admin-reports" element={(isAdmin || isAuditor) ? <AdminReports /> : <Navigate to="/dashboard" replace />} />
                 <Route path="/admin/event-candidates" element={(isAdmin || isAuditor) ? <AdminEventCandidates /> : <Navigate to="/dashboard" replace />} />
@@ -1517,6 +1521,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/handbook/:tab?" element={<MobileHandbook />} />
                 <Route path="/handbook" element={<MobileHandbook />} />
                 <Route path="/admin/event-candidates" element={(isAdmin || isAuditor) ? <AdminEventCandidates /> : <Navigate to="/mobile-home" replace />} />
+                <Route path="/pricing" element={<PricingPage userId={session?.user?.id} isPremium={isPremium} currentPlan={currentPlan} />} />
                 
                 <Route path="/profile/:id" element={
                     <MobileProfileComponent 

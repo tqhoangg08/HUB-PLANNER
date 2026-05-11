@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { MessageSquare, Sparkles, X, Send, Loader2, ThumbsUp, ThumbsDown, Lock, History, Menu, Plus, MessageCircle, MoreVertical, Pin, PinOff, Edit3, Trash2, Check } from 'lucide-react'; 
-import { Link } from 'react-router-dom';
+import { MessageSquare, Sparkles, X, Send, Loader2, ThumbsUp, ThumbsDown, Lock, History, Menu, Plus, MessageCircle, MoreVertical, Pin, PinOff, Edit3, Trash2, Check, Crown, Zap } from 'lucide-react'; 
+import { Link, useNavigate } from 'react-router-dom';
 import { UserData } from '../types';
 import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
 import { playClick } from '../utils/audio';
@@ -8,6 +8,7 @@ import { showConfirm } from '../utils/appNotifications';
 import { supabase } from '../utils/supabase'; 
 import DOMPurify from 'dompurify';
 import { apiUrl } from '../utils/api';
+import { useSubscription } from '../hooks/useSubscription';
 
 interface AIAdvisorProps {
   data: UserData;
@@ -34,6 +35,8 @@ interface ChatSessionLog {
 }
 
 export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
+  const navigate = useNavigate();
+  const { isPremium, aiUsageToday, aiLimitReached, incrementAiUsage, FREE_AI_LIMIT } = useSubscription(userId);
   const [isOpen, setIsOpen] = useState(false);
   const [showSidebar, setShowSidebar] = useState(window.innerWidth >= 768); 
   const [loading, setLoading] = useState(false);
@@ -113,6 +116,12 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   const handleAdvice = async (isFirstTime = false, presetQuestion = "") => {
     const questionToAsk = presetQuestion || customPrompt;
     if (!questionToAsk.trim() && !isFirstTime) return;
+
+    // Kiểm tra giới hạn AI cho user miễn phí
+    if (!isPremium) {
+        const { allowed } = await incrementAiUsage();
+        if (!allowed) return; // Sẽ hiển thị upgrade prompt qua aiLimitReached state
+    }
 
     playClick();
     
@@ -468,6 +477,41 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                         </div>
 
                         <div className="p-3 sm:p-4 border-t border-gray-100 bg-white z-10 shrink-0">
+                          {/* Premium Usage Banner */}
+                          {userId && !isPremium && (
+                              <div className="mb-2 flex items-center justify-between px-3 py-2 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-100">
+                                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                                      <Zap size={14} className="text-yellow-500" />
+                                      <span className="font-medium">{aiUsageToday}/{FREE_AI_LIMIT} tin nhắn hôm nay</span>
+                                  </div>
+                                  <button onClick={() => { playClick(); navigate('/pricing'); setIsOpen(false); }} className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1">
+                                      <Crown size={12} /> Nâng cấp
+                                  </button>
+                              </div>
+                          )}
+                          {isPremium && (
+                              <div className="mb-2 flex items-center justify-center gap-1.5 text-xs text-orange-600 font-medium">
+                                  <Crown size={12} className="text-orange-500" />
+                                  <span>Premium - Không giới hạn</span>
+                              </div>
+                          )}
+
+                          {/* Limit Reached Overlay */}
+                          {aiLimitReached && !isPremium ? (
+                              <div className="text-center py-4 animate-message">
+                                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-100 to-yellow-100 rounded-full mb-3">
+                                      <Crown size={16} className="text-orange-500" />
+                                      <span className="text-sm font-bold text-orange-700">Hết lượt hôm nay</span>
+                                  </div>
+                                  <p className="text-xs text-gray-500 mb-3">Bạn đã dùng hết {FREE_AI_LIMIT} tin nhắn miễn phí hôm nay.</p>
+                                  <button
+                                      onClick={() => { playClick(); navigate('/pricing'); setIsOpen(false); }}
+                                      className="px-5 py-2.5 bg-gradient-to-r from-orange-400 to-yellow-400 text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-all active:scale-95"
+                                  >
+                                      Nâng cấp Premium - Không giới hạn
+                                  </button>
+                              </div>
+                          ) : (
                           <form onSubmit={(e) => { e.preventDefault(); handleAdvice(); }} className="flex gap-2 relative">
                             <input
                               type="text" placeholder="Nhập câu hỏi tại đây..."
@@ -478,6 +522,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                               {loading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} className={loading ? 'opacity-0' : 'opacity-100'} />}
                             </button>
                           </form>
+                          )}
                           <p className="text-[9px] sm:text-[10px] text-center text-gray-400 mt-2 font-medium">
                             HUB Planner AI có thể cung cấp thông tin chưa chính xác. Vui lòng xác minh lại.
                           </p>
