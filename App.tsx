@@ -19,6 +19,7 @@ import { Link, Navigate, Route, Routes, useNavigate, NavLink, useLocation } from
 import { ImportGuideModal } from './components/ImportGuideModal';
 import { UserGuideModal } from './components/UserGuideModal';
 import ProfilePage from './pages/ProfilePage';
+import ProfileSearchPage from './pages/ProfileSearchPage';
 import NotificationBell from './components/NotificationBell';
 import ScheduleBoard from './components/ScheduleBoard';
 import Particles from "react-particles";
@@ -1617,6 +1618,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/handbook/:tab?" element={<Handbook />} />
                 
                 <Route path="/profile/:id" element={<ProfilePage refreshKey={profileRefreshKey} onEditProfile={() => setShowAccountSettings(true)} />} />
+                <Route path="/profiles/search" element={<ProfileSearchPage />} />
                 
                 <Route path="/admin-reports" element={(isAdmin || isAuditor) ? <AdminReports /> : <Navigate to="/dashboard" replace />} />
                 <Route path="/admin/event-candidates" element={(isAdmin || isAuditor) ? <AdminEventCandidates /> : <Navigate to="/dashboard" replace />} />
@@ -1645,6 +1647,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                         showInstallButton={!isAppMode}
                     />
                 } />
+                <Route path="/profiles/search" element={<ProfileSearchPage />} />
                 
                 <Route path="/dashboard" element={<Navigate to="/mobile-home" replace />} />
                 <Route path="*" element={<Navigate to="/mobile-home" replace />} />

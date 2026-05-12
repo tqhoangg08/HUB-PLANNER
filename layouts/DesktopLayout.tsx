@@ -52,6 +52,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileHandbookOpen, setIsMobileHandbookOpen] = useState(false);
   const handbookMenuRef = useRef<HTMLDivElement>(null);
+  const profileSearchRef = useRef<HTMLFormElement>(null);
   const navContainerRef = useRef<HTMLElement>(null);
   const navRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([]);
   const lockedScrollYRef = useRef(0);
@@ -60,6 +61,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   const [pendingCandidateCount, setPendingCandidateCount] = useState(0);
   const [profileSearchMssv, setProfileSearchMssv] = useState('');
   const [isProfileSearchOpen, setIsProfileSearchOpen] = useState(false);
+  const [profileSearchSuggestions, setProfileSearchSuggestions] = useState<any[]>([]);
+  const [isLoadingProfileSuggestions, setIsLoadingProfileSuggestions] = useState(false);
 
   const handleProfileSearch = (event: React.FormEvent) => {
       event.preventDefault();
@@ -67,16 +70,69 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       if (!keyword) return;
 
       const studentCode = keyword.includes('@') ? keyword.split('@')[0] : keyword;
+      navigate(`/profiles/search?q=${encodeURIComponent(studentCode)}`);
+      setIsProfileSearchOpen(false);
+      playClick();
+  };
+
+  const openProfile = (studentCode: string) => {
+      if (!studentCode) return;
       navigate(`/profile/${encodeURIComponent(studentCode)}`);
       setProfileSearchMssv('');
+      setProfileSearchSuggestions([]);
       setIsProfileSearchOpen(false);
       playClick();
   };
 
   useEffect(() => {
+      if (!session || isGuest || isAdmin || isAuditor) {
+          setProfileSearchSuggestions([]);
+          return;
+      }
+
+      const keyword = profileSearchMssv.trim().replace(/[%,]/g, '').slice(0, 40);
+      if (keyword.length < 2 || !isProfileSearchOpen) {
+          setProfileSearchSuggestions([]);
+          setIsLoadingProfileSuggestions(false);
+          return;
+      }
+
+      let cancelled = false;
+      setIsLoadingProfileSuggestions(true);
+
+      const timer = window.setTimeout(async () => {
+          try {
+              const { data, error } = await supabase
+                  .from('public_profiles')
+                  .select('id, full_name, student_code, avatar_url, class_name')
+                  .or(`student_code.ilike.%${keyword}%,full_name.ilike.%${keyword}%`)
+                  .order('student_code', { ascending: true })
+                  .limit(6);
+
+              if (error) throw error;
+              if (!cancelled) setProfileSearchSuggestions(data || []);
+          } catch (error) {
+              console.warn('Không thể tải gợi ý hồ sơ:', error);
+              if (!cancelled) setProfileSearchSuggestions([]);
+          } finally {
+              if (!cancelled) setIsLoadingProfileSuggestions(false);
+          }
+      }, 180);
+
+      return () => {
+          cancelled = true;
+          window.clearTimeout(timer);
+      };
+  }, [profileSearchMssv, isProfileSearchOpen, session, isGuest, isAdmin, isAuditor]);
+
+  useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
           if (handbookMenuRef.current && !handbookMenuRef.current.contains(event.target as Node)) {
               setIsHandbookMenuOpen(false);
+          }
+          if (profileSearchRef.current && !profileSearchRef.current.contains(event.target as Node)) {
+              setIsProfileSearchOpen(false);
+              setProfileSearchSuggestions([]);
           }
       };
       document.addEventListener("mousedown", handleClickOutside);
@@ -592,21 +648,28 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
               {session && !isGuest && !(isAdmin || isAuditor) && (
                   <form
+                      ref={profileSearchRef}
                       onSubmit={handleProfileSearch}
                       onMouseEnter={() => {
                           setIsProfileSearchOpen(true);
                           window.setTimeout(() => document.getElementById('profile-mssv-search')?.focus(), 0);
                       }}
-                      onMouseLeave={() => setIsProfileSearchOpen(false)}
-                      className="hidden lg:flex items-center justify-end shrink-0"
+                      className="hidden lg:flex items-center justify-end shrink-0 relative"
                   >
                       <div className={`relative flex items-center overflow-hidden rounded-lg border bg-white transition-all duration-200 ${
                           isProfileSearchOpen
-                              ? 'w-44 border-blue-200'
+                              ? 'w-56 border-blue-200 shadow-sm'
                               : 'w-9 border-gray-200 hover:border-blue-200 hover:bg-blue-50'
                       }`}>
                           <button
                               type="submit"
+                              onClick={(event) => {
+                                  if (!isProfileSearchOpen || !profileSearchMssv.trim()) {
+                                      event.preventDefault();
+                                      setIsProfileSearchOpen(true);
+                                      window.setTimeout(() => document.getElementById('profile-mssv-search')?.focus(), 0);
+                                  }
+                              }}
                               className="inline-flex h-9 w-9 shrink-0 items-center justify-center text-gray-500 transition-colors hover:text-[#0052cc]"
                               title="Tìm hồ sơ theo MSSV"
                           >
@@ -618,13 +681,55 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               value={profileSearchMssv}
                               onChange={(event) => setProfileSearchMssv(event.target.value)}
                               onFocus={() => setIsProfileSearchOpen(true)}
-                              onBlur={() => {
-                                  if (!profileSearchMssv.trim()) setIsProfileSearchOpen(false);
-                              }}
+                              onClick={() => setIsProfileSearchOpen(true)}
                               placeholder="Tìm MSSV..."
                               className="h-9 min-w-0 flex-1 bg-transparent pr-3 text-xs font-semibold text-gray-700 outline-none placeholder:text-gray-400"
                           />
                       </div>
+                      {isProfileSearchOpen && profileSearchMssv.trim().length >= 2 && (
+                          <div className="absolute right-0 top-[42px] z-50 w-72 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+                              {isLoadingProfileSuggestions && (
+                                  <div className="px-3 py-3 text-xs font-semibold text-gray-500">Đang tìm gợi ý...</div>
+                              )}
+                              {!isLoadingProfileSuggestions && profileSearchSuggestions.length === 0 && (
+                                  <div className="px-3 py-3 text-xs font-semibold text-gray-500">Không có gợi ý gần giống.</div>
+                              )}
+                              {!isLoadingProfileSuggestions && profileSearchSuggestions.map((profile) => {
+                                  const avatar = profile.avatar_url;
+                                  const isImage = avatar && !avatar.startsWith?.('#');
+                                  const initial = (profile.full_name || profile.student_code || 'S').trim().charAt(0).toUpperCase();
+
+                                  return (
+                                      <button
+                                          key={profile.id}
+                                          type="button"
+                                          onMouseDown={(event) => {
+                                              event.preventDefault();
+                                              openProfile(profile.student_code);
+                                          }}
+                                          className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-blue-50 transition-colors"
+                                      >
+                                          <div
+                                              className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#003375] text-white flex items-center justify-center text-sm font-black"
+                                              style={avatar?.startsWith?.('#') ? { backgroundColor: avatar } : undefined}
+                                          >
+                                              {isImage ? <img src={avatar} alt={profile.full_name || profile.student_code} className="h-full w-full object-cover" /> : initial}
+                                          </div>
+                                          <div className="min-w-0">
+                                              <div className="truncate text-sm font-bold text-gray-900">{profile.full_name || 'Chưa cập nhật tên'}</div>
+                                              <div className="truncate text-xs font-semibold text-gray-500">#{profile.student_code}{profile.class_name ? ` • ${profile.class_name}` : ''}</div>
+                                          </div>
+                                      </button>
+                                  );
+                              })}
+                              <button
+                                  type="submit"
+                                  className="w-full border-t border-gray-100 px-3 py-2 text-left text-xs font-bold text-[#003375] hover:bg-gray-50"
+                              >
+                                  Xem tất cả kết quả gần giống "{profileSearchMssv.trim()}"
+                              </button>
+                          </div>
+                      )}
                   </form>
               )}
 
