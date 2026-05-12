@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@axiomhq/winston": "^1.4.0",
+    "@fontsource/inter": "^5.2.8",
     "@google/genai": "^1.34.0",
     "@marsidev/react-turnstile": "^1.5.2",
     "@supabase/supabase-js": "^2.97.0",

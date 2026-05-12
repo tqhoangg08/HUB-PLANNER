@@ -19,7 +19,7 @@ import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { playClick } from '../utils/audio';
 import SchoolAnnouncements from './SchoolAnnouncements';
-import { mapIdToDisplay } from '../utils/rankingData';
+import { mapIdToDisplay, normalizeSemesterId } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
 import { useUserRole } from '../hooks/useUserRole';
 import { exportTranscriptToPdf } from '../utils/pdfExport';
@@ -426,9 +426,15 @@ interface SemesterTableProps {
   usedSemesterNames: string[];
   onCascadeUpdate: (newName: string) => void; 
   isReadOnly?: boolean;
+  rankContext?: {
+    studentCode?: string | null;
+    classCode?: string | null;
+    major?: string | null;
+    currentSemesterId?: string | null;
+  };
 }
 
-const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester, allSemesterOptions, usedSemesterNames, onCascadeUpdate, isReadOnly }) => {
+const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester, allSemesterOptions, usedSemesterNames, onCascadeUpdate, isReadOnly, rankContext }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
     
@@ -548,7 +554,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   };
 
   const handleSelectReferenceSemester = (refId: string) => {
-      playClick(); fetchRank(refId, semGPA4, totalRegisteredCredits, semester.trainingScore ?? 0);
+      playClick(); fetchRank(refId, semGPA4, totalRegisteredCredits, semester.trainingScore ?? 0, rankContext);
   };
 
   let headerColor = "bg-gray-50 border-gray-300";
@@ -651,6 +657,33 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                                   <p className="text-xs opacity-80 uppercase mb-1">Top Percentile</p>
                                                   <p className="text-2xl font-bold flex items-center justify-center gap-2"><TrendingUp size={20}/> Top {rankingResult.topPercent.toFixed(1)}%</p>
                                               </div>
+                                              {(rankingResult.rankInClass || rankingResult.rankInMajor) && (
+                                                  <div className="grid grid-cols-1 gap-2 text-left">
+                                                      {rankingResult.rankInClass && (
+                                                          <div className="bg-white p-3 rounded-lg border border-gray-300">
+                                                              <p className="text-[11px] font-bold text-gray-500 uppercase">
+                                                                  Trong lớp {rankingResult.classCode || ''}
+                                                              </p>
+                                                              <p className="text-base font-black text-[#003375]">
+                                                                  #{rankingResult.rankInClass}
+                                                                  <span className="text-xs font-medium text-gray-400"> / {rankingResult.totalInClass}</span>
+                                                              </p>
+                                                          </div>
+                                                      )}
+                                                      {rankingResult.rankInMajor && (
+                                                          <div className="bg-white p-3 rounded-lg border border-gray-300">
+                                                              <p className="text-[11px] font-bold text-gray-500 uppercase">Trong ngành</p>
+                                                              <p className="text-base font-black text-[#003375]">
+                                                                  #{rankingResult.rankInMajor}
+                                                                  <span className="text-xs font-medium text-gray-400"> / {rankingResult.totalInMajor}</span>
+                                                              </p>
+                                                              {rankingResult.major && (
+                                                                  <p className="text-[11px] text-gray-500 truncate mt-0.5">{rankingResult.major}</p>
+                                                              )}
+                                                          </div>
+                                                      )}
+                                                  </div>
+                                              )}
                                           </div>
                                       </div>
                                   ) : (
@@ -2178,6 +2211,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     usedSemesterNames={usedSemesterNames}
                                     onCascadeUpdate={(newName) => handleCascadeUpdate(originalIndex, newName)}
                                     isReadOnly={isViewingAsAuditor}
+                                    rankContext={{
+                                        studentCode: (activeData as any).studentCode || (activeData as any).student_code || null,
+                                        classCode: (activeData as any).className || (activeData as any).class_name || (activeData as any).classCode || (activeData as any).class_code || null,
+                                        major: activeData.majorName || (activeData as any).major || null,
+                                        currentSemesterId: normalizeSemesterId(sem.name)
+                                    }}
                                 />
                             )
                         })}

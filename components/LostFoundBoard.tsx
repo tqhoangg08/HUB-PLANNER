@@ -497,18 +497,18 @@ return (
                     const isResolved = item.status === 'resolved';
 
                     const borderClass = isResolved 
-                        ? 'border-green-200 ring-1 ring-green-50 bg-gray-50'
+                        ? 'border-gray-300 opacity-80 grayscale'
                         : isPending 
-                            ? 'border-yellow-400 ring-2 ring-yellow-100' 
-                            : (item.type === 'FOUND' ? 'border-gray-200' : 'border-red-100 ring-1 ring-red-50');
+                            ? 'border-yellow-400'
+                            : 'border-gray-300';
 
                     return (
-                    <div key={item.id} className={`rounded-xl shadow-sm border overflow-hidden hover:shadow-lg transition-all duration-300 group flex flex-col ${borderClass} ${isResolved ? 'opacity-80' : 'bg-white'}`}>
-                        <div className="aspect-video w-full bg-gray-100 relative overflow-hidden cursor-pointer" onClick={() => { playClick(); setSelectedItem(item); }}>
+                    <div key={item.id} className={`bg-white rounded-xl border p-3.5 sm:p-5 flex flex-col h-full transition-all duration-300 hover:border-blue-400 hover:-translate-y-1 relative group ${borderClass}`}>
+                        <button type="button" className="relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-gray-50 border border-gray-200 mb-3 text-left" onClick={() => { playClick(); setSelectedItem(item); }} title="Xem chi tiết tin thất lạc">
                             {item.image_url ? (
-                                <img src={item.image_url} alt="Item" className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${isResolved ? 'grayscale opacity-70' : ''}`} loading="lazy" />
+                                <img src={item.image_url} alt="Item" className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03] ${isResolved ? 'grayscale opacity-70' : ''}`} loading="lazy" />
                             ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50"><ImageOff size={32} className="mb-2 opacity-50" /><span className="text-xs">Không có ảnh</span></div>
+                                <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 gap-2"><ImageOff size={34} className="opacity-50" /><span className="text-xs font-semibold">Không có ảnh</span></div>
                             )}
                             <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-md flex items-center gap-1"><Calendar size={12} /> {new Date(item.created_at).toLocaleDateString('vi-VN')}</div>
                             
@@ -520,28 +520,28 @@ return (
                             </div>
 
                             {isPending && <div className="absolute bottom-2 left-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-md shadow-md animate-pulse">Chờ duyệt</div>}
-                        </div>
+                        </button>
 
-                        <div className="p-4 flex-1 flex flex-col">
-                            <div className="mb-3">
-                                <h3 className={`text-lg font-bold flex items-start gap-2 leading-tight line-clamp-1 ${
+                        <div className="flex-1 flex flex-col">
+                            <div className="mb-2.5 sm:mb-3">
+                                <h3 className={`text-sm sm:text-base font-bold flex items-start gap-2 leading-snug line-clamp-2 ${
                                     isResolved ? 'text-green-700' :
                                     item.type === 'FOUND' ? 'text-[#003375]' : 'text-[#990000]'
                                 }`}>
                                     {isResolved ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" /> : (item.type === 'FOUND' ? <MapPin size={18} className="shrink-0 mt-0.5" /> : <Tag size={18} className="shrink-0 mt-0.5" />)}
                                     {item.title}
                                 </h3>
-                                <p className="text-sm text-gray-500 mt-1 line-clamp-1 flex items-center gap-1"><MapPin size={12}/> Khu vực: {item.location}</p>
+                                <p className="text-[11px] sm:text-xs text-gray-500 mt-1 line-clamp-1 flex items-center gap-1"><MapPin size={12}/> Khu vực: {item.location}</p>
                             </div>
-                            <div className="space-y-2 text-sm text-gray-600 mt-auto">
-                                <div className={`flex items-center gap-2 p-2 rounded-lg border ${isResolved ? 'bg-green-50 border-green-100' : (item.type === 'FOUND' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100')}`}>
+                            <div className="space-y-2 text-[11px] sm:text-xs text-gray-600 mt-auto">
+                                <div className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border ${isResolved ? 'bg-green-50 border-green-100' : (item.type === 'FOUND' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100')}`}>
                                     {item.type === 'FOUND' ? <User size={14} className={isResolved ? "text-green-700" : "text-[#003375]"} /> : <HelpCircle size={14} className={isResolved ? "text-green-700" : "text-[#990000]"} />}
                                     <span className="font-medium text-gray-700">{item.type === 'FOUND' ? 'Người nhặt:' : 'Người mất:'}</span><span className="truncate flex-1">{item.user_name}</span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="px-4 pb-4 flex flex-col gap-2">
+                        <div className="mt-auto pt-3 sm:pt-4 border-t border-gray-200 flex flex-col gap-2">
                             {/* ✨ NÚT DÀNH RIÊNG CHO NGƯỜI ĐĂNG */}
                             {session?.user?.id === item.user_id && (
                                 <>

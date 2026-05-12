@@ -306,11 +306,11 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   
                   {/* HEADER LOGO & NÚT X (CHỈ HIỆN TRÊN MOBILE) */}
                   <div className="md:hidden h-16 flex items-center justify-between px-6 border-b border-[#003375] shrink-0 bg-[#003375]">
-                      <Link to="/dashboard" className="flex items-center gap-3 transition-transform hover:scale-105" onClick={() => { playClick(); setIsMobileMenuOpen(false); }}>
+                      <Link to="/dashboard" className="hub-brand flex items-center gap-3 transition-transform hover:scale-105" onClick={() => { playClick(); setIsMobileMenuOpen(false); }}>
                           <img src="/logo.png" alt="HUB Logo" className="h-8 w-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="h-8 w-8 bg-white rounded flex items-center justify-center text-[#003375] font-bold text-xs">HUB</div>'; }} />
                           <div className="leading-tight">
-                              <h1 className="text-[16px] font-extrabold text-white tracking-tight">HUB PLANNER</h1>
-                              <p className="text-[9px] text-blue-200 uppercase tracking-widest font-semibold">Hỗ trợ sinh viên</p>
+                              <h1 className="hub-brand-title text-[16px] font-extrabold text-white tracking-tight">HUB PLANNER</h1>
+                              <p className="hub-brand-subtitle text-[9px] text-blue-200 uppercase tracking-widest font-semibold">Hỗ trợ sinh viên</p>
                           </div>
                       </Link>
                       <button onClick={() => setIsMobileMenuOpen(false)} className="text-blue-200 hover:text-white hover:bg-white/20 p-1.5 rounded-md transition-colors active:scale-95 border border-transparent hover:border-blue-400">
@@ -337,11 +337,11 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
                   {/* HEADER LOGO CHO DESKTOP */}
                   <div className="hidden md:flex h-16 items-center justify-between px-6 border-b border-gray-100 shrink-0">
-                      <Link to="/dashboard" className="flex items-center gap-3 transition-transform hover:scale-105" onClick={() => { playClick(); setIsMobileMenuOpen(false); }}>
+                      <Link to="/dashboard" className="hub-brand flex items-center gap-3 transition-transform hover:scale-105" onClick={() => { playClick(); setIsMobileMenuOpen(false); }}>
                           <img src="/logo.png" alt="HUB Logo" className="h-8 w-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="h-8 w-8 bg-[#0052cc] rounded flex items-center justify-center text-white font-bold text-xs">HUB</div>'; }} />
                           <div className="leading-tight">
-                              <h1 className="text-[16px] font-extrabold text-[#003375] tracking-tight">HUB PLANNER</h1>
-                              <p className="text-[9px] text-gray-500 uppercase tracking-widest font-semibold">Hỗ trợ sinh viên</p>
+                              <h1 className="hub-brand-title text-[16px] font-extrabold text-[#003375] tracking-tight">HUB PLANNER</h1>
+                              <p className="hub-brand-subtitle text-[9px] text-gray-500 uppercase tracking-widest font-semibold">Hỗ trợ sinh viên</p>
                           </div>
                       </Link>
                   </div>
@@ -420,13 +420,13 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       {/* BÊN TRÁI HEADER: LOGO HOẶC BREADCRUMB */}
                       <div className="flex items-center gap-2">
                           {/* Logo Mobile */}
-                          <div className="md:hidden flex items-center gap-2 shrink-0">
+                          <div className="hub-brand md:hidden flex items-center gap-2 shrink-0">
                               <Link to="/dashboard" className="h-7 w-7 relative flex-shrink-0 transition-transform duration-200 hover:scale-105 active:scale-95" onClick={playClick}>
                                   <img src="/logo.png" alt="HUB Logo" className="h-full w-full object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="h-7 w-7 bg-[#0052cc] rounded flex items-center justify-center text-white font-bold text-xs">HUB</div>'; }} />
                               </Link>
                               <div className="leading-tight">
-                                  <h1 className="text-[14px] font-extrabold text-[#003375] tracking-tight">HUB PLANNER</h1>
-                                  <p className="text-[8px] text-gray-500 uppercase tracking-widest font-semibold">Hỗ trợ sinh viên</p>
+                                  <h1 className="hub-brand-title text-[14px] font-extrabold text-[#003375] tracking-tight">HUB PLANNER</h1>
+                                  <p className="hub-brand-subtitle text-[8px] text-gray-500 uppercase tracking-widest font-semibold">Hỗ trợ sinh viên</p>
                               </div>
                           </div>
 
@@ -539,13 +539,13 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               <div className="w-full flex flex-row items-center justify-between sm:w-auto sm:gap-3 shrink-0">
                   
                   {/* LOGO CHUNG CHO MOBILE & DESKTOP NẰM BÊN TRÁI */}
-                  <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+                  <div className="hub-brand flex items-center gap-1.5 sm:gap-3 shrink-0">
                       <Link to="/dashboard" className="h-7 w-7 relative flex-shrink-0 transition-transform duration-200 hover:scale-105 active:scale-95" onClick={playClick}>
                           <img src="/logo.png" alt="HUB Logo" className="h-full w-full object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="h-7 w-7 bg-[#0052cc] rounded flex items-center justify-center text-white font-bold text-xs">HUB</div>'; }} />
                       </Link>
                       <div className="leading-tight">
-                          <h1 className="text-[15px] font-extrabold text-[#003375] tracking-tight">HUB PLANNER</h1>
-                              <p className="text-[9px] text-gray-500 uppercase tracking-widest font-semibold">Hỗ trợ sinh viên</p>
+                          <h1 className="hub-brand-title text-[15px] font-extrabold text-[#003375] tracking-tight">HUB PLANNER</h1>
+                              <p className="hub-brand-subtitle text-[9px] text-gray-500 uppercase tracking-widest font-semibold">Hỗ trợ sinh viên</p>
                       </div>
                   </div>
 
@@ -853,9 +853,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
           <aside className="mobile-menu-panel absolute inset-y-0 left-0 w-[85%] max-w-[320px] bg-white z-[101] flex flex-col shadow-2xl animate-slideInLeft">
           <div className="mobile-browser-drawer-header bg-[#003375] p-5 flex items-center justify-between shrink-0 shadow-md">
-              <div className="flex flex-col text-white">
-                  <span className="font-extrabold text-lg tracking-tight">HUB PLANNER</span>
-                  <span className="text-xs font-medium opacity-90 mt-0.5">Hỗ trợ sinh viên</span>
+              <div className="hub-brand flex flex-col text-white">
+                  <span className="hub-brand-title font-extrabold text-lg tracking-tight">HUB PLANNER</span>
+                  <span className="hub-brand-subtitle text-xs font-medium opacity-90 mt-0.5">Hỗ trợ sinh viên</span>
               </div>
               <button 
                   onClick={() => setIsMobileMenuOpen(false)}

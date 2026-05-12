@@ -16,8 +16,10 @@
     max-width: 100%;
     min-height: 100%;
     background-color: #F8FAFC;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    text-rendering: geometricPrecision;
   }
 
   @media (min-width: 1024px) {
@@ -33,6 +35,37 @@
     max-width: 100%;
     min-height: 100%;
     background-color: #F8FAFC;
+    font-family: inherit;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    letter-spacing: 0;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: 0;
+    text-wrap: balance;
+  }
+
+  p,
+  li,
+  span,
+  label,
+  input,
+  textarea,
+  select,
+  button {
+    letter-spacing: 0;
   }
 
   #root {
@@ -46,6 +79,29 @@
    COMMON UTILITIES / ANIMATIONS
    ========================================================= */
 @layer utilities {
+  .font-black {
+    font-weight: 800;
+  }
+
+  .font-extrabold {
+    font-weight: 750;
+  }
+
+  .hub-brand,
+  .hub-brand * {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Be Vietnam Pro", "Segoe UI", Arial, sans-serif;
+  }
+
+  .hub-brand .hub-brand-title {
+    font-weight: 850;
+    letter-spacing: -0.015em;
+  }
+
+  .hub-brand .hub-brand-subtitle {
+    font-weight: 650;
+    letter-spacing: 0.12em;
+  }
+
   .animate-fadeIn {
     animation: fadeIn 0.5s ease-out forwards;
   }

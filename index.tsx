@@ -1,6 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import '@fontsource/inter/vietnamese-400.css';
+import '@fontsource/inter/vietnamese-400-italic.css';
+import '@fontsource/inter/vietnamese-500.css';
+import '@fontsource/inter/vietnamese-600.css';
+import '@fontsource/inter/vietnamese-700.css';
+import '@fontsource/inter/vietnamese-800.css';
 import './index.css';
 import App from './App';
 import { installAppNotificationBridge } from './utils/appNotifications';

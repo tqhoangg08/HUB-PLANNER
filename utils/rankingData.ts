@@ -1,37 +1,46 @@
+// Utilities for mapping between UI semester labels and benchmark_rankings IDs.
 
-// --- UTILITIES FOR RANKING & ID MAPPING ---
+export const normalizeSemesterId = (value?: string | null): string | null => {
+    if (!value) return null;
 
-/**
- * Maps a display name (e.g., "Năm học 2024-2025 - Học kỳ 1") 
- * to a Database Semester ID (e.g., "HK1_2024_2025").
- */
-export const mapSemesterToId = (name: string): string | null => {
-    if (!name) return null;
-    
-    const normalized = name.trim().toLowerCase();
+    const normalized = value.trim();
 
-    // Regex to match "2024-2025" and "Học kỳ 1" / "HK1" / "HK 1"
-    // Captures: Group 1 = Year1, Group 2 = Year2, Group 3 = Semester Number
-    const match = normalized.match(/(\d{4})[-_](\d{4}).*(?:học kỳ|hk)\s*(\d)/i);
+    const prefixMatch = normalized.match(/^HK(\d)_(\d{4})_(\d{4})$/i);
+    if (prefixMatch) {
+        return `${prefixMatch[2]}-${prefixMatch[3]}_HK${prefixMatch[1]}`;
+    }
 
-    if (match) {
-        const y1 = match[1];
-        const y2 = match[2];
-        const hk = match[3];
-        return `HK${hk}_${y1}_${y2}`;
+    const suffixMatch = normalized.match(/^(\d{4})-(\d{4})_HK(\d)$/i);
+    if (suffixMatch) {
+        return `${suffixMatch[1]}-${suffixMatch[2]}_HK${suffixMatch[3]}`;
+    }
+
+    const cleanLabelMatch = normalized.match(/Học kỳ\s*(\d)\s*Năm học\s*(\d{4})-(\d{4})/i);
+    if (cleanLabelMatch) {
+        return `${cleanLabelMatch[2]}-${cleanLabelMatch[3]}_HK${cleanLabelMatch[1]}`;
+    }
+
+    const asciiLabelMatch = normalized.match(/(?:hoc ky|hk)\s*(\d).*?(\d{4})[-_](\d{4})/i);
+    if (asciiLabelMatch) {
+        return `${asciiLabelMatch[2]}-${asciiLabelMatch[3]}_HK${asciiLabelMatch[1]}`;
+    }
+
+    const yearFirstMatch = normalized.match(/(\d{4})[-_](\d{4}).*?(?:học kỳ|hoc ky|hk)\s*(\d)/i);
+    if (yearFirstMatch) {
+        return `${yearFirstMatch[1]}-${yearFirstMatch[2]}_HK${yearFirstMatch[3]}`;
     }
 
     return null;
 };
 
-/**
- * Returns a user-friendly name for the DB ID
- * e.g., "HK1_2024_2025" -> "Học kỳ 1, Năm học 2024-2025"
- */
+export const mapSemesterToId = (name: string): string | null => normalizeSemesterId(name);
+
 export const mapIdToDisplay = (id: string): string => {
-    const parts = id.split('_'); // [HK1, 2024, 2025]
-    if (parts.length === 3) {
-        return `Học kỳ ${parts[0].replace('HK', '')}, Năm học ${parts[1]}-${parts[2]}`;
-    }
-    return id;
+    const canonical = normalizeSemesterId(id);
+    if (!canonical) return id;
+
+    const match = canonical.match(/^(\d{4})-(\d{4})_HK(\d)$/i);
+    if (!match) return id;
+
+    return `Học kỳ ${match[3]}, Năm học ${match[1]}-${match[2]}`;
 };

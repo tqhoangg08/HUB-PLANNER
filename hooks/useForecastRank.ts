@@ -1,11 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
+import { normalizeSemesterId } from '../utils/rankingData';
 
 interface ForecastRankResult {
     rank: number;
     totalStudents: number;
     topPercent: number;
-    semesterId: string; // To know which semester was used
+    semesterId: string;
+    rankInClass?: number | null;
+    totalInClass?: number | null;
+    classCode?: string | null;
+    rankInMajor?: number | null;
+    totalInMajor?: number | null;
+    major?: string | null;
 }
 
 interface SemesterRankRow {
@@ -19,54 +26,48 @@ interface RankInputs {
     trainingScore: number;
 }
 
+interface RankContext {
+    studentCode?: string | null;
+    classCode?: string | null;
+    major?: string | null;
+    currentSemesterId?: string | null;
+}
+
 export const useForecastRank = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<ForecastRankResult | null>(null);
-    
-    // New state for available reference semesters
     const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
     const [loadingSemesters, setLoadingSemesters] = useState(false);
     const [semesterRanks, setSemesterRanks] = useState<Record<string, number>>({});
     const [loadingSemesterRanks, setLoadingSemesterRanks] = useState(false);
     const [rankInputs, setRankInputs] = useState<RankInputs | null>(null);
 
-    // 1. Fetch distinct semesters available in DB using RPC
     const fetchAvailableSemesters = useCallback(async () => {
         if (!supabase) return;
-        
-        // If we already have data, don't refetch unnecessarily unless forced
         if (availableSemesters.length > 0) return;
 
         setLoadingSemesters(true);
         try {
-            // Use RPC 'get_semesters' to fetch distinct values efficiently
-            // This avoids the 1000-row limit of standard .select()
             const { data, error } = await supabase.rpc('get_semesters');
-
             if (error) throw error;
 
-            if (data) {
-                // Data structure is expected to be [{ semester: 'HK1...' }, ...]
-                const uniqueSemesters = data
-                    .map((item: any) => item.semester)
-                    .filter(Boolean)
-                    .sort()
-                    .reverse(); // Sort descending (Newest first)
-                
-                setAvailableSemesters(uniqueSemesters);
-            }
+            const uniqueSemesters = (data ?? [])
+                .map((item: any) => item.semester)
+                .filter(Boolean)
+                .sort()
+                .reverse();
+
+            setAvailableSemesters(uniqueSemesters);
         } catch (err: any) {
-            console.error("Error fetching semesters:", err);
-            // Don't set global error here to avoid blocking UI, just log it
+            console.error('Error fetching semesters:', err);
         } finally {
             setLoadingSemesters(false);
         }
     }, [availableSemesters.length]);
 
     const fetchSemesterRanks = useCallback(async (semesters: string[], inputs: RankInputs) => {
-        if (!supabase) return;
-        if (!semesters.length) return;
+        if (!supabase || !semesters.length) return;
 
         setLoadingSemesterRanks(true);
         try {
@@ -97,18 +98,14 @@ export const useForecastRank = () => {
 
             setSemesterRanks(mappedRanks);
         } catch (err: any) {
-            console.error("Error fetching semester ranks:", err);
+            console.error('Error fetching semester ranks:', err);
         } finally {
             setLoadingSemesterRanks(false);
         }
     }, []);
 
     const prepareSemesterRanks = useCallback((gpa: number, credits: number, trainingScore: number) => {
-        setRankInputs({
-            gpa,
-            credits,
-            trainingScore
-        });
+        setRankInputs({ gpa, credits, trainingScore });
     }, []);
 
     const resetSemesterRanks = useCallback(() => {
@@ -116,15 +113,20 @@ export const useForecastRank = () => {
         setRankInputs(null);
     }, []);
 
-    // 2. Calculate Rank
-    const fetchRank = useCallback(async (semesterId: string, myGpa: number, myCredits: number, myTrainingScore: number) => {
+    const fetchRank = useCallback(async (
+        semesterId: string,
+        myGpa: number,
+        myCredits: number,
+        myTrainingScore: number,
+        context?: RankContext
+    ) => {
         if (!supabase) {
-            setError("Chưa kết nối Database.");
+            setError('Chưa kết nối Database.');
             return;
         }
 
         if (!semesterId) {
-            setError("Chưa chọn kỳ dữ liệu.");
+            setError('Chưa chọn kỳ dữ liệu.');
             return;
         }
 
@@ -133,7 +135,6 @@ export const useForecastRank = () => {
         setResult(null);
 
         try {
-            // Get Total Students for this specific reference semester
             const { count: total, error: countError } = await supabase
                 .from('benchmark_rankings')
                 .select('*', { count: 'exact', head: true })
@@ -150,38 +151,66 @@ export const useForecastRank = () => {
             const normalizedGpa = Number.isFinite(myGpa) ? myGpa : 0;
             const normalizedCredits = Number.isFinite(myCredits) ? myCredits : 0;
             const normalizedTrainingScore = Number.isFinite(myTrainingScore) ? myTrainingScore : 0;
+            const selectedSemesterKey = normalizeSemesterId(semesterId) || semesterId;
+            const currentSemesterKey = normalizeSemesterId(context?.currentSemesterId) || context?.currentSemesterId || null;
+            const isSameSemester = Boolean(currentSemesterKey && selectedSemesterKey && currentSemesterKey === selectedSemesterKey);
+            const lookupStudentCode = isSameSemester ? context?.studentCode || null : null;
+            const lookupClassCode = isSameSemester ? context?.classCode || null : null;
 
-            const { data: rankData, error: rankError } = await supabase.rpc('get_smart_rank', {
+            const { data: detailData, error: detailError } = await supabase.rpc('get_smart_rank_details', {
                 p_semester: semesterId,
                 p_gpa: normalizedGpa,
                 p_credits: normalizedCredits,
-                p_drl: normalizedTrainingScore
+                p_drl: normalizedTrainingScore,
+                p_student_code: lookupStudentCode,
+                p_class_code: lookupClassCode,
+                p_major: context?.major || null
             });
 
-            if (rankError) throw rankError;
+            let rankRow: any = null;
+            let resolvedRank: number | null = null;
+            let resolvedTotal = total;
 
-            const resolvedRank = typeof rankData === 'number'
-                ? rankData
-                : Array.isArray(rankData)
-                    ? rankData[0]?.rank
-                    : (rankData as { rank?: number } | null)?.rank;
+            if (!detailError && detailData) {
+                rankRow = Array.isArray(detailData) ? detailData[0] : detailData;
+                resolvedRank = typeof rankRow?.rank === 'number' ? rankRow.rank : null;
+                resolvedTotal = typeof rankRow?.total_students === 'number' ? rankRow.total_students : total;
+            } else {
+                const { data: rankData, error: rankError } = await supabase.rpc('get_smart_rank', {
+                    p_semester: semesterId,
+                    p_gpa: normalizedGpa,
+                    p_credits: normalizedCredits,
+                    p_drl: normalizedTrainingScore
+                });
+
+                if (rankError) throw detailError || rankError;
+
+                resolvedRank = typeof rankData === 'number'
+                    ? rankData
+                    : Array.isArray(rankData)
+                        ? rankData[0]?.rank
+                        : (rankData as { rank?: number } | null)?.rank ?? null;
+            }
 
             if (!resolvedRank) {
                 throw new Error('Invalid rank response');
             }
 
-            const topPercent = (resolvedRank / total) * 100;
-
             setResult({
                 rank: resolvedRank,
-                totalStudents: total,
-                topPercent: topPercent,
-                semesterId: semesterId
+                totalStudents: resolvedTotal,
+                topPercent: (resolvedRank / resolvedTotal) * 100,
+                semesterId,
+                rankInClass: isSameSemester ? rankRow?.rank_in_class ?? null : null,
+                totalInClass: isSameSemester ? rankRow?.total_in_class ?? null : null,
+                classCode: isSameSemester ? rankRow?.class_code ?? context?.classCode ?? null : null,
+                rankInMajor: rankRow?.rank_in_major ?? null,
+                totalInMajor: rankRow?.total_in_major ?? null,
+                major: rankRow?.major ?? context?.major ?? null
             });
-
         } catch (err: any) {
-            console.error("Forecast Rank Error:", err);
-            setError("Lỗi kết nối máy chủ xếp hạng.");
+            console.error('Forecast Rank Error:', err);
+            setError('Lỗi kết nối máy chủ xếp hạng.');
         } finally {
             setLoading(false);
         }
@@ -197,11 +226,11 @@ export const useForecastRank = () => {
         fetchSemesterRanks(availableSemesters, rankInputs);
     }, [availableSemesters, fetchSemesterRanks, rankInputs]);
 
-    return { 
-        fetchRank, 
-        result, 
-        loading, 
-        error, 
+    return {
+        fetchRank,
+        result,
+        loading,
+        error,
         resetResult,
         fetchAvailableSemesters,
         availableSemesters,
