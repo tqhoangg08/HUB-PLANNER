@@ -42,6 +42,23 @@ const toNumberOrNull = (value: unknown): number | null => {
 
 const toRankValue = (value: unknown): number => toNumberOrNull(value) ?? -Infinity;
 
+const getCurrentStudentCode = async (): Promise<string | null> => {
+    if (!supabase) return null;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const emailCode = user?.email?.split('@')[0]?.trim();
+    if (emailCode) return emailCode;
+    if (!user?.id) return null;
+
+    const { data } = await supabase
+        .from('profiles')
+        .select('student_code')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    return data?.student_code?.trim() || null;
+};
+
 export const useForecastRank = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -163,10 +180,10 @@ export const useForecastRank = () => {
             const selectedSemesterKey = normalizeSemesterId(semesterId) || semesterId;
             const currentSemesterKey = normalizeSemesterId(context?.currentSemesterId) || context?.currentSemesterId || null;
             const isSameSemester = Boolean(currentSemesterKey && selectedSemesterKey && currentSemesterKey === selectedSemesterKey);
-            const studentCode = context?.studentCode?.trim() || null;
+            const studentCode = context?.studentCode?.trim() || await getCurrentStudentCode();
 
             let exactStudentRow: any = null;
-            if (studentCode) {
+            if (isSameSemester && studentCode) {
                 const { data, error } = await supabase
                     .from('benchmark_rankings')
                     .select('*')
@@ -178,7 +195,7 @@ export const useForecastRank = () => {
                 exactStudentRow = data;
             }
 
-            const lookupStudentCode = exactStudentRow ? studentCode : isSameSemester ? studentCode : null;
+            const lookupStudentCode = isSameSemester ? studentCode : null;
             const lookupClassCode = exactStudentRow?.class_code || (isSameSemester ? context?.classCode || null : null);
             const lookupMajor = exactStudentRow?.major || context?.major || null;
 

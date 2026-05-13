@@ -15,12 +15,14 @@ import {
     calculateRequiredGPA,
     getGradeDetails
 } from '../utils/calculations';
-import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter, Flame } from 'lucide-react';
+import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter, Flame, Sparkles } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { playClick } from '../utils/audio';
 import SchoolAnnouncements from './SchoolAnnouncements';
 import { mapIdToDisplay, normalizeSemesterId } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
+import { useSemesterLookback } from '../hooks/useSemesterLookback';
+import { SemesterLookbackModal } from './SemesterLookbackModal';
 import { useUserRole } from '../hooks/useUserRole';
 import { exportTranscriptToPdf } from '../utils/pdfExport';
 import { fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
@@ -1502,6 +1504,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         return data;
     }, [selectedUserOverview, data]);
 
+    const semesterLookback = useSemesterLookback(
+        activeData,
+        !isGuest && !showAdminPanel && !selectedUserOverview
+    );
+
     const handleLocalSetSemesters = (semesters: Semester[]) => {
         if (selectedUserOverview) {
             const newData = { ...activeData, semesters };
@@ -1885,6 +1892,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
  return (
     <div className={`w-full ${showAdminPanel ? '' : 'pb-10'}`}>
+        <SemesterLookbackModal
+            isOpen={semesterLookback.isOpen}
+            data={semesterLookback.lookback}
+            loading={semesterLookback.loading}
+            onClose={semesterLookback.close}
+        />
 
         {showAdminPanel ? (
             <div className="w-full space-y-3 sm:space-y-4 animate-fadeIn">
@@ -2139,20 +2152,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </button>
                     )}
                     
-                    <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-1 sm:mb-2">
-                        HỌC TẬP {selectedUserOverview && <span className="text-[10px] sm:text-xs text-gray-400 font-medium ml-2 uppercase tracking-wide border border-gray-300 bg-white px-2 py-0.5 rounded-md align-middle">(Chế độ xem)</span>}
-                    </h1>
-                    
-                    <div className="flex flex-wrap items-center gap-1.5 text-[12px] sm:text-[13px] text-gray-500 font-medium mb-1 sm:mb-3">
-                        <span className="font-bold text-gray-700">Tổng quan lộ trình</span> 
-                        <span className="text-gray-300">•</span>
-                        <span>{activeData.studentName || 'Chưa cập nhật tên'}</span>
-                        <span className="text-gray-300">•</span>
-                        <span>{activeData.programName || 'Chưa cập nhật hệ'}</span>
-                        <span className="text-gray-300">•</span>
-                        <span>{activeData.cohort || 'Chưa cập nhật khóa'}</span>
-                        <span className="text-gray-300">•</span>
-                        <span>{activeData.specializationName || 'Chưa cập nhật chuyên ngành'}</span>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                            <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-1 sm:mb-2">
+                                HỌC TẬP {selectedUserOverview && <span className="text-[10px] sm:text-xs text-gray-400 font-medium ml-2 uppercase tracking-wide border border-gray-300 bg-white px-2 py-0.5 rounded-md align-middle">(Chế độ xem)</span>}
+                            </h1>
+
+                            <div className="flex flex-wrap items-center gap-1.5 text-[12px] sm:text-[13px] text-gray-500 font-medium mb-1 sm:mb-3">
+                                <span className="font-bold text-gray-700">Tổng quan lộ trình</span>
+                                <span className="text-gray-300">•</span>
+                                <span>{activeData.studentName || 'Chưa cập nhật tên'}</span>
+                                <span className="text-gray-300">•</span>
+                                <span>{activeData.programName || 'Chưa cập nhật hệ'}</span>
+                                <span className="text-gray-300">•</span>
+                                <span>{activeData.cohort || 'Chưa cập nhật khóa'}</span>
+                                <span className="text-gray-300">•</span>
+                                <span>{activeData.specializationName || 'Chưa cập nhật chuyên ngành'}</span>
+                            </div>
+                        </div>
+
+                        {!isGuest && !selectedUserOverview && (
+                            <button
+                                onClick={() => { playClick(); semesterLookback.open(); }}
+                                className="shrink-0 rounded-lg border border-blue-200 bg-white px-3 py-2 text-left transition-all duration-150 hover:border-[#003375] hover:bg-blue-50 hover:shadow-sm active:scale-[0.98] motion-reduce:transition-none"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <p className="text-xs font-black uppercase tracking-wide text-[#003375]">Nhìn lại kỳ học vừa qua</p>
+                                    <Sparkles className="text-yellow-500" size={17} />
+                                </div>
+                            </button>
+                        )}
                     </div>
 
                     {isGuest && (

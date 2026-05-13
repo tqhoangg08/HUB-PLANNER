@@ -15,12 +15,14 @@ import {
     calculateRequiredGPA,
     getGradeDetails
 } from '../utils/calculations';
-import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter } from 'lucide-react';
+import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter, Sparkles } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { playClick } from '../utils/audio';
 import { mapIdToDisplay, normalizeSemesterId } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
+import { useSemesterLookback } from '../hooks/useSemesterLookback';
 import { useUserRole } from '../hooks/useUserRole';
+import { SemesterLookbackModal } from './SemesterLookbackModal';
 import { fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
 import { notifyModerators } from '../utils/moderatorNotifications';
 
@@ -1314,6 +1316,11 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
         return data;
     }, [selectedUserOverview, data]);
 
+    const semesterLookback = useSemesterLookback(
+        activeData,
+        !isGuest && !showAdminPanel && !selectedUserOverview
+    );
+
     const handleLocalSetSemesters = (semesters: Semester[]) => {
         if (selectedUserOverview) {
             const newData = { ...activeData, semesters };
@@ -1572,6 +1579,13 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
  return (
     <div className="mobile-page mobile-dashboard-page w-full pb-10">
+        <SemesterLookbackModal
+            isOpen={semesterLookback.isOpen}
+            data={semesterLookback.lookback}
+            loading={semesterLookback.loading}
+            onClose={semesterLookback.close}
+        />
+
         {showAdminPanel ? (
             <div className="w-full space-y-4 pt-1 animate-fadeIn">
                 <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 -mt-2 mb-3 border-b border-gray-200/60 md:shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">
@@ -1896,6 +1910,18 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
                 <span>Quản lý học tập</span><span>•</span><span className="font-bold text-gray-700">Bảng điểm và lộ trình</span>
             </div>
+
+                    {!isGuest && !selectedUserOverview && (
+                        <button
+                            onClick={() => { playClick(); semesterLookback.open(); }}
+                            className="mt-3 rounded-lg border border-blue-200 bg-white px-3 py-2 text-left transition-all duration-150 active:scale-[0.98] motion-reduce:transition-none"
+                        >
+                            <div className="flex items-center gap-2">
+                                <p className="text-xs font-black uppercase tracking-wide text-[#003375]">Nhìn lại kỳ học vừa qua</p>
+                                <Sparkles className="text-yellow-500" size={17} />
+                            </div>
+                        </button>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
