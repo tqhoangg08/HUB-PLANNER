@@ -440,7 +440,7 @@ return (
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
             <div>
                 <h2 className="text-[24px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
-                    Tìm đồ thất lạc</h2>
+                    TÌM ĐỒ THẤT LẠC</h2>
                 <p className="text-xs text-gray-500 mt-1 italic flex items-center gap-1">
                     <Info size={12}/> Đây là khu vực trao đổi thông tin nội bộ hỗ trợ học tập
                 </p>

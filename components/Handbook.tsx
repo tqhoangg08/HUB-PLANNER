@@ -732,6 +732,8 @@ const renderContent = () => {
                 const collaborators = [
                     { name: 'Nguyễn Hoàng Khiêm', role: 'Cộng tác viên', phone: '0932142577', email: 'khiempisces2@gmail.com', fb: 'https://www.facebook.com/nguyen.hoang.khiem.975396' },
                     { name: 'Nguyễn Thùy Thương', role: 'Cộng tác viên', phone: '0385234814', email: 'nguyenthuythuong12032006@gmail.com', fb: 'https://www.facebook.com/thuong.nguyen.197154' },
+                    { name: 'Nguyễn Xuân Bách', role: 'Cộng tác viên', phone: '0353748683', email: 'bachalone2912@gmail.com', fb: 'https://www.facebook.com/nguyen.bach.919988' },
+                    { name: 'Lai Quế Anh', role: 'Cộng tác viên', phone: '0888041106', email: 'queanh041195@gmail.com', fb: 'https://www.facebook.com/share/14deFjLJSet/?mibextid=wwXIfr' },
                     { name: 'Đang cập nhật...', role: 'Đang cập nhật', isPlaceholder: true },
                 ];
 

@@ -1439,7 +1439,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-1 sm:pb-4 -mt-2 mb-1 sm:mb-4 md:border-b md:border-transparent md:border-gray-200/60">
             <div className="flex flex-row justify-between items-end px-1 overflow-hidden shrink-0">
                 <div className="flex flex-col">
-                    <h1 className="text-[24px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">Thời khóa biểu</h1>
+                    <h1 className="text-[24px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">THỜI KHÓA BIỂU</h1>
                     <div className="flex items-center gap-1.5 mt-1 sm:mt-2 text-[12px] sm:text-[13px] text-gray-500 overflow-x-auto whitespace-nowrap custom-scrollbar pb-1">
                         <span className="shrink-0">Quản lý học tập</span><span className="text-gray-300 shrink-0">•</span><span className="font-bold text-gray-700 shrink-0">Lịch học & Thi</span>
                     </div>

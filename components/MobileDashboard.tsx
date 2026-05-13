@@ -24,6 +24,38 @@ import { useUserRole } from '../hooks/useUserRole';
 import { fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
 import { notifyModerators } from '../utils/moderatorNotifications';
 
+const getScholarshipRankAssessment = (rank?: number | null) => {
+    const value = Number(rank);
+    if (!Number.isFinite(value) || value <= 0) {
+        return {
+            className: 'border-slate-200 bg-slate-50',
+            text: 'Chưa đủ dữ liệu xếp hạng để đánh giá khả năng đạt học bổng.'
+        };
+    }
+    if (value <= 500) {
+        return {
+            className: 'border-emerald-200 bg-[#ECFDF5]',
+            text: 'Tỷ lệ đạt học bổng rất cao. Tiếp tục duy trì GPA và điểm rèn luyện để tăng cơ hội nhận học bổng.'
+        };
+    }
+    if (value <= 700) {
+        return {
+            className: 'border-emerald-200 bg-emerald-50',
+            text: 'Tỷ lệ đạt học bổng cao. Nên duy trì điểm hiện tại và hạn chế giảm điểm rèn luyện.'
+        };
+    }
+    if (value <= 1000) {
+        return {
+            className: 'border-amber-200 bg-amber-50',
+            text: 'Tỷ lệ đạt học bổng ở mức bình thường. Nên cải thiện thêm GPA hoặc điểm rèn luyện để an toàn hơn.'
+        };
+    }
+    return {
+        className: 'border-red-200 bg-red-50',
+        text: 'Tỷ lệ đạt học bổng thấp. Cần cải thiện GPA và điểm rèn luyện để tăng khả năng cạnh tranh.'
+    };
+};
+
 // ============================================================================
 // MODAL: BÁO LỖI HỆ THỐNG
 // ============================================================================
@@ -275,7 +307,6 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   } = useForecastRank();
 
   const [showRankMenu, setShowRankMenu] = useState(false);
-  const rankMenuRef = useRef<HTMLDivElement>(null);
     
   const isValidFormat = /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(semester.name);
 
@@ -319,17 +350,6 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
           return null; 
       });
   };
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-        if (rankMenuRef.current && !rankMenuRef.current.contains(event.target as Node)) {
-            setShowRankMenu(false);
-            resetSemesterRanks();
-        }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   let semTotalCredits = 0; 
   let semWeightedScore4 = 0;
@@ -376,6 +396,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
     if (gpa >= 3.6 && drl >= 90) return { label: '🏆 HB Xuất sắc', className: 'bg-yellow-50 text-yellow-700 border-yellow-200' };
     return { label: '💰 HB Giỏi', className: 'bg-green-50 text-green-700 border-green-200' };
   })();
+  const scholarshipRankAssessment = getScholarshipRankAssessment(rankingResult?.rank);
 
   const handleOpenRankMenu = () => {
       playClick(); setShowRankMenu(true);
@@ -451,7 +472,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-4 text-[11px] sm:text-sm relative z-10">
               {hasData && isValidFormat && (
-                  <div className="relative" ref={rankMenuRef}>
+                  <div className="relative">
                       <button 
                           onClick={handleOpenRankMenu}
                           className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border shadow-sm transition-all active:scale-95 hover:shadow-md ${showRankMenu ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
@@ -461,7 +482,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                           <span className="font-bold text-[#003375]">Xếp hạng 👑</span>
                       </button>
 
-                      {showRankMenu && (
+                      {false && showRankMenu && (
                           <div className="absolute top-full left-0 md:left-auto md:right-0 mt-2 w-72 sm:w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-[60] overflow-hidden animate-fadeIn origin-top-left md:origin-top-right">
                               <div className="bg-[#003375] px-4 py-3 text-white flex justify-between items-center shrink-0">
                                   <h4 className="font-bold text-sm flex items-center gap-2"><BarChart2 size={16}/> Xếp Hạng Dự Báo</h4>
@@ -474,46 +495,52 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                           <span className="text-xs font-medium">Đang tính toán...</span>
                                       </div>
                                   ) : rankingResult ? (
-                                      <div className="p-4 bg-gradient-to-b from-blue-50 to-white">
-                                          <button onClick={() => resetResult()} className="flex items-center gap-1 text-xs text-gray-500 hover:text-[#003375] mb-3 transition-colors"><ChevronLeft size={14}/> Chọn kỳ khác</button>
-                                          <div className="text-center space-y-4">
-                                              <p className="text-xs text-gray-500 uppercase tracking-wide">So sánh với: <span className="font-bold text-[#003375]">{mapIdToDisplay(rankingResult.semesterId)}</span></p>
-                                              <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
-                                                  <p className="text-sm text-gray-500 mb-1">Xếp hạng của bạn</p>
-                                                  <p className="text-3xl font-black text-yellow-600 drop-shadow-sm">#{rankingResult.rank} <span className="text-sm font-medium text-gray-400">/ {rankingResult.totalStudents}</span></p>
+                                      <div className="p-4 bg-[#F8FAFC]">
+                                          <button onClick={() => resetResult()} className="flex items-center gap-1 text-xs text-[#64748B] hover:text-[#0F172A] mb-3 transition-colors"><ChevronLeft size={14}/> Chọn kỳ khác</button>
+                                          <div className="space-y-3">
+                                              <div>
+                                                  <h4 className="text-base font-bold text-[#0F172A]">Xếp hạng học kỳ</h4>
+                                                  <p className="text-xs text-[#64748B] mt-0.5">{mapIdToDisplay(rankingResult.semesterId)}</p>
                                               </div>
-                                              <div className="bg-[#003375] text-white p-4 rounded-xl shadow-inner relative overflow-hidden">
-                                                  <div className="absolute -right-4 -top-4 w-20 h-20 bg-white opacity-10 rounded-full"></div>
-                                                  <p className="text-xs opacity-80 uppercase mb-1">Top Percentile</p>
-                                                  <p className="text-2xl font-bold flex items-center justify-center gap-2"><TrendingUp size={20}/> Top {rankingResult.topPercent.toFixed(1)}%</p>
-                                              </div>
-                                              {(rankingResult.rankInClass || rankingResult.rankInMajor) && (
-                                                  <div className="grid grid-cols-1 gap-2 text-left">
-                                                      {rankingResult.rankInClass && (
-                                                          <div className="bg-white p-3 rounded-lg border border-gray-200">
-                                                              <p className="text-[11px] font-bold text-gray-500 uppercase">
-                                                                  Trong lớp {rankingResult.classCode || ''}
-                                                              </p>
-                                                              <p className="text-base font-black text-[#003375]">
-                                                                  #{rankingResult.rankInClass}
-                                                                  <span className="text-xs font-medium text-gray-400"> / {rankingResult.totalInClass}</span>
-                                                              </p>
-                                                          </div>
-                                                      )}
-                                                      {rankingResult.rankInMajor && (
-                                                          <div className="bg-white p-3 rounded-lg border border-gray-200">
-                                                              <p className="text-[11px] font-bold text-gray-500 uppercase">Trong ngành</p>
-                                                              <p className="text-base font-black text-[#003375]">
-                                                                  #{rankingResult.rankInMajor}
-                                                                  <span className="text-xs font-medium text-gray-400"> / {rankingResult.totalInMajor}</span>
-                                                              </p>
-                                                              {rankingResult.major && (
-                                                                  <p className="text-[11px] text-gray-500 truncate mt-0.5">{rankingResult.major}</p>
-                                                              )}
-                                                          </div>
-                                                      )}
+
+                                              <div className="grid grid-cols-2 gap-2">
+                                                  <div className="rounded-lg border border-[#E2E8F0] bg-white p-3">
+                                                      <p className="text-[11px] font-semibold text-[#64748B]">GPA học kỳ</p>
+                                                      <p className="mt-1 text-xl font-bold text-[#0F172A]">{semGPA4.toFixed(2)} <span className="text-xs font-medium text-[#64748B]">/ 4.0</span></p>
                                                   </div>
-                                              )}
+                                                  <div className="rounded-lg border border-[#E2E8F0] bg-white p-3">
+                                                      <p className="text-[11px] font-semibold text-[#64748B]">Điểm rèn luyện</p>
+                                                      <p className="mt-1 text-xl font-bold text-[#0F172A]">{semester.trainingScore ?? 0} <span className="text-xs font-medium text-[#64748B]">/ 100</span></p>
+                                                  </div>
+                                              </div>
+
+                                              <div className="rounded-lg border border-[#E2E8F0] bg-white overflow-hidden">
+                                                  <div className="flex items-center justify-between px-3 py-2 border-b border-[#E2E8F0]">
+                                                      <span className="text-xs font-semibold text-[#64748B]">Top toàn trường</span>
+                                                      <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rank} / {rankingResult.totalStudents}</span>
+                                                  </div>
+                                                  {rankingResult.rankInClass && (
+                                                      <div className="flex items-center justify-between px-3 py-2 border-b border-[#E2E8F0]">
+                                                          <span className="text-xs font-semibold text-[#64748B]">Top trong lớp</span>
+                                                          <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rankInClass} / {rankingResult.totalInClass}</span>
+                                                      </div>
+                                                  )}
+                                                  {rankingResult.rankInMajor && (
+                                                      <div className="flex items-center justify-between px-3 py-2 border-b border-[#E2E8F0]">
+                                                          <span className="text-xs font-semibold text-[#64748B]">Top trong ngành</span>
+                                                          <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rankInMajor} / {rankingResult.totalInMajor}</span>
+                                                      </div>
+                                                  )}
+                                                  <div className="flex items-start justify-between gap-3 px-3 py-2">
+                                                      <span className="text-xs font-semibold text-[#64748B]">Ngành</span>
+                                                      <span className="text-sm font-semibold text-[#0F172A] text-right">{rankingResult.major || 'Chưa có dữ liệu'}</span>
+                                                  </div>
+                                              </div>
+
+                                              <div className="rounded-lg border border-emerald-200 bg-[#ECFDF5] p-3">
+                                                  <p className="text-sm font-bold text-[#0F172A]">Đánh giá học bổng</p>
+                                                  <p className="mt-1 text-xs leading-5 text-[#334155]">Khả năng đạt học bổng rất cao. Tiếp tục duy trì GPA và điểm rèn luyện để tăng cơ hội nhận học bổng.</p>
+                                              </div>
                                           </div>
                                       </div>
                                   ) : (
@@ -583,6 +610,284 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
             </button>
         </div>
       </div>
+
+      {showRankMenu && hasData && isValidFormat && createPortal(
+        <div
+          className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/55 px-3 py-4 sm:px-6"
+          onClick={() => { setShowRankMenu(false); resetSemesterRanks(); resetResult(); }}
+        >
+          <div
+            className="flex max-h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between bg-[#003375] px-4 py-3 text-white sm:px-5">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="hidden rounded-lg bg-white/15 p-2 sm:block">
+                  <BarChart2 size={18} />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-base font-bold sm:text-lg">Xếp hạng học kỳ</h4>
+                  <p className="mt-0.5 text-xs text-white/75">Chọn học kỳ bên trái để xem xếp hạng và đánh giá học bổng.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowRankMenu(false); resetSemesterRanks(); resetResult(); }}
+                className="rounded-full p-2 transition-colors hover:bg-white/20"
+                title="Đóng"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid min-h-[420px] flex-1 overflow-hidden lg:grid-cols-[320px_1fr]">
+              <aside className="border-b border-[#E2E8F0] bg-[#F8FAFC] p-4 lg:border-b-0 lg:border-r">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#64748B]">Học kỳ so sánh</p>
+                <p className="mt-1 text-xs text-[#64748B]">Chọn một kỳ để lấy dữ liệu xếp hạng tương ứng.</p>
+
+                <div className="mt-4 max-h-[34vh] space-y-2 overflow-y-auto pr-1 lg:max-h-[58vh]">
+                  {loadingSemesters ? (
+                    <div className="rounded-lg border border-[#E2E8F0] bg-white py-8 text-center text-sm text-[#64748B]">Đang tải...</div>
+                  ) : availableSemesters.length > 0 ? (
+                    availableSemesters.map((semId) => {
+                      const semesterRank = semesterRanks[semId];
+                      const rankLabel = Number.isFinite(semesterRank) ? `#${semesterRank}` : loadingSemesterRanks ? 'Đang tải' : 'Chưa có hạng';
+                      const isSelected = rankingResult?.semesterId === semId;
+                      return (
+                        <button
+                          key={semId}
+                          onClick={() => handleSelectReferenceSemester(semId)}
+                          className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
+                            isSelected
+                              ? 'border-blue-300 bg-blue-50 text-[#003375]'
+                              : 'border-[#E2E8F0] bg-white text-[#334155] hover:border-blue-300 hover:bg-blue-50 hover:text-[#003375]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm font-bold">{mapIdToDisplay(semId)}</span>
+                            <ChevronRight size={16} className="shrink-0" />
+                          </div>
+                          <div className="mt-1 text-xs font-semibold text-[#64748B]">Hạng: {rankLabel}</div>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="rounded-lg border border-[#E2E8F0] bg-white py-8 text-center text-sm text-[#64748B]">Chưa có dữ liệu.</div>
+                  )}
+                </div>
+              </aside>
+
+              <section className="overflow-y-auto bg-white p-4 sm:p-5">
+                {rankingLoading ? (
+                  <div className="flex h-full min-h-[320px] flex-col items-center justify-center text-[#003375]">
+                    <Loader2 size={34} className="mb-3 animate-spin" />
+                    <span className="text-sm font-semibold">Đang tính toán xếp hạng...</span>
+                  </div>
+                ) : rankingResult ? (
+                  <div>
+                    <div className="mb-4">
+                      <h5 className="text-2xl font-bold text-[#0F172A]">Xếp hạng học kỳ</h5>
+                      <p className="mt-1 text-sm text-[#64748B]">{mapIdToDisplay(rankingResult.semesterId)}</p>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                        <p className="text-sm font-semibold text-[#64748B]">GPA học kỳ</p>
+                        <p className="mt-2 text-3xl font-bold text-[#0F172A]">
+                          {semGPA4.toFixed(2)} <span className="text-sm font-medium text-[#64748B]">/ 4.0</span>
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+                        <p className="text-sm font-semibold text-[#64748B]">Điểm rèn luyện</p>
+                        <p className="mt-2 text-3xl font-bold text-[#0F172A]">
+                          {semester.trainingScore ?? 0} <span className="text-sm font-medium text-[#64748B]">/ 100</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 overflow-hidden rounded-xl border border-[#E2E8F0]">
+                      <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-3">
+                        <span className="text-sm font-semibold text-[#64748B]">Top toàn trường</span>
+                        <span className="text-base font-bold text-[#0F172A]">#{rankingResult.rank} / {rankingResult.totalStudents}</span>
+                      </div>
+                      {rankingResult.rankInClass && (
+                        <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-3">
+                          <span className="text-sm font-semibold text-[#64748B]">Top trong lớp</span>
+                          <span className="text-base font-bold text-[#0F172A]">#{rankingResult.rankInClass} / {rankingResult.totalInClass}</span>
+                        </div>
+                      )}
+                      {rankingResult.rankInMajor && (
+                        <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-3">
+                          <span className="text-sm font-semibold text-[#64748B]">Top trong ngành</span>
+                          <span className="text-base font-bold text-[#0F172A]">#{rankingResult.rankInMajor} / {rankingResult.totalInMajor}</span>
+                        </div>
+                      )}
+                      <div className="flex items-start justify-between gap-4 px-4 py-3">
+                        <span className="text-sm font-semibold text-[#64748B]">Ngành</span>
+                        <span className="text-right text-base font-semibold text-[#0F172A]">{rankingResult.major || 'Chưa có dữ liệu'}</span>
+                      </div>
+                    </div>
+
+                    <div className={`mt-4 rounded-xl border p-4 ${scholarshipRankAssessment.className}`}>
+                      <p className="text-base font-bold text-[#0F172A]">Đánh giá học bổng</p>
+                      <p className="mt-1 text-sm leading-6 text-[#334155]">
+                        {scholarshipRankAssessment.text}
+                      </p>
+                    </div>
+
+                    {rankingError && (
+                      <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                        <AlertCircle size={14} />
+                        {rankingError}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex h-full min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-6 text-center">
+                    <BarChart2 size={36} className="mb-3 text-[#94A3B8]" />
+                    <h5 className="text-lg font-bold text-[#0F172A]">Chọn học kỳ để xem xếp hạng</h5>
+                    <p className="mt-1 max-w-md text-sm text-[#64748B]">Danh sách học kỳ nằm ở cột bên trái. Chọn một kỳ để xem top toàn trường, lớp, ngành và đánh giá học bổng.</p>
+                    {rankingError && (
+                      <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                        <AlertCircle size={14} />
+                        {rankingError}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {false && showRankMenu && hasData && isValidFormat && (
+        <div className="border-b border-[#E2E8F0] bg-[#F8FAFC] px-3 py-3 sm:px-6 sm:py-4">
+          <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white">
+            <div className="flex items-start justify-between gap-3 bg-[#003375] px-4 py-3 text-white">
+              <div>
+                <h4 className="flex items-center gap-2 text-base font-bold">
+                  <BarChart2 size={16} />
+                  Xếp hạng học kỳ
+                </h4>
+                <p className="mt-1 text-xs text-white/75">
+                  Chọn kỳ so sánh và xem xếp hạng học bổng theo dữ liệu hiện có.
+                </p>
+              </div>
+              <button
+                onClick={() => { setShowRankMenu(false); resetSemesterRanks(); }}
+                className="rounded-full p-1.5 transition-colors hover:bg-white/20"
+                title="Đóng"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {rankingLoading ? (
+              <div className="flex flex-col items-center justify-center bg-[#F8FAFC] py-8 text-[#003375]">
+                <Loader2 size={30} className="mb-2 animate-spin" />
+                <span className="text-sm font-medium">Đang tính toán...</span>
+              </div>
+            ) : rankingResult ? (
+              <div className="bg-[#F8FAFC] p-3">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <h5 className="text-base font-bold text-[#0F172A]">Xếp hạng học kỳ</h5>
+                    <p className="mt-1 text-xs text-[#64748B]">{mapIdToDisplay(rankingResult.semesterId)}</p>
+                  </div>
+                  <button
+                    onClick={() => resetResult()}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#334155] transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-[#003375]"
+                  >
+                    <ChevronLeft size={14} />
+                    Chọn kỳ khác
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-lg border border-[#E2E8F0] bg-white p-3">
+                    <p className="text-[11px] font-semibold text-[#64748B]">GPA học kỳ</p>
+                    <p className="mt-1 text-xl font-bold text-[#0F172A]">
+                      {semGPA4.toFixed(2)} <span className="text-xs font-medium text-[#64748B]">/ 4.0</span>
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-[#E2E8F0] bg-white p-3">
+                    <p className="text-[11px] font-semibold text-[#64748B]">Điểm rèn luyện</p>
+                    <p className="mt-1 text-xl font-bold text-[#0F172A]">
+                      {semester.trainingScore ?? 0} <span className="text-xs font-medium text-[#64748B]">/ 100</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-2 overflow-hidden rounded-lg border border-[#E2E8F0] bg-white">
+                  <div className="flex items-center justify-between border-b border-[#E2E8F0] px-3 py-2">
+                    <span className="text-xs font-semibold text-[#64748B]">Top toàn trường</span>
+                    <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rank} / {rankingResult.totalStudents}</span>
+                  </div>
+                  {rankingResult.rankInClass && (
+                    <div className="flex items-center justify-between border-b border-[#E2E8F0] px-3 py-2">
+                      <span className="text-xs font-semibold text-[#64748B]">Top trong lớp</span>
+                      <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rankInClass} / {rankingResult.totalInClass}</span>
+                    </div>
+                  )}
+                  {rankingResult.rankInMajor && (
+                    <div className="flex items-center justify-between border-b border-[#E2E8F0] px-3 py-2">
+                      <span className="text-xs font-semibold text-[#64748B]">Top trong ngành</span>
+                      <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rankInMajor} / {rankingResult.totalInMajor}</span>
+                    </div>
+                  )}
+                  <div className="flex items-start justify-between gap-3 px-3 py-2">
+                    <span className="text-xs font-semibold text-[#64748B]">Ngành</span>
+                    <span className="text-sm font-semibold text-[#0F172A] text-right">{rankingResult.major || 'Chưa có dữ liệu'}</span>
+                  </div>
+                </div>
+
+                <div className="mt-2 rounded-lg border border-emerald-200 bg-[#ECFDF5] p-3">
+                  <p className="text-sm font-bold text-[#0F172A]">Đánh giá học bổng</p>
+                  <p className="mt-1 text-xs leading-5 text-[#334155]">
+                    Khả năng đạt học bổng rất cao. Tiếp tục duy trì GPA và điểm rèn luyện để tăng cơ hội nhận học bổng.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-[#F8FAFC] p-3">
+                <div className="mb-3">
+                  <h5 className="text-base font-bold text-[#0F172A]">Chọn học kỳ so sánh</h5>
+                  <p className="mt-1 text-xs text-[#64748B]">Dữ liệu xếp hạng sẽ được áp dụng cho học kỳ bạn chọn.</p>
+                </div>
+                {loadingSemesters ? (
+                  <div className="rounded-lg border border-[#E2E8F0] bg-white py-7 text-center text-sm text-[#64748B]">Đang tải...</div>
+                ) : availableSemesters.length > 0 ? (
+                  <div className="grid gap-2">
+                    {availableSemesters.map((semId) => {
+                      const semesterRank = semesterRanks[semId];
+                      const rankLabel = Number.isFinite(semesterRank) ? `Hạng #${semesterRank}` : loadingSemesterRanks ? 'Đang tải...' : 'Chưa có hạng';
+                      return (
+                        <button
+                          key={semId}
+                          onClick={() => handleSelectReferenceSemester(semId)}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-[#E2E8F0] bg-white px-3 py-3 text-left text-sm font-semibold text-[#334155] transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-[#003375]"
+                        >
+                          <span>Dữ liệu {mapIdToDisplay(semId)} - {rankLabel}</span>
+                          <ChevronRight size={16} className="shrink-0 text-[#003375]" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-[#E2E8F0] bg-white py-7 text-center text-sm text-[#64748B]">Chưa có dữ liệu.</div>
+                )}
+                {rankingError && (
+                  <div className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                    <AlertCircle size={14} />
+                    {rankingError}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {isValidFormat ? (
         <>

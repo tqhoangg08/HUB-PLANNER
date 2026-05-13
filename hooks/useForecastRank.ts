@@ -33,6 +33,15 @@ interface RankContext {
     currentSemesterId?: string | null;
 }
 
+const toNumberOrNull = (value: unknown): number | null => {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
+const toRankValue = (value: unknown): number => toNumberOrNull(value) ?? -Infinity;
+
 export const useForecastRank = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -154,8 +163,24 @@ export const useForecastRank = () => {
             const selectedSemesterKey = normalizeSemesterId(semesterId) || semesterId;
             const currentSemesterKey = normalizeSemesterId(context?.currentSemesterId) || context?.currentSemesterId || null;
             const isSameSemester = Boolean(currentSemesterKey && selectedSemesterKey && currentSemesterKey === selectedSemesterKey);
-            const lookupStudentCode = isSameSemester ? context?.studentCode || null : null;
-            const lookupClassCode = isSameSemester ? context?.classCode || null : null;
+            const studentCode = context?.studentCode?.trim() || null;
+
+            let exactStudentRow: any = null;
+            if (studentCode) {
+                const { data, error } = await supabase
+                    .from('benchmark_rankings')
+                    .select('*')
+                    .eq('semester', semesterId)
+                    .eq('student_code', studentCode)
+                    .maybeSingle();
+
+                if (error) throw error;
+                exactStudentRow = data;
+            }
+
+            const lookupStudentCode = exactStudentRow ? studentCode : isSameSemester ? studentCode : null;
+            const lookupClassCode = exactStudentRow?.class_code || (isSameSemester ? context?.classCode || null : null);
+            const lookupMajor = exactStudentRow?.major || context?.major || null;
 
             const { data: detailData, error: detailError } = await supabase.rpc('get_smart_rank_details', {
                 p_semester: semesterId,
@@ -164,7 +189,7 @@ export const useForecastRank = () => {
                 p_drl: normalizedTrainingScore,
                 p_student_code: lookupStudentCode,
                 p_class_code: lookupClassCode,
-                p_major: context?.major || null
+                p_major: lookupMajor
             });
 
             let rankRow: any = null;
@@ -173,8 +198,8 @@ export const useForecastRank = () => {
 
             if (!detailError && detailData) {
                 rankRow = Array.isArray(detailData) ? detailData[0] : detailData;
-                resolvedRank = typeof rankRow?.rank === 'number' ? rankRow.rank : null;
-                resolvedTotal = typeof rankRow?.total_students === 'number' ? rankRow.total_students : total;
+                resolvedRank = toNumberOrNull(rankRow?.rank);
+                resolvedTotal = toNumberOrNull(rankRow?.total_students) ?? total;
             } else {
                 const { data: rankData, error: rankError } = await supabase.rpc('get_smart_rank', {
                     p_semester: semesterId,
@@ -188,8 +213,65 @@ export const useForecastRank = () => {
                 resolvedRank = typeof rankData === 'number'
                     ? rankData
                     : Array.isArray(rankData)
-                        ? rankData[0]?.rank
-                        : (rankData as { rank?: number } | null)?.rank ?? null;
+                        ? toNumberOrNull(rankData[0]?.rank)
+                        : toNumberOrNull((rankData as { rank?: number } | null)?.rank);
+            }
+
+            if (exactStudentRow) {
+                resolvedRank = toNumberOrNull(exactStudentRow.student_rank) ?? resolvedRank;
+                rankRow = {
+                    ...rankRow,
+                    rank_in_class: exactStudentRow.rank_in_class ?? rankRow?.rank_in_class ?? null,
+                    total_in_class: exactStudentRow.total_in_class ?? rankRow?.total_in_class ?? null,
+                    class_code: exactStudentRow.class_code ?? rankRow?.class_code ?? null,
+                    rank_in_major: exactStudentRow.rank_in_major ?? rankRow?.rank_in_major ?? null,
+                    total_in_major: exactStudentRow.total_in_major ?? rankRow?.total_in_major ?? null,
+                    major: exactStudentRow.major ?? rankRow?.major ?? null
+                };
+            }
+
+            if (exactStudentRow?.class_code && (!rankRow?.rank_in_class || !rankRow?.total_in_class)) {
+                const { data: classRows, error: classError } = await supabase
+                    .from('benchmark_rankings')
+                    .select('student_code,gpa,training_score,credits')
+                    .eq('semester', semesterId)
+                    .eq('class_code', exactStudentRow.class_code);
+
+                if (classError) throw classError;
+
+                const sortedRows = [...(classRows ?? [])].sort((a: any, b: any) => {
+                    const byGpa = toRankValue(b.gpa) - toRankValue(a.gpa);
+                    if (byGpa !== 0) return byGpa;
+                    const byTraining = toRankValue(b.training_score) - toRankValue(a.training_score);
+                    if (byTraining !== 0) return byTraining;
+                    return toRankValue(b.credits) - toRankValue(a.credits);
+                });
+
+                let currentRank = 0;
+                let previousSignature = '';
+                const matchedIndex = sortedRows.findIndex((row: any, index) => {
+                    const signature = `${toRankValue(row.gpa)}|${toRankValue(row.training_score)}|${toRankValue(row.credits)}`;
+                    if (signature !== previousSignature) {
+                        currentRank = index + 1;
+                        previousSignature = signature;
+                    }
+                    if (row.student_code === studentCode) {
+                        rankRow = {
+                            ...rankRow,
+                            rank_in_class: currentRank,
+                            total_in_class: sortedRows.length
+                        };
+                        return true;
+                    }
+                    return false;
+                });
+
+                if (matchedIndex < 0) {
+                    rankRow = {
+                        ...rankRow,
+                        total_in_class: sortedRows.length
+                    };
+                }
             }
 
             if (!resolvedRank) {
@@ -201,9 +283,9 @@ export const useForecastRank = () => {
                 totalStudents: resolvedTotal,
                 topPercent: (resolvedRank / resolvedTotal) * 100,
                 semesterId,
-                rankInClass: isSameSemester ? rankRow?.rank_in_class ?? null : null,
-                totalInClass: isSameSemester ? rankRow?.total_in_class ?? null : null,
-                classCode: isSameSemester ? rankRow?.class_code ?? context?.classCode ?? null : null,
+                rankInClass: rankRow?.rank_in_class ?? null,
+                totalInClass: rankRow?.total_in_class ?? null,
+                classCode: rankRow?.class_code ?? null,
                 rankInMajor: rankRow?.rank_in_major ?? null,
                 totalInMajor: rankRow?.total_in_major ?? null,
                 major: rankRow?.major ?? context?.major ?? null
