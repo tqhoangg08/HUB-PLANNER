@@ -36,6 +36,7 @@ export interface SemesterLookbackData {
 }
 
 const STORAGE_PREFIX = 'hub_lookback_seen';
+const LOOKBACK_SEEN_FIELD = 'lookbackSeen';
 
 const findLookbackSemester = (semesters?: Semester[] | null): Semester | null => {
     return (semesters || []).find(sem => normalizeSemesterId(sem.name) === LOOKBACK_SEMESTER_ID) || null;
@@ -56,6 +57,30 @@ const getCurrentUserIdentity = async (): Promise<{ studentCode: string | null; u
         .maybeSingle();
 
     return { studentCode: data?.student_code?.trim() || null, userId: user.id };
+};
+
+const hasRemoteLookbackSeen = (privateData?: Record<string, any> | null) => {
+    return Boolean(privateData?.[LOOKBACK_SEEN_FIELD]?.[LOOKBACK_SEMESTER_ID]);
+};
+
+const markRemoteLookbackSeen = async (userId: string, privateData?: Record<string, any> | null) => {
+    const nextData = {
+        ...(privateData || {}),
+        [LOOKBACK_SEEN_FIELD]: {
+            ...((privateData?.[LOOKBACK_SEEN_FIELD] as Record<string, boolean> | undefined) || {}),
+            [LOOKBACK_SEMESTER_ID]: true
+        }
+    };
+
+    const { error } = await supabase
+        .from('profile_private_data')
+        .upsert({
+            user_id: userId,
+            data: nextData,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+
+    if (error) throw error;
 };
 
 export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
@@ -105,6 +130,7 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
             setLoading(true);
             try {
                 let resolvedSemester = semester;
+                let privateData: Record<string, any> | null = null;
 
                 if (userId) {
                     const { data: privateRow, error: privateError } = await supabase
@@ -115,7 +141,8 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
 
                     if (privateError) throw privateError;
 
-                    const privateSemester = findLookbackSemester((privateRow?.data as UserData | undefined)?.semesters);
+                    privateData = (privateRow?.data as Record<string, any> | null) || null;
+                    const privateSemester = findLookbackSemester((privateData as UserData | null | undefined)?.semesters);
                     if ((privateSemester?.subjects?.length || 0) > (resolvedSemester?.subjects?.length || 0)) {
                         resolvedSemester = privateSemester;
                     }
@@ -195,9 +222,17 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
 
                 setLookback(nextLookback);
 
-                if (!localStorage.getItem(storageKey) && (semesterStats?.hasData || rankRow)) {
+                const hasLookbackData = Boolean(semesterStats?.hasData || rankRow);
+                const hasSeenLookback = localStorage.getItem(storageKey) || hasRemoteLookbackSeen(privateData);
+
+                if (!hasSeenLookback && hasLookbackData) {
                     setIsOpen(true);
                     localStorage.setItem(storageKey, '1');
+                    if (userId) {
+                        markRemoteLookbackSeen(userId, privateData).catch(error => {
+                            console.error('Lookback seen save error:', error);
+                        });
+                    }
                 }
             } catch (error) {
                 console.error('Lookback load error:', error);
