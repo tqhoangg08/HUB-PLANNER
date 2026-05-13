@@ -308,7 +308,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
   const [showRankMenu, setShowRankMenu] = useState(false);
     
-  const isValidFormat = /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(semester.name);
+  const isValidFormat = /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test(semester.name);
 
   const handleSubjectChange = (subjectId: string, field: keyof Subject, value: any) => {
     const updatedSubjects = semester.subjects.map(sub => {
@@ -1159,13 +1159,13 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     }, [showAdminPanel]); 
 
     const hasUsableSemesterData = (sem: any) => {
-        return !!sem && Array.isArray(sem.subjects);
+        return !!sem && Array.isArray(sem.subjects) && /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test(sem.name || '');
     };
 
     const getSemesterWeight = (name: string) => {
-        const match = (name || '').match(/(1|2|3|Hè).*?(\d{4})-(\d{4})/);
+        const match = (name || '').match(/(1|2).*?(\d{4})-(\d{4})/);
         if (!match) return 0;
-        const hk = match[1] === 'Hè' ? 3 : parseInt(match[1], 10);
+        const hk = parseInt(match[1], 10);
         const year = parseInt(match[2], 10);
         return year * 10 + hk;
     };
@@ -1429,9 +1429,9 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             for (let i = 0; i < newSemesters.length; i++) {
                 const sem = newSemesters[i];
                 if (sem.trainingScore === null || sem.trainingScore === undefined || sem.trainingScore === 0) {
-                    const match = sem.name.match(/Học kỳ (1|2|3|Hè) Năm học (\d{4})-(\d{4})/);
+                    const match = sem.name.match(/Học kỳ (1|2) Năm học (\d{4})-(\d{4})/);
                     if (match) {
-                        const hk = match[1] === 'Hè' ? '3' : match[1];
+                        const hk = match[1];
                         const year1 = match[2];
                         const year2 = match[3];
                         const semId = `HK${hk}_${year1}_${year2}`;
@@ -1455,24 +1455,29 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
         if (activeData.semesters && activeData.semesters.length > 0) fetchAndFillTrainingScore();
     }, [activeData.semesters.length, selectedAdminUserId, data]);
+    const nonSummerSemesters = useMemo(
+        () => activeData.semesters.filter(s => !/^Học kỳ Hè Năm học \d{4}-\d{4}$/.test(s.name)),
+        [activeData.semesters]
+    );
+
     const sortedSemesters = useMemo(() => {
         const getWeight = (name: string) => {
             if (!name) return 999999;
-            const match = name.match(/Học kỳ (1|2|3|Hè) Năm học (\d{4})-(\d{4})/);
+            const match = name.match(/Học kỳ (1|2) Năm học (\d{4})-(\d{4})/);
             if (!match) return 999998; 
-            const hk = match[1] === 'Hè' ? 3 : parseInt(match[1]);
+            const hk = parseInt(match[1]);
             const year = parseInt(match[2]);
             return year * 10 + hk;
         };
-        return [...activeData.semesters].sort((a, b) => getWeight(a.name) - getWeight(b.name));
-    }, [activeData.semesters]);
+        return [...nonSummerSemesters].sort((a, b) => getWeight(a.name) - getWeight(b.name));
+    }, [nonSummerSemesters]);
 
-    const isInitialState = activeData.semesters.length > 0 && activeData.semesters.every(s => !s.name || !ALL_SEMESTERS.includes(s.name));
-    const semestersToRender = isInitialState ? [activeData.semesters[0]] : sortedSemesters;
+    const isInitialState = nonSummerSemesters.length > 0 && nonSummerSemesters.every(s => !s.name || !ALL_SEMESTERS.includes(s.name));
+    const semestersToRender = isInitialState ? [nonSummerSemesters[0]] : sortedSemesters;
     const usedSemesterNames = activeData.semesters.map(s => s.name);
     const isLocked = isGuest && !activeData.hasOnboarded;
 
-    const validDataSemesters = activeData.semesters.filter(s => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(s.name));
+    const validDataSemesters = activeData.semesters.filter(s => /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test(s.name));
 
     const stats = calculateCumulativeStats(validDataSemesters);
     const yearlyStats = calculateYearlyStats(validDataSemesters);
@@ -1510,10 +1515,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             const parts = shortName.split('-');
             if (sem.name.includes('Năm học')) {
                 const yearPart = sem.name.match(/(\d{4})/);
-                const hkPart = sem.name.match(/Học kỳ (1|2|3|Hè)/);
+                const hkPart = sem.name.match(/Học kỳ (1|2)/);
                 if (yearPart && hkPart) shortName = `HK${hkPart[1]}/${yearPart[1].slice(2)}`;
             } else {
-                shortName = sem.name.replace('Năm ', 'N').replace(' - Học kỳ ', '.HK').replace('Học kỳ Hè', 'Hè');
+                shortName = sem.name.replace('Năm ', 'N').replace(' - Học kỳ ', '.HK');
             }
         }
         return {
@@ -2195,7 +2200,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             </div>
                         )}
                         
-                        {!isInitialState && activeData.semesters.length > 0 && activeData.semesters.length < ALL_SEMESTERS.length && (
+                        {!isInitialState && nonSummerSemesters.length > 0 && nonSummerSemesters.length < ALL_SEMESTERS.length && (
                             <button onClick={handleLocalAddSemester} className="w-full py-4 border-2 border-dashed border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-400 hover:bg-gray-50 rounded-xl font-semibold flex justify-center items-center gap-2 transition-all">
                                 <Plus size={18}/> Thêm học kỳ mới
                             </button>
