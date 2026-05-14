@@ -26,9 +26,9 @@ export const SemesterLookbackModal: React.FC<SemesterLookbackModalProps> = ({ is
     const hasRank = Boolean(data?.rank && data?.totalStudents);
 
     return createPortal(
-        <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/75 px-4 py-6 animate-fadeIn motion-reduce:animate-none" onClick={onClose}>
+        <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/75 px-3 py-4 sm:px-4 sm:py-6 animate-fadeIn motion-reduce:animate-none" onClick={onClose}>
             <div
-                className="relative flex max-h-[86vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-xl animate-slideUp motion-reduce:animate-none"
+                className="relative flex max-h-[calc(100dvh-32px)] w-full max-w-3xl flex-col overflow-hidden rounded-[10px] bg-white shadow-xl animate-slideUp motion-reduce:animate-none sm:max-h-[86vh] sm:rounded-lg"
                 onClick={(event) => event.stopPropagation()}
             >
                 <button
@@ -39,41 +39,41 @@ export const SemesterLookbackModal: React.FC<SemesterLookbackModalProps> = ({ is
                     <X size={18} />
                 </button>
 
-                <div className="shrink-0 bg-[#003375] px-6 py-3 text-center text-white sm:px-10">
-                    <h2 className="text-2xl font-bold sm:text-[28px]">Tổng kết học kỳ</h2>
-                    <p className="mx-auto mt-1 max-w-xl text-sm font-medium leading-6 text-blue-100">
+                <div className="shrink-0 bg-[#003375] px-4 pb-3 pt-3.5 text-center text-white sm:px-10 sm:py-3">
+                    <h2 className="text-xl font-bold leading-tight sm:text-[28px] sm:leading-normal">Tổng kết học kỳ</h2>
+                    <p className="mx-auto mt-1.5 max-w-xl text-[11px] font-medium leading-4 text-blue-100 sm:mt-1 sm:text-sm sm:leading-6">
                         {LOOKBACK_SEMESTER_LABEL}
                     </p>
                 </div>
 
-                <div className="overflow-y-auto px-5 py-4 text-center font-['Inter',system-ui,sans-serif] sm:px-8 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-track]:bg-transparent">
+                <div className="overflow-y-auto px-3 py-3 text-center font-['Inter',system-ui,sans-serif] sm:px-8 sm:py-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-track]:bg-transparent">
                     {loading ? (
                         <div className="py-12 text-sm font-semibold text-[#64748B]">Đang tải bảng thành tích...</div>
                     ) : data ? (
                         <>
-                            <div className="mx-auto grid max-w-2xl gap-3 sm:grid-cols-2">
-                                <div className="rounded-lg border border-[#E2E8F0] bg-white p-3">
-                                    <p className="text-xs font-semibold uppercase text-[#64748B]">GPA học kỳ</p>
-                                    <p className="mt-1 text-[26px] font-bold text-[#0F172A]">{data.gpa4.toFixed(2)}</p>
-                                    <p className="text-xs font-semibold text-[#64748B]">/ 4.0</p>
+                            <div className="mx-auto grid max-w-2xl gap-2.5 sm:grid-cols-2 sm:gap-3">
+                                <div className="rounded-lg border border-[#E2E8F0] bg-white px-3.5 py-3 sm:p-3">
+                                    <p className="text-[11px] font-semibold uppercase text-[#64748B] sm:text-xs">GPA học kỳ</p>
+                                    <p className="mt-1 text-2xl font-bold leading-none text-[#0F172A] sm:text-[26px] sm:leading-normal">{data.gpa4.toFixed(2)}</p>
+                                    <p className="mt-0.5 text-[11px] font-semibold text-[#64748B] sm:mt-0 sm:text-xs">/ 4.0</p>
                                 </div>
-                                <div className="rounded-lg border border-[#E2E8F0] bg-white p-3">
-                                    <p className="text-xs font-semibold uppercase text-[#64748B]">Điểm rèn luyện</p>
-                                    <p className="mt-1 text-[26px] font-bold text-[#0F172A]">{data.trainingScore}</p>
-                                    <p className="text-xs font-semibold text-[#64748B]">/ 100</p>
+                                <div className="rounded-lg border border-[#E2E8F0] bg-white px-3.5 py-3 sm:p-3">
+                                    <p className="text-[11px] font-semibold uppercase text-[#64748B] sm:text-xs">Điểm rèn luyện</p>
+                                    <p className="mt-1 text-2xl font-bold leading-none text-[#0F172A] sm:text-[26px] sm:leading-normal">{data.trainingScore}</p>
+                                    <p className="mt-0.5 text-[11px] font-semibold text-[#64748B] sm:mt-0 sm:text-xs">/ 100</p>
                                 </div>
                             </div>
 
-                            <div className="mx-auto mt-3 grid max-w-2xl gap-3 sm:grid-cols-[1.35fr_1fr]">
+                            <div className="mx-auto mt-2.5 grid max-w-2xl gap-2.5 sm:mt-3 sm:grid-cols-[1.35fr_1fr] sm:gap-3">
                                 <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-left">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-[#003375]">Môn học nổi bật</p>
+                                    <p className="text-[11px] font-bold uppercase tracking-wide text-[#003375] sm:text-xs">Môn học nổi bật</p>
                                     {data.bestSubject ? (
                                         <div className="mt-1.5">
-                                            <p className="line-clamp-1 text-base font-bold text-[#0F172A]">{data.bestSubject.name}</p>
-                                            <p className="mt-1 text-sm font-semibold text-[#003375]">
+                                            <p className="line-clamp-1 text-sm font-bold leading-snug text-[#0F172A] sm:text-base">{data.bestSubject.name}</p>
+                                            <p className="mt-1 text-[13px] font-semibold leading-snug text-[#003375] sm:text-sm">
                                                 {data.bestSubject.score10.toFixed(1)} điểm · {data.bestSubject.letter} · {data.bestSubject.scale4.toFixed(1)}/4.0
                                             </p>
-                                            <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{data.bestSubject.credits} tín chỉ</p>
+                                            <p className="mt-1 text-[11px] font-semibold text-[#64748B] sm:mt-0.5 sm:text-xs">{data.bestSubject.credits} tín chỉ</p>
                                         </div>
                                     ) : (
                                         <p className="mt-2 text-sm font-semibold text-[#64748B]">Chưa có môn đủ điểm để phân tích.</p>
@@ -81,48 +81,48 @@ export const SemesterLookbackModal: React.FC<SemesterLookbackModalProps> = ({ is
                                 </div>
 
                                 <div className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-left">
-                                    <p className="text-xs font-bold uppercase tracking-wide text-[#003375]">Tổng kết học phần</p>
-                                    <p className="mt-1.5 text-sm font-semibold text-[#0F172A]">
+                                    <p className="text-[11px] font-bold uppercase tracking-wide text-[#003375] sm:text-xs">Tổng kết học phần</p>
+                                    <p className="mt-1.5 text-[13px] font-semibold text-[#0F172A] sm:text-sm">
                                         {data.excellentSubjectCount} môn đạt nhóm A/A+
                                     </p>
-                                    <p className="mt-1 text-sm font-semibold text-[#0F172A]">
+                                    <p className="mt-1 text-[13px] font-semibold text-[#0F172A] sm:text-sm">
                                         Hoàn thành {data.passedSubjectCount}/{data.totalSubjectCount} môn
                                     </p>
                                 </div>
                             </div>
 
-                            <div className="mx-auto mt-3 max-w-2xl overflow-hidden rounded-lg border border-[#E2E8F0] text-left">
-                                <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-2.5">
+                            <div className="mx-auto mt-2.5 max-w-2xl overflow-hidden rounded-lg border border-[#E2E8F0] text-left text-[13px] sm:mt-3 sm:text-base">
+                                <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4">
                                     <span className="font-semibold text-[#64748B]">Top toàn trường</span>
-                                    <span className="font-bold text-[#0F172A]">{hasRank ? `#${data.rank} / ${data.totalStudents}` : 'Chưa có dữ liệu'}</span>
+                                    <span className="shrink-0 text-right font-bold text-[#0F172A]">{hasRank ? `#${data.rank} / ${data.totalStudents}` : 'Chưa có dữ liệu'}</span>
                                 </div>
-                                <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-2.5">
+                                <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4">
                                     <span className="font-semibold text-[#64748B]">Tỷ lệ toàn trường</span>
-                                    <span className="font-bold text-[#0F172A]">{formatCompactPercent(data.topPercent)}</span>
+                                    <span className="shrink-0 text-right font-bold text-[#0F172A]">{formatCompactPercent(data.topPercent)}</span>
                                 </div>
                                 {data.rankInClass && data.totalInClass && (
-                                    <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-2.5">
+                                    <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4">
                                         <span className="font-semibold text-[#64748B]">Top trong lớp</span>
-                                        <span className="font-bold text-[#0F172A]">#{data.rankInClass} / {data.totalInClass}</span>
+                                        <span className="shrink-0 text-right font-bold text-[#0F172A]">#{data.rankInClass} / {data.totalInClass}</span>
                                     </div>
                                 )}
                                 {data.rankInMajor && data.totalInMajor && (
-                                    <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-2.5">
+                                    <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4">
                                         <span className="font-semibold text-[#64748B]">Top trong ngành</span>
-                                        <span className="font-bold text-[#0F172A]">#{data.rankInMajor} / {data.totalInMajor}</span>
+                                        <span className="shrink-0 text-right font-bold text-[#0F172A]">#{data.rankInMajor} / {data.totalInMajor}</span>
                                     </div>
                                 )}
-                                <div className="flex items-center justify-between px-4 py-2.5">
+                                <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-4">
                                     <span className="font-semibold text-[#64748B]">Ngành</span>
-                                    <span className="font-bold text-[#0F172A]">{data.major || 'Chưa có dữ liệu'}</span>
+                                    <span className="min-w-0 text-right font-bold text-[#0F172A]">{data.major || 'Chưa có dữ liệu'}</span>
                                 </div>
                             </div>
 
-                            <div className="mx-auto mt-3 max-w-2xl rounded-lg border border-[#D8EFE0] bg-[#F3FAF6] p-3 text-left">
-                                <p className="text-sm font-bold text-[#0F172A]">
+                            <div className="mx-auto mt-2.5 max-w-2xl rounded-lg border border-[#D8EFE0] bg-[#F3FAF6] p-3 text-left sm:mt-3">
+                                <p className="text-[13px] font-bold text-[#0F172A] sm:text-sm">
                                     Khả năng đạt học bổng: Rất cao
                                 </p>
-                                <p className="mt-1 text-sm font-medium leading-6 text-[#334155]">
+                                <p className="mt-1 text-[13px] font-medium leading-5 text-[#334155] sm:text-sm sm:leading-6">
                                     {hasRank
                                         ? `Điều kiện nổi bật: GPA ${data.gpa4.toFixed(2)}, ĐRL ${data.trainingScore}, ${formatPercent(data.topPercent)}.`
                                         : 'Tiếp tục cập nhật bảng điểm để hệ thống ghi nhận đầy đủ kết quả học kỳ.'}

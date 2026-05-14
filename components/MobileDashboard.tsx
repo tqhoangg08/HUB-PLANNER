@@ -58,6 +58,17 @@ const getScholarshipRankAssessment = (rank?: number | null) => {
     };
 };
 
+const formatTopPercent = (rank?: number | null, total?: number | null) => {
+    const rankValue = Number(rank);
+    const totalValue = Number(total);
+    if (!Number.isFinite(rankValue) || !Number.isFinite(totalValue) || rankValue <= 0 || totalValue <= 0) {
+        return 'Chưa có dữ liệu';
+    }
+
+    const percent = Math.max(0.01, (rankValue / totalValue) * 100);
+    return `Top ${percent.toFixed(percent < 1 ? 2 : 1)}%`;
+};
+
 // ============================================================================
 // MODAL: BÁO LỖI HỆ THỐNG
 // ============================================================================
@@ -301,6 +312,13 @@ interface SemesterTableProps {
 const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester, allSemesterOptions, usedSemesterNames, onCascadeUpdate, isReadOnly, rankContext }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
+  const [showScoreColumns, setShowScoreColumns] = useState(false);
+  const [visibleScoreColumns, setVisibleScoreColumns] = useState<Record<string, boolean>>({
+      scoreCC: true,
+      scoreProcess: true,
+      scoreMid: true,
+      scoreFinal: true
+  });
     
   const { 
       fetchRank, result: rankingResult, loading: rankingLoading, error: rankingError, resetResult,
@@ -309,8 +327,16 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   } = useForecastRank();
 
   const [showRankMenu, setShowRankMenu] = useState(false);
+  const [isSemesterChooserOpen, setIsSemesterChooserOpen] = useState(false);
     
   const isValidFormat = /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test(semester.name);
+  const scoreColumnConfig = [
+      { key: 'scoreCC', label: '10%' },
+      { key: 'scoreProcess', label: '20%' },
+      { key: 'scoreMid', label: '20%' },
+      { key: 'scoreFinal', label: '50%' }
+  ];
+  const visibleScoreColumnConfig = scoreColumnConfig.filter((column) => visibleScoreColumns[column.key]);
 
   const handleSubjectChange = (subjectId: string, field: keyof Subject, value: any) => {
     const updatedSubjects = semester.subjects.map(sub => {
@@ -399,15 +425,19 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
     return { label: '💰 HB Giỏi', className: 'bg-green-50 text-green-700 border-green-200' };
   })();
   const scholarshipRankAssessment = getScholarshipRankAssessment(rankingResult?.rank);
+  const schoolTopPercentLabel = formatTopPercent(rankingResult?.rank, rankingResult?.totalStudents);
 
   const handleOpenRankMenu = () => {
       playClick(); setShowRankMenu(true);
+      setIsSemesterChooserOpen(false);
       prepareSemesterRanks(semGPA4, totalRegisteredCredits, semester.trainingScore ?? 0);
       fetchAvailableSemesters(); 
   };
 
   const handleSelectReferenceSemester = (refId: string) => {
-      playClick(); fetchRank(refId, semGPA4, totalRegisteredCredits, semester.trainingScore ?? 0, rankContext);
+      playClick();
+      setIsSemesterChooserOpen(false);
+      fetchRank(refId, semGPA4, totalRegisteredCredits, semester.trainingScore ?? 0, rankContext);
   };
 
   let headerColor = "bg-gray-50 border-gray-200";
@@ -616,10 +646,10 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
       {showRankMenu && hasData && isValidFormat && createPortal(
         <div
           className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/55 px-3 py-4 sm:px-6"
-          onClick={() => { setShowRankMenu(false); resetSemesterRanks(); resetResult(); }}
+          onClick={() => { setShowRankMenu(false); setIsSemesterChooserOpen(false); resetSemesterRanks(); resetResult(); }}
         >
           <div
-            className="flex max-h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            className="flex max-h-[calc(100dvh-32px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[86vh]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between bg-[#003375] px-4 py-3 text-white sm:px-5">
@@ -629,11 +659,11 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 </div>
                 <div className="min-w-0">
                   <h4 className="text-base font-bold sm:text-lg">Xếp hạng học kỳ</h4>
-                  <p className="mt-0.5 text-xs text-white/75">Chọn học kỳ bên trái để xem xếp hạng và đánh giá học bổng.</p>
+                  <p className="mt-0.5 text-xs text-white/75">Chọn học kỳ để xem xếp hạng và đánh giá học bổng.</p>
                 </div>
               </div>
               <button
-                onClick={() => { setShowRankMenu(false); resetSemesterRanks(); resetResult(); }}
+                onClick={() => { setShowRankMenu(false); setIsSemesterChooserOpen(false); resetSemesterRanks(); resetResult(); }}
                 className="rounded-full p-2 transition-colors hover:bg-white/20"
                 title="Đóng"
               >
@@ -641,44 +671,65 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
               </button>
             </div>
 
-            <div className="grid min-h-[420px] flex-1 overflow-hidden lg:grid-cols-[320px_1fr]">
-              <aside className="border-b border-[#E2E8F0] bg-[#F8FAFC] p-4 lg:border-b-0 lg:border-r">
+            <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[320px_1fr]">
+              <aside className="border-b border-[#E2E8F0] bg-[#F8FAFC] p-3 sm:p-4 lg:border-b-0 lg:border-r">
                 <p className="text-xs font-bold uppercase tracking-wide text-[#64748B]">Học kỳ so sánh</p>
-                <p className="mt-1 text-xs text-[#64748B]">Chọn một kỳ để lấy dữ liệu xếp hạng tương ứng.</p>
 
-                <div className="mt-4 max-h-[34vh] space-y-2 overflow-y-auto pr-1 lg:max-h-[58vh]">
-                  {loadingSemesters ? (
-                    <div className="rounded-lg border border-[#E2E8F0] bg-white py-8 text-center text-sm text-[#64748B]">Đang tải...</div>
-                  ) : availableSemesters.length > 0 ? (
-                    availableSemesters.map((semId) => {
-                      const semesterRank = semesterRanks[semId];
-                      const rankLabel = Number.isFinite(semesterRank) ? `#${semesterRank}` : loadingSemesterRanks ? 'Đang tải' : 'Chưa có hạng';
-                      const isSelected = rankingResult?.semesterId === semId;
-                      return (
-                        <button
-                          key={semId}
-                          onClick={() => handleSelectReferenceSemester(semId)}
-                          className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
-                            isSelected
-                              ? 'border-blue-300 bg-blue-50 text-[#003375]'
-                              : 'border-[#E2E8F0] bg-white text-[#334155] hover:border-blue-300 hover:bg-blue-50 hover:text-[#003375]'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-sm font-bold">{mapIdToDisplay(semId)}</span>
-                            <ChevronRight size={16} className="shrink-0" />
-                          </div>
-                          <div className="mt-1 text-xs font-semibold text-[#64748B]">Hạng: {rankLabel}</div>
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <div className="rounded-lg border border-[#E2E8F0] bg-white py-8 text-center text-sm text-[#64748B]">Chưa có dữ liệu.</div>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClick();
+                    setIsSemesterChooserOpen((value) => !value);
+                  }}
+                  className="mt-2 flex w-full items-center justify-between gap-3 rounded-xl border border-blue-200 bg-white px-3 py-2.5 text-left text-[#003375] shadow-sm transition-colors hover:bg-blue-50"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">Đang xem</p>
+                    <p className="mt-0.5 truncate text-[13px] font-bold leading-snug sm:text-sm">
+                      {rankingResult ? mapIdToDisplay(rankingResult.semesterId) : 'Chọn học kỳ'}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    size={18}
+                    className={`shrink-0 transition-transform ${isSemesterChooserOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {isSemesterChooserOpen && (
+                  <div className="mt-2 max-h-[26vh] space-y-1.5 overflow-y-auto pr-1 sm:max-h-[34vh] sm:space-y-2 lg:max-h-[58vh]">
+                    {loadingSemesters ? (
+                      <div className="rounded-lg border border-[#E2E8F0] bg-white py-6 text-center text-sm text-[#64748B]">Đang tải...</div>
+                    ) : availableSemesters.length > 0 ? (
+                      availableSemesters.map((semId) => {
+                        const semesterRank = semesterRanks[semId];
+                        const rankLabel = Number.isFinite(semesterRank) ? `#${semesterRank}` : loadingSemesterRanks ? 'Đang tải' : 'Chưa có hạng';
+                        const isSelected = rankingResult?.semesterId === semId;
+                        return (
+                          <button
+                            key={semId}
+                            onClick={() => handleSelectReferenceSemester(semId)}
+                            className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors sm:py-3 ${
+                              isSelected
+                                ? 'border-blue-300 bg-blue-50 text-[#003375]'
+                                : 'border-[#E2E8F0] bg-white text-[#334155] hover:border-blue-300 hover:bg-blue-50 hover:text-[#003375]'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-[13px] font-bold leading-snug sm:text-sm">{mapIdToDisplay(semId)}</span>
+                              <ChevronRight size={16} className="shrink-0" />
+                            </div>
+                            <div className="mt-0.5 text-[11px] font-semibold text-[#64748B] sm:mt-1 sm:text-xs">Hạng: {rankLabel}</div>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="rounded-lg border border-[#E2E8F0] bg-white py-6 text-center text-sm text-[#64748B]">Chưa có dữ liệu.</div>
+                    )}
+                  </div>
+                )}
               </aside>
 
-              <section className="overflow-y-auto bg-white p-4 sm:p-5">
+              <section className="overflow-y-auto bg-white p-4 pb-6 sm:p-5 sm:pb-6">
                 {rankingLoading ? (
                   <div className="flex h-full min-h-[320px] flex-col items-center justify-center text-[#003375]">
                     <Loader2 size={34} className="mb-3 animate-spin" />
@@ -686,52 +737,64 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                   </div>
                 ) : rankingResult ? (
                   <div>
-                    <div className="mb-4">
-                      <h5 className="text-2xl font-bold text-[#0F172A]">Xếp hạng học kỳ</h5>
-                      <p className="mt-1 text-sm text-[#64748B]">{mapIdToDisplay(rankingResult.semesterId)}</p>
+                    <div className="mb-3 sm:mb-4">
+                      <h5 className="text-lg font-bold text-[#0F172A] sm:text-2xl">Xếp hạng học kỳ</h5>
+                      <p className="mt-1 text-xs text-[#64748B] sm:text-sm">{mapIdToDisplay(rankingResult.semesterId)}</p>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-                        <p className="text-sm font-semibold text-[#64748B]">GPA học kỳ</p>
-                        <p className="mt-2 text-3xl font-bold text-[#0F172A]">
-                          {semGPA4.toFixed(2)} <span className="text-sm font-medium text-[#64748B]">/ 4.0</span>
+                    <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-3 text-[#003375] sm:mb-4 sm:px-4">
+                      <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Xếp hạng nổi bật</p>
+                      <p className="mt-1 text-base font-extrabold leading-snug text-[#0F172A] sm:text-xl">
+                        #{rankingResult.rank} / {rankingResult.totalStudents} toàn trường
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-[#003375]">Bạn đang nằm trong {schoolTopPercentLabel} toàn trường</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                      <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 sm:p-4">
+                        <p className="text-xs font-semibold text-[#64748B] sm:text-sm">GPA học kỳ</p>
+                        <p className="mt-1.5 text-2xl font-bold leading-none text-[#0F172A] sm:mt-2 sm:text-3xl sm:leading-normal">
+                          {semGPA4.toFixed(2)} <span className="text-xs font-medium text-[#64748B] sm:text-sm">/ 4.0</span>
                         </p>
                       </div>
-                      <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-                        <p className="text-sm font-semibold text-[#64748B]">Điểm rèn luyện</p>
-                        <p className="mt-2 text-3xl font-bold text-[#0F172A]">
-                          {semester.trainingScore ?? 0} <span className="text-sm font-medium text-[#64748B]">/ 100</span>
+                      <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 sm:p-4">
+                        <p className="text-xs font-semibold text-[#64748B] sm:text-sm">Điểm rèn luyện</p>
+                        <p className="mt-1.5 text-2xl font-bold leading-none text-[#0F172A] sm:mt-2 sm:text-3xl sm:leading-normal">
+                          {semester.trainingScore ?? 0} <span className="text-xs font-medium text-[#64748B] sm:text-sm">/ 100</span>
                         </p>
                       </div>
                     </div>
 
-                    <div className="mt-4 overflow-hidden rounded-xl border border-[#E2E8F0]">
-                      <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-3">
-                        <span className="text-sm font-semibold text-[#64748B]">Top toàn trường</span>
-                        <span className="text-base font-bold text-[#0F172A]">#{rankingResult.rank} / {rankingResult.totalStudents}</span>
+                    <div className="mt-3 overflow-hidden rounded-xl border border-[#E2E8F0] sm:mt-4">
+                      <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4 sm:py-3">
+                        <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Top toàn trường</span>
+                        <span className="shrink-0 text-sm font-bold text-[#0F172A] sm:text-base">#{rankingResult.rank} / {rankingResult.totalStudents}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4 sm:py-3">
+                        <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Tỷ lệ toàn trường</span>
+                        <span className="shrink-0 text-sm font-bold text-[#0F172A] sm:text-base">{schoolTopPercentLabel}</span>
                       </div>
                       {rankingResult.rankInClass && (
-                        <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-3">
-                          <span className="text-sm font-semibold text-[#64748B]">Top trong lớp</span>
-                          <span className="text-base font-bold text-[#0F172A]">#{rankingResult.rankInClass} / {rankingResult.totalInClass}</span>
+                        <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4 sm:py-3">
+                          <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Top trong lớp</span>
+                          <span className="shrink-0 text-sm font-bold text-[#0F172A] sm:text-base">#{rankingResult.rankInClass} / {rankingResult.totalInClass}</span>
                         </div>
                       )}
                       {rankingResult.rankInMajor && (
-                        <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 py-3">
-                          <span className="text-sm font-semibold text-[#64748B]">Top trong ngành</span>
-                          <span className="text-base font-bold text-[#0F172A]">#{rankingResult.rankInMajor} / {rankingResult.totalInMajor}</span>
+                        <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4 sm:py-3">
+                          <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Top trong ngành</span>
+                          <span className="shrink-0 text-sm font-bold text-[#0F172A] sm:text-base">#{rankingResult.rankInMajor} / {rankingResult.totalInMajor}</span>
                         </div>
                       )}
-                      <div className="flex items-start justify-between gap-4 px-4 py-3">
-                        <span className="text-sm font-semibold text-[#64748B]">Ngành</span>
-                        <span className="text-right text-base font-semibold text-[#0F172A]">{rankingResult.major || 'Chưa có dữ liệu'}</span>
+                      <div className="flex items-start justify-between gap-3 px-3 py-2.5 sm:px-4 sm:py-3">
+                        <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Ngành</span>
+                        <span className="min-w-0 text-right text-sm font-semibold text-[#0F172A] sm:text-base">{rankingResult.major || 'Chưa có dữ liệu'}</span>
                       </div>
                     </div>
 
-                    <div className={`mt-4 rounded-xl border p-4 ${scholarshipRankAssessment.className}`}>
-                      <p className="text-base font-bold text-[#0F172A]">Đánh giá học bổng</p>
-                      <p className="mt-1 text-sm leading-6 text-[#334155]">
+                    <div className={`mt-3 rounded-xl border p-3 sm:mt-4 sm:p-4 ${scholarshipRankAssessment.className}`}>
+                      <p className="text-sm font-bold text-[#0F172A] sm:text-base">Đánh giá học bổng</p>
+                      <p className="mt-1 text-xs leading-5 text-[#334155] sm:text-sm sm:leading-6">
                         {scholarshipRankAssessment.text}
                       </p>
                     </div>
@@ -899,6 +962,42 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                         {sortOrder === 'desc' ? (<><ArrowDown className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Cao ➝ Thấp</span></>) : sortOrder === 'asc' ? (<><ArrowUp className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Thấp ➝ Cao</span></>) : (<><ListFilter className="w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Sắp xếp</span></>)}
                     </button>
 
+                    <div className="relative shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                playClick();
+                                setShowScoreColumns((value) => !value);
+                            }}
+                            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-all active:scale-95 sm:px-3 sm:text-sm ${
+                                showScoreColumns ? 'border-blue-200 bg-blue-50 text-[#003375] shadow-sm' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                            title="Ẩn/hiện cột điểm"
+                        >
+                            <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            <span>Cột</span>
+                        </button>
+
+                        {showScoreColumns && (
+                            <div className="absolute left-0 top-full z-30 mt-2 w-36 rounded-xl border border-gray-200 bg-white p-2 shadow-xl">
+                                {scoreColumnConfig.map((column) => (
+                                    <label key={column.key} className="flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-2 text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-[#003375]">
+                                        <span>{column.label}</span>
+                                        <input
+                                            type="checkbox"
+                                            checked={visibleScoreColumns[column.key]}
+                                            onChange={(event) => {
+                                                playClick();
+                                                setVisibleScoreColumns((prev) => ({ ...prev, [column.key]: event.target.checked }));
+                                            }}
+                                            className="h-3.5 w-3.5 rounded border-gray-300 text-[#003375] focus:ring-[#003375]"
+                                        />
+                                    </label>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     <div className="relative flex-1 sm:w-64 sm:flex-none">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         <input type="text" placeholder="Tìm môn học..." className="w-full pl-8 pr-7 py-1.5 text-[11px] sm:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow hover:border-blue-300" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
@@ -912,10 +1011,9 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 <thead className="text-xs text-white uppercase bg-[#003375] border-b border-[#002855]">
                     <tr>
                         <th className="px-3 py-3 w-10 text-center">STT</th>
-                        <th className="px-2 py-3 w-14 text-center">10%</th>
-                        <th className="px-2 py-3 w-14 text-center">20%</th>
-                        <th className="px-2 py-3 w-14 text-center">20%</th>
-                        <th className="px-2 py-3 w-14 text-center">50%</th>
+                        {visibleScoreColumnConfig.map((column) => (
+                            <th key={column.key} className="px-2 py-3 w-14 text-center">{column.label}</th>
+                        ))}
                         <th className="px-3 py-3 min-w-[180px]">Môn học</th>
                         <th className="px-2 py-3 w-12 text-center">TC</th>
                         <th className="px-2 py-3 w-14 text-center">TB(10)</th>
@@ -952,9 +1050,9 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                             <tr key={subject.id} className={`${rowClass} transition-colors duration-150 group`}>
                                 <td className="px-3 py-2 text-center text-gray-500">{sIdx + 1}</td>
                                 
-                                {['scoreCC', 'scoreProcess', 'scoreMid', 'scoreFinal'].map((key) => (
-                                    <td key={key} className="px-1 py-2">
-                                        <ScoreInput value={subject[key as keyof Subject] as number | null} onChange={(val) => handleSubjectChange(subject.id, key as keyof Subject, val)} />
+                                {visibleScoreColumnConfig.map((column) => (
+                                    <td key={column.key} className="px-1 py-2">
+                                        <ScoreInput value={subject[column.key as keyof Subject] as number | null} onChange={(val) => handleSubjectChange(subject.id, column.key as keyof Subject, val)} />
                                     </td>
                                 ))}
 
@@ -983,7 +1081,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                         );
                         })
                     ) : (
-                        <tr><td colSpan={12} className="py-8 text-center text-gray-500">Không tìm thấy môn học nào phù hợp với "{searchTerm}"</td></tr>
+                        <tr><td colSpan={8 + visibleScoreColumnConfig.length} className="py-8 text-center text-gray-500">Không tìm thấy môn học nào phù hợp với "{searchTerm}"</td></tr>
                     )}
                 </tbody>
                 </table>

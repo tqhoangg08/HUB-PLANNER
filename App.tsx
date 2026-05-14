@@ -48,6 +48,7 @@ import {
 import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from './utils/profilePrivate';
 import { apiUrl } from './utils/api';
 import { calculateCumulativeStats } from './utils/calculations';
+import { logActivity, logActivityQuietly } from './utils/activityLogger';
 
 let globalDeferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -193,6 +194,8 @@ const App: React.FC = () => {
     // ==========================================
     const [isAppMode, setIsAppMode] = useState(false);
     const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth < 768);
+    const lastLoggedUserIdRef = useRef<string | null>(null);
+    const lastLoggedPathRef = useRef<string | null>(null);
 
     useEffect(() => {
         const checkIfAppMode = () => {
@@ -211,6 +214,47 @@ const App: React.FC = () => {
 
     const useMobileLayout = isAppMode && isMobileScreen;
     const isMobileBrowser = isMobileScreen && !isAppMode;
+
+    useEffect(() => {
+        const currentUserId = session?.user?.id || null;
+        if (!currentUserId) {
+            lastLoggedUserIdRef.current = null;
+            return;
+        }
+
+        if (lastLoggedUserIdRef.current === currentUserId || loadingRole || !(isAdmin || isAuditor)) return;
+
+        lastLoggedUserIdRef.current = currentUserId;
+        logActivityQuietly({
+            action: 'login',
+            session,
+            userRole: isAdmin ? 'admin' : 'auditor',
+            pagePath: location.pathname,
+            metadata: {
+                authProvider: session.user.app_metadata?.provider || 'unknown',
+            },
+        });
+    }, [session?.user?.id, loadingRole, isAdmin, isAuditor, location.pathname]);
+
+    useEffect(() => {
+        if (!session || loadingRole || !(isAdmin || isAuditor)) return;
+
+        const pagePath = `${location.pathname}${location.search}`;
+        const dedupeKey = `${session.user.id}:${pagePath}`;
+        if (lastLoggedPathRef.current === dedupeKey) return;
+        lastLoggedPathRef.current = dedupeKey;
+
+        logActivityQuietly({
+            action: 'view_page',
+            session,
+            userRole: isAdmin ? 'admin' : 'auditor',
+            pagePath,
+            metadata: {
+                title: document.title,
+            },
+        });
+    }, [session?.user?.id, loadingRole, isAdmin, isAuditor, location.pathname, location.search]);
+
     useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
@@ -961,6 +1005,14 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         if (window.confirm("Đăng xuất khỏi hệ thống?")) {
             try {
                 await unbindDeviceNotificationsForCurrentUser(session?.user?.id);
+                if (session && (isAdmin || isAuditor)) {
+                    await logActivity({
+                        action: 'logout',
+                        session,
+                        userRole: isAdmin ? 'admin' : 'auditor',
+                        pagePath: location.pathname,
+                    });
+                }
             } catch (e) {
                 console.error("Lỗi gỡ liên kết thông báo thiết bị:", e);
             }
@@ -1621,6 +1673,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/profiles/search" element={<ProfileSearchPage />} />
                 
                 <Route path="/admin-reports" element={(isAdmin || isAuditor) ? <AdminReports /> : <Navigate to="/dashboard" replace />} />
+                <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/dashboard" replace />} />
                 <Route path="/admin/event-candidates" element={(isAdmin || isAuditor) ? <AdminEventCandidates /> : <Navigate to="/dashboard" replace />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
@@ -1637,6 +1690,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/lost-found" element={<MobileLostFound />} />
                 <Route path="/handbook/:tab?" element={<MobileHandbook />} />
                 <Route path="/handbook" element={<MobileHandbook />} />
+                <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/event-candidates" element={(isAdmin || isAuditor) ? <AdminEventCandidates /> : <Navigate to="/mobile-home" replace />} />
                 
                 <Route path="/profile/:id" element={

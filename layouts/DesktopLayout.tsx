@@ -370,6 +370,11 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               <div className="w-2 h-2 rounded-full bg-red-500" title={`${pendingReportCount} mục chờ xử lý`}></div>
                           )}
                       </NavLink>
+                      {isAdmin && (
+                          <NavLink to="/admin/activity" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
+                              <Clock size={16} /> Theo dõi hoạt động
+                          </NavLink>
+                      )}
                       <NavLink to="/admin/event-candidates" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center justify-between px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
                           <div className="flex items-center gap-3">
                               <Sparkles size={16} /> Event candidate
@@ -435,7 +440,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               <span>HUB Planner</span>
                               <span className="opacity-50">/</span>
                               <span className="text-gray-900 font-bold truncate max-w-[150px] sm:max-w-full">
-                                  {location.pathname.includes('admin/event-candidates')
+                                  {location.pathname.includes('admin/activity')
+                                      ? 'Theo dõi hoạt động'
+                                      : location.pathname.includes('admin/event-candidates')
                                       ? 'Event candidate'
                                       : location.pathname.includes('admin-reports')
                                           ? 'Xử lý báo cáo'

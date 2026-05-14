@@ -1,108 +1,144 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../utils/supabase';
 import { Session } from '@supabase/supabase-js';
+import { supabase } from '../utils/supabase';
 
-// 1. Thêm 'auditor' vào Type
-export type UserRole = 'admin' | 'auditor' | 'editor' | 'student';
+export type UserRole = 'admin' | 'auditor' | 'student';
 
 interface UserRoleState {
     role: UserRole;
     isAdmin: boolean;
-    isAuditor: boolean; // 2. Thêm cờ nhận diện Auditor
-    isCTV: boolean; // Editor
+    isAuditor: boolean;
+    isCTV: boolean;
     isStudent: boolean;
     loading: boolean;
     userEmail: string | null;
     session: Session | null;
 }
 
+const normalizeRole = (role?: string | null): UserRole => {
+    const normalized = String(role || '').trim().toLowerCase();
+    if (normalized === 'admin' || normalized === 'auditor') return normalized;
+    return 'student';
+};
+
+const fetchRoleRecord = async (userId: string, email?: string | null): Promise<UserRole> => {
+    const readRole = async (column: 'id' | 'user_id', value: string) => {
+        const { data, error } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq(column, value)
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            console.warn(`Khong the doc user_roles.${column}:`, error.message);
+            return null;
+        }
+        return data?.role ? normalizeRole(data.role as string) : null;
+    };
+
+    const directRole = await readRole('id', userId);
+    if (directRole && directRole !== 'student') return directRole;
+
+    const userIdRole = await readRole('user_id', userId);
+    if (userIdRole && userIdRole !== 'student') return userIdRole;
+
+    if (email) {
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', email)
+            .limit(1)
+            .maybeSingle();
+
+        if (!profileError && profile?.id) {
+            const profileRole = await readRole('user_id', profile.id as string);
+            if (profileRole && profileRole !== 'student') return profileRole;
+        }
+    }
+
+    return 'student';
+};
+
+const anonymousState: UserRoleState = {
+    role: 'student',
+    isAdmin: false,
+    isAuditor: false,
+    isCTV: false,
+    isStudent: true,
+    loading: false,
+    userEmail: null,
+    session: null,
+};
+
 export const useUserRole = () => {
     const [state, setState] = useState<UserRoleState>({
-        role: 'student',
-        isAdmin: false,
-        isAuditor: false, // 3. Khởi tạo mặc định
-        isCTV: false,
-        isStudent: true,
-        loading: true, // Khóa màn hình chờ lấy phiên
-        userEmail: null,
-        session: null
+        ...anonymousState,
+        loading: true,
     });
 
     useEffect(() => {
         let isMounted = true;
 
         const fetchRole = async (currentSession: Session | null) => {
-            // Trường hợp 1: Không có phiên đăng nhập (Khách thật sự)
             if (!currentSession) {
+                if (isMounted) setState(anonymousState);
+                return;
+            }
+
+            if (!supabase) {
                 if (isMounted) {
                     setState({
-                        role: 'student', 
-                        isAdmin: false, 
-                        isAuditor: false, 
-                        isCTV: false, 
-                        isStudent: true,
-                        loading: false, 
-                        userEmail: null, 
-                        session: null
+                        ...anonymousState,
+                        loading: false,
+                        userEmail: currentSession.user.email || null,
+                        session: currentSession,
                     });
                 }
                 return;
             }
 
-            // Bảo vệ an toàn: Nếu supabase chưa sẵn sàng thì khoan hãy check DB
-            if (!supabase) return;
-
-            // Trường hợp 2: Có đăng nhập -> Chạy vào DB check xem có phải Admin/Auditor không
             try {
-                const { data, error } = await supabase
-                    .from('user_roles')
-                    .select('role')
-                    .eq('user_id', currentSession.user.id)
-                    .maybeSingle();
-
-                const role = (data && !error) ? (data.role as string).trim() as UserRole : 'student';
+                const dbRole = await fetchRoleRecord(currentSession.user.id, currentSession.user.email);
+                const metadataRole = normalizeRole(
+                    (currentSession.user.app_metadata?.role as string | undefined)
+                    || (currentSession.user.user_metadata?.role as string | undefined)
+                );
+                const role = dbRole !== 'student' ? dbRole : metadataRole;
 
                 if (isMounted) {
                     setState({
                         role,
                         isAdmin: role === 'admin',
-                        isAuditor: role === 'auditor', // 4. Kiểm tra role auditor
-                        isCTV: role === 'editor',
-                        isStudent: role !== 'admin' && role !== 'editor' && role !== 'auditor', // 5. Cập nhật điều kiện sinh viên
+                        isAuditor: role === 'auditor',
+                        isCTV: false,
+                        isStudent: role === 'student',
                         loading: false,
                         userEmail: currentSession.user.email || null,
-                        session: currentSession // <-- Giữ nguyên phiên đăng nhập
+                        session: currentSession,
                     });
                 }
             } catch (err) {
-                console.error("Lỗi lấy quyền:", err);
-                // Trường hợp 3: DÙ CÓ LỖI DB THÌ VẪN PHẢI CHO ĐĂNG NHẬP (Chỉ là không có quyền)
+                console.error('Loi lay quyen:', err);
                 if (isMounted) {
                     setState({
-                        role: 'student', 
-                        isAdmin: false, 
-                        isAuditor: false, 
-                        isCTV: false, 
-                        isStudent: true,
-                        loading: false, 
-                        userEmail: currentSession.user.email || null, 
-                        session: currentSession // <-- QUAN TRỌNG: Tránh bị văng ra ẩn danh!
+                        ...anonymousState,
+                        loading: false,
+                        userEmail: currentSession.user.email || null,
+                        session: currentSession,
                     });
                 }
             }
         };
 
-        // BẢO VỆ AN TOÀN TRƯỚC KHI GỌI AUTH
-        if (supabase && supabase.auth) {
-            // 1. Lấy phiên tức thì khi vừa F5
-            supabase.auth.getSession().then(({ data: { session } }) => {
-                fetchRole(session);
-            }).catch(err => {
-                console.error("Lỗi getSession:", err);
-                if (isMounted) setState(prev => ({ ...prev, loading: false }));
-            });
+        if (supabase?.auth) {
+            supabase.auth.getSession()
+                .then(({ data: { session } }) => fetchRole(session))
+                .catch(err => {
+                    console.error('Loi getSession:', err);
+                    if (isMounted) setState(prev => ({ ...prev, loading: false }));
+                });
 
-            // 2. Lắng nghe mọi biến động (Hết hạn token, bị đá ra, v.v...)
             const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
                 fetchRole(session);
             });
@@ -111,11 +147,12 @@ export const useUserRole = () => {
                 isMounted = false;
                 subscription?.unsubscribe();
             };
-        } else {
-            // Nếu không có Supabase, buộc phải tắt loading để tránh treo app
-            if (isMounted) setState(prev => ({ ...prev, loading: false }));
-            return () => { isMounted = false; };
         }
+
+        setState(prev => ({ ...prev, loading: false }));
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     return state;
