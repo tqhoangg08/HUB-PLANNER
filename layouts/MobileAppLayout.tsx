@@ -103,6 +103,9 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
     return matchRules.some((rule) => pathname.includes(rule));
   };
 
+  const activeNavIndex = navItems.findIndex((item) => checkIsActive(location.pathname, item.match));
+  const activeNavLeft = `calc(${(activeNavIndex >= 0 ? activeNavIndex : 0) * 20}% + 10% - 16px)`;
+
   return (
     <div className={`mobile-app-root app-root platform-${platform} flex h-[100dvh] w-full flex-col overflow-hidden bg-[#F8FAFC] pb-safe relative z-10`}>
       <style>{ANIMATION_STYLES}</style>
@@ -115,6 +118,11 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
 
       {showBottomNav && (
         <nav className="mobile-bottom-nav absolute inset-x-0 bottom-0 z-50 flex border-t border-[#EEF2FF] bg-white px-1 pb-[calc(18px+env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_24px_rgba(13,27,62,0.06)]">
+          <span
+            aria-hidden="true"
+            className="absolute top-2 h-8 w-8 rounded-[10px] bg-[#EEF2FF] transition-[left] duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)]"
+            style={{ left: activeNavLeft }}
+          />
           {navItems.map((item) => {
             const isActive = checkIsActive(location.pathname, item.match);
             const Icon = item.icon;
@@ -124,9 +132,9 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
                 key={item.id}
                 to={item.path}
                 onClick={playClick}
-                className="flex flex-1 flex-col items-center gap-1"
+                className="relative z-10 flex flex-1 flex-col items-center gap-1"
               >
-                <span className={`flex h-8 w-8 items-center justify-center rounded-[10px] ${isActive ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#B0BCDA]'}`}>
+                <span className={`flex h-8 w-8 items-center justify-center rounded-[10px] transition-colors duration-300 ${isActive ? 'text-[#1A56FF]' : 'text-[#B0BCDA]'}`}>
                   <Icon size={20} strokeWidth={2.2} />
                 </span>
                 <span className={`text-[10px] font-bold ${isActive ? 'text-[#1A56FF]' : 'text-[#B0BCDA]'}`}>

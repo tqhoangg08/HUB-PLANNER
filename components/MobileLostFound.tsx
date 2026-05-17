@@ -444,11 +444,15 @@ return (
       </div>
 
       <div className="px-6 pb-8">
-          <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-white p-1 shadow-[0_2px_12px_rgba(13,27,62,0.06)]">
-              <button onClick={() => { playClick(); setActiveTab('FOUND'); }} className={`flex items-center justify-center gap-1.5 rounded-xl py-3 text-[12px] font-black transition-all ${activeTab === 'FOUND' ? 'bg-[#1A56FF] text-white shadow-[0_4px_14px_rgba(26,86,255,0.28)]' : 'text-[#7B8AB0]'}`}>
+          <div className="relative mb-4 grid grid-cols-2 gap-2 overflow-hidden rounded-xl bg-white p-1 shadow-[0_2px_12px_rgba(13,27,62,0.06)]">
+              <span
+                  aria-hidden="true"
+                  className={`absolute bottom-1 left-1 top-1 w-[calc((100%-1rem)/2)] rounded-xl bg-[#1A56FF] shadow-[0_4px_14px_rgba(26,86,255,0.28)] transition-transform duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${activeTab === 'LOST' ? 'translate-x-[calc(100%+0.5rem)]' : 'translate-x-0'}`}
+              />
+              <button onClick={() => { playClick(); setActiveTab('FOUND'); }} className={`relative z-10 flex items-center justify-center gap-1.5 rounded-xl py-3 text-[12px] font-black transition-colors duration-300 ${activeTab === 'FOUND' ? 'text-white' : 'text-[#7B8AB0]'}`}>
                   <MapPin size={15} /> Tin nhặt được
               </button>
-              <button onClick={() => { playClick(); setActiveTab('LOST'); }} className={`flex items-center justify-center gap-1.5 rounded-xl py-3 text-[12px] font-black transition-all ${activeTab === 'LOST' ? 'bg-[#1A56FF] text-white shadow-[0_4px_14px_rgba(26,86,255,0.28)]' : 'text-[#7B8AB0]'}`}>
+              <button onClick={() => { playClick(); setActiveTab('LOST'); }} className={`relative z-10 flex items-center justify-center gap-1.5 rounded-xl py-3 text-[12px] font-black transition-colors duration-300 ${activeTab === 'LOST' ? 'text-white' : 'text-[#7B8AB0]'}`}>
                   <Megaphone size={15} /> Tin báo mất
               </button>
           </div>

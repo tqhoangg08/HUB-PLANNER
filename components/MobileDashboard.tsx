@@ -1170,7 +1170,11 @@ const NativeSegmentedTabs = ({
   ];
 
   return (
-    <div className="mx-6 mb-5 grid grid-cols-2 rounded-2xl bg-white p-1 shadow-[0_2px_14px_rgba(13,27,62,0.08)]">
+    <div className="relative mx-6 mb-5 grid grid-cols-2 gap-2 overflow-hidden rounded-2xl bg-white p-1 shadow-[0_2px_14px_rgba(13,27,62,0.08)]">
+      <span
+        aria-hidden="true"
+        className={`absolute bottom-1 left-1 top-1 w-[calc((100%-1rem)/2)] rounded-xl bg-[#1A56FF] shadow-[0_5px_14px_rgba(26,86,255,0.34)] transition-transform duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${activeTab === 'schedule' ? 'translate-x-[calc(100%+0.5rem)]' : 'translate-x-0'}`}
+      />
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
@@ -1179,9 +1183,9 @@ const NativeSegmentedTabs = ({
             key={tab.id}
             type="button"
             onClick={() => onTabChange(tab.id)}
-            className={`flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl px-2 text-[12px] font-extrabold transition-all ${
+            className={`relative z-10 flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl px-2 text-[12px] font-extrabold transition-colors duration-300 ${
               isActive
-                ? 'bg-[#1A56FF] text-white shadow-[0_5px_14px_rgba(26,86,255,0.34)]'
+                ? 'text-white'
                 : 'text-[#9AA5C0] active:bg-slate-50'
             }`}
           >
