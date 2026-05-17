@@ -6,7 +6,6 @@ import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAver
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import { supabase } from '../utils/supabase';
-import { apiUrl } from '../utils/api';
 import DOMPurify from 'dompurify';
 import { createPortal } from 'react-dom';
 import { usePlatform } from '../hooks/usePlatform';
@@ -202,18 +201,22 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       const studentContext = getStudentContext();
       const cleanHistoryForAI = chatHistory.map(msg => ({ role: msg.role, content: msg.content }));
 
-      const res = await fetch(apiUrl('/bot'), {
+      const res = await fetch('/api/bot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
             question: questionToAsk,
+            message: questionToAsk,
             history: cleanHistoryForAI,
             context: studentContext,
             userId: userId
         })
       });
 
-      if (!res.ok) throw new Error("Máy chủ AI đang bận hoặc mất kết nối.");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || errorData?.error || "Máy chủ AI đang bận hoặc mất kết nối.");
+      }
 
       const resData = await res.json();
       const botReply = resData.reply || "Xin lỗi, mình không có câu trả lời.";

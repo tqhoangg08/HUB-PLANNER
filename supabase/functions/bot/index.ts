@@ -34,7 +34,41 @@ const json = (data: unknown, status = 200, extraHeaders: Record<string, string> 
     status,
   })
 
-const callGroq = async (apiKey: string, message: string) => {
+type ChatHistoryItem = {
+  role?: string
+  content?: string
+}
+
+const buildMessages = (body: Record<string, unknown>) => {
+  const question = String(body.question || body.message || '').trim()
+  const context = String(body.context || '').trim()
+  const history = Array.isArray(body.history) ? body.history as ChatHistoryItem[] : []
+
+  const systemPrompt = `Bạn là AI Cố vấn học tập của HUB Planner.
+Nhiệm vụ: tư vấn cho sinh viên Đại học Ngân hàng TP.HCM (HUB) dựa trên thông tin người dùng cung cấp.
+
+Thông tin sinh viên:
+${context || 'Chưa có thông tin cá nhân.'}
+
+Nguyên tắc:
+1. Trả lời ngắn gọn, rõ ràng, thân thiện; xưng "mình" và gọi người dùng là "bạn".
+2. Ưu tiên tư vấn học tập, GPA, lịch học, sự kiện, thông báo HUB và cách dùng HUB Planner.
+3. Nếu thiếu dữ liệu chắc chắn, nói rõ là chưa có dữ liệu thay vì tự bịa.
+4. Không trả JSON, không dùng markdown phức tạp; có thể dùng gạch đầu dòng khi cần.`
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...history.slice(-6).map((item) => ({
+      role: item.role === 'assistant' ? 'assistant' : 'user',
+      content: String(item.content || '').slice(0, 1200),
+    })).filter((item) => item.content.trim()),
+    { role: 'user', content: question },
+  ]
+
+  return { question, messages }
+}
+
+const callGroq = async (apiKey: string, messages: Array<{ role: string; content: string }>) => {
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -42,16 +76,9 @@ const callGroq = async (apiKey: string, message: string) => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      messages: [
-        {
-          role: 'system',
-          content: 'Bạn là một API xử lý dữ liệu OCR. Nhiệm vụ duy nhất của bạn là trích xuất thông tin từ văn bản được cung cấp và trả về JSON hợp lệ. Không trả lời thêm lời dẫn hoặc giải thích.',
-        },
-        { role: 'user', content: message },
-      ],
+      messages,
       model: Deno.env.get('GROQ_MODEL') || 'llama-3.3-70b-versatile',
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
+      temperature: 0.25,
     }),
   })
   const responseText = await response.text()
@@ -97,14 +124,14 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}))
-    const { message } = body
-    if (!message) return json({ error: 'Missing message' }, 400, rateHeaders)
+    const { question, messages } = buildMessages(body)
+    if (!question) return json({ error: 'Missing message' }, 400, rateHeaders)
     if (keyPool.length === 0) throw new Error('Chưa cấu hình GROQ_API_KEY.')
 
     let lastError: any = null
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        const reply = await callGroq(getRandomKey(), message)
+        const reply = await callGroq(getRandomKey(), messages)
         return json({ reply }, 200, rateHeaders)
       } catch (error) {
         console.error(`Bot attempt ${attempt + 1} failed:`, error)
