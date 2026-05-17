@@ -866,6 +866,26 @@ body.mobile-standalone {
   background-color: #ffffff !important;
 }
 
+html.mobile-standalone .mobile-app-root,
+body.mobile-standalone .mobile-app-root {
+  position: fixed !important;
+  inset: 0 !important;
+  height: 100vh !important;
+  height: 100lvh !important;
+  min-height: 100vh !important;
+  min-height: 100lvh !important;
+  max-height: 100lvh !important;
+  overflow: hidden !important;
+}
+
+html.mobile-standalone .mobile-main,
+body.mobile-standalone .mobile-main {
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
 html.mobile-standalone,
 html.mobile-standalone body,
 body.mobile-standalone,
