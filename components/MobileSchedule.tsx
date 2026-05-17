@@ -789,10 +789,16 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
 
     setIsSubmittingCourse(true);
     try {
-      const { data } = await supabase.from('user_course_requests').insert({ 
-        subject_name: newCourseData.subject_name, course_code: newCourseData.course_code, instructor: newCourseData.instructor || 'Chưa rõ', user_id: user.id
-      }).select('id').single();
-      void notifyModerators('user_course_request', data?.id);
+      const requestId = crypto.randomUUID();
+      const { error } = await supabase.from('user_course_requests').insert({
+        id: requestId,
+        subject_name: newCourseData.subject_name,
+        course_code: newCourseData.course_code,
+        instructor: newCourseData.instructor || 'Chưa rõ',
+        user_id: user.id,
+      });
+      if (error) throw error;
+      void notifyModerators('user_course_request', requestId);
       alert("✅ Gửi yêu cầu thành công!");
       setIsCreateCourseModalOpen(false);
       setNewCourseData({ subject_name: '', course_code: '', instructor: '' });

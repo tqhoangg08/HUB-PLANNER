@@ -1305,11 +1305,16 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
     setIsSubmittingCourse(true);
     try {
-      const { data, error } = await supabase.from('user_course_requests').insert({ 
-        subject_name: newCourseData.subject_name, course_code: newCourseData.course_code, instructor: newCourseData.instructor || 'Chưa rõ', user_id: user.id
-      }).select('id').single();
+      const requestId = crypto.randomUUID();
+      const { error } = await supabase.from('user_course_requests').insert({
+        id: requestId,
+        subject_name: newCourseData.subject_name,
+        course_code: newCourseData.course_code,
+        instructor: newCourseData.instructor || 'Chưa rõ',
+        user_id: user.id,
+      });
       if (error) throw error;
-      void notifyModerators('user_course_request', data?.id);
+      void notifyModerators('user_course_request', requestId);
       alert("✅ Gửi yêu cầu thành công! Admin sẽ kiểm tra và cập nhật môn này.");
       setIsCreateCourseModalOpen(false); setNewCourseData({ subject_name: '', course_code: '', instructor: '' });
     } catch (error) { alert("Đã xảy ra lỗi khi gửi yêu cầu."); } 
