@@ -1,6 +1,9 @@
-@import "@fontsource/inter/latin.css";
-@import "@fontsource/inter/vietnamese.css";
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
 
 /* =========================================================
    BASE
@@ -10,6 +13,7 @@
   *::before,
   *::after {
     box-sizing: border-box;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
   html {
@@ -18,7 +22,7 @@
     max-width: 100%;
     min-height: 100%;
     background-color: #F8FAFC;
-    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
     text-rendering: geometricPrecision;
@@ -37,7 +41,7 @@
     max-width: 100%;
     min-height: 100%;
     background-color: #F8FAFC;
-    font-family: inherit;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-weight: 400;
     line-height: 1.5;
     letter-spacing: 0;
@@ -49,12 +53,18 @@
   textarea,
   select {
     font: inherit;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     letter-spacing: 0;
   }
 
   h1,
   h2,
-  h3 {
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-weight: 800;
     letter-spacing: 0;
     text-wrap: balance;
   }
@@ -86,12 +96,12 @@
   }
 
   .font-extrabold {
-    font-weight: 750;
+    font-weight: 800;
   }
 
   .hub-brand,
   .hub-brand * {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Be Vietnam Pro", "Segoe UI", Arial, sans-serif;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
   .hub-brand .hub-brand-title {
@@ -384,6 +394,24 @@
   }
 }
 
+.mobile-bottom-nav {
+  isolation: isolate;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  opacity: 1 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.mobile-bottom-nav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: #ffffff;
+  box-shadow: 0 -10px 24px rgba(13, 27, 62, 0.06);
+}
+
 /* =========================================================
    IOS / MOBILE APP SKIN
    Dùng cho giao diện PWA / mobile app.
@@ -409,7 +437,7 @@
     --ios-radius-md: 20px;
     --ios-radius-sm: 16px;
 
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Be Vietnam Pro", sans-serif;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
   .platform-ios .ios-glass,
@@ -440,8 +468,6 @@
   }
 
   .platform-ios .ios-blue-glass,
-  .platform-ios .mobile-home-page > div:first-child,
-  .platform-ios .mobile-profile-page > div:first-child,
   .platform-ios .mobile-handbook-header {
     position: relative;
     background: linear-gradient(145deg, rgba(0, 59, 122, 0.94), rgba(11, 94, 215, 0.78)) !important;
@@ -453,8 +479,6 @@
   }
 
   .platform-ios .ios-blue-glass::after,
-  .platform-ios .mobile-home-page > div:first-child::after,
-  .platform-ios .mobile-profile-page > div:first-child::after,
   .platform-ios .mobile-handbook-header::after {
     content: "";
     position: absolute;
@@ -505,17 +529,6 @@
     font-weight: 800;
   }
 
-  .platform-ios .mobile-home-page > div:first-child,
-  .platform-ios .mobile-profile-page > div:first-child {
-    border-radius: 0 0 38px 38px !important;
-    padding-top: calc(3rem + env(safe-area-inset-top)) !important;
-  }
-
-  .platform-ios .mobile-profile-page > div:nth-child(2) {
-    border-radius: 30px !important;
-    transform: translateY(-2px);
-  }
-
   .platform-ios .mobile-learning-tabs {
     margin: 10px 12px 0;
     padding: 8px !important;
@@ -536,9 +549,7 @@
   }
 
   .platform-ios .mobile-dashboard-page,
-  .platform-ios .mobile-schedule-page,
-  .platform-ios .mobile-events-page,
-  .platform-ios .mobile-lostfound-page {
+  .platform-ios .mobile-schedule-page {
     padding-top: 10px;
   }
 
@@ -855,15 +866,24 @@ body.mobile-standalone {
   background-color: #ffffff !important;
 }
 
+html.mobile-standalone,
+html.mobile-standalone body,
+body.mobile-standalone,
+html.mobile-standalone .mobile-app-root,
+html.mobile-standalone .mobile-app-root *,
+html.mobile-standalone .mobile-app-root *::before,
+html.mobile-standalone .mobile-app-root *::after,
+body.mobile-standalone .mobile-app-root,
+body.mobile-standalone .mobile-app-root *,
+body.mobile-standalone .mobile-app-root *::before,
+body.mobile-standalone .mobile-app-root *::after {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+
 .platform-ios .mobile-app-root,
 .platform-ios .mobile-main {
   padding-top: 0 !important;
   background-color: transparent !important;
-}
-
-.platform-ios .mobile-home-page > div:first-child,
-.platform-ios .mobile-profile-page > div:first-child {
-  padding-top: calc(env(safe-area-inset-top) + 38px) !important;
 }
 
 /* =========================================================

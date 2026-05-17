@@ -1,263 +1,330 @@
-import React, { useState, useEffect } from 'react';
-import { 
-    User, Trash2, Moon, Bell, RefreshCw, 
-    Info, HelpCircle, Coffee, FileText, Lock, 
-    ChevronRight, LogOut, CheckCircle2,
-    Download, Share, PlusSquare, X
+import React, { useEffect, useState } from 'react';
+import {
+    Bell,
+    CheckCircle2,
+    ChevronRight,
+    Coffee,
+    FileText,
+    GraduationCap,
+    Hash,
+    HelpCircle,
+    Info,
+    Lock,
+    LogOut,
+    Moon,
+    RefreshCw,
+    Trash2,
+    User,
+    Users,
+    X,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { fetchProfilePrivate } from '../utils/profilePrivate';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
-import { useNavigate } from 'react-router-dom';
 
 interface MobileProfileProps {
     setShowAccountSettings?: (v: boolean) => void;
     handleRequestReset?: () => void;
 }
 
+type NotificationPrefs = {
+    school: boolean;
+    events: boolean;
+    lostFound: boolean;
+    system: boolean;
+};
+
+const NOTIFICATION_STORAGE_KEY = 'hub-notification-prefs';
+
+const DragHandle = () => (
+    <div className="mx-auto mb-2 mt-3 h-1.5 w-12 shrink-0 rounded-full bg-gray-300" />
+);
+
 export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSettings, handleRequestReset }) => {
     const navigate = useNavigate();
     const [profile, setProfile] = useState<any>(null);
     const [session, setSession] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-    const [isIOS, setIsIOS] = useState(false);
-    const [isStandalone, setIsStandalone] = useState(false);
-    const [showIOSInstructions, setShowIOSInstructions] = useState(false);
+    const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+    const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>({
+        school: true,
+        events: true,
+        lostFound: true,
+        system: true,
+    });
 
     useEffect(() => {
-        // Kiểm tra xem máy có phải iOS không (iPhone, iPad, iPod)
-        const userAgent = window.navigator.userAgent.toLowerCase();
-        const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
-        setIsIOS(isIOSDevice);
-
-        // Kiểm tra xem app đã được cài ra màn hình chính chưa
-        const isAppInstalled = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
-        setIsStandalone(isAppInstalled);
-
-        // Bắt sự kiện cài đặt tự động (Chỉ chạy trên Android / PC Chrome)
-        const handleBeforeInstallPrompt = (e: Event) => {
-            e.preventDefault(); // Chặn bảng cài đặt mặc định của trình duyệt
-            setDeferredPrompt(e); // Lưu lại sự kiện để dùng khi bấm nút
-        };
-
-        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-        return () => {
-            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-        };
+        try {
+            const savedPrefs = localStorage.getItem(NOTIFICATION_STORAGE_KEY);
+            if (savedPrefs) {
+                setNotificationPrefs((current) => ({ ...current, ...JSON.parse(savedPrefs) }));
+            }
+        } catch {
+            // Keep defaults if local preferences cannot be parsed.
+        }
     }, []);
 
-    const handleInstallClick = async () => {
-        playClick();
-        if (isIOS) {
-            // Nếu là iOS -> Bật bảng hướng dẫn bằng tay
-            setShowIOSInstructions(true);
-        } else if (deferredPrompt) {
-            // Nếu là Android/PC -> Kích hoạt bảng cài đặt tự động
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            if (outcome === 'accepted') {
-                setDeferredPrompt(null);
-            }
-        } else {
-            alert("Trình duyệt của bạn không hỗ trợ cài đặt hoặc bạn đã cài app rồi.");
-        }
-    };
     useEffect(() => {
         const fetchUser = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             setSession(session);
+
             if (session?.user) {
                 const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
                 const privateProfile = await fetchProfilePrivate(session.user.id).catch(() => null);
                 if (data) setProfile({ ...data, data: privateProfile?.data, email: privateProfile?.email });
             }
+
             setLoading(false);
         };
+
         fetchUser();
     }, []);
 
     const handleLogout = async () => {
         playClick();
-        if (await showConfirm("Bạn có chắc chắn muốn đăng xuất?")) {
+        if (await showConfirm('Bạn có chắc chắn muốn đăng xuất?')) {
             await supabase.auth.signOut();
             localStorage.clear();
             sessionStorage.clear();
-            navigate('/login', { replace: true }); 
+            navigate('/login', { replace: true });
         }
     };
 
     const handleComingSoon = () => {
         playClick();
-        alert("Tính năng đang được cập nhật, bạn quay lại sau nhé!");
+        alert('Tính năng đang được cập nhật, bạn quay lại sau nhé!');
     };
 
     const handleClearCache = async () => {
         playClick();
-        if (await showConfirm("Bạn muốn xóa bộ nhớ đệm cục bộ? (Không làm đăng xuất tài khoản)")) {
-            Object.keys(localStorage).forEach(key => {
+        if (await showConfirm('Bạn muốn xóa bộ nhớ đệm cục bộ? (Không làm đăng xuất tài khoản)')) {
+            Object.keys(localStorage).forEach((key) => {
                 if (!key.startsWith('sb-')) localStorage.removeItem(key);
             });
-            alert("Đã xóa bộ nhớ đệm thành công!");
+            alert('Đã xóa bộ nhớ đệm thành công!');
             window.location.reload();
         }
     };
 
+    const updateNotificationPref = (key: keyof NotificationPrefs) => {
+        playClick();
+        setNotificationPrefs((current) => {
+            const next = { ...current, [key]: !current[key] };
+            localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(next));
+            return next;
+        });
+    };
+
     const isGuest = !session;
-    const displayName = isGuest ? "Khách (Ẩn danh)" : (profile?.full_name || profile?.data?.studentName || session?.user?.user_metadata?.full_name || "Sinh viên HUB");
-    const displaySub = isGuest ? "Đăng nhập để lưu trữ dữ liệu" : (profile?.email || session?.user?.email || "Sinh viên chính quy");
+    const displayName = isGuest ? 'Khách (ẩn danh)' : (profile?.full_name || profile?.data?.studentName || session?.user?.user_metadata?.full_name || 'Sinh viên HUB');
+    const displaySub = isGuest ? 'Đăng nhập để lưu trữ dữ liệu' : (profile?.email || session?.user?.email || 'Sinh viên chính quy');
     const avatarUrl = profile?.avatar_url || session?.user?.user_metadata?.avatar_url;
     const isColorAvatar = avatarUrl?.startsWith('#');
     const avatarSeed = displayName.charAt(0).toUpperCase();
+    const studentCode = profile?.student_code || profile?.data?.studentId || session?.user?.email?.split('@')[0] || 'HUB';
+    const cohort = profile?.data?.cohort || (studentCode?.length >= 4 ? `20${String(studentCode).slice(2, 4)}` : '2025');
+    const className = profile?.data?.className || profile?.class_name || 'Chưa cập nhật';
+    const enabledNotificationCount = Object.values(notificationPrefs).filter(Boolean).length;
 
-    const MenuItem = ({ icon: Icon, iconColor, iconBg, title, rightText, onClick, isDestructive = false }: any) => (
-        <button onClick={() => { playClick(); onClick?.(); }} className="w-full flex items-center justify-between p-4 border-b border-gray-50 last:border-0 bg-white hover:bg-gray-50 active:bg-gray-100 transition-colors">
-            <div className="flex items-center gap-3.5">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconBg} ${iconColor}`}>
-                    <Icon size={20} strokeWidth={2.5} />
-                </div>
-                <span className={`text-[15px] font-bold ${isDestructive ? 'text-red-600' : 'text-gray-800'}`}>{title}</span>
+    const MenuItem = ({
+        icon: Icon,
+        iconClassName,
+        title,
+        subtitle,
+        rightText,
+        onClick,
+        isDestructive = false,
+    }: any) => (
+        <button
+            type="button"
+            onClick={() => { playClick(); onClick?.(); }}
+            className="flex min-h-[58px] w-full items-center justify-between gap-3 border-b border-[#F0F3F9] bg-white px-3.5 py-2.5 text-left last:border-0 active:bg-[#F8FAFD]"
+        >
+            <div className="flex min-w-0 items-center gap-3">
+                <span className={`flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[13px] ${iconClassName}`}>
+                    <Icon size={20} strokeWidth={2.4} />
+                </span>
+                <span className="min-w-0">
+                    <span className={`block text-[13.2px] font-black leading-tight ${isDestructive ? 'text-[#E11D48]' : 'text-[#0D1B3E]'}`}>{title}</span>
+                    {subtitle && <span className="mt-0.5 block truncate text-[10.3px] font-semibold leading-snug text-[#9AA5C0]">{subtitle}</span>}
+                </span>
             </div>
-            <div className="flex items-center gap-2">
-                {rightText && <span className="text-xs text-gray-400 font-medium">{rightText}</span>}
-                <ChevronRight size={18} className="text-gray-300" />
-            </div>
+            <span className="flex shrink-0 items-center gap-1.5">
+                {rightText && <span className="text-[10.5px] font-bold text-[#9AA5C0]">{rightText}</span>}
+                <ChevronRight size={18} strokeWidth={2.5} className="text-[#C0CBDF]" />
+            </span>
         </button>
     );
 
+    const NotificationToggle = ({
+        prefKey,
+        title,
+        subtitle,
+    }: {
+        prefKey: keyof NotificationPrefs;
+        title: string;
+        subtitle: string;
+    }) => {
+        const enabled = notificationPrefs[prefKey];
+
+        return (
+            <button
+                type="button"
+                onClick={() => updateNotificationPref(prefKey)}
+                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#EEF2FF] bg-[#F8FAFD] p-3.5 text-left active:bg-[#EEF2FF]"
+            >
+                <span className="min-w-0">
+                    <span className="block text-[13px] font-black text-[#0D1B3E]">{title}</span>
+                    <span className="mt-0.5 block text-[11px] font-semibold leading-snug text-[#7B8AB0]">{subtitle}</span>
+                </span>
+                <span className={`relative h-7 w-12 shrink-0 rounded-full p-0.5 transition-colors ${enabled ? 'bg-[#1A56FF]' : 'bg-[#DDE3F0]'}`}>
+                    <span className={`block h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                </span>
+            </button>
+        );
+    };
+
     return (
-        <div className="mobile-page mobile-profile-page min-h-[100dvh] bg-[#F8FAFC] pb-24 animate-fadeIn">
-            <div 
-    className="bg-[#003375] rounded-b-[40px] px-6 pb-[100px] relative"
-    style={{ paddingTop: 'calc(env(safe-area-inset-top) + 40px)' }}
->
-    <h1 className="text-[26px] font-extrabold text-white tracking-tight">Hồ sơ cá nhân</h1>
-</div>
+        <div className="mobile-page mobile-profile-page w-full min-h-[100dvh] bg-[#E8ECF4] animate-fadeIn">
+            <div className="mx-auto min-h-[100dvh] w-full max-w-[430px] bg-[#F2F4F8] pb-[calc(110px+env(safe-area-inset-bottom))] text-[#0D1B3E]">
+                <div className="h-[calc(env(safe-area-inset-top)+16px)] shrink-0" aria-hidden="true" />
 
-            <div className="-mt-16 mx-4 bg-white rounded-[24px] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex items-center gap-4 relative z-10">
-                <div className="shrink-0">
-                    {avatarUrl && !isColorAvatar ? (
-                        <img src={avatarUrl} alt="Avatar" className="w-16 h-16 rounded-full object-cover border-2 border-gray-100 shadow-sm" />
-                    ) : (
-                        <div 
-                            className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-extrabold shadow-sm border border-gray-100"
-                            style={{ backgroundColor: isColorAvatar ? avatarUrl : '#F3F4F6', color: isColorAvatar ? '#FFF' : '#9CA3AF' }}
+                <div className="px-6 pb-4 pt-1">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <h1 className="text-[30px] font-black leading-[1.08] tracking-normal text-[#0D1B3E]">Cá nhân</h1>
+                            <p className="mt-1 text-[13px] font-semibold text-[#7B8AB0]">Tài khoản & cài đặt</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => { playClick(); setShowNotificationSettings(true); }}
+                            className="relative flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] active:scale-95"
+                            title="Thông báo"
                         >
-                            {!avatarUrl ? <User size={32} strokeWidth={1.5} /> : avatarSeed}
-                        </div>
-                    )}
-                </div>
-                <div className="flex-1 min-w-0">
-                    <h2 className="text-[17px] font-extrabold text-gray-900 leading-tight truncate">{displayName}</h2>
-                    <p className="text-[11px] text-gray-500 mt-1 mb-2 font-medium truncate">{displaySub}</p>
-                    {!isGuest && (
-                        <div className="inline-flex items-center gap-1 bg-green-50 border border-green-200 text-green-700 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                            <CheckCircle2 size={12} /> Sinh viên HUB
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            <div className="mx-4 mt-6">
-                <h3 className="text-[13px] font-extrabold text-gray-500 mb-3 px-1">Tài khoản</h3>
-                <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-gray-100 overflow-hidden">
-                    <MenuItem icon={User} iconColor="text-orange-500" iconBg="bg-orange-50" title="Cập nhật thông tin" onClick={() => { playClick(); setShowAccountSettings?.(true); }} />
-                    <MenuItem icon={Trash2} iconColor="text-red-500" iconBg="bg-red-50" title="Xóa dữ liệu" isDestructive={true} onClick={() => { playClick(); handleRequestReset?.(); }} />
-                </div>
-            </div>
-
-            {/* DANH SÁCH MENU HỆ THỐNG */}
-            <div className="mx-4 mt-6">
-                <h3 className="text-[13px] font-extrabold text-gray-500 mb-3 px-1">Hệ thống</h3>
-                <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-gray-100 overflow-hidden">
-                    
-                    {/* ✨ THÊM MỚI: NÚT TẢI APP (Chỉ hiện khi chưa cài đặt) */}
-                    {!isStandalone && (
-                        <MenuItem 
-                            icon={Download} iconColor="text-green-600" iconBg="bg-green-50" 
-                            title="Cài đặt App (Tải xuống)" rightText="Nhanh & Mượt hơn"
-                            onClick={handleInstallClick}
-                        />
-                    )}
-
-                    <MenuItem icon={Moon} iconColor="text-rose-500" iconBg="bg-rose-50" title="Giao diện" rightText="Mặc định" onClick={handleComingSoon} />
-                    <MenuItem icon={Bell} iconColor="text-rose-500" iconBg="bg-rose-50" title="Cài đặt thông báo" onClick={handleComingSoon} />
-                    <MenuItem icon={RefreshCw} iconColor="text-rose-500" iconBg="bg-rose-50" title="Xóa bộ nhớ đệm" onClick={handleClearCache} />
-                </div>
-            </div>
-
-            {/* ✨ THÊM MỚI: BẢNG HƯỚNG DẪN DÀNH RIÊNG CHO IOS */}
-            {showIOSInstructions && (
-                <div className="fixed inset-0 z-[200] bg-black/60 flex items-end justify-center sm:items-center p-4 animate-fadeIn" onClick={() => setShowIOSInstructions(false)}>
-                    <div className="bg-white w-full max-w-sm rounded-3xl p-6 relative animate-slideUp sm:animate-scaleIn shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setShowIOSInstructions(false)} className="absolute top-4 right-4 bg-gray-100 p-2 rounded-full text-gray-500 hover:bg-gray-200">
-                            <X size={20} />
+                            <Bell size={19} />
+                            {enabledNotificationCount > 0 && <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-[#FF3B5C]" />}
                         </button>
-                        
-                        <div className="w-16 h-16 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Download size={32} />
-                        </div>
-                        
-                        <h3 className="text-xl font-black text-center text-[#003375] mb-2">Cài đặt HUB Planner</h3>
-                        <p className="text-sm text-gray-600 text-center mb-6 leading-relaxed">
-                            Apple iOS không cho phép cài đặt tự động. Bạn vui lòng làm theo 2 bước cực nhanh sau nhé:
-                        </p>
-                        
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                                <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0 text-blue-500">
-                                    <Share size={20} />
-                                </div>
-                                <p className="text-sm font-medium text-gray-700">
-                                    <strong>Bước 1:</strong> Nhấn vào biểu tượng <span className="text-blue-500 font-bold">Chia sẻ (Share)</span> ở thanh công cụ Safari (dưới cùng màn hình).
-                                </p>
+                    </div>
+                </div>
+
+                <div className="px-6 pb-8">
+                    <section className="mb-3 rounded-[22px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                        <div className="flex items-center gap-3.5">
+                            <div
+                                className="flex h-[68px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-[22px] border border-[#EEF2FF] bg-[#F8FAFD] text-[28px] font-black text-[#1A56FF]"
+                                style={isColorAvatar ? { backgroundColor: avatarUrl, color: '#fff' } : undefined}
+                            >
+                                {avatarUrl && !isColorAvatar ? (
+                                    <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                                ) : (
+                                    <span>{avatarUrl ? avatarSeed : <User size={32} strokeWidth={1.8} />}</span>
+                                )}
                             </div>
-                            
-                            <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                                <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0 text-gray-800">
-                                    <PlusSquare size={20} />
-                                </div>
-                                <p className="text-sm font-medium text-gray-700">
-                                    <strong>Bước 2:</strong> Cuộn xuống và chọn <span className="font-bold text-gray-900">Thêm vào MH chính</span> (Add to Home Screen).
-                                </p>
+                            <div className="min-w-0 flex-1">
+                                <h2 className="truncate text-[18px] font-black leading-tight text-[#0D1B3E]">{loading ? 'Đang tải...' : displayName}</h2>
+                                <p className="mt-1 truncate text-[11px] font-semibold text-[#7B8AB0]">{displaySub}</p>
+                                {!isGuest && (
+                                    <div className="mt-2 inline-flex h-[24px] items-center gap-1 rounded-full border border-[#D6E4FF] bg-[#EEF2FF] px-2.5 text-[10px] font-black text-[#1A56FF]">
+                                        <CheckCircle2 size={12} strokeWidth={2.4} />
+                                        Sinh viên HUB
+                                    </div>
+                                )}
                             </div>
                         </div>
+                    </section>
 
-                        <button onClick={() => setShowIOSInstructions(false)} className="w-full bg-[#003375] text-white font-bold py-4 rounded-2xl mt-6 active:scale-95 transition-transform">
-                            Đã hiểu
+                    <div className="mb-3 grid grid-cols-[0.82fr_1.28fr_1fr] gap-2.5">
+                        <div className="min-h-[82px] rounded-[20px] border border-white bg-white p-3 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                            <div className="flex items-center gap-1.5 text-[10.5px] font-black text-[#7B8AB0]">
+                                <span className="grid h-5 w-5 place-items-center rounded-lg bg-[#EEF2FF] text-[#1A56FF]"><GraduationCap size={12} strokeWidth={2.3} /></span>
+                                Khóa
+                            </div>
+                            <div className="mt-3 rounded-xl bg-[#F5F8FF] px-2 py-2 text-center text-[18px] font-black leading-none text-[#1A56FF]">{cohort}</div>
+                        </div>
+                        <div className="min-h-[82px] rounded-[20px] border border-white bg-white p-3 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                            <div className="flex items-center gap-1.5 text-[10.5px] font-black text-[#7B8AB0]">
+                                <span className="grid h-5 w-5 place-items-center rounded-lg bg-[#EDFAF3] text-[#00A876]"><Hash size={12} strokeWidth={2.5} /></span>
+                                MSSV
+                            </div>
+                            <div className="mt-3 rounded-xl bg-[#F2FBF7] px-2 py-2 text-center text-[12.5px] font-black leading-none tracking-normal text-[#00996F]" title={studentCode}>
+                                {studentCode}
+                            </div>
+                        </div>
+                        <div className="min-h-[82px] rounded-[20px] border border-white bg-white p-3 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                            <div className="flex items-center gap-1.5 text-[10.5px] font-black text-[#7B8AB0]">
+                                <span className="grid h-5 w-5 place-items-center rounded-lg bg-[#F5EEFF] text-[#7B2FFF]"><Users size={12} strokeWidth={2.4} /></span>
+                                Lớp
+                            </div>
+                            <div className="mt-3 truncate rounded-xl bg-[#F8F3FF] px-2 py-2 text-center text-[12.5px] font-black leading-none tracking-normal text-[#7B2FFF]" title={className}>{className}</div>
+                        </div>
+                    </div>
+
+                    <div className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Tài khoản</div>
+                    <div className="mb-3 overflow-hidden rounded-[22px] bg-white shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                        <MenuItem icon={User} iconClassName="bg-[#FFF4E5] text-[#F59E0B]" title="Cập nhật thông tin" subtitle="Họ tên, MSSV, ngành học" onClick={() => setShowAccountSettings?.(true)} />
+                        <MenuItem icon={Trash2} iconClassName="bg-[#FFF0F3] text-[#E11D48]" title="Xóa dữ liệu" subtitle="Làm mới bảng điểm, lịch cá nhân" isDestructive onClick={() => handleRequestReset?.()} />
+                    </div>
+
+                    <div className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Hệ thống</div>
+                    <div className="mb-3 overflow-hidden rounded-[22px] bg-white shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                        <MenuItem icon={Moon} iconClassName="bg-[#FFF1F4] text-[#E11D48]" title="Giao diện" subtitle="Chủ đề mặc định" rightText="Mặc định" onClick={handleComingSoon} />
+                        <MenuItem icon={Bell} iconClassName="bg-[#F1EAFF] text-[#7B2FFF]" title="Cài đặt thông báo" subtitle="Trường, sự kiện, tìm đồ, hệ thống" rightText={`${enabledNotificationCount}/4 bật`} onClick={() => setShowNotificationSettings(true)} />
+                        <MenuItem icon={RefreshCw} iconClassName="bg-[#EEF2FF] text-[#1A56FF]" title="Xóa bộ nhớ đệm" subtitle="Không đăng xuất tài khoản" onClick={handleClearCache} />
+                    </div>
+
+                    <div className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Về HUB Planner</div>
+                    <div className="mb-3 overflow-hidden rounded-[22px] bg-white shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                        <MenuItem icon={Info} iconClassName="bg-[#F4F6FA] text-[#64748B]" title="Giới thiệu" subtitle="Về chúng mình" onClick={() => navigate('/handbook/about')} />
+                        <MenuItem icon={HelpCircle} iconClassName="bg-[#F4F6FA] text-[#64748B]" title="Gửi phản hồi & góp ý" subtitle="Báo lỗi, đề xuất tính năng" onClick={() => navigate('/handbook/feedback')} />
+                        <MenuItem icon={Coffee} iconClassName="bg-[#FFF4E5] text-[#F59E0B]" title="Ủng hộ (Donate)" subtitle="Giúp tụi mình duy trì hệ thống" onClick={() => navigate('/handbook/donate')} />
+                        <MenuItem icon={FileText} iconClassName="bg-[#F4F6FA] text-[#64748B]" title="Điều khoản dịch vụ" subtitle="Quy định sử dụng ứng dụng" onClick={() => navigate('/terms')} />
+                        <MenuItem icon={Lock} iconClassName="bg-[#F4F6FA] text-[#64748B]" title="Chính sách bảo mật" subtitle="Dữ liệu cá nhân và quyền riêng tư" onClick={() => navigate('/privacy')} />
+                    </div>
+
+                    {!isGuest ? (
+                        <button type="button" onClick={handleLogout} className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[18px] border border-[#FFE0E8] bg-white text-[13px] font-black text-[#E11D48] shadow-[0_2px_14px_rgba(13,27,62,0.06)] active:bg-[#FFF0F3]">
+                            <LogOut size={20} strokeWidth={2.4} /> Đăng xuất
                         </button>
-                        
-                        {/* Mũi tên chỉ xuống đáy màn hình cho iOS */}
-                        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-white rotate-45"></div>
+                    ) : (
+                        <button type="button" onClick={() => { playClick(); navigate('/login'); }} className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[18px] bg-[#1A56FF] text-[13px] font-black text-white shadow-[0_8px_18px_rgba(26,86,255,0.24)] active:bg-[#174AE0]">
+                            <User size={20} strokeWidth={2.4} /> Đăng nhập
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {showNotificationSettings && (
+                <div className="fixed inset-0 z-[99999] flex items-end justify-center bg-black/60 animate-fadeIn" onClick={() => setShowNotificationSettings(false)}>
+                    <div className="flex max-h-[82vh] w-full max-w-[430px] flex-col rounded-t-3xl bg-white shadow-2xl animate-slideUp" onClick={(e) => e.stopPropagation()}>
+                        <DragHandle />
+                        <div className="flex items-center justify-between border-b border-gray-100 px-5 pb-3 pt-2">
+                            <div>
+                                <h3 className="text-lg font-black text-[#003375]">Cài đặt thông báo</h3>
+                                <p className="mt-0.5 text-[11px] font-semibold text-gray-500">Chọn những loại thông báo bạn muốn nhận.</p>
+                            </div>
+                            <button type="button" onClick={() => setShowNotificationSettings(false)} className="rounded-full bg-gray-100 p-2 text-gray-500 active:scale-95">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 space-y-2.5 overflow-y-auto p-5 custom-scrollbar">
+                            <NotificationToggle prefKey="school" title="Thông báo từ trường" subtitle="Tin tức, lịch học, thông báo học vụ từ HUB." />
+                            <NotificationToggle prefKey="events" title="Sự kiện" subtitle="Sự kiện mới, nhắc lịch và cập nhật điểm rèn luyện." />
+                            <NotificationToggle prefKey="lostFound" title="Tìm mất đồ" subtitle="Tin báo mất, nhặt được đồ và cập nhật trạng thái." />
+                            <NotificationToggle prefKey="system" title="Thông báo hệ thống" subtitle="Bảo trì, bảo mật và các cập nhật quan trọng." />
+                        </div>
+
+                        <div className="border-t border-gray-100 bg-white p-4 pb-safe">
+                            <button type="button" onClick={() => { playClick(); setShowNotificationSettings(false); }} className="h-[46px] w-full rounded-xl bg-[#003375] text-[13px] font-black text-white active:bg-[#002855]">
+                                Lưu lựa chọn
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
-
-            {/* ✨ TẤT CẢ CÁC NÚT DƯỚI ĐÂY ĐỀU ĐƯỢC CHUYỂN HƯỚNG RA TRANG ĐỘC LẬP */}
-            <div className="mx-4 mt-6 mb-6">
-                <h3 className="text-[13px] font-extrabold text-gray-500 mb-3 px-1">Về HUB Planner</h3>
-                <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgb(0,0,0,0.02)] border border-gray-100 overflow-hidden">
-                    <MenuItem icon={Info} iconColor="text-gray-500" iconBg="bg-gray-50" title="Giới thiệu" rightText="Về chúng mình" onClick={() => { playClick(); navigate('/handbook/about'); }} />
-                    <MenuItem icon={HelpCircle} iconColor="text-gray-500" iconBg="bg-gray-50" title="Gửi phản hồi & Góp ý" onClick={() => { playClick(); navigate('/handbook/feedback'); }} />
-                    <MenuItem icon={Coffee} iconColor="text-gray-500" iconBg="bg-gray-50" title="Ủng hộ (Donate)" onClick={() => { playClick(); navigate('/handbook/donate'); }} />
-                    <MenuItem icon={FileText} iconColor="text-gray-500" iconBg="bg-gray-50" title="Điều khoản dịch vụ" onClick={() => { playClick(); navigate('/terms'); }} />
-                    <MenuItem icon={Lock} iconColor="text-gray-500" iconBg="bg-gray-50" title="Chính sách bảo mật" onClick={() => { playClick(); navigate('/privacy'); }} />
-                </div>
-            </div>
-
-            <div className="mx-4 pb-8">
-                {!isGuest ? (
-                    <button onClick={handleLogout} className="w-full bg-white text-red-600 font-bold py-4 rounded-2xl border border-red-100 shadow-sm flex items-center justify-center gap-2 active:bg-red-50 transition-colors">
-                        <LogOut size={20} /> Đăng xuất
-                    </button>
-                ) : (
-                    <button onClick={() => { playClick(); navigate('/login'); }} className="w-full bg-[#003375] text-white font-bold py-4 rounded-2xl shadow-md flex items-center justify-center gap-2 active:bg-[#002855] transition-colors">
-                        <User size={20} /> Đăng nhập
-                    </button>
-                )}
-            </div>
         </div>
     );
 };

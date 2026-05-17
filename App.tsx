@@ -194,8 +194,8 @@ const App: React.FC = () => {
     // ==========================================
     const [isAppMode, setIsAppMode] = useState(false);
     const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth < 768);
+    const [forceMobileAppPreview, setForceMobileAppPreview] = useState(false);
     const lastLoggedUserIdRef = useRef<string | null>(null);
-    const lastLoggedPathRef = useRef<string | null>(null);
 
     useEffect(() => {
         const checkIfAppMode = () => {
@@ -212,11 +212,36 @@ const App: React.FC = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    const useMobileLayout = isAppMode && isMobileScreen;
-    const isMobileBrowser = isMobileScreen && !isAppMode;
+    useEffect(() => {
+        const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+        if (!isLocalHost) {
+            localStorage.removeItem('hub_mobile_app_preview');
+            setForceMobileAppPreview(false);
+            return;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const previewParam = params.get('appPreview');
+
+        if (previewParam === '1') {
+            setForceMobileAppPreview(true);
+        } else {
+            localStorage.removeItem('hub_mobile_app_preview');
+            setForceMobileAppPreview(false);
+        }
+    }, [location.search]);
+
+    const useMobileLayout = (isAppMode && isMobileScreen) || forceMobileAppPreview;
+    const isMobileBrowser = isMobileScreen && !isAppMode && !forceMobileAppPreview;
 
     useEffect(() => {
-        const currentUserId = session?.user?.id || null;
+        if (!session?.user?.id) {
+            lastLoggedUserIdRef.current = null;
+            return;
+        }
+
+        const currentSession = session;
+        const currentUserId = currentSession.user.id;
         if (!currentUserId) {
             lastLoggedUserIdRef.current = null;
             return;
@@ -227,33 +252,14 @@ const App: React.FC = () => {
         lastLoggedUserIdRef.current = currentUserId;
         logActivityQuietly({
             action: 'login',
-            session,
+            session: currentSession,
             userRole: isAdmin ? 'admin' : 'auditor',
             pagePath: location.pathname,
             metadata: {
-                authProvider: session.user.app_metadata?.provider || 'unknown',
+                authProvider: currentSession.user.app_metadata?.provider || 'unknown',
             },
         });
     }, [session?.user?.id, loadingRole, isAdmin, isAuditor, location.pathname]);
-
-    useEffect(() => {
-        if (!session || loadingRole || !(isAdmin || isAuditor)) return;
-
-        const pagePath = `${location.pathname}${location.search}`;
-        const dedupeKey = `${session.user.id}:${pagePath}`;
-        if (lastLoggedPathRef.current === dedupeKey) return;
-        lastLoggedPathRef.current = dedupeKey;
-
-        logActivityQuietly({
-            action: 'view_page',
-            session,
-            userRole: isAdmin ? 'admin' : 'auditor',
-            pagePath,
-            metadata: {
-                title: document.title,
-            },
-        });
-    }, [session?.user?.id, loadingRole, isAdmin, isAuditor, location.pathname, location.search]);
 
     useEffect(() => {
     const html = document.documentElement;
@@ -267,8 +273,8 @@ const App: React.FC = () => {
         html.classList.toggle('mobile-browser', isMobileBrowser);
         body.classList.toggle('mobile-browser', isMobileBrowser);
 
-        html.classList.toggle('mobile-standalone', isAppMode && isMobileScreen);
-        body.classList.toggle('mobile-standalone', isAppMode && isMobileScreen);
+        html.classList.toggle('mobile-standalone', (isAppMode && isMobileScreen) || forceMobileAppPreview);
+        body.classList.toggle('mobile-standalone', (isAppMode && isMobileScreen) || forceMobileAppPreview);
 
         html.classList.toggle('platform-ios', isIOSDevice);
         body.classList.toggle('platform-ios', isIOSDevice);
@@ -308,7 +314,7 @@ const App: React.FC = () => {
         html.style.removeProperty('--app-vh');
         html.style.removeProperty('--app-bottom-gap');
     };
-}, [isMobileBrowser, isAppMode, isMobileScreen]);
+}, [isMobileBrowser, isAppMode, isMobileScreen, forceMobileAppPreview]);
     useEffect(() => {
         if (!session?.user?.id || !isPushSupported() || Notification.permission !== 'granted') return;
 

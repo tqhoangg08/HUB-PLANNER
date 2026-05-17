@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+﻿import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
@@ -756,7 +756,7 @@ const canManage = isAdmin || isAuditor || isCTV;
   useEffect(() => { fetchEvents(); }, [canManage]);
 
   useEffect(() => {
-      if (!canManage && isManagementView) setIsManagementView(false);
+                  <button onClick={() => { playClick(); setIsManagementView(false); }} className={`py-2 rounded-xl text-xs font-black transition-all ${!isManagementView ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#7B8AB0]'}`}>Giao diện SV</button>
   }, [canManage, isManagementView]);
 
   const openEventEditor = (evt: HubEvent | null = null) => {
@@ -930,6 +930,16 @@ const canManage = isAdmin || isAuditor || isCTV;
 
   const routeEvent = eventId ? events.find(evt => evt.id === eventId) || null : null;
   const displayedEvents = eventId ? (routeEvent ? [routeEvent] : []) : filteredEvents;
+  const visibleEvents = events.filter(evt => !evt.is_deleted && evt.status !== 'pending');
+  const openEventsCount = visibleEvents.filter(evt => !evt.is_manually_closed && evt.status !== 'Đã kết thúc' && !checkIsOverdue(evt, today)).length;
+  const expiringTodayEvent = visibleEvents.find(isDeadlineEventToday);
+  const featuredEvent = expiringTodayEvent || visibleEvents[0] || null;
+  const getEventDateTimeLabel = (evt: HubEvent) => evt.event_date ? `${formatTimeString(evt.event_time)} ${formatDateString(evt.event_date)}` : 'Chưa cập nhật';
+  const getRegistrationLabel = (evt: HubEvent) => {
+      const start = evt.registration_start_date ? `${formatTimeString(evt.registration_start_time)} ${formatDateString(evt.registration_start_date)}` : '...';
+      const end = evt.close_on_full ? 'Đóng khi đủ SL' : (evt.time && evt.time !== 'Chưa cập nhật' ? `${evt.deadline_time ? formatTimeString(evt.deadline_time) + ' ' : ''}${evt.time}` : '...');
+      return `${start} - ${end}`;
+  };
 
   const NotificationToast = () => {
     if (!notification) return null;
@@ -1096,26 +1106,119 @@ const canManage = isAdmin || isAuditor || isCTV;
     );
   };
 
+  const renderNativeEventCard = (evt: HubEvent) => {
+    const isParticipated = participatedEvents.includes(evt.id);
+    const isLinkClosed = evt.status === 'Đã kết thúc' || evt.status === 'ÄÃ£ káº¿t thÃºc' || evt.is_manually_closed || checkIsOverdue(evt, today);
+    const formattedLink = evt.link && !evt.link.startsWith('http') ? `https://${evt.link}` : evt.link;
+    const isExpiring = isDeadlineEventToday(evt);
+    const isMinigame = evt.type?.toLowerCase().includes('minigame') || evt.classification?.toLowerCase().includes('minigame');
+
+    return (
+      <div key={evt.id} className={`relative overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)] ${isExpiring ? 'border border-[#FFE0E8]' : ''} ${evt.is_deleted ? 'opacity-60 grayscale' : ''}`}>
+        {isExpiring && <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#FF3B5C] to-[#FF9DAE]" />}
+        <div className="mb-2.5 flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-bold text-[#7B8AB0]">
+            <Building2 size={14} className="shrink-0 text-[#1A56FF]" />
+            <span className="truncate">{evt.organizer}</span>
+          </div>
+          <div className="relative flex shrink-0 items-center gap-2">
+            <span className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-black ${isLinkClosed || evt.is_deleted ? 'border-[#E5EAF4] bg-[#F4F6FA] text-[#7B8AB0]' : 'border-[#FFE0E8] bg-[#FFF0F3] text-[#E11D48]'}`}>
+              <Award size={12} /> {evt.score.includes('+') ? evt.score : `+${evt.score}`}
+            </span>
+            <button onClick={(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === evt.id ? null : evt.id); }} className="flex h-7 w-7 items-center justify-center rounded-lg text-[#9AA5C0] active:bg-[#F4F6FA]">
+              <MoreHorizontal size={17} />
+            </button>
+            {activeDropdown === evt.id && (
+              <div className="absolute right-0 top-9 z-20 w-44 overflow-hidden rounded-xl border border-[#E5EAF4] bg-white py-1 text-sm font-bold shadow-xl">
+                <button onClick={(e) => { e.stopPropagation(); setReportingEvent(evt); setActiveDropdown(null); }} className="flex w-full items-center gap-2 px-4 py-3 text-left text-orange-600 active:bg-orange-50">
+                  <AlertTriangle size={16} /> Báo lỗi thông tin
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <h3 className="mb-3 text-[15px] font-black leading-snug tracking-normal text-[#0D1B3E]">{evt.name}</h3>
+
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          <span className="rounded-lg bg-[#EEF2FF] px-2 py-1 text-[10px] font-black text-[#1A56FF]">Mục {evt.category}</span>
+          {evt.scope && <span className="rounded-lg bg-[#EDFAF3] px-2 py-1 text-[10px] font-black text-[#059669]">{evt.scope}</span>}
+          {evt.type && <span className="rounded-lg bg-[#F4F6FA] px-2 py-1 text-[10px] font-black text-[#5C687E]">{evt.type}</span>}
+        </div>
+
+        <div className="mb-3 flex flex-col gap-2 rounded-2xl border border-[#EEF2FF] bg-[#F8FAFD] p-3">
+          <div className="flex items-start gap-2 text-[11px] font-semibold leading-snug text-[#637087]">
+            <Clock size={15} className="mt-0.5 shrink-0 text-[#F5A623]" />
+            <div>
+              <span>{isMinigame ? 'TG tham gia' : 'TG đăng ký'}</span>
+              <b className={`block font-black ${isLinkClosed || evt.is_deleted ? 'text-[#7B8AB0]' : 'text-[#0D1B3E]'}`}>
+                {isMinigame ? `${getEventDateTimeLabel(evt)} - ${evt.close_on_full ? 'Đóng khi đủ SL' : (evt.time || '...')}` : getRegistrationLabel(evt)}
+              </b>
+            </div>
+          </div>
+          {!isMinigame && (
+            <div className="flex items-start gap-2 text-[11px] font-semibold leading-snug text-[#637087]">
+              <Calendar size={15} className="mt-0.5 shrink-0 text-[#1A56FF]" />
+              <div>
+                <span>TG diễn ra</span>
+                <b className="block font-black text-[#0D1B3E]">{getEventDateTimeLabel(evt)}</b>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button onClick={() => toggleParticipation(evt.id)} className={`flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border ${isParticipated ? 'border-[#D1FAE5] bg-[#EDFAF3] text-[#059669]' : 'border-[#E8EDF6] bg-white text-[#7B8AB0]'}`}>
+            {isParticipated ? <BookmarkCheck size={19} /> : <Bookmark size={19} />}
+          </button>
+          <button
+            onClick={() => {
+              if (eventId === evt.id) handleCopyEventUrl(evt);
+              else { playClick(); navigate(getEventPath(evt.id)); }
+            }}
+            className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border border-[#E8EDF6] bg-white text-[#7B8AB0]"
+          >
+            <LinkIcon size={19} />
+          </button>
+          {evt.link && !isLinkClosed && !evt.is_deleted ? (
+            <a href={formattedLink} target="_blank" rel="noopener noreferrer" className="flex h-[42px] flex-1 items-center justify-center rounded-[14px] bg-[#1A56FF] text-[12px] font-black text-white shadow-[0_6px_14px_rgba(26,86,255,0.2)]">
+              Tham gia ngay
+            </a>
+          ) : (
+            <button disabled className="flex h-[42px] flex-1 items-center justify-center gap-1.5 rounded-[14px] bg-[#F2F4F8] text-[12px] font-black text-[#A8B2C8]">
+              <Lock size={14} /> Đã đóng
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
 return (
-    <div className="mobile-page mobile-events-page w-full min-h-[100dvh] bg-[#F8FAFC] pb-24 animate-fadeIn">
+    <div className="mobile-page mobile-events-page w-full min-h-[100dvh] bg-[#E8ECF4] animate-fadeIn">
+      <div className="mx-auto min-h-[100dvh] w-full max-w-[430px] bg-[#F2F4F8] pb-[calc(110px+env(safe-area-inset-bottom))] text-[#0D1B3E]">
+      <div className="h-[calc(env(safe-area-inset-top)+16px)] shrink-0" aria-hidden="true" />
       {/* Sticky Mobile Header */}
-      <div className="mobile-events-header sticky top-0 z-40 bg-white pt-4 pb-2 px-4 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[24px] font-extrabold text-[#003375] tracking-tight">Sự kiện ĐRL</h2>
+      <div className="mobile-events-native-header px-6 pb-4 pt-1">
+          <div className="flex items-start justify-between">
+              <div>
+                  <h2 className="text-[30px] font-black leading-[1.08] tracking-normal text-[#0D1B3E]">Sự kiện</h2>
+                  <p className="mt-1 text-[13px] font-semibold text-[#7B8AB0]">Điểm rèn luyện & hoạt động</p>
+              </div>
               <div className="flex gap-2">
-                  <button onClick={() => { playClick(); fetchEvents(); }} className="p-2.5 bg-gray-50 rounded-full text-[#003375] active:bg-gray-100"><RefreshCw size={20} className={loading ? "animate-spin" : ""} /></button>
-                  <button onClick={() => { isManagementView ? openEventEditor(null) : (playClick(), setShowContributeModal(true)); }} className="p-2.5 bg-[#003375] text-white rounded-full shadow-md active:scale-95"><PlusCircle size={20} /></button>
+                  <button onClick={() => { playClick(); fetchEvents(); }} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] active:scale-95"><RefreshCw size={19} className={loading ? "animate-spin" : ""} /></button>
+                  <button onClick={() => { isManagementView ? openEventEditor(null) : (playClick(), setShowContributeModal(true)); }} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-[#1A56FF] text-white shadow-[0_8px_18px_rgba(26,86,255,0.26)] active:scale-95"><PlusCircle size={19} /></button>
               </div>
           </div>
 
           {canManage && (
-              <div className="grid grid-cols-2 gap-2 mb-3 rounded-2xl bg-gray-100 p-1 border border-gray-200">
-                  <button onClick={() => { playClick(); setIsManagementView(false); }} className={`py-2 rounded-xl text-xs font-black transition-all ${!isManagementView ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Giao diện SV</button>
-                  <button onClick={() => { playClick(); setIsManagementView(true); }} className={`py-2 rounded-xl text-xs font-black transition-all ${isManagementView ? 'bg-white text-[#003375] shadow-sm' : 'text-gray-500'}`}>Quản lý</button>
+              <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-white p-1 shadow-[0_2px_12px_rgba(13,27,62,0.06)]">
+                  <button onClick={() => { playClick(); setIsManagementView(false); }} className={`py-2 rounded-xl text-xs font-black transition-all ${!isManagementView ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#7B8AB0]'}`}>Giao diện SV</button>
+                  <button onClick={() => { playClick(); setIsManagementView(true); }} className={`py-2 rounded-xl text-xs font-black transition-all ${isManagementView ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#7B8AB0]'}`}>Quản lý</button>
               </div>
           )}
 
-          {!eventId && <div className="flex gap-2 mb-3">
+          {!eventId && <div className="hidden">
               <div className="relative flex-1">
                   <input type="text" placeholder="Tìm tên, BTC..." className="pl-10 pr-4 py-3 w-full bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375]" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -1125,7 +1228,7 @@ return (
               </button>
           </div>}
 
-          {!eventId && <div className="grid grid-cols-2 gap-2 mb-2">
+          {!eventId && <div className="hidden">
               <select value={activeScope} onChange={(e) => setActiveScope(e.target.value)} className="appearance-none bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 outline-none">
                   <option value="all">Khu vực: Tất cả</option><option value="internal">Trong trường</option><option value="external">Ngoài trường</option>
               </select>
@@ -1135,7 +1238,7 @@ return (
           </div>}
 
           {/* Scrollable Tabs */}
-          {!eventId && <div className="relative flex w-full overflow-x-auto no-scrollbar pt-2">
+          {!eventId && <div className="hidden">
             {tabsList.map((tab, idx) => (
                 <button key={tab.id} ref={(el) => { tabsRef.current[idx] = el; }} onClick={() => { playClick(); setActiveTab(tab.id); }} className={`flex-none px-4 pb-2.5 text-[14px] font-bold whitespace-nowrap z-10 transition-colors ${activeTab === tab.id ? 'text-[#003375]' : 'text-gray-400'}`}>
                     {tab.l}
@@ -1145,8 +1248,87 @@ return (
           </div>}
       </div>
 
-      <div className="p-4">
-          <NotificationNudge variant="events" compact className="mb-4" />
+      <div className="px-6 pb-8">
+          {!eventId && (
+              <>
+                  <div className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Tổng quan</div>
+                  <div className="mb-3 grid grid-cols-2 gap-3">
+                      <div className="min-h-[104px] rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                          <div className="flex items-center justify-between text-[11px] font-bold text-[#7B8AB0]">
+                              Sự kiện mở
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF2FF] text-[#1A56FF]"><Calendar size={14} /></span>
+                          </div>
+                          <div className="mt-4 text-[27px] font-black leading-none tracking-normal text-[#1A56FF]">{openEventsCount}</div>
+                          <div className="mt-1.5 text-[10.5px] font-semibold text-[#9AA5C0]">Đang nhận đăng ký</div>
+                      </div>
+                      <div className="min-h-[104px] rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                          <div className="flex items-center justify-between text-[11px] font-bold text-[#7B8AB0]">
+                              Đã lưu
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EDFAF3] text-[#00C07F]"><Bookmark size={14} /></span>
+                          </div>
+                          <div className="mt-4 text-[27px] font-black leading-none tracking-normal text-[#00C07F]">{participatedEvents.length}</div>
+                          <div className="mt-1.5 text-[10.5px] font-semibold text-[#9AA5C0]">Sự kiện quan tâm</div>
+                      </div>
+                  </div>
+
+                  {featuredEvent && (
+                      <div className="relative mb-3 overflow-hidden rounded-[22px] bg-gradient-to-br from-[#1A56FF] to-[#597DFF] p-4 text-white shadow-[0_10px_24px_rgba(26,86,255,0.24)]">
+                          <div className="absolute right-[-42px] top-[-48px] h-[130px] w-[130px] rounded-full bg-white/10" />
+                          <div className="relative z-10 mb-3 flex items-start justify-between gap-3">
+                              <div>
+                                  <div className="text-[15px] font-black">{expiringTodayEvent ? 'Sắp hết hạn hôm nay' : 'Sự kiện nổi bật'}</div>
+                                  <div className="mt-1 text-[11px] font-semibold opacity-85">{expiringTodayEvent ? 'Ưu tiên đăng ký trước khi đóng form' : 'Hoạt động mới cho sinh viên HUB'}</div>
+                              </div>
+                              <div className="rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-[10px] font-black">{featuredEvent.score.includes('+') ? featuredEvent.score : `+${featuredEvent.score}`} ĐRL</div>
+                          </div>
+                          <div className="relative z-10 rounded-2xl border border-white/25 bg-white/15 p-3">
+                              <div className="text-[13px] font-black leading-snug">{featuredEvent.name}</div>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                  <span className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-bold"><Clock size={11} className="mr-1 inline" />{featuredEvent.deadline_time ? `Đóng ${formatTimeString(featuredEvent.deadline_time)}` : featuredEvent.time}</span>
+                                  <span className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-bold"><MapPin size={11} className="mr-1 inline" />{featuredEvent.scope}</span>
+                              </div>
+                          </div>
+                      </div>
+                  )}
+
+                  <div className="mb-3 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                      <div className="mb-2.5 flex items-center justify-between">
+                          <h3 className="flex items-center gap-1.5 text-[13.5px] font-black text-[#0D1B3E]"><Search size={16} className="text-[#1A56FF]" /> Tìm kiếm & Lọc</h3>
+                          <div className="flex gap-1.5">
+                              <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] bg-[#EEF2FF] text-[#1A56FF]"><FileText size={15} /></button>
+                              <button onClick={() => { playClick(); setSortOrder(sortOrder === 'expiring_soon' ? 'newest' : 'expiring_soon'); }} className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] bg-[#EEF2FF] text-[#1A56FF]"><ArrowDownUp size={15} /></button>
+                          </div>
+                      </div>
+                      <div className="relative mb-2.5">
+                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8B2C8]" />
+                          <input type="text" placeholder="Tìm tên sự kiện, BTC..." className="h-[38px] w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] pl-8 pr-3 text-xs font-semibold text-[#5B6478] outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                          <select value={activeScope} onChange={(e) => setActiveScope(e.target.value)} className="h-[38px] appearance-none rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-xs font-bold text-[#0D1B3E] outline-none">
+                              <option value="all">Khu vực: Tất cả</option><option value="internal">Trong trường</option><option value="external">Ngoài trường</option>
+                          </select>
+                          <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} className="h-[38px] appearance-none rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-xs font-bold text-[#0D1B3E] outline-none">
+                              <option value="newest">Mới nhất</option><option value="expiring_soon">Sắp hết hạn</option><option value="oldest">Cũ nhất</option>
+                          </select>
+                      </div>
+                  </div>
+
+                  <div className="-mx-6 mb-3 flex gap-2 overflow-x-auto px-6 pb-1 no-scrollbar">
+                      {tabsList.map((tab) => (
+                          <button key={tab.id} onClick={() => { playClick(); setActiveTab(tab.id); }} className={`shrink-0 rounded-full px-3 py-2 text-[11px] font-black shadow-[0_2px_10px_rgba(13,27,62,0.04)] ${activeTab === tab.id ? 'bg-[#1A56FF] text-white shadow-[0_6px_16px_rgba(26,86,255,0.25)]' : 'bg-white text-[#7B8AB0]'}`}>
+                              {tab.l}
+                          </button>
+                      ))}
+                  </div>
+
+                  {!canManage && <div className="relative mb-3 overflow-hidden rounded-[20px] border border-[#DAE6FF] bg-gradient-to-br from-[#F8FBFF] to-[#EEF4FF] p-4">
+                      <div className="absolute bottom-[-40px] right-[-28px] h-[110px] w-[110px] rounded-full bg-[#1A56FF]/10" />
+                      <div className="relative z-10 flex items-center gap-2 text-[13px] font-black text-[#0D1B3E]"><UserPlus size={16} className="text-[#1A56FF]" /> Trở thành CTV HUB Planner</div>
+                      <p className="relative z-10 mt-1 text-[11px] font-semibold leading-snug text-[#7B8AB0]">Tham gia cập nhật sự kiện, xây dựng cộng đồng sinh viên HUB.</p>
+                      <button onClick={() => { playClick(); setShowCTVModal(true); }} className="relative z-10 mt-3 rounded-xl bg-[#1A56FF] px-4 py-2.5 text-[11px] font-black text-white shadow-[0_6px_14px_rgba(26,86,255,0.2)]">Đăng ký ngay</button>
+                  </div>}
+              </>
+          )}
 
           {eventId && (
               <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
@@ -1161,7 +1343,7 @@ return (
               </div>
           )}
 
-          {!eventId && !canManage && <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 mb-5 shadow-sm relative overflow-hidden">
+          {false && !eventId && !canManage && <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 mb-5 shadow-sm relative overflow-hidden">
               <div className="relative z-10 flex flex-col">
                   <div className="flex items-center gap-2 mb-1">
                       <UserPlus className="text-blue-600" size={18} />
@@ -1174,11 +1356,11 @@ return (
           </div>}
 
           {/* List Events */}
-          <div className="space-y-0">
+          <div className="flex flex-col gap-3">
              {loading ? (
                 <div className="flex flex-col items-center justify-center py-10"><Loader2 size={32} className="text-[#003375] animate-spin mb-3" /><p className="text-gray-500 text-sm">Đang tải...</p></div>
              ) : displayedEvents.length > 0 ? (
-                displayedEvents.map(evt => isManagementView ? renderManagementCard(evt) : renderEventCard(evt))
+                displayedEvents.map(evt => isManagementView ? renderManagementCard(evt) : renderNativeEventCard(evt))
              ) : (
                 <div className="py-12 text-center bg-white rounded-xl border border-dashed border-gray-300">
                     <Calendar className="mx-auto text-gray-300 mb-2" size={32}/>
@@ -1186,6 +1368,7 @@ return (
                 </div>
              )}
           </div>
+      </div>
       </div>
 
       <NotificationToast />

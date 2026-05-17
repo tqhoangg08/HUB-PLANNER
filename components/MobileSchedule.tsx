@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, HelpCircle, Tag } from 'lucide-react';
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, HelpCircle, Tag, Bell, BarChart3 } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
@@ -344,6 +344,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [selectedWeek, setSelectedWeek] = useState<number>(0); 
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(new Date().getMonth()); 
   
   const [isWeekDropdownOpen, setIsWeekDropdownOpen] = useState(false);
@@ -823,6 +824,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
     
     setSelectedWeek(weekNum);
     setSelectedMonthIndex(now.getMonth());
+    setSelectedDayIndex(Math.max(0, Math.min(6, now.getDay() === 0 ? 6 : now.getDay() - 1)));
   };
 
   const studentEditInputClass = "w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375] bg-gray-50";
@@ -833,12 +835,311 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
     </label>
   );
 
+  const parseDisplayDate = (value?: string) => {
+    if (!value) return null;
+    const [day, month, year] = value.split('/').map(Number);
+    if (!day || !month) return null;
+    return new Date(year || 2026, month - 1, day);
+  };
+
+  const weekDayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  const selectedDateFull = currentWeekDatesFull[selectedDayIndex];
+  const selectedDate = parseDisplayDate(selectedDateFull);
+  const selectedDayCourses = selectedDate ? getCoursesForDate(selectedDate, currentSemesterSchedule) : [];
+  const selectedDayExams = selectedDate ? getExamsForDate(selectedDate, currentSemesterSchedule) : [];
+  const selectedMorningCourses = selectedDayCourses.filter((item: any) => item.shiftType === 'S');
+  const selectedAfternoonCourses = selectedDayCourses.filter((item: any) => item.shiftType === 'C');
+  const todayCourses = getCoursesForDate(today, currentSemesterSchedule);
+  const todayExamCount = getExamsForDate(today, currentSemesterSchedule).length;
+  const todayScheduleCount = todayCourses.length + todayExamCount;
+  const nextClass = (() => {
+    for (let offset = 0; offset < 30; offset++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + offset);
+      const courses = getCoursesForDate(date, currentSemesterSchedule);
+      if (courses.length > 0) return { ...courses[0] as any, date };
+    }
+    return null;
+  })();
+  // Chinh khoang cach 2 ben rieng cho MobileSchedule tai day.
+  // mx-0 = khop padding cua MobileDashboardNative; mx-1/mx-2 = hep hon; -mx-1/-mx-2 = sat mep hon.
+  const scheduleSideSpacingClass = 'mx-0';
+  const nextClassCard = isAuthenticated ? (
+    <div className="mb-3 rounded-[22px] bg-gradient-to-br from-[#1A56FF] to-[#597DFF] p-4 text-white shadow-[0_10px_24px_rgba(26,86,255,0.24)]">
+        <div className="mb-3 flex items-start justify-between">
+            <div>
+                <div className="text-[15px] font-black">Ca học tiếp theo</div>
+                <div className="mt-1 text-[11px] font-semibold opacity-80">{nextClass ? formatDateStr(nextClass.date) : 'Chưa có lịch sắp tới'}</div>
+            </div>
+            <div className="rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-[10px] font-black">
+                {nextClass ? getCourseTimeLabel(nextClass.details?.shift)?.split(' - ')[0] || 'Sắp tới' : 'Trống'}
+            </div>
+        </div>
+        {nextClass ? (
+            <div onClick={() => setSelectedCourseInfo({ course: nextClass.course, details: nextClass.details, dateStr: formatDateStr(nextClass.date) })} className="rounded-2xl border border-white/25 bg-white/15 p-3">
+                <div className="text-[13px] font-black leading-snug">{nextClass.course.subject_name}</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-bold"><Clock size={11} className="mr-1 inline" />{getCourseTimeLabel(nextClass.details?.shift) || getShiftDisplay(nextClass.details?.shift)}</span>
+                    <span className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-bold"><MapPin size={11} className="mr-1 inline" />{nextClass.details?.room}</span>
+                </div>
+            </div>
+        ) : (
+            <div className="rounded-2xl border border-white/25 bg-white/15 p-3 text-[12px] font-bold opacity-90">Bạn chưa có môn nào trong học kỳ này.</div>
+        )}
+    </div>
+  ) : null;
+
   return (
-    <div className="mobile-page mobile-schedule-page w-full pb-24 space-y-4 pt-1 animate-fadeIn">
+    <div className="mobile-page mobile-schedule-page w-full bg-[#F2F4F8] pb-24 pt-2 animate-fadeIn">
+        <div className="hidden">
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <h1 className="text-[30px] font-black leading-none tracking-normal text-[#0D1B3E]">Học tập</h1>
+                    <p className="mt-1 text-[13px] font-medium text-[#7B8AB0]">Lịch học & Thi</p>
+                </div>
+                <button onClick={fetchMySchedule} className="relative flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(0,0,0,0.07)]">
+                    <Bell size={20} strokeWidth={2.2} />
+                    {todayScheduleCount > 0 && <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-[#F2F4F8] bg-[#FF3B5C]" />}
+                </button>
+            </div>
+        </div>
+
+        <div className="hidden">
+            <button className="flex items-center justify-center gap-1.5 rounded-xl py-3 text-[12px] font-extrabold text-[#9AA5C0]">
+                <BarChart3 size={14} /> Điểm số & Lộ trình
+            </button>
+            <button className="flex items-center justify-center gap-1.5 rounded-xl bg-[#1A56FF] py-3 text-[12px] font-extrabold text-white shadow-[0_4px_14px_rgba(26,86,255,0.35)]">
+                <CalendarDays size={14} /> Lịch học & Thi
+            </button>
+        </div>
+
+        <div className={scheduleSideSpacingClass}>
+        {canManageSchedule && (
+            <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl bg-white p-1 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+                <button onClick={() => { playClick(); setIsAdminView(false); }} className={`rounded-xl py-2 text-xs font-black transition-all ${!isAdminView ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#7B8AB0]'}`}>Giao diện SV</button>
+                <button onClick={() => { playClick(); setIsAdminView(true); }} className={`rounded-xl py-2 text-xs font-black transition-all ${isAdminView ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#7B8AB0]'}`}>Quản lý</button>
+            </div>
+        )}
+
+        <div className="hidden">
+            <NotificationNudge variant="schedule" compact />
+        </div>
+
+        <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.8px] text-[#9AA5C0]">Lịch học hôm nay</div>
+
+        {nextClassCard}
+
+        <div className="mb-3 grid grid-cols-2 gap-3">
+            <div onClick={() => isAuthenticated && setIsMyScheduleModalOpen(true)} className="cursor-pointer rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(0,0,0,0.05)] active:scale-[0.98]">
+                <div className="flex items-center justify-between text-[11px] font-bold text-[#7B8AB0]">
+                    Môn đã lưu
+                    <span className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-[#EEF2FF] text-[#1A56FF]"><BookPlus size={13} /></span>
+                </div>
+                <div className="mt-3 text-2xl font-black tracking-normal text-[#1A56FF]">{currentSemesterSchedule.length}</div>
+            </div>
+            <div className="rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+                <div className="flex items-center justify-between text-[11px] font-bold text-[#7B8AB0]">
+                    Lịch hôm nay
+                    <span className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-[#EDFAF3] text-[#00C07F]"><Clock size={13} /></span>
+                </div>
+                <div className="mt-3 text-2xl font-black tracking-normal text-[#00C07F]">{todayScheduleCount} ca</div>
+            </div>
+        </div>
+
+        <div>
+            <NotificationNudge variant="schedule" compact />
+        </div>
+
+        <div className="mb-3 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+            <div className="mb-2.5 flex items-center justify-between">
+                <h2 className="flex items-center gap-1.5 text-[13.5px] font-black text-[#0D1B3E]">
+                    <Search size={16} className="text-[#1A56FF]" /> Tìm kiếm & Lọc
+                </h2>
+                <button onClick={fetchCourses} className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] bg-[#EEF2FF] text-[#1A56FF]">
+                    <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+                </button>
+            </div>
+            <div className="mb-2 grid grid-cols-[1fr_0.7fr] gap-2">
+                <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="h-[38px] rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-xs font-bold text-[#0D1B3E] outline-none disabled:cursor-not-allowed">
+                    <option value="HK2_2025_2026">HK2 (2025-2026)</option>
+                    <option value="HK1_2025_2026">HK1 (2025-2026)</option>
+                </select>
+                <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="h-[38px] rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-xs font-bold text-[#0D1B3E] outline-none disabled:cursor-not-allowed">
+                    <option value="all">Mọi đợt</option>
+                    <option value="1">Đợt 1</option>
+                    <option value="2">Đợt 2</option>
+                </select>
+            </div>
+            <div className="relative mb-2.5">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8B2C8]" />
+                <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-[38px] w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] pl-8 pr-3 text-xs font-semibold text-[#5B6478] outline-none disabled:cursor-not-allowed" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+                <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }} className="flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[13px] border border-[#FFE0E8] bg-[#FFF0F3] text-[10px] font-black text-[#E11D48] disabled:opacity-50">
+                    <AlertTriangle size={16} /> Báo lỗi
+                </button>
+                <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[13px] border border-[#D1FAE5] bg-[#ECFDF5] text-[10px] font-black text-[#059669] disabled:opacity-50">
+                    <Plus size={16} /> Thêm môn
+                </button>
+                <button disabled={!isAuthenticated || isProcessingPdf} onClick={() => setIsPdfGuideOpen(true)} className="flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[13px] border border-[#E5EAF4] bg-[#F4F6FA] text-[10px] font-black text-[#5D687E] disabled:opacity-50">
+                    {isProcessingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileUp size={16} />} Nhập PDF
+                </button>
+                <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload} />
+            </div>
+        </div>
+
+        {isAuthenticated && (searchTerm || isAdminView) && availableCourses.length > 0 && (
+            <div className="mb-3 max-h-[300px] space-y-2 overflow-y-auto rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+                <p className="px-1 text-[11px] font-bold text-[#7B8AB0]">{isAdminView ? 'Danh sách môn học' : 'Kết quả'} ({availableCourses.length})</p>
+                {availableCourses.map((course) => {
+                    const color = getColorForCourse(course.id);
+                    return (
+                        <div key={course.id} onClick={() => setSelectedCourseInfo({ course })} className={`relative rounded-[18px] border-l-4 ${color.border} bg-[#F8FAFD] p-3`}>
+                            <button onClick={(e) => { e.stopPropagation(); addToSchedule(course); }} disabled={isSyncing} className="absolute right-3 top-3 rounded-full bg-[#1A56FF] p-1.5 text-white"><Plus size={14} /></button>
+                            <h3 className="pr-9 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{course.subject_name}</h3>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{course.course_code}</span>
+                                <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">T{course.day_of_week} • {course.shift}</span>
+                                <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">P.{course.room}</span>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        )}
+
+        {!isAuthenticated ? (
+            <div className="rounded-[22px] bg-white p-8 text-center shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EEF2FF] text-[#1A56FF]"><Lock size={24} /></div>
+                <p className="text-xs font-medium leading-relaxed text-[#7B8AB0]">Đăng nhập bằng tài khoản sinh viên để xem lịch học.</p>
+            </div>
+        ) : (
+            <>
+                <div className="mb-4 overflow-hidden rounded-[22px] bg-white shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+                    <div className="border-b border-[#EEF2FF] p-3.5">
+                        <div className="flex items-center justify-between">
+                            <h2 className="flex items-center gap-1.5 text-[15px] font-black text-[#0D1B3E]"><Calendar size={18} className="text-[#1A56FF]" /> Lịch cá nhân</h2>
+                            <div className="flex rounded-xl bg-[#F2F4F8] p-1">
+                                <button onClick={() => setViewMode('week')} className={`rounded-lg px-3 py-1.5 text-[10.5px] font-black ${viewMode === 'week' ? 'bg-white text-[#1A56FF] shadow-sm' : 'text-[#7B8AB0]'}`}>Tuần</button>
+                                <button onClick={() => setViewMode('month')} className={`rounded-lg px-3 py-1.5 text-[10.5px] font-black ${viewMode === 'month' ? 'bg-white text-[#1A56FF] shadow-sm' : 'text-[#7B8AB0]'}`}>Tháng</button>
+                            </div>
+                        </div>
+                        <div className="mt-3 flex items-center gap-2">
+                            <button onClick={viewMode === 'week' ? prevWeek : prevMonth} className="flex h-[31px] w-[31px] items-center justify-center rounded-[11px] border border-[#E5EAF4] text-[#7B8AB0]"><ChevronLeft size={14} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); viewMode === 'week' ? setIsWeekDropdownOpen(!isWeekDropdownOpen) : setIsMonthDropdownOpen(!isMonthDropdownOpen); }} className="relative flex h-[31px] flex-1 items-center justify-center rounded-[11px] bg-[#EEF2FF] text-[11px] font-black text-[#1A56FF]">
+                                {viewMode === 'week' ? (selectedWeek === 0 ? 'Tổng quát' : `Tuần ${selectedWeek}`) : `Tháng ${selectedMonthIndex + 1}`}
+                            </button>
+                            <button onClick={viewMode === 'week' ? nextWeek : nextMonth} className="flex h-[31px] w-[31px] items-center justify-center rounded-[11px] border border-[#E5EAF4] text-[#7B8AB0]"><ChevronRight size={14} /></button>
+                        </div>
+                        <div className="mt-2 text-center text-[10px] font-bold text-[#9AA5C0]">{viewMode === 'week' && selectedWeek !== 0 ? `${weekStartStr} - ${weekEndStr}` : selectedWeek === 0 ? 'Chọn tuần để xem lịch chi tiết' : ''}</div>
+                    </div>
+
+                    {viewMode === 'week' ? (
+                        <>
+                            <div className="grid grid-cols-7 gap-1.5 p-3">
+                                {weekDayLabels.map((label, index) => (
+                                    <button key={label} onClick={() => setSelectedDayIndex(index)} disabled={selectedWeek === 0} className={`flex min-h-[54px] flex-col items-center justify-center gap-1 rounded-[15px] ${selectedDayIndex === index && selectedWeek !== 0 ? 'bg-[#1A56FF] text-white shadow-[0_8px_16px_rgba(26,86,255,0.26)]' : 'bg-[#F8FAFD] text-[#7B8AB0]'}`}>
+                                        <span className="text-[9px] font-black uppercase">{label}</span>
+                                        <span className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-black">{currentWeekDates[index]?.slice(0, 2) || '--'}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="space-y-2 px-3.5 pb-3.5">
+                                {HOLIDAY_WEEKS.includes(selectedWeek) ? (
+                                    <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-center text-xs font-black text-red-600"><Zap className="mx-auto mb-2 fill-current" size={22} />Tuần nghỉ Lễ/Tết, không có lịch học.</div>
+                                ) : selectedWeek === 0 ? (
+                                    <div className="rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F6F8FC] p-5 text-center text-xs font-bold text-[#7B8AB0]">Chọn một tuần học để xem lịch theo ngày.</div>
+                                ) : (
+                                    <>
+                                        {[
+                                            { label: 'Buổi sáng', items: selectedMorningCourses },
+                                            { label: 'Buổi chiều', items: selectedAfternoonCourses },
+                                        ].map(group => (
+                                            <div key={group.label}>
+                                                <div className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.4px] text-[#9AA5C0]"><span>{group.label}</span><span className="h-px flex-1 bg-[#EEF2FF]" /></div>
+                                                {group.items.length > 0 ? group.items.map((item: any) => {
+                                                    const color = getColorForCourse(item.course.id);
+                                                    const itemLabels = getLabelsForDate(item.course, selectedDateFull);
+                                                    return (
+                                                        <div key={`${item.course.id}-${item.details?.id || item.details?.shift || group.label}`} onClick={() => setSelectedCourseInfo({ course: item.course, details: item.details, dateStr: selectedDateFull })} className={`mb-2 rounded-[18px] border-l-4 ${color.border} ${color.bg} p-3`}>
+                                                            <div className="flex items-start justify-between gap-3">
+                                                                <div className="text-[12.5px] font-black leading-snug text-[#0D1B3E]">{item.details?.isMakeup ? 'Bù: ' : ''}{item.course.subject_name}</div>
+                                                                <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[9.5px] font-black text-[#1A56FF]">{getShiftDisplay(item.details?.shift)}</span>
+                                                            </div>
+                                                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                                                <span className="rounded-full bg-white/75 px-2 py-1 text-[9.5px] font-bold text-[#56627B]"><Clock size={10} className="mr-1 inline" />{getCourseTimeLabel(item.details?.shift) || item.details?.shift}</span>
+                                                                <span className="rounded-full bg-white/75 px-2 py-1 text-[9.5px] font-bold text-[#56627B]"><MapPin size={10} className="mr-1 inline" />{item.details?.room}</span>
+                                                                {itemLabels.slice(0, 2).map(label => <span key={label.id} className={`rounded-full border px-2 py-1 text-[9px] font-bold ${getLabelStyle(label.color)}`}>{label.type === 'Khác' ? label.text : label.type}</span>)}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }) : <div className="mb-2 rounded-2xl bg-[#F8FAFD] p-3 text-[11px] font-semibold text-[#9AA5C0]">Không có ca học.</div>}
+                                            </div>
+                                        ))}
+                                        {selectedDayExams.map(exam => (
+                                            <div key={`exam-${exam.id}`} onClick={() => setSelectedCourseInfo({ course: exam, dateStr: selectedDateFull })} className="rounded-[18px] border-l-4 border-l-[#FF3B5C] bg-[#FFF0F3] p-3">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="text-[12.5px] font-black leading-snug text-[#0D1B3E]">Lịch thi: {exam.subject_name}</div>
+                                                    <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-black text-[#E11D48]">{exam.exam_shift}</span>
+                                                </div>
+                                                <div className="mt-2 flex gap-1.5 text-[9.5px] font-bold text-[#56627B]"><span className="rounded-full bg-white/75 px-2 py-1">{getExamTime(exam.exam_shift)}</span><span className="rounded-full bg-white/75 px-2 py-1">Phòng {exam.exam_room || exam.room}</span></div>
+                                            </div>
+                                        ))}
+                                    </>
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="grid grid-cols-7 gap-px bg-[#EEF2FF] p-px">
+                            {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => <div key={d} className="bg-[#F8FAFD] py-2 text-center text-[9px] font-black uppercase text-[#1A56FF]">{d}</div>)}
+                            {renderMonthDays().map((date, idx) => {
+                                if (!date) return <div key={`empty-${idx}`} className="min-h-[70px] bg-[#F8FAFD]" />;
+                                const dayCourses = getCoursesForDate(date, mySchedule);
+                                const dayExams = getExamsForDate(date, mySchedule);
+                                const isToday = new Date().toDateString() === date.toDateString();
+                                const dateStr = formatDateStr(date);
+                                return (
+                                    <div key={date.toISOString()} className="min-h-[72px] bg-white p-1">
+                                        <div className={`mx-auto mb-1 flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-black ${isToday ? 'bg-[#1A56FF] text-white' : 'text-[#56627B]'}`}>{date.getDate()}</div>
+                                        {[...dayCourses.slice(0, 2), ...dayExams.slice(0, 1).map(exam => ({ course: exam, details: null }))].map((item: any, i) => (
+                                            <div key={i} onClick={() => setSelectedCourseInfo({ course: item.course, details: item.details, dateStr })} className="mb-0.5 truncate rounded bg-[#EEF2FF] px-1 py-0.5 text-[7px] font-bold text-[#1A56FF]">{item.course.subject_name}</div>
+                                        ))}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {false && currentSemesterSchedule.length > 0 && (
+                    <div className="mx-6 mb-4 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
+                        <div className="mb-2.5 flex items-center justify-between">
+                            <h2 className="flex items-center gap-1.5 text-sm font-black text-[#0D1B3E]"><List size={16} className="text-[#1A56FF]" /> Môn đã lưu</h2>
+                            <button onClick={() => setIsMyScheduleModalOpen(true)} className="rounded-full bg-[#EEF2FF] px-2.5 py-1 text-[10px] font-black text-[#1A56FF]">{currentSemesterSchedule.length} môn</button>
+                        </div>
+                        <div className="space-y-2">
+                            {currentSemesterSchedule.slice(0, 3).map((course, index) => (
+                                <div key={course.id} onClick={() => setSelectedCourseInfo({ course })} className="flex items-center gap-2.5 border-t border-[#EEF2FF] pt-2 first:border-t-0 first:pt-0">
+                                    <span className={`h-9 w-2.5 rounded-full ${index % 2 === 0 ? 'bg-[#1A56FF]' : 'bg-[#00C07F]'}`} />
+                                    <div className="min-w-0 flex-1">
+                                        <div className="truncate text-xs font-black text-[#0D1B3E]">{course.subject_name}</div>
+                                        <div className="mt-0.5 truncate text-[10px] font-semibold text-[#9AA5C0]">{course.course_code} • T{course.day_of_week} • Tiết {course.shift} • {course.room}</div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </>
+        )}
+
+        </div>
+
+        <div className="hidden">
         {/* --- HEADER TKB --- */}
         <div className="relative top-0 z-40 bg-[#F8FAFC] px-0.3 pt-5.5 pb-2 mb-2 space-y-3">
             <div>
-                <h1 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
+                <h1 className="text-2xl sm:text-[28px] font-black text-[#003375] mb-1">
                     Thời khóa biểu
                 </h1>
                 <div className="flex items-center gap-1.5 text-xs text-gray-500">
@@ -1167,6 +1468,8 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
                 </button>
             </div>
         )}
+
+        </div>
 
         {/* ============================================================== */}
         {/* CÁC MODAL DẠNG BOTTOM SHEET CHO MOBILE */}

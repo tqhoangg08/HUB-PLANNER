@@ -867,7 +867,7 @@ const renderContent = () => {
         <div className="w-full pb-10">
             {/* HEADER CHUẨN DASHBOARD */}
             <div className="flex flex-col mb-4 sm:mb-6 px-1 overflow-hidden">
-                <h1 className="text-[24px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
+                <h1 className="text-2xl sm:text-[28px] font-black text-[#003375]">
                     {headerInfo.title}
                 </h1>
                 <div className="flex items-center gap-1.5 mt-2 text-[12px] sm:text-[13px] text-gray-500 overflow-x-auto whitespace-nowrap custom-scrollbar pb-1">

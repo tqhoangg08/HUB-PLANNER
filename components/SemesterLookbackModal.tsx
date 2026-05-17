@@ -46,7 +46,7 @@ export const SemesterLookbackModal: React.FC<SemesterLookbackModalProps> = ({ is
                     </p>
                 </div>
 
-                <div className="overflow-y-auto px-3 py-3 text-center font-['Inter',system-ui,sans-serif] sm:px-8 sm:py-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-track]:bg-transparent">
+                <div className="overflow-y-auto px-3 py-3 text-center font-sans sm:px-8 sm:py-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-track]:bg-transparent">
                     {loading ? (
                         <div className="py-12 text-sm font-semibold text-[#64748B]">Đang tải bảng thành tích...</div>
                     ) : data ? (

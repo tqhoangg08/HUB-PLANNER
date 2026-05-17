@@ -1884,8 +1884,8 @@ return (
             <div className="flex flex-col gap-2 w-full">
                 {/* Tiêu đề & Thông báo */}
                 <div className="w-full">
-                    <h2 className="text-[24px] sm:text-[28px] lg:text-[30px] font-extrabold text-[#003375] tracking-tight leading-tight sm:whitespace-nowrap mb-0.5">
-                        SỰ KIỆN ĐIỂM RÈN LUYỆN
+                    <h2 className="text-2xl sm:text-[28px] font-black text-[#003375] sm:whitespace-nowrap mb-0.5">
+                        Sự kiện ĐRL
                     </h2>
                     {canManage && (
                         <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-1 mb-1 border border-blue-200">

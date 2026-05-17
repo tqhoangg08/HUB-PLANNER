@@ -7,7 +7,6 @@ import {
     ChevronRight,
     Clock,
     Database,
-    Eye,
     Filter,
     Globe,
     Loader2,
@@ -76,6 +75,7 @@ const actionLabels: Record<string, string> = {
     delete_event: 'Xóa sự kiện',
     send_notification: 'Gửi thông báo',
     update_profile: 'Cập nhật hồ sơ',
+    update_course_reports: 'Cập nhật báo cáo môn',
 };
 
 const tableLabels: Record<string, string> = {
@@ -88,6 +88,7 @@ const tableLabels: Record<string, string> = {
     ctv_requests: 'Đơn CTV',
     event_candidates: 'Gợi ý sự kiện',
     profiles: 'Hồ sơ',
+    admin_reports: 'Xử lý báo cáo',
 };
 
 const formatTime = (iso: string) => new Date(iso).toLocaleString('vi-VN', {
@@ -128,6 +129,34 @@ const getTargetId = (log: ActivityLogRow) => log.target_id || log.record_id || '
 const getOldData = (log: ActivityLogRow) => log.old_data || log.details?.old || null;
 const getNewData = (log: ActivityLogRow) => log.new_data || log.details?.new || null;
 
+const pageLabels: Record<string, string> = {
+    '/dashboard': 'Tổng quan',
+    '/schedule': 'Thời khóa biểu',
+    '/events': 'Sự kiện ĐRL',
+    '/lost-found': 'Tìm đồ thất lạc',
+    '/reports': 'Xử lý báo cáo',
+    '/admin/reports': 'Xử lý báo cáo',
+    '/admin/activity': 'Theo dõi hoạt động',
+    '/admin/event-candidates': 'Event candidate',
+    '/handbook': 'Cẩm nang',
+    '/profile': 'Hồ sơ',
+};
+
+const getPageLabel = (path?: string | null, metadata?: JsonRecord | null) => {
+    const title = typeof metadata?.title === 'string' ? metadata.title.split('|')[0].trim() : '';
+    if (title) return title;
+    if (!path) return '-';
+    return pageLabels[path] || path.replace(/^\/+/, '').replace(/[-/]/g, ' ') || '-';
+};
+
+const getAreaLabel = (log: ActivityLogRow) => {
+    const table = getTargetTable(log);
+    const tableLabel = tableLabels[table] || '';
+    const pageLabel = getPageLabel(log.page_path, log.metadata);
+    if (tableLabel && pageLabel !== '-') return `${pageLabel} · ${tableLabel}`;
+    return tableLabel || pageLabel;
+};
+
 const statusBadge = (status?: string | null) => {
     if (status === 'error') return 'bg-red-50 text-red-700 border-red-200';
     if (status === 'warning') return 'bg-amber-50 text-amber-700 border-amber-200';
@@ -147,6 +176,98 @@ const summarizeMetadata = (metadata?: JsonRecord | null) => {
     const entries = Object.entries(metadata).filter(([key]) => key !== 'source').slice(0, 3);
     if (entries.length === 0) return '-';
     return entries.map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : String(value)}`).join(' · ');
+};
+
+const formatReadableValue = (value: unknown) => {
+    if (value === null || value === undefined || value === '') return 'trống';
+    if (typeof value === 'boolean') return value ? 'Có' : 'Không';
+    if (typeof value === 'string' || typeof value === 'number') return String(value);
+    return JSON.stringify(value);
+};
+
+const fieldLabels: Record<string, string> = {
+    title: 'tiêu đề',
+    name: 'tên',
+    status: 'trạng thái',
+    review_status: 'trạng thái duyệt',
+    content: 'nội dung',
+    description: 'mô tả',
+    location: 'địa điểm',
+    start_time: 'thời gian bắt đầu',
+    end_time: 'thời gian kết thúc',
+    page_path: 'trang',
+    user_role: 'vai trò',
+    target_table: 'chức năng',
+};
+
+const pickReadableName = (...records: Array<JsonRecord | null | undefined>) => {
+    const keys = ['title', 'name', 'subject_name', 'event_name', 'source_name', 'full_name', 'email'];
+    for (const record of records) {
+        if (!record) continue;
+        for (const key of keys) {
+            const value = record[key];
+            if (typeof value === 'string' && value.trim()) return value.trim();
+        }
+    }
+    return null;
+};
+
+const getChangedItemLabel = (log: ActivityLogRow, oldData?: JsonRecord | null, newData?: JsonRecord | null) => {
+    const table = getTargetTable(log);
+    const tableLabel = tableLabels[table] || getAreaLabel(log);
+    const name = pickReadableName(newData, oldData, log.metadata);
+    if (name) return `${tableLabel}: ${name}`;
+    const targetId = getTargetId(log);
+    if (targetId) return `${tableLabel} mã ${targetId}`;
+    return tableLabel;
+};
+
+const getActivityDetails = (log: ActivityLogRow) => {
+    const action = getActionLabel(log.action).toLowerCase();
+    const area = getAreaLabel(log);
+    const oldData = getOldData(log);
+    const newData = getNewData(log);
+    const itemLabel = getChangedItemLabel(log, oldData, newData);
+
+    const lines: string[] = [];
+    if (log.action !== 'login' && log.action !== 'logout') {
+        lines.push(`Mục được thao tác: ${itemLabel}.`);
+    }
+
+    if (log.action?.includes('create')) {
+        lines.push(`Đã thêm mới tại ${area}.`);
+    } else if (log.action?.includes('delete')) {
+        lines.push(`Đã xóa mục này tại ${area}.`);
+    } else if (log.action?.includes('approve')) {
+        lines.push(`Đã duyệt mục này tại ${area}.`);
+    } else if (log.action?.includes('reject')) {
+        lines.push(`Đã từ chối mục này tại ${area}.`);
+    } else if (log.action === 'login' || log.action === 'logout') {
+        lines.push(`Đã ${action}.`);
+    } else {
+        lines.push(`Đã ${action} mục này tại ${area}.`);
+    }
+
+    if (oldData && newData) {
+        const keys = Array.from(new Set([...Object.keys(oldData), ...Object.keys(newData)]));
+        const changes = keys
+            .filter(key => JSON.stringify(oldData[key]) !== JSON.stringify(newData[key]))
+            .slice(0, 6)
+            .map(key => {
+                const label = fieldLabels[key] || key.replace(/_/g, ' ');
+                return `Thay đổi ${label} từ "${formatReadableValue(oldData[key])}" thành "${formatReadableValue(newData[key])}".`;
+            });
+        lines.push(...changes);
+    } else if (newData && Object.keys(newData).length > 0) {
+        const created = Object.entries(newData).slice(0, 6).map(([key, value]) => {
+            const label = fieldLabels[key] || key.replace(/_/g, ' ');
+            return `Đặt ${label}: "${formatReadableValue(value)}".`;
+        });
+        lines.push(...created);
+    }
+
+    if (log.error_message) lines.push(`Lỗi: ${log.error_message}`);
+    return lines;
 };
 
 const filterOptions = (logs: ActivityLogRow[], accessor: (log: ActivityLogRow) => string | null | undefined) =>
@@ -228,9 +349,11 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
         return Date.now() - days * 24 * 60 * 60 * 1000;
     }, [dateFilter]);
 
+    const visibleLogs = useMemo(() => logs.filter(log => log.action !== 'view_page'), [logs]);
+
     const filteredLogs = useMemo(() => {
         const term = search.trim().toLowerCase();
-        return logs.filter(log => {
+        return visibleLogs.filter(log => {
             const createdTime = new Date(log.created_at).getTime();
             if (cutoff && createdTime < cutoff) return false;
             if (userFilter !== 'all' && (log.user_email || '') !== userFilter) return false;
@@ -243,16 +366,16 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
                 log.user_role,
                 log.action,
                 getActionLabel(log.action),
+                getAreaLabel(log),
                 getTargetTable(log),
                 getTargetId(log),
-                log.page_path,
                 log.status,
                 log.error_message,
                 JSON.stringify(log.metadata || {}),
             ].join(' ').toLowerCase();
             return haystack.includes(term);
         });
-    }, [logs, cutoff, userFilter, actionFilter, tableFilter, statusFilter, search]);
+    }, [visibleLogs, cutoff, userFilter, actionFilter, tableFilter, statusFilter, search]);
 
     const totalPages = Math.max(1, Math.ceil(filteredLogs.length / PAGE_SIZE));
     const pageLogs = filteredLogs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -263,8 +386,8 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
 
     const summary = useMemo(() => {
         const now = Date.now();
-        const sevenDays = logs.filter(log => new Date(log.created_at).getTime() >= now - 7 * 24 * 60 * 60 * 1000);
-        const thirtyDays = logs.filter(log => new Date(log.created_at).getTime() >= now - 30 * 24 * 60 * 60 * 1000);
+        const sevenDays = visibleLogs.filter(log => new Date(log.created_at).getTime() >= now - 7 * 24 * 60 * 60 * 1000);
+        const thirtyDays = visibleLogs.filter(log => new Date(log.created_at).getTime() >= now - 30 * 24 * 60 * 60 * 1000);
         const byUser = thirtyDays.reduce<Record<string, number>>((acc, log) => {
             const key = log.user_email || 'unknown';
             acc[key] = (acc[key] || 0) + 1;
@@ -275,16 +398,16 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
             sevenDays: sevenDays.length,
             thirtyDays: thirtyDays.length,
             errors: thirtyDays.filter(log => log.status === 'error').length,
-            latest: logs[0]?.created_at ? formatTime(logs[0].created_at) : '-',
+            latest: visibleLogs[0]?.created_at ? formatTime(visibleLogs[0].created_at) : '-',
             topUser,
         };
-    }, [logs]);
+    }, [visibleLogs]);
 
     const content = (
-        <div className={onClose ? 'bg-white w-full max-w-7xl h-[90vh] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-scaleIn border border-gray-200' : 'min-h-full bg-[#F8FAFC] p-4 sm:p-6'}>
-            <div className={`${onClose ? 'bg-[#003375] p-4 text-white' : 'mb-5'} flex items-center justify-between gap-3`}>
+        <div className={onClose ? 'bg-white w-full max-w-7xl h-[90vh] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-scaleIn border border-gray-200' : 'min-h-full'}>
+            <div className={`${onClose ? 'bg-[#003375] p-4 text-white' : 'mb-2.5 pt-1 pb-3 sm:pb-4'} flex items-center justify-between gap-3`}>
                 <div>
-                    <h1 className={`${onClose ? 'text-lg text-white' : 'text-2xl text-slate-950'} font-black flex items-center gap-2`}>
+                    <h1 className={`${onClose ? 'text-lg text-white' : 'text-2xl sm:text-[28px] text-[#003375]'} font-black flex items-center gap-2`}>
                         <Activity size={22} className={onClose ? 'text-blue-100' : 'text-[#003375]'} />
                         Audit log hệ thống
                     </h1>
@@ -344,21 +467,21 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
                             <input
                                 value={search}
                                 onChange={event => setSearch(event.target.value)}
-                                placeholder="Tìm action, page, metadata..."
+                                placeholder="Tìm người, hành động, khu vực..."
                                 className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-[#003375]"
                             />
                         </label>
                         <select value={userFilter} onChange={event => setUserFilter(event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#003375]">
                             <option value="all">Tất cả user</option>
-                            {filterOptions(logs, log => log.user_email).map(email => <option key={email} value={email}>{email}</option>)}
+                            {filterOptions(visibleLogs, log => log.user_email).map(email => <option key={email} value={email}>{email}</option>)}
                         </select>
                         <select value={actionFilter} onChange={event => setActionFilter(event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#003375]">
                             <option value="all">Tất cả action</option>
-                            {filterOptions(logs, log => log.action).map(action => <option key={action} value={action}>{getActionLabel(action)}</option>)}
+                            {filterOptions(visibleLogs, log => log.action).map(action => <option key={action} value={action}>{getActionLabel(action)}</option>)}
                         </select>
                         <select value={tableFilter} onChange={event => setTableFilter(event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#003375]">
                             <option value="all">Tất cả bảng</option>
-                            {filterOptions(logs, getTargetTable).map(table => <option key={table} value={table}>{tableLabels[table] || table}</option>)}
+                            {filterOptions(visibleLogs, getTargetTable).map(table => <option key={table} value={table}>{tableLabels[table] || table}</option>)}
                         </select>
                         <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#003375]">
                             <option value="all">Tất cả trạng thái</option>
@@ -387,7 +510,7 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
                         </div>
                     ) : (
                         <div className="overflow-auto">
-                            <table className="min-w-[1180px] w-full border-collapse text-left text-sm">
+                            <table className="min-w-[980px] w-full border-collapse text-left text-sm">
                                 <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                                     <tr>
                                         <th className="w-10 px-3 py-3"></th>
@@ -395,10 +518,8 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
                                         <th className="px-3 py-3">Người thao tác</th>
                                         <th className="px-3 py-3">Role</th>
                                         <th className="px-3 py-3">Action</th>
-                                        <th className="px-3 py-3">Target</th>
-                                        <th className="px-3 py-3">Page</th>
+                                        <th className="px-3 py-3">Khu vực / chức năng</th>
                                         <th className="px-3 py-3">Status</th>
-                                        <th className="px-3 py-3">Metadata</th>
                                         <th className="px-3 py-3">Thiết bị/IP</th>
                                     </tr>
                                 </thead>
@@ -406,7 +527,6 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
                                     {pageLogs.map(log => {
                                         const device = parseDevice(log.device_info);
                                         const expanded = expandedId === log.id;
-                                        const targetTable = getTargetTable(log);
                                         return (
                                             <React.Fragment key={log.id}>
                                                 <tr className="hover:bg-blue-50/40">
@@ -439,19 +559,13 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
                                                         </span>
                                                     </td>
                                                     <td className="px-3 py-3">
-                                                        <p className="font-bold text-slate-800">{tableLabels[targetTable] || targetTable || '-'}</p>
-                                                        <p className="text-xs text-slate-400">{getTargetId(log) ? `#${getTargetId(log)}` : '-'}</p>
-                                                    </td>
-                                                    <td className="max-w-[180px] truncate px-3 py-3 text-xs font-semibold text-slate-600" title={log.page_path || '-'}>
-                                                        {log.page_path || '-'}
+                                                        <p className="font-bold text-slate-800">{getAreaLabel(log)}</p>
+                                                        {getTargetId(log) && <p className="text-xs text-slate-400">Mã mục: {getTargetId(log)}</p>}
                                                     </td>
                                                     <td className="px-3 py-3">
                                                         <span className={`rounded border px-2 py-1 text-xs font-bold ${statusBadge(log.status)}`}>
                                                             {log.status || 'success'}
                                                         </span>
-                                                    </td>
-                                                    <td className="max-w-[240px] truncate px-3 py-3 text-xs text-slate-600" title={summarizeMetadata(log.metadata)}>
-                                                        {summarizeMetadata(log.metadata)}
                                                     </td>
                                                     <td className="px-3 py-3 text-xs text-slate-500">
                                                         <p className="flex items-center gap-1 font-semibold">
@@ -465,17 +579,15 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
                                                 </tr>
                                                 {expanded && (
                                                     <tr className="bg-slate-50">
-                                                        <td colSpan={10} className="px-4 py-4">
-                                                            <div className="grid gap-3 lg:grid-cols-3">
-                                                                <DetailBlock title="Metadata" value={log.metadata || {}} />
-                                                                <DetailBlock title="Old data" value={getOldData(log) || {}} />
-                                                                <DetailBlock title="New data" value={getNewData(log) || {}} />
-                                                            </div>
-                                                            {log.error_message && (
-                                                                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
-                                                                    {log.error_message}
+                                                        <td colSpan={8} className="px-4 py-4">
+                                                            <div className="rounded-lg border border-slate-200 bg-white p-4">
+                                                                <p className="text-xs font-black uppercase text-slate-500">Hoạt động cụ thể</p>
+                                                                <div className="mt-2 space-y-1.5 text-sm font-medium leading-6 text-slate-700">
+                                                                    {getActivityDetails(log).map((line, index) => (
+                                                                        <p key={index}>{line}</p>
+                                                                    ))}
                                                                 </div>
-                                                            )}
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 )}
@@ -484,7 +596,7 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
                                     })}
                                     {pageLogs.length === 0 && (
                                         <tr>
-                                            <td colSpan={10} className="px-4 py-16 text-center text-slate-400">
+                                            <td colSpan={8} className="px-4 py-16 text-center text-slate-400">
                                                 <Database className="mx-auto mb-2 opacity-50" size={32} />
                                                 Không có log phù hợp bộ lọc.
                                             </td>
@@ -519,14 +631,3 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
         document.body
     );
 };
-
-const DetailBlock: React.FC<{ title: string; value: unknown }> = ({ title, value }) => (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2 text-xs font-black uppercase text-slate-500">
-            <Eye size={13} /> {title}
-        </div>
-        <pre className="max-h-72 overflow-auto p-3 text-xs leading-5 text-slate-700">
-            {JSON.stringify(value, null, 2)}
-        </pre>
-    </div>
-);

@@ -251,7 +251,7 @@ export const AdminReports: React.FC = () => {
         <div className="animate-fadeIn pb-10">
             {/* Header tinh gọn lại trên Mobile */}
             <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 sm:pb-4 -mt-2 mb-3 sm:mb-5 border-b border-gray-200/60 md:shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">
-                <h2 className="text-[22px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
+                <h2 className="text-2xl sm:text-[28px] font-black text-[#003375] mb-1">
                     Xử lý báo cáo
                 </h2>
                 <p className="text-[11px] sm:text-sm text-gray-500 truncate">Quản lý phản hồi, lỗi hệ thống và đơn xin CTV</p>

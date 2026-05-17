@@ -1978,7 +1978,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {/* 1. HEADER & NÚT THAO TÁC */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                     <div>
-                        <h1 className="text-[22px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
+                        <h1 className="text-2xl sm:text-[28px] font-black text-[#003375]">
                             Quản lý Sinh viên
                         </h1>
                         <p className="text-[11px] sm:text-xs text-gray-500 mt-1">Xem và theo dõi tiến độ học tập toàn trường</p>
@@ -2228,8 +2228,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
-                            <h1 className="text-[26px] sm:text-[30px] font-extrabold text-[#003375] tracking-tight leading-none mb-1 sm:mb-2">
-                                HỌC TẬP {selectedUserOverview && <span className="text-[10px] sm:text-xs text-gray-400 font-medium ml-2 uppercase tracking-wide border border-gray-300 bg-white px-2 py-0.5 rounded-md align-middle">(Chế độ xem)</span>}
+                            <h1 className="text-2xl sm:text-[28px] font-black text-[#003375] mb-1 sm:mb-2">
+                                Tổng quan học tập {selectedUserOverview && <span className="text-[10px] sm:text-xs text-gray-400 font-medium ml-2 uppercase tracking-wide border border-gray-300 bg-white px-2 py-0.5 rounded-md align-middle">(Chế độ xem)</span>}
                             </h1>
 
                             <div className="flex flex-wrap items-center gap-1.5 text-[12px] sm:text-[13px] text-gray-500 font-medium mb-1 sm:mb-3">

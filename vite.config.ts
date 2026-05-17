@@ -147,7 +147,7 @@ export default defineConfig(({ mode }) => {
       registerType: 'autoUpdate',
       injectRegister: 'script', 
       devOptions: {
-        enabled: true 
+        enabled: mode !== 'development'
       },
       workbox: {
         skipWaiting: true,

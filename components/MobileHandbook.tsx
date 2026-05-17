@@ -896,7 +896,7 @@ export const MobileHandbook: React.FC = () => {
                         <ChevronLeft size={24} />
                     </button>
                     <div className="text-center">
-                        <h1 className="text-lg font-bold">{headerInfo.title}</h1>
+                        <h1 className="text-2xl sm:text-[28px] font-black text-white">{headerInfo.title}</h1>
                         <p className="text-xs text-blue-200">{headerInfo.sub}</p>
                     </div>
                     <div className="w-10"></div>

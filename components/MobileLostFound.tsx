@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield } from 'lucide-react';
+import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield, Bookmark, BookmarkCheck } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import { createPortal } from 'react-dom';
 import { useUserRole } from '../hooks/useUserRole';
-import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiUrl } from '../utils/api';
 
@@ -423,164 +422,203 @@ export const MobileLostFound: React.FC = () => {
   };
 
 return (
-    <div className="mobile-page mobile-lostfound-page w-full min-h-[100dvh] bg-[#F8FAFC] pb-24 animate-fadeIn">
-      {/* --- MOBILE STICKY HEADER --- */}
-      <div className="mobile-lostfound-header sticky top-0 z-40 bg-white pt-4 pb-0 shadow-sm border-b border-gray-100">
-          <div className="px-4 mb-3">
-              <h2 className="text-[24px] font-extrabold text-[#003375] tracking-tight leading-none">Tìm đồ thất lạc</h2>
-              <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1 italic"><Info size={12}/> Đây là khu vực trao đổi thông tin nội bộ hỗ trợ học tập</p>
+    <div className="mobile-page mobile-lostfound-page w-full min-h-[100dvh] bg-[#E8ECF4] animate-fadeIn">
+      <div className="mx-auto min-h-[100dvh] w-full max-w-[430px] bg-[#F2F4F8] pb-[calc(110px+env(safe-area-inset-bottom))] text-[#0D1B3E]">
+      <div className="h-[calc(env(safe-area-inset-top)+16px)] shrink-0" aria-hidden="true" />
+
+      <div className="px-6 pb-4 pt-1">
+          <div className="flex items-start justify-between">
+              <div>
+                  <h2 className="text-[30px] font-black leading-[1.08] tracking-normal text-[#0D1B3E]">Tìm đồ</h2>
+                  <p className="mt-1 text-[13px] font-semibold text-[#7B8AB0]">Đồ thất lạc nội bộ</p>
+              </div>
+              <div className="flex gap-2">
+                  <button onClick={() => { playClick(); fetchItems(); }} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] active:scale-95" title="Làm mới">
+                      <RefreshCw size={19} className={loading ? "animate-spin" : ""} />
+                  </button>
+                  <button onClick={() => openSubmitModal(activeTab)} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-[#1A56FF] text-white shadow-[0_8px_18px_rgba(26,86,255,0.26)] active:scale-95" title="Đăng tin">
+                      <PlusCircle size={19} />
+                  </button>
+              </div>
+          </div>
+      </div>
+
+      <div className="px-6 pb-8">
+          <div className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-white p-1 shadow-[0_2px_12px_rgba(13,27,62,0.06)]">
+              <button onClick={() => { playClick(); setActiveTab('FOUND'); }} className={`flex items-center justify-center gap-1.5 rounded-xl py-3 text-[12px] font-black transition-all ${activeTab === 'FOUND' ? 'bg-[#1A56FF] text-white shadow-[0_4px_14px_rgba(26,86,255,0.28)]' : 'text-[#7B8AB0]'}`}>
+                  <MapPin size={15} /> Tin nhặt được
+              </button>
+              <button onClick={() => { playClick(); setActiveTab('LOST'); }} className={`flex items-center justify-center gap-1.5 rounded-xl py-3 text-[12px] font-black transition-all ${activeTab === 'LOST' ? 'bg-[#1A56FF] text-white shadow-[0_4px_14px_rgba(26,86,255,0.28)]' : 'text-[#7B8AB0]'}`}>
+                  <Megaphone size={15} /> Tin báo mất
+              </button>
           </div>
 
-          <div className="px-4 mb-3">
-              <div className="relative w-full">
-                  <input type="text" placeholder="Tìm tên đồ, địa điểm..." className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <div className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Tổng quan</div>
+          <div className="mb-3 grid grid-cols-2 gap-3">
+              <div className="min-h-[104px] rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-[#7B8AB0]">
+                      Tin đang mở
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF2FF] text-[#1A56FF]"><Tag size={14} /></span>
+                  </div>
+                  <div className="mt-4 text-[27px] font-black leading-none tracking-normal text-[#1A56FF]">{items.filter(item => item.status !== 'resolved').length}</div>
+                  <div className="mt-1.5 text-[10.5px] font-semibold text-[#9AA5C0]">{items.filter(item => item.type === 'FOUND' && item.status !== 'resolved').length} nhặt được • {items.filter(item => item.type === 'LOST' && item.status !== 'resolved').length} báo mất</div>
+              </div>
+              <div className="min-h-[104px] rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-[#7B8AB0]">
+                      Đã giải quyết
+                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EDFAF3] text-[#00C07F]"><CheckCircle2 size={14} /></span>
+                  </div>
+                  <div className="mt-4 text-[27px] font-black leading-none tracking-normal text-[#00C07F]">{items.filter(item => item.status === 'resolved').length}</div>
+                  <div className="mt-1.5 text-[10.5px] font-semibold text-[#9AA5C0]">Tổng tin đã hoàn tất</div>
               </div>
           </div>
 
-          <div className="px-4 flex gap-2 mb-3">
-              <button onClick={() => { playClick(); fetchItems(); }} className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-[#003375] active:bg-gray-100" title="Làm mới">
-                  <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-              </button>
-              <button onClick={() => openSubmitModal(activeTab)} className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 shadow-sm text-white ${activeTab === 'FOUND' ? 'bg-[#003375]' : 'bg-[#003375]'}`}>
-                  <PlusCircle size={18} /> Đăng tin {activeTab === 'FOUND' ? 'Nhặt được' : 'Báo mất'}
-              </button>
+          <div className="mb-3 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+              <div className="mb-2.5 flex items-center justify-between">
+                  <h3 className="flex items-center gap-1.5 text-[13.5px] font-black text-[#0D1B3E]"><Search size={16} className="text-[#1A56FF]" /> Tìm kiếm & Lọc</h3>
+                  <button onClick={() => { playClick(); fetchItems(); }} className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] bg-[#EEF2FF] text-[#1A56FF]">
+                      <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                  </button>
+              </div>
+
+              <div className="relative mb-2.5">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8B2C8]" />
+                  <input type="text" placeholder="Tìm tên đồ, địa điểm..." className="h-[38px] w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] pl-8 pr-3 text-xs font-semibold text-[#5B6478] outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              </div>
+
           </div>
 
-          {/* TABS */}
-          <div className="flex relative mt-1">
-              <button onClick={() => { playClick(); setActiveTab('FOUND'); }} className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 transition-colors z-10 ${activeTab === 'FOUND' ? 'text-[#003375]' : 'text-gray-400'}`}>
-                  <MapPin size={16} /> Tin nhặt được
-              </button>
-              <button onClick={() => { playClick(); setActiveTab('LOST'); }} className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 transition-colors z-10 ${activeTab === 'LOST' ? 'text-[#003375]' : 'text-gray-400'}`}>
-                  <Megaphone size={16} /> Tin báo mất
-              </button>
-              
-              {/* Tab Indicator Animation */}
-              <div className="absolute bottom-0 h-0.5 bg-[#003375] transition-all duration-300 rounded-t-full w-1/2" style={{ left: activeTab === 'FOUND' ? '0%' : '50%' }}></div>
+          <div className="mb-3 flex gap-2 rounded-[18px] border border-[#FFE8A1] bg-[#FFF8E6] p-3 text-[#92400E] shadow-[0_2px_12px_rgba(245,158,11,0.08)]">
+              <Info size={18} className="mt-0.5 shrink-0 text-[#D97706]" />
+              <p className="text-[10.8px] font-semibold leading-normal"><b className="font-black">Lưu ý:</b> Tin sẽ được kiểm duyệt trước khi hiển thị. Hãy cung cấp mô tả vừa đủ để người thật xác minh.</p>
           </div>
-      </div>
-
-      <div className="p-4">
-          <NotificationNudge variant="lost-found" compact className="mb-4" />
-
-          {!canManage && (
-            <div className="bg-[#FFF8E6] border border-[#FFE8A1] rounded-xl p-3 mb-5 flex gap-3 text-xs text-amber-900 shadow-sm">
-                <Info className="shrink-0 text-amber-600 mt-0.5" size={16} />
-                <p><strong className="font-bold">Lưu ý:</strong> Vui lòng không yêu cầu chuyển khoản trước để nhận lại đồ. Hãy hẹn gặp ở nơi đông người (Phòng CTSV, Bảo vệ) để trao đổi.</p>
-            </div>
-          )}
 
           {canManage && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5 flex items-center gap-2 text-xs text-blue-800 font-medium">
-                <Shield size={16}/> Chế độ Quản trị viên: Hiển thị cả bài chưa duyệt.
-            </div>
+              <div className="mb-3 flex items-center gap-2 rounded-[18px] border border-[#DAE6FF] bg-[#EEF2FF] p-3 text-[11px] font-bold text-[#1A56FF]">
+                  <Shield size={16} /> Chế độ quản trị viên: hiển thị cả bài chưa duyệt.
+              </div>
           )}
+
+          <div className="-mx-6 mb-3 flex gap-2 overflow-x-auto px-6 pb-1 no-scrollbar">
+              {['Tất cả', 'Thẻ SV', 'Chìa khóa', 'Ví / bóp', 'Thiết bị', 'Khác'].map((category, index) => (
+                  <button key={category} className={`shrink-0 rounded-full px-3 py-2 text-[11px] font-black shadow-[0_2px_10px_rgba(13,27,62,0.04)] ${index === 0 ? 'bg-[#1A56FF] text-white shadow-[0_6px_16px_rgba(26,86,255,0.25)]' : 'bg-white text-[#7B8AB0]'}`}>
+                      {category}
+                  </button>
+              ))}
+          </div>
 
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-16"><Loader2 size={32} className="text-[#003375] animate-spin mb-3" /><p className="text-gray-500 text-sm">Đang tải...</p></div>
+              <div className="flex flex-col items-center justify-center py-16"><Loader2 size={32} className="mb-3 animate-spin text-[#1A56FF]" /><p className="text-sm text-[#7B8AB0]">Đang tải...</p></div>
           ) : error ? (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl text-center"><p className="font-bold mb-1 text-sm">Đã xảy ra lỗi</p><p className="text-xs">{error}</p></div>
+              <div className="rounded-[22px] border border-[#FFE0E8] bg-white p-6 text-center text-[#E11D48] shadow-[0_2px_14px_rgba(13,27,62,0.06)]"><p className="mb-1 text-sm font-black">Đã xảy ra lỗi</p><p className="text-xs">{error}</p></div>
           ) : (
-            <div className="flex flex-col gap-4">
-                {filteredItems.length > 0 ? (
-                    filteredItems.map((item) => {
-                        const isPending = item.status === 'pending';
-                        const isResolved = item.status === 'resolved';
+              <div className="flex flex-col gap-3">
+                  <div className="text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">{activeTab === 'FOUND' ? 'Tin nhặt được' : 'Tin báo mất'} ({items.filter(item => item.type === activeTab && item.status !== 'resolved').length})</div>
+                  {filteredItems.length > 0 ? (
+                      filteredItems.map((item) => {
+                          const isPending = item.status === 'pending';
+                          const isResolved = item.status === 'resolved';
+                          const isFound = item.type === 'FOUND';
+                          const isOwner = session?.user?.id === item.user_id;
+                          const accentClass = isResolved ? 'text-[#059669]' : isFound ? 'text-[#1A56FF]' : 'text-[#E11D48]';
+                          const badgeClass = isResolved ? 'border-[#D1FAE5] bg-[#EDFAF3] text-[#059669]' : isFound ? 'border-[#D6E4FF] bg-[#EAF2FF] text-[#1A56FF]' : 'border-[#FFE0E8] bg-[#FFF0F3] text-[#E11D48]';
+                          const imageBg = isFound ? 'bg-[radial-gradient(circle_at_30%_20%,rgba(26,86,255,0.20),transparent_36%),radial-gradient(circle_at_80%_70%,rgba(0,192,127,0.16),transparent_34%),linear-gradient(135deg,#F8FAFD,#EAF0FA)]' : 'bg-[radial-gradient(circle_at_30%_20%,rgba(255,59,92,0.18),transparent_36%),radial-gradient(circle_at_80%_70%,rgba(245,166,35,0.14),transparent_34%),linear-gradient(135deg,#FFF8FB,#F3EEF4)]';
+                          const dateLabel = new Date(item.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
 
-                        return (
-                        <div key={item.id} className={`rounded-2xl shadow-sm border overflow-hidden relative flex flex-col ${
-                            isResolved ? 'bg-gray-50 border-gray-200 opacity-90' : 
-                            isPending ? 'bg-white border-yellow-300 ring-2 ring-yellow-50' : 'bg-white border-gray-200'
-                        }`}>
-                            <div className="aspect-[16/9] w-full bg-gray-100 relative overflow-hidden" onClick={() => { playClick(); setSelectedItem(item); }}>
-                                {item.image_url ? (
-                                    <img src={item.image_url} alt="Item" className={`w-full h-full object-cover ${isResolved ? 'grayscale opacity-70' : ''}`} loading="lazy" />
-                                ) : (
-                                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50"><ImageOff size={32} className="mb-2 opacity-30" /><span className="text-xs font-medium">Không có ảnh đính kèm</span></div>
-                                )}
-                                <div className="absolute top-3 right-3 bg-black/60 text-white text-[10px] font-medium px-2 py-1 rounded-md flex items-center gap-1"><Calendar size={12} /> {new Date(item.created_at).toLocaleDateString('vi-VN')}</div>
-                                
-                                <div className={`absolute top-3 left-3 text-[10px] font-bold px-2.5 py-1 rounded-md shadow-sm uppercase tracking-wide border ${
-                                    isResolved ? 'bg-green-100 text-green-800 border-green-200' :
-                                    item.type === 'FOUND' ? 'bg-blue-100 text-[#003375] border-blue-200' : 'bg-red-100 text-[#990000] border-red-200'
-                                }`}>
-                                    {isResolved ? (item.type === 'FOUND' ? 'Đã trao trả' : 'Đã tìm thấy') : (item.type === 'FOUND' ? 'Nhặt được' : 'Đang tìm')}
-                                </div>
+                          return (
+                              <article key={item.id} className={`overflow-hidden rounded-[22px] bg-white shadow-[0_2px_14px_rgba(13,27,62,0.06)] ${isResolved ? 'opacity-80' : ''} ${isPending ? 'ring-1 ring-[#FDE68A]' : ''}`}>
+                                  <button type="button" onClick={() => { playClick(); setSelectedItem(item); }} className={`relative block h-[150px] w-full overflow-hidden text-left ${imageBg}`}>
+                                      {item.image_url ? (
+                                          <img src={item.image_url} alt={item.title} className={`h-full w-full object-cover ${isResolved ? 'grayscale opacity-70' : ''}`} loading="lazy" />
+                                      ) : (
+                                          <div className="flex h-full w-full items-center justify-center">
+                                              <div className={`grid h-[76px] w-[76px] place-items-center rounded-[22px] border border-white/90 bg-white/75 shadow-[0_12px_28px_rgba(15,23,42,0.08)] ${accentClass}`}>
+                                                  {isFound ? <Tag size={38} strokeWidth={2.2} /> : <HelpCircle size={38} strokeWidth={2.2} />}
+                                              </div>
+                                          </div>
+                                      )}
+                                      <span className={`absolute left-3 top-3 rounded-[10px] border px-2 py-1.5 text-[9.5px] font-black uppercase tracking-[0.3px] ${badgeClass}`}>
+                                          {isResolved ? (isFound ? 'Đã trao trả' : 'Đã tìm thấy') : isFound ? 'Nhặt được' : 'Đang tìm'}
+                                      </span>
+                                      <span className="absolute right-3 top-3 flex items-center gap-1 rounded-[10px] bg-[#0D1B3E]/65 px-2 py-1.5 text-[9.5px] font-extrabold text-white">
+                                          <Calendar size={11} /> {dateLabel}
+                                      </span>
+                                      {isPending && <span className="absolute bottom-3 right-3 rounded-[10px] bg-[#FDE68A] px-2 py-1.5 text-[9.5px] font-black text-[#92400E]">Chờ duyệt</span>}
+                                  </button>
 
-                                {isPending && <div className="absolute bottom-3 right-3 bg-yellow-400 text-yellow-900 text-[10px] font-bold px-2 py-1 rounded-md shadow-md">Chờ duyệt</div>}
-                            </div>
+                                  <div className="p-[15px]">
+                                      <h3 className={`mb-2.5 flex items-start gap-2 text-[15px] font-black leading-snug ${accentClass}`}>
+                                          {isResolved ? <CheckCircle2 size={18} className="mt-0.5 shrink-0" /> : isFound ? <MapPin size={18} className="mt-0.5 shrink-0" /> : <Megaphone size={18} className="mt-0.5 shrink-0" />}
+                                          <span className="line-clamp-2">{item.title}</span>
+                                      </h3>
 
-                            <div className="p-4 flex flex-col">
-                                <h3 className={`text-base font-bold flex items-start gap-2 leading-tight mb-2 line-clamp-2 ${
-                                    isResolved ? 'text-green-700' : item.type === 'FOUND' ? 'text-[#003375]' : 'text-[#990000]'
-                                }`}>
-                                    {isResolved ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" /> : (item.type === 'FOUND' ? <MapPin size={18} className="shrink-0 mt-0.5" /> : <Tag size={18} className="shrink-0 mt-0.5" />)}
-                                    {item.title}
-                                </h3>
-                                
-                                <div className="flex items-center gap-1 text-xs text-gray-500 mb-3 bg-gray-50 p-2 rounded-lg border border-gray-100">
-                                    <MapPin size={14} className="shrink-0 text-gray-400"/>
-                                    <span className="truncate">Khu vực: <span className="font-semibold text-gray-700">{item.location}</span></span>
-                                </div>
+                                      <div className="mb-2.5 grid gap-2 rounded-[15px] border border-[#EEF2FF] bg-[#F8FAFD] p-2.5">
+                                          <div className="flex min-w-0 items-center gap-2 text-[10.8px] font-semibold text-[#637087]">
+                                              <MapPin size={14} className="shrink-0 text-[#9AA5C0]" />
+                                              <span className="truncate">Khu vực: <b className="font-black text-[#0D1B3E]">{item.location}</b></span>
+                                          </div>
+                                          <div className="flex min-w-0 items-center gap-2 text-[10.8px] font-semibold text-[#637087]">
+                                              <User size={14} className="shrink-0 text-[#9AA5C0]" />
+                                              <span className="truncate">{isFound ? 'Người đăng:' : 'Người báo:'} <b className="font-black text-[#0D1B3E]">{item.user_name}</b></span>
+                                          </div>
+                                      </div>
 
-                                <div className={`flex items-center gap-2 p-2.5 rounded-xl border ${isResolved ? 'bg-green-50 border-green-100' : (item.type === 'FOUND' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100')}`}>
-                                    {item.type === 'FOUND' ? <User size={16} className={isResolved ? "text-green-700" : "text-[#003375]"} /> : <HelpCircle size={16} className={isResolved ? "text-green-700" : "text-[#990000]"} />}
-                                    <span className="text-xs font-medium text-gray-600 shrink-0">{item.type === 'FOUND' ? 'Người nhặt:' : 'Người mất:'}</span>
-                                    <span className="text-sm font-bold truncate flex-1">{item.user_name}</span>
-                                </div>
-                            </div>
+                                      {item.description && <p className="mb-3 line-clamp-2 text-[11px] font-semibold leading-normal text-[#7B8AB0]">{item.description}</p>}
 
-                            {/* CÁC NÚT THAO TÁC */}
-                            <div className="px-4 pb-4 pt-0 flex flex-col gap-2">
-                                {session?.user?.id === item.user_id && (
-                                    <div className="flex gap-2">
-                                        {!isResolved && (
-                                            <button onClick={(e) => { e.stopPropagation(); handleResolve(item.id); }} className="flex-1 py-2.5 bg-green-50 active:bg-green-100 text-green-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-green-200">
-                                                <CheckCircle2 size={16} /> Đã xong
-                                            </button>
-                                        )}
-                                        <button onClick={(e) => { e.stopPropagation(); handleDelete(item); }} className="flex-1 py-2.5 bg-red-50 active:bg-red-100 text-red-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-red-200">
-                                            <Trash2 size={16} /> Xóa bài
-                                        </button>
-                                    </div>
-                                )}
+                                      {isOwner && (
+                                          <div className="mb-2 flex gap-2">
+                                              {!isResolved && (
+                                                  <button onClick={(e) => { e.stopPropagation(); handleResolve(item.id); }} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#D1FAE5] bg-[#EDFAF3] text-[11px] font-black text-[#059669] active:bg-green-100">
+                                                      <CheckCircle2 size={15} /> Đã xong
+                                                  </button>
+                                              )}
+                                              <button onClick={(e) => { e.stopPropagation(); handleDelete(item); }} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#FFE0E8] bg-[#FFF0F3] text-[11px] font-black text-[#E11D48] active:bg-red-100">
+                                                  <Trash2 size={15} /> Xóa bài
+                                              </button>
+                                          </div>
+                                      )}
 
-                                <button onClick={() => { playClick(); setSelectedItem(item); }} className="w-full py-3 bg-gray-50 active:bg-gray-100 text-gray-700 rounded-xl text-sm font-bold flex items-center justify-center gap-2 border border-gray-200">
-                                    <Info size={16} className="text-[#003375]" /> Xem chi tiết & Liên hệ
-                                </button>
-                            </div>
+                                      <div className="flex items-center gap-2">
+                                          <button type="button" className={`flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border ${isResolved ? 'border-[#D1FAE5] bg-[#EDFAF3] text-[#059669]' : 'border-[#E8EDF6] bg-white text-[#7B8AB0]'}`}>
+                                              {isResolved ? <BookmarkCheck size={19} /> : <Bookmark size={19} />}
+                                          </button>
+                                          <button onClick={() => { playClick(); setSelectedItem(item); }} className={`flex h-[42px] flex-1 items-center justify-center rounded-[14px] text-[12px] font-black text-white ${isResolved ? 'bg-[#F2F4F8] !text-[#A8B2C8]' : isFound ? 'bg-[#1A56FF] shadow-[0_6px_14px_rgba(26,86,255,0.2)]' : 'bg-[#E11D48] shadow-[0_6px_14px_rgba(225,29,72,0.18)]'}`}>
+                                              {isResolved ? 'Xem chi tiết' : isFound ? 'Xem chi tiết' : 'Tôi tìm thấy'}
+                                          </button>
+                                      </div>
+                                  </div>
 
-                            {canManage && (
-                                <div className="px-4 pb-4 flex gap-2">
-                                    {isPending && (
-                                        <button onClick={() => handleApprove(item.id)} className="flex-1 py-2 bg-green-600 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1">
-                                            <CheckCircle2 size={14} /> Duyệt
-                                        </button>
-                                    )}
-                                    <button onClick={() => handleEdit(item)} className="flex-1 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold flex items-center justify-center gap-1">
-                                        <Edit2 size={14} /> Sửa
-                                    </button>
-                                    {isAdmin && (
-                                        <button onClick={() => handleDelete(item)} className="py-2 px-3 bg-red-50 text-red-600 border border-red-200 rounded-lg flex items-center justify-center">
-                                            <Trash2 size={14} />
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    )})
-                ) : (
-                    <div className="py-16 text-center bg-white rounded-2xl border border-dashed border-gray-300">
-                        <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-300">{activeTab === 'FOUND' ? <Search size={32} /> : <Megaphone size={32} />}</div>
-                        <p className="text-gray-500 font-medium text-sm">Chưa có tin nào.</p>
-                        <p className="text-gray-400 text-xs mt-1">Hãy là người đầu tiên đăng tin!</p>
-                    </div>
-                )}
-            </div>
+                                  {canManage && (
+                                      <div className="flex gap-2 px-[15px] pb-[15px]">
+                                          {isPending && (
+                                              <button onClick={() => handleApprove(item.id)} className="flex h-9 flex-1 items-center justify-center gap-1 rounded-xl bg-[#059669] text-[11px] font-black text-white">
+                                                  <CheckCircle2 size={14} /> Duyệt
+                                              </button>
+                                          )}
+                                          <button onClick={() => handleEdit(item)} className="flex h-9 flex-1 items-center justify-center gap-1 rounded-xl border border-[#DAE6FF] bg-[#EEF2FF] text-[11px] font-black text-[#1A56FF]">
+                                              <Edit2 size={14} /> Sửa
+                                          </button>
+                                          {isAdmin && (
+                                              <button onClick={() => handleDelete(item)} className="flex h-9 w-10 items-center justify-center rounded-xl border border-[#FFE0E8] bg-[#FFF0F3] text-[#E11D48]">
+                                                  <Trash2 size={14} />
+                                              </button>
+                                          )}
+                                      </div>
+                                  )}
+                              </article>
+                          );
+                      })
+                  ) : (
+                      <div className="rounded-[22px] border border-dashed border-[#DDE3F0] bg-white py-14 text-center shadow-[0_2px_14px_rgba(13,27,62,0.04)]">
+                          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-[22px] bg-[#F8FAFD] text-[#A8B2C8]">{activeTab === 'FOUND' ? <Search size={32} /> : <Megaphone size={32} />}</div>
+                          <p className="text-sm font-bold text-[#7B8AB0]">Chưa có tin nào.</p>
+                          <p className="mt-1 text-xs font-semibold text-[#9AA5C0]">Hãy là người đầu tiên đăng tin.</p>
+                      </div>
+                  )}
+              </div>
           )}
       </div>
-      
+      </div>
       <NotificationToast />
 
       <SubmitModal 

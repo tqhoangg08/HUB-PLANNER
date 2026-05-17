@@ -439,8 +439,8 @@ return (
       <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-6 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
             <div>
-                <h2 className="text-[24px] sm:text-[26px] font-extrabold text-[#003375] tracking-tight leading-none">
-                    TÌM ĐỒ THẤT LẠC</h2>
+                <h2 className="text-2xl sm:text-[28px] font-black text-[#003375]">
+                    Tìm đồ thất lạc</h2>
                 <p className="text-xs text-gray-500 mt-1 italic flex items-center gap-1">
                     <Info size={12}/> Đây là khu vực trao đổi thông tin nội bộ hỗ trợ học tập
                 </p>

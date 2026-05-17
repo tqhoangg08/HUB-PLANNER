@@ -15,7 +15,7 @@ import {
     calculateRequiredGPA,
     getGradeDetails
 } from '../utils/calculations';
-import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter, Sparkles } from 'lucide-react';
+import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CalendarDays, Check, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter, Sparkles, Bell, Edit3, Home, Lock } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { playClick } from '../utils/audio';
 import { mapIdToDisplay, normalizeSemesterId } from '../utils/rankingData';
@@ -1102,6 +1102,727 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   );
 };
 
+type MobileLearningTab = 'gpa' | 'schedule';
+
+export interface MobileTrendPoint {
+  name: string;
+  gpa4: number | null;
+  gpa10: number | null;
+}
+
+export interface MobileSemesterRecord {
+  semester: Semester;
+  originalIndex: number;
+}
+
+export interface MobileDashboardNativeProps {
+  stats: {
+    gpa4: number;
+    gpa10: number;
+    passedCredits: number;
+  };
+  totalCreditsRequired: number;
+  isLocked: boolean;
+  trendData: MobileTrendPoint[];
+  semesters?: MobileSemesterRecord[];
+  trendAnalysis?: string;
+  activeTab: MobileLearningTab;
+  onTabChange: (tab: MobileLearningTab) => void;
+  scheduleContent?: React.ReactNode;
+  showEmbeddedBottomNav?: boolean;
+  onOpenRanking?: () => void;
+  onOpenTargetForecast?: () => void;
+  onRequireOnboarding?: () => void;
+  onOpenLookback?: () => void;
+  onOpenFailed?: () => void;
+  onExportPDF?: () => void;
+  onImportPDF?: () => void;
+  onAddSemester?: () => void;
+  onUpdateSemester?: (index: number, semester: Semester) => void;
+  onRemoveSemester?: (index: number) => void;
+  isImporting?: boolean;
+}
+
+const MOBILE_PRIMARY = '#1A56FF';
+const MOBILE_GREEN = '#00C07F';
+
+const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
+
+const formatMobileNumber = (value: number, digits = 2) => {
+  if (!Number.isFinite(value)) return (0).toFixed(digits);
+  return value.toFixed(digits);
+};
+
+const NativeStatusSpacer = () => (
+  <div className="h-[calc(env(safe-area-inset-top)+16px)] shrink-0" aria-hidden="true" />
+);
+
+const NativeSegmentedTabs = ({
+  activeTab,
+  onTabChange,
+}: {
+  activeTab: MobileLearningTab;
+  onTabChange: (tab: MobileLearningTab) => void;
+}) => {
+  const tabs = [
+    { id: 'gpa' as const, label: 'Điểm số & Lộ trình', icon: BarChart3 },
+    { id: 'schedule' as const, label: 'Lịch học & Thi', icon: CalendarDays },
+  ];
+
+  return (
+    <div className="mx-6 mb-5 grid grid-cols-2 rounded-2xl bg-white p-1 shadow-[0_2px_14px_rgba(13,27,62,0.08)]">
+      {tabs.map((tab) => {
+        const Icon = tab.icon;
+        const isActive = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => onTabChange(tab.id)}
+            className={`flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl px-2 text-[12px] font-extrabold transition-all ${
+              isActive
+                ? 'bg-[#1A56FF] text-white shadow-[0_5px_14px_rgba(26,86,255,0.34)]'
+                : 'text-[#9AA5C0] active:bg-slate-50'
+            }`}
+          >
+            <Icon size={14} strokeWidth={2.5} />
+            <span className="truncate">{tab.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+const NativeStatCard = ({
+  title,
+  value,
+  suffix,
+  subLabel,
+  subValue,
+  progress,
+  tone,
+  icon,
+}: {
+  title: string;
+  value: string;
+  suffix: string;
+  subLabel: string;
+  subValue: string;
+  progress: number;
+  tone: 'blue' | 'green';
+  icon: React.ReactNode;
+}) => {
+  const color = tone === 'green' ? MOBILE_GREEN : MOBILE_PRIMARY;
+  return (
+    <div className="min-w-0 rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="min-w-0 text-[11.5px] font-bold leading-tight text-[#7B8AB0]">{title}</span>
+        <div
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+            tone === 'green' ? 'bg-[#EDFAF3] text-[#00C07F]' : 'bg-[#EEF2FF] text-[#1A56FF]'
+          }`}
+        >
+          {icon}
+        </div>
+      </div>
+      <div className="flex items-baseline gap-1">
+        <span className="text-[28px] font-black leading-none tracking-normal" style={{ color }}>
+          {value}
+        </span>
+        <span className="text-[12px] font-bold text-[#B0BCDA]">{suffix}</span>
+      </div>
+      <div className="mt-2 text-[11px] font-semibold text-[#7B8AB0]">
+        {subLabel}: <span className="font-black text-[#0D1B3E]">{subValue}</span>
+      </div>
+      <div className={`mt-2.5 h-1 overflow-hidden rounded-full ${tone === 'green' ? 'bg-emerald-50' : 'bg-[#EEF2FF]'}`}>
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${clampPercent(progress)}%`,
+            background: tone === 'green' ? 'linear-gradient(90deg,#00C07F,#5EEFC0)' : 'linear-gradient(90deg,#1A56FF,#5B8CFF)',
+          }}
+        />
+      </div>
+    </div>
+  );
+};
+
+const NativeFeatureCard = ({
+  title,
+  description,
+  icon,
+  locked,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  locked: boolean;
+  onClick?: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="min-w-0 rounded-[20px] bg-white p-3 text-left shadow-[0_2px_14px_rgba(13,27,62,0.06)] active:scale-[0.99]"
+  >
+    <div className="mb-3 flex items-center justify-between gap-2 text-[12px] font-black text-[#0D1B3E]">
+      <span className="truncate">{title}</span>
+      {icon}
+    </div>
+    <div className="flex flex-col items-center gap-1.5 px-1 pb-1 text-center">
+      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F0F2F8] text-[#7B8AB0]">
+        {locked ? <Lock size={16} strokeWidth={2.2} /> : <ChevronRight size={17} strokeWidth={2.5} />}
+      </div>
+      <div className="text-[12px] font-black text-[#1A56FF]">{locked ? 'Đăng nhập để xem' : 'Xem chi tiết'}</div>
+      <p className="line-clamp-2 text-[10.5px] font-medium leading-snug text-[#9AA5C0]">{description}</p>
+    </div>
+  </button>
+);
+
+const NativeTrendCard = ({
+  isLocked,
+  trendData,
+}: {
+  isLocked: boolean;
+  trendData: MobileTrendPoint[];
+}) => {
+  const hasData = !isLocked && trendData.length > 0;
+
+  return (
+    <section className="mx-6 mb-3 rounded-[20px] bg-white px-[18px] py-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+      <div className="mb-3.5 flex items-center justify-between gap-3">
+        <h2 className="text-[14px] font-black text-[#0D1B3E]">Xu hướng học tập</h2>
+        <div className="flex items-center gap-2.5">
+          <span className="flex items-center gap-1 text-[10.5px] font-bold text-[#7B8AB0]">
+            <i className="h-1.5 w-1.5 rounded-full bg-[#1A56FF]" /> Hệ 4
+          </span>
+          <span className="flex items-center gap-1 text-[10.5px] font-bold text-[#7B8AB0]">
+            <i className="h-1.5 w-1.5 rounded-full bg-[#FF5C6A]" /> Hệ 10
+          </span>
+        </div>
+      </div>
+
+      {hasData ? (
+        <div className="h-[132px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={trendData} margin={{ top: 8, right: 4, bottom: 0, left: -20 }}>
+              <CartesianGrid stroke="#EEF2FF" strokeDasharray="4 4" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9AA5C0', fontWeight: 700 }} axisLine={false} tickLine={false} />
+              <YAxis yAxisId="gpa4" domain={[0, 4]} tick={{ fontSize: 10, fill: '#9AA5C0' }} axisLine={false} tickLine={false} />
+              <YAxis yAxisId="gpa10" domain={[0, 10]} hide />
+              <RechartsTooltip
+                contentStyle={{
+                  border: '1px solid #EEF2FF',
+                  borderRadius: 12,
+                  boxShadow: '0 10px 30px rgba(13,27,62,0.12)',
+                  fontSize: 12,
+                }}
+              />
+              <Line yAxisId="gpa4" type="monotone" dataKey="gpa4" stroke="#1A56FF" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+              <Line yAxisId="gpa10" type="monotone" dataKey="gpa10" stroke="#FF5C6A" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div className="flex h-[112px] flex-col items-center justify-center gap-1.5 rounded-[14px] border border-dashed border-[#DDE3F0] bg-[#F6F8FC] px-5 text-center">
+          <Lock size={30} className="text-[#C0CBDF]" strokeWidth={1.9} />
+          <div className="text-[13px] font-black text-[#1A56FF]">{isLocked ? 'Biểu đồ đã bị khóa' : 'Chưa có dữ liệu xu hướng'}</div>
+          <p className="text-[11px] font-medium leading-snug text-[#9AA5C0]">
+            {isLocked ? 'Đăng nhập để mở khóa và xem biểu đồ xu hướng học tập.' : 'Thêm điểm học kỳ để xem biểu đồ xu hướng học tập.'}
+          </p>
+        </div>
+      )}
+    </section>
+  );
+};
+
+const NativeEvaluationRow = ({ text }: { text?: string }) => (
+  <button
+    type="button"
+    className="mx-6 mb-4 flex w-[calc(100%-3rem)] items-center justify-between rounded-[20px] bg-white px-[18px] py-4 text-left shadow-[0_2px_14px_rgba(13,27,62,0.06)] active:scale-[0.99]"
+  >
+    <div className="flex min-w-0 items-center gap-3">
+      <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#1A56FF]">
+        <BarChart3 size={18} strokeWidth={2.4} />
+      </div>
+      <div className="min-w-0">
+        <div className="text-[13.5px] font-black text-[#0D1B3E]">Đánh giá học tập</div>
+        <p className="line-clamp-2 text-[11px] font-semibold leading-snug text-[#9AA5C0]">{text || 'Chưa đủ dữ liệu để đánh giá'}</p>
+      </div>
+    </div>
+    <ChevronRight size={18} className="shrink-0 text-[#C0CBDF]" strokeWidth={2.5} />
+  </button>
+);
+
+const NativeQuickActions = ({
+  onOpenLookback,
+  onOpenFailed,
+  onExportPDF,
+  onImportPDF,
+  onAddSemester,
+  isImporting,
+}: Pick<
+  MobileDashboardNativeProps,
+  'onOpenLookback' | 'onOpenFailed' | 'onExportPDF' | 'onImportPDF' | 'onAddSemester' | 'isImporting'
+>) => {
+  const actions = [
+    { label: 'Tổng kết', icon: Star, onClick: onOpenLookback },
+    { label: 'Môn cần chú ý', icon: Trophy, onClick: onOpenFailed },
+    { label: 'Nhập PDF', icon: FileUp, onClick: onImportPDF, disabled: isImporting },
+    { label: 'Xuất PDF', icon: Download, onClick: onExportPDF },
+    { label: 'Thêm kỳ', icon: Plus, onClick: onAddSemester },
+  ].filter((item) => Boolean(item.onClick));
+
+  if (actions.length === 0) return null;
+
+  return (
+    <section className="mx-6 mb-5 rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+      <div className="mb-3 text-[13.5px] font-black text-[#0D1B3E]">Công cụ nhanh</div>
+      <div className="grid grid-cols-3 gap-2">
+        {actions.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.label}
+              type="button"
+              onClick={item.onClick}
+              disabled={item.disabled}
+              className="flex min-h-[58px] flex-col items-center justify-center gap-1.5 rounded-2xl bg-[#F6F8FC] px-2 text-center text-[10.5px] font-black leading-tight text-[#0D1B3E] transition active:scale-[0.98] disabled:opacity-50"
+            >
+              <Icon size={17} className="text-[#1A56FF]" strokeWidth={2.3} />
+              <span>{item.disabled ? 'Đang nhập' : item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+const buildNativeSemesterOptions = () => {
+  const options: string[] = [];
+  for (let y = 2020; y <= 2027; y += 1) {
+    options.push(`Học kỳ 1 Năm học ${y}-${y + 1}`);
+    options.push(`Học kỳ 2 Năm học ${y}-${y + 1}`);
+  }
+  return options.reverse();
+};
+
+const toNativeScoreInput = (value: number | null) => value === null || value === undefined ? '' : String(value);
+
+const parseNativeScoreInput = (value: string) => {
+  if (value.trim() === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, Math.min(10, parsed)) : null;
+};
+
+const NativeTranscriptList = ({
+  semesters = [],
+  onUpdateSemester,
+  onRemoveSemester,
+}: {
+  semesters?: MobileSemesterRecord[];
+  onUpdateSemester?: (index: number, semester: Semester) => void;
+  onRemoveSemester?: (index: number) => void;
+}) => {
+  const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
+  const [draftSubject, setDraftSubject] = useState<Subject | null>(null);
+  const semesterOptions = useMemo(buildNativeSemesterOptions, []);
+
+  const startEditSubject = (subject: Subject) => {
+    setEditingSubjectId(subject.id);
+    setDraftSubject({ ...subject });
+  };
+
+  const cancelEditSubject = () => {
+    setEditingSubjectId(null);
+    setDraftSubject(null);
+  };
+
+  const updateSubject = (record: MobileSemesterRecord, subject: Subject) => {
+    onUpdateSemester?.(record.originalIndex, {
+      ...record.semester,
+      subjects: record.semester.subjects.map(item => item.id === subject.id ? subject : item),
+    });
+    cancelEditSubject();
+  };
+
+  const addSubject = (record: MobileSemesterRecord) => {
+    const newSubject: Subject = {
+      id: Date.now().toString(),
+      name: '',
+      credits: 3,
+      scoreCC: null,
+      scoreProcess: null,
+      scoreMid: null,
+      scoreFinal: null,
+      isNonGPA: false,
+    };
+
+    onUpdateSemester?.(record.originalIndex, {
+      ...record.semester,
+      subjects: [...record.semester.subjects, newSubject],
+    });
+    startEditSubject(newSubject);
+  };
+
+  const deleteSubject = (record: MobileSemesterRecord, subjectId: string) => {
+    onUpdateSemester?.(record.originalIndex, {
+      ...record.semester,
+      subjects: record.semester.subjects.filter(subject => subject.id !== subjectId),
+    });
+    if (editingSubjectId === subjectId) cancelEditSubject();
+  };
+
+  if (semesters.length === 0) {
+    return (
+      <section className="mx-6 mb-6 rounded-[20px] bg-white p-5 text-center shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+        <div className="text-[14px] font-black text-[#0D1B3E]">Chi tiết bảng điểm</div>
+        <p className="mt-2 text-[12px] font-semibold leading-snug text-[#9AA5C0]">Chưa có dữ liệu học kỳ. Hãy nhập PDF hoặc thêm học kỳ để xem bảng điểm.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mx-6 mb-7">
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-[16px] font-black text-[#0D1B3E]">Chi tiết bảng điểm</h2>
+          <p className="text-[11px] font-semibold text-[#9AA5C0]">Hiển thị dạng thẻ để dễ đọc trên điện thoại.</p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {semesters.map((record) => {
+          const semester = record.semester;
+          const semStats = calculateSemesterStats(semester.subjects);
+          const subjects = semester.subjects || [];
+          const hasValidName = /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test(semester.name);
+
+          return (
+            <article key={semester.id} className="overflow-hidden rounded-[20px] bg-white shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+              <div className="border-b border-[#EEF2FF] px-4 py-3">
+                <select
+                  value={semester.name}
+                  onChange={(event) => onUpdateSemester?.(record.originalIndex, { ...semester, name: event.target.value })}
+                  className="w-full rounded-xl border border-[#DDE3F0] bg-[#F6F8FC] px-3 py-2 text-[12px] font-black text-[#1A56FF] outline-none focus:border-[#1A56FF]"
+                >
+                  {!hasValidName && <option value="">Chọn học kỳ</option>}
+                  {semesterOptions.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-bold text-[#7B8AB0]">
+                  <span>{subjects.length} môn</span>
+                  <span className="h-1 w-1 rounded-full bg-[#C0CBDF]" />
+                  <span>{semStats.totalCredits || 0} tín chỉ</span>
+                  <span className="h-1 w-1 rounded-full bg-[#C0CBDF]" />
+                  <span>GPA {semStats.hasData ? semStats.gpa4.toFixed(2) : '--'}</span>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => addSubject(record)}
+                    className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#EEF2FF] text-[11px] font-black text-[#1A56FF]"
+                  >
+                    <Plus size={14} /> Thêm môn
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveSemester?.(record.originalIndex)}
+                    className="flex h-8 items-center justify-center rounded-xl bg-red-50 px-3 text-red-600"
+                    aria-label="Xóa học kỳ"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {subjects.length > 0 ? (
+                <div className="divide-y divide-[#F0F2F8]">
+                  {subjects.map((subject) => {
+                    const isEditing = editingSubjectId === subject.id && draftSubject;
+                    const avg = calculateSubjectAverage(subject);
+                    const details = avg !== null ? getGradeDetails(avg) : null;
+                    const scoreColor = avg === null ? 'text-[#9AA5C0]' : avg < 4 ? 'text-red-600' : avg >= 8.5 ? 'text-emerald-600' : 'text-[#1A56FF]';
+
+                    if (isEditing) {
+                      return (
+                        <div key={subject.id} className="space-y-3 bg-[#F8FAFC] px-4 py-3">
+                          <input
+                            value={draftSubject.name}
+                            onChange={(event) => setDraftSubject({ ...draftSubject, name: event.target.value })}
+                            placeholder="Tên môn học"
+                            className="h-10 w-full rounded-xl border border-[#DDE3F0] bg-white px-3 text-[12px] font-bold text-[#0D1B3E] outline-none focus:border-[#1A56FF]"
+                          />
+                          <div className="grid grid-cols-5 gap-2">
+                            <input
+                              value={draftSubject.credits}
+                              onChange={(event) => setDraftSubject({ ...draftSubject, credits: Number(event.target.value) || 0 })}
+                              type="number"
+                              min="0"
+                              className="h-9 rounded-xl border border-[#DDE3F0] bg-white px-2 text-center text-[11px] font-bold outline-none focus:border-[#1A56FF]"
+                              aria-label="Tín chỉ"
+                            />
+                            {[
+                              ['CC', 'scoreCC'],
+                              ['QT', 'scoreProcess'],
+                              ['GK', 'scoreMid'],
+                              ['CK', 'scoreFinal'],
+                            ].map(([label, key]) => (
+                              <input
+                                key={key}
+                                value={toNativeScoreInput(draftSubject[key as keyof Subject] as number | null)}
+                                onChange={(event) => setDraftSubject({ ...draftSubject, [key]: parseNativeScoreInput(event.target.value) })}
+                                placeholder={label}
+                                type="number"
+                                min="0"
+                                max="10"
+                                step="0.1"
+                                className="h-9 rounded-xl border border-[#DDE3F0] bg-white px-2 text-center text-[11px] font-bold outline-none focus:border-[#1A56FF]"
+                              />
+                            ))}
+                          </div>
+                          <label className="flex items-center gap-2 text-[11px] font-bold text-[#7B8AB0]">
+                            <input
+                              type="checkbox"
+                              checked={draftSubject.isNonGPA}
+                              onChange={(event) => setDraftSubject({ ...draftSubject, isNonGPA: event.target.checked })}
+                              className="h-4 w-4 rounded border-[#DDE3F0]"
+                            />
+                            Không tính GPA
+                          </label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => updateSubject(record, draftSubject)}
+                              className="flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#1A56FF] text-[12px] font-black text-white"
+                            >
+                              <Check size={15} /> Lưu
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelEditSubject}
+                              className="h-9 rounded-xl bg-slate-100 text-[12px] font-black text-slate-600"
+                            >
+                              Hủy
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={subject.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{subject.name || 'Môn chưa đặt tên'}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10.5px] font-bold text-[#9AA5C0]">
+                            <span>{subject.credits || 0} tín chỉ</span>
+                            {subject.isNonGPA && (
+                              <>
+                                <span>·</span>
+                                <span>Không tính GPA</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className={`text-[15px] font-black leading-none ${scoreColor}`}>{avg === null ? '--' : avg.toFixed(1)}</div>
+                          <div className="mt-1 text-[10.5px] font-black text-[#7B8AB0]">{details ? `${details.letter} · ${details.scale4.toFixed(1)}` : 'Chưa có'}</div>
+                          <div className="mt-2 flex justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => startEditSubject(subject)}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF2FF] text-[#1A56FF]"
+                              aria-label="Sửa môn"
+                            >
+                              <Edit3 size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteSubject(record, subject.id)}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600"
+                              aria-label="Xóa môn"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="px-4 py-5 text-center text-[12px] font-semibold text-[#9AA5C0]">Học kỳ này chưa có môn học.</div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+const NativeAIFloatingButton = () => (
+  <button
+    type="button"
+    className="absolute bottom-[86px] right-[18px] z-20 flex h-[52px] w-[52px] flex-col items-center justify-center gap-0.5 rounded-[18px] bg-gradient-to-br from-[#1A56FF] to-[#7B2FFF] text-white shadow-[0_8px_22px_rgba(26,86,255,0.45)]"
+    aria-label="Mở trợ lý AI"
+  >
+    <Sparkles size={18} strokeWidth={2.3} />
+    <span className="text-[9px] font-black tracking-wide">AI</span>
+  </button>
+);
+
+const NativeBottomNavigation = () => {
+  const items = [
+    { label: 'Trang chủ', icon: Home, active: false },
+    { label: 'Học tập', icon: BookOpen, active: true },
+    { label: 'Sự kiện', icon: CalendarDays, active: false },
+    { label: 'Tìm đồ', icon: Search, active: false },
+    { label: 'Cá nhân', icon: User, active: false },
+  ];
+
+  return (
+    <nav className="absolute inset-x-0 bottom-0 z-10 flex border-t border-[#EEF2FF] bg-white px-1 pb-6 pt-2.5 shadow-[0_-10px_24px_rgba(13,27,62,0.06)]">
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <button key={item.label} type="button" className="flex flex-1 flex-col items-center gap-1">
+            <span className={`flex h-8 w-8 items-center justify-center rounded-[10px] ${item.active ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#B0BCDA]'}`}>
+              <Icon size={20} strokeWidth={2.2} />
+            </span>
+            <span className={`text-[10px] font-bold ${item.active ? 'text-[#1A56FF]' : 'text-[#B0BCDA]'}`}>{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+};
+
+export const MobileDashboardNative: React.FC<MobileDashboardNativeProps> = ({
+  stats,
+  totalCreditsRequired,
+  isLocked,
+  trendData,
+  semesters,
+  trendAnalysis,
+  activeTab,
+  onTabChange,
+  scheduleContent,
+  showEmbeddedBottomNav = false,
+  onOpenRanking,
+  onOpenTargetForecast,
+  onRequireOnboarding,
+  onOpenLookback,
+  onOpenFailed,
+  onExportPDF,
+  onImportPDF,
+  onAddSemester,
+  onUpdateSemester,
+  onRemoveSemester,
+  isImporting,
+}) => {
+  const creditsProgress = totalCreditsRequired > 0 ? (stats.passedCredits / totalCreditsRequired) * 100 : 0;
+  const gpaProgress = (stats.gpa4 / 4) * 100;
+  const handleLockedClick = () => {
+    if (isLocked) onRequireOnboarding?.();
+  };
+
+  return (
+    <div className="mobile-page mobile-dashboard-native min-h-full w-full bg-[#E8ECF4]">
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[430px] flex-col bg-[#F2F4F8] text-[#0D1B3E]">
+        <NativeStatusSpacer />
+
+        <header className="flex items-start justify-between px-6 pb-4 pt-1">
+          <div>
+            <h1 className="text-[30px] font-black leading-[1.08] tracking-normal text-[#0D1B3E]">Học tập</h1>
+            <p className="mt-1 text-[13px] font-semibold text-[#7B8AB0]">Quản lý học tập</p>
+          </div>
+          <button
+            type="button"
+            className="relative flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_12px_rgba(13,27,62,0.08)]"
+            aria-label="Thông báo"
+          >
+            <Bell size={20} strokeWidth={2.2} />
+            <span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-[#F2F4F8] bg-[#FF3B5C]" />
+          </button>
+        </header>
+
+        <NativeSegmentedTabs activeTab={activeTab} onTabChange={onTabChange} />
+
+        {activeTab === 'schedule' ? (
+          <div className="flex-1 overflow-hidden px-6 pb-8">{scheduleContent}</div>
+        ) : (
+          <main className="relative flex-1 overflow-y-auto pb-[calc(96px+env(safe-area-inset-bottom))]">
+            <div className="mb-2 px-6 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Tổng quan</div>
+
+            <div className="mb-3 grid grid-cols-2 gap-3 px-6">
+              <NativeStatCard
+                title="GPA tích lũy"
+                value={formatMobileNumber(stats.gpa4)}
+                suffix="/ 4.0"
+                subLabel="Hệ 10"
+                subValue={formatMobileNumber(stats.gpa10)}
+                progress={gpaProgress}
+                tone="blue"
+                icon={<GraduationCap size={15} strokeWidth={2.5} />}
+              />
+              <NativeStatCard
+                title="Tín chỉ tích lũy"
+                value={`${Math.round(stats.passedCredits || 0)}`}
+                suffix="TC"
+                subLabel="Mục tiêu"
+                subValue={`${totalCreditsRequired || 125}`}
+                progress={creditsProgress}
+                tone="green"
+                icon={<BookOpen size={15} strokeWidth={2.5} />}
+              />
+            </div>
+
+            <div className="mb-3 grid grid-cols-2 gap-3 px-6">
+              <NativeFeatureCard
+                title="BXH môn học"
+                description="Xem bảng xếp hạng môn học của bạn"
+                icon={<Trophy size={16} className="text-[#F5A623]" strokeWidth={2.3} />}
+                locked={isLocked}
+                onClick={isLocked ? handleLockedClick : onOpenRanking}
+              />
+              <NativeFeatureCard
+                title="Dự báo mục tiêu"
+                description="Xem dự báo và tiến độ đạt mục tiêu"
+                icon={<Target size={16} className="text-[#7B2FFF]" strokeWidth={2.3} />}
+                locked={isLocked}
+                onClick={isLocked ? handleLockedClick : onOpenTargetForecast}
+              />
+            </div>
+
+            <NativeTrendCard isLocked={isLocked} trendData={trendData} />
+            <NativeEvaluationRow text={isLocked ? 'Đăng nhập để mở khóa đánh giá học tập' : trendAnalysis} />
+            <NativeQuickActions
+              onOpenLookback={onOpenLookback}
+              onOpenFailed={onOpenFailed}
+              onExportPDF={onExportPDF}
+              onImportPDF={onImportPDF}
+              onAddSemester={onAddSemester}
+              isImporting={isImporting}
+            />
+            <NativeTranscriptList
+              semesters={semesters}
+              onUpdateSemester={onUpdateSemester}
+              onRemoveSemester={onRemoveSemester}
+            />
+          </main>
+        )}
+
+        {showEmbeddedBottomNav && <NativeBottomNavigation />}
+        {showEmbeddedBottomNav && <NativeAIFloatingButton />}
+      </div>
+    </div>
+  );
+};
+
 // ============================================================================
 // 5. MAIN COMPONENT: MobileDashboard
 // ============================================================================
@@ -1689,7 +2410,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                 <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 -mt-2 mb-3 border-b border-gray-200/60 md:shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
                         <div>
-                            <h1 className="text-[22px] sm:text-[28px] font-extrabold text-[#003375] tracking-tight leading-tight mb-0.5">
+                            <h1 className="text-2xl sm:text-[28px] font-black text-[#003375]">
                                 Quản lý Sinh viên
                             </h1>
                             <p className="text-xs text-gray-500">Xem và theo dõi tiến độ học tập toàn trường</p>
@@ -2002,7 +2723,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                         </button>
                     )}
                     
-                    <h1 className="text-[26px] font-extrabold text-[#003375] tracking-tight leading-none mb-1">
+                    <h1 className="text-2xl sm:text-[28px] font-black text-[#003375] mb-1">
                 Học tập
             </h1>
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">

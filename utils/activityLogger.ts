@@ -121,6 +121,7 @@ export const logActivity = async ({
   errorMessage = null,
 }: ActivityLogInput) => {
   if (!supabase || !session?.user?.id) return;
+  if (action === 'view_page') return;
 
   const metadataRole = normalizeAuditRole(
     (session.user.app_metadata?.role as string | undefined)
