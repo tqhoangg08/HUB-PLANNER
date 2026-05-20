@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/hub-sw.js", "destination": "/hub-sw.js" },
+    { "source": "/api/:path*", "destination": "/api/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

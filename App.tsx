@@ -49,6 +49,8 @@ import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from 
 import { apiUrl } from './utils/api';
 import { calculateCumulativeStats } from './utils/calculations';
 import { logActivity, logActivityQuietly } from './utils/activityLogger';
+import { GraduationInviteBuilder } from './components/graduation/GraduationInviteBuilder';
+import { PublicInvitationPage } from './components/graduation/PublicInvitationPage';
 
 let globalDeferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -2420,6 +2422,9 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfUse />} />
             <Route path="/login" element={<LoginScreen />} />
+            <Route path="/graduation-invites" element={<GraduationInviteBuilder userId={session?.user?.id || null} />} />
+            <Route path="/graduation-invites/:projectId" element={<GraduationInviteBuilder userId={session?.user?.id || null} />} />
+            <Route path="/graduation-invite/:slug" element={<PublicInvitationPage />} />
             
             <Route path="/" element={<Navigate to={useMobileLayout ? "/mobile-home" : "/dashboard"} replace />} />
             <Route path="/*" element={renderProtectedApp()} />

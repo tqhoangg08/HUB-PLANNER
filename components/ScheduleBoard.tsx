@@ -29,6 +29,36 @@ interface StudentScheduleSummary {
   semesters: string[];
 }
 
+interface CourseRequest {
+  id: string;
+  subject_name: string;
+  course_code: string;
+  instructor?: string;
+  status?: string;
+  created_at?: string;
+  user_id?: string;
+  user?: UserProfile | null;
+}
+
+const getCourseRequestTime = (request: CourseRequest) => {
+  const time = request.created_at ? new Date(request.created_at).getTime() : 0;
+  return Number.isFinite(time) ? time : 0;
+};
+
+const sortCourseRequestsNewestFirst = (requests: CourseRequest[]) => {
+  return [...requests].sort((a, b) => getCourseRequestTime(b) - getCourseRequestTime(a));
+};
+
+const getCourseRequestStudentCode = (request: CourseRequest) => {
+  const profileCode = request.user?.student_code?.trim();
+  if (profileCode) return profileCode;
+
+  const email = request.user?.email?.trim();
+  if (email) return email.split('@')[0];
+
+  return request.user_id || '-';
+};
+
 interface CourseLabel {
   id: string;
   type: string;
@@ -429,10 +459,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isAdminView, setIsAdminView] = useState(isAdmin);
-  const [adminTab, setAdminTab] = useState<'system' | 'user' | 'user_changed' | 'student_schedules'>('system');
+  const [adminTab, setAdminTab] = useState<'system' | 'user' | 'requested' | 'user_changed' | 'student_schedules'>('system');
   const [isAdminEditModalOpen, setIsAdminEditModalOpen] = useState(false);
   const [adminEditData, setAdminEditData] = useState<Partial<Course>>({});
   const [isSavingAdminCourse, setIsSavingAdminCourse] = useState(false);
+  const [courseRequests, setCourseRequests] = useState<CourseRequest[]>([]);
+  const [activeCourseRequest, setActiveCourseRequest] = useState<CourseRequest | null>(null);
   const [studentScheduleSummaries, setStudentScheduleSummaries] = useState<StudentScheduleSummary[]>([]);
   const [selectedStudentSchedule, setSelectedStudentSchedule] = useState<StudentScheduleSummary | null>(null);
   const [selectedStudentCourses, setSelectedStudentCourses] = useState<Course[]>([]);
@@ -751,7 +783,80 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     }
   };
 
+  const fetchCourseRequests = async () => {
+    if (!isAdmin && !isAuditor) return;
+    const token = session?.access_token;
+    if (!token) return;
+
+    setIsLoading(true);
+    setAdminScheduleError('');
+    try {
+        const params = new URLSearchParams({
+            resource: 'course-requests',
+            status: 'all',
+            search: searchTerm.trim(),
+        });
+
+        const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error || 'Không tải được yêu cầu thêm môn.');
+        const pendingRequests = (payload.data || []).filter((request: CourseRequest) =>
+            String(request.status || 'pending').trim().toLowerCase() === 'pending'
+        );
+        setCourseRequests(sortCourseRequestsNewestFirst(pendingRequests));
+    } catch (err) {
+        console.error("Lỗi tải yêu cầu thêm môn:", err);
+        setAdminScheduleError((err as Error)?.message || 'Không tải được yêu cầu thêm môn.');
+        setCourseRequests([]);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const openCourseRequestEditor = (request: CourseRequest) => {
+      if (isAuditor) return;
+      setActiveCourseRequest(request);
+      setAdminEditData({
+          subject_name: request.subject_name,
+          course_code: request.course_code,
+          instructor: request.instructor || '',
+          credits: 3,
+          semester: selectedSemester,
+          phase: selectedPhase === 'all' ? '1' : selectedPhase,
+          campus: 'TD',
+          is_user_added: false,
+      });
+      setIsAdminEditModalOpen(true);
+  };
+
+  const rejectCourseRequest = async (request: CourseRequest) => {
+      if (isAuditor) { alert("⚠️ Tính năng này bị khóa đối với tài khoản Auditor."); return; }
+      if (!await showConfirm(`Từ chối yêu cầu thêm môn "${request.subject_name}"?`)) return;
+      const token = session?.access_token;
+      if (!token) return;
+
+      try {
+          const response = await fetch(apiUrl('/courses?resource=course-requests'), {
+              method: 'PATCH',
+              headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ requestId: request.id, status: 'rejected' }),
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload?.error || 'Không thể từ chối yêu cầu.');
+          setCourseRequests(prev => prev.filter(item => item.id !== request.id));
+      } catch (err) {
+          console.error(err);
+          alert((err as Error)?.message || 'Có lỗi xảy ra khi từ chối yêu cầu.');
+      }
+  };
+
   useEffect(() => { if (isAuthenticated && (!isAdminView || adminTab === 'system' || adminTab === 'user')) fetchCourses(); }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated, isAdminView, adminTab]);
+  useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'requested') fetchCourseRequests(); }, [searchTerm, selectedSemester, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'user_changed') fetchChangedUserScheduleCourses(); }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'student_schedules') fetchStudentScheduleSummaries(); }, [selectedSemester, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => {
@@ -1069,13 +1174,35 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     if (!adminEditData.subject_name || !adminEditData.course_code) {
         alert("Vui lòng nhập Tên môn và Mã môn!"); return;
     }
+    if (activeCourseRequest && isAuditor) {
+        alert("⚠️ Tính năng này bị khóa đối với tài khoản Auditor.");
+        return;
+    }
     setIsSavingAdminCourse(true);
     try {
         const payload = {
             ...adminEditData, semester: selectedSemester,
-            is_user_added: adminEditData.is_user_added ?? (adminTab === 'user')
+            is_user_added: activeCourseRequest ? false : (adminEditData.is_user_added ?? (adminTab === 'user'))
         };
-        if (payload.id) {
+        if (activeCourseRequest) {
+            const token = session?.access_token;
+            if (!token) throw new Error('Admin session is missing');
+            const response = await fetch(apiUrl('/courses?resource=course-requests'), {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ requestId: activeCourseRequest.id, course: payload }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result?.error || 'Không thể thêm môn chính thức.');
+            alert("Đã thêm môn thành môn chính thức!");
+            setActiveCourseRequest(null);
+            setCourseRequests(prev => prev.filter(item => item.id !== activeCourseRequest.id));
+            setAdminTab('system');
+            fetchCourses();
+        } else if (payload.id) {
             const { error } = await supabase.from('course_schedules').update(payload).eq('id', payload.id);
             if (error) throw error; alert("Cập nhật môn học thành công!");
         } else {
@@ -1083,7 +1210,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             if (error) throw error; alert("Thêm môn mới thành công!");
         }
         setIsAdminEditModalOpen(false); fetchCourses();
-    } catch (err) { alert("Có lỗi xảy ra khi lưu môn học."); } 
+    } catch (err) {
+        console.error(err);
+        alert((err as Error)?.message || "Có lỗi xảy ra khi lưu môn học.");
+    } 
     finally { setIsSavingAdminCourse(false); }
   };
 
@@ -1479,9 +1609,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             <input type="text" placeholder={adminTab === 'student_schedules' ? 'Tìm tên sinh viên, MSSV, email...' : 'Tìm môn học, mã HP, GV...'} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-300 outline-none text-sm transition-all hover:border-gray-400 focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"/>
                             <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
                         </div>
-                        <button onClick={() => adminTab === 'student_schedules' ? fetchStudentScheduleSummaries() : adminTab === 'user_changed' ? fetchChangedUserScheduleCourses() : fetchCourses()} className="p-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"><RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /></button>
-                        {adminTab !== 'user_changed' && adminTab !== 'student_schedules' && (
-                            <button onClick={() => { setAdminEditData({ is_user_added: adminTab === 'user' }); setIsAdminEditModalOpen(true); }} className="flex items-center gap-1.5 px-4 py-2 bg-[#003375] text-white font-bold rounded-lg hover:bg-[#002855] transition-colors text-sm whitespace-nowrap"><Plus size={16}/> Thêm môn</button>
+                        <button onClick={() => adminTab === 'student_schedules' ? fetchStudentScheduleSummaries() : adminTab === 'user_changed' ? fetchChangedUserScheduleCourses() : adminTab === 'requested' ? fetchCourseRequests() : fetchCourses()} className="p-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"><RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /></button>
+                        {adminTab !== 'user_changed' && adminTab !== 'student_schedules' && adminTab !== 'requested' && (
+                            <button onClick={() => { setActiveCourseRequest(null); setAdminEditData({ is_user_added: adminTab === 'user' }); setIsAdminEditModalOpen(true); }} className="flex items-center gap-1.5 px-4 py-2 bg-[#003375] text-white font-bold rounded-lg hover:bg-[#002855] transition-colors text-sm whitespace-nowrap"><Plus size={16}/> Thêm môn</button>
                         )}
                     </div>
                 </div>
@@ -1489,6 +1619,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 <div className="px-4 pt-4 border-b border-gray-200 flex gap-6 bg-white shrink-0 overflow-x-auto custom-scrollbar">
                     <button onClick={() => setAdminTab('system')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'system' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn hệ thống gốc</button>
                     <button onClick={() => setAdminTab('user')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'user' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên thêm</button>
+                    <button onClick={() => setAdminTab('requested')} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'requested' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên yêu cầu thêm</button>
                     <button onClick={() => setAdminTab('user_changed')} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'user_changed' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên thay đổi</button>
                     <button onClick={() => { setAdminTab('student_schedules'); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); if (selectedRouteStudentCode) navigate('/schedule'); }} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'student_schedules' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Quản lý TKB sinh viên</button>
                 </div>
@@ -1596,6 +1727,59 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                 <button onClick={(e) => { e.stopPropagation(); openStudentSchedule(student); }} className="px-3 py-1.5 rounded-lg bg-[#003375] text-white text-xs font-bold hover:bg-[#002855] transition-colors">
                                                     Xem TKB
                                                 </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )
+                    ) : adminTab === 'requested' ? (
+                        adminScheduleError ? (
+                            <div className="flex flex-col items-center justify-center h-full text-red-600">
+                                <AlertTriangle size={40} className="mb-3 text-red-300"/>
+                                <p className="font-bold">Không tải được yêu cầu thêm môn.</p>
+                                <p className="mt-1 text-sm text-red-500">{adminScheduleError}</p>
+                            </div>
+                        ) : courseRequests.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full text-gray-500"><Search size={40} className="mb-3 text-gray-300"/><p>Không có yêu cầu thêm môn đang chờ.</p></div>
+                        ) : (
+                            <table className="w-full table-fixed text-left border-collapse text-sm min-w-[980px]">
+                                <colgroup>
+                                    <col className="w-14" />
+                                    <col className="w-[170px]" />
+                                    <col />
+                                    <col className="w-[180px]" />
+                                    <col className="w-[190px]" />
+                                    <col className="w-[130px]" />
+                                    <col className="w-[150px]" />
+                                </colgroup>
+                                <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
+                                    <tr>
+                                        <th className="p-3 border-b border-gray-200 font-bold text-center">STT</th>
+                                        <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">Mã Học Phần</th>
+                                        <th className="p-3 border-b border-gray-200 font-bold">Tên Môn Học</th>
+                                        <th className="p-3 border-b border-gray-200 font-bold">Giảng Viên</th>
+                                        <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">MSSV yêu cầu</th>
+                                        <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">Ngày gửi</th>
+                                        <th className="p-3 border-b border-gray-200 font-bold text-center">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {courseRequests.map((request, index) => (
+                                        <tr key={request.id} onClick={() => openCourseRequestEditor(request)} className={`border-b border-gray-100 transition-colors ${isAuditor ? '' : 'cursor-pointer hover:bg-emerald-50/40'}`}>
+                                            <td className="p-3 text-center font-bold text-gray-500">{index + 1}</td>
+                                            <td className="p-3 font-semibold text-[#003375] whitespace-nowrap overflow-hidden text-ellipsis">{request.course_code}</td>
+                                            <td className="p-3 font-bold text-gray-800 break-words leading-snug">{request.subject_name}</td>
+                                            <td className="p-3 text-gray-600 font-medium break-words leading-snug">{request.instructor || '-'}</td>
+                                            <td className="p-3 font-mono font-bold text-emerald-700 whitespace-nowrap overflow-hidden text-ellipsis">{getCourseRequestStudentCode(request)}</td>
+                                            <td className="p-3 text-xs text-gray-500 whitespace-nowrap">{request.created_at ? new Date(request.created_at).toLocaleDateString('vi-VN') : '-'}</td>
+                                            <td className="p-3">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button disabled={isAuditor} onClick={(e) => { e.stopPropagation(); openCourseRequestEditor(request); }} className="px-3 py-1.5 rounded-lg bg-[#003375] text-white text-xs font-bold hover:bg-[#002855] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                                        Sửa & thêm
+                                                    </button>
+                                                    <button disabled={isAuditor} onClick={(e) => { e.stopPropagation(); rejectCourseRequest(request); }} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Từ chối yêu cầu"><Trash2 size={16}/></button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -2595,11 +2779,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
         {/* MODAL ADMIN: THÊM / SỬA MÔN HỌC */}
         {isAdminEditModalOpen && (
-            <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => setIsAdminEditModalOpen(false)}>
+            <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }}>
                 <div className="bg-white rounded-2xl w-full max-w-3xl border border-gray-200 shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 sm:p-5 bg-[#003375] text-white flex justify-between items-center shrink-0">
-                        <h2 className="font-bold text-lg flex items-center gap-2"><Edit size={18} /> {adminEditData.id ? 'Sửa thông tin môn học' : 'Thêm môn học mới'}</h2>
-                        <button onClick={() => setIsAdminEditModalOpen(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
+                        <h2 className="font-bold text-lg flex items-center gap-2"><Edit size={18} /> {activeCourseRequest ? 'Sửa yêu cầu và thêm môn chính thức' : adminEditData.id ? 'Sửa thông tin môn học' : 'Thêm môn học mới'}</h2>
+                        <button onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
                     </div>
                     <div className="p-5 overflow-y-auto custom-scrollbar flex-1 bg-gray-50">
                         <form id="adminCourseForm" onSubmit={handleAdminSaveCourse} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2654,9 +2838,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </form>
                     </div>
                     <div className="p-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0 rounded-b-xl">
-                        <button type="button" onClick={() => setIsAdminEditModalOpen(false)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors text-sm">Hủy bỏ</button>
+                        <button type="button" onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors text-sm">Hủy bỏ</button>
                         <button type="submit" form="adminCourseForm" disabled={isSavingAdminCourse} className="px-6 py-2 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-lg shadow-md transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
-                            {isSavingAdminCourse ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} Lưu Thông Tin
+                            {isSavingAdminCourse ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} {activeCourseRequest ? 'Thêm thành môn chính thức' : 'Lưu Thông Tin'}
                         </button>
                     </div>
                 </div>
