@@ -38,3 +38,40 @@ jobs:
           AWS_DEFAULT_REGION: auto
         run: |
           aws s3 cp hubplanner_backup_${{ env.CURRENT_DATE }}.sql.gz s3://${{ secrets.R2_BUCKET_NAME }}/database_backups/hubplanner_backup_${{ env.CURRENT_DATE }}.sql.gz --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+
+      - name: 5. Cleanup old database backups on R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          BACKUP_PREFIX: database_backups/
+          KEEP_BACKUPS: "3"
+        run: |
+          set -euo pipefail
+
+          backups=$(aws s3api list-objects-v2 \
+            --bucket "$R2_BUCKET" \
+            --prefix "$BACKUP_PREFIX" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --query 'sort_by(Contents || `[]`, &LastModified)[].Key' \
+            --output text)
+
+          if [ -z "$backups" ] || [ "$backups" = "None" ]; then
+            echo "No backups found to clean."
+            exit 0
+          fi
+
+          total=$(printf '%s\n' $backups | sed '/^$/d' | wc -l)
+          delete_count=$((total - KEEP_BACKUPS))
+
+          if [ "$delete_count" -le 0 ]; then
+            echo "Found $total backup(s), keeping all."
+            exit 0
+          fi
+
+          printf '%s\n' $backups | sed '/^$/d' | head -n "$delete_count" | while read -r key; do
+            echo "Deleting old backup: $key"
+            aws s3 rm "s3://$R2_BUCKET/$key" --endpoint-url "$R2_ENDPOINT"
+          done
