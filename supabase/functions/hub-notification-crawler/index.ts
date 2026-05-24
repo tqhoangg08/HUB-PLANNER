@@ -303,7 +303,7 @@ async function processNotification(item: any, options: { forceRecheckExisting: b
 
   let extraction
   try {
-    extraction = await extractPdfTextFromBytes(pdfBytes)
+    extraction = await extractPdfTextFromBytes(pdfBytes.slice())
   } catch (error) {
     extraction = {
       text: '',
