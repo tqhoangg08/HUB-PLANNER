@@ -1,0 +1,56 @@
+TRƯỜNG ĐẠI HỌC NGAN HÀNG TP. HO CHÍ MINH
+PHÒNG KHẢO THÍ VÀ ĐẢM BẢO CHÁT LƯỢNG
+
+Số: 11 /TB-DHNH-P.KTDBCL
+
+THONG BAO
+
+V/v Điều chỉnh lich thi Hệ Chất lượng cao (TABP, CTDT, Elite Class)
+PHONG MAY - CHIEU 09/05/2026 - Dot 1, Học kỳ 2 - Năm học 2025 - 2026
+
+CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+Độc lập- Tự do- Hạnh phúc
+
+Thành pho Hô Chi Minh, ngày 29 tháng 04 năm 2026
+
+LICH THI DIEU CHỈNH
+STT LOP HP TEN MON HỌC GIỜ | voày pyr | PHÒNG we GHI CHU
+THI THI
+1 FIN303_252 L09 |Tài chính doanh nghiệp 13h00 | 09/05/2026 C204 16h30 | 10/05/2026 | C204 TD Déi ngay, gid thi
+2 FIN303_ 252 L10 _|Tai chính doanh nghiệp 13h00 | 09/05/2026 C301 16h30 | 10/05/2026 | C301 TD Déi ngay, gid thi
+3 FIN303_ 252 L19 |Tài chính doanh nghiệp 13h00 | 09/05/2026 C305 16h30 | 10/05/2026 | C305 TD Déi ngay, gid thi
+4 FIN303_ 252 L19 |Tài chính doanh nghiệp 13h00 | 09/05/2026 C306 16h30 | 10/05/2026 | C306 TD Déi ngay, gid thi
+5 FIN303_252 120 |Tai chính doanh nghiệp 13h00 | 09/05/2026 C305 16h30 | 10/05/2026 | C305 TD Déi ngay, gid thi
+6 FIN303_252 L28 |Tài chính doanh nghiệp 13h00 | 09/05/2026 C205 16h30 | 10/05/2026 | C205 TD Déi ngay, gid thi
+7 FIN303_ 252 L01 |Tài chính doanh nghiệp 14h30 | 09/05/2026 C201 18h00 | 10/05/2026 | C201 TD Déi ngay, gid thi
+8 FIN303_252_L03 |Tài chính doanh nghiệp 14h30 | 09/05/2026 C203 18h00 | 10/05/2026 | C203 TD Déi ngay, gid thi
+9 FIN303_ 252 L04 |Tài chính doanh nghiệp 14h30 | 09/05/2026 C205 18h00 | 10/05/2026 | C205 TD Déi ngay, gid thi
+10 FIN303_ 252 L07 |Tài chính doanh nghiệp 14h30 | 09/05/2026 C206 18h00 | 10/05/2026 | C206 TD Déi ngay, gid thi
+11 FIN303_ 252 L13 |Tài chính doanh nghiệp 14h30 | 09/05/2026 C204 18h00 | 10/05/2026 | C204 TD Déi ngay, gid thi
+12 FIN303_ 252 L14 |Tài chính doanh nghiệp 14h30 | 09/05/2026 C305 18h00 | 10/05/2026 | C305 TD Déi ngay, gid thi
+13 FIN303_ 252 L14 |Tài chính doanh nghiệp 14h30 | 09/05/2026 C306 18h00 | 10/05/2026 | C306 TD Déi ngay, gid thi
+14 FIN303_ 252 L2I |Tài chính doanh nghiệp 14h30 | 09/05/2026 C303 18h00 | 10/05/2026 | C303 TD Déi ngay, gid thi
+15 FIN303_252 L22 |Tài chính doanh nghiệp 14h30 | 09/05/2026 C305 18h00 | 10/05/2026 | C305 TD Déi ngay, gid thi
+16 FIN303_ 252 L25 |Tài chính doanh nghiệp 14h30 | 09/05/2026 C304 18h00 | 10/05/2026 | C304 TD Déi ngay, gid thi
+17 MAG717_252_LO1 {Organizational Behavior 16h00 | 09/05/2026 C206 16h30 | 09/05/2026 C206 TD LÀI giờ thi
+18 MAG717_252_L03 |Organizational Behavior 16h00 | 09/05/2026 C201 16h30 | 09/05/2026 C201 TD LÀI giờ thi
+19 FIN303 252 L08 |Tài chính doanh nghiệp 16h00 | 09/05/2026 C203 16h30 | 09/05/2026 | C203 TD Lai giờ thi
+20 FIN303_ 252 L17 |Tài chính doanh nghiệp 16h00 | 09/05/2026 C204 16h30 | 09/05/2026 | C204 TD Lai giờ thi
+21 FIN303_ 252 L18 |Tài chính doanh nghiệp 16h00 | 09/05/2026 C303 16h30 | 09/05/2026 | C303 TD Lai giờ thi
+22 FIN303 252 L26 |Tài chính doanh nghiệp 16h00 | 09/05/2026 C304 16h30 | 09/05/2026 | C304 TD Lai giờ thi
+Ghi chú: KT. TRUONG PHÒNG KT&DBCL
+
+- 36TTD: Cơ sở 36 Tôn That Dam, Sài Gòn, Tp. HCM.
+- 39HN: Cơ sở 39 Hàm Nghi, Sài Gòn, Tp. HCM.
+- TD: Cơ sở 56 Hoàng Diệu 2, P. Thủ Đức.
+
+Nơi nhận:
+- Các Khoa;
+
+- Phòng QLĐT; P. Ttra; VP; P. QTTS; P.TCKT; P. QLCNTT;
+- Phòng TS&TT; FLIC; TTTX&TVCGCN;
+- Lưu: P.KTĐBCL.
+
+PHÓ TRƯỞNG PHÒNG
+
+Huỳnh Đỗ Bảo Châu

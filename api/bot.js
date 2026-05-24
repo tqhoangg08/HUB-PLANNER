@@ -17,6 +17,169 @@ const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 const redis = (UPSTASH_URL && UPSTASH_TOKEN) ? new Redis({ url: UPSTASH_URL, token: UPSTASH_TOKEN }) : null;
 const ratelimit = redis ? new Ratelimit({ redis: redis, limiter: Ratelimit.slidingWindow(10, "10 s"), analytics: true }) : null;
 
+const isNotificationQuestion = (question = "") => {
+  const text = String(question).toLowerCase();
+  return [
+    'thông báo',
+    'thong bao',
+    'học phí',
+    'hoc phi',
+    'phát bằng',
+    'phat bang',
+    'lịch thi',
+    'lich thi',
+    'xét tốt nghiệp',
+    'xet tot nghiep',
+    'học bổng',
+    'hoc bong',
+    'quyết định',
+    'quyet dinh',
+    'mới nhất',
+    'moi nhat',
+    'phòng đào tạo',
+    'phong dao tao',
+    'phòng kế toán',
+    'phong ke toan',
+    'khảo thí',
+    'khao thi',
+  ].some((keyword) => text.includes(keyword));
+};
+
+const normalizeText = (value = "") => String(value)
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/đ/g, 'd');
+
+const keywordTerms = (question = "") => normalizeText(question)
+  .replace(/[^a-z0-9\s/-]/g, ' ')
+  .split(/\s+/)
+  .filter((word) => word.length >= 3 && !['thong', 'bao', 'nhat', 'khong', 'gi'].includes(word))
+  .slice(0, 10);
+
+const pickGeminiKey = () => GEMINI_KEYS[Math.floor(Math.random() * GEMINI_KEYS.length)];
+
+async function embedNotificationQuery(question) {
+  const model = process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-001';
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${pickGeminiKey()}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      content: { parts: [{ text: String(question).slice(0, 8000) }] },
+      taskType: 'RETRIEVAL_QUERY',
+      outputDimensionality: 768,
+    }),
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload?.error?.message || `Gemini embedding failed ${response.status}`);
+  return payload.embedding?.values || [];
+}
+
+async function findUnindexedNotifications(question) {
+  const terms = keywordTerms(question);
+  const { data, error } = await supabase
+    .from('school_notifications')
+    .select('title, published_date, detail_url, pdf_url, extraction_status')
+    .in('extraction_status', ['failed', 'need_review'])
+    .order('published_date', { ascending: false, nullsFirst: false })
+    .limit(50);
+
+  if (error) {
+    console.warn('Failed to search unindexed notifications:', error);
+    return [];
+  }
+
+  return (data || [])
+    .filter((item) => {
+      if (terms.length === 0) return true;
+      const title = normalizeText(item.title || '');
+      return terms.some((term) => title.includes(term));
+    })
+    .slice(0, 5);
+}
+
+function buildUnindexedNotificationReply(notifications) {
+  const lines = notifications.slice(0, 3).map((item, index) => {
+    const date = item.published_date ? ` (${item.published_date})` : '';
+    const url = item.pdf_url || item.detail_url;
+    return `${index + 1}. ${item.title}${date}\nNguồn gốc: ${url}`;
+  });
+
+  return [
+    'Mình tìm thấy thông báo có vẻ liên quan, nhưng hệ thống chưa đọc được nội dung PDF đủ tin cậy để trích dẫn tự động.',
+    'Bạn nên mở link gốc để xem nội dung chính thức:',
+    ...lines,
+  ].join('\n');
+}
+
+async function answerFromNotificationRag(question) {
+  const queryEmbedding = await embedNotificationQuery(question);
+  const { data: chunks, error } = await supabase.rpc('match_notification_chunks', {
+    query_embedding: queryEmbedding,
+    match_threshold: Number(process.env.NOTIFICATION_MATCH_THRESHOLD || 0.52),
+    match_count: Number(process.env.NOTIFICATION_MATCH_COUNT || 12),
+  });
+  if (error) throw error;
+
+  if (!chunks || chunks.length === 0) {
+    const unindexed = await findUnindexedNotifications(question);
+    if (unindexed.length === 0) return null;
+    return {
+      reply: buildUnindexedNotificationReply(unindexed),
+      sources: unindexed.map((item) => ({
+        title: item.title,
+        published_date: item.published_date,
+        detail_url: item.detail_url,
+        pdf_url: item.pdf_url,
+        extraction_status: item.extraction_status,
+      })),
+    };
+  }
+
+  const context = chunks.map((chunk, index) => [
+    `[${index + 1}] ${chunk.title}`,
+    `Ngày đăng: ${chunk.published_date || 'không rõ'}`,
+    `Nguồn: ${chunk.detail_url}`,
+    `PDF: ${chunk.pdf_url || 'không có'}`,
+    chunk.chunk_text,
+  ].join('\n')).join('\n\n---\n\n');
+
+  const prompt = `Bạn là trợ lý thông báo HUB.
+Chỉ trả lời dựa trên các đoạn thông báo chính thức bên dưới.
+Nếu nhiều thông báo cùng chủ đề, ưu tiên thông báo có ngày đăng mới nhất.
+Không tự suy đoán, không bịa deadline/ngày/địa điểm/đối tượng áp dụng.
+Nếu dữ liệu không đủ chắc chắn, nói rõ là chưa đủ dữ liệu và đưa link nguồn.
+Khi trả lời luôn nêu tên thông báo, ngày đăng và link nguồn.
+
+Câu hỏi:
+${question}
+
+Context:
+${context}`;
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${pickGeminiKey()}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.05 },
+    }),
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload?.error?.message || `Gemini notification answer failed ${response.status}`);
+
+  return {
+    reply: payload.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '',
+    sources: chunks.map((chunk) => ({
+      title: chunk.title,
+      published_date: chunk.published_date,
+      detail_url: chunk.detail_url,
+      pdf_url: chunk.pdf_url,
+      similarity: chunk.similarity,
+    })),
+  };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -50,6 +213,20 @@ export default async function handler(req, res) {
         
         if (logData) logId = logData.id;
         if (logError) console.error("Lỗi ghi log partial lên Supabase:", logError);
+    }
+
+    if (isNotificationQuestion(question)) {
+      try {
+        const notificationAnswer = await answerFromNotificationRag(question);
+        if (notificationAnswer?.reply) {
+          if (supabase && logId) {
+            await supabase.from('ai_chat_logs').update({ bot_reply: notificationAnswer.reply }).eq('id', logId);
+          }
+          return res.status(200).json({ reply: notificationAnswer.reply, logId, sources: notificationAnswer.sources || [] });
+        }
+      } catch (notificationError) {
+        console.error('Notification RAG failed, falling back to general bot:', notificationError);
+      }
     }
 
     // ===========================================

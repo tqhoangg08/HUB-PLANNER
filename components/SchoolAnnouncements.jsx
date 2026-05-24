@@ -156,6 +156,32 @@ const SchoolAnnouncements = () => {
     return finalLink;
   };
 
+  /*
+  const askNotificationAI = async () => {
+    const question = aiQuestion.trim();
+    if (!question || aiLoading) return;
+
+    setAiLoading(true);
+    setAiError('');
+    setAiAnswer(null);
+
+    try {
+      const response = await fetch(apiUrl('/hub-notification-chat'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || payload.message || 'Không thể hỏi AI thông báo.');
+      setAiAnswer(payload);
+    } catch (error) {
+      setAiError(error.message || 'Không thể hỏi AI thông báo.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  */
   return (
     <>
       <div className="bg-white min-h-full rounded-xl overflow-hidden border border-gray-100 shadow-sm flex flex-col"> 
@@ -253,6 +279,67 @@ const SchoolAnnouncements = () => {
             </div>
 
             {/* Danh sách Data Modal */}
+            {/*
+            <div className="border-b border-gray-100 bg-white p-3 sm:p-4 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <Sparkles size={16} className="text-[#003375]" />
+                <h3 className="text-sm font-bold text-gray-800">Hỏi AI về thông báo</h3>
+                <span className="text-[10px] text-gray-400">Ưu tiên tin mới, không tự bịa nếu thiếu dữ liệu</span>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={aiQuestion}
+                  onChange={(event) => setAiQuestion(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') askNotificationAI();
+                  }}
+                  placeholder="Ví dụ: Thông báo mới nhất về học phí HK2 là gì?"
+                  className="flex-1 px-3 py-2 rounded-xl border border-gray-200 focus:border-[#003375] focus:ring-2 focus:ring-blue-500/20 outline-none text-sm transition-all"
+                />
+                <button
+                  onClick={askNotificationAI}
+                  disabled={aiLoading || !aiQuestion.trim()}
+                  className="px-4 py-2 rounded-xl bg-[#003375] text-white text-sm font-bold hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+                >
+                  {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  Hỏi
+                </button>
+              </div>
+
+              {(aiAnswer || aiError) && (
+                <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                  {aiError ? (
+                    <p className="text-sm text-red-600 font-medium">{aiError}</p>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-800 whitespace-pre-line leading-relaxed">{aiAnswer.reply}</p>
+                      {aiAnswer.sources?.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-blue-100">
+                          <p className="text-[11px] font-bold text-gray-500 mb-2">Nguồn AI dùng để trả lời</p>
+                          <div className="space-y-1.5">
+                            {aiAnswer.sources.slice(0, 4).map((source, index) => (
+                              <a
+                                key={`${source.detail_url || source.pdf_url}-${index}`}
+                                href={source.pdf_url || source.detail_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block text-xs text-[#003375] hover:underline"
+                              >
+                                {source.title || 'Thông báo HUB'}
+                                {source.published_date ? ` (${source.published_date})` : ''}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-2 sm:p-4 bg-white">
               {isLoadingModal ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">

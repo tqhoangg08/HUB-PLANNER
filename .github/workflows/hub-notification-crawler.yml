@@ -1,0 +1,66 @@
+name: HUB notification crawler
+
+on:
+  schedule:
+    - cron: '*/20 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Crawl mode'
+        required: false
+        default: 'auto'
+      max_items:
+        description: 'Maximum notifications to process in this run'
+        required: false
+        default: '8'
+      max_page:
+        description: 'Maximum backfill page'
+        required: false
+        default: '80'
+      source:
+        description: 'Optional source id, for example hub_main or daotao'
+        required: false
+        default: ''
+      force:
+        description: 'Force recheck existing notifications'
+        required: false
+        default: 'false'
+
+concurrency:
+  group: hub-notification-crawler
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_EMBEDDING_MODEL: ${{ secrets.GEMINI_EMBEDDING_MODEL }}
+      GEMINI_PDF_OCR_MODEL: ${{ secrets.GEMINI_PDF_OCR_MODEL }}
+      GEMINI_CHAT_MODEL: ${{ secrets.GEMINI_CHAT_MODEL }}
+      GOOGLE_CLOUD_VISION_API_KEY: ${{ secrets.GOOGLE_CLOUD_VISION_API_KEY }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      NOTIFICATION_BACKFILL_MAX_PAGE: ${{ inputs.max_page || '80' }}
+      CRAWLER_MODE: ${{ inputs.mode || 'auto' }}
+      CRAWLER_MAX_ITEMS: ${{ inputs.max_items || '8' }}
+      CRAWLER_MAX_PAGE: ${{ inputs.max_page || '80' }}
+      CRAWLER_SOURCE: ${{ inputs.source || '' }}
+      CRAWLER_FORCE: ${{ inputs.force || 'false' }}
+      CRAWLER_ACTIVE_LOCK_MINUTES: '55'
+      CRAWLER_STALE_RUNNING_MINUTES: '20'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run crawler
+        run: deno run --allow-net --allow-env scripts/hub_notification_crawler.ts

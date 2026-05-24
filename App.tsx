@@ -49,8 +49,7 @@ import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from 
 import { apiUrl } from './utils/api';
 import { calculateCumulativeStats } from './utils/calculations';
 import { logActivity, logActivityQuietly } from './utils/activityLogger';
-import { GraduationInviteBuilder } from './components/graduation/GraduationInviteBuilder';
-import { PublicInvitationPage } from './components/graduation/PublicInvitationPage';
+import { ExamStudyAI } from './components/ExamStudyAI';
 
 let globalDeferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -60,6 +59,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
 const OTP_RESEND_COOLDOWN_SECONDS = 10 * 60;
+const ENABLE_EXAM_AI = import.meta.env.VITE_ENABLE_EXAM_AI === 'true';
 
 const isMissingLegacyProfileColumn = (error: any, columnName: string) => {
     const message = `${error?.message || ''} ${error?.details || ''}`;
@@ -185,6 +185,7 @@ const App: React.FC = () => {
     console.log("Kiểm tra quyền hiện tại:", { isAdmin, isAuditor, isCTV });
     const navigate = useNavigate();
     const location = useLocation();
+    const isExamStudyRoute = ENABLE_EXAM_AI && location.pathname.startsWith('/exam-ai');
 
     const isGuest = !session;
     const [forceGuestOnboarding, setForceGuestOnboarding] = useState(false);
@@ -1675,6 +1676,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/events/edit/:eventId" element={<EventsBoard viewUserId={viewingUser?.id} />} />
                 <Route path="/events/:eventId" element={<EventsBoard viewUserId={viewingUser?.id} />} />
                 <Route path="/lost-found" element={<LostFoundBoard />} />
+                <Route path="/exam-ai" element={ENABLE_EXAM_AI ? <ExamStudyAI data={data} userId={session?.user?.id} /> : <Navigate to="/dashboard" replace />} />
+                <Route path="/exam-ai/:setId" element={ENABLE_EXAM_AI ? <ExamStudyAI data={data} userId={session?.user?.id} /> : <Navigate to="/dashboard" replace />} />
                 <Route path="/handbook/:tab?" element={<Handbook />} />
                 
                 <Route path="/profile/:id" element={<ProfilePage refreshKey={profileRefreshKey} onEditProfile={() => setShowAccountSettings(true)} />} />
@@ -1696,6 +1699,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/events/edit/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/events/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/lost-found" element={<MobileLostFound />} />
+                <Route path="/exam-ai" element={ENABLE_EXAM_AI ? <ExamStudyAI data={data} userId={session?.user?.id} /> : <Navigate to="/mobile-home" replace />} />
+                <Route path="/exam-ai/:setId" element={ENABLE_EXAM_AI ? <ExamStudyAI data={data} userId={session?.user?.id} /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/handbook/:tab?" element={<MobileHandbook />} />
                 <Route path="/handbook" element={<MobileHandbook />} />
                 <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/mobile-home" replace />} />
@@ -1718,7 +1723,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
 
         const commonModals = (
             <>
-                {!useMobileLayout && !isMobileScreen && (
+                {!isExamStudyRoute && !useMobileLayout && !isMobileScreen && (
     <div className="desktop-ai-hint fixed bottom-[85px] right-6 z-50 flex flex-col items-end pointer-events-none">
                         <div
                             className={`relative w-60 bg-white text-gray-800 text-sm font-medium p-3 rounded-2xl shadow-xl border border-blue-100 transition-all duration-500 ease-in-out transform origin-bottom-right ${
@@ -1731,11 +1736,11 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                     </div>
                 )}
 
-                {isMobileScreen ? (
+                {!isExamStudyRoute && (isMobileScreen ? (
     <MobileAIAdvisor data={data} userId={session?.user?.id} />
 ) : (
     <AIAdvisor data={data} userId={session?.user?.id} />
-)}
+))}
 
                 {showImportLoadingToast && (
                     <div className="fixed bottom-6 right-6 bg-white shadow-xl p-4 rounded-xl border border-gray-200 flex items-start gap-3 z-[100] animate-slideInRight max-w-xs">
@@ -2380,6 +2385,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                     setShowGuide={setShowGuide} setShowActivityLog={setShowActivityLog} setIsUserMenuOpen={setIsUserMenuOpen}
                     isUserMenuOpen={isUserMenuOpen} setShowAccountSettings={setShowAccountSettings} handleMenuLogout={handleMenuLogout} navigate={navigate}
                     isMobileBrowser={isMobileBrowser}
+                    showExamAI={ENABLE_EXAM_AI}
                 >
                     {currentRoutes}
                 </LayoutComponent>
@@ -2422,9 +2428,6 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfUse />} />
             <Route path="/login" element={<LoginScreen />} />
-            <Route path="/graduation-invites" element={<GraduationInviteBuilder userId={session?.user?.id || null} />} />
-            <Route path="/graduation-invites/:projectId" element={<GraduationInviteBuilder userId={session?.user?.id || null} />} />
-            <Route path="/graduation-invite/:slug" element={<PublicInvitationPage />} />
             
             <Route path="/" element={<Navigate to={useMobileLayout ? "/mobile-home" : "/dashboard"} replace />} />
             <Route path="/*" element={renderProtectedApp()} />

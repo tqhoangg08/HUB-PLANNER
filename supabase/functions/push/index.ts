@@ -18,6 +18,7 @@ const isAuthorized = (req: Request, params: URLSearchParams, body: any) => {
   const token = params.get('secret') || body.secret || req.headers.get('x-secret-key')
   const bearer = req.headers.get('authorization')
   if (Deno.env.get('CRON_SECRET') && bearer === `Bearer ${Deno.env.get('CRON_SECRET')}`) return true
+  if (Deno.env.get('CRON_SECRET') && token === Deno.env.get('CRON_SECRET')) return true
   return Boolean(Deno.env.get('MY_SECRET_SCRAPER_KEY') && token === Deno.env.get('MY_SECRET_SCRAPER_KEY'))
 }
 const getPushUserFromRequest = async (req: Request) => {
@@ -32,6 +33,28 @@ const deleteSubscriptionsByEndpoint = async (endpoint: string, exceptUserId?: st
   if (exceptUserId) query = query.neq('user_id', exceptUserId)
   const { error } = await query
   if (error) throw error
+}
+const categoryFromPayload = (payload: any) => {
+  const raw = `${payload?.category || ''} ${payload?.type || ''} ${payload?.url || ''}`.toLowerCase()
+  if (raw.includes('event') || raw.includes('/events')) return 'events'
+  if (raw.includes('lost') || raw.includes('found') || raw.includes('/lost-found')) return 'lost_found'
+  if (raw.includes('schedule') || raw.includes('course') || raw.includes('/schedule')) return 'schedule'
+  if (raw.includes('school') || raw.includes('announcement')) return 'school'
+  return 'system'
+}
+const filterSubscriptionsByPreference = async (subscriptions: any[], category: string) => {
+  if (!subscriptions.length) return []
+  const userIds = Array.from(new Set(subscriptions.map((sub: any) => sub.user_id).filter(Boolean)))
+  if (!userIds.length) return subscriptions
+  const { data } = await supabase
+    .from('notification_preferences')
+    .select('user_id, system, events, lost_found, schedule, school')
+    .in('user_id', userIds)
+  const prefs = new Map((data || []).map((row: any) => [row.user_id, row]))
+  return subscriptions.filter((sub: any) => {
+    const pref = prefs.get(sub.user_id)
+    return !pref || pref[category] !== false
+  })
 }
 const handlePushSubscription = async (req: Request, body: any) => {
   if (req.method !== 'POST' && req.method !== 'DELETE') return json({ error: 'Method not allowed' }, 405)
@@ -68,8 +91,11 @@ const handleSendNotification = async (req: Request, body: any) => {
   const { data: subscriptions, error } = await query
   if (error) return json({ error: error.message }, 500)
   if (!subscriptions?.length) return json({ error: 'Khong tim thay nguoi nhan' }, 404)
-  const payload = JSON.stringify({ title: title || 'HUB Planner', body: messageBody || 'Bạn có thông báo mới.', url: url || '/' })
-  const results = await Promise.all(subscriptions.map(async (sub: any) => {
+  const payloadObject = { title: title || 'HUB Planner', body: messageBody || 'B?n c? th?ng b?o m?i.', url: url || '/', category: body.category || undefined }
+  const allowedSubscriptions = await filterSubscriptionsByPreference(subscriptions, categoryFromPayload(payloadObject))
+  if (!allowedSubscriptions.length) return json({ success: false, skipped: true, message: 'Tat ca nguoi nhan da tat loai thong bao nay', sent: 0, failed: 0 })
+  const payload = JSON.stringify(payloadObject)
+  const results = await Promise.all(allowedSubscriptions.map(async (sub: any) => {
     try {
       const pushResponse = await sendWebPush(sub.subscription, payload)
       return { id: sub.id, endpoint: sub.endpoint || sub.subscription?.endpoint, ok: true, statusCode: pushResponse.statusCode }
@@ -79,7 +105,7 @@ const handleSendNotification = async (req: Request, body: any) => {
     }
   }))
   const sent = results.filter((result) => result.ok).length
-  return json({ success: sent > 0, message: `Da gui ${sent}/${subscriptions.length} thiet bi`, sent, failed: results.length - sent, results }, sent > 0 ? 200 : 502)
+  return json({ success: sent > 0, message: `Da gui ${sent}/${allowedSubscriptions.length} thiet bi`, sent, skipped: subscriptions.length - allowedSubscriptions.length, failed: results.length - sent, results }, sent > 0 ? 200 : 502)
 }
 const enqueueRecentAnnouncements = async () => {
   const recentCutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
@@ -114,12 +140,13 @@ const enqueueRecentLostFoundItems = async () => {
   return { queued: upsertError ? 0 : rows.length, error: upsertError?.message }
 }
 const loadSubscriptions = async () => {
-  const { data, error } = await supabase.from('push_subscriptions').select('id, endpoint, subscription')
+  const { data, error } = await supabase.from('push_subscriptions').select('id, endpoint, user_id, subscription')
   if (error) throw error
   return data || []
 }
-const sendPushToAll = async (subscriptions: any[], payload: any) => {
-  const results = await Promise.all(subscriptions.map(async (sub) => {
+const sendPushToAll = async (subscriptions: any[], payload: any, category?: string) => {
+  const allowedSubscriptions = await filterSubscriptionsByPreference(subscriptions, category || categoryFromPayload(payload))
+  const results = await Promise.all(allowedSubscriptions.map(async (sub) => {
     try {
       await sendWebPush(sub.subscription, JSON.stringify(payload))
       return { ok: true, id: sub.id }
@@ -129,7 +156,7 @@ const sendPushToAll = async (subscriptions: any[], payload: any) => {
     }
   }))
   const sent = results.filter((result) => result.ok).length
-  return { sent, failed: results.length - sent, results }
+  return { sent, skipped: subscriptions.length - allowedSubscriptions.length, failed: results.length - sent, results }
 }
 const getActorRole = async (req: Request) => {
   const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
@@ -155,7 +182,7 @@ const approveLostFound = async (req: Request, body: any) => {
   }
   const payload = lostFoundPayload(item)
   const subscriptions = await loadSubscriptions()
-  const pushResult = await sendPushToAll(subscriptions, payload)
+  const pushResult = await sendPushToAll(subscriptions, payload, 'lost_found')
   return json({ success: true, approved: true, ...pushResult })
 }
 const processQueue = async ({ table, select, payloadFor, emptyMessage, subscriptions }: any) => {
@@ -168,7 +195,8 @@ const processQueue = async ({ table, select, payloadFor, emptyMessage, subscript
     await supabase.from(table).update({ sent_at: nowIso, last_error: 'No push subscriptions' }).eq('id', item.id)
     return { success: true, sent: 0, skipped: true, message: 'No subscriptions' }
   }
-  const result = await sendPushToAll(subscriptions, payloadFor(item))
+  const payload = payloadFor(item)
+  const result = await sendPushToAll(subscriptions, payload, payload.category)
   if (result.sent > 0) {
     await supabase.from(table).update({ sent_at: new Date().toISOString(), attempts: (item.attempts || 0) + 1 }).eq('id', item.id)
     return { success: true, ...result }
@@ -191,8 +219,8 @@ Deno.serve(async (req) => {
     if (!isAuthorized(req, params, body)) return json({ error: 'Forbidden' }, 403)
     const backfill = { announcements: await enqueueRecentAnnouncements(), lostFound: await enqueueRecentLostFoundItems() }
     const subscriptions = await loadSubscriptions()
-    const announcements = await processQueue({ table: 'school_announcement_push_queue', select: 'id, title, link, attempts', subscriptions, emptyMessage: 'No due announcement push', payloadFor: (item: any) => ({ title: 'Thông báo mới từ trường', body: item.title, url: item.link || '/dashboard' }) })
-    const lostFound = await processQueue({ table: 'lost_found_push_queue', select: 'id, title, body, url, attempts', subscriptions, emptyMessage: 'No due lost-found push', payloadFor: (item: any) => ({ title: item.title, body: item.body, url: item.url || '/lost-found' }) })
+    const announcements = await processQueue({ table: 'school_announcement_push_queue', select: 'id, title, link, attempts', subscriptions, emptyMessage: 'No due announcement push', payloadFor: (item: any) => ({ title: 'Th?ng b?o m?i t? tr??ng', body: item.title, url: item.link || '/dashboard', category: 'school' }) })
+    const lostFound = await processQueue({ table: 'lost_found_push_queue', select: 'id, title, body, url, attempts', subscriptions, emptyMessage: 'No due lost-found push', payloadFor: (item: any) => ({ title: item.title, body: item.body, url: item.url || '/lost-found', category: 'lost_found' }) })
     const ok = announcements.success && lostFound.success
     return json({ success: ok, backfill, announcements, lostFound }, ok ? 200 : 502)
   } catch (error) {

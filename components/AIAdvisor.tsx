@@ -7,6 +7,7 @@ import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import { supabase } from '../utils/supabase'; 
 import DOMPurify from 'dompurify';
+import { apiUrl } from '../utils/api';
 
 interface AIAdvisorProps {
   data: UserData;
@@ -127,7 +128,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       
       const cleanHistoryForAI = chatHistory.map(msg => ({ role: msg.role, content: msg.content }));
 
-      const res = await fetch('/api/bot', {
+      const res = await fetch(apiUrl('/bot'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

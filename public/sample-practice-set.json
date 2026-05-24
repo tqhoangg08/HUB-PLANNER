@@ -1,0 +1,45 @@
+{
+  "quizId": "de-001",
+  "title": "Chương 1 - Nguyên lý kế toán",
+  "questions": [
+    {
+      "id": "q1",
+      "question": "Phương trình kế toán cơ bản là gì?",
+      "options": {
+        "A": "Tài sản = Nợ phải trả + Vốn chủ sở hữu",
+        "B": "Doanh thu = Chi phí + Lợi nhuận",
+        "C": "Tài sản = Doanh thu - Chi phí",
+        "D": "Nợ phải trả = Tài sản + Vốn chủ sở hữu"
+      },
+      "correctAnswer": "A",
+      "explanation": "Phương trình này thể hiện nguồn hình thành tài sản của doanh nghiệp gồm nợ phải trả và vốn chủ sở hữu.",
+      "topicTag": "Phương trình kế toán"
+    },
+    {
+      "id": "q2",
+      "question": "Khoản nào sau đây thường được xếp vào tài sản?",
+      "options": {
+        "A": "Vay ngân hàng",
+        "B": "Tiền mặt",
+        "C": "Vốn góp chủ sở hữu",
+        "D": "Doanh thu bán hàng"
+      },
+      "correctAnswer": "B",
+      "explanation": "Tiền mặt là nguồn lực doanh nghiệp kiểm soát và có thể đem lại lợi ích kinh tế trong tương lai.",
+      "topicTag": "Tài sản"
+    },
+    {
+      "id": "q3",
+      "question": "Khi doanh nghiệp vay ngân hàng bằng tiền mặt, yếu tố nào tăng?",
+      "options": {
+        "A": "Tài sản và vốn chủ sở hữu",
+        "B": "Chi phí và nợ phải trả",
+        "C": "Tài sản và nợ phải trả",
+        "D": "Doanh thu và tài sản"
+      },
+      "correctAnswer": "C",
+      "explanation": "Doanh nghiệp nhận tiền nên tài sản tăng, đồng thời phát sinh nghĩa vụ trả nợ nên nợ phải trả tăng.",
+      "topicTag": "Nghiệp vụ kế toán"
+    }
+  ]
+}

@@ -342,6 +342,7 @@ const notifyCourseRequestApproved = async (userId: string | null, course: any) =
     title: 'Môn học đã được cập nhật',
     body: content,
     url: '/schedule',
+    category: 'schedule',
   }
 
   let notification = false
@@ -361,6 +362,16 @@ const notifyCourseRequestApproved = async (userId: string | null, course: any) =
     notification = true
   } else {
     console.error('Course request notification insert failed:', notificationError.message)
+  }
+
+  const { data: preference } = await supabase
+    .from('notification_preferences')
+    .select('schedule')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (preference?.schedule === false) {
+    return { notification, push: { sent: 0, skipped: true, failed: 0 } }
   }
 
   const { data: subscriptions, error: subscriptionError } = await supabase

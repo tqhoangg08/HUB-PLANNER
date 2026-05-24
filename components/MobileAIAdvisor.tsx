@@ -9,6 +9,7 @@ import { supabase } from '../utils/supabase';
 import DOMPurify from 'dompurify';
 import { createPortal } from 'react-dom';
 import { usePlatform } from '../hooks/usePlatform';
+import { apiUrl } from '../utils/api';
 
 interface AIAdvisorProps {
   data: UserData;
@@ -201,7 +202,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       const studentContext = getStudentContext();
       const cleanHistoryForAI = chatHistory.map(msg => ({ role: msg.role, content: msg.content }));
 
-      const res = await fetch('/api/bot', {
+      const res = await fetch(apiUrl('/bot'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

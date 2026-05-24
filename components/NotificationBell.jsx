@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, Settings } from 'lucide-react';
+import { Bell, CalendarDays, Megaphone, Search, Settings, ShieldCheck, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { formatDate, formatTime } from '../utils/dateUtils';
@@ -11,9 +11,27 @@ import {
 } from '../utils/pushNotifications';
 
 const NotificationBell = ({ currentUserId }) => {
+  const defaultPreferences = {
+    system: true,
+    events: true,
+    lost_found: true,
+    schedule: true,
+    school: true,
+  };
+
+  const preferenceItems = [
+    { key: 'system', label: 'Thông báo hệ thống', icon: ShieldCheck },
+    { key: 'events', label: 'Sự kiện', icon: Sparkles },
+    { key: 'lost_found', label: 'Tìm đồ thất lạc', icon: Search },
+    { key: 'schedule', label: 'Lịch học', icon: CalendarDays },
+    { key: 'school', label: 'Thông báo nhà trường', icon: Megaphone },
+  ];
+
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [preferences, setPreferences] = useState(defaultPreferences);
   const [isPushEnabled, setIsPushEnabled] = useState(false);
   const [isLoadingPush, setIsLoadingPush] = useState(false);
   const [panelPosition, setPanelPosition] = useState({ top: 96, right: 16 });
@@ -21,6 +39,21 @@ const NotificationBell = ({ currentUserId }) => {
   const navigate = useNavigate();
   const bellRef = useRef(null);
   const panelRef = useRef(null);
+  const storageKey = currentUserId ? `notification_preferences:${currentUserId}` : 'notification_preferences:guest';
+
+  const getNotificationCategory = (notif) => {
+    const raw = `${notif?.category || ''} ${notif?.type || ''} ${notif?.link || ''}`.toLowerCase();
+    if (raw.includes('event') || raw.includes('/events')) return 'events';
+    if (raw.includes('lost') || raw.includes('found') || raw.includes('/lost-found')) return 'lost_found';
+    if (raw.includes('schedule') || raw.includes('course') || raw.includes('/schedule')) return 'schedule';
+    if (raw.includes('school') || raw.includes('announcement')) return 'school';
+    return 'system';
+  };
+
+  const visibleNotifications = notifications.filter((notif) => {
+    const category = getNotificationCategory(notif);
+    return preferences[category] !== false;
+  });
 
   const updatePanelPosition = () => {
     const rect = bellRef.current?.getBoundingClientRect();
@@ -58,6 +91,36 @@ const NotificationBell = ({ currentUserId }) => {
       window.removeEventListener('focus', refreshPushState);
     };
   }, []);
+
+  useEffect(() => {
+    const loadPreferences = async () => {
+      const localValue = localStorage.getItem(storageKey);
+      if (localValue) {
+        try {
+          setPreferences({ ...defaultPreferences, ...JSON.parse(localValue) });
+        } catch {
+          setPreferences(defaultPreferences);
+        }
+      } else {
+        setPreferences(defaultPreferences);
+      }
+
+      if (!currentUserId) return;
+      const { data } = await supabase
+        .from('notification_preferences')
+        .select('system, events, lost_found, schedule, school')
+        .eq('user_id', currentUserId)
+        .maybeSingle();
+
+      if (data) {
+        const next = { ...defaultPreferences, ...data };
+        setPreferences(next);
+        localStorage.setItem(storageKey, JSON.stringify(next));
+      }
+    };
+
+    loadPreferences();
+  }, [currentUserId, storageKey]);
 
   useEffect(() => {
     if (!currentUserId) {
@@ -148,6 +211,21 @@ const NotificationBell = ({ currentUserId }) => {
     updatePanelPosition();
     refreshPushState();
     setIsOpen((prev) => !prev);
+  };
+
+  const togglePreference = async (key) => {
+    const next = { ...preferences, [key]: !preferences[key] };
+    setPreferences(next);
+    localStorage.setItem(storageKey, JSON.stringify(next));
+
+    if (!currentUserId) return;
+    await supabase
+      .from('notification_preferences')
+      .upsert({
+        user_id: currentUserId,
+        ...next,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
   };
 
   const handleTogglePush = async () => {
@@ -260,18 +338,56 @@ const NotificationBell = ({ currentUserId }) => {
     >
       <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">
         <span className="font-bold text-gray-700 text-sm">Thông báo</span>
-        {unreadCount > 0 && (
-          <button type="button" onClick={markAllRead} className="text-xs text-[#003375] hover:underline font-medium">
-            Danh dau da doc
+        <div className="flex items-center gap-2">
+          {unreadCount > 0 && (
+            <button type="button" onClick={markAllRead} className="text-xs text-[#003375] hover:underline font-medium">
+              Đánh dấu đã đọc
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowSettings((prev) => !prev)}
+            className={`grid h-8 w-8 place-items-center rounded-lg border transition-colors ${showSettings ? 'border-[#003375] bg-blue-50 text-[#003375]' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}
+            aria-label="Cài đặt thông báo"
+          >
+            <Settings size={16} />
           </button>
-        )}
+        </div>
       </div>
 
+      {showSettings && (
+        <div className="border-b border-gray-100 bg-white p-3">
+          <p className="mb-2 text-xs font-black uppercase tracking-wide text-gray-500">Cài đặt thông báo</p>
+          <div className="space-y-2">
+            {preferenceItems.map((item) => {
+              const Icon = item.icon;
+              const enabled = preferences[item.key] !== false;
+              return (
+                <div key={item.key} className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <Icon size={16} className="text-gray-500" />
+                    <span className="text-sm font-bold text-gray-700">{item.label}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => togglePreference(item.key)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enabled ? 'bg-[#003375]' : 'bg-gray-300'}`}
+                    aria-pressed={enabled}
+                  >
+                    <span className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="max-h-[52dvh] sm:max-h-80 overflow-y-auto custom-scrollbar">
-        {notifications.length === 0 ? (
+        {visibleNotifications.length === 0 ? (
           <div className="p-8 text-center text-sm text-gray-500">Chưa có thông báo nào</div>
         ) : (
-          notifications.map((notif) => {
+          visibleNotifications.map((notif) => {
             const { avatar, message } = renderNotificationContent(notif);
 
             return (
@@ -298,7 +414,7 @@ const NotificationBell = ({ currentUserId }) => {
         <div className="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
           <div className="flex flex-col">
             <span className="text-xs font-bold text-gray-700">Thông báo đẩy</span>
-            <span className="text-[10px] text-gray-500">Nhan thong bao khi tat web</span>
+            <span className="text-[10px] text-gray-500">Nhận thông báo khi tắt web</span>
           </div>
 
           <button

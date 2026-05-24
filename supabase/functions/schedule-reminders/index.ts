@@ -365,10 +365,11 @@ Deno.serve(async (req) => {
   }
 
   const cronSecret = Deno.env.get('CRON_SECRET')
-  if (cronSecret) {
+  const legacyCronSecret = Deno.env.get('MY_SECRET_SCRAPER_KEY')
+  if (cronSecret || legacyCronSecret) {
     const url = new URL(req.url)
     const token = req.headers.get('authorization')?.replace('Bearer ', '') || url.searchParams.get('secret')
-    if (token !== cronSecret) return json({ success: false, error: 'Unauthorized' }, 401)
+    if (token !== cronSecret && token !== legacyCronSecret) return json({ success: false, error: 'Unauthorized' }, 401)
   }
 
   try {

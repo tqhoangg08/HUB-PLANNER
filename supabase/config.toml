@@ -107,6 +107,39 @@ entrypoint = "./functions/event-candidates-analyze/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/event-candidates-analyze/*.html" ]
 
+[functions.practice-generate]
+enabled = true
+verify_jwt = false
+import_map = "./functions/practice-generate/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/practice-generate/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/practice-generate/*.html" ]
+
+[functions.practice-content]
+enabled = true
+verify_jwt = false
+import_map = "./functions/practice-content/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/practice-content/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/practice-content/*.html" ]
+
+[functions.practice-import]
+enabled = true
+verify_jwt = false
+import_map = "./functions/practice-import/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/practice-import/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/practice-import/*.html" ]
+
 [functions.moderator-notifications]
 enabled = true
 verify_jwt = true
@@ -120,7 +153,7 @@ entrypoint = "./functions/moderator-notifications/index.ts"
 
 [functions.push]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/push/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -129,9 +162,21 @@ entrypoint = "./functions/push/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/push/*.html" ]
 
+[functions.hub-notification-crawler]
+enabled = true
+verify_jwt = false
+import_map = "./functions/hub-notification-crawler/deno.json"
+entrypoint = "./functions/hub-notification-crawler/index.ts"
+
+[functions.hub-notification-chat]
+enabled = true
+verify_jwt = false
+import_map = "./functions/hub-notification-chat/deno.json"
+entrypoint = "./functions/hub-notification-chat/index.ts"
+
 [functions.schedule-reminders]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/schedule-reminders/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
