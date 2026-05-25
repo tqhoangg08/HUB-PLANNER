@@ -8,6 +8,7 @@ import { showConfirm } from '../utils/appNotifications';
 import { supabase } from '../utils/supabase'; 
 import DOMPurify from 'dompurify';
 import { apiHeaders, apiUrl } from '../utils/api';
+import { sanitizeAIReply } from '../utils/aiSafety';
 
 interface AIAdvisorProps {
   data: UserData;
@@ -71,7 +72,12 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                       .limit(50); 
 
                   if (error) throw error;
-                  if (logs) setSavedSessions(logs);
+                  if (logs) {
+                    setSavedSessions(logs.map(log => ({
+                      ...log,
+                      bot_reply: sanitizeAIReply(log.bot_reply || ''),
+                    })));
+                  }
               } catch (err) {
                   console.error("Lỗi kéo lịch sử chat:", err);
               } finally {
@@ -151,7 +157,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       }
 
       const resData = await res.json();
-      const botReply = resData.reply || "Xin lỗi, mình không có câu trả lời.";
+      const botReply = sanitizeAIReply(resData.reply || "Xin lỗi, mình không có câu trả lời.");
       const returnedLogId = resData.logId || Date.now(); 
 
       setChatHistory(prev => [...prev, { role: "assistant", content: botReply, logId: returnedLogId }]);
@@ -203,7 +209,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
           { role: 'user', content: session.user_message, isHistory: true },
           { 
               role: 'assistant', 
-              content: session.bot_reply, 
+              content: sanitizeAIReply(session.bot_reply), 
               logId: session.id, 
               rating: session.is_helpful === true ? 'up' : (session.is_helpful === false ? 'down' : null), 
               isHistory: true 
