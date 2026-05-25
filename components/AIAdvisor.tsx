@@ -7,7 +7,7 @@ import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import { supabase } from '../utils/supabase'; 
 import DOMPurify from 'dompurify';
-import { apiUrl } from '../utils/api';
+import { apiHeaders, apiUrl } from '../utils/api';
 
 interface AIAdvisorProps {
   data: UserData;
@@ -127,10 +127,15 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       const studentContext = getStudentContext();
       
       const cleanHistoryForAI = chatHistory.map(msg => ({ role: msg.role, content: msg.content }));
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
 
       const res = await fetch(apiUrl('/bot'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+        }),
         body: JSON.stringify({ 
             question: questionToAsk,
             message: questionToAsk,

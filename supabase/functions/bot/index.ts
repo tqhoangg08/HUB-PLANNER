@@ -6,12 +6,11 @@ import { supabase } from '../_shared/supabase.ts'
 import { embedText } from '../_shared/hub_notifications.ts'
 
 const keyPool = [
-  Deno.env.get('GROQ_API_KEY'),
-  Deno.env.get('GROQ_API_KEY_2'),
-  Deno.env.get('GROQ_API_KEY_3'),
-  Deno.env.get('GROQ_API_KEY_4'),
-  Deno.env.get('GROQ_API_KEY_5'),
-].filter(Boolean) as string[]
+  ...(Deno.env.get('GEMINI_API_KEYS') || Deno.env.get('GEMINI_API_KEY') || '')
+    .split(',')
+    .map((key) => key.trim())
+    .filter(Boolean),
+]
 
 const getRandomKey = () => keyPool[Math.floor(Math.random() * keyPool.length)]
 
@@ -83,22 +82,44 @@ type NotificationLike = {
   extraction_status?: string | null
 }
 
-const buildMessages = (body: Record<string, unknown>) => {
+const fetchSystemKnowledge = async () => {
+  const { data, error } = await supabase
+    .from('system_knowledge')
+    .select('id, content')
+    .order('id', { ascending: true })
+
+  if (error) {
+    console.warn('Failed to fetch system knowledge:', error)
+    return 'Không có cẩm nang hệ thống.'
+  }
+
+  if (!data || data.length === 0) return 'Không có cẩm nang hệ thống.'
+
+  return (data as any[])
+    .map((row: any) => `--- TÀI LIỆU PHẦN ${row.id} ---\n${row.content}`)
+    .join('\n\n')
+}
+
+const buildMessages = (body: Record<string, unknown>, systemKnowledge = '') => {
   const question = String(body.question || body.message || '').trim()
   const context = String(body.context || '').trim()
   const history = Array.isArray(body.history) ? body.history as ChatHistoryItem[] : []
 
   const systemPrompt = `Bạn là AI Cố vấn học tập của HUB Planner.
-Nhiệm vụ: tư vấn cho sinh viên Đại học Ngân hàng TP.HCM (HUB) dựa trên thông tin người dùng cung cấp.
+Nhiệm vụ: tư vấn cho sinh viên Đại học Ngân hàng TP.HCM (HUB) dựa trên thông tin người dùng cung cấp và cẩm nang hệ thống.
 
 Thông tin sinh viên:
 ${context || 'Chưa có thông tin cá nhân.'}
 
+Cẩm nang hệ thống:
+${systemKnowledge || 'Không có cẩm nang hệ thống.'}
+
 Nguyên tắc:
 1. Trả lời ngắn gọn, rõ ràng, thân thiện; xưng "mình" và gọi người dùng là "bạn".
-2. Ưu tiên tư vấn học tập, GPA, lịch học, sự kiện, thông báo HUB và cách dùng HUB Planner.
-3. Nếu thiếu dữ liệu chắc chắn, nói rõ là chưa có dữ liệu thay vì tự bịa.
-4. Không trả JSON, không dùng markdown phức tạp; có thể dùng gạch đầu dòng khi cần.`
+2. Ưu tiên dữ liệu trong Cẩm nang hệ thống cho các câu hỏi về quy chế, GPA, học bổng, chuẩn đầu ra, học vụ và cách dùng HUB Planner.
+3. Nếu câu hỏi liên quan thông báo mới nhất nhưng không tìm thấy thông báo phù hợp, tiếp tục kiểm tra Cẩm nang hệ thống trước khi nói thiếu dữ liệu.
+4. Nếu thiếu dữ liệu chắc chắn sau khi đã kiểm tra cẩm nang, nói rõ là chưa có dữ liệu thay vì tự bịa.
+5. Không trả JSON, không dùng markdown phức tạp; có thể dùng gạch đầu dòng khi cần.`
 
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -112,28 +133,33 @@ Nguyên tắc:
   return { question, messages }
 }
 
-const callGroq = async (apiKey: string, messages: ChatMessage[]) => {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+const callGemini = async (apiKey: string, messages: ChatMessage[], temperature = 0.2) => {
+  const systemMessage = messages.find((message) => message.role === 'system')?.content || ''
+  const contents = messages
+    .filter((message) => message.role !== 'system')
+    .map((message) => ({
+      role: message.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: message.content }],
+    }))
+
+  const model = Deno.env.get('GEMINI_CHAT_MODEL') || 'gemini-3.1-flash-lite-preview'
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      messages,
-      model: Deno.env.get('GROQ_MODEL') || 'llama-3.3-70b-versatile',
-      temperature: 0.25,
+      system_instruction: systemMessage ? { parts: [{ text: systemMessage }] } : undefined,
+      contents,
+      generationConfig: { temperature },
     }),
   })
-  const responseText = await response.text()
+  const payload = await response.json().catch(() => ({}))
   if (!response.ok) {
-    const error: any = new Error(responseText || `Groq API error ${response.status}`)
+    const error: any = new Error(payload?.error?.message || `Gemini API error ${response.status}`)
     error.status = response.status
-    error.body = responseText
+    error.body = payload
     throw error
   }
-  const payload = JSON.parse(responseText)
-  return payload.choices?.[0]?.message?.content || ''
+  return payload.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
 }
 
 const findUnindexedNotifications = async (question: string) => {
@@ -171,6 +197,16 @@ const buildUnindexedNotificationReply = (notifications: NotificationLike[]) => {
     'Bạn nên mở link gốc để xem nội dung chính thức:',
     ...lines,
   ].join('\n')
+}
+
+const isInsufficientNotificationReply = (reply = '') => {
+  const text = normalizeText(reply)
+  return [
+    'chua co du lieu',
+    'chua du du lieu',
+    'khong du du lieu',
+    'khong tim thay thong tin',
+  ].some((phrase) => text.includes(phrase))
 }
 
 const answerFromNotificationRag = async (question: string) => {
@@ -215,7 +251,7 @@ const answerFromNotificationRag = async (question: string) => {
     content: `Câu hỏi:\n${question}\n\nContext thông báo chính thức:\n${context}`,
   }]
 
-  const reply = await callGroq(getRandomKey(), messages)
+  const reply = await callGemini(getRandomKey(), messages, 0.05)
   return {
     reply,
     sources: chunks.map((chunk: any) => ({
@@ -260,29 +296,63 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}))
-    const { question, messages } = buildMessages(body)
+    const question = String(body.question || body.message || '').trim()
     if (!question) return json({ error: 'Missing message' }, 400, rateHeaders)
-    if (keyPool.length === 0) throw new Error('Chưa cấu hình GROQ_API_KEY.')
+    if (keyPool.length === 0) throw new Error('Chưa cấu hình GEMINI_API_KEYS hoặc GEMINI_API_KEY.')
+
+    let logId: number | null = null
+    const userId = String(body.userId || '').trim()
+    if (userId) {
+      const { data: logData, error: logError } = await supabase
+        .from('ai_chat_logs')
+        .insert([{
+          user_id: userId,
+          user_message: question,
+          bot_reply: 'Đang xử lý',
+        }])
+        .select('id')
+        .single()
+
+      if (logError) console.error('Failed to create chat log:', logError)
+      if (logData?.id) logId = logData.id
+    }
+
+    const replyJson = async (
+      reply: string,
+      payload: Record<string, unknown> = {},
+      status = 200,
+    ) => {
+      if (logId) {
+        const { error: updateError } = await supabase
+          .from('ai_chat_logs')
+          .update({ bot_reply: reply })
+          .eq('id', logId)
+        if (updateError) console.error('Failed to update chat log:', updateError)
+      }
+      return json({ reply, logId, ...payload }, status, rateHeaders)
+    }
 
     if (isNotificationQuestion(question)) {
       try {
         const notificationAnswer = await answerFromNotificationRag(question)
-        if (notificationAnswer?.reply) {
-          return json({
-            reply: notificationAnswer.reply,
+        if (notificationAnswer?.reply && !isInsufficientNotificationReply(notificationAnswer.reply)) {
+          return replyJson(notificationAnswer.reply, {
             sources: notificationAnswer.sources || [],
-          }, 200, rateHeaders)
+          })
         }
       } catch (error) {
         console.error('Notification RAG failed, falling back to general bot:', error)
       }
     }
 
+    const systemKnowledge = await fetchSystemKnowledge()
+    const { messages } = buildMessages(body, systemKnowledge)
+
     let lastError: any = null
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        const reply = await callGroq(getRandomKey(), messages)
-        return json({ reply }, 200, rateHeaders)
+        const reply = await callGemini(getRandomKey(), messages, 0.2)
+        return replyJson(reply)
       } catch (error) {
         console.error(`Bot attempt ${attempt + 1} failed:`, error)
         lastError = error
