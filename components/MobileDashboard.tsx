@@ -26,6 +26,10 @@ import { SemesterLookbackModal } from './SemesterLookbackModal';
 import { fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
 import { notifyModerators } from '../utils/moderatorNotifications';
 
+const formatGpaWithoutRounding = (value: number) => {
+    return (Math.floor((value + Number.EPSILON) * 100) / 100).toFixed(2);
+};
+
 const getScholarshipRankAssessment = (rank?: number | null) => {
     const value = Number(rank);
     if (!Number.isFinite(value) || value <= 0) {
@@ -226,7 +230,7 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
                                     <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-300">
                                         <span className="font-bold text-gray-800 text-sm">{year.label}</span>
                                         <span className={`font-bold text-base ${year.hasData ? 'text-[#003375]' : 'text-gray-400'}`}>
-                                            GPA: {year.hasData ? year.gpa4.toFixed(2) : '-'}
+                                            GPA: {year.hasData ? formatGpaWithoutRounding(year.rawGPA4) : '-'}
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center text-xs text-gray-600">
@@ -2966,7 +2970,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     <div key={year.yearId} className="grid grid-cols-4 text-[10px] sm:text-xs items-center py-1 hover:bg-gray-50 rounded px-0.5 sm:px-1 transition-colors">
                                         <span className="col-span-2 font-medium text-gray-700 truncate pr-1" title={year.label}>{year.label.replace('Năm học ', 'NH ')}</span>
                                         <span className="text-center text-gray-500">{year.hasData ? year.totalCredits : '-'}</span>
-                                        <span className="text-right font-extrabold text-[#003375]">{year.hasData ? year.gpa4.toFixed(2) : '-'}</span>
+                                        <span className="text-right font-extrabold text-[#003375]">{year.hasData ? formatGpaWithoutRounding(year.rawGPA4) : '-'}</span>
                                     </div>
                                 ))}
                             </div>
