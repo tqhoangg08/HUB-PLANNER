@@ -36,6 +36,9 @@ const REQUEST_TIMEOUT_MS = 20_000
 const MIN_DIRECT_TEXT_LENGTH = 160
 const DEFAULT_MAX_INLINE_OCR_BYTES = 4_500_000
 
+const normalizeGeminiModel = (model: string | null | undefined) =>
+  model === 'gemini-3.1-flash-lite-preview' ? 'gemini-3.1-flash-lite' : model
+
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export function json(data: unknown, status = 200, headers: Record<string, string> = {}) {
@@ -358,7 +361,7 @@ async function extractPdfTextWithGoogleVision(pdfBytes: Uint8Array) {
 
 async function extractPdfTextWithGemini(pdfBytes: Uint8Array) {
   const key = pickGeminiKey()
-  const model = Deno.env.get('GEMINI_PDF_OCR_MODEL') || Deno.env.get('GEMINI_CHAT_MODEL') || 'gemini-2.5-flash'
+  const model = normalizeGeminiModel(Deno.env.get('GEMINI_PDF_OCR_MODEL') || Deno.env.get('GEMINI_CHAT_MODEL')) || 'gemini-2.5-flash'
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -471,7 +474,7 @@ export async function embedText(text: string, taskType: 'RETRIEVAL_DOCUMENT' | '
 
 export async function generateGroundedAnswer(question: string, chunks: any[]) {
   const key = pickGeminiKey()
-  const model = Deno.env.get('GEMINI_CHAT_MODEL') || 'gemini-2.5-flash'
+  const model = normalizeGeminiModel(Deno.env.get('GEMINI_CHAT_MODEL')) || 'gemini-2.5-flash'
   const context = chunks.map((chunk, index) => [
     `[${index + 1}] ${chunk.title}`,
     `Ngay dang: ${chunk.published_date || 'khong ro'}`,

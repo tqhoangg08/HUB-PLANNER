@@ -246,7 +246,7 @@ ${question}
 Context:
 ${context}`;
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${pickGeminiKey()}`, {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${pickGeminiKey()}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -409,7 +409,7 @@ NGUYÊN TẮC BẮT BUỘC:
     const activeKey = GEMINI_KEYS[Math.floor(Math.random() * GEMINI_KEYS.length)];
 
     // GỌI GEMINI 3.1 FLASH LITE
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key=${activeKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${activeKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

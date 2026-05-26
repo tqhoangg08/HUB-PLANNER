@@ -163,6 +163,9 @@ type ChatMessage = {
   content: string
 }
 
+const normalizeGeminiModel = (model: string | null | undefined) =>
+  model === 'gemini-3.1-flash-lite-preview' ? 'gemini-3.1-flash-lite' : model
+
 type NotificationLike = {
   title?: string
   published_date?: string | null
@@ -232,7 +235,7 @@ const callGemini = async (apiKey: string, messages: ChatMessage[], temperature =
       parts: [{ text: message.content }],
     }))
 
-  const model = Deno.env.get('GEMINI_CHAT_MODEL') || 'gemini-3.1-flash-lite-preview'
+  const model = normalizeGeminiModel(Deno.env.get('GEMINI_CHAT_MODEL')) || 'gemini-3.1-flash-lite'
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
