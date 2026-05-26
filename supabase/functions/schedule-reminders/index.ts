@@ -1,4 +1,3 @@
-// supabase/functions/schedule-reminders/index.ts
 import { corsHeaders } from '../_shared/cors.ts'
 import { supabase } from '../_shared/supabase.ts'
 import { sendWebPush } from '../_shared/webpush.ts'
@@ -10,6 +9,7 @@ const ONE_HOUR_WINDOW_MIN = 65
 const ONE_HOUR_WINDOW_MAX = 45
 const EVENING_START_MIN = 20 * 60
 const EVENING_END_MIN = 20 * 60 + 30
+const USER_QUERY_BATCH_SIZE = 50
 
 type CourseRow = Record<string, any>
 type ScheduleRow = {
@@ -39,6 +39,9 @@ const json = (data: unknown, status = 200) =>
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     status,
   })
+
+const chunkArray = <T,>(items: T[], size: number) =>
+  Array.from({ length: Math.ceil(items.length / size) }, (_value, index) => items.slice(index * size, index * size + size))
 
 const parseJson = (value: any) => {
   if (!value) return {}
@@ -73,9 +76,7 @@ const parseWeeks = (weeks?: string): number[] => {
       if (range) {
         const start = Number(range[1])
         const end = Number(range[2])
-        for (let week = Math.min(start, end); week <= Math.max(start, end); week += 1) {
-          result.add(week)
-        }
+        for (let week = Math.min(start, end); week <= Math.max(start, end); week += 1) result.add(week)
         return
       }
 
@@ -229,11 +230,7 @@ const buildEventsForDate = (row: ScheduleRow, target: ReturnType<typeof dateInfo
   if (!baseCourse || !row.user_id) return []
 
   const customData = parseJson(row.custom_data)
-  const course = {
-    ...baseCourse,
-    ...customData,
-    id: baseCourse.id,
-  }
+  const course = { ...baseCourse, ...customData, id: baseCourse.id }
   const subject = course.subject_name || 'Môn học'
   const events: ReminderEvent[] = []
   const labels = (course.labels || []).filter((label: any) => matchesDate(label.date, target))
@@ -333,12 +330,7 @@ const reserveReminder = async (event: ReminderEvent) => {
 }
 
 const sendToUser = async (event: ReminderEvent, subscriptions: any[]) => {
-  const payload = JSON.stringify({
-    title: event.title,
-    body: event.body,
-    url: event.url,
-  })
-
+  const payload = JSON.stringify({ title: event.title, body: event.body, url: event.url })
   const results = await Promise.all(subscriptions.map(async (sub) => {
     try {
       await sendWebPush(sub.subscription, payload)
@@ -356,13 +348,8 @@ const sendToUser = async (event: ReminderEvent, subscriptions: any[]) => {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders, status: 204 })
-  }
-
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    return json({ success: false, error: 'Method not allowed' }, 405)
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders, status: 204 })
+  if (req.method !== 'GET' && req.method !== 'POST') return json({ success: false, error: 'Method not allowed' }, 405)
 
   const cronSecret = Deno.env.get('CRON_SECRET')
   const legacyCronSecret = Deno.env.get('MY_SECRET_SCRAPER_KEY')
@@ -393,17 +380,20 @@ Deno.serve(async (req) => {
     })
 
     const userIds = [...subscriptionsByUser.keys()]
-    const { data: scheduleRows, error: scheduleError } = await supabase
-      .from('user_schedules')
-      .select('id, user_id, course_id, semester, custom_data, course_schedules (*)')
-      .in('user_id', userIds)
+    const scheduleRows: any[] = []
+    for (const userIdBatch of chunkArray(userIds, USER_QUERY_BATCH_SIZE)) {
+      const { data, error: scheduleError } = await supabase
+        .from('user_schedules')
+        .select('id, user_id, course_id, semester, custom_data, course_schedules (*)')
+        .in('user_id', userIdBatch)
 
-    if (scheduleError) return json({ success: false, error: scheduleError.message }, 500)
+      if (scheduleError) return json({ success: false, error: scheduleError.message }, 500)
+      scheduleRows.push(...(data || []))
+    }
 
-    const events = (scheduleRows || []).flatMap((row: any) => {
+    const events = scheduleRows.flatMap((row: any) => {
       const rowTodayInfo = dateInfo(now, row.semester)
       const rowTomorrowInfo = dateInfo(tomorrowParts, row.semester)
-
       return [
         ...buildEventsForDate(row, rowTodayInfo, 'one_hour'),
         ...(runTomorrow ? buildEventsForDate(row, rowTomorrowInfo, 'tomorrow') : []),
@@ -412,14 +402,12 @@ Deno.serve(async (req) => {
 
     let sent = 0
     let skipped = 0
-
     for (const event of events) {
       const reserved = await reserveReminder(event)
       if (!reserved) {
         skipped += 1
         continue
       }
-
       sent += await sendToUser(event, subscriptionsByUser.get(event.userId) || [])
     }
 

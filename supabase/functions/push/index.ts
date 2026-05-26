@@ -28,6 +28,12 @@ const getPushUserFromRequest = async (req: Request) => {
   if (error || !data?.user?.id) return null
   return data.user
 }
+const getPushActorRole = async (req: Request) => {
+  const user = await getPushUserFromRequest(req)
+  if (!user?.id) return null
+  const { data } = await supabase.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
+  return data?.role || 'student'
+}
 const deleteSubscriptionsByEndpoint = async (endpoint: string, exceptUserId?: string) => {
   let query = supabase.from('push_subscriptions').delete().eq('endpoint', endpoint)
   if (exceptUserId) query = query.neq('user_id', exceptUserId)
@@ -86,12 +92,16 @@ const handlePushSubscription = async (req: Request, body: any) => {
 const handleSendNotification = async (req: Request, body: any) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
   const { title, body: messageBody, url, targetUserId } = body
+  const params = new URL(req.url).searchParams
+  const actorRole = await getPushActorRole(req)
+  const canBroadcast = isAuthorized(req, params, body) || ['admin', 'editor'].includes(actorRole || '')
+  if (!targetUserId && !canBroadcast) return json({ error: 'Forbidden' }, 403)
   let query = supabase.from('push_subscriptions').select('id, endpoint, user_id, subscription')
   if (targetUserId) query = query.eq('user_id', targetUserId)
   const { data: subscriptions, error } = await query
   if (error) return json({ error: error.message }, 500)
   if (!subscriptions?.length) return json({ error: 'Khong tim thay nguoi nhan' }, 404)
-  const payloadObject = { title: title || 'HUB Planner', body: messageBody || 'B?n c? th?ng b?o m?i.', url: url || '/', category: body.category || undefined }
+  const payloadObject = { title: title || 'HUB Planner', body: messageBody || 'Bạn có thông báo mới.', url: url || '/', category: body.category || undefined }
   const allowedSubscriptions = await filterSubscriptionsByPreference(subscriptions, categoryFromPayload(payloadObject))
   if (!allowedSubscriptions.length) return json({ success: false, skipped: true, message: 'Tat ca nguoi nhan da tat loai thong bao nay', sent: 0, failed: 0 })
   const payload = JSON.stringify(payloadObject)
@@ -219,7 +229,7 @@ Deno.serve(async (req) => {
     if (!isAuthorized(req, params, body)) return json({ error: 'Forbidden' }, 403)
     const backfill = { announcements: await enqueueRecentAnnouncements(), lostFound: await enqueueRecentLostFoundItems() }
     const subscriptions = await loadSubscriptions()
-    const announcements = await processQueue({ table: 'school_announcement_push_queue', select: 'id, title, link, attempts', subscriptions, emptyMessage: 'No due announcement push', payloadFor: (item: any) => ({ title: 'Th?ng b?o m?i t? tr??ng', body: item.title, url: item.link || '/dashboard', category: 'school' }) })
+    const announcements = await processQueue({ table: 'school_announcement_push_queue', select: 'id, title, link, attempts', subscriptions, emptyMessage: 'No due announcement push', payloadFor: (item: any) => ({ title: 'Thông báo mới từ trường', body: item.title, url: item.link || '/dashboard', category: 'school' }) })
     const lostFound = await processQueue({ table: 'lost_found_push_queue', select: 'id, title, body, url, attempts', subscriptions, emptyMessage: 'No due lost-found push', payloadFor: (item: any) => ({ title: item.title, body: item.body, url: item.url || '/lost-found', category: 'lost_found' }) })
     const ok = announcements.success && lostFound.success
     return json({ success: ok, backfill, announcements, lostFound }, ok ? 200 : 502)

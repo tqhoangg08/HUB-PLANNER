@@ -17,7 +17,7 @@ import { useUserRole } from '../hooks/useUserRole';
 import { CTVRegistrationForm } from './CTVRegistrationForm';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
-import { apiUrl } from '../utils/api';
+import { apiHeaders, apiUrl } from '../utils/api';
 
 // --- Types ---
 interface HubEvent {
@@ -73,13 +73,19 @@ const notifyAllUsersAboutEvent = async (event: any) => {
     try {
         const eventTitle = event.title || 'Có một sự kiện mới';
         const criteriaLabel = event.criteria ? ` - Mục ${event.criteria}` : '';
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
         await fetch(apiUrl('/push?resource=send'), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: apiHeaders({
+                'Content-Type': 'application/json',
+                ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+            }),
             body: JSON.stringify({
                 title: 'Sự kiện mới',
                 body: `${eventTitle}${criteriaLabel}`,
-                url: event.id ? `/events/${event.id}` : '/events'
+                url: event.id ? `/events/${event.id}` : '/events',
+                category: 'events'
             })
         });
     } catch (error) {
