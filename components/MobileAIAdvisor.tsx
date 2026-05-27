@@ -339,25 +339,6 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
   return (
     <>
-      <style>{`
-        @keyframes messageIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .animate-message { animation: messageIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-        .typing-dot { animation: bounce 1.4s infinite ease-in-out both; }
-        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-
-        /* Animation bật khung chat kiểu bong bóng */
-        @keyframes popOut {
-            0% { transform: scale(0.5); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        .animate-popOut {
-            animation: popOut 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-        }
-      `}</style>
-
       {/* TÈN TEN BUBBLE ĐI KÈM VỚI ICON */}
       {!isOpen && showBubble && !bubbleDismissed && createPortal(
           <div 
@@ -392,8 +373,8 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
       {/* DRAGGABLE CHAT BUBBLE ICON */}
       <div
-        className="mobile-ai-advisor"
-        style={{ left: pos.x, top: pos.y, position: 'fixed', touchAction: 'none', zIndex: 100001 }}
+        className="mobile-ai-advisor mobile-ai-drag-surface"
+        style={{ left: pos.x, top: pos.y }}
         onMouseDown={onDragStart}
         onMouseMove={onDragMove}
         onMouseUp={onDragEnd}
@@ -429,10 +410,10 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
       {/* CHAT WINDOW (POPUP TỪ ICON) */}
       {isOpen && createPortal(
-        <div className="fixed top-0 left-0 w-full h-[100dvh] z-[100000] pointer-events-none">
+        <div className="mobile-ai-overlay">
           {/* Backdrop tối nhẹ */}
 <div 
-  className="fixed h-[100dvh] w-full top-0 left-0 bg-black/20 pointer-events-auto animate-fadeIn"
+  className="mobile-ai-backdrop animate-fadeIn"
   onClick={() => setIsOpen(false)}
 />
 
@@ -442,18 +423,14 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
             style={{
               left: Math.max(20, Math.min(window.innerWidth - 36, pos.x + 28 - 8)), // Canh giữa icon
               ...(isTopHalf ? { top: pos.y + 60 } : { bottom: window.innerHeight - pos.y - 4 }),
-              transform: 'rotate(45deg)',
-              transformOrigin: 'center'
             }}
           />
 
           {/* KHUNG CHAT */}
           <div 
-            className="absolute bg-[#F8FAFC] shadow-2xl rounded-2xl flex flex-col overflow-hidden pointer-events-auto animate-popOut" 
+            className="mobile-ai-chat-panel bg-[#F8FAFC] shadow-2xl rounded-2xl flex flex-col overflow-hidden pointer-events-auto animate-popOut" 
             onClick={e => e.stopPropagation()}
             style={{
-              left: 12,
-              right: 12,
               top: 60,      // Chốt cứng cách mép trên 60px
               bottom: 12,   // Chốt cứng cách đáy 12px (Bàn phím lên nó sẽ tự đẩy cái này lên)
               transformOrigin: `${pos.x + 28}px ${isTopHalf ? '-10px' : 'calc(100% + 10px)'}`
@@ -561,9 +538,8 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                 <div className="flex-1 flex flex-col min-w-0 bg-[#F3F4F6] relative z-0 overflow-hidden">
                    {/* BONG BÓNG CHAT NỘI DUNG */}
 <div 
-    className="flex-1 overflow-y-auto custom-scrollbar px-3 py-5 space-y-4 min-h-0" 
+    className="mobile-ai-message-scroll flex-1 overflow-y-auto custom-scrollbar px-3 py-5 space-y-4 min-h-0" 
     ref={scrollRef}
-    style={{ WebkitOverflowScrolling: 'touch' }} 
 >
                         
                         {chatHistory.length === 0 && !loading ? (

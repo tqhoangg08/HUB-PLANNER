@@ -28,24 +28,6 @@ const getTabIndex = (path: string) => {
   return 0;
 };
 
-const ANIMATION_STYLES = `
-  @keyframes slideLeftEnter {
-    from { transform: translateX(40px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-  }
-  @keyframes slideRightEnter {
-    from { transform: translateX(-40px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-  }
-  @keyframes fadeEnter {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  .animate-slide-left { animation: slideLeftEnter 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-  .animate-slide-right { animation: slideRightEnter 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-  .animate-fade { animation: fadeEnter 0.3s ease-in forwards; }
-`;
-
 export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
   session,
   children,
@@ -104,12 +86,10 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
   };
 
   const activeNavIndex = navItems.findIndex((item) => checkIsActive(location.pathname, item.match));
-  const activeNavLeft = `calc(${(activeNavIndex >= 0 ? activeNavIndex : 0) * 20}% + 10% - 16px)`;
+  const safeActiveNavIndex = activeNavIndex >= 0 ? activeNavIndex : 0;
 
   return (
     <div className={`mobile-app-root app-root platform-${platform} flex h-[100dvh] w-full flex-col overflow-hidden bg-[#F8FAFC] pb-safe relative z-10`}>
-      <style>{ANIMATION_STYLES}</style>
-
       <main ref={mainRef} className="mobile-main custom-scrollbar relative w-full flex-1 overflow-y-auto overflow-x-hidden bg-[#F8FAFC]">
         <div key={location.pathname} className={`flex min-h-full w-full flex-col animate-${slideDirection}`}>
           {children}
@@ -120,8 +100,7 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
         <nav className="mobile-bottom-nav absolute inset-x-0 bottom-0 z-50 flex border-t border-[#EEF2FF] bg-white px-1 pb-[calc(18px+env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_24px_rgba(13,27,62,0.06)]">
           <span
             aria-hidden="true"
-            className="absolute top-2 h-8 w-8 rounded-[10px] bg-[#EEF2FF] transition-[left] duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)]"
-            style={{ left: activeNavLeft }}
+            className={`absolute top-2 h-8 w-8 rounded-[10px] bg-[#EEF2FF] transition-[left] duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] mobile-nav-indicator-${safeActiveNavIndex}`}
           />
           {navItems.map((item) => {
             const isActive = checkIsActive(location.pathname, item.match);

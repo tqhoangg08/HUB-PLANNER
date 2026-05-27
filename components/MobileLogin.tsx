@@ -153,7 +153,7 @@ export const MobileLogin: React.FC = () => {
     return (
         <div className={`mobile-page mobile-login-page app-root platform-${platform} min-h-[100dvh] bg-[#003375] flex flex-col font-sans animate-fadeIn relative overflow-hidden`}>
             
-            <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+            <div className="absolute inset-0 opacity-10 pointer-events-none mobile-login-dot-pattern"></div>
             <Particles id="tsparticles-mobile-login" init={particlesInit} options={particlesOptions} className="absolute inset-0 z-0 pointer-events-none" />
 
             {/* HEADER NỬA TRÊN */}
@@ -162,7 +162,7 @@ export const MobileLogin: React.FC = () => {
                     <ChevronLeft size={24} />
                 </button>
 
-                <div className="w-20 h-20 bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.15)] flex items-center justify-center mb-6 border-2 border-white/20 animate-bounce" style={{ animationDuration: '3s' }}>
+                <div className="w-20 h-20 bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.15)] flex items-center justify-center mb-6 border-2 border-white/20 animate-bounce animate-bounce-slow">
                     <img src="logo.png" alt="HUB" className="w-14 h-14 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<span class="text-2xl font-black text-[#003375]">HUB</span>'; }} />
                 </div>
                 <h1 className="text-3xl font-extrabold text-white tracking-tight mb-2 text-center drop-shadow-md">HUB Planner</h1>

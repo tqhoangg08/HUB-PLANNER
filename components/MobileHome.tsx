@@ -23,6 +23,7 @@ import { playClick } from '../utils/audio';
 import { supabase } from '../utils/supabase';
 import NotificationBell from './NotificationBell';
 import PushNotificationPrompt from '../components/PushNotificationPrompt';
+import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 
 interface MobileHomeProps {
     data: UserData;
@@ -105,7 +106,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
 
     const displayCohort = data?.cohort || null;
     const displayMajor = data?.majorName || null;
-    const isColorAvatar = avatarUrl?.startsWith('#');
+    const isColorAvatar = isAllowedAvatarColor(avatarUrl);
     const needsUpdate = !isGuest && (!displayCohort || !displayMajor);
     const showWarningBox = showSecurityNotice || needsUpdate;
 
@@ -114,9 +115,12 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
             return <span className="grid h-[62px] w-[62px] shrink-0 place-items-center rounded-[21px] border border-white/25 bg-white/20 text-[25px] font-black text-white shadow-[0_12px_28px_rgba(0,0,0,0.12)]">{avatarSeed}</span>;
         }
         if (isColorAvatar) {
-            return <span className="grid h-[62px] w-[62px] shrink-0 place-items-center rounded-[21px] border border-white/25 text-[25px] font-black text-white shadow-[0_12px_28px_rgba(0,0,0,0.12)]" style={{ backgroundColor: avatarUrl }}>{avatarSeed}</span>;
+            return <span className={`grid h-[62px] w-[62px] shrink-0 place-items-center rounded-[21px] border border-white/25 text-[25px] font-black text-white shadow-[0_12px_28px_rgba(0,0,0,0.12)] ${getAvatarColorClass(avatarUrl)}`}>{avatarSeed}</span>;
         }
-        return <img src={avatarUrl} alt="Avatar" className="h-[62px] w-[62px] shrink-0 rounded-[21px] border border-white/25 object-cover shadow-[0_12px_28px_rgba(0,0,0,0.12)]" />;
+        if (isAvatarImageUrl(avatarUrl)) {
+            return <img src={avatarUrl} alt="Avatar" className="h-[62px] w-[62px] shrink-0 rounded-[21px] border border-white/25 object-cover shadow-[0_12px_28px_rgba(0,0,0,0.12)]" />;
+        }
+        return <span className={`grid h-[62px] w-[62px] shrink-0 place-items-center rounded-[21px] border border-white/25 text-[25px] font-black text-white shadow-[0_12px_28px_rgba(0,0,0,0.12)] ${getAvatarColorClass(avatarUrl)}`}>{avatarSeed}</span>;
     };
 
     const formatNewsDate = (news: any) => {

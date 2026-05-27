@@ -838,12 +838,12 @@ export const AdminEventCandidates: React.FC = () => {
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[980px] table-fixed">
               <colgroup>
-              <col style={{ width: '150px' }} />
+              <col className="event-candidate-col-source" />
               <col />
-              <col style={{ width: '150px' }} />
-              <col style={{ width: '110px' }} />
-              <col style={{ width: '120px' }} />
-              <col style={{ width: '200px' }} />
+              <col className="event-candidate-col-ai" />
+              <col className="event-candidate-col-status" />
+              <col className="event-candidate-col-created" />
+              <col className="event-candidate-col-actions" />
             </colgroup>
               <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>

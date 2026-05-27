@@ -630,7 +630,6 @@ const canManage = isAdmin || isAuditor || isCTV;
   const [participatedEvents, setParticipatedEvents] = useState<string[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
-  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
 
   const [showCTVModal, setShowCTVModal] = useState(false);
   const [showScoreGuide, setShowScoreGuide] = useState(false);
@@ -648,16 +647,13 @@ const canManage = isAdmin || isAuditor || isCTV;
       {id:'participated', l:`Đã tham gia (${participatedEvents.length})`}, 
       {id:'I',l:'Mục I'},{id:'II',l:'Mục II'},{id:'III',l:'Mục III'},{id:'IV',l:'Mục IV'},{id:'V',l:'Mục V'}
   ], [participatedEvents.length]);
+  const tabIndicatorClass = `event-tab-active-${Math.max(0, tabsList.findIndex(tab => tab.id === activeTab))}`;
 
   useEffect(() => {
       const updateIndicator = () => {
           const activeIndex = tabsList.findIndex(t => t.id === activeTab);
           const activeElement = tabsRef.current[activeIndex];
           if (activeElement && activeElement.parentElement) {
-              setIndicatorStyle({
-                  left: activeElement.offsetLeft,
-                  width: activeElement.offsetWidth,
-              });
               activeElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
           }
       };
@@ -1244,13 +1240,13 @@ return (
           </div>}
 
           {/* Scrollable Tabs */}
-          {!eventId && <div className="hidden">
+          {!eventId && <div className={`event-tab-track ${tabIndicatorClass} hidden`}>
             {tabsList.map((tab, idx) => (
-                <button key={tab.id} ref={(el) => { tabsRef.current[idx] = el; }} onClick={() => { playClick(); setActiveTab(tab.id); }} className={`flex-none px-4 pb-2.5 text-[14px] font-bold whitespace-nowrap z-10 transition-colors ${activeTab === tab.id ? 'text-[#003375]' : 'text-gray-400'}`}>
+                <button key={tab.id} ref={(el) => { tabsRef.current[idx] = el; }} onClick={() => { playClick(); setActiveTab(tab.id); }} className={`flex-1 px-4 pb-2.5 text-[14px] font-bold whitespace-nowrap z-10 transition-colors ${activeTab === tab.id ? 'text-[#003375]' : 'text-gray-400'}`}>
                     {tab.l}
                 </button>
             ))}
-            <div className="absolute bottom-0 h-0.5 bg-[#003375] transition-all duration-300 rounded-t-full" style={{ left: `${indicatorStyle.left}px`, width: `${indicatorStyle.width}px` }} />
+            <div className="event-tab-indicator" aria-hidden="true" />
           </div>}
       </div>
 

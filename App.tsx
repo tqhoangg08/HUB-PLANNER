@@ -50,6 +50,7 @@ import { apiUrl } from './utils/api';
 import { calculateCumulativeStats } from './utils/calculations';
 import { logActivity, logActivityQuietly } from './utils/activityLogger';
 import { ExamStudyAI } from './components/ExamStudyAI';
+import { AVATAR_COLOR_OPTIONS, getAvatarColorClass, getSafeAvatarColor, isAvatarImageUrl } from './utils/avatarColors';
 
 let globalDeferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -1266,6 +1267,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 setProfileSaving(false);
                 return;
             }
+        } else if (avatarUrlToSave.startsWith('#')) {
+            avatarUrlToSave = getSafeAvatarColor(avatarUrlToSave);
         }
 
         const userEmail = session.user.email || '';
@@ -1499,8 +1502,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         return 'H';
     }, [displayName]);
 
-    const avatarColors = ['#1f2937', '#2563eb', '#16a34a', '#f97316', '#a855f7'];
-    const isColorAvatar = profileAvatarUrl?.startsWith('#');
+    const avatarColors = AVATAR_COLOR_OPTIONS;
     const studentId = session?.user?.email?.split('@')[0] ?? '';
 
     const addSemester = () => {
@@ -2011,8 +2013,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                                                 setDraftAvatarPreview('');
                                                             }
                                                         }}
-                                                        className={`h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 ${draftAvatarUrl === color ? 'border-gray-900 scale-110' : 'border-transparent'}`}
-                                                        style={{ backgroundColor: color }}
+                                                        className={`h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 ${getAvatarColorClass(color)} ${draftAvatarUrl === color ? 'border-gray-900 scale-110' : 'border-transparent'}`}
                                                     />
                                                 ))}
                                             </div>
@@ -2023,10 +2024,10 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-50">
                                                     {draftAvatarPreview ? (
                                                         <img src={draftAvatarPreview} alt="Avatar xem trước" className="h-full w-full object-cover" />
-                                                    ) : draftAvatarUrl && !draftAvatarUrl.startsWith('#') ? (
+                                                    ) : isAvatarImageUrl(draftAvatarUrl) ? (
                                                         <img src={draftAvatarUrl} alt="Avatar hiện tại" className="h-full w-full object-cover" />
                                                     ) : (
-                                                        <div className="flex h-full w-full items-center justify-center text-sm font-black text-white" style={{ backgroundColor: draftAvatarUrl || '#1f2937' }}>
+                                                        <div className={`flex h-full w-full items-center justify-center text-sm font-black text-white ${getAvatarColorClass(draftAvatarUrl)}`}>
                                                             {avatarSeed}
                                                         </div>
                                                     )}

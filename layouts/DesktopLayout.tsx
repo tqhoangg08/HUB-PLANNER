@@ -4,6 +4,7 @@ import { Book, Calendar, ChevronDown, ClipboardList, HelpCircle, LayoutDashboard
 import { playClick } from '../utils/audio';
 import NotificationBell from '../components/NotificationBell';
 import { supabase } from '../utils/supabase';
+import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 
 interface DesktopLayoutProps {
   session: any;
@@ -47,7 +48,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   onInstallApp, showInstallButton, showExamAI = false
 }) => {
   const location = useLocation();
-  const isColorAvatar = avatarUrl?.startsWith('#');
+  const isColorAvatar = isAllowedAvatarColor(avatarUrl);
+  const isImageAvatar = isAvatarImageUrl(avatarUrl);
+  const safeAvatarColorClass = getAvatarColorClass(avatarUrl);
   
   const [isHandbookMenuOpen, setIsHandbookMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -149,7 +152,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
           if (location.pathname.includes('/events')) return 2;
           if (location.pathname.includes('/lost-found')) return 3;
           if (showExamAI && location.pathname.includes('/exam-ai')) return 4;
-          if (location.pathname.includes('/handbook') || isHandbookMenuOpen || location.pathname.includes('/admin-reports')) return 5;
+          if (location.pathname.includes('/handbook') || isHandbookMenuOpen || location.pathname.includes('/admin-reports')) return showExamAI ? 5 : 4;
           return -1;
       };
 
@@ -323,10 +326,10 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   {/* THÔNG TIN USER (HIỆN Ở TRÊN CÙNG SIDEBAR KHI MỞ TRÊN MOBILE) */}
                   <div className="md:hidden flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-white">
                       <div className="h-12 w-12 rounded-full bg-[#0052cc] text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0 overflow-hidden border-2 border-white outline outline-1 outline-gray-200">
-                          {avatarUrl && !isColorAvatar ? (
+                          {isImageAvatar ? (
                               <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                           ) : (
-                              <span style={{ backgroundColor: isColorAvatar ? avatarUrl : undefined }} className="w-full h-full flex items-center justify-center">
+                              <span className={`w-full h-full flex items-center justify-center ${safeAvatarColorClass}`}>
                                   {avatarSeed}
                               </span>
                           )}
@@ -405,10 +408,10 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   {/* AVATAR CHO DESKTOP (VẪN Ở DƯỚI) - ẨN TRÊN MOBILE */}
                   <div className="hidden md:flex mt-4 items-center gap-3 px-2 pt-3 border-t border-gray-200 relative group cursor-pointer" onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}>
                       <div className="h-10 w-10 rounded-full bg-[#0052cc] text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0 overflow-hidden">
-                          {avatarUrl && !isColorAvatar ? (
+                          {isImageAvatar ? (
                               <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                           ) : (
-                              <span style={{ backgroundColor: isColorAvatar ? avatarUrl : undefined }} className="w-full h-full flex items-center justify-center">
+                              <span className={`w-full h-full flex items-center justify-center ${safeAvatarColorClass}`}>
                                   {avatarSeed}
                               </span>
                           )}
@@ -497,9 +500,11 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-2 focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
                                   {avatarUrl ? (
                                       isColorAvatar ? (
-                                          <span className="h-7 w-7 lg:h-8 lg:w-8 rounded-full flex items-center justify-center text-white text-xs lg:text-sm font-bold shadow-sm" style={{ backgroundColor: avatarUrl }}>{avatarSeed}</span>
-                                      ) : (
+                                          <span className={`h-7 w-7 lg:h-8 lg:w-8 rounded-full flex items-center justify-center text-white text-xs lg:text-sm font-bold shadow-sm ${safeAvatarColorClass}`}>{avatarSeed}</span>
+                                      ) : isImageAvatar ? (
                                           <img src={avatarUrl} alt="Avatar" className="h-7 w-7 lg:h-8 lg:w-8 rounded-full object-cover shadow-sm border border-gray-200" />
+                                      ) : (
+                                          <span className="h-7 w-7 lg:h-8 lg:w-8 rounded-full bg-[#0052cc] text-white flex items-center justify-center text-xs lg:text-sm font-bold shadow-sm">{avatarSeed}</span>
                                       )
                                   ) : (
                                       <span className="h-7 w-7 lg:h-8 lg:w-8 rounded-full bg-[#0052cc] text-white flex items-center justify-center text-xs lg:text-sm font-bold shadow-sm">{avatarSeed}</span>
@@ -610,7 +615,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   )}
 
                   <div className="relative flex items-center justify-center sm:h-full shrink-0 z-10" ref={handbookMenuRef} onMouseEnter={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(true)} onMouseLeave={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(false)}>
-                      <button ref={(el) => { navRefs.current[5] = el; }} onClick={(e) => { e.preventDefault(); playClick(); setIsHandbookMenuOpen(!isHandbookMenuOpen); }} className={`relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none ${location.pathname.includes('/handbook') || isHandbookMenuOpen ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
+                      <button ref={(el) => { navRefs.current[showExamAI ? 5 : 4] = el; }} onClick={(e) => { e.preventDefault(); playClick(); setIsHandbookMenuOpen(!isHandbookMenuOpen); }} className={`relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none ${location.pathname.includes('/handbook') || isHandbookMenuOpen ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
                           <Book size={20} className="sm:hidden" />
                           <span className="hidden sm:flex items-center gap-1">Cẩm nang <ChevronDown size={14} className={`transition-transform duration-200 ml-1 ${isHandbookMenuOpen ? 'rotate-180' : ''}`}/></span>
                       </button>
@@ -652,12 +657,12 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       )}
                   </div>
                   <div
-                      className="hidden sm:block absolute left-0 bottom-0 h-[2px] bg-[#0052cc] transition-[transform,width,opacity] duration-200 ease-out z-20 rounded-t-full pointer-events-none"
+                      className="hidden sm:block absolute left-0 bottom-0 h-[2px] bg-[#0052cc] transition-[transform,width,opacity] duration-200 ease-out z-20 rounded-t-full pointer-events-none translate-tab-indicator"
                       style={{
-                          transform: `translateX(${navIndicator.left}px)`,
-                          width: `${navIndicator.width}px`,
-                          opacity: navIndicator.opacity,
-                      }}
+                          '--indicator-left': `${navIndicator.left}px`,
+                          '--indicator-width': `${navIndicator.width}px`,
+                          '--indicator-opacity': navIndicator.opacity,
+                      } as React.CSSProperties}
                   />
               </nav>
 
@@ -711,7 +716,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               )}
                               {!isLoadingProfileSuggestions && profileSearchSuggestions.map((profile) => {
                                   const avatar = profile.avatar_url;
-                                  const isImage = avatar && !avatar.startsWith?.('#');
+                                  const isImage = isAvatarImageUrl(avatar);
+                                  const safeColorClass = getAvatarColorClass(avatar, '#003375');
                                   const initial = (profile.full_name || profile.student_code || 'S').trim().charAt(0).toUpperCase();
 
                                   return (
@@ -725,8 +731,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                                           className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-blue-50 transition-colors"
                                       >
                                           <div
-                                              className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#003375] text-white flex items-center justify-center text-sm font-black"
-                                              style={avatar?.startsWith?.('#') ? { backgroundColor: avatar } : undefined}
+                                              className={`h-9 w-9 shrink-0 overflow-hidden rounded-full text-white flex items-center justify-center text-sm font-black ${safeColorClass}`}
                                           >
                                               {isImage ? <img src={avatar} alt={profile.full_name || profile.student_code} className="h-full w-full object-cover" /> : initial}
                                           </div>
@@ -774,9 +779,11 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-2 focus:outline-none transition-transform active:scale-95" title="Tài khoản HUB">
                               {avatarUrl ? (
                                   isColorAvatar ? (
-                                      <span className="h-7 w-7 lg:h-8 lg:w-8 rounded-full flex items-center justify-center text-white text-xs lg:text-sm font-bold shadow-sm" style={{ backgroundColor: avatarUrl }}>{avatarSeed}</span>
-                                  ) : (
+                                      <span className={`h-7 w-7 lg:h-8 lg:w-8 rounded-full flex items-center justify-center text-white text-xs lg:text-sm font-bold shadow-sm ${safeAvatarColorClass}`}>{avatarSeed}</span>
+                                  ) : isImageAvatar ? (
                                       <img src={avatarUrl} alt="Avatar" className="h-7 w-7 lg:h-8 lg:w-8 rounded-full object-cover shadow-sm border border-gray-200" />
+                                  ) : (
+                                      <span className="h-7 w-7 lg:h-8 lg:w-8 rounded-full bg-[#0052cc] text-white flex items-center justify-center text-xs lg:text-sm font-bold shadow-sm">{avatarSeed}</span>
                                   )
                               ) : (
                                   <span className="h-7 w-7 lg:h-8 lg:w-8 rounded-full bg-[#0052cc] text-white flex items-center justify-center text-xs lg:text-sm font-bold shadow-sm">{avatarSeed}</span>
@@ -883,9 +890,11 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       <div className="h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm border border-gray-200 shadow-sm overflow-hidden shrink-0">
                           {avatarUrl ? (
                               isColorAvatar ? (
-                                  <span className="h-full w-full flex items-center justify-center text-white" style={{ backgroundColor: avatarUrl }}>{avatarSeed}</span>
-                              ) : (
+                                  <span className={`h-full w-full flex items-center justify-center text-white ${safeAvatarColorClass}`}>{avatarSeed}</span>
+                              ) : isImageAvatar ? (
                                   <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                              ) : (
+                                  <span className="h-full w-full flex items-center justify-center bg-[#0052cc] text-white">{avatarSeed}</span>
                               )
                           ) : (
                               <span className="h-full w-full flex items-center justify-center bg-[#0052cc] text-white">{avatarSeed}</span>

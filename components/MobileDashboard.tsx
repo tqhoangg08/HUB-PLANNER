@@ -1147,9 +1147,6 @@ export interface MobileDashboardNativeProps {
   isImporting?: boolean;
 }
 
-const MOBILE_PRIMARY = '#1A56FF';
-const MOBILE_GREEN = '#00C07F';
-
 const clampPercent = (value: number) => Math.max(0, Math.min(100, value));
 
 const formatMobileNumber = (value: number, digits = 2) => {
@@ -1221,7 +1218,6 @@ const NativeStatCard = ({
   tone: 'blue' | 'green';
   icon: React.ReactNode;
 }) => {
-  const color = tone === 'green' ? MOBILE_GREEN : MOBILE_PRIMARY;
   return (
     <div className="min-w-0 rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -1235,7 +1231,9 @@ const NativeStatCard = ({
         </div>
       </div>
       <div className="flex items-baseline gap-1">
-        <span className="text-[28px] font-black leading-none tracking-normal" style={{ color }}>
+        <span
+          className={`text-[28px] font-black leading-none tracking-normal ${tone === 'green' ? 'text-[#00C07F]' : 'text-[#1A56FF]'}`}
+        >
           {value}
         </span>
         <span className="text-[12px] font-bold text-[#B0BCDA]">{suffix}</span>
@@ -1244,12 +1242,10 @@ const NativeStatCard = ({
         {subLabel}: <span className="font-black text-[#0D1B3E]">{subValue}</span>
       </div>
       <div className={`mt-2.5 h-1 overflow-hidden rounded-full ${tone === 'green' ? 'bg-emerald-50' : 'bg-[#EEF2FF]'}`}>
-        <div
-          className="h-full rounded-full"
-          style={{
-            width: `${clampPercent(progress)}%`,
-            background: tone === 'green' ? 'linear-gradient(90deg,#00C07F,#5EEFC0)' : 'linear-gradient(90deg,#1A56FF,#5B8CFF)',
-          }}
+        <progress
+          className={`native-stat-progress-bar h-full w-full rounded-full ${tone === 'green' ? 'native-stat-progress-green' : 'native-stat-progress-blue'}`}
+          value={clampPercent(progress)}
+          max={100}
         />
       </div>
     </div>
@@ -2701,8 +2697,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter') e.currentTarget.blur();
                                             }}
-                                            className="w-10 text-center bg-white border border-blue-200 text-[#003375] rounded outline-none focus:ring-2 focus:ring-[#003375] transition-all"
-                                            style={{ MozAppearance: 'textfield' }}
+                                            className="w-10 text-center bg-white border border-blue-200 text-[#003375] rounded outline-none focus:ring-2 focus:ring-[#003375] transition-all appearance-textfield"
                                         />
                                         <span>/ {totalAdminPages}</span>
                                     </div>

@@ -9,6 +9,7 @@ import {
   isPushSupported,
   subscribeToDeviceNotifications,
 } from '../utils/pushNotifications';
+import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 
 const NotificationBell = ({ currentUserId }) => {
   const defaultPreferences = {
@@ -305,17 +306,25 @@ const NotificationBell = ({ currentUserId }) => {
     }
 
     const actorName = notif.actor?.full_name || 'Nguoi dung';
+    const actorAvatarUrl = notif.actor?.avatar_url;
+    const actorInitial = actorName.trim().charAt(0).toUpperCase() || 'U';
 
     return {
-      avatar: (
+      avatar: isAvatarImageUrl(actorAvatarUrl) ? (
         <img
-          src={notif.actor?.avatar_url || `https://ui-avatars.com/api/?name=${actorName}&background=random`}
+          src={actorAvatarUrl}
           className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-gray-200"
           alt="avatar"
           onError={(event) => {
             event.currentTarget.src = `https://ui-avatars.com/api/?name=${actorName}&background=random`;
           }}
         />
+      ) : (
+        <div
+          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full text-white flex items-center justify-center border border-gray-200 font-black text-sm ${isAllowedAvatarColor(actorAvatarUrl) ? getAvatarColorClass(actorAvatarUrl) : 'avatar-color-primary'}`}
+        >
+          {actorInitial}
+        </div>
       ),
       message: notif.type === 'follow' ? (
         <>
@@ -333,8 +342,8 @@ const NotificationBell = ({ currentUserId }) => {
   const panel = isOpen ? createPortal(
     <div
       ref={panelRef}
-      style={{ top: panelPosition.top, right: panelPosition.right, zIndex: 100000 }}
-      className="fixed w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] sm:w-80 sm:max-w-[95vw] bg-white rounded-2xl sm:rounded-xl shadow-2xl border border-gray-100 overflow-hidden animate-fadeIn"
+      style={{ top: panelPosition.top, right: panelPosition.right }}
+      className="notification-panel fixed w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] sm:w-80 sm:max-w-[95vw] bg-white rounded-2xl sm:rounded-xl shadow-2xl border border-gray-100 overflow-hidden animate-fadeIn"
     >
       <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">
         <span className="font-bold text-gray-700 text-sm">Thông báo</span>

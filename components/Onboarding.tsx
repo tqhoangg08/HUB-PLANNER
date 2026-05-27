@@ -55,6 +55,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
   const currentMajors = formData.program && formData.cohort 
     ? getMajors(formData.program.id, formData.cohort) 
     : [];
+  const progressStep = Math.min(Math.max(step, 1), 5);
 
   const handleNext = () => {
     playClick();
@@ -299,8 +300,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                     )}
                     <div className="absolute top-0 left-0 right-0 h-1.5 bg-gray-100 rounded-t-2xl overflow-hidden">
                         <div 
-                        className="h-full bg-[#003375] transition-all duration-500 ease-out" 
-                        style={{ width: `${(step / 5) * 100}%` }}
+                        className={`h-full bg-[#003375] transition-all duration-500 ease-out onboarding-progress-${progressStep}`} 
                         />
                     </div>
                 </div>

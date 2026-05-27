@@ -1226,8 +1226,6 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
   const [participatedEvents, setParticipatedEvents] = useState<string[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
-  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
 
   const [showCTVModal, setShowCTVModal] = useState(false);
   const showManagementView = canManage && !isStudentPreview;
@@ -1242,6 +1240,8 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       {id:'I',l:'Mục I'},{id:'II',l:'Mục II'},{id:'III',l:'Mục III'},{id:'IV',l:'Mục IV'},{id:'V',l:'Mục V'}
   ], [participatedEvents.length]);
 
+  const tabIndicatorClass = `event-tab-active-${Math.max(0, tabsList.findIndex(tab => tab.id === activeTab))}`;
+
   const eventTypes = useMemo(() => {
       const uniqueTypes = new Set<string>();
       events.forEach(evt => {
@@ -1249,23 +1249,6 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       });
       return Array.from(uniqueTypes).sort((a, b) => a.localeCompare(b, 'vi'));
   }, [events]);
-
-  useEffect(() => {
-      const updateIndicator = () => {
-          const activeIndex = tabsList.findIndex(t => t.id === activeTab);
-          const activeElement = tabsRef.current[activeIndex];
-          if (activeElement) {
-              setIndicatorStyle({
-                  left: activeElement.offsetLeft,
-                  width: activeElement.offsetWidth,
-              });
-          }
-      };
-
-      updateIndicator();
-      window.addEventListener('resize', updateIndicator);
-      return () => window.removeEventListener('resize', updateIndicator);
-  }, [activeTab, tabsList]);
 
   useEffect(() => {
       const closeDropdown = () => setActiveDropdown(null);
@@ -2141,21 +2124,17 @@ return (
         )}
 
         {/* TABS LỌC CHUNG CHO CẢ ADMIN VÀ USER */}
-        {!eventId && <div className="relative flex w-full justify-between overflow-x-auto no-scrollbar border-b border-gray-300 px-1 mb-4">
+        {!eventId && <div className={`event-tab-track ${tabIndicatorClass} relative flex w-full justify-between overflow-x-auto no-scrollbar border-b border-gray-300 px-1 mb-4`}>
             {tabsList.map((tab, idx) => (
                 <button 
                     key={tab.id} 
-                    ref={(el) => { tabsRef.current[idx] = el; }}
                     onClick={() => { playClick(); setActiveTab(tab.id); }} 
-                    className={`flex-1 text-center px-2 pb-3 text-sm font-semibold whitespace-nowrap transition-colors z-10 ${activeTab === tab.id ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}
+                    className={`flex-1 px-2 pb-3 text-center text-sm font-semibold whitespace-nowrap transition-colors z-10 ${activeTab === tab.id ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}
                 >
                     {tab.l}
                 </button>
             ))}
-            <div 
-                className="absolute bottom-0 h-[2px] bg-[#003375] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] z-20 rounded-t-full"
-                style={{ left: `${indicatorStyle.left}px`, width: `${indicatorStyle.width}px` }}
-            />
+            <div className="event-tab-indicator" aria-hidden="true" />
         </div>}
 
         {/* KHU VỰC HIỂN THỊ DỮ LIỆU */}

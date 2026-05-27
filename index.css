@@ -86,6 +86,40 @@
   }
 }
 
+@layer components {
+  .avatar-color-slate {
+    background-color: #1f2937;
+  }
+
+  .avatar-color-blue {
+    background-color: #2563eb;
+  }
+
+  .avatar-color-green {
+    background-color: #16a34a;
+  }
+
+  .avatar-color-orange {
+    background-color: #f97316;
+  }
+
+  .avatar-color-purple {
+    background-color: #a855f7;
+  }
+
+  .avatar-color-hub {
+    background-color: #003375;
+  }
+
+  .avatar-color-primary {
+    background-color: #0052cc;
+  }
+
+  .avatar-color-bright {
+    background-color: #0b7cff;
+  }
+}
+
 /* =========================================================
    COMMON UTILITIES / ANIMATIONS
    ========================================================= */
@@ -127,6 +161,258 @@
 
   .animate-scaleIn {
     animation: scaleIn 0.3s ease-out forwards;
+  }
+
+  .animate-message {
+    animation: messageIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .typing-dot {
+    animation: bounce 1.4s infinite ease-in-out both;
+  }
+
+  .typing-dot:nth-child(1) {
+    animation-delay: -0.32s;
+  }
+
+  .typing-dot:nth-child(2) {
+    animation-delay: -0.16s;
+  }
+
+  .animate-popOut {
+    animation: popOut 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
+
+  .animate-slide-left {
+    animation: slideLeftEnter 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
+
+  .animate-slide-right {
+    animation: slideRightEnter 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
+
+  .animate-fade {
+    animation: fadeEnter 0.3s ease-in forwards;
+  }
+
+  .hub-dot-pattern {
+    background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0);
+    background-size: 28px 28px;
+  }
+
+  .mobile-login-dot-pattern {
+    background-image: radial-gradient(#ffffff 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  .animate-bounce-slow {
+    animation-duration: 3s;
+  }
+
+  .appearance-textfield {
+    -moz-appearance: textfield;
+  }
+
+  .event-candidate-col-source,
+  .event-candidate-col-ai {
+    width: 150px;
+  }
+
+  .event-candidate-col-status {
+    width: 110px;
+  }
+
+  .event-candidate-col-created {
+    width: 120px;
+  }
+
+  .event-candidate-col-actions {
+    width: 200px;
+  }
+
+  .mobile-nav-indicator-0 {
+    left: calc(0% + 10% - 16px);
+  }
+
+  .mobile-nav-indicator-1 {
+    left: calc(20% + 10% - 16px);
+  }
+
+  .mobile-nav-indicator-2 {
+    left: calc(40% + 10% - 16px);
+  }
+
+  .mobile-nav-indicator-3 {
+    left: calc(60% + 10% - 16px);
+  }
+
+  .mobile-nav-indicator-4 {
+    left: calc(80% + 10% - 16px);
+  }
+
+  .onboarding-progress-1 {
+    width: 20%;
+  }
+
+  .onboarding-progress-2 {
+    width: 40%;
+  }
+
+  .onboarding-progress-3 {
+    width: 60%;
+  }
+
+  .onboarding-progress-4 {
+    width: 80%;
+  }
+
+  .onboarding-progress-5 {
+    width: 100%;
+  }
+
+  .event-tab-track {
+    --event-tab-index: 0;
+  }
+
+  .event-tab-indicator {
+    position: absolute;
+    bottom: 0;
+    left: 0.25rem;
+    z-index: 20;
+    height: 2px;
+    width: calc((100% - 0.5rem) / 7);
+    border-radius: 999px 999px 0 0;
+    background-color: #003375;
+    transform: translateX(calc(var(--event-tab-index) * 100%));
+    transition: transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+  }
+
+  .event-tab-active-0 {
+    --event-tab-index: 0;
+  }
+
+  .event-tab-active-1 {
+    --event-tab-index: 1;
+  }
+
+  .event-tab-active-2 {
+    --event-tab-index: 2;
+  }
+
+  .event-tab-active-3 {
+    --event-tab-index: 3;
+  }
+
+  .event-tab-active-4 {
+    --event-tab-index: 4;
+  }
+
+  .event-tab-active-5 {
+    --event-tab-index: 5;
+  }
+
+  .event-tab-active-6 {
+    --event-tab-index: 6;
+  }
+
+  .translate-tab-indicator {
+    opacity: var(--indicator-opacity);
+    transform: translateX(var(--indicator-left));
+    width: var(--indicator-width);
+  }
+
+  .exam-progress-bar {
+    appearance: none;
+    border: 0;
+  }
+
+  .exam-progress-bar::-webkit-progress-bar {
+    background-color: #f3f4f6;
+    border-radius: 999px;
+  }
+
+  .exam-progress-bar::-webkit-progress-value {
+    background-color: #003375;
+    border-radius: 999px;
+  }
+
+  .exam-progress-bar::-moz-progress-bar {
+    background-color: #003375;
+    border-radius: 999px;
+  }
+
+  .native-stat-progress-bar {
+    appearance: none;
+    border: 0;
+  }
+
+  .native-stat-progress-bar::-webkit-progress-bar {
+    background-color: transparent;
+  }
+
+  .native-stat-progress-bar::-webkit-progress-value {
+    border-radius: 999px;
+  }
+
+  .native-stat-progress-bar::-moz-progress-bar {
+    border-radius: 999px;
+  }
+
+  .native-stat-progress-blue::-webkit-progress-value {
+    background: linear-gradient(90deg, #1A56FF, #5B8CFF);
+  }
+
+  .native-stat-progress-blue::-moz-progress-bar {
+    background: linear-gradient(90deg, #1A56FF, #5B8CFF);
+  }
+
+  .native-stat-progress-green::-webkit-progress-value {
+    background: linear-gradient(90deg, #00C07F, #5EEFC0);
+  }
+
+  .native-stat-progress-green::-moz-progress-bar {
+    background: linear-gradient(90deg, #00C07F, #5EEFC0);
+  }
+
+  .mobile-ai-drag-surface {
+    position: fixed;
+    z-index: 100001;
+    touch-action: none;
+  }
+
+  .mobile-ai-overlay {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    z-index: 100000;
+    pointer-events: none;
+  }
+
+  .mobile-ai-backdrop {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    background-color: rgb(0 0 0 / 0.2);
+    pointer-events: auto;
+  }
+
+  .mobile-ai-chat-panel {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    top: 60px;
+    bottom: 12px;
+  }
+
+  .mobile-ai-message-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .notification-panel {
+    z-index: 100000;
   }
 
   .no-scrollbar::-webkit-scrollbar {
@@ -378,6 +664,75 @@
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes messageIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes popOut {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideLeftEnter {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideRightEnter {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeEnter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
   }
 }
 

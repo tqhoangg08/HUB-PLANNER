@@ -2201,8 +2201,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                                 setCurrentPage(newPage); setPageInput(newPage.toString());
                                             }}
                                             onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                                            className="w-6 sm:w-8 text-center bg-transparent border-none text-[#0052cc] outline-none focus:ring-0 p-0 m-0"
-                                            style={{ MozAppearance: 'textfield' }}
+                                            className="w-6 sm:w-8 text-center bg-transparent border-none text-[#0052cc] outline-none focus:ring-0 p-0 m-0 appearance-textfield"
                                         />
                                         <span>/ {totalPages}</span>
                                     </div>

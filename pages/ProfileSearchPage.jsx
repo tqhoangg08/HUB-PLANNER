@@ -2,17 +2,18 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Search, ShieldAlert, UserRound } from 'lucide-react';
 import { supabase } from '../utils/supabase';
+import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 
 const avatarFallback = (profile) => {
   const name = profile?.full_name || profile?.student_code || 'SV';
   return name.trim().charAt(0).toUpperCase() || 'S';
 };
 
-const getAvatarStyle = (avatarUrl) => {
-  if (avatarUrl?.startsWith?.('#')) {
-    return { backgroundColor: avatarUrl };
+const getAvatarClassName = (avatarUrl) => {
+  if (isAllowedAvatarColor(avatarUrl)) {
+    return getAvatarColorClass(avatarUrl, '#003375');
   }
-  return {};
+  return 'avatar-color-hub';
 };
 
 const ProfileSearchPage = () => {
@@ -104,7 +105,7 @@ const ProfileSearchPage = () => {
           <div className="divide-y divide-gray-100">
             {results.map((profile) => {
               const avatarUrl = profile.avatar_url;
-              const isImageAvatar = avatarUrl && !avatarUrl.startsWith?.('#');
+              const isImageAvatar = isAvatarImageUrl(avatarUrl);
 
               return (
                 <Link
@@ -113,8 +114,7 @@ const ProfileSearchPage = () => {
                   className="flex items-center gap-4 px-4 py-3 hover:bg-blue-50 transition-colors"
                 >
                   <div
-                    className="h-12 w-12 rounded-full bg-[#003375] text-white flex items-center justify-center font-black shrink-0 overflow-hidden border border-blue-100"
-                    style={getAvatarStyle(avatarUrl)}
+                    className={`h-12 w-12 rounded-full text-white flex items-center justify-center font-black shrink-0 overflow-hidden border border-blue-100 ${getAvatarClassName(avatarUrl)}`}
                   >
                     {isImageAvatar ? (
                       <img src={avatarUrl} alt={profile.full_name || profile.student_code} className="h-full w-full object-cover" />

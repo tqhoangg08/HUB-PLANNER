@@ -1367,8 +1367,23 @@ export const ExamStudyAI: React.FC<ExamStudyAIProps> = ({ data, userId }) => {
           <section className="rounded-xl border border-gray-300 bg-white p-4">
             <h3 className="text-base font-black text-gray-900">Tiến độ học tập</h3>
             <div className="mt-4 flex items-center gap-4">
-              <div className="grid h-24 w-24 shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(#003375 ${completionPercent * 3.6}deg, #EDF1F6 0deg)` }}>
-                <div className="grid h-16 w-16 place-items-center rounded-full bg-white text-center">
+              <div className="relative grid h-24 w-24 shrink-0 place-items-center rounded-full">
+                <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="#EDF1F6" strokeWidth="5" />
+                  <circle
+                    cx="18"
+                    cy="18"
+                    r="15.5"
+                    fill="none"
+                    stroke="#003375"
+                    strokeLinecap="round"
+                    strokeWidth="5"
+                    pathLength="100"
+                    strokeDasharray="100"
+                    strokeDashoffset={100 - completionPercent}
+                  />
+                </svg>
+                <div className="relative grid h-16 w-16 place-items-center rounded-full bg-white text-center">
                   <div>
                     <p className="text-xl font-black text-gray-900">{completionPercent}%</p>
                     <p className="text-[11px] font-bold text-gray-500">Hoàn thành</p>
@@ -1403,9 +1418,7 @@ export const ExamStudyAI: React.FC<ExamStudyAIProps> = ({ data, userId }) => {
                 <span>Tiến độ môn học</span>
                 <span>{completionPercent}%</span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-                <div className="h-full rounded-full bg-[#003375]" style={{ width: `${completionPercent}%` }} />
-              </div>
+              <progress className="exam-progress-bar h-2 w-full overflow-hidden rounded-full bg-gray-100" value={completionPercent} max={100} />
             </div>
           </section>
 

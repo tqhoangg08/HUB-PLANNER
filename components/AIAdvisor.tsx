@@ -275,15 +275,6 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
   return (
     <>
-      <style>{`
-        @keyframes messageIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        .animate-message { animation: messageIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
-        .typing-dot { animation: bounce 1.4s infinite ease-in-out both; }
-        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-      `}</style>
-
       <button
         onClick={() => { playClick(); setIsOpen(true); setShowSidebar(window.innerWidth >= 768); }}
         className="fixed bottom-6 right-6 bg-[#003375] hover:bg-[#002855] text-white p-4 rounded-full shadow-lg hover:shadow-2xl transition-all duration-300 z-50 flex items-center gap-2 border-4 border-white active:scale-95 group animate-float hover:animate-none"

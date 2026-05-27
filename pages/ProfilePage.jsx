@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { BookOpen, Calendar, Check, Copy, Edit3, GraduationCap, ShieldAlert, Trophy } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
+import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 
 const ProfilePage = ({ onEditProfile, refreshKey = 0 }) => {
   const { id } = useParams();
@@ -77,7 +78,7 @@ const ProfilePage = ({ onEditProfile, refreshKey = 0 }) => {
   }
 
   const avatarUrl = profile.avatar_url;
-  const isColorAvatar = avatarUrl?.startsWith?.('#');
+  const isColorAvatar = isAllowedAvatarColor(avatarUrl);
   const avatarSeed = (profile.full_name || profile.student_code || 'H').charAt(0).toUpperCase();
   const tags = Array.isArray(profile.profile_tags) ? profile.profile_tags.filter(Boolean) : [];
   const isOwnProfile = Boolean(currentUserId && profile.id === currentUserId);
@@ -85,13 +86,13 @@ const ProfilePage = ({ onEditProfile, refreshKey = 0 }) => {
   return (
     <div className="max-w-5xl mx-auto px-4 pb-10 animate-fadeIn">
       <div className="h-36 sm:h-48 bg-gradient-to-r from-[#003375] via-[#0052cc] to-[#0b7cff] rounded-t-2xl shadow-inner relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '28px 28px' }} />
+        <div className="absolute inset-0 opacity-20 hub-dot-pattern" />
       </div>
 
       <div className="bg-white rounded-b-2xl border border-t-0 border-gray-200 px-5 sm:px-8 pb-8 relative">
         <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
           <div className="-mt-14 sm:-mt-20 relative">
-            {avatarUrl && !isColorAvatar ? (
+            {isAvatarImageUrl(avatarUrl) ? (
               <img
                 src={avatarUrl}
                 alt={profile.full_name || 'Avatar'}
@@ -99,8 +100,7 @@ const ProfilePage = ({ onEditProfile, refreshKey = 0 }) => {
               />
             ) : (
               <div
-                className="w-28 h-28 sm:w-40 sm:h-40 rounded-full border-4 border-white shadow-md flex items-center justify-center text-4xl sm:text-6xl font-black text-white"
-                style={{ backgroundColor: isColorAvatar ? avatarUrl : '#0052cc' }}
+                className={`w-28 h-28 sm:w-40 sm:h-40 rounded-full border-4 border-white shadow-md flex items-center justify-center text-4xl sm:text-6xl font-black text-white ${isColorAvatar ? getAvatarColorClass(avatarUrl) : 'avatar-color-primary'}`}
               >
                 {avatarSeed}
               </div>

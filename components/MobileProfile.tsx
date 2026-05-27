@@ -23,6 +23,7 @@ import { supabase } from '../utils/supabase';
 import { fetchProfilePrivate } from '../utils/profilePrivate';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
+import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 
 interface MobileProfileProps {
     setShowAccountSettings?: (v: boolean) => void;
@@ -122,7 +123,7 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
     const displayName = isGuest ? 'Khách (ẩn danh)' : (profile?.full_name || profile?.data?.studentName || session?.user?.user_metadata?.full_name || 'Sinh viên HUB');
     const displaySub = isGuest ? 'Đăng nhập để lưu trữ dữ liệu' : (profile?.email || session?.user?.email || 'Sinh viên chính quy');
     const avatarUrl = profile?.avatar_url || session?.user?.user_metadata?.avatar_url;
-    const isColorAvatar = avatarUrl?.startsWith('#');
+    const isColorAvatar = isAllowedAvatarColor(avatarUrl);
     const avatarSeed = displayName.charAt(0).toUpperCase();
     const studentCode = profile?.student_code || profile?.data?.studentId || session?.user?.email?.split('@')[0] || 'HUB';
     const cohort = profile?.data?.cohort || (studentCode?.length >= 4 ? `20${String(studentCode).slice(2, 4)}` : '2025');
@@ -214,10 +215,9 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                     <section className="mb-3 rounded-[22px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
                         <div className="flex items-center gap-3.5">
                             <div
-                                className="flex h-[68px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-[22px] border border-[#EEF2FF] bg-[#F8FAFD] text-[28px] font-black text-[#1A56FF]"
-                                style={isColorAvatar ? { backgroundColor: avatarUrl, color: '#fff' } : undefined}
+                                className={`flex h-[68px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-[22px] border border-[#EEF2FF] text-[28px] font-black ${isColorAvatar ? `${getAvatarColorClass(avatarUrl)} text-white` : 'bg-[#F8FAFD] text-[#1A56FF]'}`}
                             >
-                                {avatarUrl && !isColorAvatar ? (
+                                {isAvatarImageUrl(avatarUrl) ? (
                                     <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
                                 ) : (
                                     <span>{avatarUrl ? avatarSeed : <User size={32} strokeWidth={1.8} />}</span>
