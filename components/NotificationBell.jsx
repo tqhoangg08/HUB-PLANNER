@@ -10,6 +10,7 @@ import {
   subscribeToDeviceNotifications,
 } from '../utils/pushNotifications';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
+import { setRuntimeStyleRule } from '../utils/runtimeStyles';
 
 const NotificationBell = ({ currentUserId }) => {
   const defaultPreferences = {
@@ -92,6 +93,13 @@ const NotificationBell = ({ currentUserId }) => {
       window.removeEventListener('focus', refreshPushState);
     };
   }, []);
+
+  useEffect(() => {
+    setRuntimeStyleRule('notification-panel-position', '.notification-panel', {
+      top: `${panelPosition.top}px`,
+      right: `${panelPosition.right}px`,
+    });
+  }, [panelPosition.top, panelPosition.right]);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -342,7 +350,6 @@ const NotificationBell = ({ currentUserId }) => {
   const panel = isOpen ? createPortal(
     <div
       ref={panelRef}
-      style={{ top: panelPosition.top, right: panelPosition.right }}
       className="notification-panel fixed w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] sm:w-80 sm:max-w-[95vw] bg-white rounded-2xl sm:rounded-xl shadow-2xl border border-gray-100 overflow-hidden animate-fadeIn"
     >
       <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">

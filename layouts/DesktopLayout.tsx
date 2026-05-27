@@ -5,6 +5,7 @@ import { playClick } from '../utils/audio';
 import NotificationBell from '../components/NotificationBell';
 import { supabase } from '../utils/supabase';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
+import { setRuntimeStyleRule } from '../utils/runtimeStyles';
 
 interface DesktopLayoutProps {
   session: any;
@@ -191,6 +192,14 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
           window.removeEventListener('resize', updateNavIndicator);
       };
   }, [location.pathname, isHandbookMenuOpen, isAdmin, isAuditor, isProfileSearchOpen, showExamAI]);
+
+  useEffect(() => {
+      setRuntimeStyleRule('desktop-nav-indicator', '.desktop-nav-runtime .translate-tab-indicator', {
+          opacity: navIndicator.opacity,
+          transform: `translateX(${navIndicator.left}px)`,
+          width: `${navIndicator.width}px`,
+      });
+  }, [navIndicator]);
 
   useEffect(() => {
       if (!isMobileMenuOpen) return;
@@ -589,7 +598,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               </div>
 
               {/* DESKTOP TOP NAV */}
-              <nav ref={navContainerRef} className="hidden sm:flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
+              <nav ref={navContainerRef} className="desktop-nav-runtime hidden sm:flex items-center justify-between sm:justify-start lg:justify-end flex-1 gap-1 sm:gap-2 lg:gap-6 sm:h-full p-1.5 sm:p-0 sm:px-2 bg-gray-50 sm:bg-transparent rounded-full sm:rounded-none border border-gray-100 sm:border-none w-full sm:w-auto overflow-x-auto sm:overflow-visible no-scrollbar sm:mask-edges relative">
                   
                   <NavLink to="/dashboard" ref={(el: any) => { navRefs.current[0] = el; }} onClick={playClick} className={({ isActive }) => `relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
                       <LayoutDashboard size={20} className="sm:hidden" />
@@ -658,11 +667,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   </div>
                   <div
                       className="hidden sm:block absolute left-0 bottom-0 h-[2px] bg-[#0052cc] transition-[transform,width,opacity] duration-200 ease-out z-20 rounded-t-full pointer-events-none translate-tab-indicator"
-                      style={{
-                          '--indicator-left': `${navIndicator.left}px`,
-                          '--indicator-width': `${navIndicator.width}px`,
-                          '--indicator-opacity': navIndicator.opacity,
-                      } as React.CSSProperties}
                   />
               </nav>
 

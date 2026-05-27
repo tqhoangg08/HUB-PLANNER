@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import { usePlatform } from '../hooks/usePlatform';
 import { apiHeaders, apiUrl } from '../utils/api';
 import { sanitizeAIReply } from '../utils/aiSafety';
+import { setRuntimeStyleRule } from '../utils/runtimeStyles';
 
 interface AIAdvisorProps {
   data: UserData;
@@ -54,7 +55,6 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   const [customPrompt, setCustomPrompt] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // --- BONG BÓNG TÈN TEN ĐI THEO ICON ---
   const [showBubble, setShowBubble] = useState(false);
   const [bubbleDismissed, setBubbleDismissed] = useState(false);
 
@@ -334,23 +334,35 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
           });
   }, [savedSessions]);
 
-  // Tính toán hướng hiển thị của Chat Window dựa trên vị trí icon
   const isTopHalf = pos.y < window.innerHeight / 2;
+  const bubbleOnRight = pos.x > window.innerWidth / 2;
+
+  useEffect(() => {
+      setRuntimeStyleRule('mobile-ai-bubble-position', '.mobile-ai-bubble-position', {
+          top: `${pos.y - 10}px`,
+          left: bubbleOnRight ? 'auto' : `${pos.x + 70}px`,
+          right: bubbleOnRight ? `${window.innerWidth - pos.x + 10}px` : 'auto',
+      });
+      setRuntimeStyleRule('mobile-ai-drag-position', '.mobile-ai-drag-surface', {
+          left: `${pos.x}px`,
+          top: `${pos.y}px`,
+      });
+      setRuntimeStyleRule('mobile-ai-tail-position', '.mobile-ai-tail', {
+          left: `${Math.max(20, Math.min(window.innerWidth - 36, pos.x + 20))}px`,
+          top: isTopHalf ? `${pos.y + 60}px` : 'auto',
+          bottom: isTopHalf ? 'auto' : `${window.innerHeight - pos.y - 4}px`,
+      });
+      setRuntimeStyleRule('mobile-ai-chat-panel-origin', '.mobile-ai-chat-panel', {
+          'transform-origin': `${pos.x + 28}px ${isTopHalf ? '-10px' : 'calc(100% + 10px)'}`,
+      });
+  }, [bubbleOnRight, isTopHalf, pos.x, pos.y]);
 
   return (
     <>
-      {/* TÈN TEN BUBBLE ĐI KÈM VỚI ICON */}
+      {/* Tèn ten bubble đi kèm với icon */}
       {!isOpen && showBubble && !bubbleDismissed && createPortal(
           <div 
-              className="fixed z-[99999] animate-popOut pointer-events-auto"
-              style={{
-                  top: pos.y - 10, // Canh ngang hàng với icon
-                  // Nếu icon nằm nửa phải -> bong bóng văng sang trái icon. Và ngược lại.
-                  ...(pos.x > window.innerWidth / 2 
-                      ? { right: window.innerWidth - pos.x + 10 } 
-                      : { left: pos.x + 70 }
-                  )
-              }}
+              className="mobile-ai-bubble-position fixed z-[99999] animate-popOut pointer-events-auto"
           >
               <div className="mobile-ai-bubble relative w-56 bg-white text-gray-800 text-[11px] font-medium p-3 rounded-2xl shadow-xl border border-blue-100">
                   <button 
@@ -361,7 +373,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                   </button>
                   <p>✨ Tèn ten! Trợ lý AI HUB Planner đã sẵn sàng hỗ trợ bạn học tập rồi nè! Thử ngay nha 💖</p>
                   
-                  {/* Mũi tên chĩa vào icon */}
+                  {/* Mũi tên chỉ vào icon */}
                   <div 
                       className={`absolute top-4 w-3 h-3 bg-white transform rotate-45 border-blue-100 ${
                           pos.x > window.innerWidth / 2 ? '-right-1.5 border-t border-r' : '-left-1.5 border-b border-l'
@@ -374,7 +386,6 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       {/* DRAGGABLE CHAT BUBBLE ICON */}
       <div
         className="mobile-ai-advisor mobile-ai-drag-surface"
-        style={{ left: pos.x, top: pos.y }}
         onMouseDown={onDragStart}
         onMouseMove={onDragMove}
         onMouseUp={onDragEnd}
@@ -388,7 +399,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                 if (!isDragging) { 
                     playClick(); 
                     if (!isOpen) {
-                        // ✨ ĐÃ SỬA: Ép tọa độ về góc dưới phải TRƯỚC KHI mở khung chat
+                        // Ép tọa độ về góc dưới phải trước khi mở khung chat
                         setPos({
                             x: window.innerWidth - 70,
                             y: window.innerHeight - (isIOS ? 190 : 150)
@@ -408,7 +419,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
         </button>
       </div>
 
-      {/* CHAT WINDOW (POPUP TỪ ICON) */}
+      {/* Chat window popup từ icon */}
       {isOpen && createPortal(
         <div className="mobile-ai-overlay">
           {/* Backdrop tối nhẹ */}
@@ -417,24 +428,15 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   onClick={() => setIsOpen(false)}
 />
 
-          {/* MŨI TÊN (TAIL) KẾT NỐI ICON VÀ KHUNG CHAT */}
+          {/* Mũi tên tail kết nối icon và khung chat */}
           <div 
-            className="absolute w-4 h-4 bg-white shadow-xl pointer-events-auto animate-popOut"
-            style={{
-              left: Math.max(20, Math.min(window.innerWidth - 36, pos.x + 28 - 8)), // Canh giữa icon
-              ...(isTopHalf ? { top: pos.y + 60 } : { bottom: window.innerHeight - pos.y - 4 }),
-            }}
+            className="mobile-ai-tail absolute w-4 h-4 bg-white shadow-xl pointer-events-auto animate-popOut"
           />
 
           {/* KHUNG CHAT */}
           <div 
             className="mobile-ai-chat-panel bg-[#F8FAFC] shadow-2xl rounded-2xl flex flex-col overflow-hidden pointer-events-auto animate-popOut" 
             onClick={e => e.stopPropagation()}
-            style={{
-              top: 60,      // Chốt cứng cách mép trên 60px
-              bottom: 12,   // Chốt cứng cách đáy 12px (Bàn phím lên nó sẽ tự đẩy cái này lên)
-              transformOrigin: `${pos.x + 28}px ${isTopHalf ? '-10px' : 'calc(100% + 10px)'}`
-            }}
           >
             {/* HEADER CHAT */}
             <div className="px-5 py-3 border-b border-gray-100 flex justify-between items-center bg-white shrink-0 relative z-10 shadow-sm">
@@ -453,7 +455,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
               </div>
             </div>
 
-            {/* KHUNG LỊCH SỬ CHAT TRƯỢT */}
+            {/* Khung lịch sử chat trượt */}
             <div className={`absolute inset-0 top-14 bg-white z-20 flex flex-col transition-transform duration-300 ${showHistory ? 'translate-y-0' : 'translate-y-full'}`}>
                 <div className="px-5 pt-3 pb-3 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">
                     <button onClick={() => { playClick(); setShowHistory(false); }} className="p-2 -ml-2 bg-transparent text-gray-500 active:scale-95 transition-colors flex items-center gap-1">
@@ -520,7 +522,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                 </div>
             </div>
 
-            {/* HIỂN THỊ YÊU CẦU ĐĂNG NHẬP MẪU NẾU CHƯA CÓ USER */}
+            {/* Hiển thị yêu cầu đăng nhập nếu chưa có user */}
             {!userId ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-[#F8FAFC] z-0">
                     <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4 border border-gray-200">
@@ -536,7 +538,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col min-w-0 bg-[#F3F4F6] relative z-0 overflow-hidden">
-                   {/* BONG BÓNG CHAT NỘI DUNG */}
+                   {/* Bong bóng chat nội dung */}
 <div 
     className="mobile-ai-message-scroll flex-1 overflow-y-auto custom-scrollbar px-3 py-5 space-y-4 min-h-0" 
     ref={scrollRef}
@@ -607,7 +609,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                         )}
                     </div>
 
-                    {/* KHUNG NHẬP CHAT */}
+                    {/* Khung nhập chat */}
                     <div className="px-3 pt-3 pb-safe bg-white border-t border-gray-100 shadow-[0_-5px_10px_rgba(0,0,0,0.02)] z-10 shrink-0">
                         <form onSubmit={(e) => { e.preventDefault(); handleAdvice(); }} className="flex items-end gap-2 pb-2">
                             <textarea

@@ -317,9 +317,9 @@
   }
 
   .translate-tab-indicator {
-    opacity: var(--indicator-opacity);
-    transform: translateX(var(--indicator-left));
-    width: var(--indicator-width);
+    opacity: 0;
+    transform: translateX(0);
+    width: 0;
   }
 
   .exam-progress-bar {
@@ -405,6 +405,11 @@
     right: 12px;
     top: 60px;
     bottom: 12px;
+  }
+
+  .mobile-ai-tail {
+    transform: rotate(45deg);
+    transform-origin: center;
   }
 
   .mobile-ai-message-scroll {
