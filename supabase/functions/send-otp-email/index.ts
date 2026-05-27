@@ -1,11 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Redis } from "npm:@upstash/redis";
 import { Ratelimit } from "npm:@upstash/ratelimit";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { getCorsHeaders, isAllowedCorsOrigin } from "../_shared/cors.ts";
 
 const redisUrl = Deno.env.get("UPSTASH_REDIS_REST_URL");
 const redisToken = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
@@ -55,11 +51,20 @@ const formatVietnamTime = (value?: string) => {
 };
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    if (!isAllowedCorsOrigin(req)) {
+      return new Response(JSON.stringify({ error: "Forbidden", message: "Origin not allowed." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (ratelimit) {
       const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
       const { success, limit, remaining } = await ratelimit.limit(`otp_${ip}`);

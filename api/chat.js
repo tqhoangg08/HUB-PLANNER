@@ -1,6 +1,7 @@
 import Groq from "groq-sdk"; 
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { handleCors } from './_cors.js';
 
 // ============================================================
 // 1. CẤU HÌNH KHO KHÓA (KEY ROTATION POOL) 🔑
@@ -37,17 +38,12 @@ const ratelimit = redis
 
 export default async function handler(req, res) {
   // --------------------------------------------------------
-  // 3. CẤU HÌNH CORS (GIỮ NGUYÊN)
+  // 3. CẤU HÌNH CORS
   // --------------------------------------------------------
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (handleCors(req, res, {
+    methods: 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
+    headers: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization',
+  })) return;
 
   try {
     // ============================================================
@@ -74,7 +70,7 @@ export default async function handler(req, res) {
     // ============================================================
     const referer = req.headers.referer || req.headers.referrer;
     const origin = req.headers.origin;
-    const allowedDomains = ['hotrosinhvienhub.id.vn', 'localhost', '127.0.0.1'];
+    const allowedDomains = ['hotrosinhvienhub.id.vn', 'localhost:3000'];
     
     const isAllowed = allowedDomains.some(d => (referer?.includes(d) || origin?.includes(d)));
     
@@ -141,6 +137,9 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("Handler Error:", error);
-    return res.status(500).json({ error: error.message || "Internal Server Error" });
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Hệ thống đang gặp sự cố, vui lòng thử lại sau."
+    });
   }
 }

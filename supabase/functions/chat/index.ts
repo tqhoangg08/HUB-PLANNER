@@ -1,7 +1,7 @@
 // supabase/functions/chat/index.ts
 import { Ratelimit } from 'https://esm.sh/@upstash/ratelimit@2.0.8'
 import { Redis } from 'https://esm.sh/@upstash/redis@1.36.1'
-import { corsHeaders } from '../_shared/cors.ts'
+import { corsHeaders, getCorsHeaders, isAllowedCorsOrigin } from '../_shared/cors.ts'
 
 const keyPool = [
   Deno.env.get('GROQ_API_KEY'),
@@ -64,17 +64,23 @@ const callGroq = async (apiKey: string, message: string) => {
 }
 
 Deno.serve(async (req) => {
+  const requestCorsHeaders = getCorsHeaders(req)
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders, status: 204 })
+    return new Response(null, { headers: requestCorsHeaders, status: 204 })
   }
 
   if (req.method !== 'POST') {
-    return json({ error: 'Method not allowed' }, 405)
+    return json({ error: 'Method not allowed' }, 405, requestCorsHeaders)
   }
 
   try {
     const ip = req.headers.get('x-forwarded-for') || '127.0.0.1'
-    const rateHeaders: Record<string, string> = {}
+    const rateHeaders: Record<string, string> = { ...requestCorsHeaders }
+    if (!isAllowedCorsOrigin(req)) {
+      return json({ error: 'Forbidden', message: 'Origin not allowed.' }, 403, rateHeaders)
+    }
+
     if (ratelimit) {
       const { success, limit, remaining } = await ratelimit.limit(ip)
       rateHeaders['X-RateLimit-Limit'] = String(limit)
@@ -89,7 +95,7 @@ Deno.serve(async (req) => {
 
     const referer = req.headers.get('referer') || req.headers.get('referrer') || ''
     const origin = req.headers.get('origin') || ''
-    const allowedDomains = ['hotrosinhvienhub.id.vn', 'localhost', '127.0.0.1']
+    const allowedDomains = ['hotrosinhvienhub.id.vn', 'localhost:3000']
     if (!allowedDomains.some((domain) => referer.includes(domain) || origin.includes(domain))) {
       return json({ error: 'Forbidden', message: 'Domain not allowed.' }, 403, rateHeaders)
     }
@@ -119,6 +125,10 @@ Deno.serve(async (req) => {
     }
     throw lastError || new Error('Không thể kết nối AI Server.')
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : String(error) }, 500)
+    console.error('Handler Error:', error)
+    return json({
+      error: 'Internal Server Error',
+      message: 'Hệ thống đang gặp sự cố, vui lòng thử lại sau.',
+    }, 500)
   }
 })

@@ -2,17 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 import { withLogging } from '../../../server/middleware.js';
 import { getActorRole } from '../../../server/moderator-notifications.shared.js';
 import { analyzeEventCandidate } from '../../../server/event-candidate-ai.shared.js';
+import { handleCors } from '../../_cors.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY
 );
-
-const setCors = (res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-};
 
 const allowedRoles = new Set(['admin', 'auditor']);
 
@@ -28,11 +23,10 @@ const getCandidateId = (req) => {
 };
 
 async function handler(req, res) {
-  setCors(res);
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (handleCors(req, res, {
+    headers: 'Content-Type, Authorization',
+    methods: 'POST,OPTIONS',
+  })) return;
 
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });

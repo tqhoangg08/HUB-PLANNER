@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { handleCors } from './_cors.js';
 
 // ===========================================
 // ✨ HỆ THỐNG CÂN BẰNG TẢI API KEY (LOAD BALANCING) ✨
@@ -16,6 +17,7 @@ const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 const redis = (UPSTASH_URL && UPSTASH_TOKEN) ? new Redis({ url: UPSTASH_URL, token: UPSTASH_TOKEN }) : null;
 const ratelimit = redis ? new Ratelimit({ redis: redis, limiter: Ratelimit.slidingWindow(10, "10 s"), analytics: true }) : null;
+const userDailyRatelimit = redis ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(100, "1 d"), analytics: true }) : null;
 
 const isNotificationQuestion = (question = "") => {
   const text = String(question).toLowerCase();
@@ -148,6 +150,22 @@ const keywordTerms = (question = "") => normalizeText(question)
 
 const pickGeminiKey = () => GEMINI_KEYS[Math.floor(Math.random() * GEMINI_KEYS.length)];
 
+const getBearerToken = (req) => {
+  const authorization = req.headers.authorization || '';
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || '';
+};
+
+async function getAuthenticatedUser(req) {
+  const token = getBearerToken(req);
+  if (!token) return null;
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user?.id) return null;
+
+  return data.user;
+}
+
 async function embedNotificationQuery(question) {
   const model = process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-001';
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${pickGeminiKey()}`, {
@@ -270,12 +288,7 @@ ${context}`;
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (handleCors(req, res, { methods: 'GET,OPTIONS,POST' })) return;
 
   let logId = null; // Khai báo logId ở phạm vi rộng để block catch có thể dùng được
 
@@ -288,7 +301,27 @@ export default async function handler(req, res) {
       if (!success) return res.status(429).json({ reply: "Chat chậm lại xíu bạn ơi! ⏳" });
     }
 
-    const { question, context, history, userId } = req.body;
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser) {
+      return res.status(401).json({
+        reply: "Bạn cần đăng nhập lại để sử dụng trợ lý AI.",
+        message: "Bạn cần đăng nhập lại để sử dụng trợ lý AI.",
+        error: "Unauthorized"
+      });
+    }
+
+    if (userDailyRatelimit) {
+      const { success } = await userDailyRatelimit.limit(`chat_user_${authUser.id}`);
+      if (!success) {
+        return res.status(429).json({
+          reply: "Bạn đã gửi khá nhiều câu hỏi hôm nay. Bạn quay lại sau nhé.",
+          message: "Bạn đã gửi khá nhiều câu hỏi hôm nay. Bạn quay lại sau nhé."
+        });
+      }
+    }
+
+    const { question, context, history } = req.body;
+    const userId = authUser.id;
 
     // ===========================================
     // ✨ GHI LOG PARTIAL LÊN SUPABASE NGAY LẬP TỨC ✨
@@ -474,6 +507,6 @@ NGUYÊN TẮC BẮT BUỘC:
         }
     }
     
-    return res.status(500).json({ reply: "Xin lỗi, máy chủ đang bận. Bạn thử lại sau nhé! 😵" });
+    return res.status(500).json({ reply: "Xin lỗi, hệ thống đang gặp sự cố. Bạn thử lại sau nhé!" });
   }
 }

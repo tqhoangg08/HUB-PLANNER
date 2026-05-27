@@ -8,46 +8,6 @@
   <meta name="theme-color" content="#F8FAFC" />
   <meta charset="UTF-8" />
 
-  <script>
-    window.onerror = function(message, source, lineno, colno, error) {
-      if (!message.includes('ResizeObserver')) {
-         console.error(message);
-      }
-    };
-  </script>
-
-  <script>
-    (function () {
-      var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-      var isTouchMobile = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-      var root = document.documentElement;
-      var themeMeta = document.querySelector('meta[name="theme-color"]');
-
-      if (isTouchMobile) {
-        root.classList.add(isStandalone ? 'mobile-standalone' : 'mobile-browser');
-      }
-
-      if (isStandalone) {
-        if (!themeMeta) {
-          themeMeta = document.createElement('meta');
-          themeMeta.setAttribute('name', 'theme-color');
-          document.head.appendChild(themeMeta);
-        }
-        themeMeta.setAttribute('content', '#003375');
-      } else if (themeMeta) {
-        themeMeta.remove();
-      }
-    })();
-  </script>
-
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-RS87LQMBFC"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() { dataLayer.push(arguments); }
-    gtag('js', new Date());
-    gtag('config', 'G-RS87LQMBFC');
-  </script>
-  
   <link rel="icon" type="image/png" href="/logoapp.png" />
   <link rel="shortcut icon" type="image/png" href="/logoapp.png" />
   <link rel="apple-touch-icon" href="/logoapp.png" />
@@ -103,22 +63,6 @@
   ]
   </script>
 
-  <style>
-    html, body, #root { width: 100%; max-width: 100%; }
-    body { margin: 0; }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-    @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-    .animate-fadeIn { animation: fadeIn 0.5s ease-out forwards; }
-    .animate-slideUp { animation: slideUp 0.5s ease-out forwards; }
-    .animate-slideInRight { animation: slideInRight 0.3s ease-out forwards; }
-    .animate-scaleIn { animation: scaleIn 0.3s ease-out forwards; }
-    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
-  </style>
 </head>
 
 <body class="bg-gray-50">

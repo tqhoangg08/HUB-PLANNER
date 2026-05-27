@@ -16,7 +16,9 @@ import '@fontsource/inter/vietnamese-800.css';
 import './index.css';
 import App from './App';
 import { installAppNotificationBridge } from './utils/appNotifications';
+import { bootstrapBrowser } from './utils/browserBootstrap';
 
+bootstrapBrowser();
 installAppNotificationBridge();
 
 if ('serviceWorker' in navigator) {

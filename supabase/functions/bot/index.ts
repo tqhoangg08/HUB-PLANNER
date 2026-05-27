@@ -1,7 +1,7 @@
 // supabase/functions/bot/index.ts
 import { Ratelimit } from 'https://esm.sh/@upstash/ratelimit@2.0.8'
 import { Redis } from 'https://esm.sh/@upstash/redis@1.36.1'
-import { corsHeaders } from '../_shared/cors.ts'
+import { corsHeaders, getCorsHeaders, isAllowedCorsOrigin } from '../_shared/cors.ts'
 import { supabase } from '../_shared/supabase.ts'
 import { embedText } from '../_shared/hub_notifications.ts'
 
@@ -147,6 +147,14 @@ const ratelimit = redis
   })
   : null
 
+const userDailyRatelimit = redis
+  ? new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(100, '1 d'),
+    analytics: true,
+  })
+  : null
+
 const json = (data: unknown, status = 200, extraHeaders: Record<string, string> = {}) =>
   new Response(JSON.stringify(data), {
     headers: { ...corsHeaders, ...extraHeaders, 'Content-Type': 'application/json' },
@@ -161,6 +169,22 @@ type ChatHistoryItem = {
 type ChatMessage = {
   role: string
   content: string
+}
+
+const getBearerToken = (req: Request) => {
+  const authorization = req.headers.get('authorization') || ''
+  const match = authorization.match(/^Bearer\s+(.+)$/i)
+  return match?.[1]?.trim() || ''
+}
+
+const getAuthenticatedUser = async (req: Request) => {
+  const token = getBearerToken(req)
+  if (!token) return null
+
+  const { data, error } = await supabase.auth.getUser(token)
+  if (error || !data?.user?.id) return null
+
+  return data.user
 }
 
 const normalizeGeminiModel = (model: string | null | undefined) =>
@@ -358,16 +382,22 @@ const answerFromNotificationRag = async (question: string) => {
 }
 
 Deno.serve(async (req) => {
+  const requestCorsHeaders = getCorsHeaders(req)
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders, status: 204 })
+    return new Response(null, { headers: requestCorsHeaders, status: 204 })
   }
 
   if (req.method !== 'POST') {
-    return json({ error: 'Method not allowed' }, 405)
+    return json({ error: 'Method not allowed' }, 405, requestCorsHeaders)
   }
 
   try {
-    const rateHeaders: Record<string, string> = {}
+    const rateHeaders: Record<string, string> = { ...requestCorsHeaders }
+    if (!isAllowedCorsOrigin(req)) {
+      return json({ error: 'Forbidden', message: 'Origin not allowed.' }, 403, rateHeaders)
+    }
+
     if (ratelimit) {
       const ip = req.headers.get('x-forwarded-for') || '127.0.0.1'
       const { success, limit, remaining } = await ratelimit.limit(ip)
@@ -383,7 +413,7 @@ Deno.serve(async (req) => {
 
     const referer = req.headers.get('referer') || req.headers.get('referrer') || ''
     const origin = req.headers.get('origin') || ''
-    const allowedDomains = ['hotrosinhvienhub.id.vn', 'localhost', '127.0.0.1']
+    const allowedDomains = ['hotrosinhvienhub.id.vn', 'localhost:3000']
     if (!allowedDomains.some((domain) => referer.includes(domain) || origin.includes(domain))) {
       return json({ error: 'Forbidden', message: 'Domain not allowed.' }, 403, rateHeaders)
     }
@@ -393,8 +423,28 @@ Deno.serve(async (req) => {
     if (!question) return json({ error: 'Missing message' }, 400, rateHeaders)
     if (keyPool.length === 0) throw new Error('Chưa cấu hình GEMINI_API_KEYS hoặc GEMINI_API_KEY.')
 
+    const authUser = await getAuthenticatedUser(req)
+    if (!authUser) {
+      return json({
+        error: 'Unauthorized',
+        message: 'Bạn cần đăng nhập lại để sử dụng trợ lý AI.',
+        reply: 'Bạn cần đăng nhập lại để sử dụng trợ lý AI.',
+      }, 401, rateHeaders)
+    }
+
+    if (userDailyRatelimit) {
+      const { success } = await userDailyRatelimit.limit(`chat_user_${authUser.id}`)
+      if (!success) {
+        return json({
+          error: 'Too Many Requests',
+          message: 'Bạn đã gửi khá nhiều câu hỏi hôm nay. Bạn quay lại sau nhé.',
+          reply: 'Bạn đã gửi khá nhiều câu hỏi hôm nay. Bạn quay lại sau nhé.',
+        }, 429, rateHeaders)
+      }
+    }
+
     let logId: number | null = null
-    const userId = String(body.userId || '').trim()
+    const userId = authUser.id
     if (userId) {
       const { data: logData, error: logError } = await supabase
         .from('ai_chat_logs')
@@ -462,6 +512,6 @@ Deno.serve(async (req) => {
     throw lastError || new Error('Không thể kết nối đến AI Server.')
   } catch (error) {
     console.error('Handler Error:', error)
-    return json({ error: error instanceof Error ? error.message : String(error) }, 500)
+    return json({ error: 'Internal Server Error', reply: 'Xin lỗi, hệ thống đang gặp sự cố. Bạn thử lại sau nhé!' }, 500)
   }
 })

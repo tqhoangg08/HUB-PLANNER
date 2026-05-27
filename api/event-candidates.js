@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { withLogging } from '../server/middleware.js';
 import { sendModeratorAlert } from '../server/moderator-notifications.shared.js';
 import { analyzeEventCandidate } from '../server/event-candidate-ai.shared.js';
+import { handleCors } from './_cors.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -36,12 +37,6 @@ const EVENT_CATEGORIES = [
 const DEFAULT_EVENT_CATEGORY = EVENT_CATEGORIES[0];
 
 const allowedModeratorRoles = new Set(['admin', 'auditor']);
-
-const setCors = (res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS');
-};
 
 const parseBody = (request) => {
   if (typeof request.body === 'string') {
@@ -690,11 +685,10 @@ const rejectCandidateAction = async (request, response, body) => {
 };
 
 async function handler(request, response) {
-  setCors(response);
-
-  if (request.method === 'OPTIONS') {
-    return response.status(200).end();
-  }
+  if (handleCors(request, response, {
+    headers: 'Content-Type, Authorization',
+    methods: 'GET,POST,PATCH,OPTIONS',
+  })) return;
 
   const body = parseBody(request);
   if (body === null) {
