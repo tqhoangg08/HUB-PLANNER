@@ -64,6 +64,11 @@ const resolveApiModule = (pathname: string): string | null => {
   const nested = walk(apiRoot, segments)
   if (nested) return nested
 
+  const catchAllTs = path.join(apiRoot, '[...route].ts')
+  const catchAllJs = path.join(apiRoot, '[...route].js')
+  if (existsFile(catchAllTs)) return catchAllTs
+  if (existsFile(catchAllJs)) return catchAllJs
+
   return null
 }
 

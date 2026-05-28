@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
-import { withLogging } from '../server/middleware.js'; // Bọc Bác bảo vệ
+import { withLogging } from '../middleware.js'; // Bọc Bác bảo vệ
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -46,6 +46,28 @@ const SYNCABLE_COURSE_FIELDS = [
   'semester',
   'instructor',
 ];
+const COURSE_SCHEDULE_COLUMNS = [
+  'id',
+  'course_code',
+  'subject_name',
+  'credits',
+  'shift',
+  'day_of_week',
+  'weeks',
+  'room',
+  'campus',
+  'exam_date',
+  'exam_shift',
+  'exam_room',
+  'cohort',
+  'major',
+  'academic_program',
+  'phase',
+  'semester',
+  'instructor',
+  'is_user_added',
+].join(', ');
+const USER_COURSE_REQUEST_COLUMNS = 'id, user_id, subject_name, course_code, instructor, status, created_at';
 
 const normalizeComparable = (value) => {
   if (value === undefined || value === null) return '';
@@ -122,6 +144,15 @@ const getActorRole = async (request) => {
   return (roleData?.role || 'student').trim();
 };
 
+const getRequestUser = async (request) => {
+  const token = request.headers.authorization?.replace(/^Bearer\s+/i, '');
+  if (!token) return null;
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user?.id) return null;
+  return data.user;
+};
+
 const fetchProfilesMap = async (userIds) => {
   const uniqueUserIds = [...new Set(userIds.filter(Boolean))];
   if (uniqueUserIds.length === 0) return {};
@@ -173,6 +204,37 @@ const fetchProfilesMap = async (userIds) => {
   return profilesMap;
 };
 
+const handleMySchedule = async (request, response) => {
+  const user = await getRequestUser(request);
+  if (!user?.id) return response.status(401).json({ error: 'Unauthorized' });
+
+  const requestedUserId = String(request.query.userId || '').trim();
+  let targetUserId = user.id;
+
+  if (requestedUserId && requestedUserId !== user.id) {
+    const role = await getActorRole(request);
+    if (!['admin', 'auditor'].includes(role || '')) {
+      return response.status(403).json({ error: 'Forbidden' });
+    }
+    targetUserId = requestedUserId;
+  }
+
+  const { data, error } = await supabase
+    .from('user_schedules')
+    .select(`id, user_id, course_id, semester, custom_data, course_schedules (${COURSE_SCHEDULE_COLUMNS})`)
+    .eq('user_id', targetUserId);
+
+  if (error) throw error;
+
+  const rows = data || [];
+  const profilesMap = await fetchProfilesMap(rows.map((item) => item.user_id));
+  const schedule = rows
+    .map((item) => mergeScheduleCourse(item, profilesMap[item.user_id] || {}))
+    .filter((course) => course.id);
+
+  return response.status(200).json({ success: true, data: schedule });
+};
+
 const handleUserSchedules = async (request, response) => {
   const role = await getActorRole(request);
   if (!['admin', 'auditor'].includes(role || '')) {
@@ -184,7 +246,7 @@ const handleUserSchedules = async (request, response) => {
 
   let schedulesQuery = supabase
     .from('user_schedules')
-    .select('id, user_id, course_id, semester, custom_data, course_schedules (*)')
+    .select(`id, user_id, course_id, semester, custom_data, course_schedules (${COURSE_SCHEDULE_COLUMNS})`)
     .in('semester', [semester, dbSemester]);
 
   if (mode === 'changed') {
@@ -260,7 +322,7 @@ const handleSyncUserSchedule = async (request, response) => {
 
   const { data: row, error: readError } = await supabase
     .from('user_schedules')
-    .select('id, course_id, custom_data, course_schedules (*)')
+    .select(`id, course_id, custom_data, course_schedules (${COURSE_SCHEDULE_COLUMNS})`)
     .eq('id', userScheduleId)
     .maybeSingle();
 
@@ -430,7 +492,7 @@ const handleCourseRequests = async (request, response) => {
     const { status = 'pending', search = '', limit = 200 } = request.query;
     let query = supabase
       .from('user_course_requests')
-      .select('*')
+      .select(USER_COURSE_REQUEST_COLUMNS)
       .order('created_at', { ascending: false })
       .limit(Number(limit));
 
@@ -466,7 +528,7 @@ const handleCourseRequests = async (request, response) => {
       .from('user_course_requests')
       .update({ status })
       .eq('id', requestId)
-      .select('*')
+      .select(USER_COURSE_REQUEST_COLUMNS)
       .single();
 
     if (error) throw error;
@@ -515,7 +577,7 @@ const handleCourseRequests = async (request, response) => {
         .from('course_schedules')
         .update(payload)
         .eq('id', existingCourse.id)
-        .select('*')
+        .select(COURSE_SCHEDULE_COLUMNS)
         .single();
 
       if (updateCourseError) throw updateCourseError;
@@ -524,7 +586,7 @@ const handleCourseRequests = async (request, response) => {
       const { data: insertedCourse, error: insertError } = await supabase
         .from('course_schedules')
         .insert(payload)
-        .select('*')
+        .select(COURSE_SCHEDULE_COLUMNS)
         .single();
 
       if (insertError) throw insertError;
@@ -541,7 +603,7 @@ const handleCourseRequests = async (request, response) => {
     let notification = { notification: false, push: { sent: 0, failed: 0 }, error: null };
     try {
       notification = {
-        ...(await notifyCourseRequestApproved(courseRequest.user_id, insertedCourse)),
+        ...(await notifyCourseRequestApproved(courseRequest.user_id, officialCourse)),
         error: null,
       };
     } catch (error) {
@@ -594,8 +656,12 @@ async function handler(request, response) {
       return handleUserSchedules(request, response);
     }
 
+    if (resource === 'my-schedule') {
+      return handleMySchedule(request, response);
+    }
+
     let query = supabase.from('course_schedules')
-      .select('*')
+      .select(COURSE_SCHEDULE_COLUMNS)
       .limit(Number(limit)); // Giới hạn số lượng lấy để chống cào data
 
     if (semester) {

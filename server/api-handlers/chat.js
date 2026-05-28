@@ -1,7 +1,7 @@
 import Groq from "groq-sdk"; 
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { handleCors } from './_cors.js';
+import { handleCors } from '../api-cors.js';
 
 // ============================================================
 // 1. CẤU HÌNH KHO KHÓA (KEY ROTATION POOL) 🔑

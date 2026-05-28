@@ -39,6 +39,28 @@ const SYNCABLE_COURSE_FIELDS = [
   'semester',
   'instructor',
 ]
+const COURSE_SCHEDULE_COLUMNS = [
+  'id',
+  'course_code',
+  'subject_name',
+  'credits',
+  'shift',
+  'day_of_week',
+  'weeks',
+  'room',
+  'campus',
+  'exam_date',
+  'exam_shift',
+  'exam_room',
+  'cohort',
+  'major',
+  'academic_program',
+  'phase',
+  'semester',
+  'instructor',
+  'is_user_added',
+].join(', ')
+const USER_COURSE_REQUEST_COLUMNS = 'id, user_id, subject_name, course_code, instructor, status, created_at'
 
 const normalizeComparable = (value: unknown) => {
   if (value === undefined || value === null) return ''
@@ -112,6 +134,15 @@ const getActorRole = async (request: Request) => {
   return (roleData?.role || 'student').trim()
 }
 
+const getRequestUser = async (request: Request) => {
+  const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
+  if (!token) return null
+
+  const { data, error } = await supabase.auth.getUser(token)
+  if (error || !data?.user?.id) return null
+  return data.user
+}
+
 const fetchProfilesMap = async (userIds: string[]) => {
   const uniqueUserIds = [...new Set(userIds.filter(Boolean))]
   if (uniqueUserIds.length === 0) return {}
@@ -162,6 +193,34 @@ const fetchProfilesMap = async (userIds: string[]) => {
   return profilesMap
 }
 
+const handleMySchedule = async (request: Request, params: URLSearchParams) => {
+  const user = await getRequestUser(request)
+  if (!user?.id) return json({ error: 'Unauthorized' }, 401)
+
+  const requestedUserId = (params.get('userId') || '').trim()
+  let targetUserId = user.id
+
+  if (requestedUserId && requestedUserId !== user.id) {
+    const role = await getActorRole(request)
+    if (!['admin', 'auditor'].includes(role || '')) return json({ error: 'Forbidden' }, 403)
+    targetUserId = requestedUserId
+  }
+
+  const { data, error } = await supabase
+    .from('user_schedules')
+    .select(`id, user_id, course_id, semester, custom_data, course_schedules (${COURSE_SCHEDULE_COLUMNS})`)
+    .eq('user_id', targetUserId)
+  if (error) throw error
+
+  const rows = data || []
+  const profilesMap: Record<string, any> = await fetchProfilesMap(rows.map((item: any) => item.user_id))
+  const schedule = rows
+    .map((item: any) => mergeScheduleCourse(item, profilesMap[item.user_id] || {}))
+    .filter((course: any) => course.id)
+
+  return json({ success: true, data: schedule })
+}
+
 const handleUserSchedules = async (request: Request, params: URLSearchParams) => {
   const role = await getActorRole(request)
   if (!['admin', 'auditor'].includes(role || '')) return json({ error: 'Forbidden' }, 403)
@@ -175,7 +234,7 @@ const handleUserSchedules = async (request: Request, params: URLSearchParams) =>
 
   let schedulesQuery = supabase
     .from('user_schedules')
-    .select('id, user_id, course_id, semester, custom_data, course_schedules (*)')
+    .select(`id, user_id, course_id, semester, custom_data, course_schedules (${COURSE_SCHEDULE_COLUMNS})`)
     .in('semester', [semester, dbSemester])
 
   if (mode === 'changed') {
@@ -243,7 +302,7 @@ const handleSyncUserSchedule = async (request: Request) => {
 
   const { data: row, error: readError } = await supabase
     .from('user_schedules')
-    .select('id, course_id, custom_data, course_schedules (*)')
+    .select(`id, course_id, custom_data, course_schedules (${COURSE_SCHEDULE_COLUMNS})`)
     .eq('id', userScheduleId)
     .maybeSingle()
   if (readError) throw readError
@@ -412,7 +471,7 @@ const handleCourseRequests = async (request: Request, params: URLSearchParams) =
 
     let query = supabase
       .from('user_course_requests')
-      .select('*')
+      .select(USER_COURSE_REQUEST_COLUMNS)
       .order('created_at', { ascending: false })
       .limit(limit)
 
@@ -449,7 +508,7 @@ const handleCourseRequests = async (request: Request, params: URLSearchParams) =
       .from('user_course_requests')
       .update({ status })
       .eq('id', requestId)
-      .select('*')
+      .select(USER_COURSE_REQUEST_COLUMNS)
       .single()
 
     if (error) throw error
@@ -499,7 +558,7 @@ const handleCourseRequests = async (request: Request, params: URLSearchParams) =
         .from('course_schedules')
         .update(payload)
         .eq('id', existingCourse.id)
-        .select('*')
+        .select(COURSE_SCHEDULE_COLUMNS)
         .single()
 
       if (updateCourseError) throw updateCourseError
@@ -508,7 +567,7 @@ const handleCourseRequests = async (request: Request, params: URLSearchParams) =
       const { data: insertedCourse, error: insertError } = await supabase
         .from('course_schedules')
         .insert(payload)
-        .select('*')
+        .select(COURSE_SCHEDULE_COLUMNS)
         .single()
 
       if (insertError) throw insertError
@@ -525,7 +584,7 @@ const handleCourseRequests = async (request: Request, params: URLSearchParams) =
     let notification = { notification: false, push: { sent: 0, failed: 0 }, error: null as string | null }
     try {
       notification = {
-        ...(await notifyCourseRequestApproved(courseRequest.user_id, insertedCourse)),
+        ...(await notifyCourseRequestApproved(courseRequest.user_id, officialCourse)),
         error: null,
       }
     } catch (error) {
@@ -554,13 +613,14 @@ Deno.serve(async (req) => {
     if (resource === 'course-requests') return await handleCourseRequests(req, params)
     if (req.method !== 'GET') return json({ error: 'Chỉ hỗ trợ phương thức GET' }, 405)
     if (resource === 'user-schedules') return await handleUserSchedules(req, params)
+    if (resource === 'my-schedule') return await handleMySchedule(req, params)
 
     const semester = params.get('semester')
     const phase = params.get('phase')
     const search = params.get('search')
     const limit = Number(params.get('limit') || 50)
 
-    let query = supabase.from('course_schedules').select('*').limit(limit)
+    let query = supabase.from('course_schedules').select(COURSE_SCHEDULE_COLUMNS).limit(limit)
     if (semester) query = query.eq('semester', semester)
     if (phase && phase !== 'all') query = query.eq('phase', phase)
     if (search) query = query.or(`subject_name.ilike.%${search}%,course_code.ilike.%${search}%,instructor.ilike.%${search}%`)

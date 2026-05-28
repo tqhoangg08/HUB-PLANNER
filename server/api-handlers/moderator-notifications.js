@@ -1,6 +1,6 @@
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
-import { withLogging } from '../server/middleware.js';
+import { withLogging } from '../middleware.js';
 
 webpush.setVapidDetails(
   'mailto:admin@hotrosinhvienhub.id.vn',

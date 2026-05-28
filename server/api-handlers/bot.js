@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { handleCors } from './_cors.js';
+import { handleCors } from '../api-cors.js';
 
 // ===========================================
 // ✨ HỆ THỐNG CÂN BẰNG TẢI API KEY (LOAD BALANCING) ✨

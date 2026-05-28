@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import * as cheerio from 'cheerio';
-import logger from '../server/logger.js';
+import logger from '../logger.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL, 

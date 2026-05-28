@@ -11,7 +11,7 @@ import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
-import { apiUrl } from '../utils/api';
+import { apiHeaders, apiUrl } from '../utils/api';
 
 interface UserProfile {
   id?: string;
@@ -129,6 +129,28 @@ const SYNCABLE_COURSE_FIELDS: { key: keyof Course; label: string }[] = [
     { key: 'academic_program', label: 'Chương trình' },
     { key: 'semester', label: 'Học kỳ' },
 ];
+
+const COURSE_SCHEDULE_COLUMNS = [
+    'id',
+    'course_code',
+    'subject_name',
+    'credits',
+    'shift',
+    'day_of_week',
+    'weeks',
+    'room',
+    'campus',
+    'exam_date',
+    'exam_shift',
+    'exam_room',
+    'cohort',
+    'major',
+    'academic_program',
+    'phase',
+    'semester',
+    'instructor',
+    'is_user_added',
+].join(', ');
 
 const normalizeDiffValue = (value: any) => value === undefined || value === null ? '' : String(value).trim();
 
@@ -578,19 +600,20 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const fetchCourses = async () => {
     setIsLoading(true);
     try {
-        let query = supabase.from('course_schedules').select('*').eq('semester', selectedSemester);
-        if (selectedPhase !== 'all') query = query.eq('phase', selectedPhase);
-        
+        const params = new URLSearchParams({
+            semester: selectedSemester,
+            limit: String(isAdminView ? 1000 : 100),
+        });
+        if (selectedPhase !== 'all') params.set('phase', selectedPhase);
         const term = searchTerm.trim();
-        if (term) {
-            const keywords = term.split(/\s+/);
-            keywords.forEach(kw => {
-                query = query.or(`subject_name.ilike.%${kw}%,course_code.ilike.%${kw}%,instructor.ilike.%${kw}%`);
-            });
-        }
-        const { data, error } = await query.limit(isAdminView ? 1000 : 100);
-        if (error) throw error;
-        setAvailableCourses(data || []);
+        if (term) params.set('search', term);
+
+        const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
+            headers: apiHeaders(),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error || 'Không tải được danh sách môn.');
+        setAvailableCourses(payload.data || []);
     } catch (error) { 
         console.error("Lỗi tải danh sách môn:", error); 
     } finally { setIsLoading(false); }
@@ -890,22 +913,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     const targetId = viewUserId || user.id;
 
     try {
-      const { data, error } = await supabase.from('user_schedules').select(`id, course_id, semester, custom_data, course_schedules (*)`).eq('user_id', targetId);
-      if (!error && data) {
-        setMySchedule(data.map((item: any) => {
-            if (!item.course_schedules) return null;
-            let cData = item.custom_data;
-            if (typeof cData === 'string') {
-                try { cData = JSON.parse(cData); } catch(e) { cData = {}; }
-            }
-            return {
-                ...item.course_schedules,
-                ...cData, 
-                id: item.course_schedules.id, 
-                user_schedule_id: item.id 
-            };
-        }).filter(Boolean));
-      }
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) return;
+
+      const params = new URLSearchParams({ resource: 'my-schedule' });
+      if (targetId !== user.id) params.set('userId', targetId);
+
+      const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
+        headers: apiHeaders({ Authorization: `Bearer ${token}` }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || 'Không tải được TKB cá nhân.');
+      setMySchedule(payload.data || []);
     } catch (error) { console.error("Lỗi kéo TKB:", error); }
   };
   useEffect(() => { if (isAuthenticated) fetchMySchedule(); }, [isAuthenticated, viewUserId]);

@@ -1,9 +1,9 @@
 import Groq from 'groq-sdk';
 import { createClient } from '@supabase/supabase-js';
-import { withLogging } from '../server/middleware.js';
-import { sendModeratorAlert } from '../server/moderator-notifications.shared.js';
-import { analyzeEventCandidate } from '../server/event-candidate-ai.shared.js';
-import { handleCors } from './_cors.js';
+import { withLogging } from '../middleware.js';
+import { sendModeratorAlert } from '../moderator-notifications.shared.js';
+import { analyzeEventCandidate } from '../event-candidate-ai.shared.js';
+import { handleCors } from '../api-cors.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,

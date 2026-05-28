@@ -5,6 +5,7 @@ import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Fil
 import { formatDate } from '../utils/dateUtils';
 
 const ITEMS_PER_PAGE = 10;
+const ANNOUNCEMENT_LIST_COLUMNS = 'id, title, link, is_new, date, created_at';
 
 // =================================================================
 // HÀM HELPER: DỊCH URL SANG TÊN PHÒNG BAN CHUẨN XÁC
@@ -62,7 +63,7 @@ const SchoolAnnouncements = () => {
       try {
         const { data, error } = await supabase
           .from('school_announcements')
-          .select('*')
+          .select(ANNOUNCEMENT_LIST_COLUMNS)
           .or('is_hidden.eq.false,is_hidden.is.null') // ✨ ĐÃ THÊM: Chỉ lấy tin chưa bị ẩn
           .order('date', { ascending: false }) 
           .order('created_at', { ascending: false }) 
@@ -83,7 +84,7 @@ const SchoolAnnouncements = () => {
     try {
       let query = supabase
         .from('school_announcements')
-        .select('*', { count: 'exact' })
+        .select(ANNOUNCEMENT_LIST_COLUMNS, { count: 'exact' })
         .or('is_hidden.eq.false,is_hidden.is.null'); // ✨ ĐÃ THÊM: Chỉ lấy tin chưa bị ẩn
 
       if (searchQuery) query = query.ilike('title', `%${searchQuery}%`);

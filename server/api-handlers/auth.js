@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomInt } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-import { withLogging } from '../server/middleware.js';
+import { withLogging } from '../middleware.js';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const OTP_TTL_MINUTES = 10;
