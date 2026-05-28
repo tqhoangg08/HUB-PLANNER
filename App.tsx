@@ -38,8 +38,10 @@ import { MobileEvents } from './components/MobileEvents';
 import { MobileLostFound } from './components/MobileLostFound';
 import { MobileProfile } from './components/MobileProfile'; 
 import { PasswordSetupModal } from './components/PasswordSetupModal';
+import { SupportNoticeModal } from './components/SupportNoticeModal';
 import { MobileHandbook } from './components/MobileHandbook';
 import { showAlert, showConfirm } from './utils/appNotifications';
+import { clearLocalStoragePreservingDevicePreferences } from './utils/devicePreferences';
 import {
     isPushSupported,
     subscribeToDeviceNotifications,
@@ -1033,7 +1035,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 console.error("Lỗi khi đăng xuất Supabase:", e);
             }
             
-            localStorage.clear();
+            clearLocalStoragePreservingDevicePreferences();
             sessionStorage.clear();
             resetDeleteAccountModal();
 
@@ -1154,7 +1156,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 if (supabase) await supabase.auth.signOut();
             } catch(e) {}
 
-            localStorage.clear();
+            clearLocalStoragePreservingDevicePreferences();
             sessionStorage.clear();
             
             navigate('/login', { replace: true });
@@ -2447,14 +2449,17 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
     }
 
     return (
-        <Routes>
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/terms" element={<TermsOfUse />} />
-            <Route path="/login" element={<LoginScreen />} />
-            
-            <Route path="/" element={<Navigate to={useMobileLayout ? "/mobile-home" : "/dashboard"} replace />} />
-            <Route path="/*" element={renderProtectedApp()} />
-        </Routes>
+        <>
+            <Routes>
+                <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<TermsOfUse />} />
+                <Route path="/login" element={<LoginScreen />} />
+                
+                <Route path="/" element={<Navigate to={useMobileLayout ? "/mobile-home" : "/dashboard"} replace />} />
+                <Route path="/*" element={renderProtectedApp()} />
+            </Routes>
+            <SupportNoticeModal />
+        </>
     );
 };
 

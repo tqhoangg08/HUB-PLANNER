@@ -24,6 +24,7 @@ import { fetchProfilePrivate } from '../utils/profilePrivate';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
+import { clearLocalStoragePreservingDevicePreferences, removeLocalStorageExceptDevicePreferences } from '../utils/devicePreferences';
 
 interface MobileProfileProps {
     setShowAccountSettings?: (v: boolean) => void;
@@ -88,7 +89,7 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
         playClick();
         if (await showConfirm('Bạn có chắc chắn muốn đăng xuất?')) {
             await supabase.auth.signOut();
-            localStorage.clear();
+            clearLocalStoragePreservingDevicePreferences();
             sessionStorage.clear();
             navigate('/login', { replace: true });
         }
@@ -102,9 +103,7 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
     const handleClearCache = async () => {
         playClick();
         if (await showConfirm('Bạn muốn xóa bộ nhớ đệm cục bộ? (Không làm đăng xuất tài khoản)')) {
-            Object.keys(localStorage).forEach((key) => {
-                if (!key.startsWith('sb-')) localStorage.removeItem(key);
-            });
+            removeLocalStorageExceptDevicePreferences((key) => !key.startsWith('sb-'));
             alert('Đã xóa bộ nhớ đệm thành công!');
             window.location.reload();
         }
