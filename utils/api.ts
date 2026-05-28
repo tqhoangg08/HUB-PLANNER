@@ -16,6 +16,7 @@ export const apiHeaders = (headers: HeadersInit = {}) => {
 
   if (API_BASE_URL === SUPABASE_FUNCTIONS_ORIGIN && anonKey) {
     if (!merged.has('apikey')) merged.set('apikey', anonKey);
+    if (!merged.has('Authorization')) merged.set('Authorization', `Bearer ${anonKey}`);
   }
 
   return merged;

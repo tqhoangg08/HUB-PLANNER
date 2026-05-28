@@ -1,8 +1,9 @@
 import * as pdfjsLib from 'pdfjs-dist';
-import { apiUrl } from './api';
+import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { apiHeaders, apiUrl } from './api';
 
 // Set worker for PDF.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
 // Dùng chung bộ đếm Spam với Bảng điểm
 const checkSpamLimit = (): boolean => {
@@ -72,7 +73,7 @@ export const parseSchedulePdf = async (file: File) => {
         const fullMessage = `${SCHEDULE_PROMPT}\n\nVĂN BẢN ĐẦU VÀO:\n${fullText}`;
         const response = await fetch(apiUrl('/chat'), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: apiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ message: fullMessage })
         });
         if (!response.ok) return null;

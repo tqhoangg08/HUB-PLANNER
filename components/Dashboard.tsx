@@ -15,7 +15,7 @@ import {
     calculateRequiredGPA,
     getGradeDetails
 } from '../utils/calculations';
-import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter, Flame, Sparkles } from 'lucide-react';
+import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter, Sparkles } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { playClick } from '../utils/audio';
 import SchoolAnnouncements from './SchoolAnnouncements';
@@ -1742,39 +1742,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
     }, [activeData.semesters.length, selectedAdminUserId]);
 
-    // ✨ TÍNH NĂNG 2: FETCH RANK ĐIỂM RÈN LUYỆN ✨
-    const [drlRank, setDrlRank] = useState<any>(null);
-
-    useEffect(() => {
-        const fetchDrlRank = async () => {
-            if (isGuest || showAdminPanel || isViewingAsAuditor) return;
-            
-            // 1. Lấy MSSV của sinh viên đang đăng nhập
-            const targetStudentCode = (data as any).studentCode || (data as any).student_code;
-            if (!targetStudentCode) return;
-
-            try {
-                // 2. Chọc vào bảng v_drl_ranking
-                const { data: rankData, error } = await supabase
-                    .from('v_drl_ranking')
-                    .select('*')
-                    .eq('student_code', targetStudentCode)
-                    // Bỏ dòng order semester_id đi nếu bảng View của sếp chưa có cột này để tránh lỗi
-                    .limit(1)
-                    .maybeSingle(); // ✨ SỬA THÀNH maybeSingle() Ở ĐÂY NÈ SẾP
-
-                if (rankData && !error) {
-                    setDrlRank(rankData);
-                }
-            } catch (err) {
-                console.error("❌ [RANK-DRL] Lỗi Code React:", err);
-            }
-        };
-
-        fetchDrlRank();
-    }, [isGuest, showAdminPanel, isViewingAsAuditor, data]);
-
-
     const nonSummerSemesters = useMemo(
         () => activeData.semesters.filter(s => !/^Học kỳ Hè Năm học \d{4}-\d{4}$/.test(s.name)),
         [activeData.semesters]
@@ -2284,59 +2251,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     )}
                 </div>
-
-                {/* 🏆 WIDGET VINH DANH ĐIỂM RÈN LUYỆN 🏆 */}
-                {drlRank && !showAdminPanel && !isGuest && (
-                    <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-300 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative overflow-hidden shadow-sm">
-                        <div className="absolute -right-4 -top-4 opacity-10 pointer-events-none transform rotate-12">
-                            <Crown size={120} />
-                        </div>
-                        
-                        <div className="relative z-10 flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                                <span className="bg-yellow-200 text-yellow-800 text-[10px] font-bold px-2 py-0.5 rounded border border-yellow-300 uppercase tracking-wide">
-                                    Vinh danh ĐRL
-                                </span>
-                                <span className="text-xs font-bold text-gray-500">
-                                    {drlRank.semester_id ? drlRank.semester_id.replace('HK1_', 'Học kỳ 1 NH ').replace('HK2_', 'Học kỳ 2 NH ') : 'Dự kiến'}
-                                </span>
-                            </div>
-                            <h3 className="text-lg sm:text-xl font-extrabold text-yellow-900 mb-2">
-                                Bạn đạt <span className="text-orange-600">{drlRank.official_score || 0}</span> điểm rèn luyện! 🎉
-                            </h3>
-                            <div className="flex flex-wrap items-center gap-3 sm:gap-6 mt-1">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm text-yellow-600 border border-yellow-200">
-                                        <Trophy size={16} />
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] text-gray-500 font-semibold uppercase">Lớp {drlRank.class_name || '?'}</p>
-                                        <p className="text-sm font-black text-gray-800">Hạng #{drlRank.rank_in_class || '?'} <span className="text-xs font-medium text-gray-500">/ {drlRank.total_in_class || '?'}</span></p>
-                                    </div>
-                                </div>
-                                
-                                <div className="w-px h-8 bg-yellow-200 hidden sm:block"></div>
-                                
-                                <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm text-orange-500 border border-orange-200">
-                                        <Flame size={16} />
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] text-gray-500 font-semibold uppercase">Khoa {drlRank.department || '?'}</p>
-                                        <p className="text-sm font-black text-gray-800">Top {Math.max(1, Math.ceil((drlRank.top_percent_faculty || 0) * 100))}% <span className="text-xs font-medium text-gray-500">xuất sắc</span></p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className="hidden lg:flex shrink-0 relative z-10 mr-4">
-                            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm border-4 border-yellow-200 relative">
-                                <Crown size={32} className="text-yellow-500 drop-shadow-sm mb-3" />
-                                <span className="absolute bottom-3 text-[13px] font-black text-yellow-800">#{drlRank.rank_in_class || '?'}</span>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                     <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 hover:border-blue-400 transition-colors flex flex-col justify-between">
