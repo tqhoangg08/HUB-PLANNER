@@ -17,14 +17,19 @@ const getRequestOrigin = (req) => {
   }
 };
 
+const isAllowedExtensionOrigin = (origin) => {
+  if (!origin) return false;
+  return origin.startsWith('chrome-extension://') || origin.startsWith('moz-extension://');
+};
+
 export const isAllowedOrigin = (req) => {
   const origin = getRequestOrigin(req);
-  return !origin || ALLOWED_ORIGINS.has(origin);
+  return !origin || ALLOWED_ORIGINS.has(origin) || isAllowedExtensionOrigin(origin);
 };
 
 export const setCorsHeaders = (req, res, options = {}) => {
   const origin = getRequestOrigin(req);
-  const allowedOrigin = ALLOWED_ORIGINS.has(origin)
+  const allowedOrigin = ALLOWED_ORIGINS.has(origin) || isAllowedExtensionOrigin(origin)
     ? origin
     : 'https://hotrosinhvienhub.id.vn';
 
