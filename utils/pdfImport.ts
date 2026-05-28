@@ -11,6 +11,68 @@ interface ParsedResult {
     yearRanges: {start: number, end: number}[];
 }
 
+const extractJsonObject = (raw: string): any | null => {
+    const cleanText = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+    try {
+        return JSON.parse(cleanText);
+    } catch {
+        const start = cleanText.indexOf('{');
+        const end = cleanText.lastIndexOf('}');
+        if (start === -1 || end === -1 || end <= start) return null;
+
+        try {
+            return JSON.parse(cleanText.slice(start, end + 1));
+        } catch {
+            return null;
+        }
+    }
+};
+
+const normalizeYear = (value: any): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value !== 'string') return null;
+
+    const match = value.match(/\b(20\d{2})\b/);
+    return match ? Number(match[1]) : null;
+};
+
+const normalizeYearRange = (hk: any): { start: number; end: number } | null => {
+    const combinedYearText = [
+        hk.nam_hoc,
+        hk.nien_khoa,
+        hk.nam,
+        hk.year,
+        hk.academic_year,
+        hk.ten_hoc_ky,
+        hk.hoc_ky
+    ].filter(Boolean).join(' ');
+
+    const rangeMatch = combinedYearText.match(/\b(20\d{2})\s*[-–]\s*(20\d{2})\b/);
+    const start = normalizeYear(hk.nam_bat_dau ?? hk.start_year ?? hk.year_start) ?? (rangeMatch ? Number(rangeMatch[1]) : null);
+    const end = normalizeYear(hk.nam_ket_thuc ?? hk.end_year ?? hk.year_end) ?? (rangeMatch ? Number(rangeMatch[2]) : (start ? start + 1 : null));
+
+    if (!start || !end) return null;
+    return { start, end };
+};
+
+const normalizeSemesterNo = (value: any): 1 | 2 | 'Hè' | null => {
+    const raw = String(value ?? '').trim().toLowerCase();
+    if (value === 1 || raw === '1' || raw.includes('học kỳ 1') || raw.includes('hoc ky 1') || raw.includes('hk1')) return 1;
+    if (value === 2 || raw === '2' || raw.includes('học kỳ 2') || raw.includes('hoc ky 2') || raw.includes('hk2')) return 2;
+    if (value === 3 || raw === '3' || raw.includes('hè') || raw.includes('he') || raw.includes('summer') || raw.includes('phụ') || raw.includes('phu')) return 'Hè';
+    return null;
+};
+
+const normalizeScore = (value: any): { score: number | null; isNonGPA: boolean } => {
+    if (typeof value === 'number' && Number.isFinite(value)) return { score: value, isNonGPA: false };
+    if (typeof value !== 'string') return { score: null, isNonGPA: false };
+
+    const numeric = Number.parseFloat(value.replace(',', '.'));
+    if (!Number.isNaN(numeric)) return { score: numeric, isNonGPA: false };
+    return { score: null, isNonGPA: value.trim().length > 0 };
+};
+
 // ==========================================
 // 🛡️ PHẦN 1: BỘ LỌC CHỐNG SPAM
 // ==========================================
@@ -105,8 +167,7 @@ const extractFullTranscriptWithAI = async (text: string): Promise<any> => {
         const jsonText = data.reply;
         if (!jsonText) return null;
 
-        const cleanJson = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
-        return JSON.parse(cleanJson);
+        return extractJsonObject(jsonText);
     } catch (error) {
         console.error("AI Full Extraction Error:", error);
         return null;
@@ -147,50 +208,54 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     }
 
     if (aiResult.hoc_ky && Array.isArray(aiResult.hoc_ky)) {
-        result.semesters = aiResult.hoc_ky.map((hk: any, index: number) => {
-            const y1 = hk.nam_bat_dau;
-            const y2 = hk.nam_ket_thuc;
-            
-            // Xử lý chuẩn hóa tên Học kỳ (1, 2, Hè)
-            let hkVal = hk.hoc_ky_so;
-            const hky = (hkVal === 3 || hkVal === "3" || hkVal?.toString().toLowerCase() === "hè") ? "Hè" : hkVal;
-            
-            if (!result.yearRanges.some(y => y.start === y1)) {
+        result.semesters = aiResult.hoc_ky.reduce((semesters: Semester[], hk: any, index: number) => {
+            const yearRange = normalizeYearRange(hk);
+            const hky = normalizeSemesterNo(hk.hoc_ky_so ?? hk.hoc_ky ?? hk.ten_hoc_ky ?? hk.semester);
+
+            if (!yearRange || !hky) return semesters;
+
+            const y1 = yearRange.start;
+            const y2 = yearRange.end;
+
+            if (!result.yearRanges.some(y => y.start === y1 && y.end === y2)) {
                 result.yearRanges.push({ start: y1, end: y2 });
             }
 
-            const subjects: Subject[] = Array.isArray(hk.mon_hoc) ? hk.mon_hoc.map((mon: any, monIdx: number) => {
-                let isNonGPA = false;
-                let scoreVal: number | null = null;
-                
-                if (typeof mon.diem_so === 'number') {
-                    scoreVal = mon.diem_so;
-                } else if (typeof mon.diem_so === 'string') {
-                    const parsed = parseFloat(mon.diem_so);
-                    if (!isNaN(parsed)) scoreVal = parsed;
-                    else isNonGPA = true; 
-                }
+            const subjects: Subject[] = Array.isArray(hk.mon_hoc) ? hk.mon_hoc
+                .filter((mon: any) => mon && (mon.ten_mon || mon.name || mon.mon_hoc))
+                .map((mon: any, monIdx: number) => {
+                    const rawName = String(mon.ten_mon || mon.name || mon.mon_hoc || '').trim();
+                    const { score, isNonGPA: scoreIsNonGPA } = normalizeScore(mon.diem_so ?? mon.diem ?? mon.score ?? mon.tb10);
+                    const credits = Number.parseFloat(String(mon.tin_chi ?? mon.credits ?? 0).replace(',', '.')) || 0;
+                    const nameLower = rawName.toLowerCase();
+                    const nonGpaKeywords = ['gdtc', 'thể chất', 'the chat', 'quốc phòng', 'quoc phong', 'an ninh', 'kỹ năng', 'ky nang', 'đầu vào', 'dau vao', 'tiếng anh tăng cường', 'tieng anh tang cuong', 'học phần', 'hoc phan', 'quân sự', 'quan su', 'chiến đấu', 'chien dau'];
+                    const isNonGPA = scoreIsNonGPA || credits === 0 || nonGpaKeywords.some(kw => nameLower.includes(kw));
 
-                const nameLower = mon.ten_mon ? mon.ten_mon.toLowerCase() : "";
-                const nonGpaKeywords = ['gdtc', 'thể chất', 'quốc phòng', 'an ninh', 'kỹ năng', 'đầu vào', 'tiếng anh tăng cường', 'học phần', 'quân sự', 'chiến đấu'];
-                if (mon.tin_chi === 0 || nonGpaKeywords.some(kw => nameLower.includes(kw))) isNonGPA = true;
+                    return {
+                        id: `ai_${y1}_${hky}_${index}_${monIdx}`,
+                        name: rawName || "Môn học",
+                        credits,
+                        scoreCC: score,
+                        scoreProcess: score,
+                        scoreMid: score,
+                        scoreFinal: score,
+                        isNonGPA
+                    };
+                }) : [];
 
-                return {
-                    id: `ai_${y1}_${hky}_${monIdx}`,
-                    name: mon.ten_mon || "Môn học",
-                    credits: mon.tin_chi || 0,
-                    scoreCC: scoreVal, scoreProcess: scoreVal, scoreMid: scoreVal, scoreFinal: scoreVal,
-                    isNonGPA: isNonGPA
-                };
-            }) : [];
+            if (subjects.length === 0) return semesters;
 
-            return {
+            const trainingScore = Number.parseInt(String(hk.diem_ren_luyen ?? hk.drl ?? ''), 10);
+
+            semesters.push({
                 id: `imported_${y1}_${y2}_hk${hky}`,
                 name: `Học kỳ ${hky} Năm học ${y1}-${y2}`,
-                subjects: subjects,
-                trainingScore: hk.diem_ren_luyen || null
-            };
-        });
+                subjects,
+                trainingScore: Number.isFinite(trainingScore) ? trainingScore : null
+            });
+
+            return semesters;
+        }, []);
     }
 
     return result;

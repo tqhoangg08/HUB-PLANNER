@@ -1553,13 +1553,18 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
 
         try {
             const result = await parseHubPdf(file);
+            const importedSubjectCount = result.semesters.reduce((total, semester) => total + semester.subjects.length, 0);
+            if (importedSubjectCount === 0) {
+                alert('Không trích xuất được môn học nào từ PDF. Vui lòng kiểm tra lại file PDF bảng điểm gốc hoặc thử xuất lại PDF từ trang trường.');
+                return;
+            }
+
             setData(prev => {
-                const newData = { ...prev };
+                const newData = { ...prev, ...result.studentInfo };
                 
-                let startYear = new Date().getFullYear();
-                if (result.yearRanges.length > 0) {
-                    startYear = Math.min(...result.yearRanges.map(y => y.start));
-                }
+                let startYear = result.yearRanges.length > 0
+                    ? Math.min(...result.yearRanges.map(y => y.start))
+                    : new Date().getFullYear();
 
                 const reconstructSemesters: Semester[] = [];
                 const importedSemesters = result.semesters;
@@ -1589,7 +1594,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
 
                 return { ...newData, semesters: reconstructSemesters };
             });
-            alert(`Đã nhập thành công và sắp xếp lại lộ trình học tập từ năm ${result.yearRanges[0]?.start || '...'}`);
+            const firstYear = result.yearRanges.length > 0 ? Math.min(...result.yearRanges.map(y => y.start)) : '...';
+            alert(`Đã nhập thành công ${importedSubjectCount} môn và sắp xếp lại lộ trình học tập từ năm ${firstYear}`);
         } catch (error) {
             console.error(error);
             alert("Lỗi khi đọc file PDF.");
