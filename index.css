@@ -458,14 +458,24 @@
    HUB PLANNER NOTIFICATIONS
    ========================================================= */
 .hub-alert-container {
+  position: fixed !important;
+  inset: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 18px !important;
   z-index: 1000000;
   background: rgba(0, 0, 0, 0.72);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
 }
 
 .hub-alert-popup {
+  position: relative !important;
+  margin: auto !important;
   width: min(92vw, 520px);
+  max-height: calc(100dvh - 36px);
   padding: 0;
   overflow: hidden;
   border: 1px solid rgba(226, 232, 240, 0.95);
@@ -581,8 +591,15 @@
 }
 
 @media (max-width: 640px) {
+  .hub-alert-container {
+    align-items: center !important;
+    justify-items: center !important;
+    padding: 14px !important;
+  }
+
   .hub-alert-popup {
     width: calc(100vw - 28px);
+    max-height: calc(100dvh - 28px);
     border-radius: 16px;
   }
 
