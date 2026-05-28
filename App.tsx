@@ -1555,11 +1555,23 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             const result = await parseHubPdf(file);
             const importedSubjectCount = result.semesters.reduce((total, semester) => total + semester.subjects.length, 0);
             if (importedSubjectCount === 0) {
+                try {
+                    localStorage.setItem('hub_last_transcript_import_debug', JSON.stringify({
+                        at: new Date().toISOString(),
+                        stage: 'app-zero-subjects',
+                        error: result.error || null,
+                        semesterCount: result.semesters.length,
+                        yearRangeCount: result.yearRanges.length,
+                        debug: result.debug || null
+                    }));
+                } catch {
+                    // ignore storage errors
+                }
                 if (result.error) {
                     alert(`Không nhập được bảng điểm.\n\n${result.error}\n\nDebug đã lưu ở localStorage: hub_last_transcript_import_debug`);
                     return;
                 }
-                alert('Không trích xuất được môn học nào từ PDF. Vui lòng kiểm tra lại file PDF bảng điểm gốc hoặc thử xuất lại PDF từ trang trường.');
+                alert('Không nhập được bảng điểm.\n\nParser trả về 0 môn nhưng không có lỗi chi tiết. Debug đã lưu ở localStorage: hub_last_transcript_import_debug');
                 return;
             }
 
