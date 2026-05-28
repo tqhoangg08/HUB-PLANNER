@@ -5,6 +5,41 @@ import { apiHeaders, apiUrl } from './api';
 // Set worker for PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
+const extractJsonObject = (raw: string): any | null => {
+    const cleanText = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+    try {
+        return JSON.parse(cleanText);
+    } catch {
+        const start = cleanText.indexOf('{');
+        const end = cleanText.lastIndexOf('}');
+        if (start === -1 || end === -1 || end <= start) return null;
+        try {
+            return JSON.parse(cleanText.slice(start, end + 1));
+        } catch {
+            return null;
+        }
+    }
+};
+
+const getFirstArray = (source: any, keys: string[]) => {
+    if (!source || typeof source !== 'object') return null;
+    for (const key of keys) {
+        if (Array.isArray(source[key])) return source[key];
+    }
+    return null;
+};
+
+const saveScheduleImportDebug = (payload: Record<string, any>) => {
+    try {
+        localStorage.setItem('hub_last_schedule_import_debug', JSON.stringify({
+            ...payload,
+            at: new Date().toISOString()
+        }));
+    } catch {
+        // ignore storage errors
+    }
+};
+
 // Dùng chung bộ đếm Spam với Bảng điểm
 const checkSpamLimit = (): boolean => {
     const LIMIT_CONFIG = { MAX_REQUESTS: 3, TIME_WINDOW: 60 * 60 * 1000, STORAGE_KEY: 'hub_planner_rate_limit' };
@@ -57,9 +92,16 @@ QUY TẮC:
 
 export const parseSchedulePdf = async (file: File) => {
     if (!checkSpamLimit()) return null;
+    const debug: Record<string, any> = {
+        fileName: file.name,
+        fileSize: file.size,
+        stage: 'start'
+    };
 
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    debug.stage = 'pdf-loaded';
+    debug.pages = pdf.numPages;
     let fullText = '';
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
@@ -68,19 +110,50 @@ export const parseSchedulePdf = async (file: File) => {
     }
     
     fullText = fullText.replace(/\s+/g, ' ').trim();
+    debug.stage = 'pdf-text-extracted';
+    debug.textLength = fullText.length;
+    if (fullText.length < 80) {
+        const error = 'PDF TKB không trích xuất được đủ văn bản. Hãy dùng file PDF gốc dạng text, không phải ảnh scan.';
+        saveScheduleImportDebug({ ...debug, error });
+        return { courses: [], error };
+    }
 
     try {
         const fullMessage = `${SCHEDULE_PROMPT}\n\nVĂN BẢN ĐẦU VÀO:\n${fullText}`;
+        debug.stage = 'calling-chat-api';
         const response = await fetch(apiUrl('/chat'), {
             method: 'POST',
             headers: apiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ message: fullMessage })
         });
-        if (!response.ok) return null;
+        if (!response.ok) {
+            const message = await response.text().catch(() => '');
+            throw new Error(`API Error: ${response.status}${message ? ` - ${message.slice(0, 160)}` : ''}`);
+        }
         const data = await response.json();
-        return JSON.parse(data.reply.replace(/```json/g, '').replace(/```/g, '').trim());
+        const parsed = extractJsonObject(data.reply || '');
+        if (!parsed) {
+            const error = 'Groq không trả về JSON TKB hợp lệ.';
+            saveScheduleImportDebug({ ...debug, stage: 'invalid-ai-json', error });
+            return { courses: [], error };
+        }
+        debug.stage = 'ai-json-parsed';
+        debug.aiKeys = Object.keys(parsed || {}).slice(0, 12).join(', ') || 'none';
+
+        const courses = getFirstArray(parsed, ['courses', 'subjects', 'classes', 'mon_hoc', 'hoc_phan'])
+            || getFirstArray(parsed.data, ['courses', 'subjects', 'classes', 'mon_hoc', 'hoc_phan'])
+            || [];
+        debug.courseCount = courses.length;
+        saveScheduleImportDebug(debug);
+
+        return {
+            ...parsed,
+            semester: parsed.semester || parsed.hoc_ky || parsed.term,
+            courses
+        };
     } catch (error) {
-        console.error("Lỗi AI Parse TKB:", error);
-        return null;
+        const message = `Lỗi tại bước gọi Groq wrapper (/chat) cho TKB: ${error instanceof Error ? error.message : 'Không gọi được API Groq.'}`;
+        saveScheduleImportDebug({ ...debug, error: message });
+        return { courses: [], error: message };
     }
 };

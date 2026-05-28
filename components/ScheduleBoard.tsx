@@ -1236,7 +1236,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     try {
         const aiData = await parseSchedulePdf(file);
         if (!aiData || !aiData.courses || aiData.courses.length === 0) {
-            alert("❌ Không thể đọc được dữ liệu. Vui lòng đảm bảo file PDF là file gốc xuất từ trang trường.");
+            alert(aiData?.error ? `Không nhập được TKB.\n\n${aiData.error}\n\nDebug đã lưu ở localStorage: hub_last_schedule_import_debug` : "❌ Không thể đọc được dữ liệu. Vui lòng đảm bảo file PDF là file gốc xuất từ trang trường.");
             setIsProcessingPdf(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
             return;
