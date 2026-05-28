@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomInt } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { withLogging } from '../middleware.js';
+import { handleCors } from '../api-cors.js';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const OTP_TTL_MINUTES = 10;
@@ -632,6 +633,11 @@ const uploadAvatar = async (request, response) => {
 };
 
 async function handler(request, response) {
+  if (handleCors(request, response, {
+    methods: 'POST,OPTIONS',
+    headers: 'Content-Type, Authorization',
+  })) return;
+
   if (request.method !== 'POST') {
     return response.status(405).json({ error: 'Chi ho tro phuong thuc POST.' });
   }
