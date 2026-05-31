@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Semester, UserData } from '../types';
 import { calculateSemesterStats, calculateSubjectAverage, getGradeDetails, getScholarshipStatus } from '../utils/calculations';
+import { getBenchmarkRankingTotal } from '../utils/benchmarkRankings';
 import { normalizeSemesterId } from '../utils/rankingData';
 import { supabase } from '../utils/supabase';
 
@@ -182,13 +183,7 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
                 rankRow = data;
 
                 const rank = typeof rankRow?.student_rank === 'number' ? rankRow.student_rank : null;
-                const totalStudents = rankRow
-                    ? await supabase
-                        .from('benchmark_rankings')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('semester', LOOKBACK_SEMESTER_ID)
-                        .then(({ count }) => count ?? null)
-                    : null;
+                const totalStudents = rankRow ? await getBenchmarkRankingTotal(LOOKBACK_SEMESTER_ID) : null;
 
                 const gpa4 = semesterStats?.hasData ? semesterStats.gpa4 : Number(rankRow?.gpa || 0);
                 const gpa10 = semesterStats?.hasData ? semesterStats.gpa10 : 0;

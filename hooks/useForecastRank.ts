@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { normalizeSemesterId } from '../utils/rankingData';
+import { getBenchmarkRankingTotal } from '../utils/benchmarkRankings';
 
 interface ForecastRankResult {
     rank: number;
@@ -161,19 +162,6 @@ export const useForecastRank = () => {
         setResult(null);
 
         try {
-            const { count: total, error: countError } = await supabase
-                .from('benchmark_rankings')
-                .select('*', { count: 'exact', head: true })
-                .eq('semester', semesterId);
-
-            if (countError) throw countError;
-
-            if (total === 0 || total === null) {
-                setError(`Dữ liệu ${semesterId} đang trống.`);
-                setLoading(false);
-                return;
-            }
-
             const normalizedGpa = Number.isFinite(myGpa) ? myGpa : 0;
             const normalizedCredits = Number.isFinite(myCredits) ? myCredits : 0;
             const normalizedTrainingScore = Number.isFinite(myTrainingScore) ? myTrainingScore : 0;
@@ -211,12 +199,12 @@ export const useForecastRank = () => {
 
             let rankRow: any = null;
             let resolvedRank: number | null = null;
-            let resolvedTotal = total;
+            let resolvedTotal: number | null = null;
 
             if (!detailError && detailData) {
                 rankRow = Array.isArray(detailData) ? detailData[0] : detailData;
                 resolvedRank = toNumberOrNull(rankRow?.rank);
-                resolvedTotal = toNumberOrNull(rankRow?.total_students) ?? total;
+                resolvedTotal = toNumberOrNull(rankRow?.total_students);
             } else {
                 const { data: rankData, error: rankError } = await supabase.rpc('get_smart_rank', {
                     p_semester: semesterId,
@@ -232,6 +220,16 @@ export const useForecastRank = () => {
                     : Array.isArray(rankData)
                         ? toNumberOrNull(rankData[0]?.rank)
                         : toNumberOrNull((rankData as { rank?: number } | null)?.rank);
+            }
+
+            if (!resolvedTotal) {
+                resolvedTotal = await getBenchmarkRankingTotal(semesterId);
+            }
+
+            if (!resolvedTotal) {
+                setError(`Dữ liệu ${semesterId} đang trống.`);
+                setLoading(false);
+                return;
             }
 
             if (exactStudentRow) {
