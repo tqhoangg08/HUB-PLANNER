@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 type VercelRequest = {
   method?: string;
   headers: Record<string, string | string[] | undefined>;
+  query?: Record<string, string | string[] | undefined>;
 };
 
 type VercelResponse = {
@@ -19,16 +20,48 @@ const ONE_HOUR_WINDOW_MAX = 45;
 const EVENING_START_MIN = 20 * 60;
 const EVENING_END_MIN = 20 * 60 + 30;
 
-webpush.setVapidDetails(
-  'mailto:admin@hotrosinhvienhub.id.vn',
-  process.env.VITE_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
+let supabaseClient: ReturnType<typeof createClient> | null = null;
+let webPushConfigured = false;
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const firstValue = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
+
+const requireEnv = (name: string) => {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required environment variable: ${name}`);
+  return value;
+};
+
+const getSupabase = () => {
+  if (!supabaseClient) {
+    supabaseClient = createClient(
+      requireEnv('VITE_SUPABASE_URL'),
+      requireEnv('SUPABASE_SERVICE_ROLE_KEY')
+    );
+  }
+  return supabaseClient;
+};
+
+const configureWebPush = () => {
+  if (webPushConfigured) return;
+  webpush.setVapidDetails(
+    'mailto:admin@hotrosinhvienhub.id.vn',
+    requireEnv('VITE_VAPID_PUBLIC_KEY'),
+    requireEnv('VAPID_PRIVATE_KEY')
+  );
+  webPushConfigured = true;
+};
+
+const isAuthorized = (req: VercelRequest) => {
+  const bearer = firstValue(req.headers.authorization)?.replace(/^Bearer\s+/i, '');
+  const querySecret = firstValue(req.query?.secret);
+  const headerSecret = firstValue(req.headers['x-secret-key']);
+
+  if (process.env.CRON_SECRET && bearer === process.env.CRON_SECRET) return true;
+  if (process.env.MY_SECRET_SCRAPER_KEY && querySecret === process.env.MY_SECRET_SCRAPER_KEY) return true;
+  if (process.env.MY_SECRET_SCRAPER_KEY && headerSecret === process.env.MY_SECRET_SCRAPER_KEY) return true;
+
+  return false;
+};
 
 type CourseRow = Record<string, any>;
 type ScheduleRow = {
@@ -329,6 +362,7 @@ const shouldSend = (event: ReminderEvent, nowMinutes: number) => {
 };
 
 const reserveReminder = async (event: ReminderEvent) => {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from('schedule_notification_logs')
     .upsert({
@@ -350,6 +384,7 @@ const reserveReminder = async (event: ReminderEvent) => {
 };
 
 const sendToUser = async (event: ReminderEvent, subscriptions: any[]) => {
+  const supabase = getSupabase();
   const payload = JSON.stringify({
     title: event.title,
     body: event.body,
@@ -377,9 +412,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  if (process.env.CRON_SECRET) {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (token !== process.env.CRON_SECRET) return res.status(401).json({ error: 'Unauthorized' });
+  if (!isAuthorized(req)) return res.status(401).json({ error: 'Unauthorized' });
+
+  let supabase: ReturnType<typeof createClient>;
+  try {
+    supabase = getSupabase();
+    configureWebPush();
+  } catch (error: any) {
+    return res.status(500).json({
+      error: 'Schedule reminder configuration error',
+      detail: error?.message || String(error),
+    });
   }
 
   const now = getVnParts();
