@@ -442,7 +442,13 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId }) =>
     }
   };
 
-  useEffect(() => { if (isAuthenticated) fetchCourses(); }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated, isAdminView]);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const timeoutId = window.setTimeout(() => {
+      fetchCourses();
+    }, 400);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated, isAdminView]);
 
   const fetchMySchedule = async () => {
     const { data: { user } } = await supabase.auth.getUser();

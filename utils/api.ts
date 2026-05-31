@@ -6,11 +6,14 @@ const VERCEL_API_ROUTES = new Set([
   'bot',
   'chat',
   'courses',
+  'cron',
   'event-candidates',
   'event-candidates-analyze',
   'events',
   'moderator-notifications',
   'push',
+  'schedule-reminders',
+  'scraper',
 ]);
 
 export const API_BASE_URL = String(

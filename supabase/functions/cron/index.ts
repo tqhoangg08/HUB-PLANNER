@@ -249,20 +249,19 @@ Deno.serve(async (req) => {
     const insertedRecords: Array<{ id: string | number; title: string; link: string }> = []
 
     for (const chunk of chunkArray(recordsToInsert, 50)) {
-      await Promise.all(chunk.map(async (item) => {
-        const { data, error } = await supabase
-          .from('school_announcements')
-          .insert(item)
-          .select('id, title, link')
-          .single()
+      const { data, error } = await supabase
+        .from('school_announcements')
+        .upsert(chunk, { onConflict: 'link', ignoreDuplicates: true })
+        .select('id, title, link')
 
-        if (!error) {
-          actualInsertedCount += 1
-          if (data) insertedRecords.push(data)
-        } else {
-          console.warn('Announcement insert failed:', error.message)
-        }
-      }))
+      if (error) {
+        console.warn('Announcement batch insert skipped:', error.message)
+        continue
+      }
+
+      const inserted = data || []
+      actualInsertedCount += inserted.length
+      insertedRecords.push(...inserted)
     }
 
     const pushQueueSummary = await queueAnnouncementPushes(insertedRecords)

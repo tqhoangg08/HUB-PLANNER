@@ -242,19 +242,21 @@ export default async function handler(request, response) {
     if (recordsToInsert.length > 0) {
         const insertChunks = chunkArray(recordsToInsert, 50);
         for (const chunk of insertChunks) {
-            const insertPromises = chunk.map(async (item) => {
-                const { data, error } = await supabase
-                    .from('school_announcements')
-                    .insert(item)
-                    .select('id, title, link')
-                    .single();
-                
-                if (!error) {
-                    actualInsertedCount++; 
-                    if (data) insertedRecords.push(data);
-                }
-            });
-            await Promise.all(insertPromises);
+            const { data, error } = await supabase
+                .from('school_announcements')
+                .upsert(chunk, { onConflict: 'link', ignoreDuplicates: true })
+                .select('id, title, link');
+
+            if (error) {
+                logger.warn('Bo qua batch thong bao bi trung hoac loi insert', {
+                    meta: { error: error.message, attempted: chunk.length }
+                });
+                continue;
+            }
+
+            const inserted = data || [];
+            actualInsertedCount += inserted.length;
+            insertedRecords.push(...inserted);
         }
     }
 

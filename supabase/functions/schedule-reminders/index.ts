@@ -313,20 +313,24 @@ const shouldSend = (event: ReminderEvent, nowMinutes: number) => {
 }
 
 const reserveReminder = async (event: ReminderEvent) => {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('schedule_notification_logs')
-    .insert({
+    .upsert({
       user_id: event.userId,
       user_schedule_id: event.userScheduleId,
       course_id: event.courseId,
       reminder_key: event.key,
       reminder_kind: event.kind,
       scheduled_for: event.scheduledFor,
-    })
+    }, { onConflict: 'reminder_key', ignoreDuplicates: true })
+    .select('id')
+    .maybeSingle()
 
-  if (!error) return true
-  if ((error as any).code === '23505') return false
-  throw error
+  if (error) {
+    if ((error as any).code === '23505') return false
+    throw error
+  }
+  return Boolean(data)
 }
 
 const sendToUser = async (event: ReminderEvent, subscriptions: any[]) => {

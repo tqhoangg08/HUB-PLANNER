@@ -68,6 +68,16 @@ const COURSE_SCHEDULE_COLUMNS = [
   'is_user_added',
 ].join(', ');
 const USER_COURSE_REQUEST_COLUMNS = 'id, user_id, subject_name, course_code, instructor, status, created_at';
+const PUBLIC_COURSES_CACHE_TTL_MS = 10 * 60 * 1000;
+const publicCoursesCache = new Map();
+
+const getPublicCoursesCacheKey = (query) => {
+  const semester = String(query.semester || '');
+  const phase = String(query.phase || 'all');
+  const search = String(query.search || '').trim().toLowerCase();
+  const limit = String(query.limit || '50');
+  return JSON.stringify({ semester, phase, search, limit });
+};
 
 const normalizeComparable = (value) => {
   if (value === undefined || value === null) return '';
@@ -660,6 +670,14 @@ async function handler(request, response) {
       return handleMySchedule(request, response);
     }
 
+    const cacheKey = getPublicCoursesCacheKey(request.query);
+    const cached = publicCoursesCache.get(cacheKey);
+    response.setHeader('Cache-Control', 'public, max-age=600, s-maxage=600, stale-while-revalidate=1800');
+    if (cached && cached.expiresAt > Date.now()) {
+      response.setHeader('X-Hub-Cache', 'memory-hit');
+      return response.status(200).json(cached.payload);
+    }
+
     let query = supabase.from('course_schedules')
       .select(COURSE_SCHEDULE_COLUMNS)
       .limit(Number(limit)); // Giới hạn số lượng lấy để chống cào data
@@ -680,7 +698,13 @@ async function handler(request, response) {
 
     if (error) throw error;
 
-    return response.status(200).json({ success: true, data: data });
+    const payload = { success: true, data: data };
+    publicCoursesCache.set(cacheKey, {
+      expiresAt: Date.now() + PUBLIC_COURSES_CACHE_TTL_MS,
+      payload,
+    });
+    response.setHeader('X-Hub-Cache', 'miss');
+    return response.status(200).json(payload);
 
   } catch (error) {
     return response.status(500).json({ error: errorMessage(error) });

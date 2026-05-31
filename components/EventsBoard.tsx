@@ -1362,7 +1362,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     setError(null);
 
     try {
-      const requestUrl = apiUrl(`/events?t=${new Date().getTime()}`);
+      const requestUrl = apiUrl('/events');
       const res = await fetch(requestUrl, { headers: apiHeaders() });
       const responseText = await res.text();
       const json = responseText ? JSON.parse(responseText) : {};

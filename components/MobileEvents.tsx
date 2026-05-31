@@ -722,7 +722,7 @@ const canManage = isAdmin || isAuditor || isCTV;
   const fetchEvents = async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(apiUrl(`/events?t=${new Date().getTime()}`), { headers: apiHeaders() });
+      const res = await fetch(apiUrl('/events'), { headers: apiHeaders() });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Lỗi tải dữ liệu');
 

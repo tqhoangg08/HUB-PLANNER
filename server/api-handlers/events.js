@@ -32,12 +32,25 @@ const EVENT_LIST_COLUMNS = [
   'image_url',
 ].join(', ');
 
+const PUBLIC_CACHE_TTL_MS = 5 * 60 * 1000;
+let publicEventsCache = {
+  expiresAt: 0,
+  payload: null,
+};
+
 async function handler(request, response) {
   if (request.method !== 'GET') {
     return response.status(405).json({ error: 'Chỉ hỗ trợ phương thức GET' });
   }
 
   try {
+    response.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300, stale-while-revalidate=1800');
+
+    if (publicEventsCache.payload && publicEventsCache.expiresAt > Date.now()) {
+      response.setHeader('X-Hub-Cache', 'memory-hit');
+      return response.status(200).json(publicEventsCache.payload);
+    }
+
     // ---> ĐÃ SỬA: Sắp xếp theo ngày tạo mới nhất và nới lỏng trần lên 300 <---
     let query = supabase.from('events')
       .select(EVENT_LIST_COLUMNS)
@@ -48,8 +61,13 @@ async function handler(request, response) {
 
     if (error) throw error;
 
-    response.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
-    return response.status(200).json({ success: true, data: data });
+    const payload = { success: true, data: data };
+    publicEventsCache = {
+      expiresAt: Date.now() + PUBLIC_CACHE_TTL_MS,
+      payload,
+    };
+    response.setHeader('X-Hub-Cache', 'miss');
+    return response.status(200).json(payload);
 
   } catch (error) {
     return response.status(500).json({ error: error.message });

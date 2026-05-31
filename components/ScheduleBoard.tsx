@@ -878,7 +878,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       }
   };
 
-  useEffect(() => { if (isAuthenticated && (!isAdminView || adminTab === 'system' || adminTab === 'user')) fetchCourses(); }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated, isAdminView, adminTab]);
+  useEffect(() => {
+    if (!isAuthenticated || (isAdminView && adminTab !== 'system' && adminTab !== 'user')) return;
+    const timeoutId = window.setTimeout(() => {
+      fetchCourses();
+    }, 400);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'requested') fetchCourseRequests(); }, [searchTerm, selectedSemester, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'user_changed') fetchChangedUserScheduleCourses(); }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'student_schedules') fetchStudentScheduleSummaries(); }, [selectedSemester, isAuthenticated, isAdminView, adminTab]);
