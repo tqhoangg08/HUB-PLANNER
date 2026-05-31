@@ -2,8 +2,8 @@ name: Tự động sao lưu Supabase lên Cloudflare R2
 
 on:
   schedule:
-    # Chạy tự động mỗi 12 tiếng một lần
-    - cron: '0 */6 * * *'
+    # Chạy tự động mỗi ngày một lần, khoảng 02:00 giờ Việt Nam
+    - cron: '0 19 * * *'
   workflow_dispatch: # Cho phép sếp bấm nút chạy bằng tay bất cứ lúc nào
 
 jobs:

@@ -2,7 +2,7 @@ name: HUB notification crawler
 
 on:
   schedule:
-    - cron: '*/20 * * * *'
+    - cron: '0 */2 * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -16,7 +16,7 @@ on:
       max_page:
         description: 'Maximum backfill page'
         required: false
-        default: '80'
+        default: '20'
       source:
         description: 'Optional source id, for example hub_main or daotao'
         required: false
@@ -47,10 +47,10 @@ jobs:
       R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      NOTIFICATION_BACKFILL_MAX_PAGE: ${{ inputs.max_page || '80' }}
+      NOTIFICATION_BACKFILL_MAX_PAGE: ${{ inputs.max_page || '20' }}
       CRAWLER_MODE: ${{ inputs.mode || 'auto' }}
       CRAWLER_MAX_ITEMS: ${{ inputs.max_items || '8' }}
-      CRAWLER_MAX_PAGE: ${{ inputs.max_page || '80' }}
+      CRAWLER_MAX_PAGE: ${{ inputs.max_page || '20' }}
       CRAWLER_SOURCE: ${{ inputs.source || '' }}
       CRAWLER_FORCE: ${{ inputs.force || 'false' }}
       CRAWLER_ACTIVE_LOCK_MINUTES: '55'
