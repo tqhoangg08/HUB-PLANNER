@@ -373,14 +373,13 @@ const reserveReminder = async (event: ReminderEvent) => {
       reminder_kind: event.kind,
       scheduled_for: event.scheduledFor,
     }, { onConflict: 'reminder_key', ignoreDuplicates: true })
-    .select('id')
-    .maybeSingle();
+    .select('id');
 
   if (error) {
     if ((error as any).code === '23505') return false;
     throw error;
   }
-  return Boolean(data);
+  return Array.isArray(data) && data.length > 0;
 };
 
 const sendToUser = async (event: ReminderEvent, subscriptions: any[]) => {
