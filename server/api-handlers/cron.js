@@ -3,11 +3,13 @@ import * as cheerio from 'cheerio';
 import logger from '../logger.js';
 
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL, 
+  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL, 
   process.env.SUPABASE_SERVICE_ROLE_KEY 
 );
 
 const ANNOUNCEMENT_PUSH_SPACING_MINUTES = 10;
+const EXISTING_CHECK_CHUNK_SIZE = 25;
+const INSERT_CHUNK_SIZE = 50;
 
 async function queueAnnouncementPushes(newItems) {
   if (!newItems.length) return { queued: 0, skipped: true };
@@ -213,13 +215,15 @@ export default async function handler(request, response) {
     const existingLinksSet = new Set();
     const existingTitlesSet = new Set();
 
-    for (const chunk of chunkArray(linksToCheck, 300)) {
+    for (const chunk of chunkArray(linksToCheck, EXISTING_CHECK_CHUNK_SIZE)) {
         const { data, error } = await supabase.from('school_announcements').select('link').in('link', chunk);
+        if (error) throw new Error(`Không thể kiểm tra thông báo đã có: ${error.message}`);
         if (!error && data) data.forEach(r => existingLinksSet.add(r.link));
     }
 
-    for (const chunk of chunkArray(titlesToCheck, 300)) {
+    for (const chunk of chunkArray(titlesToCheck, EXISTING_CHECK_CHUNK_SIZE)) {
         const { data, error } = await supabase.from('school_announcements').select('title').in('title', chunk);
+        if (error) throw new Error(`Không thể kiểm tra tiêu đề đã có: ${error.message}`);
         if (!error && data) data.forEach(r => existingTitlesSet.add(r.title.trim().toLowerCase().replace(/\s+/g, ' ')));
     }
 
@@ -240,7 +244,7 @@ export default async function handler(request, response) {
     const insertedRecords = [];
     
     if (recordsToInsert.length > 0) {
-        const insertChunks = chunkArray(recordsToInsert, 50);
+        const insertChunks = chunkArray(recordsToInsert, INSERT_CHUNK_SIZE);
         for (const chunk of insertChunks) {
             const { data, error } = await supabase
                 .from('school_announcements')
@@ -251,7 +255,7 @@ export default async function handler(request, response) {
                 logger.warn('Bo qua batch thong bao bi trung hoac loi insert', {
                     meta: { error: error.message, attempted: chunk.length }
                 });
-                continue;
+                throw new Error(`Không thể lưu thông báo mới: ${error.message}`);
             }
 
             const inserted = data || [];
