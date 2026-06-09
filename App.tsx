@@ -183,6 +183,28 @@ const INITIAL_DATA: UserData = {
     targetGPA: 3.2,
 };
 
+const hasMeaningfulStudyData = (value?: Partial<UserData> | null): boolean => {
+    if (!value) return false;
+    return Boolean(
+        value.studentName?.trim() ||
+        value.cohort?.trim() ||
+        value.programName?.trim() ||
+        value.majorName?.trim() ||
+        value.specializationName?.trim() ||
+        value.semesters?.some(semester => semester.subjects?.length > 0 || semester.name?.trim())
+    );
+};
+
+const normalizeLoadedUserData = (value?: Partial<UserData> | null): UserData => {
+    const loadedData = { ...INITIAL_DATA, ...(value || {}) };
+    const hasExistingStudyData = hasMeaningfulStudyData(loadedData);
+
+    return {
+        ...loadedData,
+        hasOnboarded: loadedData.hasOnboarded || hasExistingStudyData,
+    };
+};
+
 const App: React.FC = () => {
     const { isAdmin, isAuditor, isCTV, session, loading: loadingRole } = useUserRole();
     console.log("Kiểm tra quyền hiện tại:", { isAdmin, isAuditor, isCTV });
@@ -741,11 +763,29 @@ const App: React.FC = () => {
     }, [session?.user?.id, isGuest, isAdmin, viewingUser]);
 
     const saveTimeoutRef = useRef<number | null>(null);
+    const lastPrivateSaveRef = useRef<{ ownerId: string | null; signature: string | null }>({
+        ownerId: null,
+        signature: null,
+    });
+
+    const getStorageDirtyKey = useCallback((key: string) => `${key}:dirty`, []);
+
+    const readLocalStoredData = useCallback((key: string): UserData | null => {
+        const saved = localStorage.getItem(key);
+        if (!saved) return null;
+        try {
+            const parsed = JSON.parse(saved);
+            return hasMeaningfulStudyData(parsed) ? normalizeLoadedUserData(parsed) : null;
+        } catch {
+            return null;
+        }
+    }, []);
 
     useEffect(() => {
         let isActive = true;
         setIsLoaded(false);
         if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
+        lastPrivateSaveRef.current = { ownerId: null, signature: null };
 
         const loadData = async () => {
             if ((userRolePref === 'school' || userRolePref === 'admin') && session?.user?.id && supabase) {
@@ -761,8 +801,17 @@ const App: React.FC = () => {
 
                     if (!isActive) return;
 
-                    if (privateData || legacyData) {
-                        setData({ ...INITIAL_DATA, ...(privateData || legacyData) });
+                    const localDirtyData = localStorage.getItem(getStorageDirtyKey(storageKey))
+                        ? readLocalStoredData(storageKey)
+                        : null;
+
+                    if (localDirtyData || privateData || legacyData) {
+                        const remoteData = normalizeLoadedUserData(privateData || legacyData);
+                        const loadedData = localDirtyData || remoteData;
+                        setData(loadedData);
+                        lastPrivateSaveRef.current = localDirtyData
+                            ? { ownerId: null, signature: null }
+                            : { ownerId: viewingUser.id, signature: JSON.stringify(loadedData) };
                     } else {
                         setData(INITIAL_DATA); 
                     }
@@ -787,9 +836,17 @@ const App: React.FC = () => {
 
                 if (!isActive) return;
 
-                if (privateData || legacyData) {
-                    const loadedData = privateData || legacyData;
-                    setData({ ...INITIAL_DATA, ...loadedData });
+                const localDirtyData = localStorage.getItem(getStorageDirtyKey(storageKey))
+                    ? readLocalStoredData(storageKey)
+                    : null;
+
+                if (localDirtyData || privateData || legacyData) {
+                    const remoteData = normalizeLoadedUserData(privateData || legacyData);
+                    const loadedData = localDirtyData || remoteData;
+                    setData(loadedData);
+                    lastPrivateSaveRef.current = localDirtyData
+                        ? { ownerId: null, signature: null }
+                        : { ownerId: session.user.id, signature: JSON.stringify(loadedData) };
                     setProfileFullName(profileData?.full_name || ''); 
                     setProfileAvatarUrl(profileData?.avatar_url || ''); 
                     localStorage.setItem(storageKey, JSON.stringify(loadedData));
@@ -805,8 +862,7 @@ const App: React.FC = () => {
                 
                 const saved = localStorage.getItem(storageKey);
                 if (saved) {
-                    try { setData({ ...INITIAL_DATA, ...JSON.parse(saved) }); } 
-                    catch (e) { setData(INITIAL_DATA); }
+                    setData(readLocalStoredData(storageKey) || INITIAL_DATA);
                 } else {
                     setData(INITIAL_DATA);
                 }
@@ -821,8 +877,7 @@ const App: React.FC = () => {
             }
             const saved = localStorage.getItem(storageKey);
             if (saved) {
-                try { setData({ ...INITIAL_DATA, ...JSON.parse(saved) }); } 
-                catch (e) { setData(INITIAL_DATA); }
+                setData(readLocalStoredData(storageKey) || INITIAL_DATA);
             } else { setData(INITIAL_DATA); }
             dataOwnerIdRef.current = 'guest';
             setIsLoaded(true);
@@ -830,13 +885,22 @@ const App: React.FC = () => {
 
         loadData();
         return () => { isActive = false; };
-    }, [storageKey, session?.user?.id, userRolePref, isAdmin, viewingUser, isGuest]);
+    }, [storageKey, session?.user?.id, userRolePref, isAdmin, viewingUser, isGuest, getStorageDirtyKey, readLocalStoredData]);
 
     useEffect(() => {
         if (isLoaded && !viewingUser) {
             localStorage.setItem(storageKey, JSON.stringify(data));
+            if (!session?.user?.id || !hasMeaningfulStudyData(data)) return;
+            const targetUserId = session?.user?.id || 'guest';
+            const currentSignature = JSON.stringify(data);
+            if (
+                lastPrivateSaveRef.current.ownerId !== targetUserId ||
+                lastPrivateSaveRef.current.signature !== currentSignature
+            ) {
+                localStorage.setItem(getStorageDirtyKey(storageKey), '1');
+            }
         }
-    }, [data, isLoaded, storageKey, viewingUser]);
+    }, [data, getStorageDirtyKey, isLoaded, session?.user?.id, storageKey, viewingUser]);
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -851,9 +915,23 @@ const App: React.FC = () => {
 
 if (dataOwnerIdRef.current !== targetUserId) return;
 
+const privateDataSignature = JSON.stringify(data);
+if (!hasMeaningfulStudyData(data)) {
+    return;
+}
+
+if (
+    lastPrivateSaveRef.current.ownerId === targetUserId &&
+    lastPrivateSaveRef.current.signature === privateDataSignature
+) {
+    return;
+}
+
 if (isAdmin && viewingUser) {
     try {
         await updateProfilePrivate(targetUserId, { data });
+        lastPrivateSaveRef.current = { ownerId: targetUserId, signature: privateDataSignature };
+        localStorage.removeItem(getStorageDirtyKey(storageKey));
     } catch (privateError) {
         console.error("Lá»—i Admin update data user private:", privateError);
     }
@@ -889,6 +967,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             data,
             updated_at: new Date().toISOString(),
         });
+        lastPrivateSaveRef.current = { ownerId: targetUserId, signature: privateDataSignature };
+        localStorage.removeItem(getStorageDirtyKey(storageKey));
     } catch (privateError) {
         console.error("Lỗi lưu profile_private_data:", privateError);
     }
@@ -897,14 +977,14 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         setProfileFullName(nameToSave);
     }
 }
-        }, 600); 
+        }, 2500);
 
         return () => {
             if (saveTimeoutRef.current) {
                 window.clearTimeout(saveTimeoutRef.current);
             }
         };
-    }, [data, isLoaded, session?.user?.id, userRolePref, profileFullName, profileAvatarUrl, isAdmin, viewingUser]);
+    }, [data, getStorageDirtyKey, isLoaded, session?.user?.id, userRolePref, profileFullName, profileAvatarUrl, isAdmin, viewingUser, storageKey]);
 
     useEffect(() => {
         if (showAccountSettings) {
