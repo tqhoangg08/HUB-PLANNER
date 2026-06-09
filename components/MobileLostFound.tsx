@@ -291,12 +291,12 @@ export const MobileLostFound: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'FOUND' | 'LOST'>('FOUND');
+  const [activeTab, setActiveTab] = useState<'FOUND' | 'LOST'>('LOST');
   
   const [selectedItem, setSelectedItem] = useState<LostFoundItem | null>(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [editingItem, setEditingItem] = useState<LostFoundItem | null>(null);
-  const [submitType, setSubmitType] = useState<'FOUND' | 'LOST'>('FOUND');
+  const [submitType, setSubmitType] = useState<'FOUND' | 'LOST'>('LOST');
   const [notification, setNotification] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
 
   const fetchItems = async () => {
@@ -447,13 +447,13 @@ return (
           <div className="relative mb-4 grid grid-cols-2 gap-2 overflow-hidden rounded-xl bg-white p-1 shadow-[0_2px_12px_rgba(13,27,62,0.06)]">
               <span
                   aria-hidden="true"
-                  className={`absolute bottom-1 left-1 top-1 w-[calc((100%-1rem)/2)] rounded-xl bg-[#1A56FF] shadow-[0_4px_14px_rgba(26,86,255,0.28)] transition-transform duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${activeTab === 'LOST' ? 'translate-x-[calc(100%+0.5rem)]' : 'translate-x-0'}`}
+                  className={`absolute bottom-1 left-1 top-1 w-[calc((100%-1rem)/2)] rounded-xl bg-[#1A56FF] shadow-[0_4px_14px_rgba(26,86,255,0.28)] transition-transform duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${activeTab === 'FOUND' ? 'translate-x-[calc(100%+0.5rem)]' : 'translate-x-0'}`}
               />
-              <button onClick={() => { playClick(); setActiveTab('FOUND'); }} className={`relative z-10 flex items-center justify-center gap-1.5 rounded-xl py-3 text-[12px] font-black transition-colors duration-300 ${activeTab === 'FOUND' ? 'text-white' : 'text-[#7B8AB0]'}`}>
-                  <MapPin size={15} /> Tin nhặt được
-              </button>
               <button onClick={() => { playClick(); setActiveTab('LOST'); }} className={`relative z-10 flex items-center justify-center gap-1.5 rounded-xl py-3 text-[12px] font-black transition-colors duration-300 ${activeTab === 'LOST' ? 'text-white' : 'text-[#7B8AB0]'}`}>
                   <Megaphone size={15} /> Tin báo mất
+              </button>
+              <button onClick={() => { playClick(); setActiveTab('FOUND'); }} className={`relative z-10 flex items-center justify-center gap-1.5 rounded-xl py-3 text-[12px] font-black transition-colors duration-300 ${activeTab === 'FOUND' ? 'text-white' : 'text-[#7B8AB0]'}`}>
+                  <MapPin size={15} /> Tin nhặt được
               </button>
           </div>
 
@@ -465,7 +465,7 @@ return (
                       <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF2FF] text-[#1A56FF]"><Tag size={14} /></span>
                   </div>
                   <div className="mt-4 text-[27px] font-black leading-none tracking-normal text-[#1A56FF]">{items.filter(item => item.status !== 'resolved').length}</div>
-                  <div className="mt-1.5 text-[10.5px] font-semibold text-[#9AA5C0]">{items.filter(item => item.type === 'FOUND' && item.status !== 'resolved').length} nhặt được • {items.filter(item => item.type === 'LOST' && item.status !== 'resolved').length} báo mất</div>
+                  <div className="mt-1.5 text-[10.5px] font-semibold text-[#9AA5C0]">{items.filter(item => item.type === 'LOST' && item.status !== 'resolved').length} báo mất • {items.filter(item => item.type === 'FOUND' && item.status !== 'resolved').length} nhặt được</div>
               </div>
               <div className="min-h-[104px] rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
                   <div className="flex items-center justify-between text-[11px] font-bold text-[#7B8AB0]">

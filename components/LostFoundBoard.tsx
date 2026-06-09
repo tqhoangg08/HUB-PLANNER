@@ -299,12 +299,12 @@ export const LostFoundBoard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'FOUND' | 'LOST'>('FOUND');
+  const [activeTab, setActiveTab] = useState<'FOUND' | 'LOST'>('LOST');
   
   const [selectedItem, setSelectedItem] = useState<LostFoundItem | null>(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [editingItem, setEditingItem] = useState<LostFoundItem | null>(null);
-  const [submitType, setSubmitType] = useState<'FOUND' | 'LOST'>('FOUND');
+  const [submitType, setSubmitType] = useState<'FOUND' | 'LOST'>('LOST');
   const [notification, setNotification] = useState<{msg: string, type: 'success' | 'error'} | null>(null);
 
   const fetchItems = async () => {
@@ -467,11 +467,11 @@ return (
           </div>
 
           <div className="flex gap-4 border-b border-gray-200">
-              <button onClick={() => { playClick(); setActiveTab('FOUND'); }} className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 transition-all relative ${activeTab === 'FOUND' ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-700'}`}>
-                <MapPin size={18} /> Tin nhặt được {activeTab === 'FOUND' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#003375] rounded-t-full animate-scaleIn"></div>}
-              </button>
               <button onClick={() => { playClick(); setActiveTab('LOST'); }} className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 transition-all relative ${activeTab === 'LOST' ? 'text-[#990000]' : 'text-gray-500 hover:text-gray-700'}`}>
                 <Megaphone size={18} /> Tin báo mất {activeTab === 'LOST' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#990000] rounded-t-full animate-scaleIn"></div>}
+              </button>
+              <button onClick={() => { playClick(); setActiveTab('FOUND'); }} className={`pb-3 px-4 text-sm font-bold flex items-center gap-2 transition-all relative ${activeTab === 'FOUND' ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-700'}`}>
+                <MapPin size={18} /> Tin nhặt được {activeTab === 'FOUND' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-[#003375] rounded-t-full animate-scaleIn"></div>}
               </button>
           </div>
       </div>
