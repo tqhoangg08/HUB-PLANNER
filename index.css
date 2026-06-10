@@ -1741,7 +1741,7 @@ html.mobile-menu-open main {
   }
 
   html.mobile-browser footer {
-    display: none !important;
+    display: block !important;
   }
 
   html.mobile-browser #app-particles,
@@ -1765,13 +1765,25 @@ html.mobile-menu-open main {
   }
 
   html.mobile-browser .desktop-ai-hint,
-  html.mobile-browser .mobile-ai-advisor,
-  html.mobile-browser .mobile-ai-bubble,
-  html.mobile-browser .mobile-ai-button {
+  html.mobile-browser .mobile-ai-bubble {
     display: none !important;
     opacity: 0 !important;
     visibility: hidden !important;
     pointer-events: none !important;
+  }
+
+  html.mobile-browser .mobile-ai-advisor {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  html.mobile-browser .mobile-ai-button {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
   }
 
   html.mobile-browser .desktop-page-main .bg-white,
