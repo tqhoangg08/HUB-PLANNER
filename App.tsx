@@ -627,6 +627,7 @@ const App: React.FC = () => {
     const [draftClassName, setDraftClassName] = useState('');
     const [defaultClassName, setDefaultClassName] = useState('');
     const [draftProfileTags, setDraftProfileTags] = useState('');
+    const [draftPublicProfileEnabled, setDraftPublicProfileEnabled] = useState(false);
     const [draftShowProfileStats, setDraftShowProfileStats] = useState(false);
     const [profileRefreshKey, setProfileRefreshKey] = useState(0);
     const [draftAvatarFile, setDraftAvatarFile] = useState<File | null>(null);
@@ -995,7 +996,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 const studentCode = (session.user.email || '').split('@')[0] || '';
                 const { data: publicProfile } = await supabase
                     .from(STUDENT_PROFILE_TABLE)
-                    .select('bio, class_name, profile_tags, show_profile_stats, class_name_overridden')
+                    .select('bio, class_name, profile_tags, public_profile_enabled, show_profile_stats, class_name_overridden')
                     .eq('id', session.user.id)
                     .maybeSingle();
                 const officialClassName = await fetchDefaultClassName(studentCode);
@@ -1003,6 +1004,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 setDraftBio((publicProfile as any)?.bio || '');
                 setDraftClassName((publicProfile as any)?.class_name || officialClassName || '');
                 setDraftProfileTags(Array.isArray((publicProfile as any)?.profile_tags) ? (publicProfile as any).profile_tags.join(', ') : '');
+                setDraftPublicProfileEnabled(Boolean((publicProfile as any)?.public_profile_enabled));
                 setDraftShowProfileStats(Boolean((publicProfile as any)?.show_profile_stats));
             };
             void loadPublicProfileDraft();
@@ -1367,6 +1369,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             .filter(Boolean)
             .slice(0, 6);
 
+        const shouldPublishStats = draftPublicProfileEnabled && draftShowProfileStats;
         const profileUpdatePayload = {
             full_name: draftFullName.trim(),
             avatar_url: avatarUrlToSave,
@@ -1374,10 +1377,11 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             class_name: classNameToSave,
             class_name_overridden: classNameOverridden,
             profile_tags: profileTags,
-            show_profile_stats: draftShowProfileStats,
-            public_gpa: draftShowProfileStats ? Number(publicStats.rawGPA4.toFixed(2)) : null,
-            public_completed_semesters: draftShowProfileStats ? validPublicSemesters.length : null,
-            public_credits: draftShowProfileStats ? publicStats.passedCredits : null,
+            public_profile_enabled: draftPublicProfileEnabled,
+            show_profile_stats: shouldPublishStats,
+            public_gpa: shouldPublishStats ? Number(publicStats.rawGPA4.toFixed(2)) : null,
+            public_completed_semesters: shouldPublishStats ? validPublicSemesters.length : null,
+            public_credits: shouldPublishStats ? publicStats.passedCredits : null,
             updated_at: new Date().toISOString(),
         };
 
@@ -2095,11 +2099,21 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                             <label className="text-xs font-bold text-gray-500">Tag hồ sơ, cách nhau bằng dấu phẩy</label>
                                             <input type="text" value={draftProfileTags} onChange={(e) => setDraftProfileTags(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="VD: Khoa Kế toán, CLB Tin học" />
                                         </div>
+                                        <label className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm">
+                                            <input type="checkbox" checked={draftPublicProfileEnabled} onChange={(e) => {
+                                                setDraftPublicProfileEnabled(e.target.checked);
+                                                if (!e.target.checked) setDraftShowProfileStats(false);
+                                            }} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#003375] focus:ring-[#003375]" />
+                                            <span>
+                                                <span className="block font-bold text-amber-900">Công khai hồ sơ để người khác tìm thấy</span>
+                                                <span className="text-xs text-amber-800">Khi bật, tên hiển thị, MSSV, lớp, bio, avatar và tag hồ sơ có thể xuất hiện trong trang tìm kiếm và trang hồ sơ công khai.</span>
+                                            </span>
+                                        </label>
                                         <label className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-sm">
-                                            <input type="checkbox" checked={draftShowProfileStats} onChange={(e) => setDraftShowProfileStats(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#003375] focus:ring-[#003375]" />
+                                            <input type="checkbox" checked={draftShowProfileStats} disabled={!draftPublicProfileEnabled} onChange={(e) => setDraftShowProfileStats(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#003375] focus:ring-[#003375] disabled:opacity-50" />
                                             <span>
                                                 <span className="block font-bold text-[#003375]">Hiển thị thành tích học tập trên hồ sơ công khai</span>
-                                                <span className="text-xs text-gray-600">Công khai GPA tích lũy, số học kỳ hoàn thành và tín chỉ tích lũy. Dữ liệu chi tiết từng môn vẫn riêng tư.</span>
+                                                <span className="text-xs text-gray-600">Chỉ bật được sau khi bạn bật hồ sơ công khai. Công khai GPA tích lũy, số học kỳ hoàn thành và tín chỉ tích lũy; dữ liệu chi tiết từng môn vẫn riêng tư.</span>
                                             </span>
                                         </label>
                                         <div className="space-y-2">
