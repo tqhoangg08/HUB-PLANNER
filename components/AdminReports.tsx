@@ -33,7 +33,7 @@ export const AdminReports: React.FC = () => {
         { id: 'bug_reports', label: 'Lỗi bảng điểm', icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50' },
         { id: 'ctv_requests', label: 'Đơn xin CTV', icon: UserPlus, color: 'text-blue-600', bg: 'bg-blue-50' },
         { id: 'event_reports', label: 'Lỗi sự kiện', icon: CalendarDays, color: 'text-purple-600', bg: 'bg-purple-50' },
-        { id: 'feedback', label: 'Lỗi web', icon: Bug, color: 'text-emerald-600', bg: 'bg-emerald-50' }
+        { id: 'feedback', label: 'Feedback / Takedown', icon: Bug, color: 'text-emerald-600', bg: 'bg-emerald-50' }
     ] as const;
 
     const fetchReports = async () => {

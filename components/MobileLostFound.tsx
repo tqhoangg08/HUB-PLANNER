@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
-import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield, Bookmark, BookmarkCheck } from 'lucide-react';
+import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield, Bookmark, BookmarkCheck, Flag } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import { createPortal } from 'react-dom';
@@ -208,8 +208,9 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
 interface ItemDetailModalProps {
     item: LostFoundItem | null;
     onClose: () => void;
+    onReport: (item: LostFoundItem) => void;
 }
-const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
+const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose, onReport }) => {
     if (!item) return null;
     const isResolved = item.status === 'resolved';
 
@@ -269,12 +270,130 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
                                 <MapPin size={18} className="text-gray-400 shrink-0" />
                                 <span className="truncate">Khu vực: <strong>{item.location}</strong></span>
                             </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    playClick();
+                                    onReport(item);
+                                }}
+                                className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 p-3 text-sm font-black text-red-600 active:bg-red-100"
+                            >
+                                <Flag size={16} /> Báo cáo / yêu cầu gỡ
+                            </button>
                         </div>
                     </div>
 
                 </div>
             </div>
         </div>, document.body
+    );
+};
+
+interface ReportModalProps {
+    item: LostFoundItem | null;
+    onClose: () => void;
+    onShowToast: (msg: string, type: 'success' | 'error') => void;
+    currentUserId?: string | null;
+}
+
+const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, currentUserId }) => {
+    const [reason, setReason] = useState('');
+    const [contact, setContact] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        if (item) {
+            setReason('');
+            setContact('');
+        }
+    }, [item]);
+
+    const handleSubmit = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!item || !supabase || !reason.trim()) return;
+
+        setIsSubmitting(true);
+        try {
+            const content = [
+                'Yêu cầu report/takedown Lost & Found',
+                `Item ID: ${item.id}`,
+                `Tiêu đề: ${item.title}`,
+                `Loại: ${item.type}`,
+                `Link nội bộ: /lost-found?item=${item.id}`,
+                `Lý do: ${reason.trim()}`,
+                'Cam kết xử lý: yêu cầu hợp lệ sẽ được rà soát và gỡ/ẩn nội dung vi phạm trong vòng 24 giờ.',
+            ].join('\n');
+
+            const { data, error } = await supabase
+                .from('feedback')
+                .insert([{
+                    type: 'takedown',
+                    content,
+                    contact: contact.trim() || 'EMPTY',
+                    user_id: currentUserId || null,
+                }])
+                .select('id')
+                .single();
+
+            if (error) throw error;
+            void notifyModerators('feedback', data?.id);
+            onShowToast('Đã gửi yêu cầu báo cáo. Admin sẽ rà soát và xử lý trong vòng 24 giờ nếu nội dung vi phạm.', 'success');
+            onClose();
+        } catch (error: any) {
+            console.error(error);
+            onShowToast('Không thể gửi báo cáo: ' + (error.message || 'Vui lòng thử lại.'), 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (!item) return null;
+
+    return createPortal(
+        <div className="fixed inset-0 z-[100000] bg-black/60 flex items-end justify-center animate-fadeIn" onClick={onClose}>
+            <div className="bg-white w-full rounded-t-3xl shadow-2xl flex flex-col max-h-[88vh] animate-slideUp" onClick={e => e.stopPropagation()}>
+                <DragHandle />
+                <div className="flex items-center justify-between border-b border-gray-100 px-5 pb-3 pt-2">
+                    <h3 className="flex items-center gap-2 text-lg font-black text-red-600"><Flag size={18} /> Báo cáo nội dung</h3>
+                    <button onClick={onClose} className="rounded-full bg-gray-100 p-2 text-gray-500 active:scale-95"><X size={18} /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="flex-1 space-y-4 overflow-y-auto p-5 custom-scrollbar pb-safe">
+                    <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm font-semibold leading-relaxed text-red-800">
+                        Yêu cầu hợp lệ sẽ được admin rà soát và gỡ/ẩn nội dung vi phạm trong vòng 24 giờ.
+                    </div>
+                    <div>
+                        <label className="mb-1 block text-sm font-bold text-gray-700">Tin cần báo cáo</label>
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800">{item.title}</div>
+                    </div>
+                    <div>
+                        <label className="mb-1 block text-sm font-bold text-gray-700">Lý do báo cáo <span className="text-red-500">*</span></label>
+                        <textarea
+                            required
+                            rows={4}
+                            value={reason}
+                            onChange={(event) => setReason(event.target.value)}
+                            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                            placeholder="VD: lộ thông tin cá nhân, sai sự thật, spam, mạo danh, lừa đảo..."
+                        />
+                    </div>
+                    <div>
+                        <label className="mb-1 block text-sm font-bold text-gray-700">Liên hệ của bạn</label>
+                        <input
+                            type="text"
+                            value={contact}
+                            onChange={(event) => setContact(event.target.value)}
+                            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                            placeholder="Email/SĐT để admin phản hồi nếu cần"
+                        />
+                    </div>
+                    <button type="submit" disabled={isSubmitting || !reason.trim()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 text-sm font-black text-white disabled:opacity-60">
+                        {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Flag size={18} />}
+                        Gửi báo cáo
+                    </button>
+                </form>
+            </div>
+        </div>,
+        document.body
     );
 };
 
@@ -294,6 +413,7 @@ export const MobileLostFound: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'FOUND' | 'LOST'>('LOST');
   
   const [selectedItem, setSelectedItem] = useState<LostFoundItem | null>(null);
+  const [reportingItem, setReportingItem] = useState<LostFoundItem | null>(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [editingItem, setEditingItem] = useState<LostFoundItem | null>(null);
   const [submitType, setSubmitType] = useState<'FOUND' | 'LOST'>('LOST');
@@ -494,7 +614,7 @@ return (
 
           <div className="mb-3 flex gap-2 rounded-[18px] border border-[#FFE8A1] bg-[#FFF8E6] p-3 text-[#92400E] shadow-[0_2px_12px_rgba(245,158,11,0.08)]">
               <Info size={18} className="mt-0.5 shrink-0 text-[#D97706]" />
-              <p className="text-[10.8px] font-semibold leading-normal"><b className="font-black">Lưu ý:</b> Tin sẽ được kiểm duyệt trước khi hiển thị. Hãy cung cấp mô tả vừa đủ để người thật xác minh.</p>
+              <p className="text-[10.8px] font-semibold leading-normal"><b className="font-black">Lưu ý:</b> Tin sẽ được kiểm duyệt trước khi hiển thị. Không yêu cầu chuyển khoản trước để nhận lại đồ. Nếu thấy tin lộ thông tin cá nhân, sai sự thật, mạo danh hoặc có dấu hiệu lừa đảo, hãy bấm “Báo cáo”; yêu cầu hợp lệ sẽ được rà soát và gỡ/ẩn trong vòng 24 giờ.</p>
           </div>
 
           {canManage && (
@@ -586,6 +706,9 @@ return (
                                           <button type="button" className={`flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border ${isResolved ? 'border-[#D1FAE5] bg-[#EDFAF3] text-[#059669]' : 'border-[#E8EDF6] bg-white text-[#7B8AB0]'}`}>
                                               {isResolved ? <BookmarkCheck size={19} /> : <Bookmark size={19} />}
                                           </button>
+                                          <button onClick={(e) => { e.stopPropagation(); playClick(); setReportingItem(item); }} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border border-red-100 bg-red-50 text-red-600">
+                                              <Flag size={18} />
+                                          </button>
                                           <button onClick={() => { playClick(); setSelectedItem(item); }} className={`flex h-[42px] flex-1 items-center justify-center rounded-[14px] text-[12px] font-black text-white ${isResolved ? 'bg-[#F2F4F8] !text-[#A8B2C8]' : isFound ? 'bg-[#1A56FF] shadow-[0_6px_14px_rgba(26,86,255,0.2)]' : 'bg-[#E11D48] shadow-[0_6px_14px_rgba(225,29,72,0.18)]'}`}>
                                               {isResolved ? 'Xem chi tiết' : isFound ? 'Xem chi tiết' : 'Tôi tìm thấy'}
                                           </button>
@@ -636,6 +759,16 @@ return (
       <ItemDetailModal 
         item={selectedItem} 
         onClose={() => setSelectedItem(null)}
+        onReport={(item) => {
+          setSelectedItem(null);
+          setReportingItem(item);
+        }}
+      />
+      <ReportModal
+        item={reportingItem}
+        onClose={() => setReportingItem(null)}
+        onShowToast={showToast}
+        currentUserId={session?.user?.id}
       />
     </div>
   );

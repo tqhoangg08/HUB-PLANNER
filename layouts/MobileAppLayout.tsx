@@ -93,6 +93,9 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
       <main ref={mainRef} className="mobile-main custom-scrollbar relative w-full flex-1 overflow-y-auto overflow-x-hidden bg-[#F8FAFC]">
         <div key={location.pathname} className={`flex min-h-full w-full flex-col animate-${slideDirection}`}>
           {children}
+          <footer className="px-5 pb-[calc(92px+env(safe-area-inset-bottom))] pt-6 text-center text-[10px] font-medium leading-5 text-[#64748B]">
+            HUB Planner là dự án độc lập, không trực thuộc/không đại diện Trường. Vui lòng đối chiếu nguồn chính thức.
+          </footer>
         </div>
       </main>
 

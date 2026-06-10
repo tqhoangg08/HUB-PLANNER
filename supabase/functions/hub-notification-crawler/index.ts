@@ -223,6 +223,38 @@ async function processNotification(item: any, options: { forceRecheckExisting: b
   const detailHtml = await fetchHtml(item.detail_url)
   const detail = parseNotificationDetail(detailHtml, item.detail_url, item)
 
+  const { data: notification, error } = await supabase
+    .from('school_notifications')
+    .upsert({
+      title: detail.title || item.title,
+      department: item.department,
+      published_date: detail.published_date || item.published_date,
+      detail_url: item.detail_url,
+      pdf_url: detail.pdf_url,
+      pdf_file_path: null,
+      extracted_text_file_path: null,
+      extracted_text: null,
+      extraction_method: null,
+      extraction_status: null,
+      extraction_error: null,
+      content_hash: null,
+      last_crawled_at: now,
+      updated_at: now,
+    }, { onConflict: 'detail_url' })
+    .select('id, title, published_date, detail_url, pdf_url')
+    .single()
+
+  if (error) throw error
+
+  await supabase.from('notification_chunks').delete().eq('notification_id', notification.id)
+
+  return {
+    status: 'success',
+    method: 'link_only',
+    chunkCount: 0,
+    notification,
+  }
+
   const baseRecord = {
     title: detail.title || item.title,
     department: item.department,

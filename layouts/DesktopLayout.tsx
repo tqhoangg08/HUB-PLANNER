@@ -390,6 +390,11 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           )}
                       </NavLink>
                       {isAdmin && (
+                          <NavLink to="/admin/subscriptions" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-amber-50 text-amber-700' : 'text-gray-600 hover:bg-gray-50 hover:text-amber-700'}`}>
+                              <ShieldCheck size={16} /> Quản lý gói
+                          </NavLink>
+                      )}
+                      {isAdmin && (
                           <NavLink to="/admin/activity" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
                               <Clock size={16} /> Theo dõi hoạt động
                           </NavLink>
@@ -841,7 +846,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
             <footer className="text-center py-6 mt-10 border-t border-gray-200 text-gray-500 bg-[#F8FAFC]">
                 <p className="text-xs font-medium tracking-wide mb-1 uppercase">Web designed by tqhoangg</p>
                 <p className="text-[10px] opacity-80 px-4 mb-3">
-                    HUB Planner có thể mặc sai sót, vui lòng xác minh lại thông tin khi cần thiết.
+                    HUB Planner là dự án độc lập, không trực thuộc/không đại diện Trường. Vui lòng đối chiếu nguồn chính thức.
                 </p>
                 <div className="text-xs flex items-center justify-center gap-3">
                     <Link to="/terms" className="hover:text-gray-900 transition-colors">Điều khoản sử dụng</Link>

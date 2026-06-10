@@ -1069,12 +1069,6 @@ const EventDetailModal = ({
                                         </div>
                                     ))}
                                 </div>
-                                <div className="rounded-xl border border-gray-200 overflow-hidden">
-                                    <div className="bg-gray-50 px-4 py-3 text-sm font-bold text-gray-700 border-b border-gray-200">Mô tả</div>
-                                    <div className="p-4 text-sm text-gray-700 whitespace-pre-line leading-relaxed max-h-72 overflow-y-auto custom-scrollbar">
-                                        {event.description || fallback}
-                                    </div>
-                                </div>
                             </div>
                         </div>
                 </div>

@@ -16,14 +16,35 @@ const ProfilePage = ({ onEditProfile, refreshKey = 0 }) => {
     const fetchProfile = async () => {
       setLoading(true);
       try {
+        const { data: currentUserData } = await supabase.auth.getUser();
+        const ownStudentCode = currentUserData?.user?.email?.split('@')[0] || '';
+        if (currentUserData?.user?.id) setCurrentUserId(currentUserData.user.id);
+
         const { data: user, error } = await supabase
           .from('public_profiles')
-          .select('id, full_name, student_code, avatar_url, created_at, bio, class_name, profile_tags, show_profile_stats, public_gpa, public_completed_semesters, public_credits')
+          .select('id, full_name, student_code, avatar_url, created_at, bio, class_name, profile_tags, public_profile_enabled, show_profile_stats, public_gpa, public_completed_semesters, public_credits')
           .eq('student_code', id)
           .maybeSingle();
 
-        if (error || !user) throw new Error('User not found');
-        setProfile(user);
+        if (!error && user) {
+          setProfile(user);
+          return;
+        }
+
+        if (ownStudentCode && String(id) === ownStudentCode && currentUserData?.user?.id) {
+          const { data: ownProfile, error: ownError } = await supabase
+            .from('profiles')
+            .select('id, full_name, student_code, avatar_url, created_at, bio, class_name, profile_tags, public_profile_enabled, show_profile_stats, public_gpa, public_completed_semesters, public_credits')
+            .eq('id', currentUserData.user.id)
+            .maybeSingle();
+
+          if (!ownError && ownProfile) {
+            setProfile({ ...ownProfile, isPrivatePreview: true });
+            return;
+          }
+        }
+
+        throw new Error('User not found');
       } catch (err) {
         setProfile(null);
       } finally {
@@ -71,8 +92,8 @@ const ProfilePage = ({ onEditProfile, refreshKey = 0 }) => {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-4">
         <ShieldAlert size={48} className="text-gray-300 mb-4" />
-        <h2 className="text-xl font-bold text-gray-600">Không tìm thấy sinh viên</h2>
-        <p className="text-gray-500 mt-2">Mã số sinh viên <b>{id}</b> không tồn tại.</p>
+        <h2 className="text-xl font-bold text-gray-600">Không tìm thấy hồ sơ công khai</h2>
+        <p className="text-gray-500 mt-2">Hồ sơ này chưa công khai hoặc không tồn tại.</p>
       </div>
     );
   }
@@ -133,6 +154,11 @@ const ProfilePage = ({ onEditProfile, refreshKey = 0 }) => {
         </div>
 
         <div className="mt-5">
+          {profile.isPrivatePreview && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+              Đây là bản xem trước riêng của bạn. Người khác chưa thể tìm thấy hồ sơ này cho đến khi bạn bật công khai trong cài đặt.
+            </div>
+          )}
           <h1 className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">{profile.full_name || 'Sinh viên HUB'}</h1>
 
           <div className="flex flex-wrap items-center gap-2 mt-3">

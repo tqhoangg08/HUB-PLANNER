@@ -189,7 +189,7 @@ const SchoolAnnouncements = () => {
         <div className="bg-[#003375] px-3 py-2 lg:px-4 lg:py-3 flex justify-between items-center z-20 shrink-0">
           <h3 className="text-white font-bold text-xs lg:text-sm flex items-center gap-1.5 lg:gap-2">
             <Bell className="w-3.5 h-3.5 lg:w-4 lg:h-4 animate-pulse"/> 
-            <span className="truncate">THÔNG BÁO TỪ TRƯỜNG (HUB)</span>
+            <span className="truncate">LINK THÔNG BÁO TỪ NGUỒN CHÍNH THỨC</span>
           </h3>
           <button 
             onClick={() => setIsModalOpen(true)}
@@ -247,8 +247,8 @@ const SchoolAnnouncements = () => {
               <div className="flex items-center gap-3">
                 <div className="bg-white/20 p-2 rounded-lg"><Bell size={20} /></div>
                 <div>
-                  <h2 className="font-bold text-base sm:text-lg leading-tight">Kho thông báo HUB</h2>
-                  <p className="text-blue-200 text-[10px] sm:text-xs">Hệ thống tra cứu dữ liệu thông báo đa nền tảng</p>
+                  <h2 className="font-bold text-base sm:text-lg leading-tight">Tra cứu link thông báo</h2>
+                  <p className="text-blue-200 text-[10px] sm:text-xs">Dẫn về nguồn chính thức, không phải cổng thông báo của Nhà trường</p>
                 </div>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all"><X size={20}/></button>
