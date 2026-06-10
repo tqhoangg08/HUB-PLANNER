@@ -2302,7 +2302,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
         return [...nonSummerSemesters].sort((a, b) => getWeight(a.name) - getWeight(b.name));
     }, [nonSummerSemesters]);
 
-    const isInitialState = nonSummerSemesters.length > 0 && nonSummerSemesters.every(s => !s.name || !ALL_SEMESTERS.includes(s.name));
+    const isInitialState = nonSummerSemesters.length > 0 && nonSummerSemesters.every(s => !s.name && (s.subjects || []).length === 0);
     const semestersToRender = isInitialState ? [nonSummerSemesters[0]] : sortedSemesters;
     const usedSemesterNames = activeData.semesters.map(s => s.name);
     const isLocked = isGuest && !activeData.hasOnboarded;

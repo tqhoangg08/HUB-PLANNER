@@ -195,8 +195,26 @@ const hasMeaningfulStudyData = (value?: Partial<UserData> | null): boolean => {
     );
 };
 
+const normalizeSemesterName = (name?: string) => {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return '';
+    if (/^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(trimmed)) return trimmed;
+
+    const compactMatch = trimmed.match(/^Học kỳ\s+(1|2|3|Hè)\s+(\d{4})-(\d{4})$/i);
+    if (compactMatch) {
+        return `Học kỳ ${compactMatch[1]} Năm học ${compactMatch[2]}-${compactMatch[3]}`;
+    }
+
+    return trimmed;
+};
+
 const normalizeLoadedUserData = (value?: Partial<UserData> | null): UserData => {
     const loadedData = { ...INITIAL_DATA, ...(value || {}) };
+    loadedData.semesters = (loadedData.semesters || []).map((semester) => ({
+        ...semester,
+        name: normalizeSemesterName(semester.name),
+        subjects: Array.isArray(semester.subjects) ? semester.subjects : [],
+    }));
     const hasExistingStudyData = hasMeaningfulStudyData(loadedData);
 
     return {
@@ -837,17 +855,22 @@ const App: React.FC = () => {
 
                 if (!isActive) return;
 
+                const localStoredData = readLocalStoredData(storageKey);
                 const localDirtyData = localStorage.getItem(getStorageDirtyKey(storageKey))
-                    ? readLocalStoredData(storageKey)
+                    ? localStoredData
+                    : null;
+                const remoteData = hasMeaningfulStudyData(privateData || legacyData)
+                    ? normalizeLoadedUserData(privateData || legacyData)
                     : null;
 
-                if (localDirtyData || privateData || legacyData) {
-                    const remoteData = normalizeLoadedUserData(privateData || legacyData);
-                    const loadedData = localDirtyData || remoteData;
+                if (localDirtyData || remoteData || localStoredData) {
+                    const loadedData = localDirtyData || remoteData || localStoredData!;
                     setData(loadedData);
                     lastPrivateSaveRef.current = localDirtyData
                         ? { ownerId: null, signature: null }
-                        : { ownerId: session.user.id, signature: JSON.stringify(loadedData) };
+                        : remoteData
+                            ? { ownerId: session.user.id, signature: JSON.stringify(loadedData) }
+                            : { ownerId: null, signature: null };
                     setProfileFullName(profileData?.full_name || ''); 
                     setProfileAvatarUrl(profileData?.avatar_url || ''); 
                     localStorage.setItem(storageKey, JSON.stringify(loadedData));
