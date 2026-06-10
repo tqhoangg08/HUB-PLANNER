@@ -44,9 +44,18 @@ async function handler(request, response) {
   }
 
   try {
-    response.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300, stale-while-revalidate=1800');
+    const requestUrl = new URL(request.url, `https://${request.headers.host || 'localhost'}`);
+    const cacheControl = String(request.headers['cache-control'] || '');
+    const bypassCache = requestUrl.searchParams.has('refresh') || cacheControl.includes('no-cache');
 
-    if (publicEventsCache.payload && publicEventsCache.expiresAt > Date.now()) {
+    response.setHeader(
+      'Cache-Control',
+      bypassCache
+        ? 'no-store, max-age=0'
+        : 'public, max-age=300, s-maxage=300, stale-while-revalidate=1800'
+    );
+
+    if (!bypassCache && publicEventsCache.payload && publicEventsCache.expiresAt > Date.now()) {
       response.setHeader('X-Hub-Cache', 'memory-hit');
       return response.status(200).json(publicEventsCache.payload);
     }
@@ -62,11 +71,18 @@ async function handler(request, response) {
     if (error) throw error;
 
     const payload = { success: true, data: data };
-    publicEventsCache = {
-      expiresAt: Date.now() + PUBLIC_CACHE_TTL_MS,
-      payload,
-    };
-    response.setHeader('X-Hub-Cache', 'miss');
+    if (!bypassCache) {
+      publicEventsCache = {
+        expiresAt: Date.now() + PUBLIC_CACHE_TTL_MS,
+        payload,
+      };
+    } else {
+      publicEventsCache = {
+        expiresAt: 0,
+        payload: null,
+      };
+    }
+    response.setHeader('X-Hub-Cache', bypassCache ? 'bypass' : 'miss');
     return response.status(200).json(payload);
 
   } catch (error) {

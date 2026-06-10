@@ -682,7 +682,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
     );
 };
 
-const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEvents }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void; editingEvent: HubEvent | null; fetchEvents: () => void }) => {
+const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEvents }: { isOpen: boolean; onClose: () => void; onShowToast: (msg: string, type: 'success' | 'error') => void; editingEvent: HubEvent | null; fetchEvents: (options?: { bypassCache?: boolean }) => Promise<void> }) => {
     const [formData, setFormData] = useState({
         title: editingEvent?.name || '',
         deadline: editingEvent?.deadlineDate ? editingEvent.deadlineDate.toISOString().split('T')[0] : '',
@@ -765,7 +765,7 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                 }
                 onShowToast("Thêm sự kiện thành công!", "success");
             }
-            fetchEvents();
+            await fetchEvents({ bypassCache: true });
             onClose();
         } catch (err: any) {
             onShowToast("Lỗi: " + err.message, "error");
@@ -1357,13 +1357,17 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       }
   };
 
-  const fetchEvents = async () => {
+  const fetchEvents = async (options: { bypassCache?: boolean } = {}) => {
     setLoading(true);
     setError(null);
 
     try {
-      const requestUrl = apiUrl('/events');
-      const res = await fetch(requestUrl, { headers: apiHeaders() });
+      const requestUrl = apiUrl(options.bypassCache ? `/events?refresh=${Date.now()}` : '/events');
+      const headers = apiHeaders(options.bypassCache ? { 'Cache-Control': 'no-cache', Pragma: 'no-cache' } : {});
+      const res = await fetch(requestUrl, {
+        headers,
+        cache: options.bypassCache ? 'no-store' : 'default',
+      });
       const responseText = await res.text();
       const json = responseText ? JSON.parse(responseText) : {};
 
@@ -1963,7 +1967,7 @@ return (
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0">
-                            <button onClick={() => { playClick(); fetchEvents(); }} className="p-1.5 sm:px-2 sm:py-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Làm mới">
+                            <button onClick={() => { playClick(); fetchEvents({ bypassCache: true }); }} className="p-1.5 sm:px-2 sm:py-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Làm mới">
                                 <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
                             </button>
                             <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="p-1.5 sm:px-2 sm:py-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Xem bảng điểm">
@@ -2052,7 +2056,7 @@ return (
                             )}
                         </div>
 
-                        <button onClick={() => { playClick(); fetchEvents(); }} className="h-9 w-9 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Làm mới">
+                        <button onClick={() => { playClick(); fetchEvents({ bypassCache: true }); }} className="h-9 w-9 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Làm mới">
                             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
                         </button>
                         <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="h-9 w-9 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Xem bảng điểm">

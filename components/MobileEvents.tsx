@@ -719,10 +719,15 @@ const canManage = isAdmin || isAuditor || isCTV;
       }
   };
 
-  const fetchEvents = async () => {
+  const fetchEvents = async (options: { bypassCache?: boolean } = {}) => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(apiUrl('/events'), { headers: apiHeaders() });
+      const requestUrl = apiUrl(options.bypassCache ? `/events?refresh=${Date.now()}` : '/events');
+      const headers = apiHeaders(options.bypassCache ? { 'Cache-Control': 'no-cache', Pragma: 'no-cache' } : {});
+      const res = await fetch(requestUrl, {
+        headers,
+        cache: options.bypassCache ? 'no-store' : 'default',
+      });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Lỗi tải dữ liệu');
 
@@ -859,7 +864,7 @@ const canManage = isAdmin || isAuditor || isCTV;
           }
           showToast(editingEvent ? 'Cập nhật sự kiện thành công.' : 'Thêm sự kiện thành công.', 'success');
           closeEventEditor();
-          await fetchEvents();
+          await fetchEvents({ bypassCache: true });
       } catch (err: any) {
           showToast('Lỗi: ' + (err.message || 'Không thể lưu sự kiện'), 'error');
       } finally {
@@ -1208,7 +1213,7 @@ return (
                   <p className="mt-1 text-[13px] font-semibold text-[#7B8AB0]">Điểm rèn luyện & hoạt động</p>
               </div>
               <div className="flex gap-2">
-                  <button onClick={() => { playClick(); fetchEvents(); }} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] active:scale-95"><RefreshCw size={19} className={loading ? "animate-spin" : ""} /></button>
+                  <button onClick={() => { playClick(); fetchEvents({ bypassCache: true }); }} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] active:scale-95"><RefreshCw size={19} className={loading ? "animate-spin" : ""} /></button>
                   <button onClick={() => { isManagementView ? openEventEditor(null) : (playClick(), setShowContributeModal(true)); }} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-[#1A56FF] text-white shadow-[0_8px_18px_rgba(26,86,255,0.26)] active:scale-95"><PlusCircle size={19} /></button>
               </div>
           </div>
