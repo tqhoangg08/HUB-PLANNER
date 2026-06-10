@@ -8,6 +8,7 @@ import {
 import { playClick } from '../utils/audio';
 import { supabase } from '../utils/supabase';
 import { notifyModerators } from '../utils/moderatorNotifications';
+import { TermsOfUse } from './TermsOfUse';
 
 type TabType = 'contacts' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about' | 'feedback' | 'donate' | 'terms' | 'privacy';
 
@@ -803,38 +804,7 @@ export const MobileHandbook: React.FC = () => {
                 );
 
             case 'terms':
-                return (
-                    <div className="animate-fadeIn bg-white p-8 rounded-2xl border border-gray-200 text-base text-gray-700 leading-relaxed max-w-4xl mx-auto shadow-sm">
-                        <div className="text-center border-b border-gray-200 pb-6 mb-6">
-                            <h2 className="text-2xl font-black text-[#003375] uppercase tracking-wide">ĐIỀU KHOẢN SỬ DỤNG DỊCH VỤ</h2>
-                            <p className="text-sm text-gray-500 italic mt-2">Phiên bản 1.1 - Cập nhật: 25/02/2026</p>
-                        </div>
-                        <div className="space-y-6">
-                            <div>
-                                <h3 className="font-bold text-[#003375] text-lg mb-2 uppercase">1. Chấp thuận điều khoản</h3>
-                                <p>Bằng việc đăng nhập, bạn xác nhận đã đọc, hiểu rõ và đồng ý tuân thủ toàn bộ các quy định trong bản Điều khoản này.</p>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-[#003375] text-lg mb-2 uppercase">2. Tuyên bố miễn trừ trách nhiệm</h3>
-                                <p className="text-red-600 font-medium">HUB Planner KHÔNG PHẢI là sản phẩm chính thức của Trường Đại học Ngân hàng TP.HCM (HUB).</p>
-                                <p className="mt-2">Dữ liệu về Thời khóa biểu, Lịch thi được đồng bộ tham khảo từ Cổng thông tin. Tính năng GPA/ĐRL chỉ mang tính chất tham khảo. Bạn cần tự đối chiếu lại kết quả.</p>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-[#003375] text-lg mb-2 uppercase">3. Tài khoản và Bảo mật</h3>
-                                <p>Khi dùng máy công cộng (thư viện), bạn có trách nhiệm Đăng xuất hoặc dùng tính năng "Xóa dữ liệu (Reset)" để tránh lộ bảng điểm.</p>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-[#003375] text-lg mb-2 uppercase">4. Quyền sở hữu trí tuệ</h3>
-                                <p>Mã nguồn, dữ liệu thuộc sở hữu HUB Planner. Nghiêm cấm thu thập trái phép (Crawling/Scraping) hoặc thực hiện DDoS vào hệ thống.</p>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-[#003375] text-lg mb-2 uppercase">5. Chính sách Donate</h3>
-                                <p>Mọi khoản đóng góp là tự nguyện để gây quỹ duy trì máy chủ. Chúng tôi KHÔNG áp dụng chính sách hoàn tiền trong bất kỳ trường hợp nào.</p>
-                            </div>
-                        </div>
-                    </div>
-                );
-
+                return <TermsOfUse />;
             case 'privacy':
                 return (
                     <div className="animate-fadeIn bg-white p-8 rounded-2xl border border-gray-200 text-base text-gray-700 leading-relaxed max-w-4xl mx-auto shadow-sm">
