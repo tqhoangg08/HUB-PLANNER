@@ -150,6 +150,38 @@ const COHORT_OPTIONS: Record<string, string[]> = {
     'special': ['CTDBK1', 'CTDBK2']
 };
 
+const DEFAULT_TRANSCRIPT_SEMESTER_NAME = 'Học kỳ 1 Năm học 2025-2026';
+const isValidTranscriptSemesterName = (name?: string) => /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test((name || '').trim());
+const parseTranscriptSemesterName = (name?: string) => {
+    const match = (name || '').trim().match(/^Học kỳ (1|2) Năm học (\d{4})-\d{4}$/);
+    if (!match) return null;
+    return { term: Number(match[1]), year: Number(match[2]) };
+};
+const getFollowingTranscriptSemesterName = ({ term, year }: { term: number; year: number }) => {
+    const nextTerm = term === 1 ? 2 : 1;
+    const nextYear = term === 1 ? year : year + 1;
+    return `Học kỳ ${nextTerm} Năm học ${nextYear}-${nextYear + 1}`;
+};
+const getNextTranscriptSemesterName = (semesters: Semester[]) => {
+    const selectedSemesters = semesters
+        .map(semester => parseTranscriptSemesterName(semester.name))
+        .filter((semester): semester is { term: number; year: number } => Boolean(semester));
+
+    if (selectedSemesters.length === 0) {
+        return semesters.length > 0
+            ? getFollowingTranscriptSemesterName(parseTranscriptSemesterName(DEFAULT_TRANSCRIPT_SEMESTER_NAME)!)
+            : DEFAULT_TRANSCRIPT_SEMESTER_NAME;
+    }
+
+    const latestSemester = selectedSemesters.reduce((latest, current) => {
+        const latestWeight = latest.year * 2 + latest.term;
+        const currentWeight = current.year * 2 + current.term;
+        return currentWeight > latestWeight ? current : latest;
+    });
+
+    return getFollowingTranscriptSemesterName(latestSemester);
+};
+
 const generateStandardCurriculum = (): Semester[] => {
     const semesters: Semester[] = [];
     const years = 4;
@@ -1618,7 +1650,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         playClick();
         const newSem: Semester = {
             id: Date.now().toString(),
-            name: ``, 
+            name: getNextTranscriptSemesterName(data.semesters),
             subjects: [],
             trainingScore: null
         };

@@ -455,6 +455,38 @@ const ScoreInput = ({ value, onChange }: { value: number | null, onChange: (val:
 // ============================================================================
 // 4. COMPONENT: BẢNG ĐIỂM HỌC KỲ (SEMESTER TABLE)
 // ============================================================================
+const DEFAULT_TRANSCRIPT_SEMESTER_NAME = 'Học kỳ 1 Năm học 2025-2026';
+const isValidTranscriptSemesterName = (name?: string) => /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test((name || '').trim());
+const parseTranscriptSemesterName = (name?: string) => {
+    const match = (name || '').trim().match(/^Học kỳ (1|2) Năm học (\d{4})-\d{4}$/);
+    if (!match) return null;
+    return { term: Number(match[1]), year: Number(match[2]) };
+};
+const getFollowingTranscriptSemesterName = ({ term, year }: { term: number; year: number }) => {
+    const nextTerm = term === 1 ? 2 : 1;
+    const nextYear = term === 1 ? year : year + 1;
+    return `Học kỳ ${nextTerm} Năm học ${nextYear}-${nextYear + 1}`;
+};
+const getNextTranscriptSemesterName = (semesters: Semester[]) => {
+    const selectedSemesters = semesters
+        .map(semester => parseTranscriptSemesterName(semester.name))
+        .filter((semester): semester is { term: number; year: number } => Boolean(semester));
+
+    if (selectedSemesters.length === 0) {
+        return semesters.length > 0
+            ? getFollowingTranscriptSemesterName(parseTranscriptSemesterName(DEFAULT_TRANSCRIPT_SEMESTER_NAME)!)
+            : DEFAULT_TRANSCRIPT_SEMESTER_NAME;
+    }
+
+    const latestSemester = selectedSemesters.reduce((latest, current) => {
+        const latestWeight = latest.year * 2 + latest.term;
+        const currentWeight = current.year * 2 + current.term;
+        return currentWeight > latestWeight ? current : latest;
+    });
+
+    return getFollowingTranscriptSemesterName(latestSemester);
+};
+
 interface SemesterTableProps {
   semester: Semester;
   index: number;
@@ -1624,7 +1656,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const handleLocalAddSemester = () => {
         if (selectedUserOverview) {
-            const newSem: Semester = { id: Date.now().toString(), name: '', subjects: [], trainingScore: null };
+            const newSem: Semester = { id: Date.now().toString(), name: getNextTranscriptSemesterName(activeData.semesters), subjects: [], trainingScore: null };
             const newData = { ...activeData, semesters: [...activeData.semesters, newSem] };
             setSelectedUserOverview(newData);
             saveAdminUserUpdate(newData); 
@@ -1742,9 +1774,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
     }, [activeData.semesters.length, selectedAdminUserId]);
 
+    const transcriptSemesters = useMemo(() => {
+        const hasSelectedSemester = activeData.semesters.some(semester => isValidTranscriptSemesterName(semester.name));
+        if (hasSelectedSemester) return activeData.semesters;
+
+        let defaultApplied = false;
+        return activeData.semesters.map(semester => {
+            if (defaultApplied || semester.name.trim()) return semester;
+            defaultApplied = true;
+            return { ...semester, name: DEFAULT_TRANSCRIPT_SEMESTER_NAME };
+        });
+    }, [activeData.semesters]);
+
     const nonSummerSemesters = useMemo(
-        () => activeData.semesters.filter(s => !/^Học kỳ Hè Năm học \d{4}-\d{4}$/.test(s.name)),
-        [activeData.semesters]
+        () => transcriptSemesters.filter(s => !/^Học kỳ Hè Năm học \d{4}-\d{4}$/.test(s.name)),
+        [transcriptSemesters]
     );
 
     const sortedSemesters = useMemo(() => {
@@ -1759,12 +1803,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
         return [...nonSummerSemesters].sort((a, b) => getWeight(a.name) - getWeight(b.name));
     }, [nonSummerSemesters]);
 
-    const isInitialState = nonSummerSemesters.length > 0 && nonSummerSemesters.every(s => !s.name && (s.subjects || []).length === 0);
+    const isInitialState = nonSummerSemesters.length > 0 && nonSummerSemesters.every((s, index) => {
+        const hasInitialDefaultName = index === 0 && s.name === DEFAULT_TRANSCRIPT_SEMESTER_NAME;
+        return (!s.name || hasInitialDefaultName) && (s.subjects || []).length === 0;
+    });
     const semestersToRender = isInitialState ? [nonSummerSemesters[0]] : sortedSemesters;
-    const usedSemesterNames = activeData.semesters.map(s => s.name);
+    const usedSemesterNames = transcriptSemesters.map(s => s.name);
     const isLocked = isGuest && !activeData.hasOnboarded;
 
-    const validDataSemesters = activeData.semesters.filter(s => /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test(s.name));
+    const validDataSemesters = transcriptSemesters.filter(s => isValidTranscriptSemesterName(s.name));
 
     const stats = calculateCumulativeStats(validDataSemesters);
     const yearlyStats = calculateYearlyStats(validDataSemesters);
