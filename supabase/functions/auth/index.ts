@@ -35,6 +35,8 @@ const hmacBytes = async (key: string | Uint8Array, value: string) => {
   return new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, textEncoder.encode(value)))
 }
 const hmacHex = async (key: string | Uint8Array, value: string) => bytesToHex(await hmacBytes(key, value))
+const anonymizationSecret = () => env('DATA_ANONYMIZATION_SECRET') || env('SUPABASE_SERVICE_ROLE_KEY') || 'hub-planner'
+const anonymizedUserHash = (userId: string) => hmacHex(anonymizationSecret(), `user:${userId}`)
 const getSignatureKey = async (secretKey: string, dateStamp: string, region: string, service: string) => {
   const kDate = await hmacBytes(`AWS4${secretKey}`, dateStamp)
   const kRegion = await hmacBytes(kDate, region)
@@ -201,6 +203,60 @@ const deleteRows = async (table: string, column: string, value: string) => {
   if (error) console.error(`Skip cleanup ${table}:`, error.message)
 }
 
+const getClientInfo = (req: Request) => ({
+  ip: req.headers.get('cf-connecting-ip')
+    || req.headers.get('x-forwarded-for')
+    || req.headers.get('x-real-ip')
+    || null,
+  userAgent: req.headers.get('user-agent') || null,
+})
+
+const recordPolicyConsentForUser = async ({
+  req,
+  userId,
+  policyType,
+  policyVersion,
+  context,
+  metadata = {},
+}: {
+  req: Request
+  userId: string
+  policyType: string
+  policyVersion?: string
+  context?: string
+  metadata?: Record<string, unknown>
+}) => {
+  if (!policyType || !/^[a-z0-9_.:-]{3,80}$/i.test(policyType)) return
+  const clientInfo = getClientInfo(req)
+  const { error } = await supabase.from('policy_consents').insert({
+    user_id: userId,
+    user_id_hash: await anonymizedUserHash(userId),
+    policy_type: policyType,
+    policy_version: String(policyVersion || '2026-06-11').slice(0, 80),
+    consent_context: String(context || 'registration').slice(0, 80),
+    accepted: true,
+    source: 'web',
+    ip_address: clientInfo.ip,
+    device_info: clientInfo.userAgent,
+    metadata,
+  })
+  if (error) console.error('Failed to record policy consent:', error.message)
+}
+
+const recordPolicyConsent = async (req: Request, body: any) => {
+  const auth = await getRequestUser(req)
+  if (!auth) return json({ error: 'Phien dang nhap khong hop le.' }, 401)
+  await recordPolicyConsentForUser({
+    req,
+    userId: auth.user.id,
+    policyType: String(body?.policyType || ''),
+    policyVersion: body?.policyVersion,
+    context: body?.context || 'manual',
+    metadata: { action: 'record-policy-consent' },
+  })
+  return json({ recorded: true })
+}
+
 const sendEmail = async ({ email, otp, purpose }: { email: string; otp: string; purpose: string }) => {
   const apiKey = env('RESEND_API_KEY')
   const expireTime = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000)
@@ -303,7 +359,7 @@ const verifyOtpRecord = async ({ email, purpose, otp }: { email: string; purpose
   await supabase.from('auth_otp_codes').update({ used_at: new Date().toISOString() }).eq('id', data.id)
 }
 
-const verifyOtp = async (body: any) => {
+const verifyOtp = async (req: Request, body: any) => {
   const purpose = body?.purpose
   const email = normalizeEmail(body?.email)
   const otp = String(body?.otp || '').replace(/\D/g, '').slice(0, 6)
@@ -322,6 +378,18 @@ const verifyOtp = async (body: any) => {
       const { error } = await supabase.auth.admin.updateUserById(existingProfile.user_id, { password, user_metadata: { password_set_at: true } })
       if (error) throw error
       await markPasswordProfile(existingProfile.user_id, email)
+      if (Array.isArray(body?.acceptedPolicies)) {
+        for (const policy of body.acceptedPolicies) {
+          await recordPolicyConsentForUser({
+            req,
+            userId: existingProfile.user_id,
+            policyType: String(policy?.type || policy),
+            policyVersion: policy?.version,
+            context: policy?.context || 'registration',
+            metadata: { auth_flow: 'register_existing_profile_password_update' },
+          })
+        }
+      }
       return json({ email, created: false, passwordUpdated: true })
     }
     const { data, error } = await supabase.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { password_set_at: true } })
@@ -335,11 +403,37 @@ const verifyOtp = async (body: any) => {
         })
         if (updateError) throw updateError
         await markPasswordProfile(existingUser.id, email)
+        if (Array.isArray(body?.acceptedPolicies)) {
+          for (const policy of body.acceptedPolicies) {
+            await recordPolicyConsentForUser({
+              req,
+              userId: existingUser.id,
+              policyType: String(policy?.type || policy),
+              policyVersion: policy?.version,
+              context: policy?.context || 'registration',
+              metadata: { auth_flow: 'register_existing_auth_password_update' },
+            })
+          }
+        }
         return json({ email, created: false, passwordUpdated: true })
       }
       throw error
     }
-    if (data.user?.id) await markPasswordProfile(data.user.id, email)
+    if (data.user?.id) {
+      await markPasswordProfile(data.user.id, email)
+      if (Array.isArray(body?.acceptedPolicies)) {
+        for (const policy of body.acceptedPolicies) {
+          await recordPolicyConsentForUser({
+            req,
+            userId: data.user.id,
+            policyType: String(policy?.type || policy),
+            policyVersion: policy?.version,
+            context: policy?.context || 'registration',
+            metadata: { auth_flow: 'register_new_user' },
+          })
+        }
+      }
+    }
     return json({ email, created: true })
   }
 
@@ -366,6 +460,7 @@ const deleteAccount = async (req: Request) => {
   if (!auth) return json({ error: 'Phien dang nhap khong hop le.' }, 401)
   const userId = auth.user.id
   const email = normalizeEmail(auth.user.email || '')
+  const userIdHash = await anonymizedUserHash(userId)
   try {
     const { data: avatarFiles, error } = await supabase.storage.from('avatars').list(userId)
     if (!error && avatarFiles?.length) {
@@ -374,8 +469,35 @@ const deleteAccount = async (req: Request) => {
   } catch (error) {
     console.error('Skip avatar cleanup:', error)
   }
+  await supabase.rpc('anonymize_deleted_user_logs', {
+    p_user_id: userId,
+    p_user_id_hash: userIdHash,
+    p_reason: 'account_hard_delete',
+  }).then(({ error }) => {
+    if (error) console.error('Skip log anonymization:', error.message)
+  })
+
+  await supabase.from('activity_logs').insert({
+    user_id: null,
+    user_email: null,
+    action: 'delete_account_hard_delete',
+    target_table: 'auth.users',
+    target_id: userIdHash,
+    details: {
+      anonymized: true,
+      user_id_hash: userIdHash,
+      legal_technique: 'de-identification',
+      law_reference: 'Khoan 11 Dieu 2 Luat BVDLCN 2025',
+    },
+    metadata: {
+      source: 'auth_edge_function',
+      deleted_tables_policy: 'hard_delete_personal_data',
+    },
+    status: 'success',
+    created_at: new Date().toISOString(),
+  })
+
   const userIdTables = [
-    'activity_logs',
     'ai_chat_logs',
     'benchmark_rankings',
     'bug_reports',
@@ -392,8 +514,13 @@ const deleteAccount = async (req: Request) => {
     'user_course_requests',
     'user_roles',
     'notifications',
+    'payment_requests',
+    'practice_attempts',
+    'practice_pro_access',
+    'profile_private_data',
     'push_subscriptions',
     'schedule_reminders',
+    'subscriptions',
   ]
   for (const table of userIdTables) await deleteRows(table, 'user_id', userId)
   if (email) await deleteRows('auth_otp_codes', 'email', email)
@@ -467,7 +594,8 @@ Deno.serve(async (req) => {
     const action = body?.action
     if (action === 'resolve-identifier') return json({ email: await resolveEmail(body?.identifier) })
     if (action === 'send-otp') return await sendOtp(body)
-    if (action === 'verify-otp') return await verifyOtp(body)
+    if (action === 'verify-otp') return await verifyOtp(req, body)
+    if (action === 'record-policy-consent') return await recordPolicyConsent(req, body)
     if (action === 'delete-account') return await deleteAccount(req)
     if (action === 'create-avatar-upload') return await createAvatarUpload(req, body)
     if (action === 'upload-avatar') return await uploadAvatar(req, body)

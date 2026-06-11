@@ -22,6 +22,8 @@ const normalizeEmail = (value = '') => value.trim().toLowerCase();
 const encodeR2Path = (key) => key.split('/').map(encodeURIComponent).join('/');
 
 const hmac = (key, value, encoding) => createHmac('sha256', key).update(value).digest(encoding);
+const anonymizationSecret = () => process.env.DATA_ANONYMIZATION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'hub-planner';
+const anonymizedUserHash = (userId) => hmac(anonymizationSecret(), `user:${userId}`, 'hex');
 
 const getSignatureKey = (secretKey, dateStamp, region, service) => {
   const kDate = hmac(`AWS4${secretKey}`, dateStamp);
@@ -207,6 +209,56 @@ const markPasswordProfile = async (userId, email) => {
 const deleteRows = async (table, column, value) => {
   const { error } = await supabase.from(table).delete().eq(column, value);
   if (error) console.error(`Skip cleanup ${table}:`, error.message);
+};
+
+const getClientInfo = (request) => ({
+  ip: request.headers['cf-connecting-ip']
+    || request.headers['x-forwarded-for']
+    || request.headers['x-real-ip']
+    || null,
+  userAgent: request.headers['user-agent'] || null,
+});
+
+const recordPolicyConsentForUser = async ({
+  request,
+  userId,
+  policyType,
+  policyVersion,
+  context,
+  metadata = {},
+}) => {
+  if (!policyType || !/^[a-z0-9_.:-]{3,80}$/i.test(policyType)) return;
+  const clientInfo = getClientInfo(request);
+  const { error } = await supabase.from('policy_consents').insert({
+    user_id: userId,
+    user_id_hash: anonymizedUserHash(userId),
+    policy_type: policyType,
+    policy_version: String(policyVersion || '2026-06-11').slice(0, 80),
+    consent_context: String(context || 'registration').slice(0, 80),
+    accepted: true,
+    source: 'web',
+    ip_address: Array.isArray(clientInfo.ip) ? clientInfo.ip[0] : clientInfo.ip,
+    device_info: clientInfo.userAgent,
+    metadata,
+  });
+  if (error) console.error('Failed to record policy consent:', error.message);
+};
+
+const recordPolicyConsent = async (request, response) => {
+  const token = String(request.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!token) return response.status(401).json({ error: 'Thieu phien dang nhap.' });
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user?.id) return response.status(401).json({ error: 'Phien dang nhap khong hop le.' });
+
+  await recordPolicyConsentForUser({
+    request,
+    userId: data.user.id,
+    policyType: String(request.body?.policyType || ''),
+    policyVersion: request.body?.policyVersion,
+    context: request.body?.context || 'manual',
+    metadata: { action: 'record-policy-consent' },
+  });
+  return response.status(200).json({ recorded: true });
 };
 
 const sendEmail = async ({ email, otp, purpose }) => {
@@ -401,6 +453,18 @@ const verifyOtp = async (request, response) => {
       });
       if (updateExistingError) throw updateExistingError;
       await markPasswordProfile(existingProfile.user_id, email);
+      if (Array.isArray(request.body?.acceptedPolicies)) {
+        for (const policy of request.body.acceptedPolicies) {
+          await recordPolicyConsentForUser({
+            request,
+            userId: existingProfile.user_id,
+            policyType: String(policy?.type || policy),
+            policyVersion: policy?.version,
+            context: policy?.context || 'registration',
+            metadata: { auth_flow: 'register_existing_profile_password_update' },
+          });
+        }
+      }
       return response.status(200).json({ email, created: false, passwordUpdated: true });
     }
 
@@ -425,6 +489,18 @@ const verifyOtp = async (request, response) => {
         if (updateExistingAuthError) throw updateExistingAuthError;
 
         await markPasswordProfile(existingUser.id, email);
+        if (Array.isArray(request.body?.acceptedPolicies)) {
+          for (const policy of request.body.acceptedPolicies) {
+            await recordPolicyConsentForUser({
+              request,
+              userId: existingUser.id,
+              policyType: String(policy?.type || policy),
+              policyVersion: policy?.version,
+              context: policy?.context || 'registration',
+              metadata: { auth_flow: 'register_existing_auth_password_update' },
+            });
+          }
+        }
         return response.status(200).json({ email, created: false, passwordUpdated: true });
       }
       throw error;
@@ -432,6 +508,18 @@ const verifyOtp = async (request, response) => {
 
     if (data.user?.id) {
       await markPasswordProfile(data.user.id, email);
+      if (Array.isArray(request.body?.acceptedPolicies)) {
+        for (const policy of request.body.acceptedPolicies) {
+          await recordPolicyConsentForUser({
+            request,
+            userId: data.user.id,
+            policyType: String(policy?.type || policy),
+            policyVersion: policy?.version,
+            context: policy?.context || 'registration',
+            metadata: { auth_flow: 'register_new_user' },
+          });
+        }
+      }
     }
 
     return response.status(200).json({ email, created: true });
@@ -469,6 +557,7 @@ const deleteAccount = async (request, response) => {
 
   const userId = userData.user.id;
   const email = normalizeEmail(userData.user.email || '');
+  const userIdHash = anonymizedUserHash(userId);
 
   try {
     const { data: avatarFiles, error: avatarError } = await supabase.storage.from('avatars').list(userId);
@@ -481,8 +570,34 @@ const deleteAccount = async (request, response) => {
     console.error('Skip avatar cleanup:', error.message);
   }
 
+  const { error: anonymizeError } = await supabase.rpc('anonymize_deleted_user_logs', {
+    p_user_id: userId,
+    p_user_id_hash: userIdHash,
+    p_reason: 'account_hard_delete',
+  });
+  if (anonymizeError) console.error('Skip log anonymization:', anonymizeError.message);
+
+  await supabase.from('activity_logs').insert({
+    user_id: null,
+    user_email: null,
+    action: 'delete_account_hard_delete',
+    target_table: 'auth.users',
+    target_id: userIdHash,
+    details: {
+      anonymized: true,
+      user_id_hash: userIdHash,
+      legal_technique: 'de-identification',
+      law_reference: 'Khoan 11 Dieu 2 Luat BVDLCN 2025',
+    },
+    metadata: {
+      source: 'auth_api_handler',
+      deleted_tables_policy: 'hard_delete_personal_data',
+    },
+    status: 'success',
+    created_at: new Date().toISOString(),
+  });
+
   const userIdTables = [
-    'activity_logs',
     'ai_chat_logs',
     'benchmark_rankings',
     'bug_reports',
@@ -499,8 +614,13 @@ const deleteAccount = async (request, response) => {
     'user_course_requests',
     'user_roles',
     'notifications',
+    'payment_requests',
+    'practice_attempts',
+    'practice_pro_access',
+    'profile_private_data',
     'push_subscriptions',
     'schedule_reminders',
+    'subscriptions',
   ];
 
   for (const table of userIdTables) {
@@ -647,6 +767,7 @@ async function handler(request, response) {
     if (action === 'resolve-identifier') return await resolveIdentifier(request, response);
     if (action === 'send-otp') return await sendOtp(request, response);
     if (action === 'verify-otp') return await verifyOtp(request, response);
+    if (action === 'record-policy-consent') return await recordPolicyConsent(request, response);
     if (action === 'delete-account') return await deleteAccount(request, response);
     if (action === 'create-avatar-upload') return await createAvatarUpload(request, response);
     if (action === 'upload-avatar') return await uploadAvatar(request, response);

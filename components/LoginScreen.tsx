@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { apiUrl } from '../utils/api';
+import { CONSENT_POLICIES, POLICY_VERSION } from '../utils/policyConsent';
 import { Turnstile } from '@marsidev/react-turnstile';
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const OTP_RESEND_COOLDOWN_SECONDS = 10 * 60;
@@ -147,6 +148,12 @@ export const LoginScreen: React.FC = () => {
         setError(null);
         setNotice(null);
         playClick();
+        localStorage.setItem('hubplanner:pending-registration-consent', JSON.stringify({
+            policies: [CONSENT_POLICIES.terms, CONSENT_POLICIES.privacy],
+            version: POLICY_VERSION,
+            context: 'oauth_registration',
+            createdAt: new Date().toISOString(),
+        }));
 
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
@@ -349,6 +356,10 @@ export const LoginScreen: React.FC = () => {
                     otp,
                     password,
                     confirmPassword,
+                    acceptedPolicies: isForgotPassword ? [] : [
+                        { type: CONSENT_POLICIES.terms, version: POLICY_VERSION, context: 'registration' },
+                        { type: CONSENT_POLICIES.privacy, version: POLICY_VERSION, context: 'registration' },
+                    ],
                 }),
             });
             const payload = await response.json().catch(() => ({}));

@@ -53,6 +53,7 @@ import { calculateCumulativeStats } from './utils/calculations';
 import { logActivity, logActivityQuietly } from './utils/activityLogger';
 import { ExamStudyAI } from './components/ExamStudyAI';
 import { AVATAR_COLOR_OPTIONS, getAvatarColorClass, getSafeAvatarColor, isAvatarImageUrl } from './utils/avatarColors';
+import { recordPolicyConsent } from './utils/policyConsent';
 
 let globalDeferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -274,6 +275,32 @@ const App: React.FC = () => {
     const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth < 768);
     const [forceMobileAppPreview, setForceMobileAppPreview] = useState(false);
     const lastLoggedUserIdRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        if (!session?.user?.id) return;
+        const pendingRaw = localStorage.getItem('hubplanner:pending-registration-consent');
+        if (!pendingRaw) return;
+
+        let pending: any = null;
+        try {
+            pending = JSON.parse(pendingRaw);
+        } catch {
+            localStorage.removeItem('hubplanner:pending-registration-consent');
+            return;
+        }
+
+        const policies = Array.isArray(pending?.policies) ? pending.policies : [];
+        if (!policies.length) {
+            localStorage.removeItem('hubplanner:pending-registration-consent');
+            return;
+        }
+
+        Promise.all(policies.map((policyType: string) => (
+            recordPolicyConsent(policyType, pending?.context || 'oauth_registration')
+        ))).finally(() => {
+            localStorage.removeItem('hubplanner:pending-registration-consent');
+        });
+    }, [session?.user?.id]);
 
     useEffect(() => {
         const checkIfAppMode = () => {

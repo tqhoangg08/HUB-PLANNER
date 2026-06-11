@@ -12,6 +12,7 @@ import { usePlatform } from '../hooks/usePlatform';
 import { apiHeaders, apiUrl } from '../utils/api';
 import { sanitizeAIReply } from '../utils/aiSafety';
 import { setRuntimeStyleRule } from '../utils/runtimeStyles';
+import { CONSENT_POLICIES, recordPolicyConsent } from '../utils/policyConsent';
 
 interface AIAdvisorProps {
   data: UserData;
@@ -70,6 +71,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       playClick();
       localStorage.setItem(aiConsentStorageKey, 'accepted');
       setHasAIConsent(true);
+      recordPolicyConsent(CONSENT_POLICIES.ai, 'ai_usage');
   };
 
   const [showBubble, setShowBubble] = useState(false);

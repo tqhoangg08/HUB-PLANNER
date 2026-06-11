@@ -9,6 +9,7 @@ import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
 import { usePlatform } from '../hooks/usePlatform';
 import { Turnstile } from '@marsidev/react-turnstile';
+import { CONSENT_POLICIES, POLICY_VERSION } from '../utils/policyConsent';
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 
 // Khai báo để TypeScript không báo lỗi thư viện Google
@@ -63,6 +64,12 @@ export const MobileLogin: React.FC = () => {
     const handleGoogleOneTapResponse = async (response: any) => {
         setLoading(true);
         setError(null);
+        localStorage.setItem('hubplanner:pending-registration-consent', JSON.stringify({
+            policies: [CONSENT_POLICIES.terms, CONSENT_POLICIES.privacy],
+            version: POLICY_VERSION,
+            context: 'oauth_registration',
+            createdAt: new Date().toISOString(),
+        }));
         try {
             const { data, error } = await supabase.auth.signInWithIdToken({
                 provider: 'google',
@@ -100,6 +107,12 @@ export const MobileLogin: React.FC = () => {
     // 2. Phương án dự phòng: Đăng nhập kiểu chuyển trang truyền thống nếu One Tap bị lỗi
     const fallbackGoogleOAuth = async () => {
         setLoading(true);
+        localStorage.setItem('hubplanner:pending-registration-consent', JSON.stringify({
+            policies: [CONSENT_POLICIES.terms, CONSENT_POLICIES.privacy],
+            version: POLICY_VERSION,
+            context: 'oauth_registration',
+            createdAt: new Date().toISOString(),
+        }));
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {

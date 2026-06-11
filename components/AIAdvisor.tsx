@@ -9,6 +9,7 @@ import { supabase } from '../utils/supabase';
 import DOMPurify from 'dompurify';
 import { apiHeaders, apiUrl } from '../utils/api';
 import { sanitizeAIReply } from '../utils/aiSafety';
+import { CONSENT_POLICIES, recordPolicyConsent } from '../utils/policyConsent';
 
 interface AIAdvisorProps {
   data: UserData;
@@ -66,6 +67,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       playClick();
       localStorage.setItem(aiConsentStorageKey, 'accepted');
       setHasAIConsent(true);
+      recordPolicyConsent(CONSENT_POLICIES.ai, 'ai_usage');
   };
 
   // Đóng dropdown khi click ra ngoài
