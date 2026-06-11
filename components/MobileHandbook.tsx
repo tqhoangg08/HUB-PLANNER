@@ -9,6 +9,7 @@ import { playClick } from '../utils/audio';
 import { supabase } from '../utils/supabase';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { TermsOfUse } from './TermsOfUse';
+import { PrivacyPolicy } from './PrivacyPolicy';
 
 type TabType = 'contacts' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about' | 'feedback' | 'donate' | 'terms' | 'privacy';
 
@@ -806,35 +807,7 @@ export const MobileHandbook: React.FC = () => {
             case 'terms':
                 return <TermsOfUse />;
             case 'privacy':
-                return (
-                    <div className="animate-fadeIn bg-white p-8 rounded-2xl border border-gray-200 text-base text-gray-700 leading-relaxed max-w-4xl mx-auto shadow-sm">
-                        <div className="text-center border-b border-gray-200 pb-6 mb-6">
-                            <h2 className="text-2xl font-black text-[#003375] uppercase tracking-wide">CHÍNH SÁCH BẢO MẬT QUYỀN RIÊNG TƯ</h2>
-                            <p className="text-sm text-gray-500 italic mt-2">Phiên bản 1.1 - Cập nhật: 25/02/2026</p>
-                        </div>
-                        <div className="space-y-6">
-                            <div>
-                                <h3 className="font-bold text-[#003375] text-lg mb-2 uppercase">1. Dữ liệu thu thập</h3>
-                                <p>Khi đăng nhập Google, chúng tôi chỉ thu thập: Tên, Email sinh viên và Ảnh đại diện. Các dữ liệu học tập (mã môn, điểm) do bạn nhập sẽ được mã hóa trên Server bảo mật chuẩn quốc tế.</p>
-                                <div className="bg-red-50 text-red-600 p-4 font-bold mt-3 rounded-lg border border-red-200">
-                                    ⚠️ TUYÊN BỐ: Chúng tôi KHÔNG có quyền và KHÔNG BAO GIỜ thu thập mật khẩu Portal hay mật khẩu Google của bạn.
-                                </div>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-[#003375] text-lg mb-2 uppercase">2. Mục đích sử dụng</h3>
-                                <p>Đồng bộ dữ liệu học tập giữa các thiết bị (Laptop, Điện thoại), tính toán GPA và gợi ý lộ trình tự động bằng AI Gemini.</p>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-[#003375] text-lg mb-2 uppercase">3. Không chia sẻ dữ liệu</h3>
-                                <p>Chúng tôi TUYỆT ĐỐI KHÔNG kinh doanh, bán hoặc cho thuê dữ liệu cá nhân của sinh viên cho các đơn vị quảng cáo (Ads) hay tổ chức thứ ba nào.</p>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-[#003375] text-lg mb-2 uppercase">4. Quyền của người dùng (Right to be forgotten)</h3>
-                                <p>Bạn là chủ nhân duy nhất của dữ liệu. Bạn có toàn quyền yêu cầu xóa vĩnh viễn toàn bộ dữ liệu của mình bằng nút "Xóa dữ liệu" trong mục Cài đặt tài khoản.</p>
-                            </div>
-                        </div>
-                    </div>
-                );
+                return <PrivacyPolicy />;
 
             default:
                 return null;
