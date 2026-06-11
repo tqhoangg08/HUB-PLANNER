@@ -44,6 +44,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   const [showHistory, setShowHistory] = useState(false); 
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [hasAIConsent, setHasAIConsent] = useState(false);
   
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [savedSessions, setSavedSessions] = useState<ChatSessionLog[]>([]); 
@@ -54,6 +55,22 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
   const [customPrompt, setCustomPrompt] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const aiConsentStorageKey = userId ? `hub_ai_third_party_consent_${userId}` : 'hub_ai_third_party_consent_guest';
+
+  useEffect(() => {
+      if (!userId) {
+          setHasAIConsent(false);
+          return;
+      }
+      setHasAIConsent(localStorage.getItem(aiConsentStorageKey) === 'accepted');
+  }, [aiConsentStorageKey, userId]);
+
+  const acceptAIConsent = () => {
+      playClick();
+      localStorage.setItem(aiConsentStorageKey, 'accepted');
+      setHasAIConsent(true);
+  };
 
   const [showBubble, setShowBubble] = useState(false);
   const [bubbleDismissed, setBubbleDismissed] = useState(false);
@@ -194,6 +211,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   const handleAdvice = async (isFirstTime = false, presetQuestion = "") => {
     const questionToAsk = presetQuestion || customPrompt;
     if (!questionToAsk.trim() && !isFirstTime) return;
+    if (!hasAIConsent) return;
 
     playClick();
     
@@ -544,7 +562,35 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
     ref={scrollRef}
 >
                         
-                        {chatHistory.length === 0 && !loading ? (
+                        {!hasAIConsent ? (
+                        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mx-1 text-left shadow-sm">
+                            <div className="flex items-start gap-3">
+                                <Sparkles size={20} className="text-[#003375] shrink-0 mt-0.5" />
+                                <div className="space-y-3">
+                                    <div>
+                                        <p className="font-extrabold text-[#003375] text-sm">Đồng ý xử lý dữ liệu cho trợ lý AI</p>
+                                        <p className="text-xs text-gray-700 mt-1 leading-relaxed">
+                                            Để AI tư vấn, HUB Planner sẽ gửi câu hỏi, lịch sử hội thoại cần thiết và ngữ cảnh học tập
+                                            như GPA, ngành, khóa, môn cần lưu ý tới dịch vụ AI bên thứ ba như Google Gemini hoặc Groq.
+                                            Hệ thống không gửi mật khẩu, OTP hoặc thông tin đăng nhập.
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={acceptAIConsent}
+                                            className="px-4 py-2 bg-[#003375] text-white rounded-lg text-xs font-bold active:scale-95"
+                                        >
+                                            Tôi đồng ý
+                                        </button>
+                                        <Link to="/privacy" onClick={() => setIsOpen(false)} className="text-xs font-semibold text-[#003375] underline">
+                                            Xem Chính sách bảo mật
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        ) : chatHistory.length === 0 && !loading ? (
                         <div className="flex flex-col items-center animate-message mt-6 mb-10 px-2 text-center">
                             <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-3 text-[#003375]">
                                 <Sparkles size={32} />
@@ -553,10 +599,10 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                             <p className="text-sm text-gray-500 mb-6 max-w-[260px]">Sẵn sàng hỗ trợ lộ trình và giải đáp thắc mắc học vụ.</p>
                             
                             <div className="flex flex-col w-full gap-2 px-2 max-w-sm">
-                                <button onClick={() => handleAdvice(false, "Đánh giá tổng quan kết quả học tập của mình")} className="text-[13px] bg-white border border-gray-200 py-3 px-4 rounded-full active:bg-blue-50 active:text-[#003375] font-semibold text-gray-600 shadow-sm transition-all text-center">
+                                <button disabled={!hasAIConsent} onClick={() => handleAdvice(false, "Đánh giá tổng quan kết quả học tập của mình")} className="text-[13px] bg-white border border-gray-200 py-3 px-4 rounded-full active:bg-blue-50 active:text-[#003375] font-semibold text-gray-600 shadow-sm transition-all text-center disabled:opacity-50 disabled:cursor-not-allowed">
                                     Đánh giá bảng điểm hiện tại
                                 </button>
-                                <button onClick={() => handleAdvice(false, "Mục tiêu GPA của mình có khả thi không?")} className="text-[13px] bg-white border border-gray-200 py-3 px-4 rounded-full active:bg-blue-50 active:text-[#003375] font-semibold text-gray-600 shadow-sm transition-all text-center">
+                                <button disabled={!hasAIConsent} onClick={() => handleAdvice(false, "Mục tiêu GPA của mình có khả thi không?")} className="text-[13px] bg-white border border-gray-200 py-3 px-4 rounded-full active:bg-blue-50 active:text-[#003375] font-semibold text-gray-600 shadow-sm transition-all text-center disabled:opacity-50 disabled:cursor-not-allowed">
                                     Mục tiêu GPA có khả thi?
                                 </button>
                             </div>
@@ -618,7 +664,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                                 className="flex-1 border border-gray-200 rounded-2xl pl-4 pr-3 py-3 min-h-[44px] max-h-24 focus:border-[#003375] focus:outline-none bg-gray-50 text-[15px] resize-none custom-scrollbar transition-all"
                                 value={customPrompt} 
                                 onChange={(e) => setCustomPrompt(e.target.value)} 
-                                disabled={loading || loadingHistory}
+                                disabled={loading || loadingHistory || !hasAIConsent}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && !e.shiftKey) {
                                         e.preventDefault();
@@ -626,7 +672,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                                     }
                                 }}
                             />
-                            <button type="submit" disabled={loading || loadingHistory || !customPrompt.trim()} className="bg-[#003375] text-white w-11 h-11 rounded-full shrink-0 disabled:opacity-50 active:scale-90 shadow-sm flex items-center justify-center transition-transform">
+                            <button type="submit" disabled={loading || loadingHistory || !hasAIConsent || !customPrompt.trim()} className="bg-[#003375] text-white w-11 h-11 rounded-full shrink-0 disabled:opacity-50 active:scale-90 shadow-sm flex items-center justify-center transition-transform">
                                 {loading ? <Loader2 className="animate-spin" size={20} /> : <Send size={18} className="mr-0.5 mt-0.5" />}
                             </button>
                         </form>

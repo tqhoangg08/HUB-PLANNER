@@ -39,6 +39,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   const [showSidebar, setShowSidebar] = useState(window.innerWidth >= 768); 
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [hasAIConsent, setHasAIConsent] = useState(false);
   
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [savedSessions, setSavedSessions] = useState<ChatSessionLog[]>([]); 
@@ -50,6 +51,22 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
   const [customPrompt, setCustomPrompt] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const aiConsentStorageKey = userId ? `hub_ai_third_party_consent_${userId}` : 'hub_ai_third_party_consent_guest';
+
+  useEffect(() => {
+      if (!userId) {
+          setHasAIConsent(false);
+          return;
+      }
+      setHasAIConsent(localStorage.getItem(aiConsentStorageKey) === 'accepted');
+  }, [aiConsentStorageKey, userId]);
+
+  const acceptAIConsent = () => {
+      playClick();
+      localStorage.setItem(aiConsentStorageKey, 'accepted');
+      setHasAIConsent(true);
+  };
 
   // Đóng dropdown khi click ra ngoài
   useEffect(() => {
@@ -119,6 +136,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   const handleAdvice = async (isFirstTime = false, presetQuestion = "") => {
     const questionToAsk = presetQuestion || customPrompt;
     if (!questionToAsk.trim() && !isFirstTime) return;
+    if (!hasAIConsent) return;
 
     playClick();
     
@@ -408,7 +426,35 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                     <div className="flex-1 flex flex-col min-w-0 bg-white relative z-0">
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 bg-white" ref={scrollRef}>
                           
-                          {chatHistory.length === 0 && !loading ? (
+                          {!hasAIConsent ? (
+                            <div className="max-w-lg mx-auto my-8 bg-blue-50 border border-blue-200 rounded-xl p-4 text-left shadow-sm">
+                              <div className="flex items-start gap-3">
+                                <Sparkles size={20} className="text-[#003375] shrink-0 mt-0.5" />
+                                <div className="space-y-3">
+                                  <div>
+                                    <p className="font-bold text-[#003375] text-sm">Đồng ý xử lý dữ liệu cho trợ lý AI</p>
+                                    <p className="text-xs text-gray-700 mt-1 leading-relaxed">
+                                      Để AI tư vấn cá nhân hóa, HUB Planner sẽ gửi câu hỏi, lịch sử hội thoại cần thiết
+                                      và ngữ cảnh học tập như GPA, ngành, khóa, môn cần lưu ý tới dịch vụ AI bên thứ ba
+                                      như Google Gemini hoặc Groq. Hệ thống không gửi mật khẩu, OTP hoặc thông tin đăng nhập.
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={acceptAIConsent}
+                                      className="px-4 py-2 bg-[#003375] text-white rounded-lg text-xs font-bold hover:bg-[#002855] transition-colors active:scale-95"
+                                    >
+                                      Tôi đồng ý
+                                    </button>
+                                    <Link to="/privacy" className="text-xs font-semibold text-[#003375] hover:underline">
+                                      Xem Chính sách bảo mật
+                                    </Link>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : chatHistory.length === 0 && !loading ? (
                             <div className="text-center text-gray-500 py-10 flex flex-col items-center animate-message">
                               <div className="bg-blue-50 p-4 rounded-full mb-4">
                                   <MessageSquare size={32} className="text-[#003375]" />
@@ -417,13 +463,13 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                               <p className="text-sm mt-1 max-w-xs text-gray-500">Hôm nay mình có thể giúp gì cho quá trình học tập của bạn tại HUB?</p>
                               
                               <div className="mt-8 flex flex-wrap justify-center gap-2 px-2">
-                                  <button onClick={() => { handleAdvice(false, "Đánh giá tổng quan kết quả học tập của mình"); }} className="text-xs bg-white border border-gray-200 px-4 py-2.5 rounded-xl hover:bg-blue-50 hover:border-blue-200 hover:text-[#003375] font-medium transition-all shadow-sm active:scale-95">
+                                  <button disabled={!hasAIConsent} onClick={() => { handleAdvice(false, "Đánh giá tổng quan kết quả học tập của mình"); }} className="text-xs bg-white border border-gray-200 px-4 py-2.5 rounded-xl hover:bg-blue-50 hover:border-blue-200 hover:text-[#003375] font-medium transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                                       📊 Đánh giá bảng điểm hiện tại
                                   </button>
-                                  <button onClick={() => { handleAdvice(false, "Mục tiêu GPA của mình có khả thi không?"); }} className="text-xs bg-white border border-gray-200 px-4 py-2.5 rounded-xl hover:bg-blue-50 hover:border-blue-200 hover:text-[#003375] font-medium transition-all shadow-sm active:scale-95">
+                                  <button disabled={!hasAIConsent} onClick={() => { handleAdvice(false, "Mục tiêu GPA của mình có khả thi không?"); }} className="text-xs bg-white border border-gray-200 px-4 py-2.5 rounded-xl hover:bg-blue-50 hover:border-blue-200 hover:text-[#003375] font-medium transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                                       🎯 Đánh giá mục tiêu GPA
                                   </button>
-                                  <button onClick={() => { handleAdvice(false, "Điều kiện để đạt học bổng xuất sắc là gì?"); }} className="text-xs bg-white border border-gray-200 px-4 py-2.5 rounded-xl hover:bg-blue-50 hover:border-blue-200 hover:text-[#003375] font-medium transition-all shadow-sm active:scale-95">
+                                  <button disabled={!hasAIConsent} onClick={() => { handleAdvice(false, "Điều kiện để đạt học bổng xuất sắc là gì?"); }} className="text-xs bg-white border border-gray-200 px-4 py-2.5 rounded-xl hover:bg-blue-50 hover:border-blue-200 hover:text-[#003375] font-medium transition-all shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
                                       🎓 Điều kiện đạt Học bổng
                                   </button>
                               </div>
@@ -478,9 +524,9 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                             <input
                               type="text" placeholder="Nhập câu hỏi tại đây..."
                               className="flex-1 border border-gray-200 rounded-full pl-4 pr-12 py-3 focus:ring-2 focus:ring-[#003375] focus:outline-none bg-gray-50 transition-all text-sm"
-                              value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} disabled={loading || loadingHistory}
+                              value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} disabled={loading || loadingHistory || !hasAIConsent}
                             />
-                            <button type="submit" disabled={loading || loadingHistory || !customPrompt.trim()} className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-[#003375] text-white p-2 rounded-full hover:bg-[#002855] disabled:opacity-50 transition-all active:scale-95 shadow-sm">
+                            <button type="submit" disabled={loading || loadingHistory || !hasAIConsent || !customPrompt.trim()} className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-[#003375] text-white p-2 rounded-full hover:bg-[#002855] disabled:opacity-50 transition-all active:scale-95 shadow-sm">
                               {loading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} className={loading ? 'opacity-0' : 'opacity-100'} />}
                             </button>
                           </form>
