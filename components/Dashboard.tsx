@@ -1419,38 +1419,60 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const showAdminPanel = (isAdmin || isAuditor) && adminMode === 'list';
 
-    const fetchAdminData = async () => {
+    const adminSearchQuery = adminSearch.trim();
+    const hasAdminSearchQuery = adminSearchQuery.length >= 2;
+    const adminSearchCacheKey = (query: string) => `hub_admin_student_search_v1:${query.trim().toLowerCase()}`;
+    const readAdminSearchCache = (query: string) => {
+        try {
+            const raw = sessionStorage.getItem(adminSearchCacheKey(query));
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed?.cachedAt || Date.now() - parsed.cachedAt > 5 * 60 * 1000) return null;
+            return Array.isArray(parsed.users) ? parsed.users : null;
+        } catch {
+            return null;
+        }
+    };
+    const writeAdminSearchCache = (query: string, users: any[]) => {
+        try {
+            sessionStorage.setItem(adminSearchCacheKey(query), JSON.stringify({ cachedAt: Date.now(), users }));
+        } catch {
+            // Cache is an optimization only.
+        }
+    };
+
+    const fetchAdminData = async (searchOverride = adminSearch, options: { force?: boolean } = {}) => {
+        const query = searchOverride.trim();
+        if (query.length < 2) {
+            setAdminUsers([]);
+            setLoadingAdmin(false);
+            setLoadingAdminDetails(false);
+            return;
+        }
+
+        if (!options.force) {
+            const cachedUsers = readAdminSearchCache(query);
+            if (cachedUsers) {
+                setAdminUsers(cachedUsers);
+                setCurrentPage(1);
+                setPageInput('1');
+                return;
+            }
+        }
+
         setLoadingAdmin(true);
         setLoadingAdminDetails(false);
         try {
-            let allProfiles: any[] = [];
-            let hasMore = true;
-            let page = 0;
-            const pageSize = 1000;
-
-            while (hasMore) {
-                const { data: profiles, error } = await supabase
-                    .from('profiles')
-                    .select('id, student_code, full_name, created_at, updated_at')
-                    .order('updated_at', { ascending: false })
-                    .range(page * pageSize, (page + 1) * pageSize - 1);
-                
-                if (error) {
-                    console.error(error);
-                    break;
-                }
-                
-                if (profiles && profiles.length > 0) {
-                    allProfiles = [...allProfiles, ...profiles];
-                    if (profiles.length < pageSize) {
-                        hasMore = false; 
-                    } else {
-                        page++; 
-                    }
-                } else {
-                    hasMore = false;
-                }
-            }
+            const safeQuery = query.replace(/[%,_]/g, ' ').trim();
+            const { data: profiles, error } = await supabase
+                .from('profiles')
+                .select('id, student_code, full_name, created_at, updated_at')
+                .or(`student_code.ilike.%${safeQuery}%,full_name.ilike.%${safeQuery}%`)
+                .order('updated_at', { ascending: false })
+                .limit(80);
+            
+            if (error) throw error;
+            const allProfiles = profiles || [];
 
             const baseUsers = allProfiles.map(profile => ({
                 ...profile,
@@ -1471,23 +1493,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
             } finally {
                 setLoadingAdminDetails(false);
             }
-            setAdminUsers(allProfiles.map(profile => ({
+            const users = allProfiles.map(profile => ({
                 ...profile,
                 data: privateMap[profile.id]?.data || {},
                 isProfileSummary: true,
                 updated_at: privateMap[profile.id]?.updated_at || profile.updated_at,
                 email: privateMap[profile.id]?.email,
-            })));
+            }));
+            setAdminUsers(users);
+            writeAdminSearchCache(query, users);
         } finally {
             setLoadingAdmin(false);
         }
     };
 
     useEffect(() => {
-        if (showAdminPanel && adminUsers.length === 0) {
-            fetchAdminData();
+        if (!showAdminPanel) return;
+
+        if (!hasAdminSearchQuery) {
+            setAdminUsers([]);
+            setLoadingAdmin(false);
+            setLoadingAdminDetails(false);
+            return;
         }
-    }, [showAdminPanel]);
+
+        const timer = window.setTimeout(() => {
+            fetchAdminData(adminSearchQuery);
+        }, 450);
+
+        return () => window.clearTimeout(timer);
+    }, [showAdminPanel, adminSearchQuery]);
 
     const handleOpenAdminUserDetail = async (user: any) => {
         playClick();
@@ -2198,7 +2233,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="shrink-0 px-3 py-1.5 bg-[#0052cc] border border-transparent text-white text-xs font-bold rounded-lg hover:bg-[#003d99] flex items-center gap-1.5 transition-colors">
                             <User size={14} /> Hồ sơ của tôi
                         </button>
-                        <button onClick={() => { playClick(); fetchAdminData(); }} disabled={loadingAdmin} className="shrink-0 p-1.5 border border-gray-300 text-gray-500 hover:text-[#0052cc] hover:bg-blue-50 rounded-lg transition-colors bg-white" title="Làm mới">
+                        <button onClick={() => { playClick(); fetchAdminData(adminSearchQuery, { force: true }); }} disabled={loadingAdmin || !hasAdminSearchQuery} className="shrink-0 p-1.5 border border-gray-300 text-gray-500 hover:text-[#0052cc] hover:bg-blue-50 rounded-lg transition-colors bg-white disabled:opacity-50" title="Làm mới">
                             <RefreshCw size={16} className={loadingAdmin ? "animate-spin" : ""} />
                         </button>
                     </div>
@@ -2209,7 +2244,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div className="relative w-full md:w-64 shrink-0">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                         <input 
-                            type="text" placeholder="Tìm MSSV hoặc Tên..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)}
+                            type="text" placeholder="Nhập ít nhất 2 ký tự để tìm..." value={adminSearch} onChange={e => setAdminSearch(e.target.value)}
                             className="w-full pl-8 pr-3 py-1.5 border border-gray-300 bg-gray-50 focus:bg-white rounded-lg focus:border-[#003375] focus:ring-1 focus:ring-[#003375] outline-none text-xs text-gray-700 transition-all hover:border-gray-400"
                         />
                     </div>
@@ -2336,7 +2371,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </thead>
                             <tbody className="divide-y divide-gray-200">
                                 {loadingAdmin && adminUsers.length === 0 ? (
-                                    <tr><td colSpan={6} className="py-10 text-center"><Loader2 className="animate-spin text-[#0052cc] mx-auto mb-2" size={24}/> <span className="text-xs text-gray-500">Đang tải dữ liệu...</span></td></tr>
+                                    <tr><td colSpan={6} className="py-10 text-center"><Loader2 className="animate-spin text-[#0052cc] mx-auto mb-2" size={24}/> <span className="text-xs text-gray-500">Đang tìm sinh viên...</span></td></tr>
+                                ) : !hasAdminSearchQuery ? (
+                                    <tr><td colSpan={6} className="py-10 text-center text-xs text-gray-500">Nhập MSSV hoặc tên sinh viên để tải danh sách phù hợp.</td></tr>
                                 ) : (() => {
                                     const paginatedUsers = processedAdminUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
                                     return paginatedUsers.length > 0 ? (

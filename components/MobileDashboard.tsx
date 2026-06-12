@@ -1998,37 +1998,58 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
     const showAdminPanel = (isAdmin || isAuditor) && adminMode === 'list';
 
-    const fetchAdminData = async () => {
+    const adminSearchQuery = adminSearch.trim();
+    const hasAdminSearchQuery = adminSearchQuery.length >= 2;
+    const adminSearchCacheKey = (query: string) => `hub_admin_student_search_v1:${query.trim().toLowerCase()}`;
+    const readAdminSearchCache = (query: string) => {
+        try {
+            const raw = sessionStorage.getItem(adminSearchCacheKey(query));
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed?.cachedAt || Date.now() - parsed.cachedAt > 5 * 60 * 1000) return null;
+            return Array.isArray(parsed.users) ? parsed.users : null;
+        } catch {
+            return null;
+        }
+    };
+    const writeAdminSearchCache = (query: string, users: any[]) => {
+        try {
+            sessionStorage.setItem(adminSearchCacheKey(query), JSON.stringify({ cachedAt: Date.now(), users }));
+        } catch {
+            // Cache is an optimization only.
+        }
+    };
+
+    const fetchAdminData = async (searchOverride = adminSearch, options: { force?: boolean } = {}) => {
+        const query = searchOverride.trim();
+        if (query.length < 2) {
+            setAdminUsers([]);
+            setLoadingAdmin(false);
+            return;
+        }
+
+        if (!options.force) {
+            const cachedUsers = readAdminSearchCache(query);
+            if (cachedUsers) {
+                setAdminUsers(cachedUsers);
+                setCurrentPage(1);
+                setPageInput('1');
+                return;
+            }
+        }
+
         setLoadingAdmin(true);
         try {
-            let allProfiles: any[] = [];
-            let hasMore = true;
-            let page = 0;
-            const pageSize = 1000;
-
-            while (hasMore) {
-                const { data: profiles, error } = await supabase
-                    .from('profiles')
-                    .select('id, student_code, full_name, created_at, updated_at')
-                    .order('updated_at', { ascending: false })
-                    .range(page * pageSize, (page + 1) * pageSize - 1);
-                
-                if (error) {
-                    console.error(error);
-                    break;
-                }
-                
-                if (profiles && profiles.length > 0) {
-                    allProfiles = [...allProfiles, ...profiles];
-                    if (profiles.length < pageSize) {
-                        hasMore = false; 
-                    } else {
-                        page++; 
-                    }
-                } else {
-                    hasMore = false;
-                }
-            }
+            const safeQuery = query.replace(/[%,_]/g, ' ').trim();
+            const { data: profiles, error } = await supabase
+                .from('profiles')
+                .select('id, student_code, full_name, created_at, updated_at')
+                .or(`student_code.ilike.%${safeQuery}%,full_name.ilike.%${safeQuery}%`)
+                .order('updated_at', { ascending: false })
+                .limit(80);
+            
+            if (error) throw error;
+            const allProfiles = profiles || [];
             
             let privateMap: Record<string, any> = {};
             try {
@@ -2036,13 +2057,15 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             } catch (error) {
                 console.error('Không thể tải dữ liệu private của sinh viên:', error);
             }
-            setAdminUsers(allProfiles.map(profile => ({
+            const users = allProfiles.map(profile => ({
                 ...profile,
                 data: privateMap[profile.id]?.data || {},
                 isProfileSummary: true,
                 updated_at: privateMap[profile.id]?.updated_at || profile.updated_at,
                 email: privateMap[profile.id]?.email,
-            })));
+            }));
+            setAdminUsers(users);
+            writeAdminSearchCache(query, users);
             setCurrentPage(1);
             setPageInput('1');
         } finally {
@@ -2051,10 +2074,20 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     };
 
     useEffect(() => {
-        if (showAdminPanel && adminUsers.length === 0) {
-            fetchAdminData();
+        if (!showAdminPanel) return;
+
+        if (!hasAdminSearchQuery) {
+            setAdminUsers([]);
+            setLoadingAdmin(false);
+            return;
         }
-    }, [showAdminPanel]); 
+
+        const timer = window.setTimeout(() => {
+            fetchAdminData(adminSearchQuery);
+        }, 450);
+
+        return () => window.clearTimeout(timer);
+    }, [showAdminPanel, adminSearchQuery]); 
 
     const handleOpenAdminUserDetail = async (user: any) => {
         playClick();
@@ -2548,7 +2581,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                                     <input 
                                         type="text" 
-                                        placeholder="Tìm MSSV hoặc Tên..."
+                                        placeholder="Nhập ít nhất 2 ký tự để tìm..."
                                         value={adminSearch}
                                         onChange={e => setAdminSearch(e.target.value)}
                                         className="w-full h-10 pl-8 pr-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-[#003375] outline-none text-sm bg-white font-semibold"
@@ -2569,8 +2602,8 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                 </button>
 
                                 <button 
-                                    onClick={() => { playClick(); fetchAdminData(); }} 
-                                    disabled={loadingAdmin}
+                                    onClick={() => { playClick(); fetchAdminData(adminSearchQuery, { force: true }); }} 
+                                    disabled={loadingAdmin || !hasAdminSearchQuery}
                                     className="h-10 w-10 bg-white text-gray-500 border border-gray-300 hover:text-[#003375] hover:bg-blue-50 rounded-xl shadow-sm transition-colors disabled:opacity-50 shrink-0 flex items-center justify-center"
                                     title="Làm mới danh sách"
                                 >
@@ -2703,8 +2736,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                         {loadingAdmin ? (
                             <div className="py-12 text-center">
                                 <Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/>
-                                <span className="text-gray-500 text-sm">Đang tải toàn bộ dữ liệu ({adminUsers.length}+)...</span>
+                                <span className="text-gray-500 text-sm">Đang tìm sinh viên...</span>
                             </div>
+                        ) : !hasAdminSearchQuery ? (
+                            <div className="py-12 text-center text-gray-500 text-sm">Nhập MSSV hoặc tên sinh viên để tải danh sách phù hợp.</div>
                         ) : paginatedAdminUsers.length > 0 ? (
                             <div className="divide-y divide-gray-100">
                                 {paginatedAdminUsers.map(user => {
@@ -2762,7 +2797,9 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {loadingAdmin ? (
-                                    <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/> <span className="text-gray-500">Đang tải toàn bộ dữ liệu ({adminUsers.length}+)...</span></td></tr>
+                                    <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/> <span className="text-gray-500">Đang tìm sinh viên...</span></td></tr>
+                                ) : !hasAdminSearchQuery ? (
+                                    <tr><td colSpan={6} className="py-12 text-center text-gray-500">Nhập MSSV hoặc tên sinh viên để tải danh sách phù hợp.</td></tr>
                                 ) : (() => {
                                     return paginatedAdminUsers.length > 0 ? (
                                         paginatedAdminUsers.map(user => {
