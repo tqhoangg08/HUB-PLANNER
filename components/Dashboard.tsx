@@ -28,6 +28,7 @@ import { exportTranscriptToPdf } from '../utils/pdfExport';
 import { fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
 import PushNotificationPrompt from '../components/PushNotificationPrompt'; // Đường dẫn tùy sếp lưu ở đâu
 import { notifyModerators } from '../utils/moderatorNotifications';
+import { showAlert } from '../utils/appNotifications';
 
 // ============================================================================
 // HELPERS CHO GIAO DIỆN ADMIN
@@ -426,6 +427,7 @@ const ScoreInput = ({ value, onChange, disabled = false }: { value: number | nul
   }, [value]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     const newVal = e.target.value;
     if (newVal === '') {
       setLocalValue('');
@@ -443,10 +445,11 @@ const ScoreInput = ({ value, onChange, disabled = false }: { value: number | nul
   return (
     <input 
       type="number" min="0" max="10" step="0.1"
-      className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-2 focus:ring-[#003375] focus:border-transparent p-1 text-center font-medium transition-all hover:border-gray-400"
+      className={`w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-2 focus:ring-[#003375] focus:border-transparent p-1 text-center font-medium transition-all hover:border-gray-400 ${disabled ? 'cursor-default bg-gray-50' : ''}`}
       placeholder="-"
       value={localValue}
-      disabled={disabled}
+      readOnly={disabled}
+      aria-readonly={disabled}
       onChange={handleChange}
       onKeyDown={(e) => { if (["e", "E", "+", "-"].includes(e.key)) e.preventDefault(); }}
     />
@@ -495,6 +498,7 @@ interface SemesterTableProps {
   usedSemesterNames: string[];
   onCascadeUpdate: (newName: string) => void; 
   isReadOnly?: boolean;
+  onReadOnlyEditAttempt?: () => void;
   rankContext?: {
     studentCode?: string | null;
     classCode?: string | null;
@@ -503,7 +507,7 @@ interface SemesterTableProps {
   };
 }
 
-const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester, allSemesterOptions, usedSemesterNames, onCascadeUpdate, isReadOnly, rankContext }) => {
+const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdateSemester, onRemoveSemester, allSemesterOptions, usedSemesterNames, onCascadeUpdate, isReadOnly, onReadOnlyEditAttempt, rankContext }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
   const [showScoreColumns, setShowScoreColumns] = useState(false);
@@ -633,6 +637,15 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
       fetchRank(refId, semGPA4, totalRegisteredCredits, semester.trainingScore ?? 0, rankContext);
   };
 
+  const handleReadOnlyEditableClick = (event: React.MouseEvent<HTMLElement>) => {
+      if (!isReadOnly || !onReadOnlyEditAttempt) return;
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest('[data-transcript-editable="true"]')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onReadOnlyEditAttempt();
+  };
+
   let headerColor = "bg-gray-50 border-gray-300";
   if (hasData) {
       if (semGPA4 >= 3.6) headerColor = "bg-green-50 border-green-300"; 
@@ -656,14 +669,18 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   }, [semester.subjects, searchTerm, sortOrder]);
 
   return (
-    <div className={`mb-5 sm:mb-8 bg-white rounded-xl border overflow-visible ${hasData || isValidFormat ? 'border-gray-300' : 'border-red-400'}`}>
+    <div onMouseDownCapture={handleReadOnlyEditableClick} className={`mb-5 sm:mb-8 bg-white rounded-xl border overflow-visible ${hasData || isValidFormat ? 'border-gray-300' : 'border-red-400'}`}>
       <div className={`px-3 py-3 sm:px-6 sm:py-4 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 ${isValidFormat ? headerColor : 'bg-red-50/30 border-red-300'} rounded-t-xl ${isValidFormat ? 'border-b' : 'border-b-0'}`}>
         <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-            <div className="relative group flex-1 max-w-md flex items-center min-w-0">
+            <div className="relative group flex-1 max-w-md flex items-center min-w-0" data-transcript-editable="true">
                 <select 
                     value={isValidFormat ? semester.name : ''}
-                    onChange={handleNameChange}
-                    disabled={isReadOnly}
+                    onChange={(event) => {
+                        if (isReadOnly) return;
+                        handleNameChange(event);
+                    }}
+                    aria-disabled={isReadOnly}
+                    tabIndex={isReadOnly ? -1 : 0}
                     className={`text-base sm:text-lg font-bold bg-transparent border-b border-dashed focus:outline-none transition-all w-full py-0.5 sm:py-1 appearance-none cursor-pointer pr-6 truncate ${
                         !isValidFormat
                         ? 'text-red-600 border-red-400 hover:border-red-600' 
@@ -814,11 +831,13 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 <span className="font-bold text-[#990000]">{hasData && isValidFormat ? semGPA10.toFixed(2) : '-'}</span>
             </div>
 
-            <div className="flex items-center gap-1 sm:gap-2 bg-white pl-2 pr-1 py-0.5 sm:pl-3 sm:pr-1 sm:py-1 rounded-lg border border-gray-300 transition-transform hover:scale-105">
+            <div className="flex items-center gap-1 sm:gap-2 bg-white pl-2 pr-1 py-0.5 sm:pl-3 sm:pr-1 sm:py-1 rounded-lg border border-gray-300 transition-transform hover:scale-105" data-transcript-editable="true">
                 <span className="text-gray-500 font-medium flex items-center gap-1"><Star className="text-yellow-500 fill-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">ĐRL:</span></span>
                 <input 
                     type="number" min="0" max="100" placeholder="0"
-                    disabled={!isValidFormat || isReadOnly}
+                    disabled={!isValidFormat}
+                    readOnly={isReadOnly}
+                    aria-readonly={isReadOnly}
                     className="w-7 sm:w-10 text-center font-bold text-gray-800 outline-none border-b border-transparent focus:border-[#003375] focus:bg-gray-50 rounded transition-colors bg-transparent disabled:opacity-50"
                     value={semester.trainingScore ?? ''}
                     onChange={(e) => handleTrainingScoreChange(e.target.value)}
@@ -1238,30 +1257,30 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                 <td className="px-3 py-2 text-center text-gray-500">{sIdx + 1}</td>
                                 
                                 {visibleScoreColumnConfig.map((column) => (
-                                    <td key={column.key} className="px-1 py-2">
+                                    <td key={column.key} className="px-1 py-2" data-transcript-editable="true">
                                         <ScoreInput value={subject[column.key as keyof Subject] as number | null} disabled={isReadOnly} onChange={(val) => handleSubjectChange(subject.id, column.key as keyof Subject, val)} />
                                     </td>
                                 ))}
 
-                                <td className="px-3 py-2">
-                                    <input type="text" disabled={isReadOnly} className="w-full bg-transparent border-b border-transparent focus:border-[#003375] focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375] disabled:cursor-default" value={subject.name} onChange={(e) => handleSubjectChange(subject.id, 'name', e.target.value)} />
+                                <td className="px-3 py-2" data-transcript-editable="true">
+                                    <input type="text" readOnly={isReadOnly} aria-readonly={isReadOnly} className="w-full bg-transparent border-b border-transparent focus:border-[#003375] focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375] read-only:cursor-default" value={subject.name} onChange={(e) => !isReadOnly && handleSubjectChange(subject.id, 'name', e.target.value)} />
                                     <div className="flex items-center gap-2 mt-1">
                                         <label className="text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
-                                            <input type="checkbox" disabled={isReadOnly} checked={subject.isNonGPA} onChange={(e) => { playClick(); handleSubjectChange(subject.id, 'isNonGPA', e.target.checked); }} className="rounded text-[#003375] border-gray-300 focus:ring-[#003375] w-3 h-3 mr-1 disabled:opacity-50" />
+                                            <input type="checkbox" aria-readonly={isReadOnly} checked={subject.isNonGPA} onChange={(e) => { if (isReadOnly) return; playClick(); handleSubjectChange(subject.id, 'isNonGPA', e.target.checked); }} className={`rounded text-[#003375] border-gray-300 focus:ring-[#003375] w-3 h-3 mr-1 ${isReadOnly ? 'opacity-60' : ''}`} />
                                             Không tính GPA
                                         </label>
                                     </div>
                                 </td>
                                 
-                                <td className="px-1 py-2">
-                                    <input type="number" disabled={isReadOnly} className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-[#003375] focus:border-[#003375] hover:border-gray-400 disabled:bg-gray-50 disabled:cursor-default" value={subject.credits} onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
+                                <td className="px-1 py-2" data-transcript-editable="true">
+                                    <input type="number" readOnly={isReadOnly} aria-readonly={isReadOnly} className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-[#003375] focus:border-[#003375] hover:border-gray-400 read-only:bg-gray-50 read-only:cursor-default" value={subject.credits} onChange={(e) => !isReadOnly && handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
                                 </td>
                                 
                                 <td className="px-2 py-2 text-center font-bold text-[#990000]">{avg10 !== null ? avg10.toFixed(1) : '-'}</td>
                                 <td className="px-2 py-2 text-center font-bold text-gray-700">{letter}</td>
                                 <td className="px-2 py-2 text-center font-bold text-[#003375]">{avg4 !== null ? avg4.toFixed(1) : '-'}</td>
                                 <td className="px-3 py-2 text-center"><span className={`px-2 py-1 rounded text-xs block w-full text-center ${statusClass}`}>{statusText}</span></td>
-                                <td className="px-2 py-2 text-center">
+                                <td className="px-2 py-2 text-center" data-transcript-editable="true">
                                     <button onClick={() => removeSubject(subject.id)} disabled={isReadOnly} className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all p-1.5 border border-transparent hover:border-red-200 active:scale-90 disabled:opacity-40 disabled:pointer-events-none" title="Xóa môn"><Trash2 size={16} /></button>
                                 </td>
                             </tr>
@@ -1275,7 +1294,9 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
             </div>
             
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-300 rounded-b-xl flex justify-between items-center">
-                <button onClick={addSubject} disabled={isReadOnly} className="flex items-center gap-1 text-sm font-bold text-[#003375] border border-gray-300 bg-white hover:bg-gray-100 rounded-lg px-3 py-1.5 transition-colors active:scale-95 disabled:opacity-50 disabled:pointer-events-none"><Plus size={16} /> Thêm môn học</button>
+                <span data-transcript-editable="true">
+                    <button onClick={addSubject} disabled={isReadOnly} className="flex items-center gap-1 text-sm font-bold text-[#003375] border border-gray-300 bg-white hover:bg-gray-100 rounded-lg px-3 py-1.5 transition-colors active:scale-95 disabled:opacity-50 disabled:pointer-events-none"><Plus size={16} /> Thêm môn học</button>
+                </span>
             </div>
         </>
       ) : (
@@ -1612,6 +1633,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [isSavingTranscript, setIsSavingTranscript] = useState(false);
     const [transcriptSaveError, setTranscriptSaveError] = useState<string | null>(null);
     const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+    const editTranscriptButtonRef = useRef<HTMLButtonElement | null>(null);
 
     const cloneSemesters = (semesters: Semester[]) => JSON.parse(JSON.stringify(semesters || [])) as Semester[];
 
@@ -1690,6 +1712,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
         playClick();
         setDraftSemesters(null);
         setIsTranscriptEditing(false);
+    };
+
+    const handleReadOnlyTranscriptEditAttempt = async () => {
+        await showAlert({
+            title: 'Bảng điểm đang ở chế độ xem',
+            message: 'Để chỉnh sửa bảng điểm, bạn hãy bấm nút Sửa bảng điểm ở phía trên cùng khu vực bảng điểm.',
+            confirmText: 'OK',
+            variant: 'info'
+        });
+        editTranscriptButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        editTranscriptButtonRef.current?.focus({ preventScroll: true });
     };
 
     const handleSaveTranscriptEdit = async () => {
@@ -2691,6 +2724,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     </>
                                 ) : (
                                     <button
+                                        ref={editTranscriptButtonRef}
                                         onClick={handleStartTranscriptEdit}
                                         className="bg-white text-[#003375] border border-[#003375]/30 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:border-[#003375] hover:bg-blue-50 transition-colors flex items-center gap-1 sm:gap-2 active:scale-95"
                                     >
@@ -2755,6 +2789,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     usedSemesterNames={usedSemesterNames}
                                     onCascadeUpdate={(newName) => handleCascadeUpdate(originalIndex, newName)}
                                     isReadOnly={isViewingAsAuditor || (!selectedUserOverview && !isTranscriptEditing)}
+                                    onReadOnlyEditAttempt={!selectedUserOverview && !isViewingAsAuditor ? handleReadOnlyTranscriptEditAttempt : undefined}
                                     rankContext={{
                                         studentCode: (activeData as any).studentCode || (activeData as any).student_code || null,
                                         classCode: (activeData as any).className || (activeData as any).class_name || (activeData as any).classCode || (activeData as any).class_code || null,
