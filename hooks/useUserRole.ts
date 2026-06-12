@@ -24,7 +24,7 @@ const normalizeRole = (role?: string | null): UserRole => {
 const roleCache = new Map<string, UserRole>();
 const roleRequestCache = new Map<string, Promise<UserRole>>();
 
-const fetchRoleRecord = async (userId: string, email?: string | null): Promise<UserRole> => {
+const fetchRoleRecord = async (userId: string): Promise<UserRole> => {
     const readRole = async (column: 'id' | 'user_id', value: string) => {
         const { data, error } = await supabase
             .from('user_roles')
@@ -46,20 +46,6 @@ const fetchRoleRecord = async (userId: string, email?: string | null): Promise<U
     const userIdRole = await readRole('user_id', userId);
     if (userIdRole && userIdRole !== 'student') return userIdRole;
 
-    if (email) {
-        const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('email', email)
-            .limit(1)
-            .maybeSingle();
-
-        if (!profileError && profile?.id) {
-            const profileRole = await readRole('user_id', profile.id as string);
-            if (profileRole && profileRole !== 'student') return profileRole;
-        }
-    }
-
     return 'student';
 };
 
@@ -78,7 +64,7 @@ const resolveRoleForSession = (session: Session): Promise<UserRole> => {
 
     const request = (async () => {
         const dbRole = supabase
-            ? await fetchRoleRecord(userId, session.user.email)
+            ? await fetchRoleRecord(userId)
             : 'student';
         const metadataRole = getMetadataRole(session);
         const role = dbRole !== 'student' ? dbRole : metadataRole;

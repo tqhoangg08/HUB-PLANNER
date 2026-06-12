@@ -4,7 +4,7 @@ import { calculateSemesterStats, calculateSubjectAverage, getGradeDetails, getSc
 import { getBenchmarkRankingTotal } from '../utils/benchmarkRankings';
 import { normalizeSemesterId } from '../utils/rankingData';
 import { supabase } from '../utils/supabase';
-import { fetchProfilePrivate, updateProfilePrivate } from '../utils/profilePrivate';
+import { fetchProfilePrivate } from '../utils/profilePrivate';
 
 export const LOOKBACK_SEMESTER_ID = '2025-2026_HK1';
 export const LOOKBACK_SEMESTER_LABEL = 'Học kỳ 1, Năm học 2025-2026';
@@ -37,9 +37,6 @@ export interface SemesterLookbackData {
     totalSubjectCount: number;
 }
 
-const STORAGE_PREFIX = 'hub_lookback_seen';
-const LOOKBACK_SEEN_FIELD = 'lookbackSeen';
-
 const findLookbackSemester = (semesters?: Semester[] | null): Semester | null => {
     return (semesters || []).find(sem => normalizeSemesterId(sem.name) === LOOKBACK_SEMESTER_ID) || null;
 };
@@ -61,25 +58,6 @@ const getCurrentUserIdentity = async (): Promise<{ studentCode: string | null; u
     return { studentCode: data?.student_code?.trim() || null, userId: user.id };
 };
 
-const hasRemoteLookbackSeen = (privateData?: Record<string, any> | null) => {
-    return Boolean(privateData?.[LOOKBACK_SEEN_FIELD]?.[LOOKBACK_SEMESTER_ID]);
-};
-
-const markRemoteLookbackSeen = async (userId: string, privateData?: Record<string, any> | null) => {
-    const nextData = {
-        ...(privateData || {}),
-        [LOOKBACK_SEEN_FIELD]: {
-            ...((privateData?.[LOOKBACK_SEEN_FIELD] as Record<string, boolean> | undefined) || {}),
-            [LOOKBACK_SEMESTER_ID]: true
-        }
-    };
-
-    await updateProfilePrivate(userId, {
-        data: nextData,
-        updated_at: new Date().toISOString()
-    });
-};
-
 export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
     const [studentCode, setStudentCode] = useState<string | null>(null);
     const [userId, setUserId] = useState<string | null>(null);
@@ -88,11 +66,6 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
     const [isOpen, setIsOpen] = useState(false);
 
     const semester = useMemo(() => findLookbackSemester(activeData.semesters), [activeData.semesters]);
-
-    const storageKey = useMemo(
-        () => `${STORAGE_PREFIX}_${LOOKBACK_SEMESTER_ID}_${studentCode || 'unknown'}`,
-        [studentCode]
-    );
 
     const open = useCallback(() => {
         setIsOpen(true);
@@ -119,7 +92,7 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
     }, [enabled]);
 
     useEffect(() => {
-        if (!enabled || !studentCode) return;
+        if (!enabled || !isOpen || !studentCode) return;
 
         let cancelled = false;
 
@@ -205,19 +178,6 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
                 };
 
                 setLookback(nextLookback);
-
-                const hasLookbackData = Boolean(semesterStats?.hasData || rankRow);
-                const hasSeenLookback = localStorage.getItem(storageKey) || hasRemoteLookbackSeen(privateData);
-
-                if (!hasSeenLookback && hasLookbackData) {
-                    setIsOpen(true);
-                    localStorage.setItem(storageKey, '1');
-                    if (userId) {
-                        markRemoteLookbackSeen(userId, privateData).catch(error => {
-                            console.error('Lookback seen save error:', error);
-                        });
-                    }
-                }
             } catch (error) {
                 console.error('Lookback load error:', error);
             } finally {
@@ -230,7 +190,7 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
         return () => {
             cancelled = true;
         };
-    }, [activeData.majorName, enabled, semester, storageKey, studentCode, userId]);
+    }, [activeData.majorName, enabled, isOpen, semester, studentCode, userId]);
 
     return {
         lookback,
