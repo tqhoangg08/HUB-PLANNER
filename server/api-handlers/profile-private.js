@@ -158,6 +158,71 @@ const readProfilePrivateMap = async (client, userIds) => {
   return rows.map(normalizeRow);
 };
 
+const readProfilePrivateSummaryMap = async (client, userIds) => {
+  if (userIds.length === 0) return [];
+
+  const { rows } = await client.query(
+    `select
+        p.user_id,
+        p.email,
+        jsonb_strip_nulls(jsonb_build_object(
+          'studentName', p.data -> 'studentName',
+          'cohort', p.data -> 'cohort',
+          'programName', p.data -> 'programName',
+          'majorName', p.data -> 'majorName',
+          'specializationName', p.data -> 'specializationName',
+          'totalCreditsRequired', p.data -> 'totalCreditsRequired',
+          'hasOnboarded', p.data -> 'hasOnboarded',
+          'semesters', coalesce(semesters.summary, '[]'::jsonb)
+        )) as data,
+        p.password_set_at,
+        p.updated_at
+       from public.profile_private_data p
+       left join lateral (
+         select jsonb_agg(
+           jsonb_strip_nulls(jsonb_build_object(
+             'id', coalesce(semester.value ->> 'id', 'summary-' || semester.ordinality::text),
+             'name', semester.value -> 'name',
+             'trainingScore', semester.value -> 'trainingScore',
+             'subjects', coalesce(subjects.summary, '[]'::jsonb)
+           ))
+           order by semester.ordinality
+         ) as summary
+         from jsonb_array_elements(
+           case
+             when jsonb_typeof(p.data -> 'semesters') = 'array' then p.data -> 'semesters'
+             else '[]'::jsonb
+           end
+         ) with ordinality as semester(value, ordinality)
+         left join lateral (
+           select jsonb_agg(
+             jsonb_strip_nulls(jsonb_build_object(
+               'id', 'summary-' || subject.ordinality::text,
+               'name', '',
+               'credits', subject.value -> 'credits',
+               'scoreCC', subject.value -> 'scoreCC',
+               'scoreProcess', subject.value -> 'scoreProcess',
+               'scoreMid', subject.value -> 'scoreMid',
+               'scoreFinal', subject.value -> 'scoreFinal',
+               'isNonGPA', subject.value -> 'isNonGPA'
+             ))
+             order by subject.ordinality
+           ) as summary
+           from jsonb_array_elements(
+             case
+               when jsonb_typeof(semester.value -> 'subjects') = 'array' then semester.value -> 'subjects'
+               else '[]'::jsonb
+             end
+           ) with ordinality as subject(value, ordinality)
+         ) subjects on true
+       ) semesters on true
+      where p.user_id = any($1::uuid[])`,
+    [userIds]
+  );
+
+  return rows.map(normalizeRow);
+};
+
 const upsertProfilePrivate = async (client, row) => {
   const nextRow = { ...row };
   if (Object.prototype.hasOwnProperty.call(nextRow, 'data')) {
@@ -263,7 +328,10 @@ async function handler(request, response) {
       if (!['admin', 'auditor'].includes(role)) return response.status(403).json({ error: 'Forbidden' });
       const ids = Array.isArray(body.userIds) ? body.userIds : String(body.userIds || '').split(',');
       const userIds = [...new Set(ids.map((id) => String(id || '').trim()).filter(Boolean))];
-      const data = await readProfilePrivateMap(client, userIds);
+      const mode = body.mode === 'summary' ? 'summary' : 'full';
+      const data = mode === 'summary'
+        ? await readProfilePrivateSummaryMap(client, userIds)
+        : await readProfilePrivateMap(client, userIds);
       return response.status(200).json({ success: true, data });
     }
 

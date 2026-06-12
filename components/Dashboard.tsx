@@ -25,7 +25,7 @@ import { useSemesterLookback } from '../hooks/useSemesterLookback';
 import { SemesterLookbackModal } from './SemesterLookbackModal';
 import { useUserRole } from '../hooks/useUserRole';
 import { exportTranscriptToPdf } from '../utils/pdfExport';
-import { fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
+import { fetchProfilePrivate, fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
 import PushNotificationPrompt from '../components/PushNotificationPrompt'; // Đường dẫn tùy sếp lưu ở đâu
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { showAlert } from '../utils/appNotifications';
@@ -1465,7 +1465,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             setLoadingAdmin(false);
             setLoadingAdminDetails(allProfiles.length > 0);
             try {
-                privateMap = await fetchProfilePrivateMap(allProfiles.map(profile => profile.id));
+                privateMap = await fetchProfilePrivateMap(allProfiles.map(profile => profile.id), { mode: 'summary' });
             } catch (error) {
                 console.error('Không thể tải dữ liệu private của sinh viên:', error);
             } finally {
@@ -1474,6 +1474,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             setAdminUsers(allProfiles.map(profile => ({
                 ...profile,
                 data: privateMap[profile.id]?.data || {},
+                isProfileSummary: true,
                 updated_at: privateMap[profile.id]?.updated_at || profile.updated_at,
                 email: privateMap[profile.id]?.email,
             })));
@@ -1487,6 +1488,32 @@ export const Dashboard: React.FC<DashboardProps> = ({
             fetchAdminData();
         }
     }, [showAdminPanel]);
+
+    const handleOpenAdminUserDetail = async (user: any) => {
+        playClick();
+        setSelectedAdminUserId(user.id);
+        setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' });
+        setAdminMode('detail');
+        window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`);
+
+        if (!user.isProfileSummary) return;
+
+        try {
+            const fullPrivate = await fetchProfilePrivate(user.id);
+            if (!fullPrivate?.data) return;
+
+            setSelectedUserOverview(fullPrivate.data as UserData);
+            setAdminUsers(prev => prev.map(item => item.id === user.id ? {
+                ...item,
+                data: fullPrivate.data,
+                isProfileSummary: false,
+                updated_at: fullPrivate.updated_at || item.updated_at,
+                email: fullPrivate.email || item.email,
+            } : item));
+        } catch (error) {
+            console.warn('Không thể tải dữ liệu chi tiết sinh viên:', error);
+        }
+    };
 
     const { adminCohorts, adminMajors, adminSemesters } = useMemo(() => {
         const cSet = new Set<string>();
@@ -2320,7 +2347,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                             const gpaBadge = user._computedGpa > 0 ? getGpaBadge(user._computedGpa) : null;
                                             
                                             return (
-                                                <tr key={user.id} onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group bg-white">
+                                                <tr key={user.id} onClick={() => handleOpenAdminUserDetail(user)} className="hover:bg-blue-50/50 cursor-pointer transition-colors group bg-white">
                                                     <td className="px-3 sm:px-4 py-2.5 sm:py-3 font-bold text-[#0052cc] text-[11px] sm:text-xs border-r border-gray-100">{user.student_code || '-'}</td>
                                                     <td className="px-3 sm:px-4 py-2.5 sm:py-3 border-r border-gray-100">
                                                         <div className="flex items-center gap-2">

@@ -23,7 +23,7 @@ import { useForecastRank } from '../hooks/useForecastRank';
 import { useSemesterLookback } from '../hooks/useSemesterLookback';
 import { useUserRole } from '../hooks/useUserRole';
 import { SemesterLookbackModal } from './SemesterLookbackModal';
-import { fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
+import { fetchProfilePrivate, fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
 import { notifyModerators } from '../utils/moderatorNotifications';
 
 const formatGpaWithoutRounding = (value: number) => {
@@ -2032,13 +2032,14 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             
             let privateMap: Record<string, any> = {};
             try {
-                privateMap = await fetchProfilePrivateMap(allProfiles.map(profile => profile.id));
+                privateMap = await fetchProfilePrivateMap(allProfiles.map(profile => profile.id), { mode: 'summary' });
             } catch (error) {
                 console.error('Không thể tải dữ liệu private của sinh viên:', error);
             }
             setAdminUsers(allProfiles.map(profile => ({
                 ...profile,
                 data: privateMap[profile.id]?.data || {},
+                isProfileSummary: true,
                 updated_at: privateMap[profile.id]?.updated_at || profile.updated_at,
                 email: privateMap[profile.id]?.email,
             })));
@@ -2054,6 +2055,32 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             fetchAdminData();
         }
     }, [showAdminPanel]); 
+
+    const handleOpenAdminUserDetail = async (user: any) => {
+        playClick();
+        setSelectedAdminUserId(user.id);
+        setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' });
+        setAdminMode('detail');
+        window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`);
+
+        if (!user.isProfileSummary) return;
+
+        try {
+            const fullPrivate = await fetchProfilePrivate(user.id);
+            if (!fullPrivate?.data) return;
+
+            setSelectedUserOverview(fullPrivate.data as UserData);
+            setAdminUsers(prev => prev.map(item => item.id === user.id ? {
+                ...item,
+                data: fullPrivate.data,
+                isProfileSummary: false,
+                updated_at: fullPrivate.updated_at || item.updated_at,
+                email: fullPrivate.email || item.email,
+            } : item));
+        } catch (error) {
+            console.warn('Không thể tải dữ liệu chi tiết sinh viên:', error);
+        }
+    };
 
     const hasUsableSemesterData = (sem: any) => {
         return !!sem && Array.isArray(sem.subjects) && /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test(sem.name || '');
@@ -2688,7 +2715,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     return (
                                         <button
                                             key={user.id}
-                                            onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`); }}
+                                            onClick={() => handleOpenAdminUserDetail(user)}
                                             className="w-full p-3 text-left active:bg-blue-50 transition-colors"
                                         >
                                             <div className="flex items-start justify-between gap-3">
@@ -2742,7 +2769,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                             const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
                                             
                                             return (
-                                                <tr key={user.id} onClick={() => { playClick(); setSelectedAdminUserId(user.id); setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' }); setAdminMode('detail'); window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`); }} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
+                                                <tr key={user.id} onClick={() => handleOpenAdminUserDetail(user)} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
                                                     <td className="px-4 py-3 font-bold text-[#003375]">{user.student_code || '-'}</td>
                                                     <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#003375] transition-colors">{user.full_name || user.data?.studentName || 'Chưa cập nhật'}</td>
                                                     <td className="px-4 py-3 text-gray-600">{user.data?.programName || '-'} / {user.data?.cohort || '-'}</td>

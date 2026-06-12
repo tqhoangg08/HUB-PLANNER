@@ -60,7 +60,7 @@ export const AdminReports: React.FC = () => {
                         .from('profiles')
                         .select('id, full_name, student_code')
                         .in('id', userIds);
-                    const privateMap = await fetchProfilePrivateMap(userIds);
+                    const privateMap = await fetchProfilePrivateMap(userIds, { mode: 'summary' });
                         
                     if (profilesData) {
                         profilesData.forEach(p => {

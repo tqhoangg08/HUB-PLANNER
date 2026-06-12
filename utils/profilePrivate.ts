@@ -11,11 +11,82 @@ export type ProfilePrivateRow = {
   updated_at?: string | null;
 };
 
+type ProfilePrivateMapMode = 'full' | 'summary';
+
+type FetchProfilePrivateMapOptions = {
+  mode?: ProfilePrivateMapMode;
+  useCache?: boolean;
+};
+
+const SUMMARY_CACHE_KEY = 'hub_profile_private_summary_cache_v1';
+const SUMMARY_CACHE_TTL_MS = 5 * 60 * 1000;
+const summaryMemoryCache = new Map<string, { row: ProfilePrivateRow; cachedAt: number }>();
+
 const rowsToMap = (rows: ProfilePrivateRow[] | null | undefined) => {
   return (rows || []).reduce((map: Record<string, ProfilePrivateRow>, row: ProfilePrivateRow) => {
     map[row.user_id] = row;
     return map;
   }, {});
+};
+
+const loadSummarySessionCache = () => {
+  if (typeof sessionStorage === 'undefined' || summaryMemoryCache.size > 0) return;
+
+  try {
+    const raw = sessionStorage.getItem(SUMMARY_CACHE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Record<string, { row: ProfilePrivateRow; cachedAt: number }>;
+    const now = Date.now();
+    Object.entries(parsed || {}).forEach(([userId, entry]) => {
+      if (entry?.row?.user_id && now - entry.cachedAt < SUMMARY_CACHE_TTL_MS) {
+        summaryMemoryCache.set(userId, entry);
+      }
+    });
+  } catch {
+    sessionStorage.removeItem(SUMMARY_CACHE_KEY);
+  }
+};
+
+const persistSummarySessionCache = () => {
+  if (typeof sessionStorage === 'undefined') return;
+
+  try {
+    const now = Date.now();
+    const serializable: Record<string, { row: ProfilePrivateRow; cachedAt: number }> = {};
+    summaryMemoryCache.forEach((entry, userId) => {
+      if (now - entry.cachedAt < SUMMARY_CACHE_TTL_MS) serializable[userId] = entry;
+    });
+    sessionStorage.setItem(SUMMARY_CACHE_KEY, JSON.stringify(serializable));
+  } catch {
+    // Session cache is an optimization only.
+  }
+};
+
+const getCachedSummaryRows = (ids: string[]) => {
+  loadSummarySessionCache();
+  const now = Date.now();
+  const cached: Record<string, ProfilePrivateRow> = {};
+  const missing: string[] = [];
+
+  ids.forEach((id) => {
+    const entry = summaryMemoryCache.get(id);
+    if (entry && now - entry.cachedAt < SUMMARY_CACHE_TTL_MS) {
+      cached[id] = entry.row;
+    } else {
+      if (entry) summaryMemoryCache.delete(id);
+      missing.push(id);
+    }
+  });
+
+  return { cached, missing };
+};
+
+const cacheSummaryRows = (rows: ProfilePrivateRow[]) => {
+  const cachedAt = Date.now();
+  rows.forEach((row) => {
+    if (row?.user_id) summaryMemoryCache.set(row.user_id, { row, cachedAt });
+  });
+  persistSummarySessionCache();
 };
 
 const shouldUseVercelProfileApi = () => {
@@ -114,17 +185,28 @@ export const fetchProfilePrivate = async (userId: string) => {
   return data as ProfilePrivateRow | null;
 };
 
-export const fetchProfilePrivateMap = async (userIds: string[]) => {
+export const fetchProfilePrivateMap = async (userIds: string[], options: FetchProfilePrivateMapOptions = {}) => {
   const ids = [...new Set(userIds.filter(Boolean))];
   if (ids.length === 0) return {} as Record<string, ProfilePrivateRow>;
+  const mode = options.mode || 'full';
+  const useCache = mode === 'summary' && options.useCache !== false;
+  const cachedResult = useCache ? getCachedSummaryRows(ids) : null;
+  const idsToFetch = cachedResult?.missing || ids;
+
+  if (cachedResult && idsToFetch.length === 0) return cachedResult.cached;
 
   if (shouldUseVercelProfileApi()) {
     try {
       const payload = await fetchJson(PROFILE_PRIVATE_API_PATH, {
         method: 'POST',
-        body: JSON.stringify({ action: 'map', userIds: ids }),
+        body: JSON.stringify({ action: 'map', userIds: idsToFetch, mode }),
       });
-      return rowsToMap(payload.data as ProfilePrivateRow[]);
+      const fetchedRows = payload.data as ProfilePrivateRow[];
+      if (mode === 'summary') cacheSummaryRows(fetchedRows);
+      return {
+        ...(cachedResult?.cached || {}),
+        ...rowsToMap(fetchedRows),
+      };
     } catch (error: any) {
       if (!shouldFallbackToSupabase(error)) throw error;
       console.warn('Profile private API unavailable, falling back to Supabase:', error);
@@ -134,11 +216,16 @@ export const fetchProfilePrivateMap = async (userIds: string[]) => {
   const { data, error } = await supabase
     .from(PROFILE_PRIVATE_TABLE)
     .select('user_id, email, data, password_set_at, updated_at')
-    .in('user_id', ids);
+    .in('user_id', idsToFetch);
 
   if (error) throw error;
 
-  return rowsToMap(data as ProfilePrivateRow[]);
+  const fetchedRows = data as ProfilePrivateRow[];
+  if (mode === 'summary') cacheSummaryRows(fetchedRows);
+  return {
+    ...(cachedResult?.cached || {}),
+    ...rowsToMap(fetchedRows),
+  };
 };
 
 export const upsertProfilePrivate = async (row: ProfilePrivateRow) => {
