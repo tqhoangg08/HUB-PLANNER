@@ -21,6 +21,9 @@ const normalizeRole = (role?: string | null): UserRole => {
     return 'student';
 };
 
+const roleCache = new Map<string, UserRole>();
+const roleRequestCache = new Map<string, Promise<UserRole>>();
+
 const fetchRoleRecord = async (userId: string, email?: string | null): Promise<UserRole> => {
     const readRole = async (column: 'id' | 'user_id', value: string) => {
         const { data, error } = await supabase
@@ -60,6 +63,46 @@ const fetchRoleRecord = async (userId: string, email?: string | null): Promise<U
     return 'student';
 };
 
+const getMetadataRole = (session: Session): UserRole => normalizeRole(
+    (session.user.app_metadata?.role as string | undefined)
+    || (session.user.user_metadata?.role as string | undefined)
+);
+
+const resolveRoleForSession = (session: Session): Promise<UserRole> => {
+    const userId = session.user.id;
+    const cachedRole = roleCache.get(userId);
+    if (cachedRole) return Promise.resolve(cachedRole);
+
+    const pendingRequest = roleRequestCache.get(userId);
+    if (pendingRequest) return pendingRequest;
+
+    const request = (async () => {
+        const dbRole = supabase
+            ? await fetchRoleRecord(userId, session.user.email)
+            : 'student';
+        const metadataRole = getMetadataRole(session);
+        const role = dbRole !== 'student' ? dbRole : metadataRole;
+        roleCache.set(userId, role);
+        return role;
+    })().finally(() => {
+        roleRequestCache.delete(userId);
+    });
+
+    roleRequestCache.set(userId, request);
+    return request;
+};
+
+const createRoleState = (role: UserRole, session: Session): UserRoleState => ({
+    role,
+    isAdmin: role === 'admin',
+    isAuditor: role === 'auditor',
+    isCTV: false,
+    isStudent: role === 'student',
+    loading: false,
+    userEmail: session.user.email || null,
+    session,
+});
+
 const anonymousState: UserRoleState = {
     role: 'student',
     isAdmin: false,
@@ -88,35 +131,16 @@ export const useUserRole = () => {
 
             if (!supabase) {
                 if (isMounted) {
-                    setState({
-                        ...anonymousState,
-                        loading: false,
-                        userEmail: currentSession.user.email || null,
-                        session: currentSession,
-                    });
+                    setState(createRoleState(getMetadataRole(currentSession), currentSession));
                 }
                 return;
             }
 
             try {
-                const dbRole = await fetchRoleRecord(currentSession.user.id, currentSession.user.email);
-                const metadataRole = normalizeRole(
-                    (currentSession.user.app_metadata?.role as string | undefined)
-                    || (currentSession.user.user_metadata?.role as string | undefined)
-                );
-                const role = dbRole !== 'student' ? dbRole : metadataRole;
+                const role = await resolveRoleForSession(currentSession);
 
                 if (isMounted) {
-                    setState({
-                        role,
-                        isAdmin: role === 'admin',
-                        isAuditor: role === 'auditor',
-                        isCTV: false,
-                        isStudent: role === 'student',
-                        loading: false,
-                        userEmail: currentSession.user.email || null,
-                        session: currentSession,
-                    });
+                    setState(createRoleState(role, currentSession));
                 }
             } catch (err) {
                 console.error('Loi lay quyen:', err);
@@ -139,7 +163,11 @@ export const useUserRole = () => {
                     if (isMounted) setState(prev => ({ ...prev, loading: false }));
                 });
 
-            const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+                if (event === 'SIGNED_OUT') {
+                    roleCache.clear();
+                    roleRequestCache.clear();
+                }
                 fetchRole(session);
             });
 
