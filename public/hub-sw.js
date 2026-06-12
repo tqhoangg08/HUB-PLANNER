@@ -6,6 +6,28 @@ self.addEventListener('activate', function(event) {
     event.waitUntil(self.clients.claim());
 });
 
+self.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
+});
+
+self.addEventListener('fetch', function(event) {
+    if (event.request.mode !== 'navigate') return;
+
+    event.respondWith((async function() {
+        try {
+            const request = new Request(event.request, {
+                cache: 'no-store',
+            });
+            return await fetch(request);
+        } catch (error) {
+            const cached = await caches.match(event.request);
+            return cached || caches.match('/index.html');
+        }
+    })());
+});
+
 self.addEventListener('push', function(event) {
     let data = {};
 

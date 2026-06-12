@@ -314,9 +314,7 @@ const getNextTranscriptSemesterName = (semesters: Semester[]) => {
         .filter((semester): semester is { term: number; year: number } => Boolean(semester));
 
     if (selectedSemesters.length === 0) {
-        return semesters.length > 0
-            ? getFollowingTranscriptSemesterName(parseTranscriptSemesterName(DEFAULT_TRANSCRIPT_SEMESTER_NAME)!)
-            : DEFAULT_TRANSCRIPT_SEMESTER_NAME;
+        return DEFAULT_TRANSCRIPT_SEMESTER_NAME;
     }
 
     const latestSemester = selectedSemesters.reduce((latest, current) => {
@@ -1176,6 +1174,11 @@ export interface MobileDashboardNativeProps {
   onAddSemester?: () => void;
   onUpdateSemester?: (index: number, semester: Semester) => void;
   onRemoveSemester?: (index: number) => void;
+  isTranscriptEditing?: boolean;
+  isSavingTranscript?: boolean;
+  onStartTranscriptEdit?: () => void;
+  onSaveTranscriptEdit?: () => void;
+  onCancelTranscriptEdit?: () => void;
   isImporting?: boolean;
 }
 
@@ -1397,17 +1400,28 @@ const NativeQuickActions = ({
   onExportPDF,
   onImportPDF,
   onAddSemester,
+  isTranscriptEditing,
+  isSavingTranscript,
+  onStartTranscriptEdit,
+  onSaveTranscriptEdit,
+  onCancelTranscriptEdit,
   isImporting,
 }: Pick<
   MobileDashboardNativeProps,
-  'onOpenLookback' | 'onOpenFailed' | 'onExportPDF' | 'onImportPDF' | 'onAddSemester' | 'isImporting'
+  'onOpenLookback' | 'onOpenFailed' | 'onExportPDF' | 'onImportPDF' | 'onAddSemester' | 'isTranscriptEditing' | 'isSavingTranscript' | 'onStartTranscriptEdit' | 'onSaveTranscriptEdit' | 'onCancelTranscriptEdit' | 'isImporting'
 >) => {
   const actions = [
+    ...(isTranscriptEditing
+      ? [
+          { label: 'Lưu điểm', icon: Check, onClick: onSaveTranscriptEdit, disabled: isSavingTranscript },
+          { label: 'Hủy sửa', icon: X, onClick: onCancelTranscriptEdit, disabled: isSavingTranscript },
+        ]
+      : [{ label: 'Sửa điểm', icon: Edit3, onClick: onStartTranscriptEdit }]),
     { label: 'Tổng kết', icon: Star, onClick: onOpenLookback },
     { label: 'Môn cần chú ý', icon: Trophy, onClick: onOpenFailed },
     { label: 'Nhập PDF', icon: FileUp, onClick: onImportPDF, disabled: isImporting },
     { label: 'Xuất PDF', icon: Download, onClick: onExportPDF },
-    { label: 'Thêm kỳ', icon: Plus, onClick: onAddSemester },
+    { label: 'Thêm kỳ', icon: Plus, onClick: isTranscriptEditing ? onAddSemester : undefined },
   ].filter((item) => Boolean(item.onClick));
 
   if (actions.length === 0) return null;
@@ -1457,10 +1471,12 @@ const NativeTranscriptList = ({
   semesters = [],
   onUpdateSemester,
   onRemoveSemester,
+  isReadOnly = false,
 }: {
   semesters?: MobileSemesterRecord[];
   onUpdateSemester?: (index: number, semester: Semester) => void;
   onRemoveSemester?: (index: number) => void;
+  isReadOnly?: boolean;
 }) => {
   const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
   const [draftSubject, setDraftSubject] = useState<Subject | null>(null);
@@ -1482,6 +1498,14 @@ const NativeTranscriptList = ({
       subjects: record.semester.subjects.map(item => item.id === subject.id ? subject : item),
     });
     cancelEditSubject();
+  };
+
+  const updateDraftSubject = (record: MobileSemesterRecord, nextSubject: Subject) => {
+    setDraftSubject(nextSubject);
+    onUpdateSemester?.(record.originalIndex, {
+      ...record.semester,
+      subjects: record.semester.subjects.map(item => item.id === nextSubject.id ? nextSubject : item),
+    });
   };
 
   const addSubject = (record: MobileSemesterRecord) => {
@@ -1541,6 +1565,7 @@ const NativeTranscriptList = ({
               <div className="border-b border-[#EEF2FF] px-4 py-3">
                 <select
                   value={semester.name}
+                  disabled={isReadOnly}
                   onChange={(event) => onUpdateSemester?.(record.originalIndex, { ...semester, name: event.target.value })}
                   className="w-full rounded-xl border border-[#DDE3F0] bg-[#F6F8FC] px-3 py-2 text-[12px] font-black text-[#1A56FF] outline-none focus:border-[#1A56FF]"
                 >
@@ -1560,6 +1585,7 @@ const NativeTranscriptList = ({
                   <button
                     type="button"
                     onClick={() => addSubject(record)}
+                    disabled={isReadOnly}
                     className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#EEF2FF] text-[11px] font-black text-[#1A56FF]"
                   >
                     <Plus size={14} /> Thêm môn
@@ -1567,6 +1593,7 @@ const NativeTranscriptList = ({
                   <button
                     type="button"
                     onClick={() => onRemoveSemester?.(record.originalIndex)}
+                    disabled={isReadOnly}
                     className="flex h-8 items-center justify-center rounded-xl bg-red-50 px-3 text-red-600"
                     aria-label="Xóa học kỳ"
                   >
@@ -1588,14 +1615,14 @@ const NativeTranscriptList = ({
                         <div key={subject.id} className="space-y-3 bg-[#F8FAFC] px-4 py-3">
                           <input
                             value={draftSubject.name}
-                            onChange={(event) => setDraftSubject({ ...draftSubject, name: event.target.value })}
+                            onChange={(event) => updateDraftSubject(record, { ...draftSubject, name: event.target.value })}
                             placeholder="Tên môn học"
                             className="h-10 w-full rounded-xl border border-[#DDE3F0] bg-white px-3 text-[12px] font-bold text-[#0D1B3E] outline-none focus:border-[#1A56FF]"
                           />
                           <div className="grid grid-cols-5 gap-2">
                             <input
                               value={draftSubject.credits}
-                              onChange={(event) => setDraftSubject({ ...draftSubject, credits: Number(event.target.value) || 0 })}
+                              onChange={(event) => updateDraftSubject(record, { ...draftSubject, credits: Number(event.target.value) || 0 })}
                               type="number"
                               min="0"
                               className="h-9 rounded-xl border border-[#DDE3F0] bg-white px-2 text-center text-[11px] font-bold outline-none focus:border-[#1A56FF]"
@@ -1610,7 +1637,7 @@ const NativeTranscriptList = ({
                               <input
                                 key={key}
                                 value={toNativeScoreInput(draftSubject[key as keyof Subject] as number | null)}
-                                onChange={(event) => setDraftSubject({ ...draftSubject, [key]: parseNativeScoreInput(event.target.value) })}
+                                onChange={(event) => updateDraftSubject(record, { ...draftSubject, [key]: parseNativeScoreInput(event.target.value) })}
                                 placeholder={label}
                                 type="number"
                                 min="0"
@@ -1624,7 +1651,7 @@ const NativeTranscriptList = ({
                             <input
                               type="checkbox"
                               checked={draftSubject.isNonGPA}
-                              onChange={(event) => setDraftSubject({ ...draftSubject, isNonGPA: event.target.checked })}
+                              onChange={(event) => updateDraftSubject(record, { ...draftSubject, isNonGPA: event.target.checked })}
                               className="h-4 w-4 rounded border-[#DDE3F0]"
                             />
                             Không tính GPA
@@ -1642,7 +1669,7 @@ const NativeTranscriptList = ({
                               onClick={cancelEditSubject}
                               className="h-9 rounded-xl bg-slate-100 text-[12px] font-black text-slate-600"
                             >
-                              Hủy
+                              Đóng
                             </button>
                           </div>
                         </div>
@@ -1670,6 +1697,7 @@ const NativeTranscriptList = ({
                             <button
                               type="button"
                               onClick={() => startEditSubject(subject)}
+                              disabled={isReadOnly}
                               className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF2FF] text-[#1A56FF]"
                               aria-label="Sửa môn"
                             >
@@ -1678,6 +1706,7 @@ const NativeTranscriptList = ({
                             <button
                               type="button"
                               onClick={() => deleteSubject(record, subject.id)}
+                              disabled={isReadOnly}
                               className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600"
                               aria-label="Xóa môn"
                             >
@@ -1758,6 +1787,11 @@ export const MobileDashboardNative: React.FC<MobileDashboardNativeProps> = ({
   onAddSemester,
   onUpdateSemester,
   onRemoveSemester,
+  isTranscriptEditing,
+  isSavingTranscript,
+  onStartTranscriptEdit,
+  onSaveTranscriptEdit,
+  onCancelTranscriptEdit,
   isImporting,
 }) => {
   const creditsProgress = totalCreditsRequired > 0 ? (stats.passedCredits / totalCreditsRequired) * 100 : 0;
@@ -1842,12 +1876,18 @@ export const MobileDashboardNative: React.FC<MobileDashboardNativeProps> = ({
               onExportPDF={onExportPDF}
               onImportPDF={onImportPDF}
               onAddSemester={onAddSemester}
+              isTranscriptEditing={isTranscriptEditing}
+              isSavingTranscript={isSavingTranscript}
+              onStartTranscriptEdit={onStartTranscriptEdit}
+              onSaveTranscriptEdit={onSaveTranscriptEdit}
+              onCancelTranscriptEdit={onCancelTranscriptEdit}
               isImporting={isImporting}
             />
             <NativeTranscriptList
               semesters={semesters}
               onUpdateSemester={onUpdateSemester}
               onRemoveSemester={onRemoveSemester}
+              isReadOnly={!isTranscriptEditing}
             />
           </main>
         )}
@@ -2318,11 +2358,19 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
         if (activeData.semesters && activeData.semesters.length > 0) fetchAndFillTrainingScore();
     }, [activeData.semesters.length, selectedAdminUserId, data]);
     const transcriptSemesters = useMemo(() => {
-        const hasSelectedSemester = activeData.semesters.some(semester => isValidTranscriptSemesterName(semester.name));
-        if (hasSelectedSemester) return activeData.semesters;
+        const cleanedSemesters = activeData.semesters.filter((semester) => {
+            const hasSemesterData = (semester.subjects || []).length > 0 || semester.trainingScore !== null;
+            return isValidTranscriptSemesterName(semester.name) || hasSemesterData;
+        });
+        if (cleanedSemesters.length === 0 && activeData.semesters.length > 0) {
+            return [{ ...activeData.semesters[0], name: DEFAULT_TRANSCRIPT_SEMESTER_NAME }];
+        }
+
+        const hasSelectedSemester = cleanedSemesters.some(semester => isValidTranscriptSemesterName(semester.name));
+        if (hasSelectedSemester) return cleanedSemesters;
 
         let defaultApplied = false;
-        return activeData.semesters.map(semester => {
+        return cleanedSemesters.map(semester => {
             if (defaultApplied || semester.name.trim()) return semester;
             defaultApplied = true;
             return { ...semester, name: DEFAULT_TRANSCRIPT_SEMESTER_NAME };

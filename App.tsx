@@ -39,6 +39,7 @@ import { MobileLostFound } from './components/MobileLostFound';
 import { MobileProfile } from './components/MobileProfile'; 
 import { PasswordSetupModal } from './components/PasswordSetupModal';
 import { SupportNoticeModal } from './components/SupportNoticeModal';
+import { DataIncidentNoticeModal } from './components/DataIncidentNoticeModal';
 import { MobileHandbook } from './components/MobileHandbook';
 import { showAlert, showConfirm } from './utils/appNotifications';
 import { clearLocalStoragePreservingDevicePreferences } from './utils/devicePreferences';
@@ -169,9 +170,7 @@ const getNextTranscriptSemesterName = (semesters: Semester[]) => {
         .filter((semester): semester is { term: number; year: number } => Boolean(semester));
 
     if (selectedSemesters.length === 0) {
-        return semesters.length > 0
-            ? getFollowingTranscriptSemesterName(parseTranscriptSemesterName(DEFAULT_TRANSCRIPT_SEMESTER_NAME)!)
-            : DEFAULT_TRANSCRIPT_SEMESTER_NAME;
+        return DEFAULT_TRANSCRIPT_SEMESTER_NAME;
     }
 
     const latestSemester = selectedSemesters.reduce((latest, current) => {
@@ -183,26 +182,12 @@ const getNextTranscriptSemesterName = (semesters: Semester[]) => {
     return getFollowingTranscriptSemesterName(latestSemester);
 };
 
-const generateStandardCurriculum = (): Semester[] => {
-    const semesters: Semester[] = [];
-    const years = 4;
-
-    for (let y = 1; y <= years; y++) {
-        semesters.push({
-            id: `y${y}_hk1`,
-            name: ``, 
-            subjects: [],
-            trainingScore: null
-        });
-        semesters.push({
-            id: `y${y}_hk2`,
-            name: ``, 
-            subjects: [],
-            trainingScore: null
-        });
-    }
-    return semesters;
-};
+const createInitialSemester = (): Semester => ({
+    id: 'y1_hk1',
+    name: DEFAULT_TRANSCRIPT_SEMESTER_NAME,
+    subjects: [],
+    trainingScore: null
+});
 
 const INITIAL_DATA: UserData = {
     studentName: '',
@@ -212,10 +197,11 @@ const INITIAL_DATA: UserData = {
     specializationName: '',
     totalCreditsRequired: 125,
     hasOnboarded: false,
-    semesters: generateStandardCurriculum(),
+    semesters: [createInitialSemester()],
     targetGPA: 3.2,
 };
 
+const REMOTE_SAVE_DEBOUNCE_MS = 8000;
 const hasMeaningfulStudyData = (value?: Partial<UserData> | null): boolean => {
     if (!value) return false;
     return Boolean(
@@ -224,7 +210,22 @@ const hasMeaningfulStudyData = (value?: Partial<UserData> | null): boolean => {
         value.programName?.trim() ||
         value.majorName?.trim() ||
         value.specializationName?.trim() ||
-        value.semesters?.some(semester => semester.subjects?.length > 0 || semester.name?.trim())
+        value.semesters?.some(semester =>
+            semester.subjects?.length > 0 ||
+            semester.trainingScore !== null ||
+            Boolean(semester.name?.trim() && semester.name.trim() !== DEFAULT_TRANSCRIPT_SEMESTER_NAME)
+        )
+    );
+};
+
+const hasCompleteRequiredStudyProfile = (value?: Partial<UserData> | null): boolean => {
+    if (!value) return false;
+    return Boolean(
+        value.studentName?.trim() &&
+        value.programName?.trim() &&
+        value.cohort?.trim() &&
+        value.majorName?.trim() &&
+        value.specializationName?.trim()
     );
 };
 
@@ -243,11 +244,39 @@ const normalizeSemesterName = (name?: string) => {
 
 const normalizeLoadedUserData = (value?: Partial<UserData> | null): UserData => {
     const loadedData = { ...INITIAL_DATA, ...(value || {}) };
+    const usedSemesterNames = new Set<string>();
     loadedData.semesters = (loadedData.semesters || []).map((semester) => ({
         ...semester,
         name: normalizeSemesterName(semester.name),
         subjects: Array.isArray(semester.subjects) ? semester.subjects : [],
-    }));
+    })).reduce<Semester[]>((semesters, semester) => {
+        const hasSemesterData = semester.subjects.length > 0 || semester.trainingScore !== null;
+        const hasValidName = isValidTranscriptSemesterName(semester.name);
+
+        if (!hasSemesterData && !hasValidName) return semesters;
+
+        let nextSemester = semester;
+        if (!hasValidName) {
+            nextSemester = {
+                ...semester,
+                name: getNextTranscriptSemesterName(semesters),
+            };
+        }
+
+        if (usedSemesterNames.has(nextSemester.name)) {
+            nextSemester = {
+                ...nextSemester,
+                name: getNextTranscriptSemesterName(semesters),
+            };
+        }
+
+        usedSemesterNames.add(nextSemester.name);
+        semesters.push(nextSemester);
+        return semesters;
+    }, []);
+    if (loadedData.semesters.length === 0) {
+        loadedData.semesters = [createInitialSemester()];
+    }
     const hasExistingStudyData = hasMeaningfulStudyData(loadedData);
 
     return {
@@ -274,6 +303,7 @@ const App: React.FC = () => {
     const [isAppMode, setIsAppMode] = useState(false);
     const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth < 768);
     const [forceMobileAppPreview, setForceMobileAppPreview] = useState(false);
+    const [isDataIncidentNoticeDone, setIsDataIncidentNoticeDone] = useState(false);
     const lastLoggedUserIdRef = useRef<string | null>(null);
 
     useEffect(() => {
@@ -481,7 +511,13 @@ const App: React.FC = () => {
                 return;
             }
 
-            if (!profilePasswordSetAt) {
+            const authProvider = String((session.user.app_metadata as any)?.provider || '').toLowerCase();
+            const identityProviders = Array.isArray((session.user as any)?.identities)
+                ? (session.user as any).identities.map((identity: any) => String(identity?.provider || '').toLowerCase())
+                : [];
+            const isGoogleAuthSession = authProvider === 'google' || identityProviders.includes('google');
+
+            if (!profilePasswordSetAt && !isGoogleAuthSession) {
                 const { data, error } = await supabase
                     .from('profiles')
                     .select('password_set_at')
@@ -498,12 +534,13 @@ const App: React.FC = () => {
                     profilePasswordSetAt = (data as any)?.password_set_at;
                 }
             }
-            const metadataPasswordSet = Boolean((session.user.user_metadata as any)?.password_set_at);
+
+            const metadataPasswordSet = !isGoogleAuthSession && Boolean((session.user.user_metadata as any)?.password_set_at);
             if (!profilePasswordSetAt && metadataPasswordSet) {
                 const markedAt = new Date().toISOString();
                 setPasswordSetAt(markedAt);
                 const syncPrivate = privateProfileMissing
-                    ? upsertProfilePrivate({ user_id: session.user.id, email: session.user.email, data: {}, password_set_at: markedAt, updated_at: markedAt })
+                    ? upsertProfilePrivate({ user_id: session.user.id, email: session.user.email, password_set_at: markedAt, updated_at: markedAt })
                     : updateProfilePrivate(session.user.id, { password_set_at: markedAt, updated_at: markedAt });
                 syncPrivate
                     .catch((updateError) => {
@@ -647,6 +684,7 @@ const App: React.FC = () => {
     const [adminSearchMssv, setAdminSearchMssv] = useState('');
     const [viewingUser, setViewingUser] = useState<{ id: string, mssv: string, name: string } | null>(null);
     const [isSearchingUser, setIsSearchingUser] = useState(false);
+    const dataRef = useRef<UserData>(INITIAL_DATA);
     const dataOwnerIdRef = useRef<string | null>(null);
 
     const handleAdminSearchUser = async (e?: React.FormEvent) => {
@@ -847,17 +885,92 @@ const App: React.FC = () => {
     });
 
     const getStorageDirtyKey = useCallback((key: string) => `${key}:dirty`, []);
-
-    const readLocalStoredData = useCallback((key: string): UserData | null => {
-        const saved = localStorage.getItem(key);
-        if (!saved) return null;
-        try {
-            const parsed = JSON.parse(saved);
-            return hasMeaningfulStudyData(parsed) ? normalizeLoadedUserData(parsed) : null;
-        } catch {
-            return null;
-        }
+    const commitDataUpdate = useCallback((updater: (previousData: UserData) => UserData) => {
+        const nextData = updater(dataRef.current);
+        dataRef.current = nextData;
+        setData(nextData);
     }, []);
+
+    const loadDataIntoState = useCallback((nextData: UserData) => {
+        dataRef.current = nextData;
+        setData(nextData);
+    }, []);
+
+    useEffect(() => {
+        dataRef.current = data;
+    }, [data]);
+
+    useEffect(() => {
+        if (!session?.user?.id) return;
+        Object.keys(localStorage)
+            .filter(key => key === STORAGE_KEY || key.startsWith(`${STORAGE_KEY}:`))
+            .forEach(key => localStorage.removeItem(key));
+    }, [session?.user?.id]);
+
+    const saveStudyDataToRemote = useCallback(async (dataToSave: UserData) => {
+        if ((userRolePref !== 'school' && userRolePref !== 'admin') || !session?.user?.id || !supabase) return false;
+
+        const targetUserId = ((isAdmin || isAuditor) && viewingUser) ? viewingUser.id : session.user.id;
+        if (dataOwnerIdRef.current !== targetUserId) return false;
+        if (!hasMeaningfulStudyData(dataToSave)) return false;
+
+        const privateDataSignature = JSON.stringify(dataToSave);
+        if (
+            lastPrivateSaveRef.current.ownerId === targetUserId &&
+            lastPrivateSaveRef.current.signature === privateDataSignature
+        ) {
+            localStorage.removeItem(getStorageDirtyKey(storageKey));
+            return true;
+        }
+
+        if (isAdmin && viewingUser) {
+            await updateProfilePrivate(targetUserId, {
+                data: dataToSave,
+                updated_at: new Date().toISOString()
+            });
+
+            const { error } = await supabase
+                .from(STUDENT_PROFILE_TABLE)
+                .update({
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', targetUserId);
+
+            if (error) console.error("Lỗi Admin update data user:", error);
+        } else if (!isAuditor) {
+            const userEmail = session.user.email || '';
+            const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
+            const nameToSave = profileFullName || metaName;
+
+            const { error } = await supabase
+                .from(STUDENT_PROFILE_TABLE)
+                .update({
+                    full_name: nameToSave,
+                    avatar_url: profileAvatarUrl,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', session.user.id);
+
+            if (error) console.error("Lỗi update hồ sơ công khai:", error);
+
+            await upsertProfilePrivate({
+                user_id: session.user.id,
+                email: userEmail,
+                data: dataToSave,
+                updated_at: new Date().toISOString(),
+            });
+
+            if (!error && !profileFullName && nameToSave) {
+                setProfileFullName(nameToSave);
+            }
+        } else {
+            return false;
+        }
+
+        lastPrivateSaveRef.current = { ownerId: targetUserId, signature: privateDataSignature };
+        localStorage.removeItem(getStorageDirtyKey(storageKey));
+        return true;
+    }, [getStorageDirtyKey, isAdmin, isAuditor, profileAvatarUrl, profileFullName, session?.user?.email, session?.user?.id, session?.user?.user_metadata, storageKey, userRolePref, viewingUser]);
 
     useEffect(() => {
         let isActive = true;
@@ -879,19 +992,12 @@ const App: React.FC = () => {
 
                     if (!isActive) return;
 
-                    const localDirtyData = localStorage.getItem(getStorageDirtyKey(storageKey))
-                        ? readLocalStoredData(storageKey)
-                        : null;
-
-                    if (localDirtyData || privateData || legacyData) {
+                    if (privateData || legacyData) {
                         const remoteData = normalizeLoadedUserData(privateData || legacyData);
-                        const loadedData = localDirtyData || remoteData;
-                        setData(loadedData);
-                        lastPrivateSaveRef.current = localDirtyData
-                            ? { ownerId: null, signature: null }
-                            : { ownerId: viewingUser.id, signature: JSON.stringify(loadedData) };
+                        loadDataIntoState(remoteData);
+                        lastPrivateSaveRef.current = { ownerId: viewingUser.id, signature: JSON.stringify(remoteData) };
                     } else {
-                        setData(INITIAL_DATA); 
+                        loadDataIntoState(INITIAL_DATA); 
                     }
                     
                     dataOwnerIdRef.current = viewingUser.id;
@@ -914,25 +1020,15 @@ const App: React.FC = () => {
 
                 if (!isActive) return;
 
-                const localStoredData = readLocalStoredData(storageKey);
-                const localDirtyData = localStorage.getItem(getStorageDirtyKey(storageKey))
-                    ? localStoredData
-                    : null;
                 const remoteData = hasMeaningfulStudyData(privateData || legacyData)
                     ? normalizeLoadedUserData(privateData || legacyData)
                     : null;
 
-                if (localDirtyData || remoteData || localStoredData) {
-                    const loadedData = localDirtyData || remoteData || localStoredData!;
-                    setData(loadedData);
-                    lastPrivateSaveRef.current = localDirtyData
-                        ? { ownerId: null, signature: null }
-                        : remoteData
-                            ? { ownerId: session.user.id, signature: JSON.stringify(loadedData) }
-                            : { ownerId: null, signature: null };
+                if (remoteData) {
+                    loadDataIntoState(remoteData);
+                    lastPrivateSaveRef.current = { ownerId: session.user.id, signature: JSON.stringify(remoteData) };
                     setProfileFullName(profileData?.full_name || ''); 
                     setProfileAvatarUrl(profileData?.avatar_url || ''); 
-                    localStorage.setItem(storageKey, JSON.stringify(loadedData));
                     dataOwnerIdRef.current = session.user.id;
                     setIsLoaded(true);
                     return;
@@ -943,12 +1039,7 @@ const App: React.FC = () => {
                 setProfileFullName(metaName);
                 setProfileAvatarUrl(metaAvatar);
                 
-                const saved = localStorage.getItem(storageKey);
-                if (saved) {
-                    setData(readLocalStoredData(storageKey) || INITIAL_DATA);
-                } else {
-                    setData(INITIAL_DATA);
-                }
+                loadDataIntoState(INITIAL_DATA);
                 dataOwnerIdRef.current = session.user.id;
                 setIsLoaded(true);
                 return;
@@ -958,32 +1049,14 @@ const App: React.FC = () => {
                 setProfileFullName(''); 
                 setProfileAvatarUrl(''); 
             }
-            const saved = localStorage.getItem(storageKey);
-            if (saved) {
-                setData(readLocalStoredData(storageKey) || INITIAL_DATA);
-            } else { setData(INITIAL_DATA); }
+            loadDataIntoState(INITIAL_DATA);
             dataOwnerIdRef.current = 'guest';
             setIsLoaded(true);
         };
 
         loadData();
         return () => { isActive = false; };
-    }, [storageKey, session?.user?.id, userRolePref, isAdmin, viewingUser, isGuest, getStorageDirtyKey, readLocalStoredData]);
-
-    useEffect(() => {
-        if (isLoaded && !viewingUser) {
-            localStorage.setItem(storageKey, JSON.stringify(data));
-            if (!session?.user?.id || !hasMeaningfulStudyData(data)) return;
-            const targetUserId = session?.user?.id || 'guest';
-            const currentSignature = JSON.stringify(data);
-            if (
-                lastPrivateSaveRef.current.ownerId !== targetUserId ||
-                lastPrivateSaveRef.current.signature !== currentSignature
-            ) {
-                localStorage.setItem(getStorageDirtyKey(storageKey), '1');
-            }
-        }
-    }, [data, getStorageDirtyKey, isLoaded, session?.user?.id, storageKey, viewingUser]);
+    }, [storageKey, session?.user?.id, userRolePref, isAdmin, viewingUser, isGuest, loadDataIntoState]);
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -994,6 +1067,13 @@ const App: React.FC = () => {
         }
 
         saveTimeoutRef.current = window.setTimeout(async () => {
+            try {
+                await saveStudyDataToRemote(data);
+            } catch (privateError) {
+                console.error("Lỗi lưu profile_private_data:", privateError);
+            }
+            return;
+
             const targetUserId = ((isAdmin || isAuditor) && viewingUser) ? viewingUser.id : session.user.id;
 
 if (dataOwnerIdRef.current !== targetUserId) return;
@@ -1060,14 +1140,56 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         setProfileFullName(nameToSave);
     }
 }
-        }, 2500);
+        }, REMOTE_SAVE_DEBOUNCE_MS);
 
         return () => {
             if (saveTimeoutRef.current) {
                 window.clearTimeout(saveTimeoutRef.current);
             }
         };
-    }, [data, getStorageDirtyKey, isLoaded, session?.user?.id, userRolePref, profileFullName, profileAvatarUrl, isAdmin, viewingUser, storageKey]);
+    }, [data, getStorageDirtyKey, isLoaded, saveStudyDataToRemote, session?.user?.id, userRolePref, profileFullName, profileAvatarUrl, isAdmin, viewingUser, storageKey]);
+
+    useEffect(() => {
+        if (!isLoaded || !session?.user?.id || viewingUser || !hasMeaningfulStudyData(data)) return;
+
+        const flushPendingSave = () => {
+            if (saveTimeoutRef.current) {
+                window.clearTimeout(saveTimeoutRef.current);
+                saveTimeoutRef.current = null;
+            }
+            void saveStudyDataToRemote(data).catch(error => {
+                console.error('Lỗi flush dữ liệu học tập:', error);
+            });
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') flushPendingSave();
+        };
+
+        window.addEventListener('pagehide', flushPendingSave);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener('pagehide', flushPendingSave);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [data, isLoaded, saveStudyDataToRemote, session?.user?.id, viewingUser]);
+
+    const lastLocationPathRef = useRef(location.pathname);
+    useEffect(() => {
+        if (lastLocationPathRef.current === location.pathname) return;
+        lastLocationPathRef.current = location.pathname;
+        if (!isLoaded || !session?.user?.id || viewingUser || !hasMeaningfulStudyData(data)) return;
+
+        if (saveTimeoutRef.current) {
+            window.clearTimeout(saveTimeoutRef.current);
+            saveTimeoutRef.current = null;
+        }
+
+        void saveStudyDataToRemote(data).catch(error => {
+            console.error('Lỗi lưu dữ liệu khi chuyển trang:', error);
+        });
+    }, [data, isLoaded, location.pathname, saveStudyDataToRemote, session?.user?.id, viewingUser]);
 
     useEffect(() => {
         if (showAccountSettings) {
@@ -1201,6 +1323,12 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             
             clearLocalStoragePreservingDevicePreferences();
             sessionStorage.clear();
+            loadDataIntoState(INITIAL_DATA);
+            dataOwnerIdRef.current = null;
+            lastPrivateSaveRef.current = { ownerId: null, signature: null };
+            setProfileFullName('');
+            setProfileAvatarUrl('');
+            setViewingUser(null);
             resetDeleteAccountModal();
 
             navigate('/login', { replace: true });
@@ -1403,6 +1531,12 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         setProfileSaving(true);
         setProfileError(null);
 
+        if (!draftStudentName.trim() || !draftProgram || !draftCohort || !draftMajor || !draftSpecialization) {
+            setProfileError('Vui lòng cập nhật đầy đủ tên, hệ đào tạo, khóa, ngành và chuyên ngành.');
+            setProfileSaving(false);
+            return;
+        }
+
         let avatarUrlToSave = draftAvatarUrl.trim();
 
         if (draftAvatarFile) {
@@ -1513,7 +1647,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             return;
         }
 
-        setData(prev => ({
+        commitDataUpdate(prev => ({
             ...prev,
             studentName: draftStudentName.trim(),
             programName: draftProgram?.name || prev.programName,
@@ -1675,35 +1809,88 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
 
     const addSemester = () => {
         playClick();
-        const newSem: Semester = {
-            id: Date.now().toString(),
-            name: getNextTranscriptSemesterName(data.semesters),
-            subjects: [],
-            trainingScore: null
-        };
-        setData(prev => ({ ...prev, semesters: [...prev.semesters, newSem] }));
+        commitDataUpdate(prev => {
+            const newSem: Semester = {
+                id: Date.now().toString(),
+                name: getNextTranscriptSemesterName(prev.semesters),
+                subjects: [],
+                trainingScore: null
+            };
+            return { ...prev, semesters: [...prev.semesters, newSem] };
+        });
     };
 
     const updateSemester = (index: number, updatedSem: Semester) => {
-        const newSemesters = [...data.semesters];
-        newSemesters[index] = updatedSem;
-        setData(prev => ({ ...prev, semesters: newSemesters }));
+        commitDataUpdate(prev => {
+            const newSemesters = [...prev.semesters];
+            if (index < 0 || index >= newSemesters.length) return prev;
+            newSemesters[index] = updatedSem;
+            return { ...prev, semesters: newSemesters };
+        });
     };
 
     const removeSemester = (index: number) => {
         playClick();
         if (window.confirm("Bạn có chắc muốn xóa học kỳ này không?")) {
-            const newSemesters = data.semesters.filter((_, i) => i !== index);
-            setData(prev => ({ ...prev, semesters: newSemesters }));
+            commitDataUpdate(prev => ({
+                ...prev,
+                semesters: prev.semesters.filter((_, i) => i !== index)
+            }));
         }
     };
 
-    const handleOnboardingComplete = (onboardingData: Partial<UserData>) => {
-        setData(prev => ({
-            ...prev,
+    const saveSemestersNow = async (semesters: Semester[]) => {
+        const nextData = { ...dataRef.current, semesters };
+        dataRef.current = nextData;
+        setData(nextData);
+        let saved = await saveStudyDataToRemote(nextData);
+
+        if (!saved && session?.user?.id && !viewingUser && !isAuditor) {
+            await upsertProfilePrivate({
+                user_id: session.user.id,
+                email: session.user.email || '',
+                data: nextData,
+                updated_at: new Date().toISOString(),
+            });
+            saved = true;
+        }
+
+        if (!saved) {
+            throw new Error('Không thể lưu bảng điểm lúc này.');
+        }
+
+        lastPrivateSaveRef.current = { ownerId: session?.user?.id || null, signature: JSON.stringify(nextData) };
+        localStorage.removeItem(getStorageDirtyKey(storageKey));
+    };
+
+    const handleOnboardingComplete = async (onboardingData: Partial<UserData>) => {
+        const nextData = {
+            ...dataRef.current,
             ...onboardingData,
             hasOnboarded: true
-        }));
+        };
+        dataRef.current = nextData;
+        setData(nextData);
+
+        if (session?.user?.id && !viewingUser && !isAuditor) {
+            try {
+                let saved = await saveStudyDataToRemote(nextData);
+                if (!saved) {
+                    await upsertProfilePrivate({
+                        user_id: session.user.id,
+                        email: session.user.email || '',
+                        data: nextData,
+                        updated_at: new Date().toISOString(),
+                    });
+                    saved = true;
+                }
+                if (saved) {
+                    lastPrivateSaveRef.current = { ownerId: session.user.id, signature: JSON.stringify(nextData) };
+                }
+            } catch (error) {
+                console.error('Không thể lưu onboarding profile:', error);
+            }
+        }
     };
 
     const handleExportPDF = () => {
@@ -1743,7 +1930,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 return;
             }
 
-            setData(prev => {
+            commitDataUpdate(prev => {
                 const newData = { ...prev, ...result.studentInfo };
                 
                 let startYear = result.yearRanges.length > 0
@@ -1793,6 +1980,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
     const renderProtectedApp = () => {
         const isPrivilegedUser = isAdmin || isAuditor || isCTV;
         const requiresPasswordSetup = Boolean(session?.user && !isPrivilegedUser && passwordSetAt === null);
+        const requiresRequiredProfileSetup = Boolean(session?.user && !isPrivilegedUser && !hasCompleteRequiredStudyProfile(data));
 
         if (!isLoaded) return null;
 
@@ -1829,9 +2017,9 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             )
         }
 
-        if ((session && !data.hasOnboarded) || forceGuestOnboarding) {
-            return <Onboarding onComplete={(onboardingData) => {
-                handleOnboardingComplete(onboardingData);
+        if ((session && (!data.hasOnboarded || requiresRequiredProfileSetup)) || forceGuestOnboarding) {
+            return <Onboarding initialData={data} onComplete={(onboardingData) => {
+                void handleOnboardingComplete(onboardingData);
                 setForceGuestOnboarding(false);
             }} />;
         }
@@ -1846,10 +2034,11 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                     <div className="animate-fadeIn">
                         <Dashboard
                             data={data}
-                            onSetSemesters={(sems) => setData(prev => ({ ...prev, semesters: sems }))}
+                            onSetSemesters={(sems) => commitDataUpdate(prev => ({ ...prev, semesters: sems }))}
+                            onSaveSemesters={saveSemestersNow}
                             isGuest={isGuest}
                             onRequireOnboarding={() => setForceGuestOnboarding(true)}
-                            onTargetChange={(newTarget) => setData(prev => ({ ...prev, targetGPA: newTarget }))}
+                            onTargetChange={(newTarget) => commitDataUpdate(prev => ({ ...prev, targetGPA: newTarget }))}
                             showSecurityNotice={!session}
                             onUpdateSemester={updateSemester} 
                             onRemoveSemester={removeSemester} 
@@ -1886,7 +2075,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             <Routes>
                 <Route path="/" element={<Navigate to="/mobile-home" replace />} />
                 <Route path="/mobile-home" element={<MobileHome data={data} displayName={displayName} avatarUrl={profileAvatarUrl} avatarSeed={avatarSeed} isGuest={isGuest} showSecurityNotice={!session} onRequireOnboarding={() => setForceGuestOnboarding(true)} />} />
-                <Route path="/learning" element={<MobileLearning data={data} onSetSemesters={(sems) => setData(prev => ({ ...prev, semesters: sems }))} isGuest={isGuest} onRequireOnboarding={() => setForceGuestOnboarding(true)} onTargetChange={(newTarget) => setData(prev => ({ ...prev, targetGPA: newTarget }))} showSecurityNotice={!session} onUpdateSemester={updateSemester} onRemoveSemester={removeSemester} onAddSemester={addSemester} onExportPDF={handleExportPDF} onImportPDF={() => { playClick(); setShowImportGuide(true); }} isImporting={isImporting} fileInputRef={fileInputRef} onFileUpload={handleFileUpload} viewUserId={viewingUser?.id} />} />
+                <Route path="/learning" element={<MobileLearning data={data} onSetSemesters={(sems) => commitDataUpdate(prev => ({ ...prev, semesters: sems }))} onSaveSemesters={saveSemestersNow} isGuest={isGuest} onRequireOnboarding={() => setForceGuestOnboarding(true)} onTargetChange={(newTarget) => commitDataUpdate(prev => ({ ...prev, targetGPA: newTarget }))} showSecurityNotice={!session} onUpdateSemester={updateSemester} onRemoveSemester={removeSemester} onAddSemester={addSemester} onExportPDF={handleExportPDF} onImportPDF={() => { playClick(); setShowImportGuide(true); }} isImporting={isImporting} fileInputRef={fileInputRef} onFileUpload={handleFileUpload} viewUserId={viewingUser?.id} />} />
                 <Route path="/events" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/events/edit/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/events/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
@@ -2634,7 +2823,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/" element={<Navigate to={useMobileLayout ? "/mobile-home" : "/dashboard"} replace />} />
                 <Route path="/*" element={renderProtectedApp()} />
             </Routes>
-            <SupportNoticeModal />
+            <DataIncidentNoticeModal onDone={() => setIsDataIncidentNoticeDone(true)} />
+            {isDataIncidentNoticeDone && <SupportNoticeModal />}
         </>
     );
 };

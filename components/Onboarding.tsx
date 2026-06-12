@@ -13,6 +13,7 @@ import type { Engine, ISourceOptions } from "tsparticles-engine";
 
 interface OnboardingProps {
   onComplete: (data: Partial<UserData>) => void;
+  initialData?: Partial<UserData>;
 }
 
 const COHORT_OPTIONS: Record<string, string[]> = {
@@ -21,16 +22,61 @@ const COHORT_OPTIONS: Record<string, string[]> = {
   'special': ['CTDBK1', 'CTDBK2']
 };
 
-export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
+const findProgramFromName = (programName?: string) =>
+  ACADEMIC_PROGRAMS.find(program => program.name === programName) || null;
+
+const findMajorFromInitialData = (program: Program | null, cohort?: string, majorName?: string, specializationName?: string) => {
+  if (!program || !cohort) return null;
+  const normalize = (value?: string) => (value || '').trim().toLowerCase();
+  const majorKey = normalize(majorName);
+  const specializationKey = normalize(specializationName);
+  const majors = getMajors(program.id, cohort);
+
+  return (
+    majors.find(major => normalize(major.name) === majorKey) ||
+    majors.find(major => major.specializations.some(spec => normalize(spec.name) === specializationKey)) ||
+    null
+  );
+};
+
+const findSpecializationFromInitialData = (major: Major | null, specializationName?: string) => {
+  if (!major) return null;
+  const specializationKey = (specializationName || '').trim().toLowerCase();
+  return (
+    major.specializations.find(spec => spec.name.trim().toLowerCase() === specializationKey) ||
+    (major.specializations.length === 1 ? major.specializations[0] : null)
+  );
+};
+
+const buildInitialFormData = (initialData?: Partial<UserData>) => {
+  const program = findProgramFromName(initialData?.programName);
+  const cohort = initialData?.cohort || '';
+  const major = findMajorFromInitialData(program, cohort, initialData?.majorName, initialData?.specializationName);
+  const specialization = findSpecializationFromInitialData(major, initialData?.specializationName);
+
+  return {
+    studentName: initialData?.studentName || '',
+    cohort,
+    program,
+    major,
+    specialization,
+  };
+};
+
+const getInitialStep = (initialData?: Partial<UserData>) => {
+  const formData = buildInitialFormData(initialData);
+  if (!formData.studentName.trim()) return 1;
+  if (!formData.program) return 2;
+  if (!formData.cohort) return 3;
+  if (!formData.major) return 4;
+  if (!formData.specialization) return 5;
+  return 1;
+};
+
+export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData }) => {
   const navigate = useNavigate(); 
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({
-    studentName: '',
-    cohort: '',
-    program: null as Program | null,
-    major: null as Major | null,
-    specialization: null as Specialization | null,
-  });
+  const [step, setStep] = useState(() => getInitialStep(initialData));
+  const [formData, setFormData] = useState(() => buildInitialFormData(initialData));
 
   // --- Cấu hình hiệu ứng chuẩn (Xanh/Trắng) ---
   const particlesInit = useCallback(async (engine: Engine) => {

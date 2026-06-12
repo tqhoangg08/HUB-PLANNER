@@ -4,6 +4,7 @@ import { calculateSemesterStats, calculateSubjectAverage, getGradeDetails, getSc
 import { getBenchmarkRankingTotal } from '../utils/benchmarkRankings';
 import { normalizeSemesterId } from '../utils/rankingData';
 import { supabase } from '../utils/supabase';
+import { fetchProfilePrivate, updateProfilePrivate } from '../utils/profilePrivate';
 
 export const LOOKBACK_SEMESTER_ID = '2025-2026_HK1';
 export const LOOKBACK_SEMESTER_LABEL = 'Học kỳ 1, Năm học 2025-2026';
@@ -73,15 +74,10 @@ const markRemoteLookbackSeen = async (userId: string, privateData?: Record<strin
         }
     };
 
-    const { error } = await supabase
-        .from('profile_private_data')
-        .upsert({
-            user_id: userId,
-            data: nextData,
-            updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' });
-
-    if (error) throw error;
+    await updateProfilePrivate(userId, {
+        data: nextData,
+        updated_at: new Date().toISOString()
+    });
 };
 
 export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
@@ -134,14 +130,7 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
                 let privateData: Record<string, any> | null = null;
 
                 if (userId) {
-                    const { data: privateRow, error: privateError } = await supabase
-                        .from('profile_private_data')
-                        .select('data')
-                        .eq('user_id', userId)
-                        .maybeSingle();
-
-                    if (privateError) throw privateError;
-
+                    const privateRow = await fetchProfilePrivate(userId);
                     privateData = (privateRow?.data as Record<string, any> | null) || null;
                     const privateSemester = findLookbackSemester((privateData as UserData | null | undefined)?.semesters);
                     if ((privateSemester?.subjects?.length || 0) > (resolvedSemester?.subjects?.length || 0)) {

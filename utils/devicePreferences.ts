@@ -1,6 +1,7 @@
 export const SUPPORT_NOTICE_DISMISSED_KEY = 'hubplanner:support-notice-dismissed';
+export const DATA_INCIDENT_NOTICE_DISMISSED_KEY = 'hubplanner:data-incident-notice-dismissed';
 
-const PRESERVED_DEVICE_PREFERENCE_KEYS = [SUPPORT_NOTICE_DISMISSED_KEY];
+const PRESERVED_DEVICE_PREFERENCE_KEYS = [SUPPORT_NOTICE_DISMISSED_KEY, DATA_INCIDENT_NOTICE_DISMISSED_KEY];
 
 export const clearLocalStoragePreservingDevicePreferences = () => {
     const preservedEntries = PRESERVED_DEVICE_PREFERENCE_KEYS

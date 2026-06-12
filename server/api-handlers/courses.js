@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
+import profilePrivateHandler from './profile-private.js';
 import { withLogging } from '../middleware.js'; // Bọc Bác bảo vệ
 
 const supabase = createClient(
@@ -629,6 +630,10 @@ const handleCourseRequests = async (request, response) => {
 
 async function handler(request, response) {
   const { resource } = request.query;
+
+  if (resource === 'profile-private') {
+    return profilePrivateHandler(request, response);
+  }
 
   if (resource === 'user-schedules' && request.method === 'PATCH') {
     try {

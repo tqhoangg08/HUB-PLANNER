@@ -21,6 +21,7 @@ import { playClick } from '../utils/audio';
 interface MobileLearningProps {
     data: UserData;
     onSetSemesters: (sems: Semester[]) => void;
+    onSaveSemesters?: (sems: Semester[]) => Promise<void>;
     isGuest: boolean;
     onRequireOnboarding: () => void;
     onTargetChange: (target: number) => void;
@@ -83,9 +84,19 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
     const [showRankingModal, setShowRankingModal] = useState(false);
     const [showFailedModal, setShowFailedModal] = useState(false);
     const [showTargetModal, setShowTargetModal] = useState(false);
+    const [isTranscriptEditing, setIsTranscriptEditing] = useState(false);
+    const [draftSemesters, setDraftSemesters] = useState<Semester[] | null>(null);
+    const [isSavingTranscript, setIsSavingTranscript] = useState(false);
+    const [transcriptSaveError, setTranscriptSaveError] = useState<string | null>(null);
+    const [pendingTab, setPendingTab] = useState<'schedule' | 'gpa' | null>(null);
+
+    const activeData = useMemo(
+        () => isTranscriptEditing && draftSemesters ? { ...props.data, semesters: draftSemesters } : props.data,
+        [draftSemesters, isTranscriptEditing, props.data]
+    );
 
     const semesterLookback = useSemesterLookback(
-        props.data,
+        activeData,
         !props.isGuest
     );
 
@@ -99,15 +110,15 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
     }, [location]);
 
     const validDataSemesters = useMemo(
-        () => props.data.semesters.filter(s => /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test(s.name)),
-        [props.data.semesters]
+        () => activeData.semesters.filter(s => /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test(s.name)),
+        [activeData.semesters]
     );
 
     const transcriptSemesters = useMemo(
-        () => props.data.semesters
+        () => activeData.semesters
             .map((semester, originalIndex) => ({ semester, originalIndex }))
             .filter(record => !/^Học kỳ Hè Năm học \d{4}-\d{4}$/.test(record.semester.name)),
-        [props.data.semesters]
+        [activeData.semesters]
     );
 
     const stats = useMemo(() => calculateCumulativeStats(validDataSemesters), [validDataSemesters]);
@@ -126,8 +137,8 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
     }).filter(item => item.gpa4 !== null), [validDataSemesters]);
 
     const trendAnalysis = useMemo(() => analyzeTrend(validDataSemesters), [validDataSemesters]);
-    const totalCreditsRequired = props.data.totalCreditsRequired || 125;
-    const targetGPA = props.data.targetGPA || 3.2;
+    const totalCreditsRequired = activeData.totalCreditsRequired || 125;
+    const targetGPA = activeData.targetGPA || 3.2;
     const requiredAnalysis = useMemo(() => calculateRequiredGPA(
         stats.rawGPA4,
         stats.passedCredits,
@@ -150,7 +161,100 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
         return getSubjectStatus(avg) === GradeStatus.FAIL && !subject.isNonGPA;
     }), [validDataSemesters]);
 
-    const isLocked = Boolean(props.isGuest && !props.data.hasOnboarded);
+    const isLocked = Boolean(props.isGuest && !activeData.hasOnboarded);
+
+    const cloneSemesters = (semesters: Semester[]) => JSON.parse(JSON.stringify(semesters || [])) as Semester[];
+
+    const nextSemesterName = (semesters: Semester[]) => {
+        const parsed = semesters
+            .map(semester => {
+                const match = semester.name.match(/H(?:á»c|ọc) k(?:á»³|ỳ) (1|2) N(?:Äƒm|ăm) h(?:á»c|ọc) (\d{4})-\d{4}/);
+                return match ? { term: Number(match[1]), year: Number(match[2]) } : null;
+            })
+            .filter((item): item is { term: number; year: number } => Boolean(item));
+        if (parsed.length === 0) return 'Học kỳ 1 Năm học 2025-2026';
+        const latest = parsed.reduce((best, item) => (item.year * 2 + item.term > best.year * 2 + best.term ? item : best));
+        const nextTerm = latest.term === 1 ? 2 : 1;
+        const nextYear = latest.term === 1 ? latest.year : latest.year + 1;
+        return `Học kỳ ${nextTerm} Năm học ${nextYear}-${nextYear + 1}`;
+    };
+
+    const handleStartTranscriptEdit = () => {
+        playClick();
+        setTranscriptSaveError(null);
+        setDraftSemesters(cloneSemesters(props.data.semesters));
+        setIsTranscriptEditing(true);
+    };
+
+    const handleCancelTranscriptEdit = () => {
+        playClick();
+        setDraftSemesters(null);
+        setIsTranscriptEditing(false);
+    };
+
+    const handleUpdateDraftSemester = (index: number, semester: Semester) => {
+        setDraftSemesters(prev => {
+            const source = prev || cloneSemesters(props.data.semesters);
+            const next = [...source];
+            if (index < 0 || index >= next.length) return source;
+            next[index] = semester;
+            return next;
+        });
+    };
+
+    const handleRemoveDraftSemester = (index: number) => {
+        setDraftSemesters(prev => (prev || cloneSemesters(props.data.semesters)).filter((_, itemIndex) => itemIndex !== index));
+    };
+
+    const handleAddDraftSemester = () => {
+        setDraftSemesters(prev => {
+            const source = prev || cloneSemesters(props.data.semesters);
+            return [...source, { id: Date.now().toString(), name: nextSemesterName(source), subjects: [], trainingScore: null }];
+        });
+    };
+
+    const handleSaveTranscriptEdit = async () => {
+        if (!draftSemesters || isSavingTranscript) return;
+        playClick();
+        setIsSavingTranscript(true);
+        try {
+            if (props.onSaveSemesters) await props.onSaveSemesters(draftSemesters);
+            else props.onSetSemesters(draftSemesters);
+            setTranscriptSaveError(null);
+            setDraftSemesters(null);
+            setIsTranscriptEditing(false);
+        } catch (error: any) {
+            setTranscriptSaveError(error?.message || 'Không thể lưu bảng điểm. Vui lòng thử lại.');
+        } finally {
+            setIsSavingTranscript(false);
+        }
+    };
+
+    const handleTabChange = (tab: 'schedule' | 'gpa') => {
+        if (isTranscriptEditing && tab !== activeTab) {
+            setPendingTab(tab);
+            return;
+        }
+        setActiveTab(tab);
+    };
+
+    const confirmPendingTab = () => {
+        if (!pendingTab) return;
+        setDraftSemesters(null);
+        setIsTranscriptEditing(false);
+        setActiveTab(pendingTab);
+        setPendingTab(null);
+    };
+
+    useEffect(() => {
+        if (!isTranscriptEditing) return;
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isTranscriptEditing]);
 
     return (
         <>
@@ -161,6 +265,11 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                 className="hidden"
                 onChange={props.onFileUpload}
             />
+            {transcriptSaveError && (
+                <div className="fixed left-4 right-4 top-4 z-[100001] rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 shadow-xl">
+                    {transcriptSaveError}
+                </div>
+            )}
 
             <MobileDashboardNative
                 stats={{
@@ -168,13 +277,13 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                     gpa10: stats.gpa10,
                     passedCredits: stats.passedCredits,
                 }}
-                totalCreditsRequired={props.data.totalCreditsRequired || 125}
+                totalCreditsRequired={activeData.totalCreditsRequired || 125}
                 isLocked={isLocked}
                 trendData={trendData}
                 semesters={transcriptSemesters}
                 trendAnalysis={trendAnalysis}
                 activeTab={activeTab}
-                onTabChange={setActiveTab}
+                onTabChange={handleTabChange}
                 scheduleContent={<MobileSchedule viewUserId={props.viewUserId} />}
                 onOpenRanking={() => {
                     playClick();
@@ -195,11 +304,45 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                 }}
                 onExportPDF={props.onExportPDF}
                 onImportPDF={props.onImportPDF}
-                onAddSemester={props.onAddSemester}
-                onUpdateSemester={props.onUpdateSemester}
-                onRemoveSemester={props.onRemoveSemester}
+                onAddSemester={handleAddDraftSemester}
+                onUpdateSemester={handleUpdateDraftSemester}
+                onRemoveSemester={handleRemoveDraftSemester}
+                isTranscriptEditing={isTranscriptEditing}
+                isSavingTranscript={isSavingTranscript}
+                onStartTranscriptEdit={handleStartTranscriptEdit}
+                onSaveTranscriptEdit={handleSaveTranscriptEdit}
+                onCancelTranscriptEdit={handleCancelTranscriptEdit}
                 isImporting={props.isImporting}
             />
+            {pendingTab && (
+                <div className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/40 px-4 pb-5">
+                    <div className="w-full max-w-[430px] rounded-[24px] bg-white p-5 shadow-2xl">
+                        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+                            <X size={22} />
+                        </div>
+                        <h2 className="text-lg font-black text-[#0D1B3E]">Bảng điểm chưa được lưu</h2>
+                        <p className="mt-2 text-sm font-semibold leading-6 text-[#7B8AB0]">
+                            Bạn đang sửa bảng điểm. Nếu chuyển chức năng bây giờ, các thay đổi chưa lưu sẽ bị bỏ.
+                        </p>
+                        <div className="mt-5 grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setPendingTab(null)}
+                                className="h-11 rounded-2xl bg-slate-100 text-sm font-black text-slate-700"
+                            >
+                                Ở lại sửa
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmPendingTab}
+                                className="h-11 rounded-2xl bg-[#1A56FF] text-sm font-black text-white"
+                            >
+                                Rời đi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <SemesterLookbackModal
                 isOpen={semesterLookback.isOpen}

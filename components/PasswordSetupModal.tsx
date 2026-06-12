@@ -37,14 +37,15 @@ export const PasswordSetupModal: React.FC<PasswordSetupModalProps> = ({ email, o
             const { error: updateError } = await supabase.auth.updateUser({ password });
             if (updateError) throw updateError;
 
+            const markedAt = new Date().toISOString();
             const { error: markError } = await supabase.rpc('mark_password_set');
             if (markError) {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user?.id) throw markError;
-                await updateProfilePrivate(user.id, { password_set_at: new Date().toISOString() });
+                await updateProfilePrivate(user.id, { password_set_at: markedAt });
             } else {
                 const { data: { user } } = await supabase.auth.getUser();
-                if (user?.id) await updateProfilePrivate(user.id, { password_set_at: new Date().toISOString() });
+                if (user?.id) await updateProfilePrivate(user.id, { password_set_at: markedAt });
             }
 
             onComplete();

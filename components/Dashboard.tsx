@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom'; 
 import { supabase } from '../utils/supabase';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { SubjectRankingModal } from './SubjectRankingModal';
 import { UserData, GradeStatus, Subject, Semester } from '../types';
 import {
@@ -415,7 +415,7 @@ const PdfExportModal = ({
 // ============================================================================
 // 3. COMPONENT: NHẬP ĐIỂM
 // ============================================================================
-const ScoreInput = ({ value, onChange }: { value: number | null, onChange: (val: number | null) => void }) => {
+const ScoreInput = ({ value, onChange, disabled = false }: { value: number | null, onChange: (val: number | null) => void, disabled?: boolean }) => {
   const [localValue, setLocalValue] = useState<string>(value?.toString() ?? '');
 
   useEffect(() => {
@@ -446,6 +446,7 @@ const ScoreInput = ({ value, onChange }: { value: number | null, onChange: (val:
       className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-2 focus:ring-[#003375] focus:border-transparent p-1 text-center font-medium transition-all hover:border-gray-400"
       placeholder="-"
       value={localValue}
+      disabled={disabled}
       onChange={handleChange}
       onKeyDown={(e) => { if (["e", "E", "+", "-"].includes(e.key)) e.preventDefault(); }}
     />
@@ -473,9 +474,7 @@ const getNextTranscriptSemesterName = (semesters: Semester[]) => {
         .filter((semester): semester is { term: number; year: number } => Boolean(semester));
 
     if (selectedSemesters.length === 0) {
-        return semesters.length > 0
-            ? getFollowingTranscriptSemesterName(parseTranscriptSemesterName(DEFAULT_TRANSCRIPT_SEMESTER_NAME)!)
-            : DEFAULT_TRANSCRIPT_SEMESTER_NAME;
+        return DEFAULT_TRANSCRIPT_SEMESTER_NAME;
     }
 
     const latestSemester = selectedSemesters.reduce((latest, current) => {
@@ -664,6 +663,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 <select 
                     value={isValidFormat ? semester.name : ''}
                     onChange={handleNameChange}
+                    disabled={isReadOnly}
                     className={`text-base sm:text-lg font-bold bg-transparent border-b border-dashed focus:outline-none transition-all w-full py-0.5 sm:py-1 appearance-none cursor-pointer pr-6 truncate ${
                         !isValidFormat
                         ? 'text-red-600 border-red-400 hover:border-red-600' 
@@ -818,7 +818,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 <span className="text-gray-500 font-medium flex items-center gap-1"><Star className="text-yellow-500 fill-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">ĐRL:</span></span>
                 <input 
                     type="number" min="0" max="100" placeholder="0"
-                    disabled={!isValidFormat}
+                    disabled={!isValidFormat || isReadOnly}
                     className="w-7 sm:w-10 text-center font-bold text-gray-800 outline-none border-b border-transparent focus:border-[#003375] focus:bg-gray-50 rounded transition-colors bg-transparent disabled:opacity-50"
                     value={semester.trainingScore ?? ''}
                     onChange={(e) => handleTrainingScoreChange(e.target.value)}
@@ -831,7 +831,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 <span>{isValidFormat ? scholarshipStatus.label : '---'}</span>
             </div>
             
-             <button onClick={onRemoveSemester} className="ml-auto md:ml-0 text-gray-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all p-1.5 sm:p-2 rounded-lg active:scale-90" title="Xóa học kỳ">
+             <button onClick={onRemoveSemester} disabled={isReadOnly} className="ml-auto md:ml-0 text-gray-400 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all p-1.5 sm:p-2 rounded-lg active:scale-90 disabled:opacity-40 disabled:pointer-events-none" title="Xóa học kỳ">
              <Trash2 className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
             </button>
         </div>
@@ -1239,22 +1239,22 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                 
                                 {visibleScoreColumnConfig.map((column) => (
                                     <td key={column.key} className="px-1 py-2">
-                                        <ScoreInput value={subject[column.key as keyof Subject] as number | null} onChange={(val) => handleSubjectChange(subject.id, column.key as keyof Subject, val)} />
+                                        <ScoreInput value={subject[column.key as keyof Subject] as number | null} disabled={isReadOnly} onChange={(val) => handleSubjectChange(subject.id, column.key as keyof Subject, val)} />
                                     </td>
                                 ))}
 
                                 <td className="px-3 py-2">
-                                    <input type="text" className="w-full bg-transparent border-b border-transparent focus:border-[#003375] focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375]" value={subject.name} onChange={(e) => handleSubjectChange(subject.id, 'name', e.target.value)} />
+                                    <input type="text" disabled={isReadOnly} className="w-full bg-transparent border-b border-transparent focus:border-[#003375] focus:outline-none p-1 font-medium text-gray-800 transition-colors group-hover:text-[#003375] disabled:cursor-default" value={subject.name} onChange={(e) => handleSubjectChange(subject.id, 'name', e.target.value)} />
                                     <div className="flex items-center gap-2 mt-1">
                                         <label className="text-[10px] text-gray-500 flex items-center gap-1 cursor-pointer select-none hover:text-[#003375] transition-colors">
-                                            <input type="checkbox" checked={subject.isNonGPA} onChange={(e) => { playClick(); handleSubjectChange(subject.id, 'isNonGPA', e.target.checked); }} className="rounded text-[#003375] border-gray-300 focus:ring-[#003375] w-3 h-3 mr-1" />
+                                            <input type="checkbox" disabled={isReadOnly} checked={subject.isNonGPA} onChange={(e) => { playClick(); handleSubjectChange(subject.id, 'isNonGPA', e.target.checked); }} className="rounded text-[#003375] border-gray-300 focus:ring-[#003375] w-3 h-3 mr-1 disabled:opacity-50" />
                                             Không tính GPA
                                         </label>
                                     </div>
                                 </td>
                                 
                                 <td className="px-1 py-2">
-                                    <input type="number" className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-[#003375] focus:border-[#003375] hover:border-gray-400" value={subject.credits} onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
+                                    <input type="number" disabled={isReadOnly} className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-[#003375] focus:border-[#003375] hover:border-gray-400 disabled:bg-gray-50 disabled:cursor-default" value={subject.credits} onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
                                 </td>
                                 
                                 <td className="px-2 py-2 text-center font-bold text-[#990000]">{avg10 !== null ? avg10.toFixed(1) : '-'}</td>
@@ -1262,7 +1262,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                 <td className="px-2 py-2 text-center font-bold text-[#003375]">{avg4 !== null ? avg4.toFixed(1) : '-'}</td>
                                 <td className="px-3 py-2 text-center"><span className={`px-2 py-1 rounded text-xs block w-full text-center ${statusClass}`}>{statusText}</span></td>
                                 <td className="px-2 py-2 text-center">
-                                    <button onClick={() => removeSubject(subject.id)} className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all p-1.5 border border-transparent hover:border-red-200 active:scale-90" title="Xóa môn"><Trash2 size={16} /></button>
+                                    <button onClick={() => removeSubject(subject.id)} disabled={isReadOnly} className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all p-1.5 border border-transparent hover:border-red-200 active:scale-90 disabled:opacity-40 disabled:pointer-events-none" title="Xóa môn"><Trash2 size={16} /></button>
                                 </td>
                             </tr>
                         );
@@ -1275,7 +1275,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
             </div>
             
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-300 rounded-b-xl flex justify-between items-center">
-                <button onClick={addSubject} className="flex items-center gap-1 text-sm font-bold text-[#003375] border border-gray-300 bg-white hover:bg-gray-100 rounded-lg px-3 py-1.5 transition-colors active:scale-95"><Plus size={16} /> Thêm môn học</button>
+                <button onClick={addSubject} disabled={isReadOnly} className="flex items-center gap-1 text-sm font-bold text-[#003375] border border-gray-300 bg-white hover:bg-gray-100 rounded-lg px-3 py-1.5 transition-colors active:scale-95 disabled:opacity-50 disabled:pointer-events-none"><Plus size={16} /> Thêm môn học</button>
             </div>
         </>
       ) : (
@@ -1296,6 +1296,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 interface DashboardProps {
     data: UserData;
     onSetSemesters: (semesters: Semester[]) => void;
+    onSaveSemesters?: (semesters: Semester[]) => Promise<void>;
     onTargetChange: (newTarget: number) => void;
     showSecurityNotice: boolean;
     onUpdateSemester: (index: number, updatedSem: Semester) => void;
@@ -1313,6 +1314,7 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ 
     data, 
     onSetSemesters,
+    onSaveSemesters,
     onTargetChange, 
     showSecurityNotice,
     onUpdateSemester,
@@ -1325,6 +1327,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     isGuest,
     onRequireOnboarding
 }) => {
+    const navigate = useNavigate();
+
     useEffect(() => {
         document.title = "Tổng quan | HUB Planner";
     }, []);
@@ -1603,7 +1607,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
     };
 
-    const activeData = useMemo(() => {
+    const [isTranscriptEditing, setIsTranscriptEditing] = useState(false);
+    const [draftSemesters, setDraftSemesters] = useState<Semester[] | null>(null);
+    const [isSavingTranscript, setIsSavingTranscript] = useState(false);
+    const [transcriptSaveError, setTranscriptSaveError] = useState<string | null>(null);
+    const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+
+    const cloneSemesters = (semesters: Semester[]) => JSON.parse(JSON.stringify(semesters || [])) as Semester[];
+
+    const baseActiveData = useMemo(() => {
         if (selectedUserOverview) {
             return {
                 ...data,
@@ -1613,6 +1625,89 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
         return data;
     }, [selectedUserOverview, data]);
+
+    const activeData = useMemo(() => {
+        if (!selectedUserOverview && isTranscriptEditing && draftSemesters) {
+            return { ...baseActiveData, semesters: draftSemesters };
+        }
+        return baseActiveData;
+    }, [baseActiveData, draftSemesters, isTranscriptEditing, selectedUserOverview]);
+
+    useEffect(() => {
+        if (!isTranscriptEditing) setDraftSemesters(null);
+    }, [data.semesters, isTranscriptEditing]);
+
+    useEffect(() => {
+        if (!isTranscriptEditing) return;
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isTranscriptEditing]);
+
+    useEffect(() => {
+        if (!isTranscriptEditing) return;
+        const handleDocumentClick = (event: MouseEvent) => {
+            const target = event.target as HTMLElement | null;
+            const anchor = target?.closest?.('a[href]') as HTMLAnchorElement | null;
+            if (!anchor || anchor.target || anchor.hasAttribute('download')) return;
+
+            const url = new URL(anchor.href, window.location.href);
+            if (url.origin !== window.location.origin) return;
+
+            const nextPath = `${url.pathname}${url.search}${url.hash}`;
+            const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+            if (nextPath === currentPath) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+            setPendingNavigation(nextPath);
+        };
+
+        document.addEventListener('click', handleDocumentClick, true);
+        return () => document.removeEventListener('click', handleDocumentClick, true);
+    }, [isTranscriptEditing]);
+
+    const confirmPendingNavigation = () => {
+        if (!pendingNavigation) return;
+        setDraftSemesters(null);
+        setIsTranscriptEditing(false);
+        const nextPath = pendingNavigation;
+        setPendingNavigation(null);
+        navigate(nextPath);
+    };
+
+    const handleStartTranscriptEdit = () => {
+        playClick();
+        setTranscriptSaveError(null);
+        setDraftSemesters(cloneSemesters(baseActiveData.semesters));
+        setIsTranscriptEditing(true);
+    };
+
+    const handleCancelTranscriptEdit = () => {
+        playClick();
+        setDraftSemesters(null);
+        setIsTranscriptEditing(false);
+    };
+
+    const handleSaveTranscriptEdit = async () => {
+        if (!draftSemesters || isSavingTranscript) return;
+        playClick();
+        setIsSavingTranscript(true);
+        try {
+            if (onSaveSemesters) await onSaveSemesters(draftSemesters);
+            else onSetSemesters(draftSemesters);
+            setTranscriptSaveError(null);
+            setDraftSemesters(null);
+            setIsTranscriptEditing(false);
+        } catch (error: any) {
+            setTranscriptSaveError(error?.message || 'Không thể lưu bảng điểm. Vui lòng thử lại.');
+        } finally {
+            setIsSavingTranscript(false);
+        }
+    };
 
     const semesterLookback = useSemesterLookback(
         activeData,
@@ -1624,7 +1719,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
             const newData = { ...activeData, semesters };
             setSelectedUserOverview(newData);
             saveAdminUserUpdate(newData); 
-        } else onSetSemesters(semesters);
+        } else if (isTranscriptEditing) {
+            setDraftSemesters(semesters);
+        } else {
+            onSetSemesters(semesters);
+        }
     };
 
     const handleLocalTargetChange = (newTarget: number) => {
@@ -1642,7 +1741,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
             const newData = { ...activeData, semesters: newSems };
             setSelectedUserOverview(newData);
             saveAdminUserUpdate(newData); 
-        } else onUpdateSemester(index, updatedSem);
+        } else if (isTranscriptEditing) {
+            setDraftSemesters(prev => {
+                const source = prev || cloneSemesters(baseActiveData.semesters);
+                const next = [...source];
+                if (index < 0 || index >= next.length) return source;
+                next[index] = updatedSem;
+                return next;
+            });
+        } else {
+            onUpdateSemester(index, updatedSem);
+        }
     };
 
     const handleLocalRemoveSemester = (index: number) => {
@@ -1651,7 +1760,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
             const newData = { ...activeData, semesters: newSems };
             setSelectedUserOverview(newData);
             saveAdminUserUpdate(newData); 
-        } else onRemoveSemester(index);
+        } else if (isTranscriptEditing) {
+            setDraftSemesters(prev => (prev || cloneSemesters(baseActiveData.semesters)).filter((_, i) => i !== index));
+        } else {
+            onRemoveSemester(index);
+        }
     };
 
     const handleLocalAddSemester = () => {
@@ -1660,7 +1773,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
             const newData = { ...activeData, semesters: [...activeData.semesters, newSem] };
             setSelectedUserOverview(newData);
             saveAdminUserUpdate(newData); 
-        } else onAddSemester();
+        } else if (isTranscriptEditing) {
+            setDraftSemesters(prev => {
+                const source = prev || cloneSemesters(baseActiveData.semesters);
+                const newSem: Semester = { id: Date.now().toString(), name: getNextTranscriptSemesterName(source), subjects: [], trainingScore: null };
+                return [...source, newSem];
+            });
+        } else {
+            onAddSemester();
+        }
     };
 
     const ALL_SEMESTERS = useMemo(() => {
@@ -1775,11 +1896,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }, [activeData.semesters.length, selectedAdminUserId]);
 
     const transcriptSemesters = useMemo(() => {
-        const hasSelectedSemester = activeData.semesters.some(semester => isValidTranscriptSemesterName(semester.name));
-        if (hasSelectedSemester) return activeData.semesters;
+        const cleanedSemesters = activeData.semesters.filter((semester) => {
+            const hasSemesterData = (semester.subjects || []).length > 0 || semester.trainingScore !== null;
+            return isValidTranscriptSemesterName(semester.name) || hasSemesterData;
+        });
+        if (cleanedSemesters.length === 0 && activeData.semesters.length > 0) {
+            return [{ ...activeData.semesters[0], name: DEFAULT_TRANSCRIPT_SEMESTER_NAME }];
+        }
+
+        const hasSelectedSemester = cleanedSemesters.some(semester => isValidTranscriptSemesterName(semester.name));
+        if (hasSelectedSemester) return cleanedSemesters;
 
         let defaultApplied = false;
-        return activeData.semesters.map(semester => {
+        return cleanedSemesters.map(semester => {
             if (defaultApplied || semester.name.trim()) return semester;
             defaultApplied = true;
             return { ...semester, name: DEFAULT_TRANSCRIPT_SEMESTER_NAME };
@@ -2540,6 +2669,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         <h2 className="text-[15px] sm:text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Chi tiết bảng điểm</h2>
 
                         <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
+                            {!selectedUserOverview && (
+                                isTranscriptEditing ? (
+                                    <>
+                                        <button
+                                            onClick={handleSaveTranscriptEdit}
+                                            disabled={isSavingTranscript}
+                                            className="bg-[#003375] text-white border border-[#003375] px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-[#002855] transition-colors flex items-center gap-1 sm:gap-2 disabled:opacity-70 active:scale-95"
+                                        >
+                                            {isSavingTranscript ? <Loader2 className="animate-spin w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                                            <span>Lưu bảng điểm</span>
+                                        </button>
+                                        <button
+                                            onClick={handleCancelTranscriptEdit}
+                                            disabled={isSavingTranscript}
+                                            className="bg-white text-gray-600 border border-gray-300 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-gray-50 transition-colors flex items-center gap-1 sm:gap-2 disabled:opacity-70 active:scale-95"
+                                        >
+                                            <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                            <span>Hủy</span>
+                                        </button>
+                                    </>
+                                ) : (
+                                    <button
+                                        onClick={handleStartTranscriptEdit}
+                                        className="bg-white text-[#003375] border border-[#003375]/30 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:border-[#003375] hover:bg-blue-50 transition-colors flex items-center gap-1 sm:gap-2 active:scale-95"
+                                    >
+                                        <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                        <span>Sửa bảng điểm</span>
+                                    </button>
+                                )
+                            )}
                             <button
                                 onClick={() => { playClick(); setShowReportModal(true); }}
                                 className="text-red-600 bg-red-50 border border-red-300 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-red-100 transition-colors flex items-center gap-1 sm:gap-2 active:scale-95"
@@ -2575,6 +2734,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </div>
                     </div>
+                    {transcriptSaveError && (
+                        <div className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                            {transcriptSaveError}
+                        </div>
+                    )}
 
                     <div className="space-y-4">
                         {semestersToRender.map((sem) => {
@@ -2590,7 +2754,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                     allSemesterOptions={ALL_SEMESTERS}
                                     usedSemesterNames={usedSemesterNames}
                                     onCascadeUpdate={(newName) => handleCascadeUpdate(originalIndex, newName)}
-                                    isReadOnly={isViewingAsAuditor}
+                                    isReadOnly={isViewingAsAuditor || (!selectedUserOverview && !isTranscriptEditing)}
                                     rankContext={{
                                         studentCode: (activeData as any).studentCode || (activeData as any).student_code || null,
                                         classCode: (activeData as any).className || (activeData as any).class_name || (activeData as any).classCode || (activeData as any).class_code || null,
@@ -2610,7 +2774,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         )}
                         
-                        {!isInitialState && nonSummerSemesters.length > 0 && nonSummerSemesters.length < ALL_SEMESTERS.length && (
+                        {!isInitialState && nonSummerSemesters.length > 0 && nonSummerSemesters.length < ALL_SEMESTERS.length && (selectedUserOverview || isTranscriptEditing) && (
                             <button onClick={handleLocalAddSemester} className="w-full py-4 border-2 border-dashed border-gray-300 text-gray-500 hover:text-gray-800 hover:border-gray-400 hover:bg-gray-50 rounded-xl font-semibold flex justify-center items-center gap-2 transition-all">
                                 <Plus size={18}/> Thêm học kỳ mới
                             </button>
@@ -2634,6 +2798,35 @@ export const Dashboard: React.FC<DashboardProps> = ({
             isExporting={isExportingPdf}
         />
         {showReportModal && <ReportErrorModal isOpen={showReportModal} onClose={() => setShowReportModal(false)} />}
+        {pendingNavigation && (
+            <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-slate-950/55 p-4">
+                <div className="w-full max-w-md rounded-2xl border border-amber-200 bg-white p-5 shadow-2xl">
+                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                        <AlertTriangle size={24} />
+                    </div>
+                    <h3 className="text-lg font-black text-slate-950">Bảng điểm chưa được lưu</h3>
+                    <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
+                        Bạn đang sửa bảng điểm. Nếu chuyển chức năng bây giờ, các thay đổi chưa lưu sẽ bị bỏ.
+                    </p>
+                    <div className="mt-5 grid grid-cols-2 gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setPendingNavigation(null)}
+                            className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-black text-slate-700 hover:bg-slate-50"
+                        >
+                            Ở lại sửa
+                        </button>
+                        <button
+                            type="button"
+                            onClick={confirmPendingNavigation}
+                            className="h-11 rounded-xl bg-[#003375] text-sm font-black text-white hover:bg-[#002855]"
+                        >
+                            Rời đi
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
             <PushNotificationPrompt />
     </div>
   );

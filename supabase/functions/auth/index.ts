@@ -189,13 +189,28 @@ const markPasswordProfile = async (userId: string, email: string) => {
     student_code: email.split('@')[0],
     updated_at: new Date().toISOString(),
   }, { onConflict: 'id' })
-  await supabase.from('profile_private_data').upsert({
+
+  const now = new Date().toISOString()
+  const { data: updated, error: updatePrivateError } = await supabase
+    .from('profile_private_data')
+    .update({
+      email,
+      password_set_at: now,
+      updated_at: now,
+    })
+    .eq('user_id', userId)
+    .select('user_id')
+    .maybeSingle()
+  if (updatePrivateError) throw updatePrivateError
+  if (updated?.user_id) return
+
+  await supabase.from('profile_private_data').insert({
     user_id: userId,
     email,
     data: {},
-    password_set_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id' })
+    password_set_at: now,
+    updated_at: now,
+  })
 }
 
 const deleteRows = async (table: string, column: string, value: string) => {
