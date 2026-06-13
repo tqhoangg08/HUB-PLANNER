@@ -4,6 +4,7 @@ import { withLogging } from '../middleware.js';
 import { handleCors } from '../api-cors.js';
 
 const { Pool } = pg;
+const MAX_FULL_MAP_USER_IDS = 50;
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -329,9 +330,32 @@ async function handler(request, response) {
       const ids = Array.isArray(body.userIds) ? body.userIds : String(body.userIds || '').split(',');
       const userIds = [...new Set(ids.map((id) => String(id || '').trim()).filter(Boolean))];
       const mode = body.mode === 'summary' ? 'summary' : 'full';
+
+      if (mode === 'full' && userIds.length > MAX_FULL_MAP_USER_IDS) {
+        console.warn('profile-private map blocked', {
+          actorId: actor.id,
+          role,
+          mode,
+          userIdCount: userIds.length,
+          limit: MAX_FULL_MAP_USER_IDS,
+        });
+        return response.status(400).json({
+          error: `Full profile map is limited to ${MAX_FULL_MAP_USER_IDS} users. Use summary mode for lists.`,
+        });
+      }
+
+      const startedAt = Date.now();
       const data = mode === 'summary'
         ? await readProfilePrivateSummaryMap(client, userIds)
         : await readProfilePrivateMap(client, userIds);
+      console.info('profile-private map', {
+        actorId: actor.id,
+        role,
+        mode,
+        userIdCount: userIds.length,
+        returnedRows: data.length,
+        durationMs: Date.now() - startedAt,
+      });
       return response.status(200).json({ success: true, data });
     }
 
