@@ -14,6 +14,14 @@ const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status })
 const retryAt = () => new Date(Date.now() + RETRY_DELAY_MINUTES * 60 * 1000).toISOString()
 const parseResource = (params: URLSearchParams, body: any) => String(params.get('resource') || body.resource || '').trim().toLowerCase()
+const normalizeIsoTimestamp = (value: unknown) => {
+  const timestamp = Date.parse(String(value || ''))
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : new Date().toISOString()
+}
+const getSubscriptionBindingStartedAt = (subscription: any) => {
+  const timestamp = Date.parse(String(subscription?.__hubBindingStartedAt || ''))
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
 const isAuthorized = (req: Request, params: URLSearchParams, body: any) => {
   const token = params.get('secret') || body.secret || req.headers.get('x-secret-key')
   const bearer = req.headers.get('authorization')
@@ -34,10 +42,12 @@ const getPushActorRole = async (req: Request) => {
   const { data } = await supabase.from('user_roles').select('role').eq('user_id', user.id).maybeSingle()
   return data?.role || 'student'
 }
-const deleteSubscriptionsByEndpoint = async (endpoint: string, exceptUserId?: string) => {
-  let query = supabase.from('push_subscriptions').delete().eq('endpoint', endpoint)
-  if (exceptUserId) query = query.neq('user_id', exceptUserId)
-  const { error } = await query
+const deleteUserSubscriptionByEndpoint = async (endpoint: string, userId: string) => {
+  const { error } = await supabase
+    .from('push_subscriptions')
+    .delete()
+    .eq('endpoint', endpoint)
+    .eq('user_id', userId)
   if (error) throw error
 }
 const categoryFromPayload = (payload: any) => {
@@ -69,19 +79,24 @@ const handlePushSubscription = async (req: Request, body: any) => {
   const subscription = body.subscription
   const endpoint = subscription?.endpoint
   if (!endpoint) return json({ error: 'Missing subscription endpoint' }, 400)
+  const bindingStartedAt = normalizeIsoTimestamp(body.bindingStartedAt)
   if (req.method === 'DELETE') {
-    await deleteSubscriptionsByEndpoint(endpoint)
+    await deleteUserSubscriptionByEndpoint(endpoint, user.id)
     return json({ success: true })
   }
   try {
-    await deleteSubscriptionsByEndpoint(endpoint, user.id)
-    const { data: existingRows, error: lookupError } = await supabase.from('push_subscriptions').select('id').eq('endpoint', endpoint).limit(1)
+    const subscriptionForStorage = { ...subscription, __hubBindingStartedAt: bindingStartedAt }
+    const { data: existingRows, error: lookupError } = await supabase.from('push_subscriptions').select('id, user_id, subscription').eq('endpoint', endpoint).limit(1)
     if (lookupError) throw lookupError
     if (existingRows?.length) {
-      const { error } = await supabase.from('push_subscriptions').update({ user_id: user.id, subscription, endpoint }).eq('id', existingRows[0].id)
+      const existingStartedAt = getSubscriptionBindingStartedAt(existingRows[0].subscription)
+      if (existingStartedAt > Date.parse(bindingStartedAt)) {
+        return json({ success: true, skipped: true, reason: 'stale_binding_request', userId: existingRows[0].user_id })
+      }
+      const { error } = await supabase.from('push_subscriptions').update({ user_id: user.id, subscription: subscriptionForStorage, endpoint }).eq('id', existingRows[0].id)
       if (error) throw error
     } else {
-      const { error } = await supabase.from('push_subscriptions').insert({ user_id: user.id, subscription, endpoint })
+      const { error } = await supabase.from('push_subscriptions').insert({ user_id: user.id, subscription: subscriptionForStorage, endpoint })
       if (error) throw error
     }
     return json({ success: true, userId: user.id })

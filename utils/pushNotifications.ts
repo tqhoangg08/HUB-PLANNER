@@ -7,6 +7,31 @@ const SERVICE_WORKER_TIMEOUT_MS = 8000;
 const PUSH_SUBSCRIBE_TIMEOUT_MS = 12000;
 const API_SYNC_TIMEOUT_MS = 12000;
 
+let activePushUserId: string | null | undefined;
+let activeSyncController: AbortController | null = null;
+
+export const setActivePushNotificationUser = (userId: string | null) => {
+  if (activePushUserId === userId) return;
+
+  activePushUserId = userId;
+  activeSyncController?.abort();
+  activeSyncController = null;
+};
+
+const assertActivePushUser = (userId: string | null) => {
+  if (!userId) {
+    throw new Error('Can dang nhap de dong bo thiet bi nhan thong bao.');
+  }
+
+  if (activePushUserId === null) {
+    throw new Error('Da dang xuat, bo qua dong bo thong bao cu.');
+  }
+
+  if (activePushUserId !== undefined && activePushUserId !== userId) {
+    throw new Error('Phien thong bao da doi tai khoan, bo qua dong bo cu.');
+  }
+};
+
 const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> => {
   let timeoutId: number | undefined;
 
@@ -84,6 +109,8 @@ export const getCurrentPushSubscription = async () => {
 };
 
 export const subscribeToDeviceNotifications = async (userId: string | null) => {
+  const bindingStartedAt = new Date().toISOString();
+
   if (!isPushSupported()) {
     throw new Error('Trinh duyet khong ho tro thong bao day.');
   }
@@ -94,6 +121,8 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
   }
 
   const registration = await getPushRegistration();
+  if (userId) assertActivePushUser(userId);
+
   const existingSubscription = await registration.pushManager.getSubscription();
   const subscription = existingSubscription || await withTimeout(
     registration.pushManager.subscribe({
@@ -106,9 +135,18 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
 
   const { data: sessionData } = await supabase.auth.getSession();
   const resolvedUserId = userId || sessionData.session?.user?.id || null;
+  const sessionUserId = sessionData.session?.user?.id || null;
+
+  if (resolvedUserId !== sessionUserId) {
+    throw new Error('Phien dang nhap da thay doi, bo qua dong bo thong bao cu.');
+  }
+
+  assertActivePushUser(resolvedUserId);
 
   if (resolvedUserId) {
+    activeSyncController?.abort();
     const controller = new AbortController();
+    activeSyncController = controller;
     const timeoutId = window.setTimeout(() => controller.abort(), API_SYNC_TIMEOUT_MS);
 
     const response = await fetch(apiUrl('/push?resource=subscription'), {
@@ -117,9 +155,12 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
           'Authorization': `Bearer ${sessionData.session?.access_token || ''}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ subscription: subscription.toJSON() }),
+        body: JSON.stringify({ subscription: subscription.toJSON(), bindingStartedAt }),
         signal: controller.signal,
-      }).finally(() => window.clearTimeout(timeoutId));
+      }).finally(() => {
+        window.clearTimeout(timeoutId);
+        if (activeSyncController === controller) activeSyncController = null;
+      });
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => '');
@@ -140,11 +181,15 @@ export const unsubscribeFromDeviceNotifications = async (userId: string | null) 
 };
 
 export const unbindDeviceNotificationsForCurrentUser = async (userId?: string | null) => {
+  activeSyncController?.abort();
+  activeSyncController = null;
+
   const subscription = await getCurrentPushSubscription();
   if (!subscription) return;
 
   const { data: sessionData } = await supabase.auth.getSession();
-  if (!userId || !sessionData.session?.access_token) return;
+  const sessionUserId = sessionData.session?.user?.id || null;
+  if (!userId || !sessionData.session?.access_token || userId !== sessionUserId) return;
 
   const response = await fetch(apiUrl('/push?resource=subscription'), {
     method: 'DELETE',

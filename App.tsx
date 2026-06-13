@@ -45,6 +45,7 @@ import { showAlert, showConfirm } from './utils/appNotifications';
 import { clearLocalStoragePreservingDevicePreferences } from './utils/devicePreferences';
 import {
     isPushSupported,
+    setActivePushNotificationUser,
     subscribeToDeviceNotifications,
     unbindDeviceNotificationsForCurrentUser,
 } from './utils/pushNotifications';
@@ -450,6 +451,15 @@ const App: React.FC = () => {
         html.style.removeProperty('--app-bottom-gap');
     };
 }, [isMobileBrowser, isAppMode, isMobileScreen, forceMobileAppPreview]);
+
+    useEffect(() => {
+        setActivePushNotificationUser(session?.user?.id || null);
+
+        return () => {
+            setActivePushNotificationUser(null);
+        };
+    }, [session?.user?.id]);
+
     useEffect(() => {
         if (!session?.user?.id || !isPushSupported() || Notification.permission !== 'granted') return;
 
@@ -1302,6 +1312,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         playClick();
         if (window.confirm("Đăng xuất khỏi hệ thống?")) {
             try {
+                setActivePushNotificationUser(null);
                 await unbindDeviceNotificationsForCurrentUser(session?.user?.id);
                 if (session && (isAdmin || isAuditor)) {
                     await logActivity({
@@ -1441,6 +1452,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             console.error("Lỗi khi reset:", error);
         } finally {
             try {
+                setActivePushNotificationUser(null);
                 await unbindDeviceNotificationsForCurrentUser(session?.user?.id);
             } catch(e) {}
 
@@ -2003,6 +2015,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                         <button 
                             onClick={async () => { 
                                 playClick(); 
+                                setActivePushNotificationUser(null);
                                 await unbindDeviceNotificationsForCurrentUser(session?.user?.id).catch(() => undefined);
                                 await supabase?.auth.signOut(); 
                                 setIsAccessDenied(false); 
