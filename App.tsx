@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { UserData, Semester, STORAGE_KEY } from './types';
-import { Dashboard } from './components/Dashboard'; 
+import { Dashboard } from './components/Dashboard';
 import { Onboarding } from './components/Onboarding';
 import { Handbook } from './components/Handbook';
 import { EventsBoard } from './components/EventsBoard';
@@ -28,7 +28,7 @@ import type { Engine, ISourceOptions } from "tsparticles-engine";
 import { AdminReports } from './components/AdminReports';
 import { AdminEventCandidates } from './components/AdminEventCandidates';
 import { AIAdvisor } from './components/AIAdvisor';
-import { MobileAIAdvisor } from './components/MobileAIAdvisor'; 
+import { MobileAIAdvisor } from './components/MobileAIAdvisor';
 import { ACADEMIC_PROGRAMS, Program, Major, Specialization, getMajors } from './utils/programs';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileAppLayout } from './layouts/MobileAppLayout';
@@ -36,9 +36,8 @@ import { MobileHome } from './components/MobileHome';
 import { MobileLearning } from './components/MobileLearning';
 import { MobileEvents } from './components/MobileEvents';
 import { MobileLostFound } from './components/MobileLostFound';
-import { MobileProfile } from './components/MobileProfile'; 
+import { MobileProfile } from './components/MobileProfile';
 import { PasswordSetupModal } from './components/PasswordSetupModal';
-import { SupportNoticeModal } from './components/SupportNoticeModal';
 import { DataIncidentNoticeModal } from './components/DataIncidentNoticeModal';
 import { MobileHandbook } from './components/MobileHandbook';
 import { showAlert, showConfirm } from './utils/appNotifications';
@@ -53,9 +52,10 @@ import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from 
 import { apiUrl } from './utils/api';
 import { calculateCumulativeStats } from './utils/calculations';
 import { logActivity, logActivityQuietly } from './utils/activityLogger';
-import { ExamStudyAI } from './components/ExamStudyAI';
 import { AVATAR_COLOR_OPTIONS, getAvatarColorClass, getSafeAvatarColor, isAvatarImageUrl } from './utils/avatarColors';
 import { recordPolicyConsent } from './utils/policyConsent';
+import { TurnstileBox } from './components/TurnstileBox';
+import { verifyTurnstileOnly } from './utils/protectedSubmit';
 
 let globalDeferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -65,7 +65,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
 const OTP_RESEND_COOLDOWN_SECONDS = 10 * 60;
-const ENABLE_EXAM_AI = import.meta.env.VITE_ENABLE_EXAM_AI === 'true';
 
 const isMissingLegacyProfileColumn = (error: any, columnName: string) => {
     const message = `${error?.message || ''} ${error?.details || ''}`;
@@ -286,12 +285,24 @@ const normalizeLoadedUserData = (value?: Partial<UserData> | null): UserData => 
     };
 };
 
+const isLocalPreviewHost = (hostname: string) => (
+    ['localhost', '127.0.0.1', '::1'].includes(hostname) ||
+    /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+    /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+    /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname)
+);
+
+const shouldForceMobileAppPreview = () => (
+    isLocalPreviewHost(window.location.hostname) &&
+    new URLSearchParams(window.location.search).get('appPreview') === '1'
+);
+
 const App: React.FC = () => {
     const { isAdmin, isAuditor, isCTV, session, loading: loadingRole } = useUserRole();
     console.log("Kiểm tra quyền hiện tại:", { isAdmin, isAuditor, isCTV });
     const navigate = useNavigate();
     const location = useLocation();
-    const isExamStudyRoute = ENABLE_EXAM_AI && location.pathname.startsWith('/exam-ai');
+    const isExamStudyRoute = false;
 
     const isGuest = !session;
     const [forceGuestOnboarding, setForceGuestOnboarding] = useState(false);
@@ -303,7 +314,7 @@ const App: React.FC = () => {
     // ==========================================
     const [isAppMode, setIsAppMode] = useState(false);
     const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth < 768);
-    const [forceMobileAppPreview, setForceMobileAppPreview] = useState(false);
+    const [forceMobileAppPreview, setForceMobileAppPreview] = useState(() => shouldForceMobileAppPreview());
     const [isDataIncidentNoticeDone, setIsDataIncidentNoticeDone] = useState(false);
     const lastLoggedUserIdRef = useRef<string | null>(null);
 
@@ -336,7 +347,7 @@ const App: React.FC = () => {
     useEffect(() => {
         const checkIfAppMode = () => {
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-            const isIOSStandalone = (window.navigator as any).standalone === true; 
+            const isIOSStandalone = (window.navigator as any).standalone === true;
             setIsAppMode(isStandalone || isIOSStandalone);
         };
         const handleResize = () => setIsMobileScreen(window.innerWidth < 768);
@@ -344,22 +355,18 @@ const App: React.FC = () => {
         checkIfAppMode();
         window.matchMedia('(display-mode: standalone)').addEventListener('change', checkIfAppMode);
         window.addEventListener('resize', handleResize);
-        
+
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
     useEffect(() => {
-        const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-        if (!isLocalHost) {
+        if (!isLocalPreviewHost(window.location.hostname)) {
             localStorage.removeItem('hub_mobile_app_preview');
             setForceMobileAppPreview(false);
             return;
         }
 
-        const params = new URLSearchParams(window.location.search);
-        const previewParam = params.get('appPreview');
-
-        if (previewParam === '1') {
+        if (shouldForceMobileAppPreview()) {
             setForceMobileAppPreview(true);
         } else {
             localStorage.removeItem('hub_mobile_app_preview');
@@ -584,7 +591,7 @@ const App: React.FC = () => {
 
         // Bắt sự kiện cài đặt tự động (Chrome, Edge, Android...)
         const handleBeforeInstallPrompt = (e: Event) => {
-            e.preventDefault(); 
+            e.preventDefault();
             setDeferredPrompt(e);
         };
 
@@ -619,7 +626,7 @@ const App: React.FC = () => {
             // Đợi 1 giây để giao diện load xong, sau đó nảy bảng cài đặt lên
             const timer = setTimeout(() => {
                 handleInstallApp();
-                
+
                 // (Tuỳ chọn) Dọn dẹp URL cho đẹp, xóa chữ ?install=true đi sau khi đã hiện bảng
                 window.history.replaceState({}, document.title, location.pathname);
             }, 1000);
@@ -685,8 +692,8 @@ const App: React.FC = () => {
 
         updateNavIndicator();
         window.addEventListener('resize', updateNavIndicator);
-        setTimeout(updateNavIndicator, 100); 
-        
+        setTimeout(updateNavIndicator, 100);
+
         return () => window.removeEventListener('resize', updateNavIndicator);
     }, [location.pathname, isHandbookMenuOpen]);
 
@@ -702,7 +709,7 @@ const App: React.FC = () => {
         if (!adminSearchMssv.trim() || !supabase) return;
         setIsSearchingUser(true);
         playClick();
-        
+
         try {
             const { data: userProfile, error } = await supabase
                 .from(STUDENT_PROFILE_TABLE)
@@ -717,8 +724,8 @@ const App: React.FC = () => {
                 dataOwnerIdRef.current = session?.user?.id || null;
             } else {
                 setData(INITIAL_DATA);
-                dataOwnerIdRef.current = userProfile.id; 
-                
+                dataOwnerIdRef.current = userProfile.id;
+
                 setViewingUser({
                     id: userProfile.id,
                     mssv: userProfile.student_code,
@@ -738,6 +745,7 @@ const App: React.FC = () => {
     const [isImporting, setIsImporting] = useState(false);
     const [showImportGuide, setShowImportGuide] = useState(false);
     const [showImportLoadingToast, setShowImportLoadingToast] = useState(false);
+    const [gradeImportTurnstileToken, setGradeImportTurnstileToken] = useState('');
     const [showGuide, setShowGuide] = useState(false);
     const [showActivityLog, setShowActivityLog] = useState(false);
     const [showAccountSettings, setShowAccountSettings] = useState(false);
@@ -779,12 +787,13 @@ const App: React.FC = () => {
     const [draftSpecialization, setDraftSpecialization] = useState<Specialization | null>(null);
 
     const [showResetModal, setShowResetModal] = useState(false);
-    const [resetStep, setResetStep] = useState<1 | 2 | 3 | 4>(1); 
+    const [resetStep, setResetStep] = useState<1 | 2 | 3 | 4>(1);
     const [generatedOtp, setGeneratedOtp] = useState('');
     const [otpInput, setOtpInput] = useState('');
     const [isSendingOtp, setIsSendingOtp] = useState(false);
     const [otpError, setOtpError] = useState('');
     const [resendCountdown, setResendCountdown] = useState(0);
+    const [deleteTurnstileToken, setDeleteTurnstileToken] = useState('');
 
     const resetDeleteAccountModal = useCallback(() => {
         setShowResetModal(false);
@@ -793,6 +802,7 @@ const App: React.FC = () => {
         setOtpInput('');
         setOtpError('');
         setResendCountdown(0);
+        setDeleteTurnstileToken('');
     }, []);
 
     useEffect(() => {
@@ -845,7 +855,7 @@ const App: React.FC = () => {
         setCaptchaQuestion(q);
         setCaptchaAnswer(a);
         setUserCaptchaInput('');
-        setOtpError(''); 
+        setOtpError('');
     }, []);
 
     const userRolePref: 'guest' | 'school' | 'admin' = session ? (isAdmin ? 'admin' : 'school') : 'guest';
@@ -866,7 +876,7 @@ const App: React.FC = () => {
     }, []);
 
     const particlesOptions = useMemo((): ISourceOptions => ({
-        fullScreen: { enable: true, zIndex: 0 }, 
+        fullScreen: { enable: true, zIndex: 0 },
         fpsLimit: 60,
         particles: {
             number: { value: 30, density: { enable: true, area: 800 } },
@@ -990,7 +1000,7 @@ const App: React.FC = () => {
 
         const loadData = async () => {
             if ((userRolePref === 'school' || userRolePref === 'admin') && session?.user?.id && supabase) {
-                
+
                 if ((isAdmin || isAuditor) && viewingUser) {
                     let privateData: Record<string, any> | null | undefined = null;
                     try {
@@ -1007,12 +1017,12 @@ const App: React.FC = () => {
                         loadDataIntoState(remoteData);
                         lastPrivateSaveRef.current = { ownerId: viewingUser.id, signature: JSON.stringify(remoteData) };
                     } else {
-                        loadDataIntoState(INITIAL_DATA); 
+                        loadDataIntoState(INITIAL_DATA);
                     }
-                    
+
                     dataOwnerIdRef.current = viewingUser.id;
                     setIsLoaded(true);
-                    return; 
+                    return;
                 }
 
                 const { data: profileData } = await supabase
@@ -1037,8 +1047,8 @@ const App: React.FC = () => {
                 if (remoteData) {
                     loadDataIntoState(remoteData);
                     lastPrivateSaveRef.current = { ownerId: session.user.id, signature: JSON.stringify(remoteData) };
-                    setProfileFullName(profileData?.full_name || ''); 
-                    setProfileAvatarUrl(profileData?.avatar_url || ''); 
+                    setProfileFullName(profileData?.full_name || '');
+                    setProfileAvatarUrl(profileData?.avatar_url || '');
                     dataOwnerIdRef.current = session.user.id;
                     setIsLoaded(true);
                     return;
@@ -1048,16 +1058,16 @@ const App: React.FC = () => {
                 const metaAvatar = session.user.user_metadata.avatar_url || session.user.user_metadata.picture || '';
                 setProfileFullName(metaName);
                 setProfileAvatarUrl(metaAvatar);
-                
+
                 loadDataIntoState(INITIAL_DATA);
                 dataOwnerIdRef.current = session.user.id;
                 setIsLoaded(true);
                 return;
             }
 
-            if (userRolePref !== 'school' && userRolePref !== 'admin') { 
-                setProfileFullName(''); 
-                setProfileAvatarUrl(''); 
+            if (userRolePref !== 'school' && userRolePref !== 'admin') {
+                setProfileFullName('');
+                setProfileAvatarUrl('');
             }
             loadDataIntoState(INITIAL_DATA);
             dataOwnerIdRef.current = 'guest';
@@ -1111,13 +1121,13 @@ if (isAdmin && viewingUser) {
     // Admin được quyền lưu
     const { error } = await supabase
         .from(STUDENT_PROFILE_TABLE)
-        .update({ 
+        .update({
             updated_at: new Date().toISOString()
         })
         .eq('id', targetUserId);
-    
+
     if (error) console.error("Lỗi Admin update data user:", error);
-} 
+}
 else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR LẠI
     // User thường mới được tự động save (Auditor thì bị chặn lại không cho save)
     const userEmail = session.user.email || '';
@@ -1126,7 +1136,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
 
     const { error } = await supabase
         .from(STUDENT_PROFILE_TABLE)
-        .update({ 
+        .update({
             full_name: nameToSave,
             avatar_url: profileAvatarUrl,
             updated_at: new Date().toISOString()
@@ -1235,17 +1245,17 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             setIsAccountPasswordOtpMode(false);
             setPasswordChangeError(null);
             setPasswordChangeNotice(null);
-            
+
             setDraftStudentName(data.studentName || '');
-            
+
             const prog = ACADEMIC_PROGRAMS.find(p => p.name === data.programName) || null;
             setDraftProgram(prog);
             setDraftCohort(data.cohort || '');
-            
+
             if (prog && data.cohort) {
                 const maj = findMajorFromSavedProfile(prog, data.cohort, data.majorName, data.specializationName);
                 setDraftMajor(maj);
-                
+
                 if (maj) {
                     setDraftSpecialization(findSpecializationFromSavedProfile(maj, data.specializationName));
                 } else {
@@ -1286,7 +1296,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         const ensureSchoolDomain = async () => {
             const searchParams = new URLSearchParams(window.location.search);
             const authError = searchParams.get('error');
-            
+
             if (authError) {
                 setIsAccessDenied(true);
                 setDeniedEmail('Ngoài hệ thống HUB (VD: @gmail.com)');
@@ -1295,7 +1305,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             }
 
             if (isGuest || isAdmin || isAuditor || isCTV || !session?.user?.email) return;
-            
+
             const emailDomain = session.user.email.split('@')[1];
             if (emailDomain !== SCHOOL_DOMAIN) {
                 setIsAccessDenied(true);
@@ -1331,7 +1341,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             } catch (e) {
                 console.error("Lỗi khi đăng xuất Supabase:", e);
             }
-            
+
             clearLocalStoragePreservingDevicePreferences();
             sessionStorage.clear();
             loadDataIntoState(INITIAL_DATA);
@@ -1359,10 +1369,10 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             }
         } else {
             setShowResetModal(true);
-            setResetStep(1); 
+            setResetStep(1);
             setOtpInput('');
             setOtpError('');
-            generateCaptcha(); 
+            setDeleteTurnstileToken('');
             setIsUserMenuOpen(false);
         }
     };
@@ -1371,11 +1381,29 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         playClick();
         if (parseInt(userCaptchaInput) !== captchaAnswer) {
             setOtpError('Kết quả phép tính không đúng! Hệ thống đã đổi câu hỏi bảo mật mới.');
-            generateCaptcha(); 
+            setDeleteTurnstileToken('');
             return;
         }
         setOtpError('');
         sendOtpEmail();
+    };
+
+    const handleVerifyTurnstileAndSendOtp = async () => {
+        playClick();
+        if (!deleteTurnstileToken) {
+            setOtpError('Vui long xac minh ban khong phai robot.');
+            return;
+        }
+        setOtpError('');
+        setIsSendingOtp(true);
+        try {
+            await verifyTurnstileOnly(deleteTurnstileToken);
+            await sendOtpEmail();
+        } catch (error: any) {
+            setOtpError(error.message || 'Xac minh bao mat khong thanh cong. Vui long thu lai.');
+            setDeleteTurnstileToken('');
+            setIsSendingOtp(false);
+        }
     };
 
     const sendOtpEmail = async () => {
@@ -1394,9 +1422,9 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             });
 
             const { data, error } = await supabase.functions.invoke('send-otp-email', {
-                body: { 
-                    email: session?.user?.email, 
-                    passcode: otp, 
+                body: {
+                    email: session?.user?.email,
+                    passcode: otp,
                     time: timeString,
                     expiresAt: expireTime.toISOString(),
                     purpose: 'delete_data'
@@ -1407,14 +1435,14 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 throw new Error("Lỗi từ máy chủ Backend");
             }
 
-            setResetStep(3); 
-            setOtpInput(''); 
-            setResendCountdown(300); 
+            setResetStep(3);
+            setOtpInput('');
+            setResendCountdown(300);
 
         } catch (error) {
             console.error('Lỗi gửi mail:', error);
             setOtpError('Hệ thống mail đang bận. Vui lòng thử lại sau.');
-            generateCaptcha(); 
+            setDeleteTurnstileToken('');
         } finally {
             setIsSendingOtp(false);
         }
@@ -1424,8 +1452,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         playClick();
         if (otpInput === generatedOtp) {
             setOtpError('');
-            setResetStep(4); 
-            executeResetData(); 
+            setResetStep(4);
+            executeResetData();
         } else {
             setOtpError('Mã xác nhận không chính xác!');
         }
@@ -1462,7 +1490,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
 
             clearLocalStoragePreservingDevicePreferences();
             sessionStorage.clear();
-            
+
             navigate('/login', { replace: true });
         }
     };
@@ -1919,6 +1947,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         setShowImportLoadingToast(true);
 
         try {
+            await verifyTurnstileOnly(gradeImportTurnstileToken);
+            setGradeImportTurnstileToken('');
             const result = await parseHubPdf(file);
             const importedSubjectCount = result.semesters.reduce((total, semester) => total + semester.subjects.length, 0);
             if (importedSubjectCount === 0) {
@@ -1944,7 +1974,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
 
             commitDataUpdate(prev => {
                 const newData = { ...prev, ...result.studentInfo };
-                
+
                 let startYear = result.yearRanges.length > 0
                     ? Math.min(...result.yearRanges.map(y => y.start))
                     : new Date().getFullYear();
@@ -2005,22 +2035,22 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                         </div>
                         <h2 className="text-2xl font-bold text-gray-900 mb-2">Truy cập bị từ chối</h2>
                         <p className="text-gray-500 mb-6 text-sm">
-                            Hệ thống phát hiện bạn đang sử dụng tài khoản email: <br /> 
+                            Hệ thống phát hiện bạn đang sử dụng tài khoản email: <br />
                             <strong className="text-gray-800">{deniedEmail}</strong>
                         </p>
                         <div className="bg-red-50 text-red-700 p-4 rounded-xl text-sm mb-8 text-left border border-red-100">
                             <p className="font-bold flex items-center gap-2 mb-1"><AlertTriangle size={16} /> Yêu cầu bắt buộc:</p>
                             <p>Vui lòng đăng nhập bằng email sinh viên trường ĐH Ngân hàng TP.HCM có đuôi tên miền là <strong>@{SCHOOL_DOMAIN}</strong></p>
                         </div>
-                        <button 
-                            onClick={async () => { 
-                                playClick(); 
+                        <button
+                            onClick={async () => {
+                                playClick();
                                 setActivePushNotificationUser(null);
                                 await unbindDeviceNotificationsForCurrentUser(session?.user?.id).catch(() => undefined);
-                                await supabase?.auth.signOut(); 
-                                setIsAccessDenied(false); 
-                                navigate('/login', { replace: true }); 
-                            }} 
+                                await supabase?.auth.signOut();
+                                setIsAccessDenied(false);
+                                navigate('/login', { replace: true });
+                            }}
                             className="w-full bg-[#003375] text-white font-bold py-3 rounded-xl hover:bg-[#002855] transition-colors flex items-center justify-center gap-2 shadow-sm"
                         >
                             <LogOut size={18} /> Đăng xuất & Thử lại
@@ -2053,11 +2083,11 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                             onRequireOnboarding={() => setForceGuestOnboarding(true)}
                             onTargetChange={(newTarget) => commitDataUpdate(prev => ({ ...prev, targetGPA: newTarget }))}
                             showSecurityNotice={!session}
-                            onUpdateSemester={updateSemester} 
-                            onRemoveSemester={removeSemester} 
-                            onAddSemester={addSemester}        
-                            onExportPDF={handleExportPDF}      
-                            onImportPDF={() => { playClick(); setShowImportGuide(true); }} 
+                            onUpdateSemester={updateSemester}
+                            onRemoveSemester={removeSemester}
+                            onAddSemester={addSemester}
+                            onExportPDF={handleExportPDF}
+                            onImportPDF={() => { playClick(); setShowImportGuide(true); }}
                             isImporting={isImporting}
                             fileInputRef={fileInputRef}
                             onFileUpload={handleFileUpload}
@@ -2070,13 +2100,11 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/events/edit/:eventId" element={<EventsBoard viewUserId={viewingUser?.id} />} />
                 <Route path="/events/:eventId" element={<EventsBoard viewUserId={viewingUser?.id} />} />
                 <Route path="/lost-found" element={<LostFoundBoard />} />
-                <Route path="/exam-ai" element={ENABLE_EXAM_AI ? <ExamStudyAI data={data} userId={session?.user?.id} /> : <Navigate to="/dashboard" replace />} />
-                <Route path="/exam-ai/:setId" element={ENABLE_EXAM_AI ? <ExamStudyAI data={data} userId={session?.user?.id} /> : <Navigate to="/dashboard" replace />} />
                 <Route path="/handbook/:tab?" element={<Handbook />} />
-                
+
                 <Route path="/profile/:id" element={<ProfilePage refreshKey={profileRefreshKey} onEditProfile={() => setShowAccountSettings(true)} />} />
                 <Route path="/profiles/search" element={<ProfileSearchPage />} />
-                
+
                 <Route path="/admin-reports" element={(isAdmin || isAuditor) ? <AdminReports /> : <Navigate to="/dashboard" replace />} />
                 <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/dashboard" replace />} />
                 <Route path="/admin/event-candidates" element={(isAdmin || isAuditor) ? <AdminEventCandidates /> : <Navigate to="/dashboard" replace />} />
@@ -2088,28 +2116,28 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             <Routes>
                 <Route path="/" element={<Navigate to="/mobile-home" replace />} />
                 <Route path="/mobile-home" element={<MobileHome data={data} displayName={displayName} avatarUrl={profileAvatarUrl} avatarSeed={avatarSeed} isGuest={isGuest} showSecurityNotice={!session} onRequireOnboarding={() => setForceGuestOnboarding(true)} />} />
-                <Route path="/learning" element={<MobileLearning data={data} onSetSemesters={(sems) => commitDataUpdate(prev => ({ ...prev, semesters: sems }))} onSaveSemesters={saveSemestersNow} isGuest={isGuest} onRequireOnboarding={() => setForceGuestOnboarding(true)} onTargetChange={(newTarget) => commitDataUpdate(prev => ({ ...prev, targetGPA: newTarget }))} showSecurityNotice={!session} onUpdateSemester={updateSemester} onRemoveSemester={removeSemester} onAddSemester={addSemester} onExportPDF={handleExportPDF} onImportPDF={() => { playClick(); setShowImportGuide(true); }} isImporting={isImporting} fileInputRef={fileInputRef} onFileUpload={handleFileUpload} viewUserId={viewingUser?.id} />} />
+                <Route path="/learning" element={<MobileLearning data={data} onSetSemesters={(sems) => commitDataUpdate(prev => ({ ...prev, semesters: sems }))} onSaveSemesters={saveSemestersNow} isGuest={isGuest} onRequireOnboarding={() => setForceGuestOnboarding(true)} onTargetChange={(newTarget) => commitDataUpdate(prev => ({ ...prev, targetGPA: newTarget }))} showSecurityNotice={!session} onUpdateSemester={updateSemester} onRemoveSemester={removeSemester} onAddSemester={addSemester} onExportPDF={handleExportPDF} onImportPDF={() => { playClick(); setShowImportGuide(true); }} isImporting={isImporting} fileInputRef={fileInputRef} onFileUpload={handleFileUpload} viewUserId={viewingUser?.id} isManagementUser={isAdmin || isAuditor} />} />
                 <Route path="/events" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/events/edit/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/events/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/lost-found" element={<MobileLostFound />} />
-                <Route path="/exam-ai" element={ENABLE_EXAM_AI ? <ExamStudyAI data={data} userId={session?.user?.id} /> : <Navigate to="/mobile-home" replace />} />
-                <Route path="/exam-ai/:setId" element={ENABLE_EXAM_AI ? <ExamStudyAI data={data} userId={session?.user?.id} /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/handbook/:tab?" element={<MobileHandbook />} />
                 <Route path="/handbook" element={<MobileHandbook />} />
+                <Route path="/terms" element={<MobileHandbook forcedTab="terms" />} />
+                <Route path="/privacy" element={<MobileHandbook forcedTab="privacy" />} />
                 <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/event-candidates" element={(isAdmin || isAuditor) ? <AdminEventCandidates /> : <Navigate to="/mobile-home" replace />} />
-                
+
                 <Route path="/profile/:id" element={
-                    <MobileProfileComponent 
-                        setShowAccountSettings={setShowAccountSettings} 
-                        handleRequestReset={handleRequestReset} 
+                    <MobileProfileComponent
+                        setShowAccountSettings={setShowAccountSettings}
+                        handleRequestReset={handleRequestReset}
                         onInstallApp={handleInstallApp}
                         showInstallButton={!isAppMode}
                     />
                 } />
                 <Route path="/profiles/search" element={<ProfileSearchPage />} />
-                
+
                 <Route path="/dashboard" element={<Navigate to="/mobile-home" replace />} />
                 <Route path="*" element={<Navigate to="/mobile-home" replace />} />
             </Routes>
@@ -2146,31 +2174,33 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 )}
 
                 {showImportGuide && (
-                    <ImportGuideModal 
-                        onClose={() => setShowImportGuide(false)} 
-                        onFileClick={() => fileInputRef.current?.click()} 
+                    <ImportGuideModal
+                        onClose={() => setShowImportGuide(false)}
+                        securitySlot={<TurnstileBox token={gradeImportTurnstileToken} onTokenChange={setGradeImportTurnstileToken} />}
+                        canSelectFile={Boolean(gradeImportTurnstileToken)}
+                        onFileClick={() => fileInputRef.current?.click()}
                         onFileDrop={(file) => {
-                            setShowImportGuide(false); 
+                            setShowImportGuide(false);
                             if (fileInputRef.current) {
                                 const dataTransfer = new DataTransfer();
                                 dataTransfer.items.add(file);
                                 fileInputRef.current.files = dataTransfer.files;
-                                
+
                                 const event = new Event('change', { bubbles: true });
                                 fileInputRef.current.dispatchEvent(event);
                             }
                         }}
                     />
                 )}
-                
+
                 {showGuide && <UserGuideModal onClose={() => setShowGuide(false)} />}
                 {showActivityLog && <ActivityLogModal onClose={() => setShowActivityLog(false)} />}
-                
+
                 {/* MODAL XÁC NHẬN OTP ĐỂ XÓA TÀI KHOẢN */}
                 {showResetModal && (
                     <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
                         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn border border-gray-200">
-                            
+
                             {resetStep === 1 ? (
                                 <div className="p-8 sm:p-10 animate-fadeIn text-center relative">
                                     <button onClick={() => setShowResetModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-full p-1.5 transition-colors"><X size={18} /></button>
@@ -2187,7 +2217,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                         <button onClick={() => setShowResetModal(false)} className="w-full py-3.5 bg-[#003375] text-white font-bold rounded-xl hover:bg-[#002855] transition-all shadow-md active:scale-95 flex items-center justify-center gap-2">
                                             Thôi, mình ở lại! 💙
                                         </button>
-                                        <button onClick={() => { playClick(); setResetStep(2); generateCaptcha(); }} className="w-full py-3 bg-transparent text-gray-500 font-bold rounded-xl hover:bg-gray-50 hover:text-red-600 transition-all text-sm">
+                                        <button onClick={() => { playClick(); setResetStep(2); setDeleteTurnstileToken(''); }} className="w-full py-3 bg-transparent text-gray-500 font-bold rounded-xl hover:bg-gray-50 hover:text-red-600 transition-all text-sm">
                                             Mình đã quyết định, tiếp tục xóa
                                         </button>
                                     </div>
@@ -2202,7 +2232,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                         <h3 className="text-xl font-bold text-red-700">Cảnh báo xóa tài khoản</h3>
                                         <p className="text-sm text-red-600/80 font-medium mt-1">Tài khoản và toàn bộ dữ liệu sẽ bị xóa vĩnh viễn.</p>
                                     </div>
-                                    
+
                                     <div className="p-6">
                                         <div className="space-y-4">
                                             <p className="text-sm text-gray-600 text-center leading-relaxed">
@@ -2211,25 +2241,19 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                             <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 text-center font-bold text-[#003375]">
                                                 {session?.user.email}
                                             </div>
-                                            
+
                                             <div className="mt-4 flex flex-col gap-2">
                                                 <label className="text-sm font-bold text-gray-700 text-center">
-                                                    Xác minh bảo mật: <span className="text-[#003375] text-base">{captchaQuestion} = ?</span>
+                                                    Xac minh bao mat
                                                 </label>
-                                                <input
-                                                    type="number"
-                                                    placeholder="Nhập kết quả phép tính..."
-                                                    value={userCaptchaInput}
-                                                    onChange={(e) => setUserCaptchaInput(e.target.value)}
-                                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#003375] focus:border-[#003375] outline-none transition-all text-sm font-bold text-center bg-gray-50"
-                                                />
+                                                <TurnstileBox token={deleteTurnstileToken} onTokenChange={setDeleteTurnstileToken} />
                                             </div>
 
                                             {otpError && <p className="text-xs text-red-500 text-center font-bold">{otpError}</p>}
-                                            
+
                                             <div className="flex flex-col gap-2 mt-4">
-                                                <button onClick={handleVerifyCaptchaAndSendOtp} disabled={isSendingOtp || !userCaptchaInput} className="w-full bg-red-600 text-white font-bold py-3.5 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-md">
-                                                    {isSendingOtp ? <Loader2 className="animate-spin" size={18} /> : <Mail size={18} />} 
+                                                <button onClick={handleVerifyTurnstileAndSendOtp} disabled={isSendingOtp || !deleteTurnstileToken} className="w-full bg-red-600 text-white font-bold py-3.5 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-md">
+                                                    {isSendingOtp ? <Loader2 className="animate-spin" size={18} /> : <Mail size={18} />}
                                                     {isSendingOtp ? 'Đang gửi mã...' : 'Xác nhận gửi mã'}
                                                 </button>
                                                 <button onClick={() => setResetStep(1)} className="w-full py-3 text-sm text-gray-500 font-bold hover:text-gray-900 transition-colors">
@@ -2283,14 +2307,14 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                                 />
                                             ))}
                                         </div>
-                                        
+
                                         <div className="h-6 mt-1 mb-4 w-full">
                                             {otpError && <p className="text-xs text-red-600 font-bold animate-shake text-center">{otpError}</p>}
                                         </div>
 
-                                        <button 
-                                            onClick={verifyOtpAndReset} 
-                                            disabled={otpInput.length !== 6} 
+                                        <button
+                                            onClick={verifyOtpAndReset}
+                                            disabled={otpInput.length !== 6}
                                             className="w-full py-3.5 bg-[#003375] text-white font-bold rounded-xl hover:bg-[#002855] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-md hover:shadow-lg mb-6 flex items-center justify-center gap-2 active:scale-[0.98]"
                                         >
                                             Xác nhận xóa tài khoản
@@ -2299,27 +2323,27 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                         <div className="flex flex-col items-center gap-5 w-full border-t border-gray-100 pt-5">
                                             <p className="text-sm text-gray-500">
                                                 Bạn chưa nhận được mã?{' '}
-                                                <button 
-                                                    onClick={sendOtpEmail} 
+                                                <button
+                                                    onClick={sendOtpEmail}
                                                     disabled={isSendingOtp || resendCountdown > 0}
                                                     className="text-[#003375] font-bold hover:underline transition-all disabled:opacity-50 disabled:no-underline disabled:text-gray-400"
                                                 >
-                                                    {isSendingOtp 
-                                                        ? 'Đang gửi lại...' 
-                                                        : resendCountdown > 0 
-                                                            ? `Gửi lại mã sau ${Math.floor(resendCountdown / 60)}:${String(resendCountdown % 60).padStart(2, '0')}` 
+                                                    {isSendingOtp
+                                                        ? 'Đang gửi lại...'
+                                                        : resendCountdown > 0
+                                                            ? `Gửi lại mã sau ${Math.floor(resendCountdown / 60)}:${String(resendCountdown % 60).padStart(2, '0')}`
                                                             : 'Gửi lại mã'
                                                     }
                                                 </button>
                                             </p>
-                                            
-                                            <button 
+
+                                            <button
                                                 onClick={() => {
-                                                    setResetStep(2); 
+                                                    setResetStep(2);
                                                     setOtpInput('');
                                                     setOtpError('');
-                                                    generateCaptcha(); 
-                                                }} 
+                                                    setDeleteTurnstileToken('');
+                                                }}
                                                 className="text-sm text-gray-500 font-semibold hover:text-gray-900 transition-colors flex items-center gap-1.5"
                                             >
                                                 <ArrowLeft size={16} /> Quay lại
@@ -2350,19 +2374,39 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
 
                 {/* MODAL ACCOUNT SETTINGS (Giữ nguyên) */}
                 {showAccountSettings && (
-                    <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
-                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn border border-gray-200">
-                            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                                <h3 className="font-bold text-gray-900 text-base">Cài đặt thông tin</h3>
-                                <button onClick={() => setShowAccountSettings(false)} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors"><X size={18} /></button>
+                    <div
+                        className={`fixed inset-0 bg-black/60 z-[100000] flex animate-fadeIn ${
+                            useMobileLayout || isMobileScreen
+                                ? 'items-end justify-center p-0'
+                                : 'items-center justify-center p-4'
+                        }`}
+                        onClick={() => setShowAccountSettings(false)}
+                    >
+                        <div
+                            className={`account-settings-sheet bg-white shadow-2xl w-full overflow-hidden border border-gray-200 ${
+                                useMobileLayout || isMobileScreen
+                                    ? 'max-h-[80vh] max-w-[430px] rounded-t-3xl animate-slideUp flex flex-col'
+                                    : 'max-w-md rounded-xl animate-scaleIn'
+                            }`}
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            {(useMobileLayout || isMobileScreen) && (
+                                <div className="mx-auto mt-3 h-1.5 w-16 rounded-full bg-gray-200 shrink-0" />
+                            )}
+                            <div className={`account-settings-header ${useMobileLayout || isMobileScreen ? 'px-4 pt-3 pb-3 bg-white' : 'p-4 bg-gray-50'} border-b border-gray-100 flex justify-between items-center shrink-0`}>
+                                <h3 className={`${useMobileLayout || isMobileScreen ? 'flex items-center gap-2 text-base font-black text-[#0D1B3E]' : 'font-bold text-gray-900 text-base'}`}>
+                                    {(useMobileLayout || isMobileScreen) && <User size={18} className="text-[#003375]" />}
+                                    Cài đặt thông tin
+                                </h3>
+                                <button onClick={() => setShowAccountSettings(false)} className={`${useMobileLayout || isMobileScreen ? 'bg-gray-100 p-2 rounded-full active:scale-95' : 'p-1.5 hover:bg-gray-200 rounded-lg'} text-gray-500 transition-colors`}><X size={useMobileLayout || isMobileScreen ? 16 : 18} /></button>
                             </div>
-                            <div className="p-5 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                            <div className={`account-settings-body ${useMobileLayout || isMobileScreen ? 'flex-1 min-h-0 p-4 space-y-5' : 'p-5 space-y-6 max-h-[70vh]'} overflow-y-auto custom-scrollbar`}>
                                 {profileError && (
                                     <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100">
                                         {profileError}
                                     </div>
                                 )}
-                                
+
                                 <div>
                                     <h4 className="text-xs font-black text-[#003375] uppercase tracking-wider mb-3 border-b border-gray-100 pb-1">1. Thông tin hiển thị</h4>
                                     <div className="space-y-4">
@@ -2616,11 +2660,11 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                             <label className="text-xs font-bold text-gray-500">Tên sinh viên (Tùy chọn)</label>
                                             <input type="text" value={draftStudentName} onChange={(e) => setDraftStudentName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="Ví dụ: Nguyễn Văn A..." />
                                         </div>
-                                        
+
                                         <div className="space-y-1.5">
                                             <label className="text-xs font-bold text-gray-500">Chương trình đào tạo <span className="text-red-500">*</span></label>
-                                            <select 
-                                                value={draftProgram?.id || ''} 
+                                            <select
+                                                value={draftProgram?.id || ''}
                                                 onChange={(e) => {
                                                     const prog = ACADEMIC_PROGRAMS.find(p => p.id === e.target.value) || null;
                                                     setDraftProgram(prog);
@@ -2638,8 +2682,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                         <div className="flex gap-3">
                                             <div className="space-y-1.5 flex-1">
                                                 <label className="text-xs font-bold text-gray-500">Khóa <span className="text-red-500">*</span></label>
-                                                <select 
-                                                    value={draftCohort} 
+                                                <select
+                                                    value={draftCohort}
                                                     onChange={(e) => {
                                                         setDraftCohort(e.target.value);
                                                         setDraftMajor(null);
@@ -2654,8 +2698,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                             </div>
                                             <div className="space-y-1.5 flex-[2]">
                                                 <label className="text-xs font-bold text-gray-500">Ngành học <span className="text-red-500">*</span></label>
-                                                <select 
-                                                    value={draftMajor?.code || ''} 
+                                                <select
+                                                    value={draftMajor?.code || ''}
                                                     onChange={(e) => {
                                                         const majors = draftProgram && draftCohort ? getMajors(draftProgram.id, draftCohort) : [];
                                                         const maj = majors.find(m => m.code === e.target.value) || null;
@@ -2680,8 +2724,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                         {draftMajor && draftMajor.specializations.length > 1 && (
                                             <div className="space-y-1.5 animate-fadeIn">
                                                 <label className="text-xs font-bold text-gray-500">Chuyên ngành <span className="text-red-500">*</span></label>
-                                                <select 
-                                                    value={draftSpecialization?.name || ''} 
+                                                <select
+                                                    value={draftSpecialization?.name || ''}
                                                     onChange={(e) => {
                                                         const spec = draftMajor.specializations.find(s => s.name === e.target.value) || null;
                                                         setDraftSpecialization(spec);
@@ -2698,13 +2742,13 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                     </div>
                                 </div>
                             </div>
-                            
-                            <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-2 shrink-0">
-                                <button onClick={() => setShowAccountSettings(false)} className="flex-1 py-2 rounded-lg border border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-100 transition-colors">Hủy</button>
-                                <button 
-                                    onClick={handleSaveProfile} 
-                                    disabled={profileSaving || !draftProgram || !draftCohort || !draftMajor || !draftSpecialization} 
-                                    className="flex-[2] py-2 rounded-lg bg-[#003375] text-white font-bold text-sm hover:bg-[#002855] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+
+                            <div className={`account-settings-footer ${useMobileLayout || isMobileScreen ? 'px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] bg-white' : 'p-4 bg-gray-50'} border-t border-gray-100 flex gap-2 shrink-0`}>
+                                <button onClick={() => setShowAccountSettings(false)} className={`${useMobileLayout || isMobileScreen ? 'py-3 rounded-xl' : 'py-2 rounded-lg'} flex-1 border border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-100 transition-colors`}>Hủy</button>
+                                <button
+                                    onClick={handleSaveProfile}
+                                    disabled={profileSaving || !draftProgram || !draftCohort || !draftMajor || !draftSpecialization}
+                                    className={`${useMobileLayout || isMobileScreen ? 'py-3 rounded-xl shadow-md' : 'py-2 rounded-lg'} flex-[2] bg-[#003375] text-white font-bold text-sm hover:bg-[#002855] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
                                 >
                                     {profileSaving ? <Loader2 className="animate-spin" size={14} /> : null} Lưu thông tin
                                 </button>
@@ -2720,16 +2764,16 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                             <button onClick={() => setShowIOSInstructions(false)} className="absolute top-4 right-4 bg-gray-100 p-2 rounded-full text-gray-500 hover:bg-gray-200 transition-colors">
                                 <X size={20} />
                             </button>
-                            
+
                             <div className="w-16 h-16 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Download size={32} />
                             </div>
-                            
+
                             <h3 className="text-xl font-black text-center text-[#003375] mb-2">Cài đặt HUB Planner</h3>
                             <p className="text-sm text-gray-600 text-center mb-6 leading-relaxed">
                                 Trình duyệt của Apple không cho phép cài đặt tự động. Bạn vui lòng làm theo 2 bước cực nhanh sau:
                             </p>
-                            
+
                             <div className="space-y-4">
                                 <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
                                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0 text-blue-500">
@@ -2739,7 +2783,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                         <strong>Bước 1:</strong> Nhấn vào biểu tượng <span className="text-blue-500 font-bold">Chia sẻ (Share)</span> ở thanh công cụ trình duyệt.
                                     </p>
                                 </div>
-                                
+
                                 <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
                                     <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0 text-gray-800">
                                         <PlusSquare size={20} />
@@ -2775,24 +2819,23 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         }
     >
         <Particles id="app-particles" init={particlesInit} options={particlesOptions} className="absolute inset-0 z-0 pointer-events-none" />
-                
+
                 <LayoutComponent
                     // ✨ TRUYỀN HÀM XỬ LÝ CÀI ĐẶT APP XUỐNG CHO GIAO DIỆN
                     onInstallApp={handleInstallApp}
-                    showInstallButton={!isAppMode} 
+                    showInstallButton={!isAppMode}
 
-                    session={session} isGuest={isGuest} isAdmin={isAdmin} isAuditor={isAuditor} viewingUser={viewingUser} 
-                    displayName={displayName} studentId={studentId} avatarUrl={profileAvatarUrl} avatarSeed={avatarSeed} 
-                    adminSearchMssv={adminSearchMssv} isSearchingUser={isSearchingUser} setAdminSearchMssv={setAdminSearchMssv} 
-                    handleAdminSearchUser={handleAdminSearchUser} handleRequestReset={handleRequestReset} handleLogout={handleLogout} 
+                    session={session} isGuest={isGuest} isAdmin={isAdmin} isAuditor={isAuditor} viewingUser={viewingUser}
+                    displayName={displayName} studentId={studentId} avatarUrl={profileAvatarUrl} avatarSeed={avatarSeed}
+                    adminSearchMssv={adminSearchMssv} isSearchingUser={isSearchingUser} setAdminSearchMssv={setAdminSearchMssv}
+                    handleAdminSearchUser={handleAdminSearchUser} handleRequestReset={handleRequestReset} handleLogout={handleLogout}
                     setShowGuide={setShowGuide} setShowActivityLog={setShowActivityLog} setIsUserMenuOpen={setIsUserMenuOpen}
                     isUserMenuOpen={isUserMenuOpen} setShowAccountSettings={setShowAccountSettings} handleMenuLogout={handleMenuLogout} navigate={navigate}
                     isMobileBrowser={isMobileBrowser}
-                    showExamAI={ENABLE_EXAM_AI}
                 >
                     {currentRoutes}
                 </LayoutComponent>
-                
+
                 {commonModals}
                 {passwordSetupSchemaMissing && !isPrivilegedUser && (
                     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/65 p-4">
@@ -2829,15 +2872,14 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
     return (
         <>
             <Routes>
-                <Route path="/privacy" element={<PrivacyPolicy />} />
-                <Route path="/terms" element={<TermsOfUse />} />
+                <Route path="/privacy" element={(useMobileLayout || isMobileScreen) ? <MobileHandbook forcedTab="privacy" /> : <PrivacyPolicy />} />
+                <Route path="/terms" element={(useMobileLayout || isMobileScreen) ? <MobileHandbook forcedTab="terms" /> : <TermsOfUse />} />
                 <Route path="/login" element={<LoginScreen />} />
-                
+
                 <Route path="/" element={<Navigate to={useMobileLayout ? "/mobile-home" : "/dashboard"} replace />} />
                 <Route path="/*" element={renderProtectedApp()} />
             </Routes>
             <DataIncidentNoticeModal onDone={() => setIsDataIncidentNoticeDone(true)} />
-            {isDataIncidentNoticeDone && <SupportNoticeModal />}
         </>
     );
 };

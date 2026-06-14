@@ -1,5 +1,5 @@
-﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { createPortal } from 'react-dom'; 
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../utils/supabase';
 import { Link } from 'react-router-dom';
 import { SubjectRankingModal } from './SubjectRankingModal';
@@ -20,11 +20,14 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, L
 import { playClick } from '../utils/audio';
 import { mapIdToDisplay, normalizeSemesterId } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
+import { FEATURE_FORECAST_TOOLS } from '../utils/featureFlags';
 import { useSemesterLookback } from '../hooks/useSemesterLookback';
 import { useUserRole } from '../hooks/useUserRole';
 import { SemesterLookbackModal } from './SemesterLookbackModal';
 import { fetchProfilePrivate, fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
 import { notifyModerators } from '../utils/moderatorNotifications';
+import { TurnstileBox } from './TurnstileBox';
+import { protectedSubmit } from '../utils/protectedSubmit';
 
 const formatGpaWithoutRounding = (value: number) => {
     return (Math.floor((value + Number.EPSILON) * 100) / 100).toFixed(2);
@@ -35,30 +38,30 @@ const getScholarshipRankAssessment = (rank?: number | null) => {
     if (!Number.isFinite(value) || value <= 0) {
         return {
             className: 'border-slate-200 bg-slate-50',
-            text: 'Chưa đủ dữ liệu xếp hạng để đánh giá khả năng đạt học bổng.'
+            text: 'Chua d? d? li?u x?p h?ng d? dánh giá kh? nang d?t h?c b?ng.'
         };
     }
     if (value <= 500) {
         return {
             className: 'border-emerald-200 bg-[#ECFDF5]',
-            text: 'Tỷ lệ đạt học bổng rất cao. Tiếp tục duy trì GPA và điểm rèn luyện để tăng cơ hội nhận học bổng.'
+            text: 'T? l? d?t h?c b?ng r?t cao. Ti?p t?c duy trì GPA và di?m rèn luy?n d? tang co h?i nh?n h?c b?ng.'
         };
     }
     if (value <= 700) {
         return {
             className: 'border-emerald-200 bg-emerald-50',
-            text: 'Tỷ lệ đạt học bổng cao. Nên duy trì điểm hiện tại và hạn chế giảm điểm rèn luyện.'
+            text: 'T? l? d?t h?c b?ng cao. Nên duy trì di?m hi?n t?i và h?n ch? gi?m di?m rèn luy?n.'
         };
     }
     if (value <= 1000) {
         return {
             className: 'border-amber-200 bg-amber-50',
-            text: 'Tỷ lệ đạt học bổng ở mức bình thường. Nên cải thiện thêm GPA hoặc điểm rèn luyện để an toàn hơn.'
+            text: 'T? l? d?t h?c b?ng ? m?c bình thu?ng. Nên c?i thi?n thêm GPA ho?c di?m rèn luy?n d? an toàn hon.'
         };
     }
     return {
         className: 'border-red-200 bg-red-50',
-        text: 'Tỷ lệ đạt học bổng thấp. Cần cải thiện GPA và điểm rèn luyện để tăng khả năng cạnh tranh.'
+        text: 'T? l? d?t h?c b?ng th?p. C?n c?i thi?n GPA và di?m rèn luy?n d? tang kh? nang c?nh tranh.'
     };
 };
 
@@ -66,7 +69,7 @@ const formatTopPercent = (rank?: number | null, total?: number | null) => {
     const rankValue = Number(rank);
     const totalValue = Number(total);
     if (!Number.isFinite(rankValue) || !Number.isFinite(totalValue) || rankValue <= 0 || totalValue <= 0) {
-        return 'Chưa có dữ liệu';
+        return 'Chua có d? li?u';
     }
 
     const percent = Math.max(0.01, (rankValue / totalValue) * 100);
@@ -74,12 +77,13 @@ const formatTopPercent = (rank?: number | null, total?: number | null) => {
 };
 
 // ============================================================================
-// MODAL: BÁO LỖI HỆ THỐNG
+// MODAL: BÁO L?I H? TH?NG
 // ============================================================================
 const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
     const [location, setLocation] = useState('');
     const [description, setDescription] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
     const [statusMsg, setStatusMsg] = useState<{text: string, type: 'success'|'error'} | null>(null);
 
     if (!isOpen) return null;
@@ -87,23 +91,25 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!location.trim() || !description.trim()) {
-            setStatusMsg({text: 'Vui lòng điền đầy đủ thông tin.', type: 'error'});
+            setStatusMsg({text: 'Vui lòng di?n d?y d? thông tin.', type: 'error'});
             return;
         }
         setSubmitting(true);
         playClick();
         try {
-            if (!supabase) throw new Error("Chưa cấu hình database.");
-            
-            const { data: { session } } = await supabase.auth.getSession();
-            
-            const { data, error } = await supabase.from('bug_reports').insert([{
-                user_id: session?.user?.id || null,
-                error_location: location,
-                description: description
-            }]).select('id').single();
+            if (!supabase) throw new Error("Ch?a c?u hình database.");
 
-            if (error) throw error;
+            const { data: { session } } = await supabase.auth.getSession();
+
+            const data = await protectedSubmit<{ id?: number }>({
+                action: 'bug-report',
+                turnstileToken,
+                payload: {
+                    user_id: session?.user?.id || null,
+                    error_location: location,
+                    description,
+                },
+            });
             void notifyModerators('bug_report', data?.id);
             setStatusMsg({text: 'Đã gửi báo cáo thành công. Cảm ơn bạn!', type: 'success'});
             setTimeout(() => {
@@ -137,7 +143,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label className="block text-sm font-bold text-gray-800 mb-1">Lỗi ở đâu? (Tính năng/Khu vực) <span className="text-red-500">*</span></label>
-                            <input 
+                            <input
                                 type="text" required
                                 className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-red-500 transition-all text-sm"
                                 placeholder="VD: Tính điểm hệ 4, Nhập PDF, Bảng xếp hạng..."
@@ -146,18 +152,23 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-800 mb-1">Mô tả chi tiết <span className="text-red-500">*</span></label>
-                            <textarea 
+                            <textarea
                                 rows={4} required
                                 className="w-full border border-gray-300 rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-red-500 resize-none text-sm transition-all"
                                 placeholder="Mô tả chi tiết vấn đề bạn đang gặp phải hoặc góp ý của bạn..."
                                 value={description} onChange={e => setDescription(e.target.value)}
                             ></textarea>
                         </div>
-                        <div className="flex gap-3 pt-2">
-                            <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all">Hủy</button>
-                            <button type="submit" disabled={submitting} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
-                                {submitting ? <Loader2 className="animate-spin" size={18}/> : null} Gửi báo cáo
-                            </button>
+                        <div className="space-y-3 pt-2">
+                            <div className="flex justify-center">
+                                <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />
+                            </div>
+                            <div className="flex gap-3">
+                                <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all">Hủy</button>
+                                <button type="submit" disabled={submitting || !turnstileToken} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
+                                    {submitting ? <Loader2 className="animate-spin" size={18}/> : null} Gửi báo cáo
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -167,7 +178,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
 };
 
 // ============================================================================
-// 1. MODAL: MÔN CHƯA ĐẠT
+// 1. MODAL: MÔN CHUA Ð?T
 // ============================================================================
 const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClose: () => void }) => {
     return createPortal(
@@ -175,7 +186,7 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
             <div className="bg-white rounded-xl w-full max-w-md flex flex-col shadow-xl animate-scaleIn overflow-hidden border border-gray-300" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
-                        <AlertTriangle size={18} className="text-[#990000]" /> Danh sách môn chưa đạt ({subjects.length})
+                        <AlertTriangle size={18} className="text-[#990000]" /> Danh sách môn chua d?t ({subjects.length})
                     </h3>
                     <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors"><X size={18} /></button>
                 </div>
@@ -188,12 +199,12 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
                                     <div>
                                         <p className="font-bold text-gray-800 text-sm">{sub.name}</p>
                                         <div className="flex gap-3 mt-1 text-xs text-gray-500">
-                                            <span className="bg-gray-100 px-2 py-0.5 rounded font-medium">{sub.credits} tín chỉ</span>
+                                            <span className="bg-gray-100 px-2 py-0.5 rounded font-medium">{sub.credits} tín ch?</span>
                                         </div>
                                     </div>
                                     <div className="text-right">
                                         <span className="block text-xl font-bold text-[#990000]">{avg?.toFixed(1) || '0.0'}</span>
-                                        <span className="text-[10px] text-[#990000] font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-100">RỚT MÔN</span>
+                                        <span className="text-[10px] text-[#990000] font-bold bg-red-50 px-1.5 py-0.5 rounded border border-red-100">R?T MÔN</span>
                                     </div>
                                 </div>
                              )
@@ -201,7 +212,7 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
                     </div>
                 </div>
                 <div className="p-3 border-t border-gray-300 bg-white">
-                    <button onClick={onClose} className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Đóng</button>
+                    <button onClick={onClose} className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Ðóng</button>
                 </div>
             </div>
         </div>, document.body
@@ -209,7 +220,7 @@ const FailedSubjectsModal = ({ subjects, onClose }: { subjects: Subject[], onClo
 };
 
 // ============================================================================
-// 2. MODAL: TỔNG KẾT NĂM
+// 2. MODAL: T?NG K?T NAM
 // ============================================================================
 const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => void }) => {
     return createPortal(
@@ -217,7 +228,7 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
             <div className="bg-white rounded-xl w-full max-w-md flex flex-col shadow-xl animate-scaleIn overflow-hidden border border-gray-300" onClick={e => e.stopPropagation()}>
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
-                        <Calendar size={18} className="text-[#003375]" /> Tổng kết từng năm học
+                        <Calendar size={18} className="text-[#003375]" /> Tổng kết t?ng nam h?c
                     </h3>
                     <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors"><X size={18} /></button>
                 </div>
@@ -236,7 +247,7 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
                                     <div className="flex justify-between items-center text-xs text-gray-600">
                                         <div className="flex gap-2">
                                             <span className="bg-gray-100 px-2 py-1 rounded font-medium">TC: {year.totalCredits}</span>
-                                            <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 font-medium">Đạt: {year.passedCredits}</span>
+                                            <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 font-medium">Ð?t: {year.passedCredits}</span>
                                         </div>
                                         <span className="font-bold text-[#003375] bg-blue-50 px-2 py-1 rounded">{yearClass}</span>
                                     </div>
@@ -246,7 +257,7 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
                     </div>
                 </div>
                 <div className="p-3 border-t border-gray-300 bg-white">
-                    <button onClick={onClose} className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Đóng</button>
+                    <button onClick={onClose} className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors">Ðóng</button>
                 </div>
             </div>
         </div>, document.body
@@ -254,7 +265,7 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
 };
 
 // ============================================================================
-// 3. COMPONENT: NHẬP ĐIỂM
+// 3. COMPONENT: NH?P ÐI?M
 // ============================================================================
 const ScoreInput = ({ value, onChange }: { value: number | null, onChange: (val: number | null) => void }) => {
   const [localValue, setLocalValue] = useState<string>(value?.toString() ?? '');
@@ -282,7 +293,7 @@ const ScoreInput = ({ value, onChange }: { value: number | null, onChange: (val:
   };
 
   return (
-    <input 
+    <input
       type="number" min="0" max="10" step="0.1"
       className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent p-1 text-center font-medium transition-all hover:border-blue-300"
       placeholder="-"
@@ -292,21 +303,20 @@ const ScoreInput = ({ value, onChange }: { value: number | null, onChange: (val:
     />
   );
 };
-
 // ============================================================================
-// 4. COMPONENT: BẢNG ĐIỂM HỌC KỲ (SEMESTER TABLE)
+// 4. COMPONENT: B?NG ÐI?M H?C K? (SEMESTER TABLE)
 // ============================================================================
-const DEFAULT_TRANSCRIPT_SEMESTER_NAME = 'Học kỳ 1 Năm học 2025-2026';
-const isValidTranscriptSemesterName = (name?: string) => /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test((name || '').trim());
+const DEFAULT_TRANSCRIPT_SEMESTER_NAME = 'H?c k? 1 N?m h?c 2025-2026';
+const isValidTranscriptSemesterName = (name?: string) => /^H?c k? (1|2) Nam h?c \d{4}-\d{4}$/.test((name || '').trim());
 const parseTranscriptSemesterName = (name?: string) => {
-    const match = (name || '').trim().match(/^Học kỳ (1|2) Năm học (\d{4})-\d{4}$/);
+    const match = (name || '').trim().match(/^H?c k? (1|2) Nam h?c (\d{4})-\d{4}$/);
     if (!match) return null;
     return { term: Number(match[1]), year: Number(match[2]) };
 };
 const getFollowingTranscriptSemesterName = ({ term, year }: { term: number; year: number }) => {
     const nextTerm = term === 1 ? 2 : 1;
     const nextYear = term === 1 ? year : year + 1;
-    return `Học kỳ ${nextTerm} Năm học ${nextYear}-${nextYear + 1}`;
+    return `H?c k? ${nextTerm} Nam h?c ${nextYear}-${nextYear + 1}`;
 };
 const getNextTranscriptSemesterName = (semesters: Semester[]) => {
     const selectedSemesters = semesters
@@ -333,7 +343,7 @@ interface SemesterTableProps {
   onRemoveSemester: () => void;
   allSemesterOptions: string[];
   usedSemesterNames: string[];
-  onCascadeUpdate: (newName: string) => void; 
+  onCascadeUpdate: (newName: string) => void;
   isReadOnly?: boolean;
   rankContext?: {
     studentCode?: string | null;
@@ -353,8 +363,8 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
       scoreMid: true,
       scoreFinal: true
   });
-    
-  const { 
+
+  const {
       fetchRank, result: rankingResult, loading: rankingLoading, error: rankingError, resetResult,
       fetchAvailableSemesters, availableSemesters, loadingSemesters, prepareSemesterRanks,
       resetSemesterRanks, semesterRanks, loadingSemesterRanks
@@ -362,8 +372,8 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
   const [showRankMenu, setShowRankMenu] = useState(false);
   const [isSemesterChooserOpen, setIsSemesterChooserOpen] = useState(false);
-    
-  const isValidFormat = /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test(semester.name);
+
+  const isValidFormat = /^H?c k? (1|2) Nam h?c \d{4}-\d{4}$/.test(semester.name);
   const scoreColumnConfig = [
       { key: 'scoreCC', label: '10%' },
       { key: 'scoreProcess', label: '20%' },
@@ -394,9 +404,9 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
   const addSubject = () => {
     playClick();
-    const newSubject: Subject = { id: Date.now().toString(), name: 'Môn học mới', credits: 3, scoreCC: null, scoreProcess: null, scoreMid: null, scoreFinal: null, isNonGPA: false };
+    const newSubject: Subject = { id: Date.now().toString(), name: 'Môn h?c m?i', credits: 3, scoreCC: null, scoreProcess: null, scoreMid: null, scoreFinal: null, isNonGPA: false };
     onUpdateSemester({ ...semester, subjects: [...semester.subjects, newSubject] });
-    setSearchTerm(''); 
+    setSearchTerm('');
   };
 
   const removeSubject = (id: string) => {
@@ -407,17 +417,17 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
   const handleSortToggle = () => {
       playClick();
       setSortOrder(prev => {
-          if (prev === null) return 'desc'; 
-          if (prev === 'desc') return 'asc'; 
-          return null; 
+          if (prev === null) return 'desc';
+          if (prev === 'desc') return 'asc';
+          return null;
       });
   };
 
-  let semTotalCredits = 0; 
+  let semTotalCredits = 0;
   let semWeightedScore4 = 0;
   let semWeightedScore10 = 0;
   let hasData = false;
-  let totalRegisteredCredits = 0; 
+  let totalRegisteredCredits = 0;
 
   if (isValidFormat) {
       semester.subjects.forEach(s => {
@@ -446,7 +456,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
       const step1_10 = Math.round((raw10 + Number.EPSILON) * 100) / 100;
       semGPA10 = Math.round((step1_10 + Number.EPSILON) * 10) / 10;
   }
-    
+
   const classification = hasData ? getDegreeClassification(semGPA4) : '---';
   const scholarshipStatus = (() => {
     const drl = semester.trainingScore ?? 0;
@@ -454,9 +464,9 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
     const gpa = semGPA4;
 
     const meetsRequirements = credits >= 15 && gpa >= 3.2 && drl >= 80;
-    if (!meetsRequirements) return { label: 'Không đạt', className: 'bg-gray-100 text-gray-500 border-gray-200' };
-    if (gpa >= 3.6 && drl >= 90) return { label: '🏆 HB Xuất sắc', className: 'bg-yellow-50 text-yellow-700 border-yellow-200' };
-    return { label: '💰 HB Giỏi', className: 'bg-green-50 text-green-700 border-green-200' };
+    if (!meetsRequirements) return { label: 'Không d?t', className: 'bg-gray-100 text-gray-500 border-gray-200' };
+    if (gpa >= 3.6 && drl >= 90) return { label: '?? HB Xu?t s?c', className: 'bg-yellow-50 text-yellow-700 border-yellow-200' };
+    return { label: '?? HB Gi?i', className: 'bg-green-50 text-green-700 border-green-200' };
   })();
   const scholarshipRankAssessment = getScholarshipRankAssessment(rankingResult?.rank);
   const schoolTopPercentLabel = formatTopPercent(rankingResult?.rank, rankingResult?.totalStudents);
@@ -465,7 +475,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
       playClick(); setShowRankMenu(true);
       setIsSemesterChooserOpen(false);
       prepareSemesterRanks(semGPA4, totalRegisteredCredits, semester.trainingScore ?? 0);
-      fetchAvailableSemesters(); 
+      fetchAvailableSemesters();
   };
 
   const handleSelectReferenceSemester = (refId: string) => {
@@ -476,12 +486,12 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
   let headerColor = "bg-gray-50 border-gray-200";
   if (hasData) {
-      if (semGPA4 >= 3.6) headerColor = "bg-green-50 border-green-200"; 
-      else if (semGPA4 >= 3.2) headerColor = "bg-blue-50 border-blue-200"; 
-      else if (semGPA4 >= 2.5) headerColor = "bg-indigo-50 border-indigo-200"; 
-      else if (semGPA4 >= 2.0) headerColor = "bg-yellow-50 border-yellow-200"; 
-      else if (semGPA4 >= 1.0) headerColor = "bg-orange-50 border-orange-200"; 
-      else headerColor = "bg-red-50 border-red-200"; 
+      if (semGPA4 >= 3.6) headerColor = "bg-green-50 border-green-200";
+      else if (semGPA4 >= 3.2) headerColor = "bg-blue-50 border-blue-200";
+      else if (semGPA4 >= 2.5) headerColor = "bg-indigo-50 border-indigo-200";
+      else if (semGPA4 >= 2.0) headerColor = "bg-yellow-50 border-yellow-200";
+      else if (semGPA4 >= 1.0) headerColor = "bg-orange-50 border-orange-200";
+      else headerColor = "bg-red-50 border-red-200";
   }
 
   const processedSubjects = useMemo(() => {
@@ -501,28 +511,28 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
       <div className={`px-3 py-3 sm:px-6 sm:py-4 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 ${isValidFormat ? headerColor : 'bg-red-50/30 border-red-200'} rounded-t-xl ${isValidFormat ? 'border-b' : 'border-b-0'}`}>
         <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
             <div className="relative group flex-1 max-w-md flex items-center min-w-0">
-                <select 
+                <select
                     value={isValidFormat ? semester.name : ''}
                     onChange={handleNameChange}
                     className={`text-base sm:text-lg font-bold bg-transparent border-b border-dashed focus:outline-none transition-all w-full py-0.5 sm:py-1 appearance-none cursor-pointer pr-6 truncate ${
                         !isValidFormat
-                        ? 'text-red-600 border-red-400 hover:border-red-600' 
+                        ? 'text-red-600 border-red-400 hover:border-red-600'
                         : 'text-[#003375] border-transparent hover:border-[#003375]/50 focus:border-[#003375]'
                     }`}
                 >
                     {!allSemesterOptions.includes(semester.name) && isValidFormat && (
                         <option value={semester.name} disabled className="hidden">{semester.name}</option>
                     )}
-                    
+
                     {!isValidFormat && (
-                         <option value="" disabled className="text-red-500 font-bold">👉 Vui lòng chọn lại tên học kỳ (Sai định dạng)</option>
+                         <option value="" disabled className="text-red-500 font-bold">?? Vui lòng ch?n l?i tên h?c k? (Sai d?nh d?ng)</option>
                     )}
-                    
+
                     {allSemesterOptions.map(opt => {
                         const isUsed = usedSemesterNames.includes(opt) && opt !== semester.name;
                         return (
                             <option key={opt} value={opt} disabled={isUsed} className={isUsed ? 'text-gray-400 bg-gray-100' : 'text-gray-900'}>
-                                {opt} {isUsed ? '(Đã thêm)' : ''}
+                                {opt} {isUsed ? '(Ðã thêm)' : ''}
                             </option>
                         )
                     })}
@@ -537,57 +547,57 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-4 text-[11px] sm:text-sm relative z-10">
-              {hasData && isValidFormat && (
+              {FEATURE_FORECAST_TOOLS && hasData && isValidFormat && (
                   <div className="relative">
-                      <button 
+                      <button
                           onClick={handleOpenRankMenu}
                           className={`flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg border shadow-sm transition-all active:scale-95 hover:shadow-md ${showRankMenu ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
-                          title="Xếp hạng dự báo"
+                          title="X?p h?ng d? báo"
                       >
-                          <Crown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${rankingResult ? "fill-yellow-500 text-yellow-600" : "text-gray-400"}`}/> 
-                          <span className="font-bold text-[#003375]">Xếp hạng 👑</span>
+                          <Crown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${rankingResult ? "fill-yellow-500 text-yellow-600" : "text-gray-400"}`}/>
+                          <span className="font-bold text-[#003375]">X?p h?ng ??</span>
                       </button>
 
                       {false && showRankMenu && (
                           <div className="absolute top-full left-0 md:left-auto md:right-0 mt-2 w-72 sm:w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-[60] overflow-hidden animate-fadeIn origin-top-left md:origin-top-right">
                               <div className="bg-[#003375] px-4 py-3 text-white flex justify-between items-center shrink-0">
-                                  <h4 className="font-bold text-sm flex items-center gap-2"><BarChart2 size={16}/> Xếp Hạng Dự Báo</h4>
+                                  <h4 className="font-bold text-sm flex items-center gap-2"><BarChart2 size={16}/> X?p H?ng D? Báo</h4>
                                   <button onClick={() => { setShowRankMenu(false); resetSemesterRanks(); }} className="hover:bg-white/20 p-1 rounded-full transition-colors"><X size={14}/></button>
                               </div>
                               <div className="p-0">
                                   {rankingLoading ? (
                                       <div className="flex flex-col items-center justify-center py-8 text-[#003375]">
                                           <Loader2 size={32} className="animate-spin mb-2"/>
-                                          <span className="text-xs font-medium">Đang tính toán...</span>
+                                          <span className="text-xs font-medium">Ðang tính toán...</span>
                                       </div>
                                   ) : rankingResult ? (
                                       <div className="p-4 bg-[#F8FAFC]">
-                                          <button onClick={() => resetResult()} className="flex items-center gap-1 text-xs text-[#64748B] hover:text-[#0F172A] mb-3 transition-colors"><ChevronLeft size={14}/> Chọn kỳ khác</button>
+                                          <button onClick={() => resetResult()} className="flex items-center gap-1 text-xs text-[#64748B] hover:text-[#0F172A] mb-3 transition-colors"><ChevronLeft size={14}/> Ch?n k? khác</button>
                                           <div className="space-y-3">
                                               <div>
-                                                  <h4 className="text-base font-bold text-[#0F172A]">Xếp hạng học kỳ</h4>
+                                                  <h4 className="text-base font-bold text-[#0F172A]">X?p h?ng h?c k?</h4>
                                                   <p className="text-xs text-[#64748B] mt-0.5">{mapIdToDisplay(rankingResult.semesterId)}</p>
                                               </div>
 
                                               <div className="grid grid-cols-2 gap-2">
                                                   <div className="rounded-lg border border-[#E2E8F0] bg-white p-3">
-                                                      <p className="text-[11px] font-semibold text-[#64748B]">GPA học kỳ</p>
+                                                      <p className="text-[11px] font-semibold text-[#64748B]">GPA h?c k?</p>
                                                       <p className="mt-1 text-xl font-bold text-[#0F172A]">{semGPA4.toFixed(2)} <span className="text-xs font-medium text-[#64748B]">/ 4.0</span></p>
                                                   </div>
                                                   <div className="rounded-lg border border-[#E2E8F0] bg-white p-3">
-                                                      <p className="text-[11px] font-semibold text-[#64748B]">Điểm rèn luyện</p>
+                                                      <p className="text-[11px] font-semibold text-[#64748B]">Ði?m rèn luy?n</p>
                                                       <p className="mt-1 text-xl font-bold text-[#0F172A]">{semester.trainingScore ?? 0} <span className="text-xs font-medium text-[#64748B]">/ 100</span></p>
                                                   </div>
                                               </div>
 
                                               <div className="rounded-lg border border-[#E2E8F0] bg-white overflow-hidden">
                                                   <div className="flex items-center justify-between px-3 py-2 border-b border-[#E2E8F0]">
-                                                      <span className="text-xs font-semibold text-[#64748B]">Top toàn trường</span>
+                                                      <span className="text-xs font-semibold text-[#64748B]">Top toàn tru?ng</span>
                                                       <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rank} / {rankingResult.totalStudents}</span>
                                                   </div>
                                                   {rankingResult.rankInClass && (
                                                       <div className="flex items-center justify-between px-3 py-2 border-b border-[#E2E8F0]">
-                                                          <span className="text-xs font-semibold text-[#64748B]">Top trong lớp</span>
+                                                          <span className="text-xs font-semibold text-[#64748B]">Top trong l?p</span>
                                                           <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rankInClass} / {rankingResult.totalInClass}</span>
                                                       </div>
                                                   )}
@@ -599,35 +609,35 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                                   )}
                                                   <div className="flex items-start justify-between gap-3 px-3 py-2">
                                                       <span className="text-xs font-semibold text-[#64748B]">Ngành</span>
-                                                      <span className="text-sm font-semibold text-[#0F172A] text-right">{rankingResult.major || 'Chưa có dữ liệu'}</span>
+                                                      <span className="text-sm font-semibold text-[#0F172A] text-right">{rankingResult.major || 'Chua có d? li?u'}</span>
                                                   </div>
                                               </div>
 
                                               <div className="rounded-lg border border-emerald-200 bg-[#ECFDF5] p-3">
-                                                  <p className="text-sm font-bold text-[#0F172A]">Đánh giá học bổng</p>
-                                                  <p className="mt-1 text-xs leading-5 text-[#334155]">Khả năng đạt học bổng rất cao. Tiếp tục duy trì GPA và điểm rèn luyện để tăng cơ hội nhận học bổng.</p>
+                                                  <p className="text-sm font-bold text-[#0F172A]">Ðánh giá h?c b?ng</p>
+                                                  <p className="mt-1 text-xs leading-5 text-[#334155]">Kh? nang d?t h?c b?ng r?t cao. Ti?p t?c duy trì GPA và di?m rèn luy?n d? tang co h?i nh?n h?c b?ng.</p>
                                               </div>
                                           </div>
                                       </div>
                                   ) : (
                                       <div className="flex flex-col max-h-[300px]">
-                                          <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 italic">Chọn nguồn dữ liệu (Kỳ học cũ)...</div>
+                                          <div className="p-3 bg-gray-50 border-b border-gray-100 text-xs text-gray-500 italic">Ch?n ngu?n d? li?u (K? h?c cu)...</div>
                                           <div className="overflow-y-auto custom-scrollbar p-2 space-y-1">
                                               {loadingSemesters ? (
-                                                  <div className="py-4 text-center text-xs text-gray-400">Đang tải...</div>
+                                                  <div className="py-4 text-center text-xs text-gray-400">Ðang t?i...</div>
                                               ) : availableSemesters.length > 0 ? (
                                                   availableSemesters.map((semId) => {
                                                       const semesterRank = semesterRanks[semId];
-                                                      const rankLabel = Number.isFinite(semesterRank) ? `Hạng #${semesterRank}` : loadingSemesterRanks ? 'Đang tải...' : 'Chưa có hạng';
+                                                      const rankLabel = Number.isFinite(semesterRank) ? `H?ng #${semesterRank}` : loadingSemesterRanks ? 'Ðang t?i...' : 'Chua có h?ng';
                                                       return (
                                                       <button key={semId} onClick={() => handleSelectReferenceSemester(semId)} className="w-full text-left px-3 py-2.5 hover:bg-blue-50 hover:text-[#003375] rounded-lg transition-all text-sm font-medium text-gray-700 flex justify-between items-center group">
-                                                          <span>Dữ liệu {mapIdToDisplay(semId)} - {rankLabel}</span>
+                                                          <span>D? li?u {mapIdToDisplay(semId)} - {rankLabel}</span>
                                                           <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400"/>
                                                       </button>
                                                       );
                                                   })
                                               ) : (
-                                                  <div className="py-6 text-center"><p className="text-xs text-gray-400 mb-2">Chưa có dữ liệu.</p></div>
+                                                  <div className="py-6 text-center"><p className="text-xs text-gray-400 mb-2">Chua có d? li?u.</p></div>
                                               )}
                                           </div>
                                           {rankingError && <div className="p-2 bg-red-50 text-red-600 text-xs text-center border-t border-red-100 flex items-center justify-center gap-1"><AlertCircle size={12}/> {rankingError}</div>}
@@ -655,8 +665,8 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
             </div>
 
             <div className="flex items-center gap-1 sm:gap-2 bg-white pl-2 pr-1 py-0.5 sm:pl-3 sm:pr-1 sm:py-1 rounded-lg border border-gray-200 shadow-sm transition-transform hover:scale-105">
-                <span className="text-gray-500 font-medium flex items-center gap-1"><Star className="text-yellow-500 fill-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">ĐRL:</span></span>
-                <input 
+                <span className="text-gray-500 font-medium flex items-center gap-1"><Star className="text-yellow-500 fill-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/> <span className="hidden sm:inline">ÐRL:</span></span>
+                <input
                     type="number" min="0" max="100" placeholder="0"
                     disabled={!isValidFormat}
                     className="w-7 sm:w-10 text-center font-bold text-gray-800 outline-none border-b border-transparent focus:border-blue-400 focus:bg-gray-50 rounded transition-colors bg-transparent disabled:opacity-50"
@@ -670,8 +680,8 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span>{isValidFormat ? scholarshipStatus.label : '---'}</span>
             </div>
-            
-             <button onClick={onRemoveSemester} className="ml-auto md:ml-0 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all p-1.5 sm:p-2 rounded-full active:scale-90 hover:shadow-md" title="Xóa học kỳ">
+
+             <button onClick={onRemoveSemester} className="ml-auto md:ml-0 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all p-1.5 sm:p-2 rounded-full active:scale-90 hover:shadow-md" title="Xóa h?c k?">
              <Trash2 className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
             </button>
         </div>
@@ -692,14 +702,14 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                   <BarChart2 size={18} />
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-base font-bold sm:text-lg">Xếp hạng học kỳ</h4>
-                  <p className="mt-0.5 text-xs text-white/75">Chọn học kỳ để xem xếp hạng và đánh giá học bổng.</p>
+                  <h4 className="text-base font-bold sm:text-lg">X?p h?ng h?c k?</h4>
+                  <p className="mt-0.5 text-xs text-white/75">Ch?n h?c k? d? xem x?p h?ng và dánh giá h?c b?ng.</p>
                 </div>
               </div>
               <button
                 onClick={() => { setShowRankMenu(false); setIsSemesterChooserOpen(false); resetSemesterRanks(); resetResult(); }}
                 className="rounded-full p-2 transition-colors hover:bg-white/20"
-                title="Đóng"
+                title="Ðóng"
               >
                 <X size={20} />
               </button>
@@ -707,7 +717,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
             <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[320px_1fr]">
               <aside className="border-b border-[#E2E8F0] bg-[#F8FAFC] p-3 sm:p-4 lg:border-b-0 lg:border-r">
-                <p className="text-xs font-bold uppercase tracking-wide text-[#64748B]">Học kỳ so sánh</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-[#64748B]">H?c k? so sánh</p>
 
                 <button
                   type="button"
@@ -718,9 +728,9 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                   className="mt-2 flex w-full items-center justify-between gap-3 rounded-xl border border-blue-200 bg-white px-3 py-2.5 text-left text-[#003375] shadow-sm transition-colors hover:bg-blue-50"
                 >
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">Đang xem</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">Ðang xem</p>
                     <p className="mt-0.5 truncate text-[13px] font-bold leading-snug sm:text-sm">
-                      {rankingResult ? mapIdToDisplay(rankingResult.semesterId) : 'Chọn học kỳ'}
+                      {rankingResult ? mapIdToDisplay(rankingResult.semesterId) : 'Ch?n h?c k?'}
                     </p>
                   </div>
                   <ChevronDown
@@ -732,11 +742,11 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 {isSemesterChooserOpen && (
                   <div className="mt-2 max-h-[26vh] space-y-1.5 overflow-y-auto pr-1 sm:max-h-[34vh] sm:space-y-2 lg:max-h-[58vh]">
                     {loadingSemesters ? (
-                      <div className="rounded-lg border border-[#E2E8F0] bg-white py-6 text-center text-sm text-[#64748B]">Đang tải...</div>
+                      <div className="rounded-lg border border-[#E2E8F0] bg-white py-6 text-center text-sm text-[#64748B]">Ðang t?i...</div>
                     ) : availableSemesters.length > 0 ? (
                       availableSemesters.map((semId) => {
                         const semesterRank = semesterRanks[semId];
-                        const rankLabel = Number.isFinite(semesterRank) ? `#${semesterRank}` : loadingSemesterRanks ? 'Đang tải' : 'Chưa có hạng';
+                        const rankLabel = Number.isFinite(semesterRank) ? `#${semesterRank}` : loadingSemesterRanks ? 'Ðang t?i' : 'Chua có h?ng';
                         const isSelected = rankingResult?.semesterId === semId;
                         return (
                           <button
@@ -752,12 +762,12 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                               <span className="text-[13px] font-bold leading-snug sm:text-sm">{mapIdToDisplay(semId)}</span>
                               <ChevronRight size={16} className="shrink-0" />
                             </div>
-                            <div className="mt-0.5 text-[11px] font-semibold text-[#64748B] sm:mt-1 sm:text-xs">Hạng: {rankLabel}</div>
+                            <div className="mt-0.5 text-[11px] font-semibold text-[#64748B] sm:mt-1 sm:text-xs">H?ng: {rankLabel}</div>
                           </button>
                         );
                       })
                     ) : (
-                      <div className="rounded-lg border border-[#E2E8F0] bg-white py-6 text-center text-sm text-[#64748B]">Chưa có dữ liệu.</div>
+                      <div className="rounded-lg border border-[#E2E8F0] bg-white py-6 text-center text-sm text-[#64748B]">Chua có d? li?u.</div>
                     )}
                   </div>
                 )}
@@ -767,32 +777,32 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 {rankingLoading ? (
                   <div className="flex h-full min-h-[320px] flex-col items-center justify-center text-[#003375]">
                     <Loader2 size={34} className="mb-3 animate-spin" />
-                    <span className="text-sm font-semibold">Đang tính toán xếp hạng...</span>
+                    <span className="text-sm font-semibold">Ðang tính toán x?p h?ng...</span>
                   </div>
                 ) : rankingResult ? (
                   <div>
                     <div className="mb-3 sm:mb-4">
-                      <h5 className="text-lg font-bold text-[#0F172A] sm:text-2xl">Xếp hạng học kỳ</h5>
+                      <h5 className="text-lg font-bold text-[#0F172A] sm:text-2xl">X?p h?ng h?c k?</h5>
                       <p className="mt-1 text-xs text-[#64748B] sm:text-sm">{mapIdToDisplay(rankingResult.semesterId)}</p>
                     </div>
 
                     <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-3 text-[#003375] sm:mb-4 sm:px-4">
-                      <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Xếp hạng nổi bật</p>
+                      <p className="text-xs font-bold uppercase tracking-wide text-blue-700">X?p h?ng n?i b?t</p>
                       <p className="mt-1 text-base font-extrabold leading-snug text-[#0F172A] sm:text-xl">
-                        #{rankingResult.rank} / {rankingResult.totalStudents} toàn trường
+                        #{rankingResult.rank} / {rankingResult.totalStudents} toàn tru?ng
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-[#003375]">Bạn đang nằm trong {schoolTopPercentLabel} toàn trường</p>
+                      <p className="mt-1 text-sm font-semibold text-[#003375]">B?n dang n?m trong {schoolTopPercentLabel} toàn tru?ng</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 sm:gap-3">
                       <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 sm:p-4">
-                        <p className="text-xs font-semibold text-[#64748B] sm:text-sm">GPA học kỳ</p>
+                        <p className="text-xs font-semibold text-[#64748B] sm:text-sm">GPA h?c k?</p>
                         <p className="mt-1.5 text-2xl font-bold leading-none text-[#0F172A] sm:mt-2 sm:text-3xl sm:leading-normal">
                           {semGPA4.toFixed(2)} <span className="text-xs font-medium text-[#64748B] sm:text-sm">/ 4.0</span>
                         </p>
                       </div>
                       <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 sm:p-4">
-                        <p className="text-xs font-semibold text-[#64748B] sm:text-sm">Điểm rèn luyện</p>
+                        <p className="text-xs font-semibold text-[#64748B] sm:text-sm">Ði?m rèn luy?n</p>
                         <p className="mt-1.5 text-2xl font-bold leading-none text-[#0F172A] sm:mt-2 sm:text-3xl sm:leading-normal">
                           {semester.trainingScore ?? 0} <span className="text-xs font-medium text-[#64748B] sm:text-sm">/ 100</span>
                         </p>
@@ -801,16 +811,16 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
                     <div className="mt-3 overflow-hidden rounded-xl border border-[#E2E8F0] sm:mt-4">
                       <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4 sm:py-3">
-                        <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Top toàn trường</span>
+                        <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Top toàn tru?ng</span>
                         <span className="shrink-0 text-sm font-bold text-[#0F172A] sm:text-base">#{rankingResult.rank} / {rankingResult.totalStudents}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4 sm:py-3">
-                        <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Tỷ lệ toàn trường</span>
+                        <span className="text-xs font-semibold text-[#64748B] sm:text-sm">T? l? toàn tru?ng</span>
                         <span className="shrink-0 text-sm font-bold text-[#0F172A] sm:text-base">{schoolTopPercentLabel}</span>
                       </div>
                       {rankingResult.rankInClass && (
                         <div className="flex items-center justify-between gap-3 border-b border-[#E2E8F0] px-3 py-2.5 sm:px-4 sm:py-3">
-                          <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Top trong lớp</span>
+                          <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Top trong l?p</span>
                           <span className="shrink-0 text-sm font-bold text-[#0F172A] sm:text-base">#{rankingResult.rankInClass} / {rankingResult.totalInClass}</span>
                         </div>
                       )}
@@ -822,12 +832,12 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                       )}
                       <div className="flex items-start justify-between gap-3 px-3 py-2.5 sm:px-4 sm:py-3">
                         <span className="text-xs font-semibold text-[#64748B] sm:text-sm">Ngành</span>
-                        <span className="min-w-0 text-right text-sm font-semibold text-[#0F172A] sm:text-base">{rankingResult.major || 'Chưa có dữ liệu'}</span>
+                        <span className="min-w-0 text-right text-sm font-semibold text-[#0F172A] sm:text-base">{rankingResult.major || 'Chua có d? li?u'}</span>
                       </div>
                     </div>
 
                     <div className={`mt-3 rounded-xl border p-3 sm:mt-4 sm:p-4 ${scholarshipRankAssessment.className}`}>
-                      <p className="text-sm font-bold text-[#0F172A] sm:text-base">Đánh giá học bổng</p>
+                      <p className="text-sm font-bold text-[#0F172A] sm:text-base">Ðánh giá h?c b?ng</p>
                       <p className="mt-1 text-xs leading-5 text-[#334155] sm:text-sm sm:leading-6">
                         {scholarshipRankAssessment.text}
                       </p>
@@ -843,8 +853,8 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                 ) : (
                   <div className="flex h-full min-h-[320px] flex-col items-center justify-center rounded-xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-6 text-center">
                     <BarChart2 size={36} className="mb-3 text-[#94A3B8]" />
-                    <h5 className="text-lg font-bold text-[#0F172A]">Chọn học kỳ để xem xếp hạng</h5>
-                    <p className="mt-1 max-w-md text-sm text-[#64748B]">Danh sách học kỳ nằm ở cột bên trái. Chọn một kỳ để xem top toàn trường, lớp, ngành và đánh giá học bổng.</p>
+                    <h5 className="text-lg font-bold text-[#0F172A]">Ch?n h?c k? d? xem x?p h?ng</h5>
+                    <p className="mt-1 max-w-md text-sm text-[#64748B]">Danh sách h?c k? n?m ? c?t bên trái. Ch?n m?t k? d? xem top toàn tru?ng, l?p, ngành và dánh giá h?c b?ng.</p>
                     {rankingError && (
                       <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
                         <AlertCircle size={14} />
@@ -867,16 +877,16 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
               <div>
                 <h4 className="flex items-center gap-2 text-base font-bold">
                   <BarChart2 size={16} />
-                  Xếp hạng học kỳ
+                  X?p h?ng h?c k?
                 </h4>
                 <p className="mt-1 text-xs text-white/75">
-                  Chọn kỳ so sánh và xem xếp hạng học bổng theo dữ liệu hiện có.
+                  Ch?n k? so sánh và xem x?p h?ng h?c b?ng theo d? li?u hi?n có.
                 </p>
               </div>
               <button
                 onClick={() => { setShowRankMenu(false); resetSemesterRanks(); }}
                 className="rounded-full p-1.5 transition-colors hover:bg-white/20"
-                title="Đóng"
+                title="Ðóng"
               >
                 <X size={16} />
               </button>
@@ -885,13 +895,13 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
             {rankingLoading ? (
               <div className="flex flex-col items-center justify-center bg-[#F8FAFC] py-8 text-[#003375]">
                 <Loader2 size={30} className="mb-2 animate-spin" />
-                <span className="text-sm font-medium">Đang tính toán...</span>
+                <span className="text-sm font-medium">Ðang tính toán...</span>
               </div>
             ) : rankingResult ? (
               <div className="bg-[#F8FAFC] p-3">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
-                    <h5 className="text-base font-bold text-[#0F172A]">Xếp hạng học kỳ</h5>
+                    <h5 className="text-base font-bold text-[#0F172A]">X?p h?ng h?c k?</h5>
                     <p className="mt-1 text-xs text-[#64748B]">{mapIdToDisplay(rankingResult.semesterId)}</p>
                   </div>
                   <button
@@ -899,19 +909,19 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                     className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#334155] transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-[#003375]"
                   >
                     <ChevronLeft size={14} />
-                    Chọn kỳ khác
+                    Ch?n k? khác
                   </button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-lg border border-[#E2E8F0] bg-white p-3">
-                    <p className="text-[11px] font-semibold text-[#64748B]">GPA học kỳ</p>
+                    <p className="text-[11px] font-semibold text-[#64748B]">GPA h?c k?</p>
                     <p className="mt-1 text-xl font-bold text-[#0F172A]">
                       {semGPA4.toFixed(2)} <span className="text-xs font-medium text-[#64748B]">/ 4.0</span>
                     </p>
                   </div>
                   <div className="rounded-lg border border-[#E2E8F0] bg-white p-3">
-                    <p className="text-[11px] font-semibold text-[#64748B]">Điểm rèn luyện</p>
+                    <p className="text-[11px] font-semibold text-[#64748B]">Ði?m rèn luy?n</p>
                     <p className="mt-1 text-xl font-bold text-[#0F172A]">
                       {semester.trainingScore ?? 0} <span className="text-xs font-medium text-[#64748B]">/ 100</span>
                     </p>
@@ -920,12 +930,12 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
                 <div className="mt-2 overflow-hidden rounded-lg border border-[#E2E8F0] bg-white">
                   <div className="flex items-center justify-between border-b border-[#E2E8F0] px-3 py-2">
-                    <span className="text-xs font-semibold text-[#64748B]">Top toàn trường</span>
+                    <span className="text-xs font-semibold text-[#64748B]">Top toàn tru?ng</span>
                     <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rank} / {rankingResult.totalStudents}</span>
                   </div>
                   {rankingResult.rankInClass && (
                     <div className="flex items-center justify-between border-b border-[#E2E8F0] px-3 py-2">
-                      <span className="text-xs font-semibold text-[#64748B]">Top trong lớp</span>
+                      <span className="text-xs font-semibold text-[#64748B]">Top trong l?p</span>
                       <span className="text-sm font-bold text-[#0F172A]">#{rankingResult.rankInClass} / {rankingResult.totalInClass}</span>
                     </div>
                   )}
@@ -937,44 +947,44 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                   )}
                   <div className="flex items-start justify-between gap-3 px-3 py-2">
                     <span className="text-xs font-semibold text-[#64748B]">Ngành</span>
-                    <span className="text-sm font-semibold text-[#0F172A] text-right">{rankingResult.major || 'Chưa có dữ liệu'}</span>
+                    <span className="text-sm font-semibold text-[#0F172A] text-right">{rankingResult.major || 'Chua có d? li?u'}</span>
                   </div>
                 </div>
 
                 <div className="mt-2 rounded-lg border border-emerald-200 bg-[#ECFDF5] p-3">
-                  <p className="text-sm font-bold text-[#0F172A]">Đánh giá học bổng</p>
+                  <p className="text-sm font-bold text-[#0F172A]">Ðánh giá h?c b?ng</p>
                   <p className="mt-1 text-xs leading-5 text-[#334155]">
-                    Khả năng đạt học bổng rất cao. Tiếp tục duy trì GPA và điểm rèn luyện để tăng cơ hội nhận học bổng.
+                    Kh? nang d?t h?c b?ng r?t cao. Ti?p t?c duy trì GPA và di?m rèn luy?n d? tang co h?i nh?n h?c b?ng.
                   </p>
                 </div>
               </div>
             ) : (
               <div className="bg-[#F8FAFC] p-3">
                 <div className="mb-3">
-                  <h5 className="text-base font-bold text-[#0F172A]">Chọn học kỳ so sánh</h5>
-                  <p className="mt-1 text-xs text-[#64748B]">Dữ liệu xếp hạng sẽ được áp dụng cho học kỳ bạn chọn.</p>
+                  <h5 className="text-base font-bold text-[#0F172A]">Ch?n h?c k? so sánh</h5>
+                  <p className="mt-1 text-xs text-[#64748B]">D? li?u x?p h?ng s? du?c áp d?ng cho h?c k? b?n ch?n.</p>
                 </div>
                 {loadingSemesters ? (
-                  <div className="rounded-lg border border-[#E2E8F0] bg-white py-7 text-center text-sm text-[#64748B]">Đang tải...</div>
+                  <div className="rounded-lg border border-[#E2E8F0] bg-white py-7 text-center text-sm text-[#64748B]">Ðang t?i...</div>
                 ) : availableSemesters.length > 0 ? (
                   <div className="grid gap-2">
                     {availableSemesters.map((semId) => {
                       const semesterRank = semesterRanks[semId];
-                      const rankLabel = Number.isFinite(semesterRank) ? `Hạng #${semesterRank}` : loadingSemesterRanks ? 'Đang tải...' : 'Chưa có hạng';
+                      const rankLabel = Number.isFinite(semesterRank) ? `H?ng #${semesterRank}` : loadingSemesterRanks ? 'Ðang t?i...' : 'Chua có h?ng';
                       return (
                         <button
                           key={semId}
                           onClick={() => handleSelectReferenceSemester(semId)}
                           className="flex items-center justify-between gap-3 rounded-lg border border-[#E2E8F0] bg-white px-3 py-3 text-left text-sm font-semibold text-[#334155] transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-[#003375]"
                         >
-                          <span>Dữ liệu {mapIdToDisplay(semId)} - {rankLabel}</span>
+                          <span>D? li?u {mapIdToDisplay(semId)} - {rankLabel}</span>
                           <ChevronRight size={16} className="shrink-0 text-[#003375]" />
                         </button>
                       );
                     })}
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-[#E2E8F0] bg-white py-7 text-center text-sm text-[#64748B]">Chưa có dữ liệu.</div>
+                  <div className="rounded-lg border border-[#E2E8F0] bg-white py-7 text-center text-sm text-[#64748B]">Chua có d? li?u.</div>
                 )}
                 {rankingError && (
                   <div className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
@@ -992,8 +1002,8 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
         <>
             {semester.subjects.length > 0 && (
                 <div className="px-3 py-2 sm:px-6 sm:py-2 bg-gray-50/50 border-b border-gray-100 flex flex-row gap-2 justify-between sm:justify-end items-center">
-                    <button onClick={handleSortToggle} className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg border text-[11px] sm:text-sm font-medium transition-all active:scale-95 ${sortOrder ? 'bg-blue-50 border-blue-200 text-[#003375] shadow-sm' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`} title="Sắp xếp theo điểm">
-                        {sortOrder === 'desc' ? (<><ArrowDown className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Cao ➝ Thấp</span></>) : sortOrder === 'asc' ? (<><ArrowUp className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Thấp ➝ Cao</span></>) : (<><ListFilter className="w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Sắp xếp</span></>)}
+                    <button onClick={handleSortToggle} className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg border text-[11px] sm:text-sm font-medium transition-all active:scale-95 ${sortOrder ? 'bg-blue-50 border-blue-200 text-[#003375] shadow-sm' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`} title="S?p x?p theo di?m">
+                        {sortOrder === 'desc' ? (<><ArrowDown className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Cao ? Th?p</span></>) : sortOrder === 'asc' ? (<><ArrowUp className="text-yellow-500 w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>Th?p ? Cao</span></>) : (<><ListFilter className="w-3.5 h-3.5 sm:w-4 sm:h-4"/><span>S?p x?p</span></>)}
                     </button>
 
                     <div className="relative shrink-0">
@@ -1006,10 +1016,10 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                             className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-all active:scale-95 sm:px-3 sm:text-sm ${
                                 showScoreColumns ? 'border-blue-200 bg-blue-50 text-[#003375] shadow-sm' : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
                             }`}
-                            title="Ẩn/hiện cột điểm"
+                            title="?n/hi?n c?t di?m"
                         >
                             <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            <span>Cột</span>
+                            <span>C?t</span>
                         </button>
 
                         {showScoreColumns && (
@@ -1034,7 +1044,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
                     <div className="relative flex-1 sm:w-64 sm:flex-none">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                        <input type="text" placeholder="Tìm môn học..." className="w-full pl-8 pr-7 py-1.5 text-[11px] sm:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow hover:border-blue-300" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <input type="text" placeholder="Tìm môn h?c..." className="w-full pl-8 pr-7 py-1.5 text-[11px] sm:text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-shadow hover:border-blue-300" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                         {searchTerm && (<button onClick={() => { playClick(); setSearchTerm(''); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:scale-110 transition-transform"><X className="w-3 h-3 sm:w-3.5 sm:h-3.5" /></button>)}
                     </div>
                 </div>
@@ -1048,12 +1058,12 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                         {visibleScoreColumnConfig.map((column) => (
                             <th key={column.key} className="px-2 py-3 w-14 text-center">{column.label}</th>
                         ))}
-                        <th className="px-3 py-3 min-w-[180px]">Môn học</th>
+                        <th className="px-3 py-3 min-w-[180px]">Môn h?c</th>
                         <th className="px-2 py-3 w-12 text-center">TC</th>
                         <th className="px-2 py-3 w-14 text-center">TB(10)</th>
-                        <th className="px-2 py-3 w-14 text-center">Chữ</th>
+                        <th className="px-2 py-3 w-14 text-center">Ch?</th>
                         <th className="px-2 py-3 w-14 text-center">TB(4)</th>
-                        <th className="px-3 py-3 w-20 text-center">Trạng thái</th>
+                        <th className="px-3 py-3 w-20 text-center">Tr?ng thái</th>
                         <th className="px-2 py-3 w-8"></th>
                     </tr>
                 </thead>
@@ -1063,27 +1073,27 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                         const avg10 = calculateSubjectAverage(subject);
                         const { scale4: avg4, letter } = avg10 !== null ? getGradeDetails(avg10) : { scale4: null, letter: '-' };
                         const status = getSubjectStatus(avg10);
-                        
+
                         let statusClass = "text-gray-400";
                         let statusText = "-";
                         let rowClass = "hover:bg-blue-50/30";
 
                         if (status === GradeStatus.FAIL) {
                             statusClass = "bg-red-100 text-[#990000] font-bold";
-                            statusText = "Rớt";
+                            statusText = "R?t";
                             rowClass = "bg-red-50/50 hover:bg-red-100/50";
                         } else if (status === GradeStatus.IMPROVE) {
                             statusClass = "bg-yellow-100 text-yellow-700";
-                            statusText = "Đạt";
+                            statusText = "Ð?t";
                         } else if (status === GradeStatus.PASS) {
                             statusClass = "bg-green-100 text-green-700 font-bold";
-                            statusText = "Đạt";
+                            statusText = "Ð?t";
                         }
 
                         return (
                             <tr key={subject.id} className={`${rowClass} transition-colors duration-150 group`}>
                                 <td className="px-3 py-2 text-center text-gray-500">{sIdx + 1}</td>
-                                
+
                                 {visibleScoreColumnConfig.map((column) => (
                                     <td key={column.key} className="px-1 py-2">
                                         <ScoreInput value={subject[column.key as keyof Subject] as number | null} onChange={(val) => handleSubjectChange(subject.id, column.key as keyof Subject, val)} />
@@ -1099,11 +1109,11 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                                         </label>
                                     </div>
                                 </td>
-                                
+
                                 <td className="px-1 py-2">
                                     <input type="number" className="w-full bg-white border border-gray-300 rounded p-1 text-center font-semibold text-gray-700 focus:ring-1 focus:ring-[#003375] focus:border-[#003375] hover:border-gray-400" value={subject.credits} onChange={(e) => handleSubjectChange(subject.id, 'credits', parseInt(e.target.value) || 0)} />
                                 </td>
-                                
+
                                 <td className="px-2 py-2 text-center font-bold text-[#990000]">{avg10 !== null ? avg10.toFixed(1) : '-'}</td>
                                 <td className="px-2 py-2 text-center font-bold text-gray-700">{letter}</td>
                                 <td className="px-2 py-2 text-center font-bold text-[#003375]">{avg4 !== null ? avg4.toFixed(1) : '-'}</td>
@@ -1115,21 +1125,21 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
                         );
                         })
                     ) : (
-                        <tr><td colSpan={8 + visibleScoreColumnConfig.length} className="py-8 text-center text-gray-500">Không tìm thấy môn học nào phù hợp với "{searchTerm}"</td></tr>
+                        <tr><td colSpan={8 + visibleScoreColumnConfig.length} className="py-8 text-center text-gray-500">Không tìm th?y môn h?c nào phù h?p v?i "{searchTerm}"</td></tr>
                     )}
                 </tbody>
                 </table>
             </div>
             {!isReadOnly && (
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 rounded-b-xl flex justify-between items-center">
-                <button onClick={addSubject} className="flex items-center gap-1 text-sm font-medium text-[#003375] hover:text-blue-700 transition-all hover:translate-x-1 p-1 active:scale-95"><Plus size={16} /> Thêm môn học</button>
+                <button onClick={addSubject} className="flex items-center gap-1 text-sm font-medium text-[#003375] hover:text-blue-700 transition-all hover:translate-x-1 p-1 active:scale-95"><Plus size={16} /> Thêm môn h?c</button>
             </div> )}
         </>
       ) : (
           <div className="p-8 text-center bg-red-50/40 border-t border-red-100 flex flex-col items-center justify-center rounded-b-xl">
               <ShieldAlert className="text-red-400 mb-2 w-10 h-10 animate-pulse" />
-              <p className="text-red-600 font-bold mb-1">Nội dung học kỳ đang bị khóa</p>
-              <p className="text-red-500/80 text-xs max-w-sm">Tên học kỳ không hợp lệ. Vui lòng chọn một tên học kỳ có sẵn trong danh sách phía trên để mở khóa tính năng nhập điểm!</p>
+              <p className="text-red-600 font-bold mb-1">N?i dung h?c k? dang b? khóa</p>
+              <p className="text-red-500/80 text-xs max-w-sm">Tên h?c k? không h?p l?. Vui lòng ch?n m?t tên h?c k? có s?n trong danh sách phía trên d? m? khóa tính nang nh?p di?m!</p>
           </div>
       )}
     </div>
@@ -1163,6 +1173,8 @@ export interface MobileDashboardNativeProps {
   activeTab: MobileLearningTab;
   onTabChange: (tab: MobileLearningTab) => void;
   scheduleContent?: React.ReactNode;
+  hideLearningTabs?: boolean;
+  isManagementUser?: boolean;
   showEmbeddedBottomNav?: boolean;
   onOpenRanking?: () => void;
   onOpenTargetForecast?: () => void;
@@ -1387,7 +1399,7 @@ const NativeEvaluationRow = ({ text }: { text?: string }) => (
       </div>
       <div className="min-w-0">
         <div className="text-[13.5px] font-black text-[#0D1B3E]">Đánh giá học tập</div>
-        <p className="line-clamp-2 text-[11px] font-semibold leading-snug text-[#9AA5C0]">{text || 'Chưa đủ dữ liệu để đánh giá'}</p>
+        <p className="line-clamp-2 text-[11px] font-semibold leading-snug text-[#9AA5C0]">{text || 'Chua d? d? li?u d? dánh giá'}</p>
       </div>
     </div>
     <ChevronRight size={18} className="shrink-0 text-[#C0CBDF]" strokeWidth={2.5} />
@@ -1441,7 +1453,7 @@ const NativeQuickActions = ({
               className="flex min-h-[58px] flex-col items-center justify-center gap-1.5 rounded-2xl bg-[#F6F8FC] px-2 text-center text-[10.5px] font-black leading-tight text-[#0D1B3E] transition active:scale-[0.98] disabled:opacity-50"
             >
               <Icon size={17} className="text-[#1A56FF]" strokeWidth={2.3} />
-              <span>{item.disabled ? 'Đang nhập' : item.label}</span>
+              <span>{item.disabled ? 'Ðang nh?p' : item.label}</span>
             </button>
           );
         })}
@@ -1453,8 +1465,8 @@ const NativeQuickActions = ({
 const buildNativeSemesterOptions = () => {
   const options: string[] = [];
   for (let y = 2020; y <= 2027; y += 1) {
-    options.push(`Học kỳ 1 Năm học ${y}-${y + 1}`);
-    options.push(`Học kỳ 2 Năm học ${y}-${y + 1}`);
+    options.push(`H?c k? 1 N?m h?c ${y}-${y + 1}`);
+    options.push(`H?c k? 2 N?m h?c ${y}-${y + 1}`);
   }
   return options.reverse();
 };
@@ -1538,8 +1550,8 @@ const NativeTranscriptList = ({
   if (semesters.length === 0) {
     return (
       <section className="mx-6 mb-6 rounded-[20px] bg-white p-5 text-center shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
-        <div className="text-[14px] font-black text-[#0D1B3E]">Chi tiết bảng điểm</div>
-        <p className="mt-2 text-[12px] font-semibold leading-snug text-[#9AA5C0]">Chưa có dữ liệu học kỳ. Hãy nhập PDF hoặc thêm học kỳ để xem bảng điểm.</p>
+        <div className="text-[14px] font-black text-[#0D1B3E]">Chi ti?t b?ng ?i?m</div>
+        <p className="mt-2 text-[12px] font-semibold leading-snug text-[#9AA5C0]">Chua có d? li?u h?c k?. Hãy nh?p PDF ho?c thêm h?c k? d? xem b?ng di?m.</p>
       </section>
     );
   }
@@ -1548,8 +1560,8 @@ const NativeTranscriptList = ({
     <section className="mx-6 mb-7">
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
-          <h2 className="text-[16px] font-black text-[#0D1B3E]">Chi tiết bảng điểm</h2>
-          <p className="text-[11px] font-semibold text-[#9AA5C0]">Hiển thị dạng thẻ để dễ đọc trên điện thoại.</p>
+          <h2 className="text-[16px] font-black text-[#0D1B3E]">Chi ti?t b?ng ?i?m</h2>
+          <p className="text-[11px] font-semibold text-[#9AA5C0]">Hi?n th? d?ng th? d? d? d?c trên di?n tho?i.</p>
         </div>
       </div>
 
@@ -1558,7 +1570,7 @@ const NativeTranscriptList = ({
           const semester = record.semester;
           const semStats = calculateSemesterStats(semester.subjects);
           const subjects = semester.subjects || [];
-          const hasValidName = /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test(semester.name);
+          const hasValidName = /^H?c k? (1|2) Nam h?c \d{4}-\d{4}$/.test(semester.name);
 
           return (
             <article key={semester.id} className="overflow-hidden rounded-[20px] bg-white shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
@@ -1569,7 +1581,7 @@ const NativeTranscriptList = ({
                   onChange={(event) => onUpdateSemester?.(record.originalIndex, { ...semester, name: event.target.value })}
                   className="w-full rounded-xl border border-[#DDE3F0] bg-[#F6F8FC] px-3 py-2 text-[12px] font-black text-[#1A56FF] outline-none focus:border-[#1A56FF]"
                 >
-                  {!hasValidName && <option value="">Chọn học kỳ</option>}
+                  {!hasValidName && <option value="">Ch?n h?c k?</option>}
                   {semesterOptions.map(option => (
                     <option key={option} value={option}>{option}</option>
                   ))}
@@ -1577,7 +1589,7 @@ const NativeTranscriptList = ({
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-bold text-[#7B8AB0]">
                   <span>{subjects.length} môn</span>
                   <span className="h-1 w-1 rounded-full bg-[#C0CBDF]" />
-                  <span>{semStats.totalCredits || 0} tín chỉ</span>
+                  <span>{semStats.totalCredits || 0} tín ch?</span>
                   <span className="h-1 w-1 rounded-full bg-[#C0CBDF]" />
                   <span>GPA {semStats.hasData ? semStats.gpa4.toFixed(2) : '--'}</span>
                 </div>
@@ -1595,7 +1607,7 @@ const NativeTranscriptList = ({
                     onClick={() => onRemoveSemester?.(record.originalIndex)}
                     disabled={isReadOnly}
                     className="flex h-8 items-center justify-center rounded-xl bg-red-50 px-3 text-red-600"
-                    aria-label="Xóa học kỳ"
+                    aria-label="Xóa h?c k?"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -1626,7 +1638,7 @@ const NativeTranscriptList = ({
                               type="number"
                               min="0"
                               className="h-9 rounded-xl border border-[#DDE3F0] bg-white px-2 text-center text-[11px] font-bold outline-none focus:border-[#1A56FF]"
-                              aria-label="Tín chỉ"
+                              aria-label="Tín ch?"
                             />
                             {[
                               ['CC', 'scoreCC'],
@@ -1662,7 +1674,7 @@ const NativeTranscriptList = ({
                               onClick={() => updateSubject(record, draftSubject)}
                               className="flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#1A56FF] text-[12px] font-black text-white"
                             >
-                              <Check size={15} /> Lưu
+                              <Check size={15} /> L?u
                             </button>
                             <button
                               type="button"
@@ -1679,9 +1691,9 @@ const NativeTranscriptList = ({
                     return (
                       <div key={subject.id} className="flex items-start justify-between gap-3 px-4 py-3">
                         <div className="min-w-0 flex-1">
-                          <div className="line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{subject.name || 'Môn chưa đặt tên'}</div>
+                          <div className="line-clamp-2 text-[12.5px] font-black leading-snug text-[#0D1B3E]">{subject.name || 'Môn chua d?t tên'}</div>
                           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10.5px] font-bold text-[#9AA5C0]">
-                            <span>{subject.credits || 0} tín chỉ</span>
+                            <span>{subject.credits || 0} tín ch?</span>
                             {subject.isNonGPA && (
                               <>
                                 <span>·</span>
@@ -1692,14 +1704,14 @@ const NativeTranscriptList = ({
                         </div>
                         <div className="shrink-0 text-right">
                           <div className={`text-[15px] font-black leading-none ${scoreColor}`}>{avg === null ? '--' : avg.toFixed(1)}</div>
-                          <div className="mt-1 text-[10.5px] font-black text-[#7B8AB0]">{details ? `${details.letter} · ${details.scale4.toFixed(1)}` : 'Chưa có'}</div>
+                          <div className="mt-1 text-[10.5px] font-black text-[#7B8AB0]">{details ? `${details.letter} · ${details.scale4.toFixed(1)}` : 'Chua có'}</div>
                           <div className="mt-2 flex justify-end gap-1">
                             <button
                               type="button"
                               onClick={() => startEditSubject(subject)}
                               disabled={isReadOnly}
                               className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEF2FF] text-[#1A56FF]"
-                              aria-label="Sửa môn"
+                              aria-label="S?a môn"
                             >
                               <Edit3 size={13} />
                             </button>
@@ -1719,7 +1731,7 @@ const NativeTranscriptList = ({
                   })}
                 </div>
               ) : (
-                <div className="px-4 py-5 text-center text-[12px] font-semibold text-[#9AA5C0]">Học kỳ này chưa có môn học.</div>
+                <div className="px-4 py-5 text-center text-[12px] font-semibold text-[#9AA5C0]">H?c k? này chua có môn h?c.</div>
               )}
             </article>
           );
@@ -1733,7 +1745,7 @@ const NativeAIFloatingButton = () => (
   <button
     type="button"
     className="absolute bottom-[86px] right-[18px] z-20 flex h-[52px] w-[52px] flex-col items-center justify-center gap-0.5 rounded-[18px] bg-gradient-to-br from-[#1A56FF] to-[#7B2FFF] text-white shadow-[0_8px_22px_rgba(26,86,255,0.45)]"
-    aria-label="Mở trợ lý AI"
+    aria-label="M? tr? lý AI"
   >
     <Sparkles size={18} strokeWidth={2.3} />
     <span className="text-[9px] font-black tracking-wide">AI</span>
@@ -1766,6 +1778,335 @@ const NativeBottomNavigation = () => {
   );
 };
 
+const NativeAdminStudentManager = () => {
+  const { isAdmin, isAuditor } = useUserRole();
+  const [searchValue, setSearchValue] = useState('');
+  const [students, setStudents] = useState<any[]>([]);
+  const [studentsPage, setStudentsPage] = useState(0);
+  const [studentsTotal, setStudentsTotal] = useState(0);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [gpaFilter, setGpaFilter] = useState<'all' | 'warning' | 'excellent' | 'empty'>('all');
+  const [sortMode, setSortMode] = useState<'updated' | 'gpa' | 'credits'>('updated');
+
+  const query = searchValue.trim();
+  const canUseAdminSearch = isAdmin || isAuditor;
+
+  const getUsableSemesters = (data: any) => Array.isArray(data?.semesters)
+    ? data.semesters.filter((semester: any) => Array.isArray(semester?.subjects))
+    : [];
+
+  const hydrateStudent = (profile: any, privateEntry?: any) => {
+    const data = privateEntry?.data || {};
+    const stats = calculateCumulativeStats(getUsableSemesters(data));
+    return {
+      ...profile,
+      data,
+      email: privateEntry?.email,
+      updated_at: privateEntry?.updated_at || profile.updated_at,
+      isProfileSummary: true,
+      gpa4: stats.rawGPA4 || 0,
+      gpa10: stats.gpa10 || 0,
+      credits: stats.passedCredits || 0,
+      semesterCount: getUsableSemesters(data).length,
+    };
+  };
+
+  const STUDENT_PAGE_SIZE = 10;
+  const fetchStudents = async (forceQuery = query, page = studentsPage) => {
+    const safeQuery = forceQuery.replace(/[%,]/g, ' ').trim();
+    if (!canUseAdminSearch || safeQuery.length < 2) {
+      setStudents([]);
+      setStudentsTotal(0);
+      return;
+    }
+
+    setLoadingStudents(true);
+    try {
+      const pageOffset = Math.max(0, page) * STUDENT_PAGE_SIZE;
+      const { data: profiles, error, count } = await supabase
+        .from('profiles')
+        .select('id, student_code, full_name, created_at, updated_at', { count: 'exact' })
+        .or(`student_code.ilike.%${safeQuery}%,full_name.ilike.%${safeQuery}%`)
+        .order('updated_at', { ascending: false })
+        .range(pageOffset, pageOffset + STUDENT_PAGE_SIZE - 1);
+
+      if (error) throw error;
+      const profileRows = profiles || [];
+      let privateMap: Record<string, any> = {};
+      try {
+        privateMap = await fetchProfilePrivateMap(profileRows.map(profile => profile.id), { mode: 'summary' });
+      } catch (error) {
+        console.error('Không thể tải dữ liệu học tập của sinh viên:', error);
+      }
+      setStudents(profileRows.map(profile => hydrateStudent(profile, privateMap[profile.id])));
+      setStudentsTotal(count || 0);
+      setStudentsPage(page);
+    } catch (error) {
+      console.error('Không thể tìm sinh viên:', error);
+      setStudents([]);
+      setStudentsTotal(0);
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!canUseAdminSearch) return;
+    if (query.length < 2) {
+      setStudents([]);
+      setStudentsTotal(0);
+      return;
+    }
+    setStudentsPage(0);
+    const timer = window.setTimeout(() => fetchStudents(query, 0), 400);
+    return () => window.clearTimeout(timer);
+  }, [query, canUseAdminSearch]);
+
+  const filteredStudents = useMemo(() => {
+    let result = [...students];
+    if (gpaFilter === 'warning') result = result.filter(student => student.gpa4 > 0 && student.gpa4 < 2);
+    if (gpaFilter === 'excellent') result = result.filter(student => student.gpa4 >= 3.6);
+    if (gpaFilter === 'empty') result = result.filter(student => student.credits === 0);
+    if (sortMode === 'gpa') result.sort((a, b) => b.gpa4 - a.gpa4);
+    if (sortMode === 'credits') result.sort((a, b) => b.credits - a.credits);
+    if (sortMode === 'updated') result.sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime());
+    return result;
+  }, [students, gpaFilter, sortMode]);
+
+  const summary = useMemo(() => {
+    const withGpa = filteredStudents.filter(student => student.gpa4 > 0);
+    const avgGpa = withGpa.length
+      ? withGpa.reduce((sum, student) => sum + student.gpa4, 0) / withGpa.length
+      : 0;
+    return {
+      total: filteredStudents.length,
+      avgGpa,
+      warning: filteredStudents.filter(student => student.gpa4 > 0 && student.gpa4 < 2).length,
+      excellent: filteredStudents.filter(student => student.gpa4 >= 3.6).length,
+    };
+  }, [filteredStudents]);
+
+  const studentTotalPages = Math.max(1, Math.ceil(studentsTotal / STUDENT_PAGE_SIZE));
+  const goToStudentsPage = (page: number) => {
+    const nextPage = Math.min(studentTotalPages - 1, Math.max(0, page));
+    fetchStudents(query, nextPage);
+  };
+  const renderStudentPager = () => {
+    if (studentsTotal <= STUDENT_PAGE_SIZE) return null;
+    return (
+      <div className="mt-2 flex items-center justify-between gap-2 rounded-2xl bg-[#F8FAFD] p-2">
+        <button
+          type="button"
+          onClick={() => goToStudentsPage(studentsPage - 1)}
+          disabled={studentsPage <= 0 || loadingStudents}
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#1A56FF] shadow-sm disabled:opacity-40"
+          aria-label="Trang trước"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[11px] font-black text-[#7B8AB0]">
+          <span>Trang</span>
+          <input
+            type="number"
+            min={1}
+            max={studentTotalPages}
+            value={studentsPage + 1}
+            onChange={(event) => goToStudentsPage((Number(event.target.value) || 1) - 1)}
+            className="h-9 w-14 rounded-xl border border-[#E5EAF4] bg-white text-center text-[12px] font-black text-[#0D1B3E] outline-none"
+          />
+          <span>/ {studentTotalPages}</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => goToStudentsPage(studentsPage + 1)}
+          disabled={studentsPage >= studentTotalPages - 1 || loadingStudents}
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#1A56FF] shadow-sm disabled:opacity-40"
+          aria-label="Trang sau"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    );
+  };
+
+  const openStudentDetail = async (student: any) => {
+    playClick();
+    setSelectedStudent(student);
+    if (!student.isProfileSummary) return;
+    setLoadingDetail(true);
+    try {
+      const privateData = await fetchProfilePrivate(student.id);
+      if (!privateData?.data) return;
+      const fullStudent = hydrateStudent(
+        student,
+        { data: privateData.data, email: privateData.email, updated_at: privateData.updated_at || student.updated_at }
+      );
+      fullStudent.isProfileSummary = false;
+      setSelectedStudent(fullStudent);
+      setStudents(prev => prev.map(item => item.id === student.id ? fullStudent : item));
+    } catch (error) {
+      console.error('Không thể tải chi tiết sinh viên:', error);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const filterChips = [
+    { id: 'all' as const, label: 'Tất cả' },
+    { id: 'warning' as const, label: 'Cảnh báo' },
+    { id: 'excellent' as const, label: 'Xuất sắc' },
+    { id: 'empty' as const, label: 'Chưa có điểm' },
+  ];
+
+  const sortOptions = [
+    { id: 'updated' as const, label: 'Mới cập nhật' },
+    { id: 'gpa' as const, label: 'GPA cao' },
+    { id: 'credits' as const, label: 'Tín chỉ cao' },
+  ];
+
+  return (
+    <main className="relative overflow-visible pb-0">
+      <div className="mb-2 px-6 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Quản lý sinh viên</div>
+
+      <section className="mx-6 mb-3 rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-[14px] font-black text-[#0D1B3E]">Tìm kiếm hồ sơ</h2>
+            <p className="mt-0.5 text-[11px] font-semibold text-[#7B8AB0]">Nhập MSSV hoặc tên sinh viên.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => fetchStudents(query, studentsPage)}
+            disabled={loadingStudents || query.length < 2}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#1A56FF] disabled:opacity-50"
+            aria-label="Làm mới"
+          >
+            <RefreshCw size={16} className={loadingStudents ? 'animate-spin' : ''} />
+          </button>
+        </div>
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8B2C8]" />
+          <input
+            value={searchValue}
+            onChange={(event) => setSearchValue(event.target.value)}
+            placeholder="VD: 3123..., Nguyễn Văn A"
+            className="h-10 w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] pl-9 pr-3 text-[12px] font-bold text-[#0D1B3E] outline-none focus:border-[#1A56FF]"
+          />
+        </div>
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          {filterChips.map(chip => (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => setGpaFilter(chip.id)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-[10.5px] font-black ${gpaFilter === chip.id ? 'bg-[#1A56FF] text-white' : 'bg-[#F2F4F8] text-[#7B8AB0]'}`}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+        <select
+          value={sortMode}
+          onChange={(event) => setSortMode(event.target.value as typeof sortMode)}
+          className="mt-2 h-9 w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-[11px] font-black text-[#0D1B3E] outline-none"
+        >
+          {sortOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+        </select>
+      </section>
+
+      <div className="mb-3 grid grid-cols-2 gap-3 px-6">
+        <NativeStatCard title="Kết quả" value={`${summary.total}`} suffix="SV" subLabel="GPA TB" subValue={summary.avgGpa.toFixed(2)} progress={Math.min(100, summary.total)} tone="blue" icon={<Users size={15} strokeWidth={2.5} />} />
+        <NativeStatCard title="Cảnh báo" value={`${summary.warning}`} suffix="SV" subLabel="Xuất sắc" subValue={`${summary.excellent}`} progress={summary.total ? (summary.excellent / summary.total) * 100 : 0} tone="green" icon={<ShieldAlert size={15} strokeWidth={2.5} />} />
+      </div>
+
+      <section className="mx-6 mb-0 space-y-2.5 rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+        {loadingStudents ? (
+          <div className="p-6 text-center text-[12px] font-bold text-[#7B8AB0]">
+            <Loader2 className="mx-auto mb-2 animate-spin text-[#1A56FF]" size={22} /> Đang tìm sinh viên...
+          </div>
+        ) : query.length < 2 ? (
+          <div className="rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F8FAFD] p-6 text-center text-[12px] font-bold leading-relaxed text-[#7B8AB0]">
+            Nhập ít nhất 2 ký tự để tải danh sách sinh viên phù hợp.
+          </div>
+        ) : filteredStudents.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F8FAFD] p-6 text-center text-[12px] font-bold text-[#7B8AB0]">
+            Không có sinh viên phù hợp với bộ lọc hiện tại.
+          </div>
+        ) : (
+          filteredStudents.map(student => (
+            <button
+              key={student.id}
+              type="button"
+              onClick={() => openStudentDetail(student)}
+              className="w-full rounded-[18px] bg-[#F8FAFD] p-4 text-left active:scale-[0.99]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="line-clamp-1 text-[13.5px] font-black text-[#0D1B3E]">{student.data?.studentName || student.full_name || 'Chưa có tên'}</h3>
+                  <p className="mt-1 text-[11px] font-bold text-[#7B8AB0]">{student.student_code || student.email || student.id}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <span className="rounded-full bg-[#EEF2FF] px-2 py-1 text-[9.5px] font-black text-[#1A56FF]">GPA {student.gpa4 ? student.gpa4.toFixed(2) : '--'}</span>
+                    <span className="rounded-full bg-[#EDFAF3] px-2 py-1 text-[9.5px] font-black text-[#00A86B]">{student.credits || 0} TC</span>
+                    <span className="rounded-full bg-[#F2F4F8] px-2 py-1 text-[9.5px] font-black text-[#7B8AB0]">{student.semesterCount || 0} kỳ</span>
+                  </div>
+                </div>
+                <ChevronRight size={18} className="mt-1 shrink-0 text-[#C0CBDF]" strokeWidth={2.5} />
+              </div>
+            </button>
+          ))
+        )}
+        {query.length >= 2 && renderStudentPager()}
+      </section>
+
+      {selectedStudent && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-end justify-center bg-black/55" onClick={() => setSelectedStudent(null)}>
+          <div className="max-h-[88vh] w-full max-w-[430px] overflow-hidden rounded-t-3xl bg-white shadow-2xl" onClick={event => event.stopPropagation()}>
+            <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-slate-200" />
+            <div className="flex items-start justify-between gap-3 border-b border-[#EEF2FF] p-4">
+              <div className="min-w-0">
+                <h2 className="line-clamp-2 text-[17px] font-black leading-tight text-[#0D1B3E]">{selectedStudent.data?.studentName || selectedStudent.full_name || 'Hồ sơ sinh viên'}</h2>
+                <p className="mt-1 text-[11px] font-bold text-[#7B8AB0]">{selectedStudent.student_code || selectedStudent.email}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedStudent(null)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#F2F4F8] text-[#7B8AB0]">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto p-4 pb-safe">
+              {loadingDetail && <div className="mb-3 rounded-2xl bg-[#EEF2FF] p-3 text-[11px] font-black text-[#1A56FF]">Đang tải hồ sơ chi tiết...</div>}
+              <div className="mb-3 grid grid-cols-2 gap-3">
+                <NativeStatCard title="GPA tích lũy" value={selectedStudent.gpa4 ? selectedStudent.gpa4.toFixed(2) : '0.00'} suffix="/ 4" subLabel="Hệ 10" subValue={selectedStudent.gpa10 ? selectedStudent.gpa10.toFixed(2) : '0.00'} progress={(selectedStudent.gpa4 / 4) * 100} tone="blue" icon={<GraduationCap size={15} strokeWidth={2.5} />} />
+                <NativeStatCard title="Tín chỉ" value={`${Math.round(selectedStudent.credits || 0)}`} suffix="TC" subLabel="Học kỳ" subValue={`${selectedStudent.semesterCount || 0}`} progress={Math.min(100, selectedStudent.credits || 0)} tone="green" icon={<BookOpen size={15} strokeWidth={2.5} />} />
+              </div>
+              <div className="space-y-2">
+                {getUsableSemesters(selectedStudent.data).length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F8FAFD] p-4 text-center text-[12px] font-bold text-[#7B8AB0]">Sinh viên chưa có dữ liệu học kỳ.</div>
+                ) : (
+                  getUsableSemesters(selectedStudent.data).map((semester: Semester) => {
+                    const semesterStats = calculateSemesterStats(semester.subjects || []);
+                    return (
+                      <div key={semester.id || semester.name} className="rounded-2xl bg-[#F8FAFD] p-3">
+                        <div className="text-[12px] font-black text-[#0D1B3E]">{semester.name}</div>
+                        <div className="mt-1 flex flex-wrap gap-1.5 text-[10px] font-bold text-[#7B8AB0]">
+                          <span>{semester.subjects?.length || 0} môn</span>
+                          <span>GPA {semesterStats.hasData ? semesterStats.gpa4.toFixed(2) : '--'}</span>
+                          <span>{semesterStats.totalCredits || 0} TC</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </main>
+  );
+};
+
 export const MobileDashboardNative: React.FC<MobileDashboardNativeProps> = ({
   stats,
   totalCreditsRequired,
@@ -1776,6 +2117,8 @@ export const MobileDashboardNative: React.FC<MobileDashboardNativeProps> = ({
   activeTab,
   onTabChange,
   scheduleContent,
+  hideLearningTabs = false,
+  isManagementUser = false,
   showEmbeddedBottomNav = false,
   onOpenRanking,
   onOpenTargetForecast,
@@ -1801,8 +2144,8 @@ export const MobileDashboardNative: React.FC<MobileDashboardNativeProps> = ({
   };
 
   return (
-    <div className="mobile-page mobile-dashboard-native min-h-full w-full bg-[#E8ECF4]">
-      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[430px] flex-col bg-[#F2F4F8] text-[#0D1B3E]">
+    <div className={`mobile-page mobile-dashboard-native w-full bg-[#E8ECF4] ${isManagementUser ? 'min-h-0' : 'min-h-full'}`}>
+      <div className={`mx-auto flex w-full max-w-[430px] flex-col bg-[#F2F4F8] text-[#0D1B3E] ${isManagementUser ? 'min-h-0' : 'min-h-[100dvh]'}`}>
         <NativeStatusSpacer />
 
         <header className="flex items-start justify-between px-6 pb-4 pt-1">
@@ -1820,12 +2163,14 @@ export const MobileDashboardNative: React.FC<MobileDashboardNativeProps> = ({
           </button>
         </header>
 
-        <NativeSegmentedTabs activeTab={activeTab} onTabChange={onTabChange} />
+        {!hideLearningTabs && <NativeSegmentedTabs activeTab={activeTab} onTabChange={onTabChange} />}
 
         {activeTab === 'schedule' ? (
-          <div className="flex-1 overflow-hidden px-6 pb-8">{scheduleContent}</div>
+          <div className={isManagementUser ? 'px-6 pb-0' : 'flex-1 overflow-y-auto px-6 pb-0'}>{scheduleContent}</div>
+        ) : isManagementUser ? (
+          <NativeAdminStudentManager />
         ) : (
-          <main className="relative flex-1 overflow-y-auto pb-[calc(96px+env(safe-area-inset-bottom))]">
+          <main className="relative flex-1 overflow-y-auto pb-[calc(76px+env(safe-area-inset-bottom))]">
             <div className="mb-2 px-6 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Tổng quan</div>
 
             <div className="mb-3 grid grid-cols-2 gap-3 px-6">
@@ -1859,6 +2204,7 @@ export const MobileDashboardNative: React.FC<MobileDashboardNativeProps> = ({
                 locked={isLocked}
                 onClick={isLocked ? handleLockedClick : onOpenRanking}
               />
+              {FEATURE_FORECAST_TOOLS && (
               <NativeFeatureCard
                 title="Dự báo mục tiêu"
                 description="Xem dự báo và tiến độ đạt mục tiêu"
@@ -1866,6 +2212,7 @@ export const MobileDashboardNative: React.FC<MobileDashboardNativeProps> = ({
                 locked={isLocked}
                 onClick={isLocked ? handleLockedClick : onOpenTargetForecast}
               />
+              )}
             </div>
 
             <NativeTrendCard isLocked={isLocked} trendData={trendData} />
@@ -1919,10 +2266,10 @@ interface DashboardProps {
     onRequireOnboarding?: () => void;
 }
 
-export const MobileDashboard: React.FC<DashboardProps> = ({ 
-    data, 
+export const MobileDashboard: React.FC<DashboardProps> = ({
+    data,
     onSetSemesters,
-    onTargetChange, 
+    onTargetChange,
     showSecurityNotice,
     onUpdateSemester,
     onRemoveSemester,
@@ -1951,12 +2298,12 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
         try {
             await updateProfilePrivate(selectedAdminUserId, { data: newData });
 
-            setAdminUsers(prevUsers => prevUsers.map(u => 
+            setAdminUsers(prevUsers => prevUsers.map(u =>
                 u.id === selectedAdminUserId ? { ...u, data: newData, updated_at: new Date().toISOString() } : u
             ));
-            
+
         } catch (error) {
-            console.error("Lỗi cập nhật user:", error);
+            console.error("L?i c?p nh?t user:", error);
         }
     };
     const [adminSearch, setAdminSearch] = useState('');
@@ -1969,7 +2316,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     const [currentPage, setCurrentPage] = useState(1);
     const [pageInput, setPageInput] = useState('1');
     const [adminSort, setAdminSort] = useState<'newest' | 'gpa_desc' | 'credits_desc' | 'created_desc' | 'created_asc'>('newest');
-    
+
     const [adminFilterCohort, setAdminFilterCohort] = useState<string>('all');
     const [adminFilterMajor, setAdminFilterMajor] = useState<string>('all');
     const [adminFilterGpa, setAdminFilterGpa] = useState<'all' | 'warning' | 'excellent' | 'nogpa'>('all');
@@ -1978,9 +2325,9 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
     const itemsPerPage = 20;
 
-    useEffect(() => { 
-        setCurrentPage(1); 
-        setPageInput('1'); 
+    useEffect(() => {
+        setCurrentPage(1);
+        setPageInput('1');
     }, [adminSearch, adminSort, adminFilterCohort, adminFilterMajor, adminFilterGpa, adminFilterSemester]);
 
     const prevStudentNameRef = useRef(data.studentName);
@@ -2047,15 +2394,15 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                 .or(`student_code.ilike.%${safeQuery}%,full_name.ilike.%${safeQuery}%`)
                 .order('updated_at', { ascending: false })
                 .limit(80);
-            
+
             if (error) throw error;
             const allProfiles = profiles || [];
-            
+
             let privateMap: Record<string, any> = {};
             try {
                 privateMap = await fetchProfilePrivateMap(allProfiles.map(profile => profile.id), { mode: 'summary' });
             } catch (error) {
-                console.error('Không thể tải dữ liệu private của sinh viên:', error);
+                console.error('Không th? t?i d? li?u private c?a sinh viên:', error);
             }
             const users = allProfiles.map(profile => ({
                 ...profile,
@@ -2087,7 +2434,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
         }, 450);
 
         return () => window.clearTimeout(timer);
-    }, [showAdminPanel, adminSearchQuery]); 
+    }, [showAdminPanel, adminSearchQuery]);
 
     const handleOpenAdminUserDetail = async (user: any) => {
         playClick();
@@ -2116,7 +2463,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     };
 
     const hasUsableSemesterData = (sem: any) => {
-        return !!sem && Array.isArray(sem.subjects) && /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test(sem.name || '');
+        return !!sem && Array.isArray(sem.subjects) && /^H?c k? (1|2) Nam h?c \d{4}-\d{4}$/.test(sem.name || '');
     };
 
     const getSemesterWeight = (name: string) => {
@@ -2171,10 +2518,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                 const matchSearch = (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) ||
                     (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) ||
                     (u.data?.studentName && u.data.studentName.toLowerCase().includes(adminSearch.toLowerCase()));
-                
+
                 const matchCohort = adminFilterCohort === 'all' || u.data?.cohort === adminFilterCohort;
                 const matchMajor = adminFilterMajor === 'all' || u.data?.majorName === adminFilterMajor;
-                
+
                 const matchSemester = adminFilterSemester === 'all' || u._computedCredits > 0;
 
                 return matchSearch && matchCohort && matchMajor && matchSemester;
@@ -2280,7 +2627,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
         if (selectedUserOverview) {
             const newData = { ...activeData, semesters };
             setSelectedUserOverview(newData);
-            saveAdminUserUpdate(newData); 
+            saveAdminUserUpdate(newData);
         } else onSetSemesters(semesters);
     };
 
@@ -2288,7 +2635,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
         if (selectedUserOverview) {
             const newData = { ...activeData, targetGPA: newTarget };
             setSelectedUserOverview(newData);
-            saveAdminUserUpdate(newData); 
+            saveAdminUserUpdate(newData);
         } else onTargetChange(newTarget);
     };
 
@@ -2298,7 +2645,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             newSems[index] = updatedSem;
             const newData = { ...activeData, semesters: newSems };
             setSelectedUserOverview(newData);
-            saveAdminUserUpdate(newData); 
+            saveAdminUserUpdate(newData);
         } else onUpdateSemester(index, updatedSem);
     };
 
@@ -2307,7 +2654,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             const newSems = activeData.semesters.filter((_, i) => i !== index);
             const newData = { ...activeData, semesters: newSems };
             setSelectedUserOverview(newData);
-            saveAdminUserUpdate(newData); 
+            saveAdminUserUpdate(newData);
         } else onRemoveSemester(index);
     };
 
@@ -2316,21 +2663,21 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             const newSem: Semester = { id: Date.now().toString(), name: getNextTranscriptSemesterName(activeData.semesters), subjects: [], trainingScore: null };
             const newData = { ...activeData, semesters: [...activeData.semesters, newSem] };
             setSelectedUserOverview(newData);
-            saveAdminUserUpdate(newData); 
+            saveAdminUserUpdate(newData);
         } else onAddSemester();
     };
 
     const ALL_SEMESTERS = useMemo(() => {
         const options = [];
         for (let y = 2020; y <= 2026; y++) {
-            options.push(`Học kỳ 1 Năm học ${y}-${y+1}`);
-            options.push(`Học kỳ 2 Năm học ${y}-${y+1}`);
+            options.push(`H?c k? 1 N?m h?c ${y}-${y+1}`);
+            options.push(`H?c k? 2 N?m h?c ${y}-${y+1}`);
         }
         return options;
     }, []);
 
     const handleCascadeUpdate = (targetIndex: number, newName: string) => {
-        const match = newName.match(/Học kỳ (1|2) Năm học (\d{4})-(\d{4})/);
+        const match = newName.match(/H?c k? (1|2) Nam h?c (\d{4})-(\d{4})/);
         if (!match) {
             handleLocalUpdateSemester(targetIndex, { ...activeData.semesters[targetIndex], name: newName });
             return;
@@ -2346,13 +2693,13 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
         const newSemesters = [...activeData.semesters];
 
         for (let i = 0; i < targetLength; i++) {
-            const offset = i - targetIndex; 
+            const offset = i - targetIndex;
             const currentAbs = targetAbs + offset;
-            
+
             const currentYear = Math.floor(currentAbs / 2);
             const currentHk = (currentAbs % 2) + 1;
 
-            const seqName = `Học kỳ ${currentHk} Năm học ${currentYear}-${currentYear + 1}`;
+            const seqName = `H?c k? ${currentHk} Nam h?c ${currentYear}-${currentYear + 1}`;
 
             if (newSemesters[i]) {
                 newSemesters[i] = { ...newSemesters[i], name: seqName };
@@ -2368,10 +2715,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
         handleLocalSetSemesters(newSemesters);
     };
-    // ✨ TÍNH NĂNG: TỰ ĐỘNG ĐIỀN ĐIỂM RÈN LUYỆN TỪ DB TRƯỜNG ✨
+    // ? TÍNH NANG: T? Ð?NG ÐI?N ÐI?M RÈN LUY?N T? DB TRU?NG ?
     useEffect(() => {
         const fetchAndFillTrainingScore = async () => {
-            let targetStudentCode = (data as any).studentCode || (data as any).student_code; 
+            let targetStudentCode = (data as any).studentCode || (data as any).student_code;
             if (selectedAdminUserId) {
                 const adminViewUser = adminUsers.find(u => u.id === selectedAdminUserId);
                 if (adminViewUser) targetStudentCode = adminViewUser.student_code;
@@ -2391,7 +2738,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             for (let i = 0; i < newSemesters.length; i++) {
                 const sem = newSemesters[i];
                 if (sem.trainingScore === null || sem.trainingScore === undefined || sem.trainingScore === 0) {
-                    const match = sem.name.match(/Học kỳ (1|2) Năm học (\d{4})-(\d{4})/);
+                    const match = sem.name.match(/H?c k? (1|2) Nam h?c (\d{4})-(\d{4})/);
                     if (match) {
                         const hk = match[1];
                         const year1 = match[2];
@@ -2438,15 +2785,15 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     }, [activeData.semesters]);
 
     const nonSummerSemesters = useMemo(
-        () => transcriptSemesters.filter(s => !/^Học kỳ Hè Năm học \d{4}-\d{4}$/.test(s.name)),
+        () => transcriptSemesters.filter(s => !/^H?c k? Hè Nam h?c \d{4}-\d{4}$/.test(s.name)),
         [transcriptSemesters]
     );
 
     const sortedSemesters = useMemo(() => {
         const getWeight = (name: string) => {
             if (!name) return 999999;
-            const match = name.match(/Học kỳ (1|2) Năm học (\d{4})-(\d{4})/);
-            if (!match) return 999998; 
+            const match = name.match(/H?c k? (1|2) Nam h?c (\d{4})-(\d{4})/);
+            if (!match) return 999998;
             const hk = parseInt(match[1]);
             const year = parseInt(match[2]);
             return year * 10 + hk;
@@ -2487,23 +2834,23 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     }, {} as Record<string, number>);
 
     const pieData = [
-        { name: 'Giỏi/Xuất sắc (A)', value: gradeDist['A'] || 0, color: '#10B981' },
+        { name: 'Gi?i/Xu?t s?c (A)', value: gradeDist['A'] || 0, color: '#10B981' },
         { name: 'Khá (B)', value: gradeDist['B'] || 0, color: '#3B82F6' },
         { name: 'Trung bình (C)', value: gradeDist['C'] || 0, color: '#F59E0B' },
-        { name: 'Yếu/Rớt (D, F)', value: (gradeDist['D'] || 0) + (gradeDist['F'] || 0), color: '#EF4444' },
+        { name: 'Y?u/R?t (D, F)', value: (gradeDist['D'] || 0) + (gradeDist['F'] || 0), color: '#EF4444' },
     ].filter(d => d.value > 0);
 
     const trendData = validDataSemesters.map(sem => {
         const semStats = calculateSemesterStats(sem.subjects);
         let shortName = sem.name;
-        if (shortName.includes('Học kỳ')) {
+        if (shortName.includes('H?c k?')) {
             const parts = shortName.split('-');
-            if (sem.name.includes('Năm học')) {
+            if (sem.name.includes('Nam h?c')) {
                 const yearPart = sem.name.match(/(\d{4})/);
-                const hkPart = sem.name.match(/Học kỳ (1|2)/);
+                const hkPart = sem.name.match(/H?c k? (1|2)/);
                 if (yearPart && hkPart) shortName = `HK${hkPart[1]}/${yearPart[1].slice(2)}`;
             } else {
-                shortName = sem.name.replace('Năm ', 'N').replace(' - Học kỳ ', '.HK');
+                shortName = sem.name.replace('Nam ', 'N').replace(' - H?c k? ', '.HK');
             }
         }
         return {
@@ -2514,43 +2861,43 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     }).filter(item => item.gpa4 !== null);
 
     const allSubjects = validDataSemesters.flatMap(s => s.subjects);
-    
+
     const failedSubjectsList = allSubjects.filter(s => {
         const avg = calculateSubjectAverage(s);
         return getSubjectStatus(avg) === GradeStatus.FAIL && !s.isNonGPA;
     });
-    
+
     const failedCount = failedSubjectsList.length;
     const totalCreditsRequired = activeData.totalCreditsRequired || 125;
-    
+
     const requiredAnalysis = calculateRequiredGPA(
-        stats.rawGPA4, 
+        stats.rawGPA4,
         stats.passedCredits,
         totalCreditsRequired,
         activeData.targetGPA
     );
 
     let difficultyColor = "text-[#003375] bg-blue-50";
-    let difficultyText = "Tốt";
+    let difficultyText = "T?t";
     let scoreClass = "text-[#003375]";
 
     if (requiredAnalysis && requiredAnalysis.isPossible) {
         const req = requiredAnalysis.requiredGPA;
         if (req > 3.6) {
             difficultyColor = "text-[#990000] bg-red-50";
-            difficultyText = "Thử thách";
+            difficultyText = "Th? thách";
             scoreClass = "text-[#990000]";
         } else if (req > 3.2) {
             difficultyColor = "text-orange-700 bg-orange-50";
-            difficultyText = "Cần nỗ lực";
+            difficultyText = "C?n n? l?c";
             scoreClass = "text-orange-600";
         } else if (req > 2.5) {
             difficultyColor = "text-[#003375] bg-blue-50";
-            difficultyText = "Khả thi";
+            difficultyText = "Kh? thi";
             scoreClass = "text-[#003375]";
         } else {
             difficultyColor = "text-emerald-700 bg-emerald-50";
-            difficultyText = "Trong tầm tay";
+            difficultyText = "Trong t?m tay";
             scoreClass = "text-emerald-600";
         }
     }
@@ -2570,30 +2917,30 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
                         <div>
                             <h1 className="text-2xl sm:text-[28px] font-black text-[#003375]">
-                                Quản lý Sinh viên
+                                Qu?n lý Sinh viên
                             </h1>
-                            <p className="text-xs text-gray-500">Xem và theo dõi tiến độ học tập toàn trường</p>
+                            <p className="text-xs text-gray-500">Xem và theo dõi ti?n d? h?c t?p toàn tru?ng</p>
                         </div>
-                        
+
                         <div className="flex flex-col w-full lg:w-auto gap-2">
                             <div className="flex flex-nowrap items-center gap-2 w-full justify-end">
                                 <div className="relative flex-1 lg:w-64 max-w-sm">
                                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         placeholder="Nhập ít nhất 2 ký tự để tìm..."
                                         value={adminSearch}
                                         onChange={e => setAdminSearch(e.target.value)}
                                         className="w-full h-10 pl-8 pr-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-[#003375] outline-none text-sm bg-white font-semibold"
                                     />
                                 </div>
-                                
+
                                 <button
                                     onClick={() => { playClick(); setShowAdminFilters(prev => !prev); }}
                                     className={`h-10 px-3 rounded-xl border text-sm font-bold transition-colors shrink-0 flex items-center gap-1.5 ${showAdminFilters || activeAdminFilterCount > 0 ? 'bg-[#003375] text-white border-[#003375] shadow-sm' : 'bg-white text-[#003375] border-gray-300'}`}
                                 >
                                     <ListFilter size={16} />
-                                    <span>Lọc</span>
+                                    <span>L?c</span>
                                     {activeAdminFilterCount > 0 && (
                                         <span className={`min-w-5 h-5 rounded-full px-1.5 text-[11px] font-black flex items-center justify-center ${showAdminFilters ? 'bg-white text-[#003375]' : 'bg-[#003375] text-white'}`}>
                                             {activeAdminFilterCount}
@@ -2601,52 +2948,52 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     )}
                                 </button>
 
-                                <button 
-                                    onClick={() => { playClick(); fetchAdminData(adminSearchQuery, { force: true }); }} 
+                                <button
+                                    onClick={() => { playClick(); fetchAdminData(adminSearchQuery, { force: true }); }}
                                     disabled={loadingAdmin || !hasAdminSearchQuery}
                                     className="h-10 w-10 bg-white text-gray-500 border border-gray-300 hover:text-[#003375] hover:bg-blue-50 rounded-xl shadow-sm transition-colors disabled:opacity-50 shrink-0 flex items-center justify-center"
-                                    title="Làm mới danh sách"
+                                    title="Làm m?i danh sách"
                                 >
                                     <RefreshCw size={18} className={loadingAdmin ? "animate-spin" : ""} />
                                 </button>
 
                                 <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="hidden sm:inline-flex h-10 items-center px-3 bg-white text-[#003375] text-sm font-bold border border-gray-300 hover:border-[#003375] hover:bg-blue-50 rounded-xl shadow-sm whitespace-nowrap transition-colors shrink-0">
-                                    Hồ sơ của tôi
+                                    H? so c?a tôi
                                 </button>
                             </div>
-                            
+
                             <div className={`${showAdminFilters ? 'grid' : 'hidden'} grid-cols-2 gap-2 w-full rounded-2xl border border-gray-200 bg-white p-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] animate-fadeIn`}>
                                 <div className="col-span-2 flex items-center justify-between">
-                                    <span className="text-xs font-black uppercase tracking-wide text-gray-500">Bộ lọc</span>
+                                    <span className="text-xs font-black uppercase tracking-wide text-gray-500">B? l?c</span>
                                     {activeAdminFilterCount > 0 && (
                                         <button onClick={() => { playClick(); resetAdminFilters(); }} className="text-xs font-bold text-[#003375]">
-                                            Xóa lọc
+                                            Xóa l?c
                                         </button>
                                     )}
                                 </div>
                                 <div className="relative">
                                     <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                                    <select 
+                                    <select
                                         value={adminFilterGpa}
                                         onChange={(e) => setAdminFilterGpa(e.target.value as any)}
                                         className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[140px] truncate"
                                     >
-                                        <option value="all">Mọi mức điểm</option>
-                                        <option value="excellent">Xuất sắc (&gt;3.6)</option>
-                                        <option value="warning">Cảnh báo (&lt;2.0)</option>
-                                        <option value="nogpa">Chưa có điểm</option>
+                                        <option value="all">M?i m?c di?m</option>
+                                        <option value="excellent">Xu?t s?c (&gt;3.6)</option>
+                                        <option value="warning">C?nh báo (&lt;2.0)</option>
+                                        <option value="nogpa">Chua có di?m</option>
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                                 </div>
 
                                 <div className="relative">
                                     <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                                    <select 
+                                    <select
                                         value={adminFilterMajor}
                                         onChange={(e) => setAdminFilterMajor(e.target.value)}
                                         className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[140px] truncate"
                                     >
-                                        <option value="all">Tất cả Ngành</option>
+                                        <option value="all">T?t c? Ngành</option>
                                         {adminMajors.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
@@ -2654,29 +3001,29 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                                 <div className="relative">
                                     <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                                    <select 
+                                    <select
                                         value={adminFilterSemester}
                                         onChange={(e) => setAdminFilterSemester(e.target.value)}
                                         className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[150px] truncate"
                                     >
-                                        <option value="all">Tích lũy toàn khóa</option>
-                                        {adminSemesters.map(s => <option key={s} value={s}>{s.replace('Học kỳ ', 'HK').replace(' Năm học ', ' ')}</option>)}
+                                        <option value="all">Tích luy toàn khóa</option>
+                                        {adminSemesters.map(s => <option key={s} value={s}>{s.replace('H?c k? ', 'HK').replace(' Nam h?c ', ' ')}</option>)}
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                                 </div>
 
                                 <div className="relative">
                                     <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                                    <select 
+                                    <select
                                         value={adminSort}
                                         onChange={(e) => setAdminSort(e.target.value as any)}
                                         className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full"
                                     >
-                                        <option value="newest">Mới cập nhật</option>
-                                        <option value="gpa_desc">GPA Cao nhất</option>
-                                        <option value="credits_desc">Nhiều Tín nhất</option>
-                                        <option value="created_desc">Tạo mới nhất</option>
-                                        <option value="created_asc">Tạo cũ nhất</option>
+                                        <option value="newest">M?i c?p nh?t</option>
+                                        <option value="gpa_desc">GPA Cao nh?t</option>
+                                        <option value="credits_desc">Nhi?u Tín nh?t</option>
+                                        <option value="created_desc">T?o m?i nh?t</option>
+                                        <option value="created_asc">T?o cu nh?t</option>
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                                 </div>
@@ -2685,14 +3032,14 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     </div>
                 </div>
 
-                {/* 3. Bốn thẻ thống kê (grid 2x2 mobile, 4x1 desktop) */}
+                {/* 3. B?n th? th?ng kê (grid 2x2 mobile, 4x1 desktop) */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
                     <button onClick={() => { playClick(); setAdminFilterGpa('all'); }} className={`bg-white p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'all' ? 'border-[#003375] ring-1 ring-[#003375] bg-blue-50/20' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'}`}>
                         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
                             <Users size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
                         <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Tổng SV</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">T?ng SV</p>
                             <span className="text-lg sm:text-xl font-black text-gray-900">{adminSummary.total}</span>
                         </div>
                     </button>
@@ -2715,7 +3062,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <AlertTriangle size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
                         <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-red-600/80 uppercase tracking-wider mb-0.5">Cảnh báo</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-red-600/80 uppercase tracking-wider mb-0.5">C?nh báo</p>
                             <span className="text-lg sm:text-xl font-black text-red-600">{adminSummary.warning}</span>
                         </div>
                     </button>
@@ -2725,7 +3072,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <Crown size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
                         </div>
                         <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-orange-500/80 uppercase tracking-wider mb-0.5">Xuất sắc</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-orange-500/80 uppercase tracking-wider mb-0.5">Xu?t s?c</p>
                             <span className="text-lg sm:text-xl font-black text-orange-500">{adminSummary.excellent}</span>
                         </div>
                     </button>
@@ -2756,7 +3103,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                             <div className="flex items-start justify-between gap-3">
                                                 <div className="min-w-0">
                                                     <p className="text-[11px] font-black text-[#003375] tracking-wide">{user.student_code || '-'}</p>
-                                                    <h3 className="mt-1 text-sm font-extrabold text-gray-900 leading-snug line-clamp-2">{user.full_name || user.data?.studentName || 'Chưa cập nhật'}</h3>
+                                                    <h3 className="mt-1 text-sm font-extrabold text-gray-900 leading-snug line-clamp-2">{user.full_name || user.data?.studentName || 'Ch?a c?p nh?t'}</h3>
                                                     <p className="mt-1 text-[11px] font-medium text-gray-500 line-clamp-2">{user.data?.programName || '-'} / {user.data?.cohort || '-'}</p>
                                                 </div>
                                                 <div className="shrink-0 text-right">
@@ -2766,11 +3113,11 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                             </div>
                                             <div className="mt-3 grid grid-cols-2 gap-2">
                                                 <div className="rounded-lg bg-gray-50 border border-gray-100 px-2.5 py-2">
-                                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Tín chỉ</p>
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Tín ch?</p>
                                                     <p className="text-sm font-black text-gray-800">{creditsLabel}</p>
                                                 </div>
                                                 <div className="rounded-lg bg-gray-50 border border-gray-100 px-2.5 py-2">
-                                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Cập nhật</p>
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase">C?p nh?t</p>
                                                     <p className="text-xs font-bold text-gray-700">{updateDate}</p>
                                                 </div>
                                             </div>
@@ -2779,7 +3126,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                 })}
                             </div>
                         ) : (
-                            <div className="py-8 text-center text-gray-500 text-sm">Không tìm thấy sinh viên nào phù hợp</div>
+                            <div className="py-8 text-center text-gray-500 text-sm">Không tìm th?y sinh viên nào phù h?p</div>
                         )}
                     </div>
 
@@ -2788,11 +3135,11 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <thead className="bg-gray-50 text-gray-600 border-b border-gray-200 sticky top-0 z-10">
                                 <tr>
                                     <th className="px-4 py-3 font-bold">MSSV</th>
-                                    <th className="px-4 py-3 font-bold">Họ và Tên</th>
-                                    <th className="px-4 py-3 font-bold">Hệ / Khóa</th>
-                                    <th className="px-4 py-3 font-bold text-center">{adminFilterSemester === 'all' ? 'GPA Tích lũy' : 'GPA Học kỳ'}</th>
-                                    <th className="px-4 py-3 font-bold text-center">Tín chỉ</th>
-                                    <th className="px-4 py-3 font-bold text-right">Cập nhật lúc</th>
+                                    <th className="px-4 py-3 font-bold">H? và Tên</th>
+                                    <th className="px-4 py-3 font-bold">H? / Khóa</th>
+                                    <th className="px-4 py-3 font-bold text-center">{adminFilterSemester === 'all' ? 'GPA Tích luy' : 'GPA H?c k?'}</th>
+                                    <th className="px-4 py-3 font-bold text-center">Tín ch?</th>
+                                    <th className="px-4 py-3 font-bold text-right">C?p nh?t lúc</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -2804,11 +3151,11 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     return paginatedAdminUsers.length > 0 ? (
                                         paginatedAdminUsers.map(user => {
                                             const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
-                                            
+
                                             return (
                                                 <tr key={user.id} onClick={() => handleOpenAdminUserDetail(user)} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
                                                     <td className="px-4 py-3 font-bold text-[#003375]">{user.student_code || '-'}</td>
-                                                    <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#003375] transition-colors">{user.full_name || user.data?.studentName || 'Chưa cập nhật'}</td>
+                                                    <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#003375] transition-colors">{user.full_name || user.data?.studentName || 'Ch?a c?p nh?t'}</td>
                                                     <td className="px-4 py-3 text-gray-600">{user.data?.programName || '-'} / {user.data?.cohort || '-'}</td>
                                                     <td className="px-4 py-3 text-center font-bold text-emerald-600">{user._computedGpa > 0 ? user._computedGpa.toFixed(2) : '-'}</td>
                                                     <td className="px-4 py-3 text-center text-gray-600">{user._computedCredits || 0}</td>
@@ -2817,7 +3164,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                             )
                                         })
                                     ) : (
-                                        <tr><td colSpan={6} className="py-8 text-center text-gray-500">Không tìm thấy sinh viên nào phù hợp</td></tr>
+                                        <tr><td colSpan={6} className="py-8 text-center text-gray-500">Không tìm th?y sinh viên nào phù h?p</td></tr>
                                     )
                                 })()}
                             </tbody>
@@ -2827,20 +3174,20 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     {!loadingAdmin && processedAdminUsers.length > 0 && (
                             <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 gap-3">
                                 <span className="text-xs sm:text-sm text-gray-500">
-                                    Đang xem <span className="font-bold text-gray-700">{processedAdminUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> đến <span className="font-bold text-gray-700">{Math.min(currentPage * itemsPerPage, processedAdminUsers.length)}</span> trong tổng số <span className="font-bold text-gray-900">{processedAdminUsers.length}</span> sinh viên
+                                    Ðang xem <span className="font-bold text-gray-700">{processedAdminUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> d?n <span className="font-bold text-gray-700">{Math.min(currentPage * itemsPerPage, processedAdminUsers.length)}</span> trong t?ng s? <span className="font-bold text-gray-900">{processedAdminUsers.length}</span> sinh viên
                                 </span>
                                 <div className="flex items-center gap-2">
-                                    <button 
-                                        onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.max(1, p - 1); setPageInput(newP.toString()); return newP; }); }} 
+                                    <button
+                                        onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.max(1, p - 1); setPageInput(newP.toString()); return newP; }); }}
                                         disabled={currentPage === 1}
                                         className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
-                                        Trước
+                                        Tru?c
                                     </button>
-                                    
+
                                     <div className="flex items-center gap-1.5 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100 text-xs font-bold text-[#003375]">
                                         <span>Trang</span>
-                                        <input 
+                                        <input
                                             type="number"
                                             min={1}
                                             max={totalAdminPages}
@@ -2861,7 +3208,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         <span>/ {totalAdminPages}</span>
                                     </div>
 
-                                    <button 
+                                    <button
                                         onClick={() => { playClick(); setCurrentPage(p => { const newP = Math.min(totalAdminPages, p + 1); setPageInput(newP.toString()); return newP; }); }}
                                         disabled={currentPage === totalAdminPages || processedAdminUsers.length === 0}
                                         className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -2875,21 +3222,21 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             </div>
         ) : (
             <div className="w-full space-y-4 pt-1 animate-fadeIn">
-                <div className="relative top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 mb-2">                
+                <div className="relative top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 mb-2">
                     {isAdmin && (
-                        <button 
+                        <button
                             onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('list'); window.history.pushState(null, '', '/dashboard/admin'); }}
                             className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-colors w-fit px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:shadow-sm"
                         >
-                            <ChevronLeft size={16} /> Quay lại danh sách quản lý
+                            <ChevronLeft size={16} /> Quay l?i danh sách qu?n lý
                         </button>
                     )}
-                    
+
                     <h1 className="text-2xl sm:text-[28px] font-black text-[#003375] mb-1">
                 Học tập
             </h1>
                     <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                <span>Quản lý học tập</span><span>•</span><span className="font-bold text-gray-700">Bảng điểm và lộ trình</span>
+                <span>Quản lý học tập</span><span>•</span><span className="font-bold text-gray-700">B?ng di?m và l? trình</span>
             </div>
 
                     {!isGuest && !selectedUserOverview && (
@@ -2898,7 +3245,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             className="mt-3 rounded-lg border border-blue-200 bg-white px-3 py-2 text-left transition-all duration-150 active:scale-[0.98] motion-reduce:transition-none"
                         >
                             <div className="flex items-center gap-2">
-                                <p className="text-xs font-black uppercase tracking-wide text-[#003375]">Nhìn lại kỳ học vừa qua</p>
+                                <p className="text-xs font-black uppercase tracking-wide text-[#003375]">Nhìn l?i k? h?c v?a qua</p>
                                 <Sparkles className="text-yellow-500" size={17} />
                             </div>
                         </button>
@@ -2908,7 +3255,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                     <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng GPA tích lũy</span>
+                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">T?ng GPA tích lũy</span>
                             <GraduationCap size={16} className="text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
                         <div className="flex items-baseline gap-1 mt-1">
@@ -2922,7 +3269,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                     <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 transition-colors flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Tổng TC tích lũy</span>
+                            <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">T?ng TC tích luy</span>
                             <BookOpen size={16} className="text-gray-400 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
                         <div className="flex items-baseline gap-1 mt-1">
@@ -2939,7 +3286,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">BXH môn học</span>
                             <Trophy size={16} className="text-yellow-500 shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
-                        
+
                         <div className="relative flex-1 flex flex-col justify-center">
                             {isLocked && (
                                 <Link to="/login" onClick={playClick} className="absolute inset-x-[-8px] inset-y-[-4px] bg-white/80 z-20 flex items-center justify-center flex-col text-center rounded-lg cursor-pointer group hover:bg-white transition-colors border border-gray-200">
@@ -2954,15 +3301,16 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     <span className="text-[11px] sm:text-sm font-bold text-[#003375] line-clamp-1 leading-tight">{highestSubject.name}</span>
                                     <div className="mt-1 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
                                         <span className="text-sm sm:text-[15px] font-extrabold text-gray-900 leading-none">{highestSubject.avg.toFixed(1)}</span>
-                                        <span className="text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 whitespace-nowrap">Điểm {highestSubject.letter}</span>
+                                        <span className="text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 whitespace-nowrap">Ði?m {highestSubject.letter}</span>
                                     </div>
                                 </div>
                             ) : (
-                                <p className="text-[10px] sm:text-xs text-gray-400 italic mt-1.5 sm:mt-2">Chưa có dữ liệu</p>
+                                <p className="text-[10px] sm:text-xs text-gray-400 italic mt-1.5 sm:mt-2">Chua có d? li?u</p>
                             )}
                         </div>
                     </div>
 
+                    {FEATURE_FORECAST_TOOLS && (
                     <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                         <div className="flex justify-between items-start mb-1">
                             <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dự báo mục tiêu</span>
@@ -2991,20 +3339,21 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     </div>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="truncate">Hiện tại:</span>
+                                    <span className="truncate">Hi?n t?i:</span>
                                     <span className="font-bold text-gray-900">{(Math.floor(stats.rawGPA4 * 100) / 100).toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="truncate">Trung bình một tín:</span>
+                                    <span className="truncate">Trung bình m?t tín:</span>
                                     {requiredAnalysis && requiredAnalysis.isPossible ? (
                                         <span className={`font-bold border-b border-transparent ${scoreClass}`}>{Math.max(0, requiredAnalysis.requiredGPA).toFixed(2)}</span>
                                     ) : (
-                                        <span className="font-bold text-[#990000]">Không thể</span>
+                                        <span className="font-bold text-[#990000]">Không th?</span>
                                     )}
                                 </div>
                             </div>
                         </div>
                     </div>
+                    )}
                 </div>
 
                 <div className="flex flex-col gap-4 min-h-0">
@@ -3017,14 +3366,14 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#990000]"></span>Hệ 10</span>
                                 </div>
                             </div>
-                            
+
                             <div className="flex-1 w-full -ml-5 sm:-ml-4 relative min-h-[100px]">
                                 {isLocked && (
                                     <Link to="/login" onClick={playClick} className="absolute inset-0 bg-white/40 z-20 flex items-center justify-center flex-col text-center rounded-xl ml-5 sm:ml-4 shadow-[inset_0_0_20px_rgba(255,255,255,0.7)] hover:bg-white/50 transition-colors cursor-pointer group">
                                         <div className="bg-white/90 p-4 rounded-2xl shadow-sm border border-white flex flex-col items-center group-hover:scale-105 transition-transform">
                                             <Shield className="text-[#003375] mb-2 opacity-90" size={28} />
                                             <p className="text-sm font-bold text-[#003375]">Biểu đồ đã bị khóa</p>
-                                            <p className="text-[11px] text-gray-500 mt-1 max-w-[200px]">Click để đăng nhập và mở khóa tính năng này.</p>
+                                            <p className="text-[11px] text-gray-500 mt-1 max-w-[200px]">Click d? dang nh?p và m? khóa tính nang này.</p>
                                         </div>
                                     </Link>
                                 )}
@@ -3041,7 +3390,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         </LineChart>
                                     </ResponsiveContainer>
                                 ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs border border-dashed border-gray-300 rounded-xl ml-5 sm:ml-4">Chưa có dữ liệu học kỳ</div>
+                                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs border border-dashed border-gray-300 rounded-xl ml-5 sm:ml-4">Chua có d? li?u h?c k?</div>
                                 )}
                             </div>
                         </div>
@@ -3049,19 +3398,19 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                         <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 relative overflow-hidden">
                             <div className="flex-1 w-full">
                                 <h3 className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1">
-                                    <BarChart3 size={14} className="text-[#003375] sm:w-4 sm:h-4"/> Đánh giá hệ thống
+                                    <BarChart3 size={14} className="text-[#003375] sm:w-4 sm:h-4"/> Ðánh giá h? th?ng
                                 </h3>
                                 <p className="text-[10px] sm:text-xs text-gray-500 font-medium leading-snug">"{trendAnalysis}"</p>
                             </div>
                             <div className="shrink-0 w-full sm:w-auto mt-1 sm:mt-0">
                                 {failedCount > 0 ? (
                                     <button onClick={() => { playClick(); setShowFailedModal(true); }} className="w-full sm:w-auto flex items-center justify-between gap-3 px-3 py-2 bg-red-50 text-[#990000] border border-red-100 rounded-lg text-[11px] sm:text-xs font-bold hover:bg-red-100 transition-colors group">
-                                        <span className="flex items-center gap-1.5"><AlertTriangle size={14} /> Tồn đọng {failedCount} môn nợ</span>
+                                        <span className="flex items-center gap-1.5"><AlertTriangle size={14} /> T?n d?ng {failedCount} môn n?</span>
                                         <ChevronRight size={14} className="opacity-50 group-hover:opacity-100 transition-opacity" />
                                     </button>
                                 ) : (
                                     <div className="w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[11px] sm:text-xs font-bold">
-                                        <span className="flex items-center gap-1.5"><CheckCircle2 size={14} /> Không nợ môn</span>
+                                        <span className="flex items-center gap-1.5"><CheckCircle2 size={14} /> Không n? môn</span>
                                     </div>
                                 )}
                             </div>
@@ -3070,8 +3419,8 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                     <div className="grid grid-cols-2 gap-3 sm:gap-4 shrink-0">
                         <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
-                            <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight mb-2 uppercase truncate">Phân bố điểm</h3>
-                            
+                            <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 tracking-tight mb-2 uppercase truncate">Phân b? di?m</h3>
+
                             <div className="h-[100px] sm:h-[130px] w-full relative flex flex-col items-center justify-center shrink-0">
                                 {isLocked && (
                                     <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
@@ -3093,19 +3442,19 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         </PieChart>
                                     </ResponsiveContainer>
                                 ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">Chưa có dữ liệu</div>
+                                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">Chua có d? li?u</div>
                                 )}
                             </div>
                         </div>
 
                         <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                             <div className="flex justify-between items-center mb-2 sm:mb-3">
-                                <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 uppercase truncate">Tổng kết năm</h3>
+                                <h3 className="text-[11px] sm:text-sm font-bold text-gray-900 uppercase truncate">Tổng kết nam</h3>
                                 {yearlyStats.length > 3 && !isLocked && (
-                                    <button onClick={() => { playClick(); setShowYearlyModal(true); }} className="text-[9px] sm:text-[10px] font-bold text-[#003375] hover:underline shrink-0 ml-1">Chi tiết</button>
+                                    <button onClick={() => { playClick(); setShowYearlyModal(true); }} className="text-[9px] sm:text-[10px] font-bold text-[#003375] hover:underline shrink-0 ml-1">Chi ti?t</button>
                                 )}
                             </div>
-                            
+
                             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 relative">
                                 {isLocked && (
                                     <Link to="/login" onClick={playClick} className="absolute inset-[-8px] bg-white/40 z-20 flex items-center justify-center flex-col text-center rounded-xl shadow-[inset_0_0_15px_rgba(255,255,255,0.7)] cursor-pointer group hover:bg-white/50 transition-colors">
@@ -3116,13 +3465,13 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     </Link>
                                 )}
                                 <div className="grid grid-cols-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
-                                    <span className="col-span-2">Năm</span>
+                                    <span className="col-span-2">Nam</span>
                                     <span className="text-center">TC</span>
                                     <span className="text-right">GPA</span>
                                 </div>
                                 {yearlyStats.slice(0, 4).map((year) => (
                                     <div key={year.yearId} className="grid grid-cols-4 text-[10px] sm:text-xs items-center py-1 hover:bg-gray-50 rounded px-0.5 sm:px-1 transition-colors">
-                                        <span className="col-span-2 font-medium text-gray-700 truncate pr-1" title={year.label}>{year.label.replace('Năm học ', 'NH ')}</span>
+                                        <span className="col-span-2 font-medium text-gray-700 truncate pr-1" title={year.label}>{year.label.replace('Nam h?c ', 'NH ')}</span>
                                         <span className="text-center text-gray-500">{year.hasData ? year.totalCredits : '-'}</span>
                                         <span className="text-right font-extrabold text-[#003375]">{year.hasData ? formatGpaWithoutRounding(year.rawGPA4) : '-'}</span>
                                     </div>
@@ -3134,25 +3483,25 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                 <div className="pt-2">
                     <div className="flex flex-row justify-between items-center flex-wrap mb-3 sm:mb-4 gap-2 border-t border-gray-200 pt-4 sm:pt-5 mt-2">
-                        <h2 className="text-[15px] sm:text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Chi tiết bảng điểm</h2>
+                        <h2 className="text-[15px] sm:text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Chi ti?t b?ng ?i?m</h2>
 
                         <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap justify-end">
                             <button
                                 onClick={() => { playClick(); setShowReportModal(true); }}
                                 className="text-red-600 bg-red-50 border border-red-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:bg-red-100 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
                             >
-                                <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
-                                <span className="hidden sm:inline">Báo lỗi</span>
-                                <span className="sm:hidden">Lỗi</span>
+                                <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                <span className="hidden sm:inline">Báo l?i</span>
+                                <span className="sm:hidden">L?i</span>
                             </button>
-                            
+
                             <button
                                 onClick={onExportPDF}
                                 className="text-gray-600 bg-white border border-gray-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm active:scale-95"
                             >
-                                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> 
+                                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                 <span className="hidden sm:inline">Xuất PDF</span>
-                                <span className="sm:hidden">Xuất</span>
+                                <span className="sm:hidden">Xu?t</span>
                             </button>
 
                             <div>
@@ -3166,8 +3515,8 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                     className="bg-white text-[#003375] border border-gray-200 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:border-[#003375] hover:bg-blue-50 transition-colors flex items-center gap-1 sm:gap-2 shadow-sm disabled:opacity-70 active:scale-95"
                                 >
                                     {isImporting ? <Loader2 className="animate-spin w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <FileUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                                    <span className="hidden sm:inline">Nhập điểm PDF</span>
-                                    <span className="sm:hidden">Nhập</span>
+                                    <span className="hidden sm:inline">Nh?p di?m PDF</span>
+                                    <span className="sm:hidden">Nh?p</span>
                                 </button>
                             </div>
                         </div>
@@ -3200,21 +3549,21 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
                         {activeData.semesters.length === 0 && (
                             <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-                                <p className="text-gray-500 mb-4 text-sm font-medium">Bạn chưa có học kỳ nào.</p>
+                                <p className="text-gray-500 mb-4 text-sm font-medium">B?n chua có h?c k? nào.</p>
                                 <button onClick={handleLocalAddSemester} className="text-[#003375] font-bold hover:underline flex items-center justify-center gap-1 mx-auto text-sm transition-colors">
-                                    <Plus size={16} /> Tạo thủ công
+                                    <Plus size={16} /> T?o th? công
                                 </button>
                             </div>
                         )}
-                        
+
                         {!isInitialState && nonSummerSemesters.length > 0 && nonSummerSemesters.length < ALL_SEMESTERS.length && (
                             <button onClick={handleLocalAddSemester} className="w-full py-4 border-2 border-dashed border-gray-200 text-gray-500 hover:text-gray-800 hover:border-gray-400 hover:bg-gray-50 rounded-xl font-semibold flex justify-center items-center gap-2 transition-all">
-                                <Plus size={18}/> Thêm học kỳ mới
+                                <Plus size={18}/> Thêm h?c k? m?i
                             </button>
                         )}
                     </div>
                 </div>
-                
+
             </div>
         )}
 

@@ -19,6 +19,7 @@ import {
     X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { supabase } from '../utils/supabase';
 import { fetchProfilePrivate } from '../utils/profilePrivate';
 import { playClick } from '../utils/audio';
@@ -295,9 +296,9 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                 </div>
             </div>
 
-            {showNotificationSettings && (
-                <div className="fixed inset-0 z-[99999] flex items-end justify-center bg-black/60 animate-fadeIn" onClick={() => setShowNotificationSettings(false)}>
-                    <div className="flex max-h-[82vh] w-full max-w-[430px] flex-col rounded-t-3xl bg-white shadow-2xl animate-slideUp" onClick={(e) => e.stopPropagation()}>
+            {showNotificationSettings && createPortal(
+                <div className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/60 animate-fadeIn" onClick={() => setShowNotificationSettings(false)}>
+                    <div className="flex max-h-[78vh] w-full max-w-[430px] flex-col rounded-t-3xl bg-white shadow-2xl animate-slideUp" onClick={(e) => e.stopPropagation()}>
                         <DragHandle />
                         <div className="flex items-center justify-between border-b border-gray-100 px-5 pb-3 pt-2">
                             <div>
@@ -309,20 +310,21 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                             </button>
                         </div>
 
-                        <div className="flex-1 space-y-2.5 overflow-y-auto p-5 custom-scrollbar">
+                        <div className="flex-1 min-h-0 space-y-2.5 overflow-y-auto p-5 custom-scrollbar">
                             <NotificationToggle prefKey="school" title="Thông báo từ trường" subtitle="Tin tức, lịch học, thông báo học vụ từ HUB." />
                             <NotificationToggle prefKey="events" title="Sự kiện" subtitle="Sự kiện mới, nhắc lịch và cập nhật điểm rèn luyện." />
                             <NotificationToggle prefKey="lostFound" title="Tìm mất đồ" subtitle="Tin báo mất, nhặt được đồ và cập nhật trạng thái." />
                             <NotificationToggle prefKey="system" title="Thông báo hệ thống" subtitle="Bảo trì, bảo mật và các cập nhật quan trọng." />
                         </div>
 
-                        <div className="border-t border-gray-100 bg-white p-4 pb-safe">
-                            <button type="button" onClick={() => { playClick(); setShowNotificationSettings(false); }} className="h-[46px] w-full rounded-xl bg-[#003375] text-[13px] font-black text-white active:bg-[#002855]">
+                        <div className="border-t border-gray-100 bg-white px-4 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))]">
+                            <button type="button" onClick={() => { playClick(); setShowNotificationSettings(false); }} className="h-[50px] w-full rounded-2xl bg-[#003375] text-[13px] font-black text-white shadow-[0_8px_18px_rgba(0,51,117,0.18)] active:bg-[#002855]">
                                 Lưu lựa chọn
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

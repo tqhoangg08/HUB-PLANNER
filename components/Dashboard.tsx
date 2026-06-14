@@ -21,6 +21,7 @@ import { playClick } from '../utils/audio';
 import SchoolAnnouncements from './SchoolAnnouncements';
 import { mapIdToDisplay, normalizeSemesterId } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
+import { FEATURE_FORECAST_TOOLS } from '../utils/featureFlags';
 import { useSemesterLookback } from '../hooks/useSemesterLookback';
 import { SemesterLookbackModal } from './SemesterLookbackModal';
 import { useUserRole } from '../hooks/useUserRole';
@@ -29,6 +30,8 @@ import { fetchProfilePrivate, fetchProfilePrivateMap, updateProfilePrivate } fro
 import PushNotificationPrompt from '../components/PushNotificationPrompt'; // Đường dẫn tùy sếp lưu ở đâu
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { showAlert } from '../utils/appNotifications';
+import { TurnstileBox } from './TurnstileBox';
+import { protectedSubmit } from '../utils/protectedSubmit';
 
 // ============================================================================
 // HELPERS CHO GIAO DIỆN ADMIN
@@ -106,6 +109,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
     const [location, setLocation] = useState('');
     const [description, setDescription] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
     const [statusMsg, setStatusMsg] = useState<{text: string, type: 'success'|'error'} | null>(null);
 
     if (!isOpen) return null;
@@ -123,13 +127,15 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
             
             const { data: { session } } = await supabase.auth.getSession();
             
-            const { data, error } = await supabase.from('bug_reports').insert([{
-                user_id: session?.user?.id || null,
-                error_location: location,
-                description: description
-            }]).select('id').single();
-
-            if (error) throw error;
+            const data = await protectedSubmit<{ id?: number }>({
+                action: 'bug-report',
+                turnstileToken,
+                payload: {
+                    user_id: session?.user?.id || null,
+                    error_location: location,
+                    description,
+                },
+            });
             void notifyModerators('bug_report', data?.id);
             setStatusMsg({text: 'Đã gửi báo cáo thành công. Cảm ơn bạn!', type: 'success'});
             setTimeout(() => {
@@ -179,11 +185,16 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
                                 value={description} onChange={e => setDescription(e.target.value)}
                             ></textarea>
                         </div>
-                        <div className="flex gap-3 pt-2">
-                            <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all border border-gray-300">Hủy</button>
-                            <button type="submit" disabled={submitting} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 border border-red-700">
-                                {submitting ? <Loader2 className="animate-spin" size={18}/> : null} Gửi báo cáo
-                            </button>
+                        <div className="space-y-3 pt-2">
+                            <div className="flex justify-center">
+                                <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />
+                            </div>
+                            <div className="flex gap-3">
+                                <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all border border-gray-300">Hủy</button>
+                                <button type="submit" disabled={submitting || !turnstileToken} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 border border-red-700">
+                                    {submitting ? <Loader2 className="animate-spin" size={18}/> : null} Gửi báo cáo
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -714,7 +725,7 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-4 text-[11px] sm:text-sm relative z-10">
-              {hasData && isValidFormat && (
+              {FEATURE_FORECAST_TOOLS && hasData && isValidFormat && (
                   <div className="relative">
                       <button 
                           onClick={handleOpenRankMenu}
@@ -2583,6 +2594,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                     </div>
 
+                    {FEATURE_FORECAST_TOOLS && (
                     <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
                         <div className="flex justify-between items-start mb-1">
                             <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dự báo mục tiêu</span>
@@ -2625,6 +2637,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </div>
                         </div>
                     </div>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">

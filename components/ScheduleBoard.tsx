@@ -12,6 +12,8 @@ import { showConfirm } from '../utils/appNotifications';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
+import { TurnstileBox } from './TurnstileBox';
+import { protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
 
 interface UserProfile {
   id?: string;
@@ -470,6 +472,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isMyScheduleModalOpen, setIsMyScheduleModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [reportTurnstileToken, setReportTurnstileToken] = useState('');
   const [reportData, setReportData] = useState({ course_code: '', subject_name: '', description: '', suggested_correction: '' });
   const [isCreateCourseModalOpen, setIsCreateCourseModalOpen] = useState(false);
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
@@ -477,6 +480,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const currentSemesterSchedule = mySchedule.filter(c => c.semester === selectedSemester);
 
   const [isPdfGuideOpen, setIsPdfGuideOpen] = useState(false);
+  const [scheduleImportTurnstileToken, setScheduleImportTurnstileToken] = useState('');
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1260,6 +1264,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
     setIsPdfGuideOpen(false); setIsProcessingPdf(true);
     try {
+        await verifyTurnstileOnly(scheduleImportTurnstileToken);
+        setScheduleImportTurnstileToken('');
         const aiData = await parseSchedulePdf(file);
         if (!aiData || !aiData.courses || aiData.courses.length === 0) {
             alert(aiData?.error ? `Không nhập được TKB.\n\n${aiData.error}\n\nDebug đã lưu ở localStorage: hub_last_schedule_import_debug` : "❌ Không thể đọc được dữ liệu. Vui lòng đảm bảo file PDF là file gốc xuất từ trang trường.");
@@ -1437,14 +1443,17 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
     setIsSubmittingReport(true);
     try {
-      const { data, error } = await supabase.from('course_reports').insert({ 
-        course_code: reportData.course_code,
-        subject_name: reportData.subject_name,
-        error_description: reportData.description,
-        suggested_correction: reportData.suggested_correction.trim() || null,
-        user_id: user.id
-      }).select('id').single();
-      if (error) throw error;
+      const data = await protectedSubmit<{ id?: number }>({
+        action: 'course-report',
+        turnstileToken: reportTurnstileToken,
+        payload: {
+          course_code: reportData.course_code,
+          subject_name: reportData.subject_name,
+          error_description: reportData.description,
+          suggested_correction: reportData.suggested_correction.trim() || null,
+          user_id: user.id,
+        },
+      });
       void notifyModerators('course_report', data?.id);
       alert("✅ Gửi báo cáo thành công! Cảm ơn bạn đã đóng góp.");
       setIsReportModalOpen(false); setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' });
@@ -2525,7 +2534,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         <div><input required placeholder="Tên môn học" value={reportData.subject_name} onChange={e => setReportData({...reportData, subject_name: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"/></div>
                         <div><textarea required rows={3} placeholder="Chi tiết lỗi (VD: Đổi phòng, đổi giờ)..." value={reportData.description} onChange={e => setReportData({...reportData, description: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none transition-colors"></textarea></div>
                         <div><textarea rows={3} placeholder="Sửa lại như nào cho đúng? (VD: Phòng đúng là B2.904, giờ đúng là 13:00...)" value={reportData.suggested_correction} onChange={e => setReportData({...reportData, suggested_correction: e.target.value})} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg outline-none text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500 resize-none transition-colors"></textarea></div>
-                        <button type="submit" disabled={isSubmittingReport} className="w-full py-2.5 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors ">{isSubmittingReport ? 'Đang gửi...' : 'Gửi báo cáo'}</button>
+                        <TurnstileBox token={reportTurnstileToken} onTokenChange={setReportTurnstileToken} />
+                        <button type="submit" disabled={isSubmittingReport || !reportTurnstileToken} className="w-full py-2.5 rounded-lg bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors ">{isSubmittingReport ? 'Đang gửi...' : 'Gửi báo cáo'}</button>
                     </form>
                 </div>
             </div>
@@ -2876,6 +2886,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         {isPdfGuideOpen && (
             <ScheduleImportGuideModal 
                 onClose={() => setIsPdfGuideOpen(false)} 
+                securitySlot={<TurnstileBox token={scheduleImportTurnstileToken} onTokenChange={setScheduleImportTurnstileToken} />}
+                canSelectFile={Boolean(scheduleImportTurnstileToken)}
                 onFileClick={() => fileInputRef.current?.click()} 
             />
         )}

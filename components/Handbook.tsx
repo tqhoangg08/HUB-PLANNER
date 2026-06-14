@@ -8,6 +8,8 @@ import {
 import { playClick } from '../utils/audio';
 import { supabase } from '../utils/supabase';
 import { notifyModerators } from '../utils/moderatorNotifications';
+import { TurnstileBox } from './TurnstileBox';
+import { protectedSubmit } from '../utils/protectedSubmit';
 
 type TabType = 'contacts' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about' | 'feedback' | 'donate';
 
@@ -31,9 +33,11 @@ export const Handbook: React.FC = () => {
     const [contactInfo, setContactInfo] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [feedbackTurnstileToken, setFeedbackTurnstileToken] = useState('');
 
     const [donateForm, setDonateForm] = useState({ name: '', mssv: '', amount: '', message: '' });
     const [isDonating, setIsDonating] = useState(false);
+    const [donateTurnstileToken, setDonateTurnstileToken] = useState('');
     const [donors, setDonors] = useState<any[]>([]);
     const [loadingDonors, setLoadingDonors] = useState(false);
 
@@ -76,15 +80,18 @@ export const Handbook: React.FC = () => {
         try {
             const cleanAmount = parseInt(donateForm.amount.replace(/\D/g, '')) || 0;
 
-            const { error } = await supabase.from('donations').insert([{
-                name: donateForm.name,
-                student_id: donateForm.mssv,
-                message: donateForm.message,
-                amount: cleanAmount
-            }]);
+            await protectedSubmit({
+                action: 'donation',
+                turnstileToken: donateTurnstileToken,
+                payload: {
+                    name: donateForm.name,
+                    student_id: donateForm.mssv,
+                    message: donateForm.message,
+                    amount: cleanAmount,
+                },
+            });
 
-            if (error) throw error;
-
+            setDonateTurnstileToken('');
             alert("Cảm ơn tấm lòng vàng của bạn! ❤️");
             setDonateForm({ name: '', mssv: '', amount: '', message: '' }); 
             fetchDonors(); 
@@ -129,30 +136,13 @@ export const Handbook: React.FC = () => {
                 email: profile?.email || user?.email || null,
             };
 
-            let { data, error } = await supabase
-                .from('feedback')
-                .insert([feedbackPayload])
-                .select('id')
-                .single();
-
-            if (error && String(error.message || '').toLowerCase().includes('column')) {
-                const fallbackPayload = {
-                    type: feedbackType,
-                    content: feedbackContent,
-                    contact: contactInfo,
-                    user_id: user?.id || null,
-                };
-                const fallback = await supabase
-                    .from('feedback')
-                    .insert([fallbackPayload])
-                    .select('id')
-                    .single();
-                data = fallback.data;
-                error = fallback.error;
-            }
-
-            if (error) throw error;
+            const data = await protectedSubmit<{ id?: number }>({
+                action: 'feedback',
+                payload: feedbackPayload,
+                turnstileToken: feedbackTurnstileToken,
+            });
             void notifyModerators('feedback', data?.id);
+            setFeedbackTurnstileToken('');
 
             setSubmitStatus('success');
             setFeedbackContent('');
@@ -554,9 +544,11 @@ const renderContent = () => {
                                         </div>
                                     )}
 
-                                    <button
+                                    <TurnstileBox token={feedbackTurnstileToken} onTokenChange={setFeedbackTurnstileToken} />
+
+                                    <button 
                                         type="submit"
-                                        disabled={isSubmitting || !feedbackContent.trim()}
+                                        disabled={isSubmitting || !feedbackContent.trim() || !feedbackTurnstileToken}
                                         className="w-full bg-[#003375] hover:bg-[#002855] text-white font-bold py-3 rounded-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         {isSubmitting ? (
@@ -658,9 +650,11 @@ const renderContent = () => {
                                         ></textarea>
                                     </div>
 
+                                    <TurnstileBox token={donateTurnstileToken} onTokenChange={setDonateTurnstileToken} />
+
                                     <button 
                                         type="submit" 
-                                        disabled={isDonating}
+                                        disabled={isDonating || !donateTurnstileToken}
                                         className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-lg transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                                     >
                                         {isDonating ? 'Đang gửi...' : <><Heart size={18} className="fill-current"/> Gửi thông tin</>}

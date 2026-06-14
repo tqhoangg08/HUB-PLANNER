@@ -885,12 +885,14 @@
   }
 
   .mobile-app-root .mobile-page {
-    padding-bottom: calc(128px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
   }
 
   .mobile-app-root .mobile-dashboard-page,
   .mobile-app-root .mobile-schedule-page {
-    padding-bottom: calc(136px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
   }
 
   .platform-ios .mobile-page h1,
@@ -1472,6 +1474,18 @@ body.mobile-standalone .mobile-app-root *::after {
     margin: 0 !important;
   }
 
+  html.mobile-browser .mobile-app-root.mobile-route-learning,
+  html.mobile-browser .mobile-app-root.mobile-route-learning .mobile-main,
+  html.mobile-browser .mobile-app-root.mobile-route-learning .mobile-page,
+  html.mobile-browser .mobile-app-root.mobile-route-learning .mobile-dashboard-native,
+  html.mobile-browser .mobile-app-root.mobile-route-learning .mobile-schedule-page {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
   /*
     Nền particles cố định theo màn hình lớn.
     Tránh canvas bị tính theo 100dvh rồi tạo cảm giác bị đóng khung.
@@ -1813,5 +1827,311 @@ html.mobile-menu-open main {
     z-index: 2147483000;
 
     background: transparent !important;
+  }
+}
+
+/* Mobile account settings bottom sheet */
+@media (max-width: 767px) {
+  .account-settings-sheet {
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: 0 -18px 44px rgba(13, 27, 62, 0.2) !important;
+  }
+
+  .account-settings-sheet .account-settings-header {
+    min-height: 58px;
+  }
+
+  .account-settings-sheet .account-settings-body {
+    background: #F8FAFC !important;
+    padding: 12px 14px 14px !important;
+  }
+
+  .account-settings-sheet .account-settings-body > div:not(.bg-red-50) {
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid #EEF2FF;
+    border-radius: 18px;
+    box-shadow: 0 8px 22px rgba(13, 27, 62, 0.06);
+    padding: 14px;
+  }
+
+  .account-settings-sheet .account-settings-body h4 {
+    border-bottom: 0 !important;
+    color: #0D1B3E !important;
+    font-size: 12px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0 !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 0 !important;
+    text-transform: none !important;
+  }
+
+  .account-settings-sheet .account-settings-body label.text-xs {
+    color: #64748B !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+  }
+
+  .account-settings-sheet input[type="text"],
+  .account-settings-sheet input[type="password"],
+  .account-settings-sheet input[type="number"],
+  .account-settings-sheet textarea,
+  .account-settings-sheet select {
+    background: #F8FAFC !important;
+    border-color: #E3E8F2 !important;
+    border-radius: 14px !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    color: #0D1B3E !important;
+    font-size: 14px !important;
+    min-height: 48px !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  .account-settings-sheet textarea {
+    min-height: 92px !important;
+    padding-top: 12px !important;
+  }
+
+  .account-settings-sheet input:focus,
+  .account-settings-sheet textarea:focus,
+  .account-settings-sheet select:focus {
+    border-color: #1A56FF !important;
+    box-shadow: 0 0 0 3px rgba(26, 86, 255, 0.1) !important;
+  }
+
+  .account-settings-sheet .account-settings-body p {
+    color: #7B8AA6 !important;
+    font-size: 11px !important;
+    line-height: 1.45 !important;
+  }
+
+  .account-settings-sheet .account-settings-body label.flex.items-start {
+    border-radius: 16px !important;
+    padding: 12px !important;
+  }
+
+  .account-settings-sheet .account-settings-footer {
+    box-shadow: 0 -10px 22px rgba(13, 27, 62, 0.06);
+  }
+
+  .account-settings-sheet .account-settings-footer button {
+    border-radius: 16px !important;
+    font-size: 14px !important;
+    min-height: 52px;
+  }
+}
+
+/* Mobile handbook/support pages */
+@media (max-width: 767px) {
+  .mobile-handbook-page .mobile-handbook-content {
+    color: #0D1B3E;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content > .animate-fadeIn,
+  .mobile-handbook-page .mobile-handbook-content > div {
+    max-width: 430px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .bg-white,
+  .mobile-handbook-page .mobile-handbook-content .bg-gray-50 {
+    border-color: #EEF2FF !important;
+    border-radius: 22px !important;
+    box-shadow: 0 2px 14px rgba(13, 27, 62, 0.06);
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .border-gray-300 {
+    border-color: #EEF2FF !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content h2,
+  .mobile-handbook-page .mobile-handbook-content h3,
+  .mobile-handbook-page .mobile-handbook-content h4 {
+    letter-spacing: 0 !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content p {
+    text-align: left !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content input,
+  .mobile-handbook-page .mobile-handbook-content textarea,
+  .mobile-handbook-page .mobile-handbook-content select {
+    min-height: 50px;
+    border-color: #E3E8F2 !important;
+    border-radius: 16px !important;
+    background: #F8FAFC !important;
+    color: #0D1B3E !important;
+    font-size: 14px !important;
+    padding: 12px 14px !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content textarea {
+    min-height: 132px;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content input:focus,
+  .mobile-handbook-page .mobile-handbook-content textarea:focus,
+  .mobile-handbook-page .mobile-handbook-content select:focus {
+    border-color: #1A56FF !important;
+    box-shadow: 0 0 0 3px rgba(26, 86, 255, 0.1) !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content button[type="submit"] {
+    min-height: 52px;
+    border-radius: 16px !important;
+    font-size: 14px !important;
+    font-weight: 900 !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .grid.grid-cols-2 {
+    gap: 10px !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .grid.grid-cols-2 > button {
+    min-height: 118px;
+    border-radius: 18px !important;
+    font-size: 13px !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .from-teal-600,
+  .mobile-handbook-page .mobile-handbook-content .from-pink-500 {
+    border-radius: 24px !important;
+    margin-bottom: 16px !important;
+    padding: 22px !important;
+    box-shadow: 0 10px 24px rgba(13, 27, 62, 0.08);
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .from-teal-600 h3,
+  .mobile-handbook-page .mobile-handbook-content .from-pink-500 h2 {
+    font-size: 22px !important;
+    line-height: 1.15 !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .from-teal-600 p,
+  .mobile-handbook-page .mobile-handbook-content .from-pink-500 p {
+    font-size: 13px !important;
+    line-height: 1.55 !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .from-pink-500 .w-48 {
+    width: 170px !important;
+    height: 170px !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .from-pink-500 .p-4.rounded-2xl {
+    padding: 12px !important;
+    border-radius: 20px !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .max-w-6xl > .bg-white:first-child {
+    align-items: flex-start !important;
+    gap: 16px !important;
+    margin-bottom: 22px !important;
+    padding: 18px !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .max-w-6xl > .bg-white:first-child h2 {
+    font-size: 24px !important;
+    line-height: 1.12 !important;
+    margin-bottom: 14px !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .max-w-6xl > .bg-white:first-child p {
+    font-size: 14px !important;
+    line-height: 1.7 !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .max-w-6xl > .bg-white:first-child .w-64 {
+    width: 140px !important;
+    height: 140px !important;
+    align-self: center;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .text-center.mb-10 {
+    margin-bottom: 16px !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .text-center.mb-10 h3 {
+    font-size: 18px !important;
+    line-height: 1.2 !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .max-w-md {
+    margin-bottom: 16px !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .max-w-md .p-8 {
+    padding: 22px !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .min-h-screen {
+    min-height: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .min-h-screen > div {
+    max-width: 430px !important;
+    gap: 14px !important;
+    text-align: left !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .min-h-screen header {
+    display: none !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .min-h-screen nav {
+    border-color: #EEF2FF !important;
+    border-radius: 22px !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    padding: 16px !important;
+    box-shadow: 0 2px 14px rgba(13, 27, 62, 0.06);
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .min-h-screen nav h2 {
+    border-bottom-color: #E3E8F2 !important;
+    color: #64748B !important;
+    font-size: 12px !important;
+    font-weight: 900 !important;
+    letter-spacing: 0 !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .min-h-screen nav ul {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 9px !important;
+    font-size: 13px !important;
+    line-height: 1.35 !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .min-h-screen nav a {
+    color: #1A56FF !important;
+    font-weight: 800 !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .min-h-screen section {
+    scroll-margin-top: 92px;
+    border: 1px solid #EEF2FF;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.96);
+    padding: 16px;
+    box-shadow: 0 2px 14px rgba(13, 27, 62, 0.06);
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .min-h-screen section h2 {
+    color: #0D1B3E !important;
+    font-size: 17px !important;
+    line-height: 1.25 !important;
+    text-transform: none !important;
+  }
+
+  .mobile-handbook-page .mobile-handbook-content .min-h-screen section p {
+    color: #475569 !important;
+    font-size: 14px !important;
+    line-height: 1.7 !important;
   }
 }

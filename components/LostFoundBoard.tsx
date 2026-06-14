@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield, Flag } from 'lucide-react';
 import { playClick } from '../utils/audio';
@@ -8,6 +8,8 @@ import { useUserRole } from '../hooks/useUserRole';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiUrl } from '../utils/api';
+import { TurnstileBox } from './TurnstileBox';
+import { protectedSubmit } from '../utils/protectedSubmit';
 
 // --- Types ---
 interface LostFoundItem {
@@ -46,6 +48,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -128,22 +131,20 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                 if (error) throw error;
                 onShowToast("Cập nhật thành công!", 'success');
             } else {
-                const { data, error } = await supabase
-                    .from('lost_found_items')
-                    .insert([{
+                const data = await protectedSubmit<{ id?: number }>({
+                    action: 'lost-found',
+                    turnstileToken,
+                    payload: {
                         title: formData.title,
                         description: formData.description,
                         location: formData.location,
                         contact_info: formData.contact_info,
-                        user_name: formData.user_name || 'Ẩn danh',
+                        user_name: formData.user_name || 'An danh',
                         image_url: imageUrl,
-                        type: type,
-                        user_id: currentUserId || null, 
-                        status: 'pending'
-                    }])
-                    .select('id')
-                    .single();
-                if (error) throw error;
+                        type,
+                        user_id: currentUserId || null,
+                    },
+                });
                 void notifyModerators('lost_found_pending', data?.id);
                 onShowToast("Đăng tin thành công! Tin sẽ hiển thị sau khi duyệt.", 'success');
             }
@@ -218,7 +219,9 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                         <textarea rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#003375] outline-none resize-none" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}></textarea>
                     </div>
 
-                    <button type="submit" disabled={isSubmitting} className={`w-full py-3 rounded-xl font-bold text-white shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 mt-2 ${type === 'FOUND' ? 'bg-[#003375] hover:bg-[#002855]' : 'bg-[#990000] hover:bg-[#7a0000]'}`}>
+                    {!editingItem && <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />}
+
+                    <button type="submit" disabled={isSubmitting || (!editingItem && !turnstileToken)} className={`w-full py-3 rounded-xl font-bold text-white shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 mt-2 ${type === 'FOUND' ? 'bg-[#003375] hover:bg-[#002855]' : 'bg-[#990000] hover:bg-[#7a0000]'}`}>
                         {isSubmitting ? <Loader2 className="animate-spin"/> : <UploadCloud size={20}/>}
                         {isSubmitting ? 'Đang lưu...' : (editingItem ? 'Lưu thay đổi' : 'Đăng tin ngay')}
                     </button>
@@ -277,7 +280,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
                                 <div className="w-10 h-10 rounded-full bg-green-200 text-green-800 flex items-center justify-center"><Phone size={20} /></div>
                                 <div><span className="block text-xs text-gray-500 font-bold uppercase">Liên hệ</span><span className="font-bold text-green-700 text-lg">{item.contact_info}</span></div>
                             </div>
-                            <div className="flex items-start gap-2 text-sm text-gray-600 mt-2"><MapPin size={16} className="mt-0.5 shrink-0" /><span>Khu vực: <strong>{item.location}</strong></span></div>
+                            <div className="flex items-start gap-2 text-sm text-gray-600 mt-2"><MapPin size={16} className="mt-0.5 shrink-0" /><span>Khu vá»±c: <strong>{item.location}</strong></span></div>
                         </div>
                     </div>
                 </div>
@@ -297,12 +300,14 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
     const [reason, setReason] = useState('');
     const [contact, setContact] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
 
     useEffect(() => {
         if (item) {
             setReason('');
             setContact('');
         }
+            setTurnstileToken('');
     }, [item]);
 
     const handleSubmit = async (event: React.FormEvent) => {
@@ -321,18 +326,16 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
                 `Cam kết xử lý: yêu cầu cần được rà soát và gỡ/ẩn nội dung vi phạm trong vòng 24 giờ nếu hợp lệ.`,
             ].join('\n');
 
-            const { data, error } = await supabase
-                .from('feedback')
-                .insert([{
+            const data = await protectedSubmit<{ id?: number }>({
+                action: 'feedback',
+                turnstileToken,
+                payload: {
                     type: 'takedown',
                     content,
                     contact: contact.trim() || 'EMPTY',
                     user_id: currentUserId || null,
-                }])
-                .select('id')
-                .single();
-
-            if (error) throw error;
+                },
+            });
             void notifyModerators('feedback', data?.id);
             onShowToast('Đã gửi yêu cầu báo cáo. Admin sẽ rà soát và xử lý trong vòng 24 giờ nếu nội dung vi phạm.', 'success');
             onClose();
@@ -382,7 +385,10 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
                             placeholder="Email/SĐT để admin phản hồi nếu cần"
                         />
                     </div>
-                    <button type="submit" disabled={isSubmitting || !reason.trim()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-60">
+                    <div className="flex justify-center">
+                        <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />
+                    </div>
+                    <button type="submit" disabled={isSubmitting || !reason.trim() || !turnstileToken} className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-60">
                         {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Flag size={18} />}
                         Gửi báo cáo
                     </button>
@@ -479,9 +485,9 @@ export const LostFoundBoard: React.FC = () => {
       }
   };
 
-  // ✨ Đã sửa hàm handleDelete để hỗ trợ Admin HOẶC Chủ nhân bài viết
+  // Cho phép admin hoặc chủ bài viết xóa tin.
   const handleDelete = async (item: LostFoundItem) => {
-      // Cho phép Admin xóa hoặc người dùng xóa bài của chính mình
+      // Chủ bài viết cũng được xóa bài của chính mình.
       if (!isAdmin && session?.user?.id !== item.user_id) return;
       
       playClick();
@@ -501,7 +507,7 @@ export const LostFoundBoard: React.FC = () => {
 
   const handleResolve = async (id: number) => {
       playClick();
-      if (!await showConfirm("Bạn xác nhận là đã giải quyết xong (Tìm thấy đồ / Đã trả lại đồ) cho bài đăng này?")) return;
+      if (!await showConfirm("Bạn xác nhận là đã giải quyết xong (tìm thấy đồ / đã trả lại đồ) cho bài đăng này?")) return;
       
       const { error } = await supabase!
         .from('lost_found_items')
@@ -543,7 +549,7 @@ return (
           </div>, document.body
       )}
 
-      {/* VÙNG STICKY */}
+      {/* Sticky header */}
       <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-4 -mt-2 mb-6 border-b border-transparent md:border-gray-200/60 md:shadow-[0_8px_10px_-10px_rgba(0,0,0,0.05)]">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
             <div>
@@ -589,7 +595,7 @@ return (
       {!canManage && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 flex items-start sm:items-center gap-3 text-sm text-amber-900 animate-fadeIn">
             <Info className="shrink-0 text-amber-600 mt-0.5 sm:mt-0" size={18} />
-            <p><strong>Lưu ý:</strong> Vui lòng không yêu cầu chuyển khoản trước để nhận lại đồ. Nếu thấy tin lộ thông tin cá nhân, sai sự thật, mạo danh hoặc có dấu hiệu lừa đảo, hãy bấm “Báo cáo”; yêu cầu hợp lệ sẽ được rà soát và gỡ/ẩn trong vòng 24 giờ.</p>
+            <p><strong>Lưu ý:</strong> Vui lòng không yêu cầu chuyển khoản trước để nhận lại đồ. Nếu thấy tin lộ thông tin cá nhân, sai sự thật, mạo danh hoặc có dấu hiệu lừa đảo, hãy bấm "Báo cáo"; yêu cầu hợp lệ sẽ được rà soát và gỡ/ẩn trong vòng 24 giờ.</p>
         </div>
       )}
 
@@ -627,7 +633,7 @@ return (
                                 {isResolved ? (item.type === 'FOUND' ? 'Đã trao trả' : 'Đã tìm thấy') : (item.type === 'FOUND' ? 'Nhặt được' : 'Đang tìm')}
                             </div>
 
-                            {isPending && <div className="absolute bottom-2 left-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-md shadow-md animate-pulse">Chờ duyệt</div>}
+                            {isPending && <div className="absolute bottom-2 left-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-md shadow-md animate-pulse">Chá» duyá»‡t</div>}
                         </button>
 
                         <div className="flex-1 flex flex-col">
@@ -639,7 +645,7 @@ return (
                                     {isResolved ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" /> : (item.type === 'FOUND' ? <MapPin size={18} className="shrink-0 mt-0.5" /> : <Tag size={18} className="shrink-0 mt-0.5" />)}
                                     {item.title}
                                 </h3>
-                                <p className="text-[11px] sm:text-xs text-gray-500 mt-1 line-clamp-1 flex items-center gap-1"><MapPin size={12}/> Khu vực: {item.location}</p>
+                                <p className="text-[11px] sm:text-xs text-gray-500 mt-1 line-clamp-1 flex items-center gap-1"><MapPin size={12}/> Khu vá»±c: {item.location}</p>
                             </div>
                             <div className="space-y-2 text-[11px] sm:text-xs text-gray-600 mt-auto">
                                 <div className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border ${isResolved ? 'bg-green-50 border-green-100' : (item.type === 'FOUND' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100')}`}>
@@ -650,7 +656,7 @@ return (
                         </div>
 
                         <div className="mt-auto pt-3 sm:pt-4 border-t border-gray-200 flex flex-col gap-2">
-                            {/* ✨ NÚT DÀNH RIÊNG CHO NGƯỜI ĐĂNG */}
+                            {/* Nút dành riêng cho người đăng */}
                             {session?.user?.id === item.user_id && (
                                 <>
                                     {!isResolved && (
@@ -669,7 +675,7 @@ return (
                             </button>
                         </div>
 
-                        {/* TÍNH NĂNG CỦ A ADMIN/CTV */}
+                        {/* Tính năng của admin/CTV */}
                         <button onClick={(e) => { e.stopPropagation(); playClick(); setReportingItem(item); }} className="mt-2 w-full py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-red-100">
                             <Flag size={16} /> Báo cáo
                         </button>

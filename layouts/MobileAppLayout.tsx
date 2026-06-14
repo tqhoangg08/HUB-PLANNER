@@ -52,6 +52,7 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
   ];
 
   const currentPath = location.pathname.replace(/\/$/, '');
+  const isLearningPath = currentPath === '/learning';
   const isProfileMainPath = /^\/profile\/[^/]+$/.test(currentPath);
   const showBottomNav = exactMainPaths.includes(currentPath) || isProfileMainPath;
 
@@ -89,11 +90,11 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
   const safeActiveNavIndex = activeNavIndex >= 0 ? activeNavIndex : 0;
 
   return (
-    <div className={`mobile-app-root app-root platform-${platform} flex h-[100dvh] w-full flex-col overflow-hidden bg-[#F8FAFC] pb-safe relative z-10`}>
+    <div className={`mobile-app-root app-root platform-${platform} ${isLearningPath ? 'mobile-route-learning' : ''} flex h-[100dvh] w-full flex-col overflow-hidden bg-[#F8FAFC] pb-safe relative z-10`}>
       <main ref={mainRef} className="mobile-main custom-scrollbar relative w-full flex-1 overflow-y-auto overflow-x-hidden bg-[#F8FAFC]">
-        <div key={location.pathname} className={`flex min-h-full w-full flex-col animate-${slideDirection}`}>
+        <div key={location.pathname} className={`flex min-h-0 w-full flex-col animate-${slideDirection}`}>
           {children}
-          <footer className="px-5 pb-[calc(92px+env(safe-area-inset-bottom))] pt-6 text-center text-[10px] font-medium leading-5 text-[#64748B]">
+          <footer className="px-5 pb-[calc(92px+env(safe-area-inset-bottom))] pt-2 text-center text-[10px] font-medium leading-5 text-[#64748B]">
             HUB Planner là dự án độc lập, không trực thuộc/không đại diện Trường. Vui lòng đối chiếu nguồn chính thức.
           </footer>
         </div>

@@ -2,6 +2,7 @@ import { createHash, createHmac, randomInt } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { withLogging } from '../middleware.js';
 import { handleCors } from '../api-cors.js';
+import protectedSubmitHandler from './protected-submit.js';
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const OTP_TTL_MINUTES = 10;
@@ -11,6 +12,7 @@ const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 const R2_ENDPOINT = process.env.R2_ACCOUNT_ID
   ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
   : '';
+const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -18,6 +20,41 @@ const supabase = createClient(
 );
 
 const normalizeEmail = (value = '') => value.trim().toLowerCase();
+
+const getClientIp = (request) => {
+  const forwarded = String(request.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return request.headers['cf-connecting-ip'] || forwarded || request.socket?.remoteAddress || undefined;
+};
+
+const verifyTurnstile = async (request, token) => {
+  const secret = process.env.TURNSTILE_SECRET_KEY || process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY;
+  if (!secret) {
+    if (process.env.NODE_ENV !== 'production') return;
+    const error = new Error('Chua cau hinh TURNSTILE_SECRET_KEY.');
+    error.statusCode = 500;
+    throw error;
+  }
+  if (!token || typeof token !== 'string') {
+    const error = new Error('Vui long xac minh ban khong phai robot.');
+    error.statusCode = 400;
+    throw error;
+  }
+  const verifyResponse = await fetch(TURNSTILE_VERIFY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      secret,
+      response: token,
+      remoteip: getClientIp(request),
+    }),
+  });
+  const result = await verifyResponse.json().catch(() => ({}));
+  if (!verifyResponse.ok || !result.success) {
+    const error = new Error('Xac minh bao mat khong thanh cong. Vui long thu lai.');
+    error.statusCode = 400;
+    throw error;
+  }
+};
 
 const encodeR2Path = (key) => key.split('/').map(encodeURIComponent).join('/');
 
@@ -339,6 +376,7 @@ const sendOtp = async (request, response) => {
   if (!['register', 'forgot_password'].includes(purpose)) {
     return response.status(400).json({ error: 'Loại OTP không hợp lệ.' });
   }
+  await verifyTurnstile(request, request.body?.turnstileToken || request.body?.captchaToken);
 
   const email = await resolveEmail(request.body?.email || request.body?.identifier);
 
@@ -778,6 +816,9 @@ async function handler(request, response) {
   }
 
   try {
+    const resource = request.query?.resource || new URL(request.url || '/', 'http://localhost').searchParams.get('resource');
+    if (resource === 'protected-submit') return await protectedSubmitHandler(request, response);
+
     const action = request.body?.action;
     if (action === 'resolve-identifier') return await resolveIdentifier(request, response);
     if (action === 'send-otp') return await sendOtp(request, response);

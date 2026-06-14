@@ -18,6 +18,8 @@ import { CTVRegistrationForm } from './CTVRegistrationForm';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
+import { TurnstileBox } from './TurnstileBox';
+import { protectedSubmit } from '../utils/protectedSubmit';
 
 // --- Types ---
 interface HubEvent {
@@ -360,6 +362,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         description: '' 
     });
     const [submitting, setSubmitting] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
     const [isCustomCategory, setIsCustomCategory] = useState(false);
 
     if (!isOpen) return null;
@@ -408,13 +411,11 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 is_manually_closed: false 
             };
 
-            const { data, error } = await supabase
-                .from('events')
-                .insert([payload])
-                .select('id')
-                .single();
-
-            if (error) throw error;
+            const data = await protectedSubmit<{ id?: number }>({
+                action: 'event-contribution',
+                payload,
+                turnstileToken,
+            });
             void notifyModerators('event_pending', data?.id);
 
             onShowToast("Đóng góp của bạn đã được gửi và đang chờ Admin duyệt. Cảm ơn bạn!", "success");
@@ -667,9 +668,11 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             ></textarea>
                         </div>
 
-                        <button 
-                            type="submit" 
-                            disabled={submitting} 
+            <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />
+
+            <button 
+                type="submit" 
+                disabled={submitting || !turnstileToken} 
                             className="w-full py-3 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
                         >
                             {submitting ? <Loader2 className="animate-spin"/> : <Send size={18}/>} 
@@ -1082,6 +1085,7 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
     
     const [issue, setIssue] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
 
     if (!isOpen || !event) return null;
 
@@ -1104,8 +1108,11 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
                 status: 'pending' 
             };
 
-            const { data, error } = await supabase!.from('event_reports').insert([payload]).select('id').single();
-            if (error) throw error;
+            const data = await protectedSubmit<{ id?: number }>({
+                action: 'event-report',
+                payload,
+                turnstileToken,
+            });
             void notifyModerators('event_report', data?.id);
 
             onShowToast("Đã gửi báo cáo thành công. Đội ngũ sẽ khắc phục sớm nhất!", "success");
@@ -1171,9 +1178,11 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
                             >
                                 Hủy bỏ
                             </button>
-                            <button 
-                                type="submit" 
-                                disabled={submitting} 
+                        <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />
+
+                        <button 
+                            type="submit" 
+                            disabled={submitting || !turnstileToken} 
                                 className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
                             >
                                 {submitting ? <Loader2 className="animate-spin" size={18}/> : <Send size={18}/>} 

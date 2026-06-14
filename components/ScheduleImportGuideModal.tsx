@@ -1,82 +1,118 @@
 import React, { useState } from 'react';
-import { createPortal } from 'react-dom'; 
-import { X, FileUp, Smartphone, Monitor, Globe, Chrome, HelpCircle, AlertTriangle } from 'lucide-react'; // ĐÃ THÊM AlertTriangle
+import { createPortal } from 'react-dom';
+import { AlertTriangle, Chrome, FileUp, Globe, HelpCircle, Monitor, Smartphone, X } from 'lucide-react';
 import { playClick } from '../utils/audio';
 
 interface Props {
     onClose: () => void;
     onFileClick: () => void;
+    securitySlot?: React.ReactNode;
+    canSelectFile?: boolean;
 }
 
-type DeviceType = 'ios-safari' | 'ios-chrome' | 'android-chrome' | 'windows-chrome';
+type DeviceType = 'windows-chrome' | 'ios-safari' | 'ios-chrome' | 'android-chrome';
 
-export const ScheduleImportGuideModal: React.FC<Props> = ({ onClose, onFileClick }) => {
+export const ScheduleImportGuideModal: React.FC<Props> = ({ onClose, onFileClick, securitySlot, canSelectFile = true }) => {
     const [activeTab, setActiveTab] = useState<DeviceType>('windows-chrome');
+
+    const chooseFile = () => {
+        if (!canSelectFile) return;
+        playClick();
+        onFileClick();
+    };
 
     const guides: Record<DeviceType, { label: string; icon: React.ReactNode; steps: React.ReactNode[] }> = {
         'windows-chrome': {
             label: 'Laptop / PC',
             icon: <Monitor size={18} />,
             steps: [
-                <span>Truy cập Hub Portal <a href="https://online.hub.edu.vn" target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">https://online.hub.edu.vn</a> &rarr; Đăng nhập &rarr; Vào mục <b>"Thời khóa biểu - Lịch thi"</b></span>,
-                'Chọn năm học và học kỳ cần nhập -> Chọn “In thời khóa biểu”',
+                <span>
+                    Truy cập Hub Portal{' '}
+                    <a href="https://online.hub.edu.vn" target="_blank" rel="noreferrer" className="font-semibold text-blue-600 underline">
+                        https://online.hub.edu.vn
+                    </a>{' '}
+                    → Đăng nhập → Vào mục <b>"Thời khóa biểu - Lịch thi"</b>
+                </span>,
+                'Chọn năm học và học kỳ cần nhập → chọn "In thời khóa biểu"',
                 'Tại hộp thoại in, chọn "Lưu dưới dạng PDF" (Save as PDF)',
-                'Bấm “Lưu”',
-                'Lưu tại vị trí bạn muốn chọn -> Hoàn thành rùi upload lên web nhée'
-            ]
+                'Bấm "Lưu"',
+                'Lưu file vào vị trí bạn muốn, sau đó quay lại web để upload',
+            ],
         },
         'ios-safari': {
             label: 'iOS - Safari',
             icon: <div className="flex items-center gap-1"><Smartphone size={16} /><Globe size={14} /></div>,
             steps: [
-                <span>Truy cập Hub Portal <a href="https://online.hub.edu.vn" target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">https://online.hub.edu.vn</a> &rarr; Đăng nhập &rarr; Vào mục <b>"Thời khóa biểu - Lịch thi"</b></span>,
-                'Chọn năm học và học kỳ cần nhập -> Chọn “In thời khóa biểu”',
-                'Tại danh mục Tùy chọn, chọn “Chia sẻ”',
-                'Bấm “Lưu vào tệp”',
-                'Lưu tại vị trí bạn muốn chọn -> Hoàn thành rùi upload lên web nhée'
-            ]
+                <span>
+                    Truy cập Hub Portal{' '}
+                    <a href="https://online.hub.edu.vn" target="_blank" rel="noreferrer" className="font-semibold text-blue-600 underline">
+                        https://online.hub.edu.vn
+                    </a>{' '}
+                    → Đăng nhập → Vào mục <b>"Thời khóa biểu - Lịch thi"</b>
+                </span>,
+                'Chọn năm học và học kỳ cần nhập → chọn "In thời khóa biểu"',
+                'Ở màn hình in hoặc chia sẻ, chọn định dạng PDF',
+                'Bấm "Lưu vào Tệp"',
+                'Chọn vị trí lưu file, rồi quay lại web để upload',
+            ],
         },
         'ios-chrome': {
             label: 'iOS - Chrome',
             icon: <div className="flex items-center gap-1"><Smartphone size={16} /><Chrome size={14} /></div>,
             steps: [
-                <span>Truy cập Hub Portal <a href="https://online.hub.edu.vn" target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">https://online.hub.edu.vn</a> &rarr; Đăng nhập &rarr; Vào mục <b>"Thời khóa biểu - Lịch thi"</b></span>,
-                'Chọn năm học và học kỳ cần nhập -> Chọn “In thời khóa biểu”',
-                'Tại danh mục Tùy chọn, chọn “Chia sẻ”',
-                'Bấm “Lưu vào tệp”',
-                'Lưu tại vị trí bạn muốn chọn -> Hoàn thành rùi upload lên web nhée'
-            ]
+                <span>
+                    Truy cập Hub Portal{' '}
+                    <a href="https://online.hub.edu.vn" target="_blank" rel="noreferrer" className="font-semibold text-blue-600 underline">
+                        https://online.hub.edu.vn
+                    </a>{' '}
+                    → Đăng nhập → Vào mục <b>"Thời khóa biểu - Lịch thi"</b>
+                </span>,
+                'Chọn năm học và học kỳ cần nhập → chọn "In thời khóa biểu"',
+                'Ở màn hình in, bấm nút Chia sẻ',
+                'Bấm "Lưu vào Tệp"',
+                'Chọn vị trí lưu file, rồi quay lại web để upload',
+            ],
         },
         'android-chrome': {
             label: 'Android - Chrome',
             icon: <div className="flex items-center gap-1"><Smartphone size={16} /><Chrome size={14} /></div>,
             steps: [
-                <span>Truy cập Hub Portal <a href="https://online.hub.edu.vn" target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">https://online.hub.edu.vn</a> &rarr; Đăng nhập &rarr; Vào mục <b>"Thời khóa biểu - Lịch thi"</b></span>,
-                'Chọn năm học và học kỳ cần nhập -> Chọn “In thời khóa biểu”',
-                'Chọn “Lưu dưới dạng PDF” -> Bấm nút “Tải xuống”',
-                'Lưu tại vị trí bạn muốn chọn -> Hoàn thành rùi upload lên web nhée'
-            ]
-        }
+                <span>
+                    Truy cập Hub Portal{' '}
+                    <a href="https://online.hub.edu.vn" target="_blank" rel="noreferrer" className="font-semibold text-blue-600 underline">
+                        https://online.hub.edu.vn
+                    </a>{' '}
+                    → Đăng nhập → Vào mục <b>"Thời khóa biểu - Lịch thi"</b>
+                </span>,
+                'Chọn năm học và học kỳ cần nhập → chọn "In thời khóa biểu"',
+                'Chọn "Lưu dưới dạng PDF" rồi bấm nút tải xuống',
+                'Chọn vị trí lưu file, rồi quay lại web để upload',
+            ],
+        },
     };
 
+    const activeGuide = guides[activeTab];
+
     return createPortal(
-        <div className="fixed inset-0 bg-black/60 z-[100000] flex items-center justify-center p-4 animate-fadeIn">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden border border-gray-200 animate-scaleIn">
-                <div className="bg-[#003375] p-4 flex justify-between items-center text-white flex-shrink-0">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 p-4 animate-fadeIn">
+            <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl animate-scaleIn">
+                <div className="flex shrink-0 items-center justify-between bg-[#003375] p-4 text-white">
                     <div className="flex items-center gap-2">
                         <FileUp className="text-white/90" size={20} />
-                        <h3 className="font-bold text-lg">Hướng dẫn nhập TKB bằng PDF</h3>
+                        <h3 className="text-lg font-bold">Hướng dẫn nhập TKB bằng PDF</h3>
                     </div>
-                    <button onClick={() => { playClick(); onClose(); }} className="hover:bg-white/20 p-2 rounded-full transition-colors active:scale-90"><X size={20} /></button>
+                    <button onClick={() => { playClick(); onClose(); }} className="rounded-full p-2 transition-colors hover:bg-white/20 active:scale-90">
+                        <X size={20} />
+                    </button>
                 </div>
 
-                <div className="flex border-b border-gray-200 overflow-x-auto no-scrollbar flex-shrink-0 bg-gray-50">
+                <div className="no-scrollbar flex shrink-0 overflow-x-auto border-b border-gray-200 bg-gray-50">
                     {(Object.keys(guides) as DeviceType[]).map((key) => (
                         <button
                             key={key}
                             onClick={() => { playClick(); setActiveTab(key); }}
-                            className={`flex items-center gap-2 px-4 py-3 text-sm font-bold whitespace-nowrap transition-all border-b-2 ${
-                                activeTab === key ? 'border-[#990000] text-[#990000] bg-white' : 'border-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                            className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-bold transition-all ${
+                                activeTab === key ? 'border-[#990000] bg-white text-[#990000]' : 'border-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                             }`}
                         >
                             {guides[key].icon} {guides[key].label}
@@ -84,46 +120,63 @@ export const ScheduleImportGuideModal: React.FC<Props> = ({ onClose, onFileClick
                     ))}
                 </div>
 
-                <div className="p-6 space-y-4 bg-gray-50/50">
-                    {guides[activeTab].steps.map((step, index) => (
-                        <div key={index} className="flex gap-4">
-                            <div className="w-7 h-7 rounded-full bg-[#003375] text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0 mt-0.5">{index + 1}</div>
-                            <p className="text-gray-800 font-medium text-sm leading-relaxed mt-1">{step}</p>
-                        </div>
-                    ))}
-                    
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start gap-3 mt-6">
-                        <HelpCircle className="text-yellow-600 flex-shrink-0 mt-0.5" size={18} />
+                <div className="flex-1 overflow-y-auto bg-gray-50/50 p-6">
+                    <div className="space-y-4">
+                        {activeGuide.steps.map((step, index) => (
+                            <div key={index} className="flex gap-4">
+                                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#003375] text-sm font-bold text-white shadow-sm">
+                                    {index + 1}
+                                </div>
+                                <p className="mt-1 text-sm font-medium leading-relaxed text-gray-800">{step}</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="mt-6 flex items-start gap-3 rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+                        <HelpCircle className="mt-0.5 shrink-0 text-yellow-600" size={18} />
                         <div className="text-sm text-yellow-800">
-                            <p className="font-bold mb-1">Lưu ý quan trọng</p>
-                            <p>Mọi thắc mắc, không rõ ở bước nào thì liên hệ qua <a href="https://www.facebook.com/hubplannerr" target="_blank" rel="noreferrer" className="underline font-bold hover:text-yellow-900">Fanpage HUB Planner</a> giúp mình nhenn.</p>
+                            <p className="mb-1 font-bold">Lưu ý quan trọng</p>
+                            <p>
+                                Nếu không rõ bước nào, liên hệ qua{' '}
+                                <a href="https://www.facebook.com/hubplannerr" target="_blank" rel="noreferrer" className="font-bold underline hover:text-yellow-900">
+                                    Fanpage HUB Planner
+                                </a>{' '}
+                                giúp mình nha.
+                            </p>
                         </div>
                     </div>
                 </div>
 
-                {/* --- FOOTER ĐÃ THÊM NÚT BÁO LỖI --- */}
-                <div className="p-4 border-t border-gray-200 bg-white flex justify-between items-center flex-shrink-0 z-10">
-                    <button 
-                        onClick={() => {
-                            playClick();
-                            window.open('https://hotrosinhvienhub.id.vn/handbook/feedback', '_blank');
-                        }} 
-                        className="flex items-center gap-1.5 text-red-500 hover:text-red-700 text-sm font-bold px-2 py-2 rounded-lg hover:bg-red-50 transition-colors"
-                        title="Báo cáo nếu file không đọc được"
-                    >
-                        <AlertTriangle size={16} /> Báo lỗi
-                    </button>
-
-                    <div className="flex gap-3">
-                        <button onClick={() => { playClick(); onClose(); }} className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition active:scale-95">Để sau</button>
-                        <button onClick={() => { playClick(); onFileClick(); }} className="px-5 py-2.5 rounded-xl bg-[#003375] text-white font-bold hover:bg-[#002855] hover:shadow-lg transition-all flex items-center gap-2 active:scale-95">
-                            <FileUp size={18} /> Chọn file PDF
+                <div className="z-10 shrink-0 border-t border-gray-200 bg-white p-4">
+                    {securitySlot && <div className="mb-4 flex justify-center">{securitySlot}</div>}
+                    <div className="flex items-center justify-between gap-3">
+                        <button
+                            onClick={() => {
+                                playClick();
+                                window.open('https://hotrosinhvienhub.id.vn/handbook/feedback', '_blank');
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-bold text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+                            title="Báo cáo nếu file không đọc được"
+                        >
+                            <AlertTriangle size={16} /> Báo lỗi
                         </button>
+
+                        <div className="flex gap-3">
+                            <button onClick={() => { playClick(); onClose(); }} className="rounded-xl border border-gray-300 px-5 py-2.5 font-medium text-gray-700 transition hover:bg-gray-50 active:scale-95">
+                                Để sau
+                            </button>
+                            <button
+                                onClick={chooseFile}
+                                disabled={!canSelectFile}
+                                className="flex items-center gap-2 rounded-xl bg-[#003375] px-5 py-2.5 font-bold text-white transition-all hover:bg-[#002855] hover:shadow-lg active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none"
+                            >
+                                <FileUp size={18} /> Chọn file PDF
+                            </button>
+                        </div>
                     </div>
                 </div>
-
             </div>
         </div>,
-        document.body
+        document.body,
     );
 };

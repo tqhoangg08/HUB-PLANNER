@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield, Bookmark, BookmarkCheck, Flag } from 'lucide-react';
 import { playClick } from '../utils/audio';
@@ -7,6 +7,8 @@ import { createPortal } from 'react-dom';
 import { useUserRole } from '../hooks/useUserRole';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiUrl } from '../utils/api';
+import { TurnstileBox } from './TurnstileBox';
+import { protectedSubmit } from '../utils/protectedSubmit';
 
 // --- Types ---
 interface LostFoundItem {
@@ -46,6 +48,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -113,13 +116,20 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                 if (error) throw error;
                 onShowToast("Cập nhật thành công!", 'success');
             } else {
-                const { data, error } = await supabase.from('lost_found_items').insert([{
-                    title: formData.title, description: formData.description, location: formData.location,
-                    contact_info: formData.contact_info, user_name: formData.user_name || 'Ẩn danh',
-                    image_url: imageUrl, type: type, user_id: currentUserId || null, status: 'pending'
-                }]).select('id').single();
-                if (error) throw error;
-                void notifyModerators('lost_found_pending', data?.id);
+                const data = await protectedSubmit<{ id?: number }>({
+                    action: 'lost-found',
+                    turnstileToken,
+                    payload: {
+                        title: formData.title,
+                        description: formData.description,
+                        location: formData.location,
+                        contact_info: formData.contact_info,
+                        user_name: formData.user_name || 'An danh',
+                        image_url: imageUrl,
+                        type,
+                        user_id: currentUserId || null,
+                    },
+                });
                 onShowToast("Đăng tin thành công! Tin sẽ hiển thị sau khi duyệt.", 'success');
             }
             onClose();
@@ -193,7 +203,9 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                         <textarea rows={3} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#003375] outline-none resize-none" placeholder="Đặc điểm nhận dạng, màu sắc..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}></textarea>
                     </div>
 
-                    <button type="submit" disabled={isSubmitting} className={`w-full py-4 rounded-xl font-bold text-white shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 ${type === 'FOUND' ? 'bg-[#003375]' : 'bg-[#990000]'}`}>
+                    {!editingItem && <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />}
+
+                    <button type="submit" disabled={isSubmitting || (!editingItem && !turnstileToken)} className={`w-full py-4 rounded-xl font-bold text-white shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 ${type === 'FOUND' ? 'bg-[#003375]' : 'bg-[#990000]'}`}>
                         {isSubmitting ? <Loader2 className="animate-spin"/> : <UploadCloud size={20}/>}
                         {isSubmitting ? 'Đang xử lý...' : (editingItem ? 'Lưu thay đổi' : 'Đăng tin ngay')}
                     </button>
@@ -220,7 +232,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose, onRepo
                 <button onClick={() => { playClick(); onClose(); }} className="absolute top-4 right-4 z-50 bg-black/50 text-white p-2 rounded-full active:scale-90"><X size={20} /></button>
                 
                 <div className="flex-1 overflow-y-auto custom-scrollbar pb-safe flex flex-col">
-                    {/* HÌNH ẢNH SẢN PHẨM */}
+                    {/* Hình ảnh sản phẩm */}
                     <div className="w-full bg-black flex items-center justify-center relative min-h-[250px] shrink-0">
                          {item.image_url ? (
                             <img src={item.image_url} alt="Item" className={`w-full h-full object-contain max-h-[35vh] ${isResolved ? 'grayscale opacity-70' : ''}`} />
@@ -235,7 +247,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose, onRepo
                         </div>
                     </div>
 
-                    {/* CHI TIẾT */}
+                    {/* Chi tiết */}
                     <div className="p-5 bg-white shrink-0">
                         <h3 className={`text-xl font-bold flex items-start gap-2 leading-tight mb-2 ${
                             isResolved ? 'text-green-700' : item.type === 'FOUND' ? 'text-[#003375]' : 'text-[#990000]'
@@ -268,7 +280,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose, onRepo
                             </div>
                             <div className="flex items-center gap-2 text-sm text-gray-700 mt-2 bg-gray-50 p-3 rounded-xl border border-gray-100">
                                 <MapPin size={18} className="text-gray-400 shrink-0" />
-                                <span className="truncate">Khu vực: <strong>{item.location}</strong></span>
+                                <span className="truncate">Khu vá»±c: <strong>{item.location}</strong></span>
                             </div>
                             <button
                                 type="button"
@@ -300,12 +312,14 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
     const [reason, setReason] = useState('');
     const [contact, setContact] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
 
     useEffect(() => {
         if (item) {
             setReason('');
             setContact('');
         }
+            setTurnstileToken('');
     }, [item]);
 
     const handleSubmit = async (event: React.FormEvent) => {
@@ -319,23 +333,21 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
                 `Item ID: ${item.id}`,
                 `Tiêu đề: ${item.title}`,
                 `Loại: ${item.type}`,
-                `Link nội bộ: /lost-found?item=${item.id}`,
+                `Link ná»™i bá»™: /lost-found?item=${item.id}`,
                 `Lý do: ${reason.trim()}`,
                 'Cam kết xử lý: yêu cầu hợp lệ sẽ được rà soát và gỡ/ẩn nội dung vi phạm trong vòng 24 giờ.',
             ].join('\n');
 
-            const { data, error } = await supabase
-                .from('feedback')
-                .insert([{
+            const data = await protectedSubmit<{ id?: number }>({
+                action: 'feedback',
+                turnstileToken,
+                payload: {
                     type: 'takedown',
                     content,
                     contact: contact.trim() || 'EMPTY',
                     user_id: currentUserId || null,
-                }])
-                .select('id')
-                .single();
-
-            if (error) throw error;
+                },
+            });
             void notifyModerators('feedback', data?.id);
             onShowToast('Đã gửi yêu cầu báo cáo. Admin sẽ rà soát và xử lý trong vòng 24 giờ nếu nội dung vi phạm.', 'success');
             onClose();
@@ -386,7 +398,10 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
                             placeholder="Email/SĐT để admin phản hồi nếu cần"
                         />
                     </div>
-                    <button type="submit" disabled={isSubmitting || !reason.trim()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 text-sm font-black text-white disabled:opacity-60">
+                    <div className="flex justify-center">
+                        <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />
+                    </div>
+                    <button type="submit" disabled={isSubmitting || !reason.trim() || !turnstileToken} className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 text-sm font-black text-white disabled:opacity-60">
                         {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Flag size={18} />}
                         Gửi báo cáo
                     </button>
@@ -564,16 +579,26 @@ return (
       </div>
 
       <div className="px-6 pb-8">
-          <div className="relative mb-4 grid grid-cols-2 gap-2 overflow-hidden rounded-xl bg-white p-1 shadow-[0_2px_12px_rgba(13,27,62,0.06)]">
+          <div className="relative mb-4 grid grid-cols-2 gap-2 overflow-hidden rounded-2xl bg-white p-1 shadow-[0_2px_14px_rgba(13,27,62,0.08)]">
               <span
                   aria-hidden="true"
-                  className={`absolute bottom-1 left-1 top-1 w-[calc((100%-1rem)/2)] rounded-xl bg-[#1A56FF] shadow-[0_4px_14px_rgba(26,86,255,0.28)] transition-transform duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${activeTab === 'FOUND' ? 'translate-x-[calc(100%+0.5rem)]' : 'translate-x-0'}`}
+                  className={`absolute bottom-1 left-1 top-1 w-[calc((100%-1rem)/2)] rounded-xl bg-[#1A56FF] shadow-[0_5px_14px_rgba(26,86,255,0.34)] transition-transform duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${activeTab === 'FOUND' ? 'translate-x-[calc(100%+0.5rem)]' : 'translate-x-0'}`}
               />
-              <button onClick={() => { playClick(); setActiveTab('LOST'); }} className={`relative z-10 flex items-center justify-center gap-1.5 rounded-xl py-3 text-[12px] font-black transition-colors duration-300 ${activeTab === 'LOST' ? 'text-white' : 'text-[#7B8AB0]'}`}>
-                  <Megaphone size={15} /> Tin báo mất
+              <button
+                  type="button"
+                  onClick={() => { playClick(); setActiveTab('LOST'); }}
+                  className={`relative z-10 flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl px-2 text-[12px] font-extrabold transition-colors duration-300 ${activeTab === 'LOST' ? 'text-white' : 'text-[#9AA5C0] active:bg-slate-50'}`}
+              >
+                  <Megaphone size={14} strokeWidth={2.5} />
+                  <span className="truncate">Tin báo mất</span>
               </button>
-              <button onClick={() => { playClick(); setActiveTab('FOUND'); }} className={`relative z-10 flex items-center justify-center gap-1.5 rounded-xl py-3 text-[12px] font-black transition-colors duration-300 ${activeTab === 'FOUND' ? 'text-white' : 'text-[#7B8AB0]'}`}>
-                  <MapPin size={15} /> Tin nhặt được
+              <button
+                  type="button"
+                  onClick={() => { playClick(); setActiveTab('FOUND'); }}
+                  className={`relative z-10 flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl px-2 text-[12px] font-extrabold transition-colors duration-300 ${activeTab === 'FOUND' ? 'text-white' : 'text-[#9AA5C0] active:bg-slate-50'}`}
+              >
+                  <MapPin size={14} strokeWidth={2.5} />
+                  <span className="truncate">Tin nhặt được</span>
               </button>
           </div>
 
@@ -614,7 +639,7 @@ return (
 
           <div className="mb-3 flex gap-2 rounded-[18px] border border-[#FFE8A1] bg-[#FFF8E6] p-3 text-[#92400E] shadow-[0_2px_12px_rgba(245,158,11,0.08)]">
               <Info size={18} className="mt-0.5 shrink-0 text-[#D97706]" />
-              <p className="text-[10.8px] font-semibold leading-normal"><b className="font-black">Lưu ý:</b> Tin sẽ được kiểm duyệt trước khi hiển thị. Không yêu cầu chuyển khoản trước để nhận lại đồ. Nếu thấy tin lộ thông tin cá nhân, sai sự thật, mạo danh hoặc có dấu hiệu lừa đảo, hãy bấm “Báo cáo”; yêu cầu hợp lệ sẽ được rà soát và gỡ/ẩn trong vòng 24 giờ.</p>
+              <p className="text-[10.8px] font-semibold leading-normal"><b className="font-black">Lưu ý:</b> Tin sẽ được kiểm duyệt trước khi hiển thị. Không yêu cầu chuyển khoản trước để nhận lại đồ. Nếu thấy tin lộ thông tin cá nhân, sai sự thật, mạo danh hoặc có dấu hiệu lừa đảo, hãy bấm "Báo cáo"; yêu cầu hợp lệ sẽ được rà soát và gỡ/ẩn trong vòng 24 giờ.</p>
           </div>
 
           {canManage && (
@@ -667,7 +692,7 @@ return (
                                       <span className="absolute right-3 top-3 flex items-center gap-1 rounded-[10px] bg-[#0D1B3E]/65 px-2 py-1.5 text-[9.5px] font-extrabold text-white">
                                           <Calendar size={11} /> {dateLabel}
                                       </span>
-                                      {isPending && <span className="absolute bottom-3 right-3 rounded-[10px] bg-[#FDE68A] px-2 py-1.5 text-[9.5px] font-black text-[#92400E]">Chờ duyệt</span>}
+                                      {isPending && <span className="absolute bottom-3 right-3 rounded-[10px] bg-[#FDE68A] px-2 py-1.5 text-[9.5px] font-black text-[#92400E]">Chá» duyá»‡t</span>}
                                   </button>
 
                                   <div className="p-[15px]">

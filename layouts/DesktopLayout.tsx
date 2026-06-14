@@ -36,7 +36,6 @@ interface DesktopLayoutProps {
   children: React.ReactNode;
   onInstallApp?: () => void;
   showInstallButton?: boolean;
-  showExamAI?: boolean;
 }
 
 export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
@@ -46,7 +45,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   handleRequestReset, handleLogout, setShowGuide, setShowActivityLog,
   setIsUserMenuOpen, isUserMenuOpen, handleMenuLogout, 
   handleExitAdminView, handleSyncDB, navigate, children,
-  onInstallApp, showInstallButton, showExamAI = false
+  onInstallApp, showInstallButton
 }) => {
   const location = useLocation();
   const isColorAvatar = isAllowedAvatarColor(avatarUrl);
@@ -152,8 +151,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
           if (location.pathname.includes('/schedule')) return 1;
           if (location.pathname.includes('/events')) return 2;
           if (location.pathname.includes('/lost-found')) return 3;
-          if (showExamAI && location.pathname.includes('/exam-ai')) return 4;
-          if (location.pathname.includes('/handbook') || isHandbookMenuOpen || location.pathname.includes('/admin-reports')) return showExamAI ? 5 : 4;
+          if (location.pathname.includes('/handbook') || isHandbookMenuOpen || location.pathname.includes('/admin-reports')) return 4;
           return -1;
       };
 
@@ -191,7 +189,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
           resizeObserver.disconnect();
           window.removeEventListener('resize', updateNavIndicator);
       };
-  }, [location.pathname, isHandbookMenuOpen, isAdmin, isAuditor, isProfileSearchOpen, showExamAI]);
+  }, [location.pathname, isHandbookMenuOpen, isAdmin, isAuditor, isProfileSearchOpen]);
 
   useEffect(() => {
       setRuntimeStyleRule('desktop-nav-indicator', '.desktop-nav-runtime .translate-tab-indicator', {
@@ -376,11 +374,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       <NavLink to="/lost-found" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
                           <Search size={16} /> Tìm đồ thất lạc
                       </NavLink>
-                      {showExamAI && (
-                          <NavLink to="/exam-ai" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
-                              <ClipboardList size={16} /> Luyện đề
-                          </NavLink>
-                      )}
                       <NavLink to="/admin-reports" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center justify-between px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-50 hover:text-red-600'}`}>
                           <div className="flex items-center gap-3">
                               <ClipboardList size={16} /> Xử lý báo cáo
@@ -389,11 +382,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               <div className="w-2 h-2 rounded-full bg-red-500" title={`${pendingReportCount} mục chờ xử lý`}></div>
                           )}
                       </NavLink>
-                      {isAdmin && (
-                          <NavLink to="/admin/subscriptions" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-amber-50 text-amber-700' : 'text-gray-600 hover:bg-gray-50 hover:text-amber-700'}`}>
-                              <ShieldCheck size={16} /> Quản lý gói
-                          </NavLink>
-                      )}
                       {isAdmin && (
                           <NavLink to="/admin/activity" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
                               <Clock size={16} /> Theo dõi hoạt động
@@ -621,15 +609,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       <Search size={20} className="sm:hidden" />
                       <span className="hidden sm:block">Tìm đồ thất lạc</span>
                   </NavLink>
-                  {showExamAI && (
-                      <NavLink to="/exam-ai" ref={(el: any) => { navRefs.current[4] = el; }} onClick={playClick} className={({ isActive }) => `relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none z-10 ${isActive ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
-                          <ClipboardList size={20} className="sm:hidden" />
-                          <span className="hidden sm:block">Luyện đề</span>
-                      </NavLink>
-                  )}
-
                   <div className="relative flex items-center justify-center sm:h-full shrink-0 z-10" ref={handbookMenuRef} onMouseEnter={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(true)} onMouseLeave={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(false)}>
-                      <button ref={(el) => { navRefs.current[showExamAI ? 5 : 4] = el; }} onClick={(e) => { e.preventDefault(); playClick(); setIsHandbookMenuOpen(!isHandbookMenuOpen); }} className={`relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none ${location.pathname.includes('/handbook') || isHandbookMenuOpen ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
+                      <button ref={(el) => { navRefs.current[4] = el; }} onClick={(e) => { e.preventDefault(); playClick(); setIsHandbookMenuOpen(!isHandbookMenuOpen); }} className={`relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none ${location.pathname.includes('/handbook') || isHandbookMenuOpen ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
                           <Book size={20} className="sm:hidden" />
                           <span className="hidden sm:flex items-center gap-1">Cẩm nang <ChevronDown size={14} className={`transition-transform duration-200 ml-1 ${isHandbookMenuOpen ? 'rotate-180' : ''}`}/></span>
                       </button>
@@ -1036,21 +1017,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </>
                   )}
               </NavLink>
-
-              {showExamAI && (
-                  <NavLink 
-                      to="/exam-ai" 
-                      onClick={() => { setIsMobileMenuOpen(false); playClick(); }} 
-                      className={({ isActive }) => `flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-[14px] font-medium transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc] border border-blue-100' : 'text-gray-700 hover:bg-gray-50'}`}
-                  >
-                      {({ isActive }) => (
-                          <>
-                              <ClipboardList size={20} className={isActive ? 'text-[#0052cc]' : 'text-gray-500'} /> 
-                              <span className={isActive ? 'font-bold' : ''}>Luyện đề</span>
-                          </>
-                      )}
-                  </NavLink>
-              )}
 
               <div className="h-px bg-gray-100 w-full my-3"></div>
               

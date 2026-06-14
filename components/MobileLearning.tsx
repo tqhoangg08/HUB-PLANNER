@@ -17,6 +17,7 @@ import { SubjectRankingModal } from './SubjectRankingModal';
 import { SemesterLookbackModal } from './SemesterLookbackModal';
 import { useSemesterLookback } from '../hooks/useSemesterLookback';
 import { playClick } from '../utils/audio';
+import { FEATURE_FORECAST_TOOLS } from '../utils/featureFlags';
 
 interface MobileLearningProps {
     data: UserData;
@@ -35,6 +36,7 @@ interface MobileLearningProps {
     fileInputRef: React.RefObject<HTMLInputElement>;
     onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
     viewUserId?: string;
+    isManagementUser?: boolean;
 }
 
 const FailedSubjectsNativeModal = ({ subjects, onClose }: { subjects: Subject[]; onClose: () => void }) => (
@@ -284,15 +286,16 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                 trendAnalysis={trendAnalysis}
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
-                scheduleContent={<MobileSchedule viewUserId={props.viewUserId} />}
+                scheduleContent={<MobileSchedule viewUserId={props.viewUserId} managementOnly={props.isManagementUser} />}
+                isManagementUser={props.isManagementUser}
                 onOpenRanking={() => {
                     playClick();
                     setShowRankingModal(true);
                 }}
-                onOpenTargetForecast={() => {
+                onOpenTargetForecast={FEATURE_FORECAST_TOOLS ? () => {
                     playClick();
                     setShowTargetModal(true);
-                }}
+                } : undefined}
                 onRequireOnboarding={props.onRequireOnboarding}
                 onOpenLookback={() => {
                     playClick();
@@ -350,7 +353,7 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                 loading={semesterLookback.loading}
                 onClose={semesterLookback.close}
             />
-            {showTargetModal && (
+            {FEATURE_FORECAST_TOOLS && showTargetModal && (
                 <div className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/35 px-3 pb-[calc(92px+env(safe-area-inset-bottom))] animate-fadeIn" onClick={() => setShowTargetModal(false)}>
                     <div className="w-full max-w-[430px] rounded-[24px] bg-white p-5 pb-6 shadow-2xl animate-slideUp" onClick={(event) => event.stopPropagation()}>
                         <div className="-mt-1 mb-3 flex justify-center">

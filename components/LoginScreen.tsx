@@ -191,6 +191,9 @@ export const LoginScreen: React.FC = () => {
     };
 
     const sendOtpCode = async (email: string, purpose: 'register' | 'forgot_password') => {
+        if (!captchaToken) {
+            throw new Error('Vui lòng xác minh bạn không phải robot.');
+        }
         const storedCooldown = getStoredOtpCooldown(email, purpose);
         if (storedCooldown > 0) {
             setOtpState({ email, purpose });
@@ -202,7 +205,7 @@ export const LoginScreen: React.FC = () => {
         const response = await fetch(apiUrl('/auth'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'send-otp', purpose, email }),
+            body: JSON.stringify({ action: 'send-otp', purpose, email, turnstileToken: captchaToken }),
         });
         const payload = await response.json().catch(() => ({}));
 

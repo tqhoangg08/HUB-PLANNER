@@ -6,7 +6,7 @@ import {
   Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, 
   AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, 
   Phone, Send, User, Link as LinkIcon, Type, CheckCircle2, Building2, 
-  ChevronDown, Flame, Lock, Circle, Siren, Edit2, Trash2, 
+  ChevronDown, ChevronLeft, ChevronRight, Flame, Lock, Circle, Siren, Edit2, Trash2, 
   Save, ToggleLeft, ToggleRight, Settings, Tag, RotateCcw,
   Info, ExternalLink, CalendarClock,
   Bookmark, BookmarkCheck, ArrowDownUp, AlertTriangle, CalendarDays, MoreHorizontal, UserPlus
@@ -17,7 +17,8 @@ import { useUserRole } from '../hooks/useUserRole';
 import { CTVRegistrationForm } from './CTVRegistrationForm';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
-import { apiHeaders, apiUrl } from '../utils/api';
+import { TurnstileBox } from './TurnstileBox';
+import { protectedSubmit } from '../utils/protectedSubmit';
 
 // --- Types ---
 interface HubEvent {
@@ -278,6 +279,7 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
         category: 'Hoạt động phong trào', criteria: 'III', points: '5', organizer: '', link: '', format: 'Offline', location_type: 'Trong trường', description: '' 
     });
     const [submitting, setSubmitting] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
     const [isDraftLoaded, setIsDraftLoaded] = useState(false);
     const [isCustomCategory, setIsCustomCategory] = useState(false);
 
@@ -350,8 +352,11 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                 status: 'pending', is_manually_closed: false 
             };
 
-            const { data, error } = await supabase.from('events').insert([payload]).select('id').single();
-            if (error) throw error;
+            const data = await protectedSubmit<{ id?: number }>({
+                action: 'event-contribution',
+                payload,
+                turnstileToken,
+            });
             void notifyModerators('event_pending', data?.id);
 
             onShowToast("Đóng góp của bạn đã được gửi. Cảm ơn bạn!", "success");
@@ -516,7 +521,9 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
                             <input type="text" required className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50" value={formData.link} onChange={e => setFormData({...formData, link: e.target.value})} />
                         </div>
 
-                        <button type="submit" disabled={submitting} className="w-full py-4 bg-[#003375] active:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md mt-4">
+                        <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />
+
+                        <button type="submit" disabled={submitting || !turnstileToken} className="w-full py-4 bg-[#003375] active:bg-[#002855] text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md mt-4">
                             {submitting ? <Loader2 className="animate-spin"/> : <Send size={18}/>} 
                             {submitting ? 'Đang gửi...' : 'Gửi đóng góp'}
                         </button>
@@ -531,6 +538,7 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
     const { session } = useUserRole(); 
     const [issue, setIssue] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
 
     if (!isOpen || !event) return null;
 
@@ -548,8 +556,11 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
                 event_id: parseInt(event.id) || null, user_id: session?.user?.id || null, 
                 event_name: event.name, organizer: event.organizer, issue_description: issue, status: 'pending' 
             };
-            const { data, error } = await supabase.from('event_reports').insert([payload]).select('id').single();
-            if (error) throw error;
+            const data = await protectedSubmit<{ id?: number }>({
+                action: 'event-report',
+                payload,
+                turnstileToken,
+            });
             void notifyModerators('event_report', data?.id);
 
             onShowToast("Đã gửi báo cáo thành công!", "success");
@@ -589,7 +600,9 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
                             ></textarea>
                         </div>
 
-                        <button type="submit" disabled={submitting} className="w-full py-3.5 bg-red-600 active:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md">
+                        <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />
+
+                        <button type="submit" disabled={submitting || !turnstileToken} className="w-full py-3.5 bg-red-600 active:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md">
                             {submitting ? <Loader2 className="animate-spin" size={18}/> : <Send size={18}/>} 
                             Gửi báo cáo
                         </button>
@@ -619,6 +632,9 @@ const canManage = isAdmin || isAuditor || isCTV;
   const today = new Date();
 
   const [events, setEvents] = useState<HubEvent[]>([]);
+  const [eventsPage, setEventsPage] = useState(0);
+  const [eventsTotal, setEventsTotal] = useState(0);
+  const [openEventsTotal, setOpenEventsTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -719,22 +735,72 @@ const canManage = isAdmin || isAuditor || isCTV;
       }
   };
 
-  const fetchEvents = async (options: { bypassCache?: boolean } = {}) => {
+  const EVENTS_PAGE_SIZE = 10;
+  const fetchEvents = async (options: { bypassCache?: boolean; page?: number } = {}) => {
     setLoading(true); setError(null);
     try {
-      const requestUrl = apiUrl(options.bypassCache ? `/events?refresh=${Date.now()}` : '/events');
-      const headers = apiHeaders(options.bypassCache ? { 'Cache-Control': 'no-cache', Pragma: 'no-cache' } : {});
-      const res = await fetch(requestUrl, {
-        headers,
-        cache: options.bypassCache ? 'no-store' : 'default',
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Lỗi tải dữ liệu');
+      const page = options.page ?? eventsPage;
+      if (activeTab === 'participated' && participatedEvents.length === 0) {
+        setEvents([]);
+        setEventsTotal(0);
+        return;
+      }
+      const pageOffset = Math.max(0, page) * EVENTS_PAGE_SIZE;
+      const term = searchTerm.trim();
+      const eventColumns = 'id,title,criteria,points,format,deadline,deadline_time,close_on_full,description,link,organizer,category,classification,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url';
+      const participantIds = participatedEvents.map(id => Number(id)).filter(id => Number.isFinite(id));
+      const buildQuery = (select: string, countOptions: any, group: 'open' | 'closed') => {
+        let query = supabase!.from('events').select(select, countOptions);
+        if (!(isManagementView && canManage)) {
+          query = query.or('is_deleted.is.false,is_deleted.is.null').neq('status', 'pending');
+        }
+        if (activeTab === 'participated') query = query.in('id', participantIds);
+        else if (activeTab !== 'all') query = query.eq('criteria', activeTab);
+        if (activeScope === 'internal') query = query.eq('location_type', 'Trong trường');
+        if (activeScope === 'external') query = query.eq('location_type', 'Ngoài trường');
+        if (term) query = query.or(`title.ilike.%${term}%,organizer.ilike.%${term}%`);
+        if (group === 'open') {
+          query = query.or('is_manually_closed.is.false,is_manually_closed.is.null').neq('status', 'Đã kết thúc');
+        } else {
+          query = query.or('is_manually_closed.is.true,status.eq.Đã kết thúc');
+        }
+        if (sortOrder === 'oldest') {
+          query = query.order('created_at', { ascending: true });
+        } else if (sortOrder === 'expiring_soon') {
+          query = query.order('deadline', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false });
+        } else {
+          query = query.order('created_at', { ascending: false });
+        }
+        return query;
+      };
 
-      let fetchedData = json.data || [];
-      if (!canManage) fetchedData = fetchedData.filter((evt: any) => evt.status !== 'pending');
+      const [{ count: openCount, error: openCountError }, { count: closedCount, error: closedCountError }] = await Promise.all([
+        buildQuery('id', { count: 'exact', head: true }, 'open'),
+        buildQuery('id', { count: 'exact', head: true }, 'closed'),
+      ]);
+      if (openCountError) throw openCountError;
+      if (closedCountError) throw closedCountError;
 
-      const parsedEvents: HubEvent[] = fetchedData.map((row: any) => {
+      const openTotal = openCount || 0;
+      const closedTotal = closedCount || 0;
+      const rows: any[] = [];
+      if (pageOffset < openTotal) {
+        const openEnd = Math.min(openTotal - 1, pageOffset + EVENTS_PAGE_SIZE - 1);
+        const { data, error: openError } = await buildQuery(eventColumns, {}, 'open').range(pageOffset, openEnd);
+        if (openError) throw openError;
+        rows.push(...(data || []));
+      }
+      if (rows.length < EVENTS_PAGE_SIZE) {
+        const closedOffset = Math.max(0, pageOffset - openTotal);
+        const closedLimit = EVENTS_PAGE_SIZE - rows.length;
+        if (closedOffset < closedTotal) {
+          const { data, error: closedError } = await buildQuery(eventColumns, {}, 'closed').range(closedOffset, closedOffset + closedLimit - 1);
+          if (closedError) throw closedError;
+          rows.push(...(data || []));
+        }
+      }
+
+      const parsedEvents: HubEvent[] = rows.map((row: any) => {
           let deadlineDate = null;
           if (row.deadline) {
               deadlineDate = new Date(row.deadline);
@@ -753,14 +819,40 @@ const canManage = isAdmin || isAuditor || isCTV;
           };
       });
       setEvents(parsedEvents);
+      setEventsTotal(openTotal + closedTotal);
     } catch (err) {
       setEvents([]); // Fallback empty if failed
+      setEventsTotal(0);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchEvents(); }, [canManage]);
+  useEffect(() => {
+      fetchEvents({ page: eventsPage });
+  }, [canManage, isManagementView, searchTerm, activeTab, activeScope, sortOrder, eventsPage, participatedEvents.join(',')]);
+
+  const fetchOpenEventsTotal = async () => {
+    try {
+      let query = supabase!
+        .from('events')
+        .select('id', { count: 'exact', head: true })
+        .or('is_deleted.is.false,is_deleted.is.null')
+        .or('is_manually_closed.is.false,is_manually_closed.is.null')
+        .neq('status', 'pending')
+        .neq('status', 'Đã kết thúc');
+      const { count, error } = await query;
+      if (error) throw error;
+      setOpenEventsTotal(count || 0);
+    } catch (error) {
+      console.error('Không thể tải tổng sự kiện mở:', error);
+      setOpenEventsTotal(0);
+    }
+  };
+
+  useEffect(() => {
+    fetchOpenEventsTotal();
+  }, [canManage]);
 
   useEffect(() => {
                   <button onClick={() => { playClick(); setIsManagementView(false); }} className={`py-2 rounded-xl text-xs font-black transition-all ${!isManagementView ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#7B8AB0]'}`}>Giao diện SV</button>
@@ -864,7 +956,7 @@ const canManage = isAdmin || isAuditor || isCTV;
           }
           showToast(editingEvent ? 'Cập nhật sự kiện thành công.' : 'Thêm sự kiện thành công.', 'success');
           closeEventEditor();
-          await fetchEvents({ bypassCache: true });
+          await fetchEvents({ bypassCache: true, page: eventsPage });
       } catch (err: any) {
           showToast('Lỗi: ' + (err.message || 'Không thể lưu sự kiện'), 'error');
       } finally {
@@ -896,49 +988,13 @@ const canManage = isAdmin || isAuditor || isCTV;
           && evt.deadlineDate.getFullYear() === today.getFullYear();
   };
 
-  const filteredEvents = events.filter(evt => {
-    const matchesSearch = evt.name.toLowerCase().includes(searchTerm.toLowerCase()) || evt.organizer.toLowerCase().includes(searchTerm.toLowerCase());
-    let matchesTab = true;
-    let isVisible = true;
-
-    if (activeTab === 'participated') {
-        matchesTab = participatedEvents.includes(evt.id);
-    } else {
-        if (evt.is_deleted && !isManagementView) isVisible = false;
-        if (evt.status === 'pending' && !isManagementView) isVisible = false;
-        if (activeTab !== 'all') matchesTab = evt.category === activeTab;
-    }
-
-    const matchesScope = activeScope === 'all' || (activeScope === 'internal' && evt.scope === 'Trong trường') || (activeScope === 'external' && evt.scope === 'Ngoài trường');
-    return matchesSearch && matchesTab && matchesScope && isVisible;
-  }).sort((a, b) => {
-      const deadlinePriority = Number(isDeadlineEventToday(b)) - Number(isDeadlineEventToday(a));
-      if (deadlinePriority !== 0) return deadlinePriority;
-
-      if (sortOrder === 'expiring_soon') {
-          const now = today.getTime();
-          const getScore = (evt: HubEvent) => {
-              if (evt.is_manually_closed || evt.status === 'Đã kết thúc' || evt.is_deleted) return Infinity;
-              if (evt.deadlineDate) {
-                  const diff = evt.deadlineDate.getTime() - now;
-                  return diff < 0 ? Infinity : diff;
-              } else if (evt.close_on_full && evt.event_date) {
-                  const evtDate = new Date(evt.event_date); evtDate.setHours(23, 59, 59, 999);
-                  const diff = evtDate.getTime() - now;
-                  return diff < 0 ? Infinity : diff;
-              }
-              return Infinity - 1;
-          };
-          return getScore(a) - getScore(b);
-      }
-      const dateA = new Date(a.created_at).getTime(); const dateB = new Date(b.created_at).getTime();
-      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB; 
-  });
-
+  const filteredEvents = events;
+  const eventsTotalPages = Math.max(1, Math.ceil(eventsTotal / EVENTS_PAGE_SIZE));
+  const safeEventsPage = Math.min(eventsPage, eventsTotalPages - 1);
   const routeEvent = eventId ? events.find(evt => evt.id === eventId) || null : null;
   const displayedEvents = eventId ? (routeEvent ? [routeEvent] : []) : filteredEvents;
   const visibleEvents = events.filter(evt => !evt.is_deleted && evt.status !== 'pending');
-  const openEventsCount = visibleEvents.filter(evt => !evt.is_manually_closed && evt.status !== 'Đã kết thúc' && !checkIsOverdue(evt, today)).length;
+  const openEventsCount = openEventsTotal;
   const expiringTodayEvent = visibleEvents.find(isDeadlineEventToday);
   const featuredEvent = expiringTodayEvent || visibleEvents[0] || null;
   const getEventDateTimeLabel = (evt: HubEvent) => evt.event_date ? `${formatTimeString(evt.event_time)} ${formatDateString(evt.event_date)}` : 'Chưa cập nhật';
@@ -946,6 +1002,52 @@ const canManage = isAdmin || isAuditor || isCTV;
       const start = evt.registration_start_date ? `${formatTimeString(evt.registration_start_time)} ${formatDateString(evt.registration_start_date)}` : '...';
       const end = evt.close_on_full ? 'Đóng khi đủ SL' : (evt.time && evt.time !== 'Chưa cập nhật' ? `${evt.deadline_time ? formatTimeString(evt.deadline_time) + ' ' : ''}${evt.time}` : '...');
       return `${start} - ${end}`;
+  };
+
+  useEffect(() => {
+    setEventsPage(0);
+  }, [searchTerm, activeTab, activeScope, sortOrder, isManagementView]);
+
+  const goToEventsPage = (page: number) => {
+    setEventsPage(Math.min(eventsTotalPages - 1, Math.max(0, page)));
+  };
+
+  const renderEventsPager = () => {
+    if (eventId || eventsTotal <= EVENTS_PAGE_SIZE) return null;
+    return (
+      <div className="mt-1 flex items-center justify-between gap-2 rounded-2xl bg-white p-2 shadow-[0_2px_14px_rgba(13,27,62,0.05)]">
+        <button
+          type="button"
+          onClick={() => goToEventsPage(safeEventsPage - 1)}
+          disabled={safeEventsPage <= 0 || loading}
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#1A56FF] disabled:opacity-40"
+          aria-label="Trang trước"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[11px] font-black text-[#7B8AB0]">
+          <span>Trang</span>
+          <input
+            type="number"
+            min={1}
+            max={eventsTotalPages}
+            value={safeEventsPage + 1}
+            onChange={(event) => goToEventsPage((Number(event.target.value) || 1) - 1)}
+            className="h-9 w-14 rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] text-center text-[12px] font-black text-[#0D1B3E] outline-none"
+          />
+          <span>/ {eventsTotalPages}</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => goToEventsPage(safeEventsPage + 1)}
+          disabled={safeEventsPage >= eventsTotalPages - 1 || loading}
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#1A56FF] disabled:opacity-40"
+          aria-label="Trang sau"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    );
   };
 
   const NotificationToast = () => {
@@ -1219,9 +1321,27 @@ return (
           </div>
 
           {canManage && (
-              <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-white p-1 shadow-[0_2px_12px_rgba(13,27,62,0.06)]">
-                  <button onClick={() => { playClick(); setIsManagementView(false); }} className={`py-2 rounded-xl text-xs font-black transition-all ${!isManagementView ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#7B8AB0]'}`}>Giao diện SV</button>
-                  <button onClick={() => { playClick(); setIsManagementView(true); }} className={`py-2 rounded-xl text-xs font-black transition-all ${isManagementView ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#7B8AB0]'}`}>Quản lý</button>
+              <div className="relative mt-4 grid grid-cols-2 gap-2 overflow-hidden rounded-2xl bg-white p-1 shadow-[0_2px_14px_rgba(13,27,62,0.08)]">
+                  <span
+                      aria-hidden="true"
+                      className={`absolute bottom-1 left-1 top-1 w-[calc((100%-1rem)/2)] rounded-xl bg-[#1A56FF] shadow-[0_5px_14px_rgba(26,86,255,0.34)] transition-transform duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${isManagementView ? 'translate-x-[calc(100%+0.5rem)]' : 'translate-x-0'}`}
+                  />
+                  <button
+                      type="button"
+                      onClick={() => { playClick(); setIsManagementView(false); }}
+                      className={`relative z-10 flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl px-2 text-[12px] font-extrabold transition-colors duration-300 ${!isManagementView ? 'text-white' : 'text-[#9AA5C0] active:bg-slate-50'}`}
+                  >
+                      <User size={14} strokeWidth={2.5} />
+                      <span className="truncate">Giao diện SV</span>
+                  </button>
+                  <button
+                      type="button"
+                      onClick={() => { playClick(); setIsManagementView(true); }}
+                      className={`relative z-10 flex min-h-[40px] items-center justify-center gap-1.5 rounded-xl px-2 text-[12px] font-extrabold transition-colors duration-300 ${isManagementView ? 'text-white' : 'text-[#9AA5C0] active:bg-slate-50'}`}
+                  >
+                      <Settings size={14} strokeWidth={2.5} />
+                      <span className="truncate">Quản lý</span>
+                  </button>
               </div>
           )}
 
@@ -1374,6 +1494,7 @@ return (
                     <p className="text-gray-500 text-sm font-medium">Không tìm thấy sự kiện phù hợp.</p>
                 </div>
              )}
+             {renderEventsPager()}
           </div>
       </div>
       </div>

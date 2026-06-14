@@ -77,7 +77,9 @@ const getPublicCoursesCacheKey = (query) => {
   const phase = String(query.phase || 'all');
   const search = String(query.search || '').trim().toLowerCase();
   const limit = String(query.limit || '50');
-  return JSON.stringify({ semester, phase, search, limit });
+  const offset = String(query.offset || '0');
+  const isUserAdded = String(query.isUserAdded || 'all');
+  return JSON.stringify({ semester, phase, search, limit, offset, isUserAdded });
 };
 
 const normalizeComparable = (value) => {
@@ -252,7 +254,9 @@ const handleUserSchedules = async (request, response) => {
     return response.status(403).json({ error: 'Forbidden' });
   }
 
-  const { mode = 'changed', semester = 'HK2_2025_2026', phase = 'all', search = '', userId } = request.query;
+  const { mode = 'changed', semester = 'HK2_2025_2026', phase = 'all', search = '', userId, limit = 10, offset = 0 } = request.query;
+  const pageLimit = Math.max(1, Math.min(Number(limit) || 10, 100));
+  const pageOffset = Math.max(0, Number(offset) || 0);
   const dbSemester = normalizeSemester(semester);
 
   let schedulesQuery = supabase
@@ -294,7 +298,12 @@ const handleUserSchedules = async (request, response) => {
       })
       .sort((a, b) => a.student_code.localeCompare(b.student_code, 'vi'));
 
-    return response.status(200).json({ success: true, data });
+    return response.status(200).json({
+      success: true,
+      data: data.slice(pageOffset, pageOffset + pageLimit),
+      hasMore: data.length > pageOffset + pageLimit,
+      total: data.length,
+    });
   }
 
   if (mode === 'courses') {
@@ -305,7 +314,12 @@ const handleUserSchedules = async (request, response) => {
       .map((item) => mergeScheduleCourse(item, profilesMap[userId] || {}))
       .filter((course) => course.id);
 
-    return response.status(200).json({ success: true, data });
+    return response.status(200).json({
+      success: true,
+      data: data.slice(pageOffset, pageOffset + pageLimit),
+      hasMore: data.length > pageOffset + pageLimit,
+      total: data.length,
+    });
   }
 
   const data = rows
@@ -315,7 +329,12 @@ const handleUserSchedules = async (request, response) => {
     .filter((course) => phase === 'all' || String(course.phase || '') === String(phase))
     .filter((course) => matchesSearch(course, search));
 
-  return response.status(200).json({ success: true, data });
+  return response.status(200).json({
+    success: true,
+    data: data.slice(pageOffset, pageOffset + pageLimit),
+    hasMore: data.length > pageOffset + pageLimit,
+    total: data.length,
+  });
 };
 
 const handleSyncUserSchedule = async (request, response) => {
@@ -500,12 +519,14 @@ const handleCourseRequests = async (request, response) => {
   }
 
   if (request.method === 'GET') {
-    const { status = 'pending', search = '', limit = 200 } = request.query;
+    const { status = 'pending', search = '', limit = 10, offset = 0 } = request.query;
+    const pageLimit = Math.max(1, Math.min(Number(limit) || 10, 100));
+    const pageOffset = Math.max(0, Number(offset) || 0);
     let query = supabase
       .from('user_course_requests')
-      .select(USER_COURSE_REQUEST_COLUMNS)
+      .select(USER_COURSE_REQUEST_COLUMNS, { count: 'exact' })
       .order('created_at', { ascending: false })
-      .limit(Number(limit));
+      .range(pageOffset, pageOffset + pageLimit - 1);
 
     if (status && status !== 'all') query = query.eq('status', status);
 
@@ -514,7 +535,7 @@ const handleCourseRequests = async (request, response) => {
       query = query.or(`subject_name.ilike.%${term}%,course_code.ilike.%${term}%,instructor.ilike.%${term}%`);
     }
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (error) throw error;
 
     const profilesMap = await fetchProfilesMap((data || []).map((item) => item.user_id));
@@ -523,7 +544,12 @@ const handleCourseRequests = async (request, response) => {
       user: profilesMap[item.user_id] || null,
     }));
 
-    return response.status(200).json({ success: true, data: rows });
+    return response.status(200).json({
+      success: true,
+      data: rows,
+      hasMore: (count || 0) > pageOffset + rows.length,
+      total: count || 0,
+    });
   }
 
   if (request.method === 'PATCH') {
@@ -665,7 +691,9 @@ async function handler(request, response) {
 
   try {
     // Nhận các tham số lọc từ đường link URL do Frontend gửi lên
-    const { semester, phase, search, limit = 50 } = request.query;
+    const { semester, phase, search, limit = 50, offset = 0, isUserAdded = 'all' } = request.query;
+    const pageLimit = Math.max(1, Math.min(Number(limit) || 50, 100));
+    const pageOffset = Math.max(0, Number(offset) || 0);
 
     if (resource === 'user-schedules') {
       return handleUserSchedules(request, response);
@@ -684,8 +712,8 @@ async function handler(request, response) {
     }
 
     let query = supabase.from('course_schedules')
-      .select(COURSE_SCHEDULE_COLUMNS)
-      .limit(Number(limit)); // Giới hạn số lượng lấy để chống cào data
+      .select(COURSE_SCHEDULE_COLUMNS, { count: 'exact' })
+      .range(pageOffset, pageOffset + pageLimit - 1);
 
     if (semester) {
       query = query.eq('semester', semester);
@@ -695,15 +723,27 @@ async function handler(request, response) {
       query = query.eq('phase', phase);
     }
 
+    if (isUserAdded === 'true') {
+      query = query.eq('is_user_added', true);
+    } else if (isUserAdded === 'false') {
+      query = query.or('is_user_added.is.false,is_user_added.is.null');
+    }
+
     if (search) {
       query = query.or(`subject_name.ilike.%${search}%,course_code.ilike.%${search}%,instructor.ilike.%${search}%`);
     }
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) throw error;
 
-    const payload = { success: true, data: data };
+    const rows = data || [];
+    const payload = {
+      success: true,
+      data: rows,
+      hasMore: (count || 0) > pageOffset + rows.length,
+      total: count || 0,
+    };
     publicCoursesCache.set(cacheKey, {
       expiresAt: Date.now() + PUBLIC_COURSES_CACHE_TTL_MS,
       payload,

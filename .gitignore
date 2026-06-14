@@ -30,3 +30,28 @@ dist-ssr
 backup_*.sql
 supabase/seed.sql
 supabase.exe
+
+# Local worktrees / generated recovery artifacts
+.worktrees/
+database_backups/
+affected-users-*.csv
+affected-users-*.txt
+restore-profile-grades-report-*.json
+The string is missing the terminator*
+
+# Local audit/restore scripts
+scripts/audit-profile-data-loss.mjs
+scripts/download-latest-r2-backup.mjs
+scripts/export-affected-user-emails.mjs
+scripts/restore-profile-grades-from-backup.mjs
+
+# Disabled subscription / premium experiment files
+components/AdminSubscriptions.tsx
+components/SubscriptionUpgradeModal.tsx
+utils/subscriptionDb.ts
+utils/subscriptionPlans.ts
+supabase/migrations/20260602090000_create_subscriptions_and_payment_requests.sql
+supabase/migrations/20260602120000_create_payment_request_rpc.sql
+
+# Supabase local temp state
+supabase/.temp/
