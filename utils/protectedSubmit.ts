@@ -1,8 +1,34 @@
 import { apiUrl } from './api';
 import { supabase } from './supabase';
 
+export class ProtectedSubmitError extends Error {
+  status?: number;
+  category: 'missing-token' | 'verification-failed' | 'security-service' | 'unknown';
+
+  constructor(message: string, category: ProtectedSubmitError['category'], status?: number) {
+    super(message);
+    this.name = 'ProtectedSubmitError';
+    this.category = category;
+    this.status = status;
+  }
+}
+
+const normalizeProtectedSubmitError = (status?: number, rawMessage = '') => {
+  const lowerMessage = rawMessage.toLowerCase();
+  if (!status) {
+    return new ProtectedSubmitError('Vui lòng hoàn tất xác minh bảo mật rồi thử lại.', 'missing-token');
+  }
+  if (status >= 500) {
+    return new ProtectedSubmitError('Hệ thống xác minh đang tạm thời gặp sự cố. Vui lòng thử lại sau ít phút.', 'security-service', status);
+  }
+  if (lowerMessage.includes('robot') || lowerMessage.includes('xac minh') || lowerMessage.includes('xác minh')) {
+    return new ProtectedSubmitError('Xác minh bảo mật chưa thành công. Vui lòng xác minh lại rồi thử tiếp.', 'verification-failed', status);
+  }
+  return new ProtectedSubmitError('Không thể hoàn tất bước xác minh bảo mật. Vui lòng thử lại.', 'unknown', status);
+};
+
 export const requireTurnstile = (token: string) => {
-  if (!token) throw new Error('Vui long xac minh ban khong phai robot.');
+  if (!token) throw normalizeProtectedSubmitError();
 };
 
 export const protectedSubmit = async <T = any>({
@@ -29,9 +55,7 @@ export const protectedSubmit = async <T = any>({
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(body.error || 'Xac minh bao mat khong thanh cong.') as Error & { status?: number };
-    error.status = response.status;
-    throw error;
+    throw normalizeProtectedSubmitError(response.status, body.error || body.message || '');
   }
   return body as T;
 };

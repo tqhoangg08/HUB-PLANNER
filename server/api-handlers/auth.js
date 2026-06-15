@@ -32,7 +32,7 @@ const verifyTurnstile = async (request, token) => {
     || process.env.TURNSTILE_SITE_KEY;
   if (!secret) {
     if (process.env.NODE_ENV !== 'production') return;
-    const error = new Error('Chua cau hinh TURNSTILE_SECRET_KEY.');
+    const error = new Error('He thong xac minh dang tam thoi khong san sang.');
     error.statusCode = 500;
     throw error;
   }

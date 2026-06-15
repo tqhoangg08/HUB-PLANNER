@@ -243,7 +243,7 @@ const getRequestUserOrNull = async (req: Request) => {
 const verifyTurnstile = async (req: Request, token: unknown) => {
   const secret = env('TURNSTILE_SECRET_KEY') || env('CLOUDFLARE_TURNSTILE_SECRET_KEY') || env('TURNSTILE_SITE_KEY')
   if (!secret) {
-    const error: any = new Error('Chua cau hinh TURNSTILE_SECRET_KEY tren Supabase Function.')
+    const error: any = new Error('He thong xac minh dang tam thoi khong san sang.')
     error.statusCode = 500
     throw error
   }
@@ -265,7 +265,7 @@ const verifyTurnstile = async (req: Request, token: unknown) => {
   })
   const result = await response.json().catch(() => ({}))
   if (!response.ok || !result?.success) {
-    const error: any = new Error('Xac minh bao mat khong thanh cong. Vui long thu lai.')
+    const error: any = new Error('Xác minh bảo mật không thành công. Vui lòng thử lại.')
     error.statusCode = 400
     error.details = result?.['error-codes']
     throw error
@@ -284,7 +284,7 @@ const insertFeedback = async (body: any, user: any) => {
     email: nullableText(payload.email, 320),
   }
   if (!row.content) {
-    const error: any = new Error('Thieu noi dung gop y.')
+    const error: any = new Error('Thiếu nội dung góp ý')
     error.statusCode = 400
     throw error
   }
@@ -307,7 +307,7 @@ const insertDonation = async (body: any, user: any) => {
   const payload = body?.payload || {}
   const amount = Number.parseInt(String(payload.amount || '').replace(/\D/g, ''), 10) || 0
   if (!text(payload.name, 200) || amount <= 0) {
-    const error: any = new Error('Thieu ten hoac so tien ung ho.')
+    const error: any = new Error('Thiếu tên hoặc số tiền ủng hộ.')
     error.statusCode = 400
     throw error
   }
@@ -336,7 +336,7 @@ const insertLostFound = async (body: any, user: any) => {
     status: 'pending',
   }
   if (!row.title || !row.location || !row.contact_info) {
-    const error: any = new Error('Thieu thong tin bat buoc.')
+    const error: any = new Error('Thiếu thông tin bắt buộc.')
     error.statusCode = 400
     throw error
   }
@@ -369,7 +369,7 @@ const insertEventContribution = async (body: any) => {
     is_manually_closed: false,
   }
   if (!row.title || !row.link) {
-    const error: any = new Error('Thieu ten su kien hoac link tham gia.')
+    const error: any = new Error('Thiếu tên sự kiện hoặc link tham gia.')
     error.statusCode = 400
     throw error
   }
@@ -386,7 +386,7 @@ const insertBugReport = async (body: any, user: any) => {
     description: text(payload.description, 5000),
   }
   if (!row.error_location || !row.description) {
-    const error: any = new Error('Thieu noi dung bao loi.')
+    const error: any = new Error('Thiếu nội dung báo lỗi.')
     error.statusCode = 400
     throw error
   }
@@ -437,7 +437,7 @@ const protectedSubmit = async (req: Request, body: any) => {
     : action === 'event-report' ? await insertEventReport(body, user)
     : null
 
-  if (!result) return json({ error: 'Action khong hop le.' }, 400)
+  if (!result) return json({ error: 'Hành động không hợp lệ.' }, 400)
   return json({ success: true, ...result })
 }
 
@@ -475,7 +475,7 @@ const recordPolicyConsentForUser = async ({
 
 const recordPolicyConsent = async (req: Request, body: any) => {
   const auth = await getRequestUser(req)
-  if (!auth) return json({ error: 'Phien dang nhap khong hop le.' }, 401)
+  if (!auth) return json({ error: 'Phiên đăng nhập không hợp lệ.' }, 401)
   await recordPolicyConsentForUser({
     req,
     userId: auth.user.id,
@@ -495,7 +495,7 @@ const sendEmail = async ({ email, otp, purpose }: { email: string; otp: string; 
     const { data, error } = await supabase.functions.invoke('send-otp-email', {
       body: { email, passcode: otp, time, expiresAt: expireTime.toISOString(), purpose },
     })
-    if (error || data?.error) throw new Error(data?.error || error?.message || 'Chưa cấu hình RESEND_API_KEY hoặc Edge Function gửi OTP.')
+    if (error || data?.error) throw new Error(data?.error || error?.message || 'Lỗi hệ thống.')
     return
   }
 
@@ -717,7 +717,7 @@ const deleteAccount = async (req: Request) => {
       anonymized: true,
       user_id_hash: userIdHash,
       legal_technique: 'de-identification',
-      law_reference: 'Khoan 11 Dieu 2 Luat BVDLCN 2025',
+      law_reference: 'Khoản 11 Điều 2 LBVDL năm 2025',
     },
     metadata: {
       source: 'auth_edge_function',
@@ -762,12 +762,12 @@ const deleteAccount = async (req: Request) => {
 
 const createAvatarUpload = async (req: Request, body: any) => {
   const auth = await getRequestUser(req)
-  if (!auth) return json({ error: 'Phien dang nhap khong hop le.' }, 401)
+  if (!auth) return json({ error: 'Phiên đăng nhập không hợp lệ.' }, 401)
   const { endpoint, host, bucket, accessKeyId, secretAccessKey, publicBaseUrl } = getR2Config()
   const contentType = String(body?.contentType || 'image/webp')
   const size = Number(body?.size || 0)
-  if (!contentType.startsWith('image/')) return json({ error: 'File avatar phai la anh.' }, 400)
-  if (!size || size > 350 * 1024) return json({ error: 'Avatar can nho hon 350KB sau khi nen.' }, 400)
+  if (!contentType.startsWith('image/')) return json({ error: 'File avatar phải là ảnh.' }, 400)
+  if (!size || size > 350 * 1024) return json({ error: 'Avatar cần nhỏ hơn 350kb sau khi nén.' }, 400)
 
   const extension = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp'
   const key = `avatars/${auth.user.id}/${Date.now()}.${extension}`
@@ -800,16 +800,16 @@ const createAvatarUpload = async (req: Request, body: any) => {
 
 const uploadAvatar = async (req: Request, body: any) => {
   const auth = await getRequestUser(req)
-  if (!auth) return json({ error: 'Phien dang nhap khong hop le.' }, 401)
+  if (!auth) return json({ error: 'Phiên đăng nhập không hợp lệ' }, 401)
   const { publicBaseUrl } = getR2Config()
   const contentType = String(body?.contentType || 'image/webp')
   const size = Number(body?.size || 0)
   const base64 = String(body?.base64 || '')
-  if (!contentType.startsWith('image/')) return json({ error: 'File avatar phai la anh.' }, 400)
-  if (!size || size > 350 * 1024) return json({ error: 'Avatar can nho hon 350KB sau khi nen.' }, 400)
+  if (!contentType.startsWith('image/')) return json({ error: 'File avatar phải là ảnh.' }, 400)
+  if (!size || size > 350 * 1024) return json({ error: 'Avatar cần nhỏ hơn 350kb sau khi nén.' }, 400)
   if (!base64) return json({ error: 'Thieu du lieu avatar.' }, 400)
   const bytes = base64ToBytes(base64)
-  if (!bytes.length || Math.abs(bytes.length - size) > 8) return json({ error: 'Du lieu avatar khong hop le.' }, 400)
+  if (!bytes.length || Math.abs(bytes.length - size) > 8) return json({ error: 'Dữ liệu avatar không hợp lệ.' }, 400)
   const extension = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp'
   const key = `avatars/${auth.user.id}/${Date.now()}.${extension}`
   await putR2Object({ key, body: bytes, contentType })
@@ -818,7 +818,7 @@ const uploadAvatar = async (req: Request, body: any) => {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders, status: 204 })
-  if (req.method !== 'POST') return json({ error: 'Chi ho tro phuong thuc POST.' }, 405)
+  if (req.method !== 'POST') return json({ error: 'Lỗi hệ thống.' }, 405)
   try {
     const resource = new URL(req.url).searchParams.get('resource')
     const body = await req.json().catch(() => ({}))
@@ -832,7 +832,7 @@ Deno.serve(async (req) => {
     if (action === 'delete-account') return await deleteAccount(req)
     if (action === 'create-avatar-upload') return await createAvatarUpload(req, body)
     if (action === 'upload-avatar') return await uploadAvatar(req, body)
-    return json({ error: 'Thao tac auth khong hop le.' }, 400)
+    return json({ error: 'Thao tác không hợp lệ.' }, 400)
   } catch (error: any) {
     const statusCode = error?.statusCode || 500
     const message = error?.message?.includes('already been registered')
