@@ -1105,7 +1105,10 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         } else {
             alert(`CÃ¡c mÃ´n há»c trong file Ä‘Ã£ cÃ³ sáºµn trong Thá»i khÃ³a biá»ƒu cá»§a báº¡n rá»“i!`);
         }
-    } catch (err) { alert("Lá»—i khi Ä‘á»c PDF."); } 
+    } catch (err) {
+        const message = err instanceof Error ? err.message : '';
+        alert(message ? `Không nhập được TKB.\n\n${message}` : "Lỗi khi đọc PDF.");
+    } 
     finally { setIsProcessingPdf(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 

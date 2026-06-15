@@ -28,7 +28,11 @@ export const protectedSubmit = async <T = any>({
     body: JSON.stringify({ action, payload, turnstileToken }),
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || 'Xac minh bao mat khong thanh cong.');
+  if (!response.ok) {
+    const error = new Error(body.error || 'Xac minh bao mat khong thanh cong.') as Error & { status?: number };
+    error.status = response.status;
+    throw error;
+  }
   return body as T;
 };
 

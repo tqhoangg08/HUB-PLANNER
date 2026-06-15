@@ -7,6 +7,7 @@ const OTP_TTL_MINUTES = 10
 const OTP_COOLDOWN_SECONDS = 10 * 60
 const MAX_ATTEMPTS = 5
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
@@ -18,6 +19,11 @@ const env = (key: string) => Deno.env.get(key) || ''
 const normalizeEmail = (value = '') => value.trim().toLowerCase()
 const encodeR2Path = (key: string) => key.split('/').map(encodeURIComponent).join('/')
 const textEncoder = new TextEncoder()
+const text = (value: unknown, max = 2000) => String(value || '').trim().slice(0, max)
+const nullableText = (value: unknown, max = 2000) => {
+  const next = text(value, max)
+  return next || null
+}
 
 const bytesToHex = (bytes: Uint8Array) => [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 const sha256Hex = async (value: string | Uint8Array) => {
@@ -225,6 +231,215 @@ const getClientInfo = (req: Request) => ({
     || null,
   userAgent: req.headers.get('user-agent') || null,
 })
+
+const getRequestUserOrNull = async (req: Request) => {
+  const token = String(req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '')
+  if (!token) return null
+  const { data, error } = await supabase.auth.getUser(token)
+  if (error || !data?.user?.id) return null
+  return data.user
+}
+
+const verifyTurnstile = async (req: Request, token: unknown) => {
+  const secret = env('TURNSTILE_SECRET_KEY') || env('CLOUDFLARE_TURNSTILE_SECRET_KEY') || env('TURNSTILE_SITE_KEY')
+  if (!secret) {
+    const error: any = new Error('Chua cau hinh TURNSTILE_SECRET_KEY tren Supabase Function.')
+    error.statusCode = 500
+    throw error
+  }
+
+  if (!token || typeof token !== 'string') {
+    const error: any = new Error('Vui lòng xác minh bạn không phải robot.')
+    error.statusCode = 400
+    throw error
+  }
+
+  const response = await fetch(TURNSTILE_VERIFY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      secret,
+      response: token,
+      remoteip: getClientInfo(req).ip || undefined,
+    }),
+  })
+  const result = await response.json().catch(() => ({}))
+  if (!response.ok || !result?.success) {
+    const error: any = new Error('Xac minh bao mat khong thanh cong. Vui long thu lai.')
+    error.statusCode = 400
+    error.details = result?.['error-codes']
+    throw error
+  }
+}
+
+const insertFeedback = async (body: any, user: any) => {
+  const payload = body?.payload || {}
+  const row = {
+    type: text(payload.type || 'idea', 40),
+    content: text(payload.content, 5000),
+    contact: text(payload.contact, 500),
+    user_id: user?.id || payload.user_id || null,
+    full_name: nullableText(payload.full_name, 200),
+    student_code: nullableText(payload.student_code, 80),
+    email: nullableText(payload.email, 320),
+  }
+  if (!row.content) {
+    const error: any = new Error('Thieu noi dung gop y.')
+    error.statusCode = 400
+    throw error
+  }
+  let { data, error } = await supabase.from('feedback').insert([row]).select('id').single()
+  if (error && String(error.message || '').toLowerCase().includes('column')) {
+    const fallback = await supabase.from('feedback').insert([{
+      type: row.type,
+      content: row.content,
+      contact: row.contact,
+      user_id: row.user_id,
+    }]).select('id').single()
+    data = fallback.data
+    error = fallback.error
+  }
+  if (error) throw error
+  return { id: data?.id }
+}
+
+const insertDonation = async (body: any, user: any) => {
+  const payload = body?.payload || {}
+  const amount = Number.parseInt(String(payload.amount || '').replace(/\D/g, ''), 10) || 0
+  if (!text(payload.name, 200) || amount <= 0) {
+    const error: any = new Error('Thieu ten hoac so tien ung ho.')
+    error.statusCode = 400
+    throw error
+  }
+  const { data, error } = await supabase.from('donations').insert([{
+    name: text(payload.name, 200),
+    student_id: text(payload.student_id || payload.mssv, 80),
+    message: text(payload.message, 1000),
+    amount,
+    user_id: user?.id || null,
+  }]).select('id').single()
+  if (error) throw error
+  return { id: data?.id }
+}
+
+const insertLostFound = async (body: any, user: any) => {
+  const payload = body?.payload || {}
+  const row = {
+    title: text(payload.title, 200),
+    description: text(payload.description, 2000),
+    location: text(payload.location, 300),
+    contact_info: text(payload.contact_info, 300),
+    user_name: text(payload.user_name || 'An danh', 200),
+    image_url: nullableText(payload.image_url, 1000),
+    type: payload.type === 'FOUND' ? 'FOUND' : 'LOST',
+    user_id: user?.id || payload.user_id || null,
+    status: 'pending',
+  }
+  if (!row.title || !row.location || !row.contact_info) {
+    const error: any = new Error('Thieu thong tin bat buoc.')
+    error.statusCode = 400
+    throw error
+  }
+  const { data, error } = await supabase.from('lost_found_items').insert([row]).select('id').single()
+  if (error) throw error
+  return { id: data?.id }
+}
+
+const insertEventContribution = async (body: any) => {
+  const payload = body?.payload || {}
+  const row = {
+    title: text(payload.title, 300),
+    deadline: payload.close_on_full ? null : nullableText(payload.deadline, 20),
+    deadline_time: payload.close_on_full ? null : nullableText(payload.deadline_time, 20),
+    close_on_full: Boolean(payload.close_on_full),
+    event_date: nullableText(payload.event_date, 20),
+    event_time: nullableText(payload.event_time, 20),
+    registration_start_date: nullableText(payload.registration_start_date, 20),
+    registration_start_time: nullableText(payload.registration_start_time, 20),
+    category: text(payload.category, 200),
+    criteria: text(payload.criteria, 40),
+    points: text(payload.points, 40),
+    organizer: text(payload.organizer, 300),
+    link: text(payload.link, 1000),
+    image_url: nullableText(payload.image_url, 1000),
+    format: text(payload.format, 80),
+    description: text(payload.description, 5000),
+    location_type: text(payload.location_type, 80),
+    status: 'pending',
+    is_manually_closed: false,
+  }
+  if (!row.title || !row.link) {
+    const error: any = new Error('Thieu ten su kien hoac link tham gia.')
+    error.statusCode = 400
+    throw error
+  }
+  const { data, error } = await supabase.from('events').insert([row]).select('id').single()
+  if (error) throw error
+  return { id: data?.id }
+}
+
+const insertBugReport = async (body: any, user: any) => {
+  const payload = body?.payload || {}
+  const row = {
+    user_id: user?.id || payload.user_id || null,
+    error_location: text(payload.error_location || payload.location, 500),
+    description: text(payload.description, 5000),
+  }
+  if (!row.error_location || !row.description) {
+    const error: any = new Error('Thieu noi dung bao loi.')
+    error.statusCode = 400
+    throw error
+  }
+  const { data, error } = await supabase.from('bug_reports').insert([row]).select('id').single()
+  if (error) throw error
+  return { id: data?.id }
+}
+
+const insertCourseReport = async (body: any, user: any) => {
+  const payload = body?.payload || {}
+  const { data, error } = await supabase.from('course_reports').insert({
+    course_code: text(payload.course_code, 120),
+    subject_name: text(payload.subject_name, 300),
+    error_description: text(payload.error_description || payload.description, 3000),
+    suggested_correction: nullableText(payload.suggested_correction, 3000),
+    user_id: user?.id || payload.user_id || null,
+  }).select('id').single()
+  if (error) throw error
+  return { id: data?.id }
+}
+
+const insertEventReport = async (body: any, user: any) => {
+  const payload = body?.payload || {}
+  const { data, error } = await supabase.from('event_reports').insert([{
+    event_id: Number.parseInt(String(payload.event_id || ''), 10) || null,
+    user_id: user?.id || payload.user_id || null,
+    event_name: text(payload.event_name, 300),
+    organizer: text(payload.organizer, 300),
+    issue_description: text(payload.issue_description || payload.issue, 3000),
+    status: 'pending',
+  }]).select('id').single()
+  if (error) throw error
+  return { id: data?.id }
+}
+
+const protectedSubmit = async (req: Request, body: any) => {
+  await verifyTurnstile(req, body?.turnstileToken)
+  const user = await getRequestUserOrNull(req)
+  const action = String(body?.action || '')
+
+  const result = action === 'verify-only' ? { verified: true }
+    : action === 'feedback' ? await insertFeedback(body, user)
+    : action === 'donation' ? await insertDonation(body, user)
+    : action === 'lost-found' ? await insertLostFound(body, user)
+    : action === 'event-contribution' ? await insertEventContribution(body)
+    : action === 'bug-report' ? await insertBugReport(body, user)
+    : action === 'course-report' ? await insertCourseReport(body, user)
+    : action === 'event-report' ? await insertEventReport(body, user)
+    : null
+
+  if (!result) return json({ error: 'Action khong hop le.' }, 400)
+  return json({ success: true, ...result })
+}
 
 const recordPolicyConsentForUser = async ({
   req,
@@ -605,7 +820,10 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders, status: 204 })
   if (req.method !== 'POST') return json({ error: 'Chi ho tro phuong thuc POST.' }, 405)
   try {
+    const resource = new URL(req.url).searchParams.get('resource')
     const body = await req.json().catch(() => ({}))
+    if (resource === 'protected-submit') return await protectedSubmit(req, body)
+
     const action = body?.action
     if (action === 'resolve-identifier') return json({ email: await resolveEmail(body?.identifier) })
     if (action === 'send-otp') return await sendOtp(body)

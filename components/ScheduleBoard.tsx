@@ -1360,7 +1360,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             alert(`Các môn học trong file đã có sẵn trong Thời khóa biểu của bạn rồi!`);
         }
 
-    } catch (err) { alert("Lỗi khi đọc PDF."); } 
+    } catch (err) {
+        const message = err instanceof Error ? err.message : '';
+        alert(message ? `Không nhập được TKB.\n\n${message}` : "Lỗi khi đọc PDF.");
+    } 
     finally {
         setIsProcessingPdf(false);
         if (fileInputRef.current) fileInputRef.current.value = '';

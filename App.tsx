@@ -2011,7 +2011,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             alert(`Đã nhập thành công ${importedSubjectCount} môn và sắp xếp lại lộ trình học tập từ năm ${firstYear}`);
         } catch (error) {
             console.error(error);
-            alert("Lỗi khi đọc file PDF.");
+            const message = error instanceof Error ? error.message : '';
+            alert(message ? `Không nhập được bảng điểm.\n\n${message}` : "Lỗi khi đọc file PDF.");
         } finally {
             setIsImporting(false);
             setShowImportLoadingToast(false);
