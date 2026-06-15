@@ -24,7 +24,7 @@ import { FEATURE_FORECAST_TOOLS } from '../utils/featureFlags';
 import { useSemesterLookback } from '../hooks/useSemesterLookback';
 import { useUserRole } from '../hooks/useUserRole';
 import { SemesterLookbackModal } from './SemesterLookbackModal';
-import { fetchProfilePrivate, fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
+import { PROFILE_PRIVATE_TABLE, fetchProfilePrivate, updateProfilePrivate } from '../utils/profilePrivate';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
@@ -1787,8 +1787,7 @@ const NativeAdminStudentManager = () => {
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [gpaFilter, setGpaFilter] = useState<'all' | 'warning' | 'excellent' | 'empty'>('all');
-  const [sortMode, setSortMode] = useState<'updated' | 'gpa' | 'credits'>('updated');
+  const [sortMode, setSortMode] = useState<'updated' | 'name'>('updated');
 
   const query = searchValue.trim();
   const canUseAdminSearch = isAdmin || isAuditor;
@@ -1798,18 +1797,28 @@ const NativeAdminStudentManager = () => {
     : [];
 
   const hydrateStudent = (profile: any, privateEntry?: any) => {
-    const data = privateEntry?.data || {};
-    const stats = calculateCumulativeStats(getUsableSemesters(data));
+    const fullData = privateEntry?.data;
+    const data = fullData || {
+      studentName: privateEntry?.student_name || profile.full_name || '',
+      programName: privateEntry?.program_name || '',
+      cohort: privateEntry?.cohort || '',
+      majorName: privateEntry?.major_name || '',
+      specializationName: privateEntry?.specialization_name || '',
+    };
+    const usableSemesters = Array.isArray(data?.semesters)
+      ? data.semesters.filter((semester: any) => Array.isArray(semester?.subjects))
+      : [];
+    const stats = fullData ? calculateCumulativeStats(usableSemesters) : null;
     return {
       ...profile,
       data,
       email: privateEntry?.email,
       updated_at: privateEntry?.updated_at || profile.updated_at,
-      isProfileSummary: true,
-      gpa4: stats.rawGPA4 || 0,
-      gpa10: stats.gpa10 || 0,
-      credits: stats.passedCredits || 0,
-      semesterCount: getUsableSemesters(data).length,
+      isProfileSummary: !fullData,
+      gpa4: stats?.rawGPA4 || 0,
+      gpa10: stats?.gpa10 || 0,
+      credits: stats?.passedCredits || 0,
+      semesterCount: usableSemesters.length,
     };
   };
 
@@ -1835,10 +1844,18 @@ const NativeAdminStudentManager = () => {
       if (error) throw error;
       const profileRows = profiles || [];
       let privateMap: Record<string, any> = {};
-      try {
-        privateMap = await fetchProfilePrivateMap(profileRows.map(profile => profile.id), { mode: 'summary' });
-      } catch (error) {
-        console.error('Không thể tải dữ liệu học tập của sinh viên:', error);
+      if (profileRows.length > 0) {
+        const { data: profileInfo, error: profileInfoError } = await supabase
+          .from(PROFILE_PRIVATE_TABLE)
+          .select('user_id, student_name, program_name, cohort, major_name, specialization_name, updated_at')
+          .in('user_id', profileRows.map(profile => profile.id));
+
+        if (!profileInfoError && profileInfo) {
+          privateMap = profileInfo.reduce((map: Record<string, any>, row: any) => {
+            map[row.user_id] = row;
+            return map;
+          }, {});
+        }
       }
       setStudents(profileRows.map(profile => hydrateStudent(profile, privateMap[profile.id])));
       setStudentsTotal(count || 0);
@@ -1866,27 +1883,12 @@ const NativeAdminStudentManager = () => {
 
   const filteredStudents = useMemo(() => {
     let result = [...students];
-    if (gpaFilter === 'warning') result = result.filter(student => student.gpa4 > 0 && student.gpa4 < 2);
-    if (gpaFilter === 'excellent') result = result.filter(student => student.gpa4 >= 3.6);
-    if (gpaFilter === 'empty') result = result.filter(student => student.credits === 0);
-    if (sortMode === 'gpa') result.sort((a, b) => b.gpa4 - a.gpa4);
-    if (sortMode === 'credits') result.sort((a, b) => b.credits - a.credits);
+    if (sortMode === 'name') {
+      result.sort((a, b) => (a.data?.studentName || a.full_name || '').localeCompare(b.data?.studentName || b.full_name || ''));
+    }
     if (sortMode === 'updated') result.sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime());
     return result;
-  }, [students, gpaFilter, sortMode]);
-
-  const summary = useMemo(() => {
-    const withGpa = filteredStudents.filter(student => student.gpa4 > 0);
-    const avgGpa = withGpa.length
-      ? withGpa.reduce((sum, student) => sum + student.gpa4, 0) / withGpa.length
-      : 0;
-    return {
-      total: filteredStudents.length,
-      avgGpa,
-      warning: filteredStudents.filter(student => student.gpa4 > 0 && student.gpa4 < 2).length,
-      excellent: filteredStudents.filter(student => student.gpa4 >= 3.6).length,
-    };
-  }, [filteredStudents]);
+  }, [students, sortMode]);
 
   const studentTotalPages = Math.max(1, Math.ceil(studentsTotal / STUDENT_PAGE_SIZE));
   const goToStudentsPage = (page: number) => {
@@ -1953,17 +1955,9 @@ const NativeAdminStudentManager = () => {
     }
   };
 
-  const filterChips = [
-    { id: 'all' as const, label: 'Tất cả' },
-    { id: 'warning' as const, label: 'Cảnh báo' },
-    { id: 'excellent' as const, label: 'Xuất sắc' },
-    { id: 'empty' as const, label: 'Chưa có điểm' },
-  ];
-
   const sortOptions = [
     { id: 'updated' as const, label: 'Mới cập nhật' },
-    { id: 'gpa' as const, label: 'GPA cao' },
-    { id: 'credits' as const, label: 'Tín chỉ cao' },
+    { id: 'name' as const, label: 'Tên A-Z' },
   ];
 
   return (
@@ -1995,18 +1989,6 @@ const NativeAdminStudentManager = () => {
             className="h-10 w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] pl-9 pr-3 text-[12px] font-bold text-[#0D1B3E] outline-none focus:border-[#1A56FF]"
           />
         </div>
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-          {filterChips.map(chip => (
-            <button
-              key={chip.id}
-              type="button"
-              onClick={() => setGpaFilter(chip.id)}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-[10.5px] font-black ${gpaFilter === chip.id ? 'bg-[#1A56FF] text-white' : 'bg-[#F2F4F8] text-[#7B8AB0]'}`}
-            >
-              {chip.label}
-            </button>
-          ))}
-        </div>
         <select
           value={sortMode}
           onChange={(event) => setSortMode(event.target.value as typeof sortMode)}
@@ -2015,11 +1997,6 @@ const NativeAdminStudentManager = () => {
           {sortOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
         </select>
       </section>
-
-      <div className="mb-3 grid grid-cols-2 gap-3 px-6">
-        <NativeStatCard title="Kết quả" value={`${summary.total}`} suffix="SV" subLabel="GPA TB" subValue={summary.avgGpa.toFixed(2)} progress={Math.min(100, summary.total)} tone="blue" icon={<Users size={15} strokeWidth={2.5} />} />
-        <NativeStatCard title="Cảnh báo" value={`${summary.warning}`} suffix="SV" subLabel="Xuất sắc" subValue={`${summary.excellent}`} progress={summary.total ? (summary.excellent / summary.total) * 100 : 0} tone="green" icon={<ShieldAlert size={15} strokeWidth={2.5} />} />
-      </div>
 
       <section className="mx-6 mb-0 space-y-2.5 rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
         {loadingStudents ? (
@@ -2046,11 +2023,7 @@ const NativeAdminStudentManager = () => {
                 <div className="min-w-0">
                   <h3 className="line-clamp-1 text-[13.5px] font-black text-[#0D1B3E]">{student.data?.studentName || student.full_name || 'Chưa có tên'}</h3>
                   <p className="mt-1 text-[11px] font-bold text-[#7B8AB0]">{student.student_code || student.email || student.id}</p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    <span className="rounded-full bg-[#EEF2FF] px-2 py-1 text-[9.5px] font-black text-[#1A56FF]">GPA {student.gpa4 ? student.gpa4.toFixed(2) : '--'}</span>
-                    <span className="rounded-full bg-[#EDFAF3] px-2 py-1 text-[9.5px] font-black text-[#00A86B]">{student.credits || 0} TC</span>
-                    <span className="rounded-full bg-[#F2F4F8] px-2 py-1 text-[9.5px] font-black text-[#7B8AB0]">{student.semesterCount || 0} kỳ</span>
-                  </div>
+                  <p className="mt-2 line-clamp-2 text-[11px] font-black text-[#1A56FF]">{student.data?.specializationName || student.data?.majorName || 'Chưa cập nhật chuyên ngành'}</p>
                 </div>
                 <ChevronRight size={18} className="mt-1 shrink-0 text-[#C0CBDF]" strokeWidth={2.5} />
               </div>
@@ -2315,12 +2288,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 }, [isAdmin, isAuditor, adminMode]);
     const [currentPage, setCurrentPage] = useState(1);
     const [pageInput, setPageInput] = useState('1');
-    const [adminSort, setAdminSort] = useState<'newest' | 'gpa_desc' | 'credits_desc' | 'created_desc' | 'created_asc'>('newest');
+    const [adminSort, setAdminSort] = useState<'newest' | 'name_asc' | 'created_desc' | 'created_asc'>('newest');
 
     const [adminFilterCohort, setAdminFilterCohort] = useState<string>('all');
     const [adminFilterMajor, setAdminFilterMajor] = useState<string>('all');
-    const [adminFilterGpa, setAdminFilterGpa] = useState<'all' | 'warning' | 'excellent' | 'nogpa'>('all');
-    const [adminFilterSemester, setAdminFilterSemester] = useState<string>('all');
     const [showAdminFilters, setShowAdminFilters] = useState(false);
 
     const itemsPerPage = 20;
@@ -2328,7 +2299,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     useEffect(() => {
         setCurrentPage(1);
         setPageInput('1');
-    }, [adminSearch, adminSort, adminFilterCohort, adminFilterMajor, adminFilterGpa, adminFilterSemester]);
+    }, [adminSearch, adminSort, adminFilterCohort, adminFilterMajor]);
 
     const prevStudentNameRef = useRef(data.studentName);
     useEffect(() => {
@@ -2399,18 +2370,34 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             const allProfiles = profiles || [];
 
             let privateMap: Record<string, any> = {};
-            try {
-                privateMap = await fetchProfilePrivateMap(allProfiles.map(profile => profile.id), { mode: 'summary' });
-            } catch (error) {
-                console.error('Không th? t?i d? li?u private c?a sinh viên:', error);
+            if (allProfiles.length > 0) {
+                const { data: profileInfo, error: profileInfoError } = await supabase
+                    .from(PROFILE_PRIVATE_TABLE)
+                    .select('user_id, student_name, program_name, cohort, major_name, specialization_name, updated_at')
+                    .in('user_id', allProfiles.map(profile => profile.id));
+
+                if (!profileInfoError && profileInfo) {
+                    privateMap = profileInfo.reduce((map: Record<string, any>, row: any) => {
+                        map[row.user_id] = row;
+                        return map;
+                    }, {});
+                }
             }
-            const users = allProfiles.map(profile => ({
+            const users = allProfiles.map(profile => {
+                const profileInfo = privateMap[profile.id] || {};
+                return ({
                 ...profile,
-                data: privateMap[profile.id]?.data || {},
+                data: {
+                    studentName: profileInfo.student_name || profile.full_name || '',
+                    programName: profileInfo.program_name || '',
+                    cohort: profileInfo.cohort || '',
+                    majorName: profileInfo.major_name || '',
+                    specializationName: profileInfo.specialization_name || '',
+                },
                 isProfileSummary: true,
-                updated_at: privateMap[profile.id]?.updated_at || profile.updated_at,
-                email: privateMap[profile.id]?.email,
-            }));
+                updated_at: profileInfo.updated_at || profile.updated_at,
+            });
+            });
             setAdminUsers(users);
             writeAdminSearchCache(query, users);
             setCurrentPage(1);
@@ -2462,58 +2449,23 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
         }
     };
 
-    const hasUsableSemesterData = (sem: any) => {
-        return !!sem && Array.isArray(sem.subjects) && /^H?c k? (1|2) Nam h?c \d{4}-\d{4}$/.test(sem.name || '');
-    };
-
-    const getSemesterWeight = (name: string) => {
-        const match = (name || '').match(/(1|2).*?(\d{4})-(\d{4})/);
-        if (!match) return 0;
-        const hk = parseInt(match[1], 10);
-        const year = parseInt(match[2], 10);
-        return year * 10 + hk;
-    };
-
-    const { adminCohorts, adminMajors, adminSemesters } = useMemo(() => {
+    const { adminCohorts, adminMajors } = useMemo(() => {
         const cSet = new Set<string>();
         const mSet = new Set<string>();
-        const sSet = new Set<string>();
 
         adminUsers.forEach(u => {
             if (u.data?.cohort) cSet.add(u.data.cohort);
             if (u.data?.majorName) mSet.add(u.data.majorName);
-            if (u.data?.semesters) {
-                u.data.semesters.forEach((sem: any) => {
-                    if (hasUsableSemesterData(sem) && sem.name) {
-                        sSet.add(sem.name);
-                    }
-                });
-            }
-        });
-
-        const sortedSems = Array.from(sSet).sort((a, b) => {
-            return getSemesterWeight(b) - getSemesterWeight(a);
         });
 
         return {
             adminCohorts: Array.from(cSet).sort(),
-            adminMajors: Array.from(mSet).sort(),
-            adminSemesters: sortedSems
+            adminMajors: Array.from(mSet).sort()
         };
     }, [adminUsers]);
 
     const baseFilteredUsers = useMemo(() => {
         return adminUsers
-            .map(u => {
-                 let validSems = (u.data?.semesters || []).filter(hasUsableSemesterData);
-
-                 if (adminFilterSemester !== 'all') {
-                     validSems = validSems.filter((s: any) => s.name === adminFilterSemester);
-                 }
-
-                 const stats = calculateCumulativeStats(validSems);
-                 return { ...u, _computedGpa: stats.rawGPA4, _computedCredits: stats.passedCredits };
-            })
             .filter(u => {
                 const matchSearch = (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) ||
                     (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) ||
@@ -2522,73 +2474,33 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                 const matchCohort = adminFilterCohort === 'all' || u.data?.cohort === adminFilterCohort;
                 const matchMajor = adminFilterMajor === 'all' || u.data?.majorName === adminFilterMajor;
 
-                const matchSemester = adminFilterSemester === 'all' || u._computedCredits > 0;
-
-                return matchSearch && matchCohort && matchMajor && matchSemester;
+                return matchSearch && matchCohort && matchMajor;
             });
-    }, [adminUsers, adminSearch, adminFilterCohort, adminFilterMajor, adminFilterSemester]);
-
-    const adminSummary = useMemo(() => {
-        if (baseFilteredUsers.length === 0) return { total: 0, avgGPA: 0, warning: 0, excellent: 0 };
-        let sumGPA = 0;
-        let countGPA = 0;
-        let warning = 0;
-        let excellent = 0;
-
-        baseFilteredUsers.forEach(u => {
-            if (u._computedGpa > 0) {
-                sumGPA += u._computedGpa;
-                countGPA++;
-                if (u._computedGpa < 2.0) warning++;
-                if (u._computedGpa >= 3.6) excellent++;
-            }
-        });
-
-        return {
-            total: baseFilteredUsers.length,
-            avgGPA: countGPA > 0 ? (sumGPA / countGPA).toFixed(2) : 0,
-            warning,
-            excellent
-        };
-    }, [baseFilteredUsers]);
+    }, [adminUsers, adminSearch, adminFilterCohort, adminFilterMajor]);
 
     const activeAdminFilterCount = useMemo(() => {
         return [
-            adminFilterGpa !== 'all',
             adminFilterMajor !== 'all',
             adminFilterCohort !== 'all',
-            adminFilterSemester !== 'all',
             adminSort !== 'newest'
         ].filter(Boolean).length;
-    }, [adminFilterGpa, adminFilterMajor, adminFilterCohort, adminFilterSemester, adminSort]);
+    }, [adminFilterMajor, adminFilterCohort, adminSort]);
 
     const resetAdminFilters = () => {
-        setAdminFilterGpa('all');
         setAdminFilterMajor('all');
         setAdminFilterCohort('all');
-        setAdminFilterSemester('all');
         setAdminSort('newest');
     };
 
     const processedAdminUsers = useMemo(() => {
         let result = [...baseFilteredUsers];
 
-        if (adminFilterGpa !== 'all') {
-            if (adminFilterGpa === 'warning') {
-                result = result.filter(u => u._computedGpa > 0 && u._computedGpa < 2.0);
-            } else if (adminFilterGpa === 'excellent') {
-                result = result.filter(u => u._computedGpa >= 3.6);
-            } else if (adminFilterGpa === 'nogpa') {
-                result = result.filter(u => !u._computedCredits || u._computedCredits === 0);
-            }
-        }
-
         if (adminSort !== 'newest') {
             result.sort((a, b) => {
-                if (adminSort === 'gpa_desc') {
-                    return b._computedGpa - a._computedGpa;
-                } else if (adminSort === 'credits_desc') {
-                    return b._computedCredits - a._computedCredits;
+                if (adminSort === 'name_asc') {
+                    const nameA = a.full_name || a.data?.studentName || '';
+                    const nameB = b.full_name || b.data?.studentName || '';
+                    return nameA.localeCompare(nameB);
                 } else if (adminSort === 'created_desc') {
                     return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
                 } else if (adminSort === 'created_asc') {
@@ -2598,7 +2510,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             });
         }
         return result;
-    }, [baseFilteredUsers, adminSort, adminFilterGpa]);
+    }, [baseFilteredUsers, adminSort]);
 
     const paginatedAdminUsers = useMemo(() => {
         return processedAdminUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -2974,40 +2886,12 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                 <div className="relative">
                                     <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
                                     <select
-                                        value={adminFilterGpa}
-                                        onChange={(e) => setAdminFilterGpa(e.target.value as any)}
-                                        className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[140px] truncate"
-                                    >
-                                        <option value="all">M?i m?c di?m</option>
-                                        <option value="excellent">Xu?t s?c (&gt;3.6)</option>
-                                        <option value="warning">C?nh báo (&lt;2.0)</option>
-                                        <option value="nogpa">Chua có di?m</option>
-                                    </select>
-                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
-                                </div>
-
-                                <div className="relative">
-                                    <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                                    <select
                                         value={adminFilterMajor}
                                         onChange={(e) => setAdminFilterMajor(e.target.value)}
                                         className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[140px] truncate"
                                     >
                                         <option value="all">T?t c? Ngành</option>
                                         {adminMajors.map(m => <option key={m} value={m}>{m}</option>)}
-                                    </select>
-                                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
-                                </div>
-
-                                <div className="relative">
-                                    <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                                    <select
-                                        value={adminFilterSemester}
-                                        onChange={(e) => setAdminFilterSemester(e.target.value)}
-                                        className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full max-w-[150px] truncate"
-                                    >
-                                        <option value="all">Tích luy toàn khóa</option>
-                                        {adminSemesters.map(s => <option key={s} value={s}>{s.replace('H?c k? ', 'HK').replace(' Nam h?c ', ' ')}</option>)}
                                     </select>
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
                                 </div>
@@ -3020,8 +2904,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         className="appearance-none pl-7 pr-7 py-1.5 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-xs bg-white text-gray-700 font-medium hover:border-blue-300 transition-colors cursor-pointer w-full"
                                     >
                                         <option value="newest">M?i c?p nh?t</option>
-                                        <option value="gpa_desc">GPA Cao nh?t</option>
-                                        <option value="credits_desc">Nhi?u Tín nh?t</option>
+                                        <option value="name_asc">Tên A-Z</option>
                                         <option value="created_desc">T?o m?i nh?t</option>
                                         <option value="created_asc">T?o cu nh?t</option>
                                     </select>
@@ -3030,52 +2913,6 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                             </div>
                         </div>
                     </div>
-                </div>
-
-                {/* 3. B?n th? th?ng kê (grid 2x2 mobile, 4x1 desktop) */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-                    <button onClick={() => { playClick(); setAdminFilterGpa('all'); }} className={`bg-white p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'all' ? 'border-[#003375] ring-1 ring-[#003375] bg-blue-50/20' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'}`}>
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
-                            <Users size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
-                        </div>
-                        <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">T?ng SV</p>
-                            <span className="text-lg sm:text-xl font-black text-gray-900">{adminSummary.total}</span>
-                        </div>
-                    </button>
-
-                    <div className="bg-white p-2.5 sm:p-3 rounded-xl border border-gray-300 flex items-center gap-2 sm:gap-3">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-50 text-purple-500 flex items-center justify-center shrink-0">
-                            <BarChart3 size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
-                        </div>
-                        <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">TB GPA</p>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-lg sm:text-xl font-black text-[#003375]">{adminSummary.avgGPA}</span>
-                                <span className="text-[10px] sm:text-xs text-gray-400 font-medium">/4.0</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'warning' ? 'all' : 'warning'); }} className={`p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'warning' ? 'border-red-500 ring-1 ring-red-500 bg-red-50/50' : 'bg-white border-gray-300 hover:border-red-400 hover:bg-red-50/30'}`}>
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
-                            <AlertTriangle size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
-                        </div>
-                        <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-red-600/80 uppercase tracking-wider mb-0.5">C?nh báo</p>
-                            <span className="text-lg sm:text-xl font-black text-red-600">{adminSummary.warning}</span>
-                        </div>
-                    </button>
-
-                    <button onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'excellent' ? 'all' : 'excellent'); }} className={`p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'excellent' ? 'border-yellow-500 ring-1 ring-yellow-500 bg-yellow-50/50' : 'bg-white border-gray-300 hover:border-yellow-400 hover:bg-yellow-50/30'}`}>
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
-                            <Crown size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
-                        </div>
-                        <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-orange-500/80 uppercase tracking-wider mb-0.5">Xu?t s?c</p>
-                            <span className="text-lg sm:text-xl font-black text-orange-500">{adminSummary.excellent}</span>
-                        </div>
-                    </button>
                 </div>
 
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -3090,9 +2927,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                         ) : paginatedAdminUsers.length > 0 ? (
                             <div className="divide-y divide-gray-100">
                                 {paginatedAdminUsers.map(user => {
-                                    const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
-                                    const gpaLabel = user._computedGpa > 0 ? user._computedGpa.toFixed(2) : '-';
-                                    const creditsLabel = user._computedCredits || 0;
+                                    const majorLabel = user.data?.specializationName || user.data?.majorName || 'Chưa cập nhật chuyên ngành';
 
                                     return (
                                         <button
@@ -3104,21 +2939,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                                 <div className="min-w-0">
                                                     <p className="text-[11px] font-black text-[#003375] tracking-wide">{user.student_code || '-'}</p>
                                                     <h3 className="mt-1 text-sm font-extrabold text-gray-900 leading-snug line-clamp-2">{user.full_name || user.data?.studentName || 'Ch?a c?p nh?t'}</h3>
-                                                    <p className="mt-1 text-[11px] font-medium text-gray-500 line-clamp-2">{user.data?.programName || '-'} / {user.data?.cohort || '-'}</p>
-                                                </div>
-                                                <div className="shrink-0 text-right">
-                                                    <p className="text-[10px] font-black uppercase tracking-wide text-gray-400">{adminFilterSemester === 'all' ? 'GPA TL' : 'GPA HK'}</p>
-                                                    <p className="text-xl font-black text-emerald-600 leading-none mt-1">{gpaLabel}</p>
-                                                </div>
-                                            </div>
-                                            <div className="mt-3 grid grid-cols-2 gap-2">
-                                                <div className="rounded-lg bg-gray-50 border border-gray-100 px-2.5 py-2">
-                                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Tín ch?</p>
-                                                    <p className="text-sm font-black text-gray-800">{creditsLabel}</p>
-                                                </div>
-                                                <div className="rounded-lg bg-gray-50 border border-gray-100 px-2.5 py-2">
-                                                    <p className="text-[10px] font-bold text-gray-400 uppercase">C?p nh?t</p>
-                                                    <p className="text-xs font-bold text-gray-700">{updateDate}</p>
+                                                    <p className="mt-1 text-[11px] font-black text-[#1A56FF] line-clamp-2">{majorLabel}</p>
                                                 </div>
                                             </div>
                                         </button>
@@ -3131,40 +2952,33 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     <div className="hidden sm:block overflow-x-auto custom-scrollbar max-h-[55vh]">
-                        <table className="min-w-[820px] w-full text-sm text-left relative">
+                        <table className="min-w-[560px] w-full text-sm text-left relative">
                             <thead className="bg-gray-50 text-gray-600 border-b border-gray-200 sticky top-0 z-10">
                                 <tr>
                                     <th className="px-4 py-3 font-bold">MSSV</th>
                                     <th className="px-4 py-3 font-bold">H? và Tên</th>
-                                    <th className="px-4 py-3 font-bold">H? / Khóa</th>
-                                    <th className="px-4 py-3 font-bold text-center">{adminFilterSemester === 'all' ? 'GPA Tích luy' : 'GPA H?c k?'}</th>
-                                    <th className="px-4 py-3 font-bold text-center">Tín ch?</th>
-                                    <th className="px-4 py-3 font-bold text-right">C?p nh?t lúc</th>
+                                    <th className="px-4 py-3 font-bold">Chuyên ngành</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {loadingAdmin ? (
-                                    <tr><td colSpan={6} className="py-12 text-center"><Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/> <span className="text-gray-500">Đang tìm sinh viên...</span></td></tr>
+                                    <tr><td colSpan={3} className="py-12 text-center"><Loader2 className="animate-spin text-[#003375] mx-auto mb-2" size={28}/> <span className="text-gray-500">Đang tìm sinh viên...</span></td></tr>
                                 ) : !hasAdminSearchQuery ? (
-                                    <tr><td colSpan={6} className="py-12 text-center text-gray-500">Nhập MSSV hoặc tên sinh viên để tải danh sách phù hợp.</td></tr>
+                                    <tr><td colSpan={3} className="py-12 text-center text-gray-500">Nhập MSSV hoặc tên sinh viên để tải danh sách phù hợp.</td></tr>
                                 ) : (() => {
                                     return paginatedAdminUsers.length > 0 ? (
                                         paginatedAdminUsers.map(user => {
-                                            const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
-
+                                            const majorLabel = user.data?.specializationName || user.data?.majorName || '-';
                                             return (
                                                 <tr key={user.id} onClick={() => handleOpenAdminUserDetail(user)} className="hover:bg-blue-50/50 cursor-pointer transition-colors group">
                                                     <td className="px-4 py-3 font-bold text-[#003375]">{user.student_code || '-'}</td>
                                                     <td className="px-4 py-3 font-medium text-gray-900 group-hover:text-[#003375] transition-colors">{user.full_name || user.data?.studentName || 'Ch?a c?p nh?t'}</td>
-                                                    <td className="px-4 py-3 text-gray-600">{user.data?.programName || '-'} / {user.data?.cohort || '-'}</td>
-                                                    <td className="px-4 py-3 text-center font-bold text-emerald-600">{user._computedGpa > 0 ? user._computedGpa.toFixed(2) : '-'}</td>
-                                                    <td className="px-4 py-3 text-center text-gray-600">{user._computedCredits || 0}</td>
-                                                    <td className="px-4 py-3 text-right text-xs text-gray-500">{updateDate}</td>
+                                                    <td className="px-4 py-3 text-gray-600">{majorLabel}</td>
                                                 </tr>
                                             )
                                         })
                                     ) : (
-                                        <tr><td colSpan={6} className="py-8 text-center text-gray-500">Không tìm th?y sinh viên nào phù h?p</td></tr>
+                                        <tr><td colSpan={3} className="py-8 text-center text-gray-500">Không tìm th?y sinh viên nào phù h?p</td></tr>
                                     )
                                 })()}
                             </tbody>

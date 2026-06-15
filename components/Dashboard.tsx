@@ -26,7 +26,7 @@ import { useSemesterLookback } from '../hooks/useSemesterLookback';
 import { SemesterLookbackModal } from './SemesterLookbackModal';
 import { useUserRole } from '../hooks/useUserRole';
 import { exportTranscriptToPdf } from '../utils/pdfExport';
-import { fetchProfilePrivate, fetchProfilePrivateMap, updateProfilePrivate } from '../utils/profilePrivate';
+import { PROFILE_PRIVATE_TABLE, fetchProfilePrivate, updateProfilePrivate } from '../utils/profilePrivate';
 import PushNotificationPrompt from '../components/PushNotificationPrompt'; // Đường dẫn tùy sếp lưu ở đâu
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { showAlert } from '../utils/appNotifications';
@@ -1368,7 +1368,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const { isAdmin, isAuditor, loading } = useUserRole();
     const [adminUsers, setAdminUsers] = useState<any[]>([]);
     const [loadingAdmin, setLoadingAdmin] = useState(false);
-    const [loadingAdminDetails, setLoadingAdminDetails] = useState(false);
     const [selectedUserOverview, setSelectedUserOverview] = useState<UserData | null>(null);
     const [selectedAdminUserId, setSelectedAdminUserId] = useState<string | null>(null);
     const isViewingAsAuditor = isAuditor && selectedUserOverview !== null;
@@ -1402,15 +1401,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
     
     const [adminFilterCohort, setAdminFilterCohort] = useState<string>('all');
     const [adminFilterMajor, setAdminFilterMajor] = useState<string>('all');
-    const [adminFilterGpa, setAdminFilterGpa] = useState<'all' | 'warning' | 'excellent' | 'nogpa'>('all');
-    const [adminFilterSemester, setAdminFilterSemester] = useState<string>('all');
 
     const itemsPerPage = 20;
 
     useEffect(() => { 
         setCurrentPage(1); 
         setPageInput('1'); 
-    }, [adminSearch, adminSort, adminFilterCohort, adminFilterMajor, adminFilterGpa, adminFilterSemester]);
+    }, [adminSearch, adminSort, adminFilterCohort, adminFilterMajor]);
 
     const prevStudentNameRef = useRef(data.studentName);
     
@@ -1457,7 +1454,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         if (query.length < 2) {
             setAdminUsers([]);
             setLoadingAdmin(false);
-            setLoadingAdminDetails(false);
             return;
         }
 
@@ -1472,7 +1468,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
 
         setLoadingAdmin(true);
-        setLoadingAdminDetails(false);
         try {
             const safeQuery = query.replace(/[%,_]/g, ' ').trim();
             const { data: profiles, error } = await supabase
@@ -1485,34 +1480,41 @@ export const Dashboard: React.FC<DashboardProps> = ({
             if (error) throw error;
             const allProfiles = profiles || [];
 
-            const baseUsers = allProfiles.map(profile => ({
+            let profileInfoMap: Record<string, any> = {};
+            if (allProfiles.length > 0) {
+                const { data: profileInfo, error: profileInfoError } = await supabase
+                    .from(PROFILE_PRIVATE_TABLE)
+                    .select('user_id, student_name, program_name, cohort, major_name, specialization_name, updated_at')
+                    .in('user_id', allProfiles.map(profile => profile.id));
+
+                if (!profileInfoError && profileInfo) {
+                    profileInfoMap = profileInfo.reduce((map: Record<string, any>, row: any) => {
+                        map[row.user_id] = row;
+                        return map;
+                    }, {});
+                }
+            }
+
+            const baseUsers = allProfiles.map(profile => {
+                const profileInfo = profileInfoMap[profile.id] || {};
+                return ({
                 ...profile,
-                data: {},
-            }));
+                data: {
+                    studentName: profileInfo.student_name || profile.full_name || '',
+                    programName: profileInfo.program_name || '',
+                    cohort: profileInfo.cohort || '',
+                    majorName: profileInfo.major_name || '',
+                    specializationName: profileInfo.specialization_name || '',
+                },
+                isProfileSummary: true,
+                updated_at: profileInfo.updated_at || profile.updated_at,
+            });
+            });
 
             setAdminUsers(baseUsers);
             setCurrentPage(1);
             setPageInput('1');
-            
-            let privateMap: Record<string, any> = {};
-            setLoadingAdmin(false);
-            setLoadingAdminDetails(allProfiles.length > 0);
-            try {
-                privateMap = await fetchProfilePrivateMap(allProfiles.map(profile => profile.id), { mode: 'summary' });
-            } catch (error) {
-                console.error('Không thể tải dữ liệu private của sinh viên:', error);
-            } finally {
-                setLoadingAdminDetails(false);
-            }
-            const users = allProfiles.map(profile => ({
-                ...profile,
-                data: privateMap[profile.id]?.data || {},
-                isProfileSummary: true,
-                updated_at: privateMap[profile.id]?.updated_at || profile.updated_at,
-                email: privateMap[profile.id]?.email,
-            }));
-            setAdminUsers(users);
-            writeAdminSearchCache(query, users);
+            writeAdminSearchCache(query, baseUsers);
         } finally {
             setLoadingAdmin(false);
         }
@@ -1524,7 +1526,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         if (!hasAdminSearchQuery) {
             setAdminUsers([]);
             setLoadingAdmin(false);
-            setLoadingAdminDetails(false);
             return;
         }
 
@@ -1561,53 +1562,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
     };
 
-    const { adminCohorts, adminMajors, adminSemesters } = useMemo(() => {
+    const { adminCohorts, adminMajors } = useMemo(() => {
         const cSet = new Set<string>();
         const mSet = new Set<string>();
-        const sSet = new Set<string>();
 
         adminUsers.forEach(u => {
             if (u.data?.cohort) cSet.add(u.data.cohort);
             if (u.data?.majorName) mSet.add(u.data.majorName);
-            if (u.data?.semesters) {
-                u.data.semesters.forEach((sem: any) => {
-                    if (/^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test(sem.name)) {
-                        sSet.add(sem.name);
-                    }
-                });
-            }
-        });
-
-        const sortedSems = Array.from(sSet).sort((a, b) => {
-            const getW = (name: string) => {
-                const match = name.match(/Học kỳ (1|2) Năm học (\d{4})-(\d{4})/);
-                if (!match) return 0;
-                const hk = parseInt(match[1]);
-                const year = parseInt(match[2]);
-                return year * 10 + hk;
-            };
-            return getW(b) - getW(a); 
         });
 
         return {
             adminCohorts: Array.from(cSet).sort(),
-            adminMajors: Array.from(mSet).sort(),
-            adminSemesters: sortedSems
+            adminMajors: Array.from(mSet).sort()
         };
     }, [adminUsers]);
 
     const baseFilteredUsers = useMemo(() => {
         return adminUsers
-            .map(u => {
-                 let validSems = (u.data?.semesters || []).filter((s:any) => /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test(s.name));
-
-                 if (adminFilterSemester !== 'all') {
-                     validSems = validSems.filter((s: any) => s.name === adminFilterSemester);
-                 }
-
-                 const stats = calculateCumulativeStats(validSems);
-                 return { ...u, _computedGpa: stats.rawGPA4, _computedCredits: stats.passedCredits };
-            })
             .filter(u => {
                 const matchSearch = (u.student_code && u.student_code.toLowerCase().includes(adminSearch.toLowerCase())) ||
                     (u.full_name && u.full_name.toLowerCase().includes(adminSearch.toLowerCase())) ||
@@ -1615,55 +1586,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 
                 const matchCohort = adminFilterCohort === 'all' || u.data?.cohort === adminFilterCohort;
                 const matchMajor = adminFilterMajor === 'all' || u.data?.majorName === adminFilterMajor;
-                
-                const matchSemester = adminFilterSemester === 'all' || u._computedCredits > 0;
 
-                return matchSearch && matchCohort && matchMajor && matchSemester;
+                return matchSearch && matchCohort && matchMajor;
             });
-    }, [adminUsers, adminSearch, adminFilterCohort, adminFilterMajor, adminFilterSemester]);
-
-    const adminSummary = useMemo(() => {
-        if (baseFilteredUsers.length === 0) return { total: 0, avgGPA: 0, warning: 0, excellent: 0 };
-        let sumGPA = 0;
-        let countGPA = 0;
-        let warning = 0;
-        let excellent = 0;
-
-        baseFilteredUsers.forEach(u => {
-            if (u._computedGpa > 0) {
-                sumGPA += u._computedGpa;
-                countGPA++;
-                if (u._computedGpa < 2.0) warning++;
-                if (u._computedGpa >= 3.6) excellent++;
-            }
-        });
-
-        return {
-            total: baseFilteredUsers.length,
-            avgGPA: countGPA > 0 ? (sumGPA / countGPA).toFixed(2) : 0,
-            warning,
-            excellent
-        };
-    }, [baseFilteredUsers]);
+    }, [adminUsers, adminSearch, adminFilterCohort, adminFilterMajor]);
 
     const processedAdminUsers = useMemo(() => {
         let result = [...baseFilteredUsers];
 
-        if (adminFilterGpa !== 'all') {
-            if (adminFilterGpa === 'warning') {
-                result = result.filter(u => u._computedGpa > 0 && u._computedGpa < 2.0);
-            } else if (adminFilterGpa === 'excellent') {
-                result = result.filter(u => u._computedGpa >= 3.6);
-            } else if (adminFilterGpa === 'nogpa') {
-                result = result.filter(u => !u._computedCredits || u._computedCredits === 0);
-            }
-        }
-
         result.sort((a, b) => {
-            if (adminSort === 'gpa_desc') return b._computedGpa - a._computedGpa;
-            if (adminSort === 'gpa_asc') return a._computedGpa - b._computedGpa;
-            if (adminSort === 'credits_desc') return b._computedCredits - a._computedCredits;
-            if (adminSort === 'credits_asc') return a._computedCredits - b._computedCredits;
             if (adminSort === 'mssv_asc') return (a.student_code || '').localeCompare(b.student_code || '');
             if (adminSort === 'mssv_desc') return (b.student_code || '').localeCompare(a.student_code || '');
             if (adminSort === 'name_asc') {
@@ -1686,14 +1617,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
         });
 
         return result;
-    }, [baseFilteredUsers, adminSort, adminFilterGpa]);
+    }, [baseFilteredUsers, adminSort]);
 
     const handleSortClick = (column: string) => {
         playClick();
         if (adminSort.startsWith(column)) {
             setAdminSort(adminSort.endsWith('_asc') ? `${column}_desc` : `${column}_asc`);
         } else {
-            if (column === 'gpa' || column === 'credits' || column === 'updated') {
+            if (column === 'updated') {
                 setAdminSort(`${column}_desc`);
             } else {
                 setAdminSort(`${column}_asc`);
@@ -2264,16 +2195,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                     <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full pb-0.5 md:pb-0">
                         <div className="relative shrink-0">
-                            <select value={adminFilterGpa} onChange={(e) => setAdminFilterGpa(e.target.value as any)} className="appearance-none bg-gray-50 border border-gray-300 rounded-lg py-1.5 pl-2.5 pr-7 text-xs text-gray-700 font-medium outline-none cursor-pointer hover:border-[#003375] w-[120px]">
-                                <option value="all">Mọi mức điểm</option>
-                                <option value="excellent">Xuất sắc (&gt;3.6)</option>
-                                <option value="warning">Cảnh báo (&lt;2.0)</option>
-                                <option value="nogpa">Chưa có điểm</option>
-                            </select>
-                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3 pointer-events-none" />
-                        </div>
-
-                        <div className="relative shrink-0">
                             <select value={adminSort} onChange={(e) => setAdminSort(e.target.value)} className="appearance-none bg-gray-50 border border-gray-300 rounded-lg py-1.5 pl-2.5 pr-7 text-xs text-gray-700 font-medium outline-none cursor-pointer hover:border-[#003375] w-[140px] truncate">
                                 <option value="updated_desc">Mới cập nhật</option>
                                 <option value="updated_asc">Cũ cập nhật</option>
@@ -2291,73 +2212,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3 pointer-events-none" />
                         </div>
 
-                        <div className="relative shrink-0">
-                            <select value={adminFilterSemester} onChange={(e) => setAdminFilterSemester(e.target.value)} className="appearance-none bg-gray-50 border border-gray-300 rounded-lg py-1.5 pl-2.5 pr-7 text-xs text-gray-700 font-medium outline-none cursor-pointer hover:border-[#003375] w-[140px] truncate">
-                                <option value="all">Tích lũy toàn khóa</option>
-                                {adminSemesters.map(s => <option key={s} value={s}>{s.replace('Học kỳ ', 'HK').replace(' Năm học ', ' ')}</option>)}
-                            </select>
-                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3 pointer-events-none" />
-                        </div>
                     </div>
-                </div>
-
-                {loadingAdminDetails && (
-                    <div className="px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-[#0052cc] text-xs font-semibold flex items-center gap-2">
-                        <Loader2 size={14} className="animate-spin" />
-                        Đang cập nhật điểm và GPA, danh sách vẫn có thể dùng bình thường.
-                    </div>
-                )}
-
-                {/* 3. BỐN THẺ THỐNG KÊ (GRID 2x2 MOBILE, 4x1 DESKTOP) */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-                    <button onClick={() => { playClick(); setAdminFilterGpa('all'); }} className={`bg-white p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'all' ? 'border-[#003375] ring-1 ring-[#003375] bg-blue-50/20' : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'}`}>
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-blue-50 text-blue-500 border border-blue-200 flex items-center justify-center shrink-0">
-                            <Users size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
-                        </div>
-                        <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Tổng SV</p>
-                            <span className="text-lg sm:text-xl font-black text-gray-900">{adminSummary.total}</span>
-                        </div>
-                    </button>
-
-                    <div className="bg-white p-2.5 sm:p-3 rounded-xl border border-gray-300 flex items-center gap-2 sm:gap-3">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-purple-50 text-purple-500 border border-purple-200 flex items-center justify-center shrink-0">
-                            <BarChart3 size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
-                        </div>
-                        <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">TB GPA</p>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-lg sm:text-xl font-black text-[#003375]">{adminSummary.avgGPA}</span>
-                                <span className="text-[10px] sm:text-xs text-gray-400 font-medium">/4.0</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'warning' ? 'all' : 'warning'); }} className={`p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'warning' ? 'border-red-500 ring-1 ring-red-500 bg-red-50/50' : 'bg-white border-gray-300 hover:border-red-400 hover:bg-red-50/30'}`}>
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-red-50 text-red-500 border border-red-200 flex items-center justify-center shrink-0">
-                            <AlertTriangle size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
-                        </div>
-                        <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-red-600/80 uppercase tracking-wider mb-0.5">Cảnh báo</p>
-                            <span className="text-lg sm:text-xl font-black text-red-600">{adminSummary.warning}</span>
-                        </div>
-                    </button>
-
-                    <button onClick={() => { playClick(); setAdminFilterGpa(prev => prev === 'excellent' ? 'all' : 'excellent'); }} className={`p-2.5 sm:p-3 rounded-xl border flex items-center gap-2 sm:gap-3 transition-all text-left ${adminFilterGpa === 'excellent' ? 'border-yellow-500 ring-1 ring-yellow-500 bg-yellow-50/50' : 'bg-white border-gray-300 hover:border-yellow-400 hover:bg-yellow-50/30'}`}>
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-orange-50 text-orange-500 border border-orange-200 flex items-center justify-center shrink-0">
-                            <Crown size={16} className="sm:w-[18px] sm:h-[18px]" strokeWidth={2.5} />
-                        </div>
-                        <div>
-                            <p className="text-[9px] sm:text-[10px] font-bold text-orange-500/80 uppercase tracking-wider mb-0.5">Xuất sắc</p>
-                            <span className="text-lg sm:text-xl font-black text-orange-500">{adminSummary.excellent}</span>
-                        </div>
-                    </button>
                 </div>
 
                 {/* 4. BẢNG DỮ LIỆU */}
                 <div className="bg-white border border-gray-300 rounded-xl overflow-hidden">
                     <div className="overflow-x-auto custom-scrollbar max-h-[65vh]">
-                        <table className="w-full text-left relative min-w-[550px] sm:min-w-[700px]">
+                        <table className="w-full text-left relative min-w-[520px]">
                             <thead className="bg-gray-50 border-b border-gray-300 sticky top-0 z-10 text-[10px] sm:text-[11px] text-gray-500 font-bold uppercase tracking-wider">
                                 <tr>
                                     <th className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none" onClick={() => handleSortClick('mssv')}>
@@ -2367,32 +2228,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                         <div className="flex items-center gap-1">HỌ VÀ TÊN {adminSort.startsWith('name') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-400"/>}</div>
                                     </th>
                                     <th className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none" onClick={() => handleSortClick('cohort')}>
-                                        <div className="flex items-center gap-1">HỆ / KHÓA {adminSort.startsWith('cohort') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-400"/>}</div>
-                                    </th>
-                                    <th className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none text-center" onClick={() => handleSortClick('gpa')}>
-                                        <div className="flex items-center justify-center gap-1">{adminFilterSemester === 'all' ? 'GPA' : 'GPA HK'} {adminSort.startsWith('gpa') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-400"/>}</div>
-                                    </th>
-                                    <th className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none text-center" onClick={() => handleSortClick('credits')}>
-                                        <div className="flex items-center justify-center gap-1">TC {adminSort.startsWith('credits') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-400"/>}</div>
-                                    </th>
-                                    <th className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-gray-100 transition-colors select-none text-right" onClick={() => handleSortClick('updated')}>
-                                        <div className="flex items-center justify-end gap-1">CẬP NHẬT {adminSort.startsWith('updated') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-400"/>}</div>
+                                        <div className="flex items-center gap-1">CHUYÊN NGÀNH {adminSort.startsWith('cohort') ? (adminSort.endsWith('desc') ? <ArrowDown size={12} className="text-[#0052cc]"/> : <ArrowUp size={12} className="text-[#0052cc]"/>) : <ArrowUpDown size={12} className="text-gray-400"/>}</div>
                                     </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
                                 {loadingAdmin && adminUsers.length === 0 ? (
-                                    <tr><td colSpan={6} className="py-10 text-center"><Loader2 className="animate-spin text-[#0052cc] mx-auto mb-2" size={24}/> <span className="text-xs text-gray-500">Đang tìm sinh viên...</span></td></tr>
+                                    <tr><td colSpan={3} className="py-10 text-center"><Loader2 className="animate-spin text-[#0052cc] mx-auto mb-2" size={24}/> <span className="text-xs text-gray-500">Đang tìm sinh viên...</span></td></tr>
                                 ) : !hasAdminSearchQuery ? (
-                                    <tr><td colSpan={6} className="py-10 text-center text-xs text-gray-500">Nhập MSSV hoặc tên sinh viên để tải danh sách phù hợp.</td></tr>
+                                    <tr><td colSpan={3} className="py-10 text-center text-xs text-gray-500">Nhập MSSV hoặc tên sinh viên để tải danh sách phù hợp.</td></tr>
                                 ) : (() => {
                                     const paginatedUsers = processedAdminUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
                                     return paginatedUsers.length > 0 ? (
                                         paginatedUsers.map(user => {
-                                            const updateDate = new Date(user.updated_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
                                             const fullName = user.full_name || user.data?.studentName || 'Chưa cập nhật';
                                             const avatar = getAvatarProps(fullName);
-                                            const gpaBadge = user._computedGpa > 0 ? getGpaBadge(user._computedGpa) : null;
+                                            const majorLabel = user.data?.specializationName || user.data?.majorName || '-';
                                             
                                             return (
                                                 <tr key={user.id} onClick={() => handleOpenAdminUserDetail(user)} className="hover:bg-blue-50/50 cursor-pointer transition-colors group bg-white">
@@ -2405,22 +2256,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                                             <span className="font-semibold text-gray-800 text-xs group-hover:text-[#0052cc] transition-colors line-clamp-1">{fullName}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-gray-600 text-[10px] sm:text-xs border-r border-gray-100">{user.data?.programName || 'ĐHCQ'} / {user.data?.cohort || '-'}</td>
-                                                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-center border-r border-gray-100">
-                                                        <div className="flex flex-col items-center justify-center gap-0.5 sm:gap-1">
-                                                            <span className={`font-bold text-[11px] sm:text-xs ${user._computedGpa >= 3.2 ? 'text-[#0052cc]' : (user._computedGpa >= 2.5 ? 'text-orange-500' : 'text-gray-700')}`}>{user._computedGpa > 0 ? user._computedGpa.toFixed(2) : '-'}</span>
-                                                            {gpaBadge && (
-                                                                <span className={`px-1 py-[1px] sm:px-1.5 sm:py-0.5 rounded text-[8px] sm:text-[9px] font-semibold border whitespace-nowrap ${gpaBadge.className}`}>{gpaBadge.label}</span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-gray-700 font-semibold text-center text-[11px] sm:text-xs border-r border-gray-100">{user._computedCredits || 0}</td>
-                                                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-right text-[10px] sm:text-[11px] text-gray-500 whitespace-nowrap">{updateDate}</td>
+                                                    <td className="px-3 sm:px-4 py-2.5 sm:py-3 text-gray-600 text-[10px] sm:text-xs">{majorLabel}</td>
                                                 </tr>
                                             )
                                         })
                                     ) : (
-                                        <tr><td colSpan={6} className="py-8 text-center text-xs text-gray-500">Không tìm thấy sinh viên nào phù hợp</td></tr>
+                                        <tr><td colSpan={3} className="py-8 text-center text-xs text-gray-500">Không tìm thấy sinh viên nào phù hợp</td></tr>
                                     )
                                 })()}
                             </tbody>
