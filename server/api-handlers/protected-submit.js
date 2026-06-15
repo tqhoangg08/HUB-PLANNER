@@ -29,7 +29,9 @@ const getUser = async (request) => {
 };
 
 const verifyTurnstile = async (request, token) => {
-  const secret = process.env.TURNSTILE_SECRET_KEY || process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY;
+  const secret = process.env.TURNSTILE_SECRET_KEY
+    || process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY
+    || process.env.TURNSTILE_SITE_KEY;
   if (!secret) {
     if (process.env.NODE_ENV !== 'production') return;
     const error = new Error('Chua cau hinh TURNSTILE_SECRET_KEY.');
