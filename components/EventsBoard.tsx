@@ -1365,24 +1365,23 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     setError(null);
 
     try {
-      const requestUrl = apiUrl(options.bypassCache ? `/events?refresh=${Date.now()}` : '/events');
-      const headers = apiHeaders(options.bypassCache ? { 'Cache-Control': 'no-cache', Pragma: 'no-cache' } : {});
-      const res = await fetch(requestUrl, {
-        headers,
-        cache: options.bypassCache ? 'no-store' : 'default',
-      });
-      const responseText = await res.text();
-      const json = responseText ? JSON.parse(responseText) : {};
+      if (!supabase) throw new Error('Chưa khởi tạo kết nối Supabase');
 
-      if (!res.ok) {
-        throw new Error(json.error || json.details || `Không tải được sự kiện (${res.status}) từ ${requestUrl}`);
+      const eventColumns = 'id,title,criteria,points,format,deadline,deadline_time,close_on_full,description,link,organizer,category,classification,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url';
+      let query = supabase
+        .from('events')
+        .select(eventColumns)
+        .order('created_at', { ascending: false })
+        .limit(300);
+
+      if (!showManagementView) {
+        query = query.or('is_deleted.is.false,is_deleted.is.null').neq('status', 'pending');
       }
 
-      if (!res.ok) {
-        throw new Error(json.error || 'Lỗi khi tải dữ liệu sự kiện');
-      }
+      const { data, error: fetchError } = await query;
+      if (fetchError) throw fetchError;
 
-      let fetchedData = json.data || [];
+      let fetchedData = data || [];
 
       if (!canManage) {
         fetchedData = fetchedData.filter((evt: any) => evt.status !== 'pending');

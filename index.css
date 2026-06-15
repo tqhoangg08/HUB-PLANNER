@@ -1666,34 +1666,68 @@ html.mobile-menu-open main {
   animation: mobileMenuPanelIn 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.mobile-menu-layer {
-  height: 100vh;
-  height: calc(var(--app-vh, 1vh) * 100);
-  max-height: calc(var(--app-vh, 1vh) * 100);
-  overflow: hidden;
-  overscroll-behavior: contain;
-}
+@media (max-width: 767px) {
+  .mobile-menu-backdrop {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    z-index: 9998 !important;
+    overscroll-behavior: contain;
+  }
 
-.mobile-menu-panel {
-  height: 100vh;
-  height: calc(var(--app-vh, 1vh) * 100);
-  max-height: calc(var(--app-vh, 1vh) * 100);
-  overflow: hidden;
-  touch-action: auto;
-  overscroll-behavior: contain;
-}
+  .mobile-menu-backdrop::after {
+    content: "";
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: -100px;
+    height: calc(100px + env(safe-area-inset-bottom));
+    background: rgb(0 0 0 / 0.6);
+    pointer-events: none;
+  }
 
-.mobile-menu-scroll {
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
-  padding-bottom: calc(2rem + env(safe-area-inset-bottom));
-  scroll-padding-bottom: calc(8rem + var(--app-bottom-gap, 0px) + env(safe-area-inset-bottom));
-  pointer-events: auto !important;
-}
+  .mobile-menu-layer {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
 
-.mobile-menu-bottom-spacer {
-  height: calc(14rem + var(--app-bottom-gap, 0px) + env(safe-area-inset-bottom));
+  .mobile-menu-panel {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden;
+    touch-action: auto;
+    overscroll-behavior: contain;
+    z-index: 9999 !important;
+    background: #ffffff !important;
+    isolation: isolate;
+  }
+
+  .mobile-menu-panel::after {
+    content: "";
+    position: fixed;
+    left: 0;
+    bottom: -100px;
+    width: 85%;
+    max-width: 320px;
+    height: calc(100px + env(safe-area-inset-bottom));
+    background: #ffffff;
+    pointer-events: none;
+  }
+
+  .mobile-menu-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 24px) !important;
+    scroll-padding-bottom: calc(8rem + var(--app-bottom-gap, 0px) + env(safe-area-inset-bottom));
+    pointer-events: auto !important;
+  }
+
+  .mobile-menu-bottom-spacer {
+    height: calc(14rem + var(--app-bottom-gap, 0px) + env(safe-area-inset-bottom));
+  }
 }
 
 /* =========================================================

@@ -59,7 +59,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   const profileSearchRef = useRef<HTMLFormElement>(null);
   const navContainerRef = useRef<HTMLElement>(null);
   const navRefs = useRef<(HTMLAnchorElement | HTMLButtonElement | null)[]>([]);
-  const lockedScrollYRef = useRef(0);
   const [navIndicator, setNavIndicator] = useState({ left: 0, width: 0, opacity: 0 });
   const [pendingReportCount, setPendingReportCount] = useState(0);
   const [pendingCandidateCount, setPendingCandidateCount] = useState(0);
@@ -202,39 +201,21 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   useEffect(() => {
       if (!isMobileMenuOpen) return;
 
-      lockedScrollYRef.current = window.scrollY || window.pageYOffset || 0;
-
       const html = document.documentElement;
       const body = document.body;
       const previousHtmlOverflow = html.style.overflow;
-      const previousBodyPosition = body.style.position;
-      const previousBodyTop = body.style.top;
-      const previousBodyLeft = body.style.left;
-      const previousBodyRight = body.style.right;
-      const previousBodyWidth = body.style.width;
       const previousBodyOverflow = body.style.overflow;
 
       html.classList.add('mobile-menu-open');
       body.classList.add('mobile-menu-open');
       html.style.overflow = 'hidden';
-      body.style.position = 'fixed';
-      body.style.top = `-${lockedScrollYRef.current}px`;
-      body.style.left = '0';
-      body.style.right = '0';
-      body.style.width = '100%';
       body.style.overflow = 'hidden';
 
       return () => {
           html.classList.remove('mobile-menu-open');
           body.classList.remove('mobile-menu-open');
           html.style.overflow = previousHtmlOverflow;
-          body.style.position = previousBodyPosition;
-          body.style.top = previousBodyTop;
-          body.style.left = previousBodyLeft;
-          body.style.right = previousBodyRight;
-          body.style.width = previousBodyWidth;
           body.style.overflow = previousBodyOverflow;
-          window.scrollTo(0, lockedScrollYRef.current);
       };
   }, [isMobileMenuOpen]);
 
@@ -359,7 +340,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   </div>
 
                   {/* DANH SÁCH CHỨC NĂNG */}
-                  <div className="flex-1 overflow-y-auto py-6 flex flex-col gap-1.5 px-4 custom-scrollbar">
+                  <div className="mobile-menu-scroll flex-1 overflow-y-auto py-6 flex flex-col gap-1.5 px-4 custom-scrollbar">
                       <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider">CHỨC NĂNG</div>
                       
                       <NavLink to="/dashboard" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
