@@ -15,17 +15,20 @@ drop policy if exists "notification_preferences_select_own" on public.notificati
 create policy "notification_preferences_select_own"
 on public.notification_preferences
 for select
-using (auth.uid() = user_id);
+to authenticated
+using (user_id = (select auth.uid()));
 
 drop policy if exists "notification_preferences_insert_own" on public.notification_preferences;
 create policy "notification_preferences_insert_own"
 on public.notification_preferences
 for insert
-with check (auth.uid() = user_id);
+to authenticated
+with check (user_id = (select auth.uid()));
 
 drop policy if exists "notification_preferences_update_own" on public.notification_preferences;
 create policy "notification_preferences_update_own"
 on public.notification_preferences
 for update
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+to authenticated
+using (user_id = (select auth.uid()))
+with check (user_id = (select auth.uid()));
