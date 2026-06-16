@@ -91,21 +91,27 @@ export const calculateCumulativeStats = (semesters: { subjects: Subject[] }[]) =
   return calculateSemesterStats(allSubjects);
 };
 
+const extractAcademicYearFromSemester = (sem: Semester): string | null => {
+    const nameMatch = sem.name.match(/(\d{4})-(\d{4})/);
+    if (nameMatch) return `${nameMatch[1]}-${nameMatch[2]}`;
+
+    const idMatch = sem.id.match(/(\d{4})_(\d{4})/);
+    if (idMatch) return `${idMatch[1]}-${idMatch[2]}`;
+
+    return null;
+};
+
 export const calculateYearlyStats = (semesters: Semester[]) => {
     const years: Record<string, Semester[]> = {};
     
     semesters.forEach(sem => {
-        let groupKey = 'unknown';
-        if (sem.id.startsWith('y')) {
+        const academicYear = extractAcademicYearFromSemester(sem);
+        let groupKey = academicYear || 'unknown';
+
+        if (!academicYear && sem.id.startsWith('y')) {
              groupKey = sem.id.split('_')[0]; 
-        } else if (sem.id.includes('_20')) {
-             const match = sem.id.match(/(\d{4})_(\d{4})/);
-             if (match) groupKey = `${match[1]}-${match[2]}`;
-             else groupKey = 'Other';
-        } else {
-            const nameMatch = sem.name.match(/(\d{4})-(\d{4})/);
-            if (nameMatch) groupKey = `${nameMatch[1]}-${nameMatch[2]}`;
-            else groupKey = 'Other';
+        } else if (!academicYear) {
+             groupKey = 'Other';
         }
 
         if (!years[groupKey]) years[groupKey] = [];
