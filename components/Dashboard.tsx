@@ -1372,6 +1372,7 @@ interface DashboardProps {
     onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
     isGuest?: boolean;
     onRequireOnboarding?: () => void;
+    currentUserId?: string | null;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ 
@@ -1388,7 +1389,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     fileInputRef,
     onFileUpload,
     isGuest,
-    onRequireOnboarding
+    onRequireOnboarding,
+    currentUserId
 }) => {
     const navigate = useNavigate();
 
@@ -1909,12 +1911,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
             if (selectedAdminUserId) {
                 const adminViewUser = adminUsers.find(u => u.id === selectedAdminUserId);
                 if (adminViewUser) targetStudentCode = adminViewUser.student_code;
-            } else if (!targetStudentCode) {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    const { data: profile } = await supabase.from('profiles').select('student_code').eq('id', user.id).single();
-                    targetStudentCode = profile?.student_code;
-                }
+            } else if (!targetStudentCode && currentUserId) {
+                const { data: profile } = await supabase.from('profiles').select('student_code').eq('id', currentUserId).single();
+                targetStudentCode = profile?.student_code;
             }
 
             if (!targetStudentCode) return;

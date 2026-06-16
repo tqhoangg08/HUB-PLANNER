@@ -6,6 +6,8 @@ const ROOT_SCOPE = '/';
 const SERVICE_WORKER_TIMEOUT_MS = 8000;
 const PUSH_SUBSCRIBE_TIMEOUT_MS = 12000;
 const API_SYNC_TIMEOUT_MS = 12000;
+const PUSH_SYNC_CACHE_PREFIX = 'hub_push_subscription_synced';
+const PUSH_SYNC_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 let activePushUserId: string | null | undefined;
 let activeSyncController: AbortController | null = null;
@@ -43,6 +45,25 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, message: 
     return await Promise.race([promise, timeout]);
   } finally {
     if (timeoutId) window.clearTimeout(timeoutId);
+  }
+};
+
+const pushSyncCacheKey = (userId: string, endpoint: string) => `${PUSH_SYNC_CACHE_PREFIX}:${userId}:${endpoint}`;
+
+const hasRecentPushSync = (userId: string, endpoint: string) => {
+  try {
+    const syncedAt = Number(localStorage.getItem(pushSyncCacheKey(userId, endpoint)) || 0);
+    return Date.now() - syncedAt < PUSH_SYNC_CACHE_TTL_MS;
+  } catch {
+    return false;
+  }
+};
+
+const markPushSynced = (userId: string, endpoint: string) => {
+  try {
+    localStorage.setItem(pushSyncCacheKey(userId, endpoint), String(Date.now()));
+  } catch {
+    // Local cache is an optimization only.
   }
 };
 
@@ -133,6 +154,11 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
     'Trinh duyet dang ky push qua lau.'
   );
 
+  if (userId && hasRecentPushSync(userId, subscription.endpoint)) {
+    assertActivePushUser(userId);
+    return subscription;
+  }
+
   const { data: sessionData } = await supabase.auth.getSession();
   const resolvedUserId = userId || sessionData.session?.user?.id || null;
   const sessionUserId = sessionData.session?.user?.id || null;
@@ -166,6 +192,8 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
       const errorText = await response.text().catch(() => '');
       throw new Error(`Khong the dong bo thiet bi nhan thong bao (${response.status}). ${errorText}`);
     }
+
+    markPushSynced(resolvedUserId, subscription.endpoint);
   }
 
   return subscription;

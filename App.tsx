@@ -2088,6 +2088,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                             onSetSemesters={(sems) => commitDataUpdate(prev => ({ ...prev, semesters: sems }))}
                             onSaveSemesters={saveSemestersNow}
                             isGuest={isGuest}
+                            currentUserId={session?.user?.id || null}
                             onRequireOnboarding={() => setForceGuestOnboarding(true)}
                             onTargetChange={(newTarget) => commitDataUpdate(prev => ({ ...prev, targetGPA: newTarget }))}
                             showSecurityNotice={!session}

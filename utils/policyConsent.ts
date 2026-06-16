@@ -2,6 +2,7 @@ import { apiHeaders, apiUrl } from './api';
 import { supabase } from './supabase';
 
 export const POLICY_VERSION = '2026-06-11';
+const CONSENT_CACHE_PREFIX = 'hub_policy_consent_recorded';
 
 export const CONSENT_POLICIES = {
   terms: 'terms_of_use',
@@ -16,9 +17,17 @@ export const recordPolicyConsent = async (
   if (!supabase) return;
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
-  if (!token) return;
+  const userId = data.session?.user?.id;
+  if (!token || !userId) return;
 
-  await fetch(apiUrl('/auth'), {
+  const cacheKey = `${CONSENT_CACHE_PREFIX}:${userId}:${policyType}:${POLICY_VERSION}:${context}`;
+  try {
+    if (localStorage.getItem(cacheKey) === 'true') return;
+  } catch {
+    // Cache is only used to avoid duplicate POSTs.
+  }
+
+  const response = await fetch(apiUrl('/auth'), {
     method: 'POST',
     headers: apiHeaders({
       'Content-Type': 'application/json',
@@ -32,5 +41,14 @@ export const recordPolicyConsent = async (
     }),
   }).catch((error) => {
     console.warn('Khong the ghi nhan dong y chinh sach:', error);
+    return null;
   });
+
+  if (response?.ok) {
+    try {
+      localStorage.setItem(cacheKey, 'true');
+    } catch {
+      // Cache is only used to avoid duplicate POSTs.
+    }
+  }
 };
