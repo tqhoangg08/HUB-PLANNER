@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Bell, CalendarDays, Megaphone, Search, Settings, ShieldCheck, Sparkles } from 'lucide-react';
+import { Bell, Megaphone, Search, Settings, ShieldCheck, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
 import { formatDate, formatTime } from '../utils/dateUtils';
@@ -11,13 +11,14 @@ import {
 } from '../utils/pushNotifications';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 import { setRuntimeStyleRule } from '../utils/runtimeStyles';
+import { FEATURE_SCHEDULE_REMINDERS } from '../utils/featureFlags';
 
 const NotificationBell = ({ currentUserId }) => {
   const defaultPreferences = {
     system: true,
     events: true,
     lost_found: true,
-    schedule: true,
+    schedule: FEATURE_SCHEDULE_REMINDERS,
     school: true,
   };
 
@@ -25,7 +26,7 @@ const NotificationBell = ({ currentUserId }) => {
     { key: 'system', label: 'Thông báo hệ thống', icon: ShieldCheck },
     { key: 'events', label: 'Sự kiện', icon: Sparkles },
     { key: 'lost_found', label: 'Tìm đồ thất lạc', icon: Search },
-    { key: 'schedule', label: 'Lịch học', icon: CalendarDays },
+    ...(FEATURE_SCHEDULE_REMINDERS ? [{ key: 'schedule', label: 'Lịch học', icon: Megaphone }] : []),
     { key: 'school', label: 'Thông báo nhà trường', icon: Megaphone },
   ];
 
@@ -54,6 +55,7 @@ const NotificationBell = ({ currentUserId }) => {
 
   const visibleNotifications = notifications.filter((notif) => {
     const category = getNotificationCategory(notif);
+    if (category === 'schedule' && !FEATURE_SCHEDULE_REMINDERS) return false;
     return preferences[category] !== false;
   });
 
@@ -106,7 +108,11 @@ const NotificationBell = ({ currentUserId }) => {
       const localValue = localStorage.getItem(storageKey);
       if (localValue) {
         try {
-          setPreferences({ ...defaultPreferences, ...JSON.parse(localValue) });
+          setPreferences({
+            ...defaultPreferences,
+            ...JSON.parse(localValue),
+            schedule: FEATURE_SCHEDULE_REMINDERS,
+          });
         } catch {
           setPreferences(defaultPreferences);
         }
@@ -122,7 +128,7 @@ const NotificationBell = ({ currentUserId }) => {
         .maybeSingle();
 
       if (data) {
-        const next = { ...defaultPreferences, ...data };
+        const next = { ...defaultPreferences, ...data, schedule: FEATURE_SCHEDULE_REMINDERS };
         setPreferences(next);
         localStorage.setItem(storageKey, JSON.stringify(next));
       }

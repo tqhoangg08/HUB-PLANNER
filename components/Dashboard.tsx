@@ -1942,7 +1942,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             .select('official_score')
                             .eq('student_code', targetStudentCode)
                             .eq('semester_id', semId)
-                            .single();
+                            .maybeSingle();
 
                         if (official && !error && official.official_score !== null && official.official_score !== undefined) {
                             newSemesters[i] = { ...sem, trainingScore: official.official_score };

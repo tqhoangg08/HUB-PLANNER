@@ -25,6 +25,9 @@ import NotificationBell from './NotificationBell';
 import PushNotificationPrompt from '../components/PushNotificationPrompt';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 
+const SCHOOL_ANNOUNCEMENT_COLUMNS = 'id, title, link, date, created_at, is_new';
+const ALL_NEWS_LIMIT = 60;
+
 interface MobileHomeProps {
     data: UserData;
     displayName: string;
@@ -61,7 +64,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
 
                 const { data: newsData, error } = await supabase
                     .from('school_announcements')
-                    .select('*')
+                    .select(SCHOOL_ANNOUNCEMENT_COLUMNS)
                     .or('is_hidden.eq.false,is_hidden.is.null')
                     .order('date', { ascending: false })
                     .limit(4);
@@ -82,13 +85,16 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
     }, []);
 
     const fetchAllNews = async () => {
+        if (allNews.length > 0 || loadingAllNews) return;
+
         setLoadingAllNews(true);
         try {
             const { data: fullNewsData, error } = await supabase
                 .from('school_announcements')
-                .select('*')
+                .select(SCHOOL_ANNOUNCEMENT_COLUMNS)
                 .or('is_hidden.eq.false,is_hidden.is.null')
-                .order('date', { ascending: false });
+                .order('date', { ascending: false })
+                .range(0, ALL_NEWS_LIMIT - 1);
 
             if (!error && fullNewsData) {
                 setAllNews(fullNewsData);

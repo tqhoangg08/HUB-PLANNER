@@ -6,6 +6,41 @@ import { formatDate } from '../utils/dateUtils';
 
 const ITEMS_PER_PAGE = 10;
 const ANNOUNCEMENT_LIST_COLUMNS = 'id, title, link, is_new, date, created_at';
+const ANNOUNCEMENT_WIDGET_CACHE_KEY = 'hub_school_announcements_widget_v1';
+const ANNOUNCEMENT_WIDGET_CACHE_TTL_MS = 5 * 60 * 1000;
+let announcementWidgetMemoryCache = null;
+
+const readAnnouncementWidgetCache = () => {
+  const now = Date.now();
+  if (announcementWidgetMemoryCache && now - announcementWidgetMemoryCache.cachedAt < ANNOUNCEMENT_WIDGET_CACHE_TTL_MS) {
+    return announcementWidgetMemoryCache.rows;
+  }
+
+  try {
+    const raw = sessionStorage.getItem(ANNOUNCEMENT_WIDGET_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed?.rows) || now - Number(parsed.cachedAt || 0) >= ANNOUNCEMENT_WIDGET_CACHE_TTL_MS) {
+      sessionStorage.removeItem(ANNOUNCEMENT_WIDGET_CACHE_KEY);
+      return null;
+    }
+    announcementWidgetMemoryCache = parsed;
+    return parsed.rows;
+  } catch {
+    sessionStorage.removeItem(ANNOUNCEMENT_WIDGET_CACHE_KEY);
+    return null;
+  }
+};
+
+const writeAnnouncementWidgetCache = (rows) => {
+  const cacheEntry = { rows, cachedAt: Date.now() };
+  announcementWidgetMemoryCache = cacheEntry;
+  try {
+    sessionStorage.setItem(ANNOUNCEMENT_WIDGET_CACHE_KEY, JSON.stringify(cacheEntry));
+  } catch {
+    // Cache is best-effort only.
+  }
+};
 
 // =================================================================
 // HÀM HELPER: DỊCH URL SANG TÊN PHÒNG BAN CHUẨN XÁC
@@ -59,6 +94,12 @@ const SchoolAnnouncements = () => {
 
   // 1. FETCH 10 TIN MỚI NHẤT CHO WIDGET BÊN NGOÀI
   useEffect(() => {
+    const cachedNews = readAnnouncementWidgetCache();
+    if (cachedNews) {
+      setNews(cachedNews);
+      return;
+    }
+
     const fetchNews = async () => {
       try {
         const { data, error } = await supabase
@@ -70,7 +111,10 @@ const SchoolAnnouncements = () => {
           .limit(10); 
         
         if (error) throw error;
-        if (data) setNews(data);
+        if (data) {
+          setNews(data);
+          writeAnnouncementWidgetCache(data);
+        }
       } catch (err) {
         console.error("Lỗi tải thông báo trường:", err);
       }

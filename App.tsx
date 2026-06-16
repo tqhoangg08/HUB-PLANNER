@@ -65,6 +65,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
 const OTP_RESEND_COOLDOWN_SECONDS = 10 * 60;
+const PUSH_DEVICE_SYNC_MIN_INTERVAL_MS = 10 * 60 * 1000;
 
 const isMissingLegacyProfileColumn = (error: any, columnName: string) => {
     const message = `${error?.message || ''} ${error?.details || ''}`;
@@ -317,6 +318,7 @@ const App: React.FC = () => {
     const [forceMobileAppPreview, setForceMobileAppPreview] = useState(() => shouldForceMobileAppPreview());
     const [isDataIncidentNoticeDone, setIsDataIncidentNoticeDone] = useState(false);
     const lastLoggedUserIdRef = useRef<string | null>(null);
+    const lastPushDeviceSyncRef = useRef<{ userId: string | null; syncedAt: number }>({ userId: null, syncedAt: 0 });
 
     useEffect(() => {
         if (!session?.user?.id) return;
@@ -470,14 +472,20 @@ const App: React.FC = () => {
     useEffect(() => {
         if (!session?.user?.id || !isPushSupported() || Notification.permission !== 'granted') return;
 
-        const syncPushDevice = () => {
+        const syncPushDevice = (force = false) => {
+            const now = Date.now();
+            const lastSync = lastPushDeviceSyncRef.current;
+            if (!force && lastSync.userId === session.user.id && now - lastSync.syncedAt < PUSH_DEVICE_SYNC_MIN_INTERVAL_MS) {
+                return;
+            }
+
+            lastPushDeviceSyncRef.current = { userId: session.user.id, syncedAt: now };
             subscribeToDeviceNotifications(session.user.id).catch((error) => {
                 console.error('Không thể đồng bộ thiết bị nhận thông báo:', error);
             });
         };
 
-        syncPushDevice();
-        const retryTimer = window.setTimeout(syncPushDevice, 2500);
+        syncPushDevice(true);
 
         const handleVisibilityChange = () => {
             if (!document.hidden) syncPushDevice();
@@ -486,7 +494,6 @@ const App: React.FC = () => {
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
-            window.clearTimeout(retryTimer);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [session?.user?.id]);

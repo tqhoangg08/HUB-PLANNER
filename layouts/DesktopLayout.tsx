@@ -66,6 +66,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   const [isProfileSearchOpen, setIsProfileSearchOpen] = useState(false);
   const [profileSearchSuggestions, setProfileSearchSuggestions] = useState<any[]>([]);
   const [isLoadingProfileSuggestions, setIsLoadingProfileSuggestions] = useState(false);
+  const [isSmallViewport, setIsSmallViewport] = useState(() => window.innerWidth < 640);
 
   const handleProfileSearch = (event: React.FormEvent) => {
       event.preventDefault();
@@ -140,6 +141,12 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       };
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+      const handleResize = () => setIsSmallViewport(window.innerWidth < 640);
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useLayoutEffect(() => {
@@ -558,7 +565,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           </button>
                       )}
                       
-                      {!isGuest && (
+                      {!isGuest && isSmallViewport && (
                           <NotificationBell currentUserId={session?.user?.id} />
                       )}
                       
@@ -741,7 +748,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       <HelpCircle size={18} />
                   </button>
                   
-                  {!isGuest && (
+                  {!isGuest && !isSmallViewport && (
                       <NotificationBell currentUserId={session?.user?.id} />
                   )}
                   

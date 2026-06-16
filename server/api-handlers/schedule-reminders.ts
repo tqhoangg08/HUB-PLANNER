@@ -19,6 +19,8 @@ const ONE_HOUR_WINDOW_MIN = 65;
 const ONE_HOUR_WINDOW_MAX = 45;
 const EVENING_START_MIN = 20 * 60;
 const EVENING_END_MIN = 20 * 60 + 30;
+const SCHEDULE_REMINDERS_ENABLED = false;
+const COURSE_REMINDER_COLUMNS = 'id, subject_name, shift, day_of_week, weeks, room, exam_date, exam_shift, exam_room';
 
 let supabaseClient: ReturnType<typeof createClient> | null = null;
 let webPushConfigured = false;
@@ -361,25 +363,34 @@ const shouldSend = (event: ReminderEvent, nowMinutes: number) => {
   return minutesUntil <= ONE_HOUR_WINDOW_MIN && minutesUntil >= ONE_HOUR_WINDOW_MAX;
 };
 
-const reserveReminder = async (event: ReminderEvent) => {
+const reserveReminders = async (events: ReminderEvent[]) => {
+  if (!events.length) return [];
   const supabase = getSupabase();
+  const uniqueEventsByKey = new Map<string, ReminderEvent>();
+  events.forEach((event) => {
+    if (!uniqueEventsByKey.has(event.key)) uniqueEventsByKey.set(event.key, event);
+  });
+
+  const uniqueEvents = [...uniqueEventsByKey.values()];
   const { data, error } = await supabase
     .from('schedule_notification_logs')
-    .upsert({
+    .upsert(uniqueEvents.map((event) => ({
       user_id: event.userId,
       user_schedule_id: event.userScheduleId,
       course_id: event.courseId,
       reminder_key: event.key,
       reminder_kind: event.kind,
       scheduled_for: event.scheduledFor,
-    }, { onConflict: 'reminder_key', ignoreDuplicates: true })
-    .select('id');
+    })), { onConflict: 'reminder_key', ignoreDuplicates: true })
+    .select('reminder_key');
 
   if (error) {
-    if ((error as any).code === '23505') return false;
+    if ((error as any).code === '23505') return [];
     throw error;
   }
-  return Array.isArray(data) && data.length > 0;
+
+  const insertedKeys = new Set((data || []).map((row: any) => row.reminder_key));
+  return uniqueEvents.filter((event) => insertedKeys.has(event.key));
 };
 
 const sendToUser = async (event: ReminderEvent, subscriptions: any[]) => {
@@ -412,6 +423,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (!isAuthorized(req)) return res.status(401).json({ error: 'Unauthorized' });
+
+  if (!SCHEDULE_REMINDERS_ENABLED) {
+    return res.status(200).json({
+      success: true,
+      disabled: true,
+      sent: 0,
+      skipped: 0,
+      candidates: 0,
+      message: 'Schedule reminders are disabled',
+    });
+  }
 
   let supabase: ReturnType<typeof createClient>;
   try {
@@ -446,7 +468,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const userIds = [...subscriptionsByUser.keys()];
   const { data: scheduleRows, error: scheduleError } = await supabase
     .from('user_schedules')
-    .select('id, user_id, course_id, semester, custom_data, course_schedules (*)')
+    .select(`id, user_id, course_id, semester, custom_data, course_schedules (${COURSE_REMINDER_COLUMNS})`)
     .in('user_id', userIds);
 
   if (scheduleError) return res.status(500).json({ error: scheduleError.message });
@@ -462,15 +484,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }).filter((event: ReminderEvent) => shouldSend(event, nowMinutes));
 
   let sent = 0;
-  let skipped = 0;
+  const reservedEvents = await reserveReminders(events);
+  let skipped = events.length - reservedEvents.length;
 
-  for (const event of events) {
-    const reserved = await reserveReminder(event);
-    if (!reserved) {
-      skipped += 1;
-      continue;
-    }
-
+  for (const event of reservedEvents) {
     sent += await sendToUser(event, subscriptionsByUser.get(event.userId) || []);
   }
 

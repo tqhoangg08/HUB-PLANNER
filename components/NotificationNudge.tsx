@@ -6,6 +6,7 @@ import {
   isPushSupported,
   subscribeToDeviceNotifications,
 } from '../utils/pushNotifications';
+import { FEATURE_SCHEDULE_REMINDERS } from '../utils/featureFlags';
 
 type NotificationNudgeVariant = 'events' | 'lost-found' | 'schedule';
 
@@ -35,6 +36,7 @@ const COPY: Record<NotificationNudgeVariant, { title: string; body: string; cta:
 
 const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, className = '', compact = false }) => {
   const copy = COPY[variant];
+  const scheduleRemindersDisabled = variant === 'schedule' && !FEATURE_SCHEDULE_REMINDERS;
   const [visible, setVisible] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [loading, setLoading] = useState(true);
@@ -43,6 +45,14 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
 
   useEffect(() => {
     let alive = true;
+
+    if (scheduleRemindersDisabled) {
+      setVisible(false);
+      setLoading(false);
+      return () => {
+        alive = false;
+      };
+    }
 
     const checkState = async () => {
       try {
@@ -82,7 +92,7 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
       alive = false;
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [scheduleRemindersDisabled]);
 
   const handleDismiss = () => {
     setVisible(false);
@@ -114,7 +124,7 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
     }
   };
 
-  if (loading || !visible) return null;
+  if (loading || !visible || scheduleRemindersDisabled) return null;
 
   const blocked = permission === 'denied';
 

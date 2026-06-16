@@ -311,8 +311,8 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
                         </div>
 
                         <div className="flex-1 min-h-0 space-y-2.5 overflow-y-auto p-5 custom-scrollbar">
-                            <NotificationToggle prefKey="school" title="Thông báo từ trường" subtitle="Tin tức, lịch học, thông báo học vụ từ HUB." />
-                            <NotificationToggle prefKey="events" title="Sự kiện" subtitle="Sự kiện mới, nhắc lịch và cập nhật điểm rèn luyện." />
+                            <NotificationToggle prefKey="school" title="Thông báo từ trường" subtitle="Tin tức và thông báo học vụ từ HUB." />
+                            <NotificationToggle prefKey="events" title="Sự kiện" subtitle="Sự kiện mới và cập nhật điểm rèn luyện." />
                             <NotificationToggle prefKey="lostFound" title="Tìm mất đồ" subtitle="Tin báo mất, nhặt được đồ và cập nhật trạng thái." />
                             <NotificationToggle prefKey="system" title="Thông báo hệ thống" subtitle="Bảo trì, bảo mật và các cập nhật quan trọng." />
                         </div>

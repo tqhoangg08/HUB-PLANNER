@@ -9,7 +9,9 @@ const ONE_HOUR_WINDOW_MIN = 65
 const ONE_HOUR_WINDOW_MAX = 45
 const EVENING_START_MIN = 20 * 60
 const EVENING_END_MIN = 20 * 60 + 30
+const SCHEDULE_REMINDERS_ENABLED = false
 const USER_QUERY_BATCH_SIZE = 50
+const COURSE_REMINDER_COLUMNS = 'id, subject_name, shift, day_of_week, weeks, room, exam_date, exam_shift, exam_room'
 
 type CourseRow = Record<string, any>
 type ScheduleRow = {
@@ -312,24 +314,33 @@ const shouldSend = (event: ReminderEvent, nowMinutes: number) => {
   return minutesUntil <= ONE_HOUR_WINDOW_MIN && minutesUntil >= ONE_HOUR_WINDOW_MAX
 }
 
-const reserveReminder = async (event: ReminderEvent) => {
+const reserveReminders = async (events: ReminderEvent[]) => {
+  if (!events.length) return []
+  const uniqueEventsByKey = new Map<string, ReminderEvent>()
+  events.forEach((event) => {
+    if (!uniqueEventsByKey.has(event.key)) uniqueEventsByKey.set(event.key, event)
+  })
+
+  const uniqueEvents = [...uniqueEventsByKey.values()]
   const { data, error } = await supabase
     .from('schedule_notification_logs')
-    .upsert({
+    .upsert(uniqueEvents.map((event) => ({
       user_id: event.userId,
       user_schedule_id: event.userScheduleId,
       course_id: event.courseId,
       reminder_key: event.key,
       reminder_kind: event.kind,
       scheduled_for: event.scheduledFor,
-    }, { onConflict: 'reminder_key', ignoreDuplicates: true })
-    .select('id')
+    })), { onConflict: 'reminder_key', ignoreDuplicates: true })
+    .select('reminder_key')
 
   if (error) {
-    if ((error as any).code === '23505') return false
+    if ((error as any).code === '23505') return []
     throw error
   }
-  return Array.isArray(data) && data.length > 0
+
+  const insertedKeys = new Set((data || []).map((row: any) => row.reminder_key))
+  return uniqueEvents.filter((event) => insertedKeys.has(event.key))
 }
 
 const sendToUser = async (event: ReminderEvent, subscriptions: any[]) => {
@@ -362,6 +373,17 @@ Deno.serve(async (req) => {
     if (token !== cronSecret && token !== legacyCronSecret) return json({ success: false, error: 'Unauthorized' }, 401)
   }
 
+  if (!SCHEDULE_REMINDERS_ENABLED) {
+    return json({
+      success: true,
+      disabled: true,
+      sent: 0,
+      skipped: 0,
+      candidates: 0,
+      message: 'Schedule reminders are disabled',
+    })
+  }
+
   try {
     const now = getVnParts()
     const nowMinutes = now.hour * 60 + now.minute
@@ -387,7 +409,7 @@ Deno.serve(async (req) => {
     for (const userIdBatch of chunkArray(userIds, USER_QUERY_BATCH_SIZE)) {
       const { data, error: scheduleError } = await supabase
         .from('user_schedules')
-        .select('id, user_id, course_id, semester, custom_data, course_schedules (*)')
+        .select(`id, user_id, course_id, semester, custom_data, course_schedules (${COURSE_REMINDER_COLUMNS})`)
         .in('user_id', userIdBatch)
 
       if (scheduleError) return json({ success: false, error: scheduleError.message }, 500)
@@ -404,13 +426,10 @@ Deno.serve(async (req) => {
     }).filter((event: ReminderEvent) => shouldSend(event, nowMinutes))
 
     let sent = 0
-    let skipped = 0
-    for (const event of events) {
-      const reserved = await reserveReminder(event)
-      if (!reserved) {
-        skipped += 1
-        continue
-      }
+    const reservedEvents = await reserveReminders(events)
+    let skipped = events.length - reservedEvents.length
+
+    for (const event of reservedEvents) {
       sent += await sendToUser(event, subscriptionsByUser.get(event.userId) || [])
     }
 

@@ -116,7 +116,7 @@ const PushNotificationPrompt = () => {
                 Vui lòng bấm vào <b className="text-gray-800">Biểu tượng 🔒 (Ổ khóa)</b> trên thanh địa chỉ URL của trình duyệt để cho phép nhận thông báo nhé!
               </span>
             ) : (
-              'Bật thông báo để nhận ngay cập nhật về lịch thi, điểm số và các sự kiện mới nhất từ HUB Planner nhé.'
+              'Bật thông báo để nhận cập nhật về tin trường, sự kiện, tìm đồ thất lạc và thông báo hệ thống từ HUB Planner nhé.'
             )}
           </p>
 
