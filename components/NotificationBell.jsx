@@ -13,6 +13,116 @@ import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../
 import { setRuntimeStyleRule } from '../utils/runtimeStyles';
 import { FEATURE_SCHEDULE_REMINDERS } from '../utils/featureFlags';
 
+const notificationStreams = new Map();
+
+const countUnread = (items) => items.filter((item) => !item.is_read).length;
+
+const emitNotificationStream = (stream) => {
+  const snapshot = {
+    notifications: stream.notifications,
+    unreadCount: countUnread(stream.notifications),
+  };
+
+  stream.listeners.forEach((listener) => listener(snapshot));
+};
+
+const updateNotificationStream = (userId, updater) => {
+  const stream = notificationStreams.get(userId);
+  if (!stream) return;
+
+  stream.notifications = updater(stream.notifications);
+  emitNotificationStream(stream);
+};
+
+const fetchNotificationStream = (stream) => {
+  if (stream.fetchPromise) return stream.fetchPromise;
+
+  stream.fetchPromise = supabase
+    .from('notifications')
+    .select('*, actor:profiles!actor_id(full_name, avatar_url, student_code)')
+    .eq('receiver_id', stream.userId)
+    .order('created_at', { ascending: false })
+    .limit(20)
+    .then(({ data }) => {
+      if (data) {
+        stream.notifications = data;
+        emitNotificationStream(stream);
+      }
+    })
+    .finally(() => {
+      stream.fetchPromise = null;
+    });
+
+  return stream.fetchPromise;
+};
+
+const ensureNotificationChannel = (stream) => {
+  if (stream.channel) return;
+
+  stream.channel = supabase
+    .channel(`notifications:${stream.userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `receiver_id=eq.${stream.userId}`,
+      },
+      async (payload) => {
+        let actorData = null;
+
+        if (payload.new.actor_id) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url, student_code')
+            .eq('id', payload.new.actor_id)
+            .single();
+          actorData = data;
+        }
+
+        stream.notifications = [
+          { ...payload.new, actor: actorData },
+          ...stream.notifications.filter((item) => item.id !== payload.new.id),
+        ].slice(0, 20);
+        emitNotificationStream(stream);
+      }
+    )
+    .subscribe();
+};
+
+const subscribeToNotificationStream = (userId, listener) => {
+  let stream = notificationStreams.get(userId);
+
+  if (!stream) {
+    stream = {
+      userId,
+      notifications: [],
+      listeners: new Set(),
+      subscribers: 0,
+      channel: null,
+      fetchPromise: null,
+    };
+    notificationStreams.set(userId, stream);
+  }
+
+  stream.subscribers += 1;
+  stream.listeners.add(listener);
+  listener({ notifications: stream.notifications, unreadCount: countUnread(stream.notifications) });
+  fetchNotificationStream(stream);
+  ensureNotificationChannel(stream);
+
+  return () => {
+    stream.listeners.delete(listener);
+    stream.subscribers = Math.max(0, stream.subscribers - 1);
+
+    if (stream.subscribers === 0) {
+      if (stream.channel) supabase.removeChannel(stream.channel);
+      notificationStreams.delete(userId);
+    }
+  };
+};
+
 const NotificationBell = ({ currentUserId }) => {
   const defaultPreferences = {
     system: true,
@@ -144,53 +254,10 @@ const NotificationBell = ({ currentUserId }) => {
       return;
     }
 
-    const fetchNotifications = async () => {
-      const { data } = await supabase
-        .from('notifications')
-        .select('*, actor:profiles!actor_id(full_name, avatar_url, student_code)')
-        .eq('receiver_id', currentUserId)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (data) {
-        setNotifications(data);
-        setUnreadCount(data.filter((item) => !item.is_read).length);
-      }
-    };
-
-    fetchNotifications();
-
-    const channel = supabase
-      .channel(`notifications:${currentUserId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `receiver_id=eq.${currentUserId}`,
-        },
-        async (payload) => {
-          let actorData = null;
-
-          if (payload.new.actor_id) {
-            const { data } = await supabase
-              .from('profiles')
-              .select('full_name, avatar_url, student_code')
-              .eq('id', payload.new.actor_id)
-              .single();
-            actorData = data;
-          }
-
-          setNotifications((prev) => [{ ...payload.new, actor: actorData }, ...prev]);
-          setUnreadCount((prev) => prev + 1);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return subscribeToNotificationStream(currentUserId, (snapshot) => {
+      setNotifications(snapshot.notifications);
+      setUnreadCount(snapshot.unreadCount);
+    });
   }, [currentUserId]);
 
   useEffect(() => {
@@ -283,10 +350,9 @@ const NotificationBell = ({ currentUserId }) => {
         .update({ is_read: true })
         .eq('id', notif.id);
 
-      setNotifications((prev) => prev.map((item) => (
+      updateNotificationStream(currentUserId, (prev) => prev.map((item) => (
         item.id === notif.id ? { ...item, is_read: true } : item
       )));
-      setUnreadCount((prev) => Math.max(0, prev - 1));
     }
   };
 
@@ -299,8 +365,7 @@ const NotificationBell = ({ currentUserId }) => {
       .eq('receiver_id', currentUserId)
       .eq('is_read', false);
 
-    setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
-    setUnreadCount(0);
+    updateNotificationStream(currentUserId, (prev) => prev.map((item) => ({ ...item, is_read: true })));
   };
 
   const renderNotificationContent = (notif) => {
