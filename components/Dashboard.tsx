@@ -26,6 +26,7 @@ import { useSemesterLookback } from '../hooks/useSemesterLookback';
 import { SemesterLookbackModal } from './SemesterLookbackModal';
 import { useUserRole } from '../hooks/useUserRole';
 import { exportTranscriptToPdf } from '../utils/pdfExport';
+import { exportTranscriptToExcel } from '../utils/excelExport';
 import { PROFILE_PRIVATE_TABLE, fetchProfilePrivate, updateProfilePrivate } from '../utils/profilePrivate';
 import PushNotificationPrompt from '../components/PushNotificationPrompt'; // Đường dẫn tùy sếp lưu ở đâu
 import { notifyModerators } from '../utils/moderatorNotifications';
@@ -308,14 +309,18 @@ const PdfExportModal = ({
     onClose,
     yearOptions,
     onExportFull,
+    onExportFullExcel,
     onExportYear,
+    onExportYearExcel,
     isExporting
 }: {
     isOpen: boolean;
     onClose: () => void;
     yearOptions: PdfExportYearOption[];
     onExportFull: () => void;
+    onExportFullExcel: () => void;
     onExportYear: (yearId: string) => void;
+    onExportYearExcel: (yearId: string) => void;
     isExporting: boolean;
 }) => {
     if (!isOpen) return null;
@@ -333,7 +338,7 @@ const PdfExportModal = ({
             >
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-900 flex items-center gap-2 text-base">
-                        <Download size={18} className="text-[#003375]" /> Chọn phạm vi in PDF
+                        <Download size={18} className="text-[#003375]" /> Chọn phạm vi xuất bảng điểm
                     </h3>
                     <button
                         onClick={onClose}
@@ -348,36 +353,44 @@ const PdfExportModal = ({
                     <div className="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-sm font-bold text-[#003375]">In bảng điểm toàn khóa</p>
+                                <p className="text-sm font-bold text-[#003375]">Xuất bảng điểm toàn khóa</p>
                                 <p className="text-xs text-gray-600 mt-1">
-                                    Gộp toàn bộ học kỳ hợp lệ vào một file PDF duy nhất.
+                                    Gộp toàn bộ học kỳ hợp lệ vào một file.
                                 </p>
                             </div>
                             <GraduationCap className="w-5 h-5 text-[#003375] shrink-0" />
                         </div>
-                        <button
-                            onClick={onExportFull}
-                            disabled={isExporting}
-                            className="mt-4 w-full py-2.5 bg-[#003375] hover:bg-[#002759] text-white font-bold rounded-lg text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                            {isExporting ? 'Đang chuẩn bị PDF...' : 'In toàn khóa'}
-                        </button>
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <button
+                                onClick={onExportFull}
+                                disabled={isExporting}
+                                className="w-full py-2.5 bg-[#003375] hover:bg-[#002759] text-white font-bold rounded-lg text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                                {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                                {isExporting ? 'Đang chuẩn bị...' : 'Xuất PDF'}
+                            </button>
+                            <button
+                                onClick={onExportFullExcel}
+                                disabled={isExporting}
+                                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                                {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                                {isExporting ? 'Đang chuẩn bị...' : 'Xuất Excel'}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="space-y-3">
                         <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
                             <Calendar className="w-4 h-4 text-[#003375]" />
-                            <span>In bảng điểm theo năm học</span>
+                            <span>Xuất bảng điểm theo năm học</span>
                         </div>
 
                         {yearOptions.length > 0 ? (
                             yearOptions.map((year) => (
-                                <button
+                                <div
                                     key={year.yearId}
-                                    onClick={() => onExportYear(year.yearId)}
-                                    disabled={isExporting}
-                                    className="w-full text-left rounded-xl border border-gray-300 hover:border-[#003375]/40 hover:bg-blue-50/50 p-4 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                                    className="w-full rounded-xl border border-gray-300 p-4 transition-colors hover:border-[#003375]/40 hover:bg-blue-50/50"
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <div>
@@ -399,7 +412,25 @@ const PdfExportModal = ({
                                             File riêng theo năm
                                         </span>
                                     </div>
-                                </button>
+                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => onExportYear(year.yearId)}
+                                            disabled={isExporting}
+                                            className="rounded-lg bg-[#003375] px-3 py-2 text-center text-xs font-bold text-white hover:bg-[#002759] disabled:opacity-70 disabled:cursor-not-allowed"
+                                        >
+                                            Xuất PDF
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => onExportYearExcel(year.yearId)}
+                                            disabled={isExporting}
+                                            className="rounded-lg bg-emerald-600 px-3 py-2 text-center text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-70 disabled:cursor-not-allowed"
+                                        >
+                                            Xuất Excel
+                                        </button>
+                                    </div>
+                                </div>
                             ))
                         ) : (
                             <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
@@ -2083,6 +2114,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
     };
 
+    const handleExportFullExcel = async () => {
+        playClick();
+        setIsExportingPdf(true);
+
+        try {
+            await exportTranscriptToExcel(activeData, {
+                scope: 'full',
+                semesters: validDataSemesters
+            });
+            setShowPdfExportModal(false);
+        } finally {
+            setIsExportingPdf(false);
+        }
+    };
+
     const handleExportYearPdf = async (yearId: string) => {
         playClick();
 
@@ -2097,6 +2143,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         try {
             await exportTranscriptToPdf(activeData, {
+                scope: 'year',
+                semesters: yearSemesters,
+                academicYearLabel: selectedYear.label
+            });
+            setShowPdfExportModal(false);
+        } finally {
+            setIsExportingPdf(false);
+        }
+    };
+
+    const handleExportYearExcel = async (yearId: string) => {
+        playClick();
+
+        const selectedYear = pdfExportYearOptions.find((year) => year.yearId === yearId);
+        if (!selectedYear) return;
+
+        const yearSemesters = validDataSemesters.filter(
+            (semester) => extractAcademicYearFromSemester(semester.name) === yearId
+        );
+
+        setIsExportingPdf(true);
+
+        try {
+            await exportTranscriptToExcel(activeData, {
                 scope: 'year',
                 semesters: yearSemesters,
                 academicYearLabel: selectedYear.label
@@ -2747,7 +2817,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
             onClose={() => setShowPdfExportModal(false)}
             yearOptions={pdfExportYearOptions}
             onExportFull={handleExportFullPdf}
+            onExportFullExcel={handleExportFullExcel}
             onExportYear={handleExportYearPdf}
+            onExportYearExcel={handleExportYearExcel}
             isExporting={isExportingPdf}
         />
         {showReportModal && <ReportErrorModal isOpen={showReportModal} onClose={() => setShowReportModal(false)} />}
