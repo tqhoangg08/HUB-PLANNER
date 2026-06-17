@@ -59,7 +59,7 @@ const getR2Config = () => {
   const secretAccessKey = env('R2_SECRET_ACCESS_KEY')
   const publicBaseUrl = env('R2_PUBLIC_URL')
   if (!accountId || !bucket || !accessKeyId || !secretAccessKey || !publicBaseUrl) {
-    const error: any = new Error('Chua cau hinh R2. Can R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL.')
+    const error: any = new Error('Chưa cấu hình R2. Cần R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL.')
     error.statusCode = 500
     throw error
   }
@@ -109,7 +109,7 @@ const putR2Object = async ({ key, body, contentType }: { key: string; body: Uint
 
   if (!uploadResponse.ok) {
     const detail = await uploadResponse.text().catch(() => '')
-    throw new Error(`Khong the upload avatar len R2 (${uploadResponse.status}). ${detail}`.trim())
+    throw new Error(`Không thể upload avatar lên R2 (${uploadResponse.status}). ${detail}`.trim())
   }
 }
 
@@ -243,7 +243,7 @@ const getRequestUserOrNull = async (req: Request) => {
 const verifyTurnstile = async (req: Request, token: unknown) => {
   const secret = env('TURNSTILE_SECRET_KEY') || env('CLOUDFLARE_TURNSTILE_SECRET_KEY') || env('TURNSTILE_SITE_KEY')
   if (!secret) {
-    const error: any = new Error('He thong xac minh dang tam thoi khong san sang.')
+    const error: any = new Error('Hệ thống xác minh đang tạm thời không sẵn sàng.')
     error.statusCode = 500
     throw error
   }
@@ -687,7 +687,7 @@ const getRequestUser = async (req: Request) => {
 
 const deleteAccount = async (req: Request) => {
   const auth = await getRequestUser(req)
-  if (!auth) return json({ error: 'Phien dang nhap khong hop le.' }, 401)
+  if (!auth) return json({ error: 'Phiên đăng nhập không hợp lệ.' }, 401)
   const userId = auth.user.id
   const email = normalizeEmail(auth.user.email || '')
   const userIdHash = await anonymizedUserHash(userId)
@@ -711,7 +711,7 @@ const deleteAccount = async (req: Request) => {
     user_id: null,
     user_email: null,
     action: 'delete_account_hard_delete',
-    target_table: 'auth.users',
+      law_reference: 'Khoản 11 Điều 2 LBVDL năm 2025',
     target_id: userIdHash,
     details: {
       anonymized: true,
@@ -807,7 +807,7 @@ const uploadAvatar = async (req: Request, body: any) => {
   const base64 = String(body?.base64 || '')
   if (!contentType.startsWith('image/')) return json({ error: 'File avatar phải là ảnh.' }, 400)
   if (!size || size > 350 * 1024) return json({ error: 'Avatar cần nhỏ hơn 350kb sau khi nén.' }, 400)
-  if (!base64) return json({ error: 'Thieu du lieu avatar.' }, 400)
+  if (!base64) return json({ error: 'Thiếu dữ liệu avatar.' }, 400)
   const bytes = base64ToBytes(base64)
   if (!bytes.length || Math.abs(bytes.length - size) > 8) return json({ error: 'Dữ liệu avatar không hợp lệ.' }, 400)
   const extension = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp'

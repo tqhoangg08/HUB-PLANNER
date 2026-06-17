@@ -73,8 +73,8 @@ const PushNotificationPrompt = () => {
         // Không làm gì cả để họ có thể bấm lại nút "Cài đặt & Nhận thông báo"
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Loi khong xac dinh.';
-      setSubscribeError(`Chua luu duoc thiet bi nhan thong bao. ${message}`);
+      const message = error instanceof Error ? error.message : 'Lỗi không xác định.';
+      setSubscribeError(`Chưa lưu được thiết bị nhận thông báo. ${message}`);
       console.error('Lỗi khi bật thông báo:', error);
     } finally {
       setIsSubscribing(false);

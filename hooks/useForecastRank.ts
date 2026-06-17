@@ -174,7 +174,7 @@ export const useForecastRank = () => {
             if (isSameSemester && studentCode) {
                 const { data, error } = await supabase
                     .from('benchmark_rankings')
-                    .select('*')
+                    .select('student_rank,rank_in_class,total_in_class,class_code,rank_in_major,total_in_major,major')
                     .eq('semester', semesterId)
                     .eq('student_code', studentCode)
                     .maybeSingle();

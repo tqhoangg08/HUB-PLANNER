@@ -60,6 +60,8 @@ interface ActivityLogModalProps {
 }
 
 const PAGE_SIZE = 30;
+const sanitizeActivitySearch = (value: string) =>
+    value.trim().replace(/[%,]/g, ' ').replace(/\s+/g, ' ');
 
 const actionLabels: Record<string, string> = {
     login: 'Đăng nhập',
@@ -291,23 +293,47 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
     const [statusFilter, setStatusFilter] = useState('all');
     const [dateFilter, setDateFilter] = useState('30d');
     const [page, setPage] = useState(1);
+    const [totalLogs, setTotalLogs] = useState(0);
 
     const fetchLogs = async () => {
         setLoading(true);
         setError(null);
         try {
-            const { data, error: fetchError } = await supabase
+            let query = supabase
                 .from('activity_logs')
-                .select('*')
+                .select('id,created_at,user_id,user_email,user_role,action,action_label,target_table,table_name,target_id,record_id,page_path,status,metadata,old_data,new_data,details,error_message,ip_address,device_info', { count: 'exact' })
+                .neq('action', 'view_page')
                 .order('created_at', { ascending: false })
-                .limit(500);
+                .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+
+            if (dateFilter !== 'all') {
+                const days = dateFilter === '7d' ? 7 : 30;
+                query = query.gte('created_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString());
+            }
+            if (userFilter !== 'all') query = query.eq('user_email', userFilter);
+            if (actionFilter !== 'all') query = query.eq('action', actionFilter);
+            if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+            if (tableFilter !== 'all') query = query.or(`target_table.eq.${tableFilter},table_name.eq.${tableFilter}`);
+
+            const term = sanitizeActivitySearch(search);
+            if (term) {
+                query = query.or(`user_email.ilike.%${term}%,action.ilike.%${term}%,action_label.ilike.%${term}%,target_table.ilike.%${term}%,table_name.ilike.%${term}%,target_id.ilike.%${term}%,record_id.ilike.%${term}%,page_path.ilike.%${term}%,error_message.ilike.%${term}%`);
+            }
+
+            const { data, error: fetchError, count } = await query;
 
             if (fetchError) throw fetchError;
+            setTotalLogs(count || 0);
 
             const rawLogs = (data || []) as ActivityLogRow[];
+            const userIds = [...new Set(rawLogs.map(log => log.user_id).filter(Boolean))] as string[];
             const [{ data: roleRows }, { data: profileRows }] = await Promise.all([
-                supabase.from('user_roles').select('id,user_id,role'),
-                supabase.from('profiles').select('id,email'),
+                userIds.length > 0
+                    ? supabase.from('user_roles').select('id,user_id,role').in('user_id', userIds)
+                    : Promise.resolve({ data: [] }),
+                userIds.length > 0
+                    ? supabase.from('profiles').select('id,email').in('id', userIds)
+                    : Promise.resolve({ data: [] }),
             ]);
 
             const roleById = new Map<string, string>();
@@ -341,7 +367,7 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
 
     useEffect(() => {
         fetchLogs();
-    }, []);
+    }, [page, search, userFilter, actionFilter, tableFilter, statusFilter, dateFilter]);
 
     const cutoff = useMemo(() => {
         if (dateFilter === 'all') return null;
@@ -349,7 +375,7 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
         return Date.now() - days * 24 * 60 * 60 * 1000;
     }, [dateFilter]);
 
-    const visibleLogs = useMemo(() => logs.filter(log => log.action !== 'view_page'), [logs]);
+    const visibleLogs = logs;
 
     const filteredLogs = useMemo(() => {
         const term = search.trim().toLowerCase();
@@ -377,8 +403,8 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
         });
     }, [visibleLogs, cutoff, userFilter, actionFilter, tableFilter, statusFilter, search]);
 
-    const totalPages = Math.max(1, Math.ceil(filteredLogs.length / PAGE_SIZE));
-    const pageLogs = filteredLogs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    const totalPages = Math.max(1, Math.ceil(totalLogs / PAGE_SIZE));
+    const pageLogs = filteredLogs;
 
     useEffect(() => {
         setPage(1);
@@ -609,7 +635,7 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
                 </div>
 
                 <div className="mt-3 flex flex-col gap-2 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-                    <p>Hiển thị {pageLogs.length} / {filteredLogs.length} log đã lọc. Dữ liệu tải tối đa 500 log mới nhất.</p>
+                    <p>Hiển thị {pageLogs.length} / {totalLogs} log đã lọc.</p>
                     <div className="flex items-center gap-2">
                         <button disabled={page <= 1} onClick={() => setPage(prev => Math.max(1, prev - 1))} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-bold disabled:opacity-40">Trước</button>
                         <span className="font-bold text-slate-700">{page}/{totalPages}</span>

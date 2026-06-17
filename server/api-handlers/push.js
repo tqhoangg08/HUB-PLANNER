@@ -174,12 +174,12 @@ const handleSendNotification = async (req, res, body) => {
   }
 
   if (!subscriptions || subscriptions.length === 0) {
-    return res.status(404).json({ error: 'Khong tim thay nguoi nhan' });
+    return res.status(404).json({ error: 'Không tìm thấy người nhận' });
   }
 
   const payload = JSON.stringify({
     title: title || 'HUB Planner',
-    body: messageBody || 'Báº¡n cÃ³ thÃ´ng bÃ¡o má»›i.',
+    body: messageBody || 'Bạn có thông báo mới.',
     url: url || '/',
   });
 
@@ -278,7 +278,7 @@ const lostFoundBody = (item) => {
 };
 
 const lostFoundPayload = (item) => ({
-  title: item.type === 'FOUND' ? 'Co do vua duoc nhat' : 'Co ban vua bao mat do',
+  title: item.type === 'FOUND' ? 'Có đồ vừa được nhặt' : 'Có bạn vừa báo mất đồ',
   body: lostFoundBody(item),
   url: '/lost-found',
 });

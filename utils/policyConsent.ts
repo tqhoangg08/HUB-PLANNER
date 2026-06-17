@@ -40,7 +40,7 @@ export const recordPolicyConsent = async (
       context,
     }),
   }).catch((error) => {
-    console.warn('Khong the ghi nhan dong y chinh sach:', error);
+    console.warn('Không thể ghi nhận đồng ý chính sách:', error);
     return null;
   });
 

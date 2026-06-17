@@ -991,7 +991,7 @@ const EventDetailModal = ({
 }) => {
     if (!event) return null;
 
-    const isStatusClosed = event.status === 'Đã kết thúc' || event.status === 'ÄÃ£ káº¿t thÃºc';
+    const isStatusClosed = event.status === 'Đã kết thúc';
     const isLinkClosed = isStatusClosed || checkIsOverdue(event, currentDay) || event.is_manually_closed;
     const formattedLink = event.link && !event.link.startsWith('http') ? `https://${event.link}` : event.link;
     const scoreText = event.score?.includes('+') ? event.score : `+${event.score || 0}`;
@@ -1366,6 +1366,55 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
     try {
       if (!supabase) throw new Error('Chưa khởi tạo kết nối Supabase');
+
+      if (!showManagementView) {
+        const params = new URLSearchParams({ limit: '100' });
+        if (options.bypassCache) params.set('refresh', '1');
+        const response = await fetch(apiUrl(`/events?${params.toString()}`), {
+          headers: apiHeaders(),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error || 'Không tải được dữ liệu sự kiện');
+
+        const parsedEvents: HubEvent[] = (payload.data || []).map((row: any) => {
+            let deadlineDate = null;
+            if (row.deadline) {
+                deadlineDate = new Date(row.deadline);
+                deadlineDate.setHours(23, 59, 59, 999);
+            }
+
+            return {
+                id: row.id.toString(),
+                name: row.title || 'Sự kiện chưa có tên',
+                category: row.criteria || 'Khác',
+                score: row.points?.toString() || '0',
+                location: row.format || 'Online',
+                time: formatDateString(row.deadline),
+                deadlineDate: deadlineDate,
+                deadline_time: row.deadline_time || null,
+                close_on_full: row.close_on_full || false,
+                description: row.description || null,
+                link: row.link || '',
+                organizer: row.organizer || 'HUB',
+                type: row.category || '',
+                classification: row.classification || '',
+                scope: row.location_type || 'Trong trường',
+                status: row.status || 'Sắp diễn ra',
+                is_manually_closed: row.is_manually_closed || false,
+                is_deleted: row.is_deleted || false,
+                created_at: row.created_at || new Date().toISOString(),
+                event_date: row.event_date || null,
+                event_time: row.event_time || null,
+                registration_start_date: row.registration_start_date || null,
+                registration_start_time: row.registration_start_time || null,
+                image_url: row.image_url || null
+            };
+        });
+
+        setEvents(parsedEvents);
+        setLoading(false);
+        return;
+      }
 
       const eventColumns = 'id,title,criteria,points,format,deadline,deadline_time,close_on_full,description,link,organizer,category,classification,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url';
       let query = supabase

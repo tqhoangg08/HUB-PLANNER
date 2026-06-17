@@ -26,6 +26,21 @@ interface LostFoundItem {
   is_deleted: boolean; 
   user_id?: string; 
 }
+const LOST_FOUND_PAGE_SIZE = 24;
+const MAX_LOST_FOUND_IMAGE_BYTES = 3 * 1024 * 1024;
+
+const sanitizeLostFoundSearch = (value: string) =>
+  value.trim().replace(/[%,]/g, ' ').replace(/\s+/g, ' ');
+
+const fileToBase64 = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+        const result = String(reader.result || '');
+        resolve(result.includes(',') ? result.split(',')[1] : result);
+    };
+    reader.onerror = () => reject(reader.error || new Error('Không đọc được ảnh.'));
+    reader.readAsDataURL(file);
+});
 
 // --- SHARED MODAL LOGIC (SUBMIT) ---
 interface SubmitModalProps {
@@ -80,8 +95,8 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 5 * 1024 * 1024) { 
-                alert("Ảnh quá lớn (tối đa 5MB)");
+            if (file.size > MAX_LOST_FOUND_IMAGE_BYTES) {
+                alert("Ảnh quá lớn (tối đa 3MB)");
                 return;
             }
             setImageFile(file);
@@ -98,7 +113,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
         try {
             let imageUrl = editingItem?.image_url || null;
 
-            if (imageFile) {
+            if (imageFile && editingItem) {
                 const fileExt = imageFile.name.split('.').pop();
                 const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
                 const filePath = `${fileName}`;
@@ -115,6 +130,13 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                 
                 imageUrl = publicUrl;
             }
+
+            const imagePayload = imageFile && !editingItem
+                ? {
+                    base64: await fileToBase64(imageFile),
+                    contentType: imageFile.type || 'image/jpeg',
+                }
+                : undefined;
 
             if (editingItem) {
                 const { error } = await supabase
@@ -139,8 +161,9 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                         description: formData.description,
                         location: formData.location,
                         contact_info: formData.contact_info,
-                        user_name: formData.user_name || 'An danh',
+                        user_name: formData.user_name || 'Ẩn danh',
                         image_url: imageUrl,
+                        image: imagePayload,
                         type,
                         user_id: currentUserId || null,
                     },
@@ -280,7 +303,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
                                 <div className="w-10 h-10 rounded-full bg-green-200 text-green-800 flex items-center justify-center"><Phone size={20} /></div>
                                 <div><span className="block text-xs text-gray-500 font-bold uppercase">Liên hệ</span><span className="font-bold text-green-700 text-lg">{item.contact_info}</span></div>
                             </div>
-                            <div className="flex items-start gap-2 text-sm text-gray-600 mt-2"><MapPin size={16} className="mt-0.5 shrink-0" /><span>Khu vá»±c: <strong>{item.location}</strong></span></div>
+                            <div className="flex items-start gap-2 text-sm text-gray-600 mt-2"><MapPin size={16} className="mt-0.5 shrink-0" /><span>Khu vực: <strong>{item.location}</strong></span></div>
                         </div>
                     </div>
                 </div>
@@ -413,6 +436,8 @@ export const LostFoundBoard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'FOUND' | 'LOST'>('LOST');
+  const [page, setPage] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
   
   const [selectedItem, setSelectedItem] = useState<LostFoundItem | null>(null);
   const [reportingItem, setReportingItem] = useState<LostFoundItem | null>(null);
@@ -427,18 +452,46 @@ export const LostFoundBoard: React.FC = () => {
     if (!supabase) { setItems([]); setError("Chưa cấu hình Supabase."); setLoading(false); return; }
 
     try {
+      if (!canManage) {
+          const from = page * LOST_FOUND_PAGE_SIZE;
+          const params = new URLSearchParams({
+              resource: 'lost-found',
+              type: activeTab,
+              limit: String(LOST_FOUND_PAGE_SIZE),
+              offset: String(from),
+          });
+          const term = sanitizeLostFoundSearch(searchTerm);
+          if (term) params.set('search', term);
+
+          const response = await fetch(apiUrl(`/events?${params.toString()}`));
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload?.error || 'Không tải được danh sách tìm đồ.');
+          setItems((payload.data || []) as LostFoundItem[]);
+          setTotalItems(payload.total || 0);
+          return;
+      }
+
       let query = supabase.from('lost_found_items')
-        .select('*')
+        .select('id,created_at,type,title,description,location,contact_info,user_name,image_url,status,is_deleted,user_id', { count: 'exact' })
         .eq('is_deleted', false)
+        .eq('type', activeTab)
         .order('created_at', { ascending: false });
       
       if (isStudent) {
           query = query.in('status', ['approved', 'resolved']);
       }
 
-      const { data, error } = await query;
+      const term = sanitizeLostFoundSearch(searchTerm);
+      if (term) {
+          query = query.or(`title.ilike.%${term}%,location.ilike.%${term}%,description.ilike.%${term}%`);
+      }
+
+      const from = page * LOST_FOUND_PAGE_SIZE;
+      const to = from + LOST_FOUND_PAGE_SIZE - 1;
+      const { data, error, count } = await query.range(from, to);
       if (error) throw error;
       if (data) setItems(data as LostFoundItem[]);
+      setTotalItems(count || 0);
     } catch (err: any) {
       console.error(err);
       setError('Lỗi: ' + err.message);
@@ -449,15 +502,13 @@ export const LostFoundBoard: React.FC = () => {
 
   useEffect(() => {
     fetchItems();
-  }, [isAdmin, isCTV, isStudent]);
+  }, [isAdmin, isCTV, isStudent, activeTab, searchTerm, page]);
 
-  const filteredItems = items.filter(item => {
-    const matchesTab = item.type === activeTab;
-    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesTab && matchesSearch;
-  });
+  useEffect(() => {
+    setPage(0);
+  }, [activeTab, searchTerm, isAdmin, isCTV, isStudent]);
+
+  const filteredItems = items;
 
   const handleApprove = async (id: number) => {
       if (!canManage) return;
@@ -473,14 +524,14 @@ export const LostFoundBoard: React.FC = () => {
               body: JSON.stringify({ action: 'approve-lost-found', id }),
           });
           const result = await response.json();
-          if (!response.ok) throw new Error(result.error || 'Khong the duyet tin');
+          if (!response.ok) throw new Error(result.error || 'Không thể duyệt tin');
 
-          const suffix = result.alreadySent ? '' : `, da gui ${result.sent || 0} thiet bi`;
-          showToast(`Da duyet tin thanh cong${suffix}`, 'success');
+          const suffix = result.alreadySent ? '' : `, đã gửi ${result.sent || 0} thiết bị`;
+          showToast(`Đã duyệt tin thành công${suffix}`, 'success');
           setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'approved' } : i));
           return;
       } catch (error: any) {
-          showToast("Loi duyet: " + error.message, 'error');
+          showToast("Lỗi duyệt: " + error.message, 'error');
           return;
       }
   };
@@ -502,6 +553,7 @@ export const LostFoundBoard: React.FC = () => {
       else {
           showToast("Đã xóa tin thành công", 'success');
           setItems(prev => prev.filter(i => i.id !== item.id));
+          setTotalItems(prev => Math.max(0, prev - 1));
       }
   };
 
@@ -562,7 +614,7 @@ return (
                 {canManage && (
                     <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mt-2 border border-blue-100">
                         <Shield size={10} className="inline mr-1"/>
-                        {isAdmin ? 'Admin Mode: Full Access' : 'CTV Mode: Approve/Edit'}
+                        {isAdmin ? 'Chế độ Admin: toàn quyền' : 'Chế độ CTV: duyệt/sửa'}
                     </div>
                 )}
             </div>
@@ -633,7 +685,7 @@ return (
                                 {isResolved ? (item.type === 'FOUND' ? 'Đã trao trả' : 'Đã tìm thấy') : (item.type === 'FOUND' ? 'Nhặt được' : 'Đang tìm')}
                             </div>
 
-                            {isPending && <div className="absolute bottom-2 left-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-md shadow-md animate-pulse">Chá» duyá»‡t</div>}
+                            {isPending && <div className="absolute bottom-2 left-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-md shadow-md animate-pulse">Chờ duyệt</div>}
                         </button>
 
                         <div className="flex-1 flex flex-col">
@@ -645,7 +697,7 @@ return (
                                     {isResolved ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" /> : (item.type === 'FOUND' ? <MapPin size={18} className="shrink-0 mt-0.5" /> : <Tag size={18} className="shrink-0 mt-0.5" />)}
                                     {item.title}
                                 </h3>
-                                <p className="text-[11px] sm:text-xs text-gray-500 mt-1 line-clamp-1 flex items-center gap-1"><MapPin size={12}/> Khu vá»±c: {item.location}</p>
+                                <p className="text-[11px] sm:text-xs text-gray-500 mt-1 line-clamp-1 flex items-center gap-1"><MapPin size={12}/> Khu vực: {item.location}</p>
                             </div>
                             <div className="space-y-2 text-[11px] sm:text-xs text-gray-600 mt-auto">
                                 <div className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border ${isResolved ? 'bg-green-50 border-green-100' : (item.type === 'FOUND' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100')}`}>
@@ -705,6 +757,25 @@ return (
                     <p className="text-gray-500 font-medium">Chưa có tin nào. Hãy là người đầu tiên đăng tin!</p>
                 </div>
             )}
+        </div>
+      )}
+      {!loading && !error && totalItems > LOST_FOUND_PAGE_SIZE && (
+        <div className="mt-5 flex items-center justify-end gap-2 text-xs font-bold text-gray-600">
+          <span>Trang {page + 1}/{Math.max(1, Math.ceil(totalItems / LOST_FOUND_PAGE_SIZE))}</span>
+          <button
+            onClick={() => setPage(prev => Math.max(0, prev - 1))}
+            disabled={page === 0}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 disabled:opacity-40"
+          >
+            Trước
+          </button>
+          <button
+            onClick={() => setPage(prev => prev + 1)}
+            disabled={(page + 1) * LOST_FOUND_PAGE_SIZE >= totalItems}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 disabled:opacity-40"
+          >
+            Sau
+          </button>
         </div>
       )}
       

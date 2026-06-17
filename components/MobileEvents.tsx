@@ -747,6 +747,77 @@ const canManage = isAdmin || isAuditor || isCTV;
       }
       const pageOffset = Math.max(0, page) * EVENTS_PAGE_SIZE;
       const term = searchTerm.trim();
+      if (!(isManagementView && canManage)) {
+        const participantIds = participatedEvents.map(id => Number(id)).filter(id => Number.isFinite(id));
+        const buildApiParams = (group: 'open' | 'closed', offset: number, limit: number) => {
+          const params = new URLSearchParams({
+            group,
+            offset: String(offset),
+            limit: String(limit),
+            sort: sortOrder,
+          });
+          if (options.bypassCache) params.set('refresh', '1');
+          if (term) params.set('search', term);
+          if (activeScope !== 'all') params.set('scope', activeScope);
+          if (activeTab === 'participated') params.set('ids', participantIds.join(','));
+          else if (activeTab !== 'all') params.set('criteria', activeTab);
+          return params;
+        };
+        const fetchEventGroup = async (group: 'open' | 'closed', offset: number, limit: number) => {
+          const response = await fetch(apiUrl(`/events?${buildApiParams(group, offset, limit).toString()}`), {
+            headers: apiHeaders(),
+          });
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload?.error || 'Không tải được sự kiện');
+          return payload;
+        };
+
+        const [openPayload, closedPayload] = await Promise.all([
+          fetchEventGroup('open', 0, 1),
+          fetchEventGroup('closed', 0, 1),
+        ]);
+        const openTotal = Number(openPayload.total || 0);
+        const closedTotal = Number(closedPayload.total || 0);
+        const rows: any[] = [];
+
+        if (pageOffset < openTotal) {
+          const openLimit = Math.min(EVENTS_PAGE_SIZE, openTotal - pageOffset);
+          const payload = await fetchEventGroup('open', pageOffset, openLimit);
+          rows.push(...(payload.data || []));
+        }
+
+        if (rows.length < EVENTS_PAGE_SIZE) {
+          const closedOffset = Math.max(0, pageOffset - openTotal);
+          const closedLimit = EVENTS_PAGE_SIZE - rows.length;
+          if (closedOffset < closedTotal) {
+            const payload = await fetchEventGroup('closed', closedOffset, closedLimit);
+            rows.push(...(payload.data || []));
+          }
+        }
+
+        const parsedEvents: HubEvent[] = rows.map((row: any) => {
+            let deadlineDate = null;
+            if (row.deadline) {
+                deadlineDate = new Date(row.deadline);
+                deadlineDate.setHours(23, 59, 59, 999);
+            }
+            return {
+                id: row.id.toString(), name: row.title || 'Sự kiện chưa có tên', category: row.criteria || 'Khác',
+                score: row.points?.toString() || '0', location: row.format || 'Offline', time: formatDateString(row.deadline),
+                deadlineDate: deadlineDate, deadline_time: row.deadline_time || null, close_on_full: row.close_on_full || false,
+                description: row.description || null, link: row.link || '', organizer: row.organizer || 'HUB',
+                type: row.category || '', classification: row.classification || '', scope: row.location_type || 'Trong trường',
+                status: row.status || 'Sắp diễn ra', is_manually_closed: row.is_manually_closed || false,
+                is_deleted: row.is_deleted || false, created_at: row.created_at || new Date().toISOString(),
+                event_date: row.event_date || null, event_time: row.event_time || null,
+                registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null
+            };
+        });
+        setEvents(parsedEvents);
+        setEventsTotal(openTotal + closedTotal);
+        return;
+      }
+
       const eventColumns = 'id,title,criteria,points,format,deadline,deadline_time,close_on_full,description,link,organizer,category,classification,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url';
       const participantIds = participatedEvents.map(id => Number(id)).filter(id => Number.isFinite(id));
       const buildQuery = (select: string, countOptions: any, group: 'open' | 'closed') => {
@@ -1217,7 +1288,7 @@ const canManage = isAdmin || isAuditor || isCTV;
 
   const renderNativeEventCard = (evt: HubEvent) => {
     const isParticipated = participatedEvents.includes(evt.id);
-    const isLinkClosed = evt.status === 'Đã kết thúc' || evt.status === 'ÄÃ£ káº¿t thÃºc' || evt.is_manually_closed || checkIsOverdue(evt, today);
+    const isLinkClosed = evt.status === 'Đã kết thúc' || evt.is_manually_closed || checkIsOverdue(evt, today);
     const formattedLink = evt.link && !evt.link.startsWith('http') ? `https://${evt.link}` : evt.link;
     const isExpiring = isDeadlineEventToday(evt);
     const isMinigame = evt.type?.toLowerCase().includes('minigame') || evt.classification?.toLowerCase().includes('minigame');

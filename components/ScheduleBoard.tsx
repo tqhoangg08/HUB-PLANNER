@@ -529,7 +529,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     try {
         if (localStorage.getItem(SCHEDULE_UPDATE_NOTICE_STORAGE_KEY) === 'true') return;
     } catch (error) {
-        console.error('Khong the doc trang thai thong bao lich:', error);
+        console.error('Không thể đọc trạng thái thông báo lịch:', error);
     }
 
     hasShownScheduleUpdateNoticeThisLoad = true;
@@ -545,7 +545,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         try {
             localStorage.setItem(SCHEDULE_UPDATE_NOTICE_STORAGE_KEY, 'true');
         } catch (error) {
-            console.error('Khong the luu trang thai thong bao lich:', error);
+            console.error('Không thể lưu trạng thái thông báo lịch:', error);
         }
     }
     setShowScheduleUpdateNotice(false);
@@ -1559,7 +1559,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4" onClick={handleCloseScheduleUpdateNotice}>
                 <div className="w-full max-w-md select-none overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl animate-scaleIn" onClick={(e) => e.stopPropagation()}>
                     <div className="relative border-b border-gray-100 bg-gray-50 px-5 py-4">
-                        <button onClick={handleCloseScheduleUpdateNotice} className="absolute right-4 top-4 rounded-full border border-gray-200 bg-white p-1.5 text-gray-400 transition-colors hover:text-gray-700" aria-label="Dong thong bao">
+                        <button onClick={handleCloseScheduleUpdateNotice} className="absolute right-4 top-4 rounded-full border border-gray-200 bg-white p-1.5 text-gray-400 transition-colors hover:text-gray-700" aria-label="Đóng thông báo">
                             <X size={18} />
                         </button>
                         <div className="flex items-start gap-3 pr-8">

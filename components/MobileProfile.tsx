@@ -75,7 +75,11 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
             setSession(session);
 
             if (session?.user) {
-                const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('id,full_name,student_code,avatar_url,class_name')
+                    .eq('id', session.user.id)
+                    .single();
                 const privateProfile = await fetchProfilePrivate(session.user.id).catch(() => null);
                 if (data) setProfile({ ...data, data: privateProfile?.data, email: privateProfile?.email });
             }

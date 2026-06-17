@@ -32,12 +32,12 @@ const verifyTurnstile = async (request, token) => {
     || process.env.TURNSTILE_SITE_KEY;
   if (!secret) {
     if (process.env.NODE_ENV !== 'production') return;
-    const error = new Error('He thong xac minh dang tam thoi khong san sang.');
+    const error = new Error('Hệ thống xác minh đang tạm thời không sẵn sàng.');
     error.statusCode = 500;
     throw error;
   }
   if (!token || typeof token !== 'string') {
-    const error = new Error('Vui long xac minh ban khong phai robot.');
+    const error = new Error('Vui lòng xác minh bạn không phải robot.');
     error.statusCode = 400;
     throw error;
   }
@@ -52,7 +52,7 @@ const verifyTurnstile = async (request, token) => {
   });
   const result = await verifyResponse.json().catch(() => ({}));
   if (!verifyResponse.ok || !result.success) {
-    const error = new Error('Xac minh bao mat khong thanh cong. Vui long thu lai.');
+    const error = new Error('Xác minh bảo mật không thành công. Vui lòng thử lại.');
     error.statusCode = 400;
     throw error;
   }
@@ -91,7 +91,7 @@ const getR2Config = () => {
   const publicBaseUrl = process.env.R2_PUBLIC_URL;
 
   if (!R2_ENDPOINT || !bucket || !accessKeyId || !secretAccessKey || !publicBaseUrl) {
-    const error = new Error('Chua cau hinh R2. Can R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL.');
+    const error = new Error('Chưa cấu hình R2. Cần R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL.');
     error.statusCode = 500;
     throw error;
   }
@@ -149,7 +149,7 @@ const putR2Object = async ({ key, body, contentType }) => {
 
   if (!uploadResponse.ok) {
     const detail = await uploadResponse.text().catch(() => '');
-    throw new Error(`Khong the upload avatar len R2 (${uploadResponse.status}). ${detail}`.trim());
+    throw new Error(`Không thể upload avatar lên R2 (${uploadResponse.status}). ${detail}`.trim());
   }
 };
 
@@ -203,7 +203,7 @@ const resolveEmail = async (rawValue) => {
     .maybeSingle();
   if (privateError) throw privateError;
   if (!privateProfile?.email) {
-    const notFound = new Error('KhÃ´ng tÃ¬m tháº¥y email cá»§a MSSV nÃ y.');
+    const notFound = new Error('Không tìm thấy email của MSSV này.');
     notFound.statusCode = 404;
     throw notFound;
   }
@@ -313,9 +313,9 @@ const recordPolicyConsentForUser = async ({
 
 const recordPolicyConsent = async (request, response) => {
   const token = String(request.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!token) return response.status(401).json({ error: 'Thieu phien dang nhap.' });
+  if (!token) return response.status(401).json({ error: 'Thiếu phiên đăng nhập.' });
   const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data?.user?.id) return response.status(401).json({ error: 'Phien dang nhap khong hop le.' });
+  if (error || !data?.user?.id) return response.status(401).json({ error: 'Phiên đăng nhập không hợp lệ.' });
 
   await recordPolicyConsentForUser({
     request,
@@ -338,7 +338,7 @@ const sendEmail = async ({ email, otp, purpose }) => {
     });
 
     if (error || data?.error) {
-      throw new Error(data?.error || error?.message || 'Chưa cấu hình RESEND_API_KEY hoac Edge Function gui OTP.');
+      throw new Error(data?.error || error?.message || 'Chưa cấu hình RESEND_API_KEY hoặc Edge Function gửi OTP.');
     }
     return;
   }
@@ -616,11 +616,11 @@ const verifyOtp = async (request, response) => {
 
 const deleteAccount = async (request, response) => {
   const token = String(request.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!token) return response.status(401).json({ error: 'Thieu phien dang nhap.' });
+  if (!token) return response.status(401).json({ error: 'Thiếu phiên đăng nhập.' });
 
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
   if (userError || !userData?.user?.id) {
-    return response.status(401).json({ error: 'Phien dang nhap khong hop le.' });
+    return response.status(401).json({ error: 'Phiên đăng nhập không hợp lệ.' });
   }
 
   const userId = userData.user.id;
@@ -704,11 +704,11 @@ const deleteAccount = async (request, response) => {
 
 const createAvatarUpload = async (request, response) => {
   const token = String(request.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!token) return response.status(401).json({ error: 'Thieu phien dang nhap.' });
+  if (!token) return response.status(401).json({ error: 'Thiếu phiên đăng nhập.' });
 
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
   if (userError || !userData?.user?.id) {
-    return response.status(401).json({ error: 'Phien dang nhap khong hop le.' });
+    return response.status(401).json({ error: 'Phiên đăng nhập không hợp lệ.' });
   }
 
   const bucket = process.env.R2_BUCKET_NAME;
@@ -718,17 +718,17 @@ const createAvatarUpload = async (request, response) => {
 
   if (!R2_ENDPOINT || !bucket || !accessKeyId || !secretAccessKey || !publicBaseUrl) {
     return response.status(500).json({
-      error: 'Chua cau hinh R2. Can R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL.',
+      error: 'Chưa cấu hình R2. Cần R2_ACCOUNT_ID, R2_BUCKET_NAME, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL.',
     });
   }
 
   const contentType = String(request.body?.contentType || 'image/webp');
   const size = Number(request.body?.size || 0);
   if (!contentType.startsWith('image/')) {
-    return response.status(400).json({ error: 'File avatar phai la anh.' });
+    return response.status(400).json({ error: 'File avatar phải là ảnh.' });
   }
   if (!size || size > 350 * 1024) {
-    return response.status(400).json({ error: 'Avatar can nho hon 350KB sau khi nen.' });
+    return response.status(400).json({ error: 'Avatar cần nhỏ hơn 350KB sau khi nén.' });
   }
 
   const extension = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp';
@@ -780,11 +780,11 @@ const createAvatarUpload = async (request, response) => {
 
 const uploadAvatar = async (request, response) => {
   const token = String(request.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!token) return response.status(401).json({ error: 'Thieu phien dang nhap.' });
+  if (!token) return response.status(401).json({ error: 'Thiếu phiên đăng nhập.' });
 
   const { data: userData, error: userError } = await supabase.auth.getUser(token);
   if (userError || !userData?.user?.id) {
-    return response.status(401).json({ error: 'Phien dang nhap khong hop le.' });
+    return response.status(401).json({ error: 'Phiên đăng nhập không hợp lệ.' });
   }
 
   const { publicBaseUrl } = getR2Config();
@@ -793,18 +793,18 @@ const uploadAvatar = async (request, response) => {
   const base64 = String(request.body?.base64 || '');
 
   if (!contentType.startsWith('image/')) {
-    return response.status(400).json({ error: 'File avatar phai la anh.' });
+    return response.status(400).json({ error: 'File avatar phải là ảnh.' });
   }
   if (!size || size > 350 * 1024) {
-    return response.status(400).json({ error: 'Avatar can nho hon 350KB sau khi nen.' });
+    return response.status(400).json({ error: 'Avatar cần nhỏ hơn 350KB sau khi nén.' });
   }
   if (!base64) {
-    return response.status(400).json({ error: 'Thieu du lieu avatar.' });
+    return response.status(400).json({ error: 'Thiếu dữ liệu avatar.' });
   }
 
   const buffer = Buffer.from(base64, 'base64');
   if (!buffer.length || Math.abs(buffer.length - size) > 8) {
-    return response.status(400).json({ error: 'Du lieu avatar khong hop le.' });
+    return response.status(400).json({ error: 'Dữ liệu avatar không hợp lệ.' });
   }
 
   const extension = contentType.includes('png') ? 'png' : contentType.includes('jpeg') || contentType.includes('jpg') ? 'jpg' : 'webp';
@@ -937,7 +937,7 @@ async function handler(request, response) {
   })) return;
 
   if (request.method !== 'POST') {
-    return response.status(405).json({ error: 'Chi ho tro phuong thuc POST.' });
+    return response.status(405).json({ error: 'Chỉ hỗ trợ phương thức POST.' });
   }
 
   try {
@@ -954,7 +954,7 @@ async function handler(request, response) {
     if (action === 'upload-avatar') return await uploadAvatar(request, response);
     if (action === 'admin-set-subscription') return await adminSetSubscription(request, response);
     if (action === 'approve-payment-request') return await approvePaymentRequest(request, response);
-    return response.status(400).json({ error: 'Thao tac auth khong hop le.' });
+    return response.status(400).json({ error: 'Thao tác auth không hợp lệ.' });
   } catch (error) {
     const statusCode = error.statusCode || 500;
     const message = error.message?.includes('already been registered')

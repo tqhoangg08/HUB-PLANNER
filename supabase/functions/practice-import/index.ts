@@ -110,7 +110,7 @@ const normalizeGeneratedQuiz = (payload: any, fallbackTitle: string, maxQuestion
   })
 
   if (!questions.length) {
-    throw new Error('Khong trich xuat duoc cau hoi trac nghiem hop le. Kiem tra PDF co dap an hoac text ro khong.')
+    throw new Error('Không trích xuất được câu hỏi trắc nghiệm hợp lệ. Kiểm tra PDF có đáp án hoặc text rõ không.')
   }
 
   return {
@@ -196,7 +196,7 @@ const normalizeMetadata = (body: any) => {
   const difficulty = ['easy', 'medium', 'hard'].includes(body.difficulty) ? body.difficulty : 'medium'
   const visibility = ['public', 'private', 'pro'].includes(body.visibility) ? body.visibility : 'public'
   const maxQuestions = Math.min(Math.max(Number(body.questionCount || 0), 0), 200)
-  if (!subjectName) throw new Error('Thieu ten mon hoc.')
+  if (!subjectName) throw new Error('Thiếu tên môn học.')
   return { subjectName, courseCode, chapterTitle, chapterCode, title, description, difficulty, visibility, maxQuestions }
 }
 

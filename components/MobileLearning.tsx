@@ -170,7 +170,7 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
     const nextSemesterName = (semesters: Semester[]) => {
         const parsed = semesters
             .map(semester => {
-                const match = semester.name.match(/H(?:á»c|ọc) k(?:á»³|ỳ) (1|2) N(?:Äƒm|ăm) h(?:á»c|ọc) (\d{4})-\d{4}/);
+                const match = semester.name.match(/Học kỳ (1|2) Năm học (\d{4})-\d{4}/);
                 return match ? { term: Number(match[1]), year: Number(match[2]) } : null;
             })
             .filter((item): item is { term: number; year: number } => Boolean(item));

@@ -69,7 +69,7 @@ export const sendModeratorAlert = async ({
     return { notified: 0, push: { sent: 0, failed: 0 }, receiverIds: [] };
   }
 
-  const cleanContent = normalizeText(content || body || title || 'CÃ³ thÃ´ng bÃ¡o má»›i');
+  const cleanContent = normalizeText(content || body || title || 'Có thông báo mới');
   const cleanUrl = normalizeText(url || '/');
 
   const { data: existingRows, error: existingError } = await supabase

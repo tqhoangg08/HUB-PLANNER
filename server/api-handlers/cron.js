@@ -27,7 +27,7 @@ async function queueAnnouncementPushes(newItems) {
     .upsert(rows, { onConflict: 'announcement_id' });
 
   if (error) {
-    logger.error('Khong the xep hang push thong bao truong', { meta: { error: error.message } });
+    logger.error('Không thể xếp hàng push thông báo trường', { meta: { error: error.message } });
     return { queued: 0, error: error.message };
   }
 
@@ -252,7 +252,7 @@ export default async function handler(request, response) {
                 .select('id, title, link');
 
             if (error) {
-                logger.warn('Bo qua batch thong bao bi trung hoac loi insert', {
+                logger.warn('Bỏ qua batch thông báo bị trùng hoặc lỗi insert', {
                     meta: { error: error.message, attempted: chunk.length }
                 });
                 throw new Error(`Không thể lưu thông báo mới: ${error.message}`);

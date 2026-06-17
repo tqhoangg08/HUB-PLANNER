@@ -34,7 +34,7 @@ const fetchRoleRecord = async (userId: string): Promise<UserRole> => {
             .maybeSingle();
 
         if (error) {
-            console.warn(`Khong the doc user_roles.${column}:`, error.message);
+            console.warn(`Không thể đọc user_roles.${column}:`, error.message);
             return null;
         }
         return data?.role ? normalizeRole(data.role as string) : null;
@@ -129,7 +129,7 @@ export const useUserRole = () => {
                     setState(createRoleState(role, currentSession));
                 }
             } catch (err) {
-                console.error('Loi lay quyen:', err);
+                console.error('Lỗi lấy quyền:', err);
                 if (isMounted) {
                     setState({
                         ...anonymousState,
@@ -145,7 +145,7 @@ export const useUserRole = () => {
             supabase.auth.getSession()
                 .then(({ data: { session } }) => fetchRole(session))
                 .catch(err => {
-                    console.error('Loi getSession:', err);
+                    console.error('Lỗi getSession:', err);
                     if (isMounted) setState(prev => ({ ...prev, loading: false }));
                 });
 

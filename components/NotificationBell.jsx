@@ -524,7 +524,7 @@ const NotificationBell = ({ currentUserId }) => {
     <div className="relative z-[100001] pointer-events-auto" ref={bellRef}>
       <button
         type="button"
-        aria-label="Mo thong bao"
+        aria-label="Mở thông báo"
         onPointerDown={togglePanel}
         onClick={(event) => {
           event.preventDefault();

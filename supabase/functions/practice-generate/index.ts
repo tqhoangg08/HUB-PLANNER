@@ -256,7 +256,7 @@ const generateWithProvider = async (messages: Message[]) => {
   }
 
   if (configuredProviderCount === 0) {
-    throw new Error(`Chua cau hinh API key AI. Provider order hien tai: ${order.join(', ')}`)
+    throw new Error(`Chưa cấu hình API key AI. Thứ tự provider hiện tại: ${order.join(', ')}`)
   }
   throw new Error(errors.length ? errors.join(' | ') : 'Tat ca provider AI deu loi.')
 }
@@ -310,14 +310,14 @@ const savePracticeSet = async ({
     .single()
 
   if (setError) {
-    console.warn('Khong the luu practice set:', setError)
+    console.warn('Không thể lưu practice set:', setError)
     return null
   }
 
   const setId = setRow.id
   const questions = output.questions.map((item) => ({ ...item, set_id: setId }))
   const { error: questionError } = await supabase.from('practice_questions').insert(questions)
-  if (questionError) console.warn('Khong the luu questions:', questionError)
+  if (questionError) console.warn('Không thể lưu questions:', questionError)
 
   return setId
 }

@@ -63,7 +63,7 @@ export const Handbook: React.FC = () => {
         setLoadingDonors(true);
         const { data, error } = await supabase
             .from('donations')
-            .select('*')
+            .select('id,name,amount,message,student_id,created_at')
             .order('amount', { ascending: false }); 
         
         if (!error && data) {
@@ -588,7 +588,7 @@ const renderContent = () => {
                                     </p>
                                 </div>
 
-                                {/* KHUNG MÃ QR */}
+                                {/* KHUNG M QR */}
                                 <div className="shrink-0 bg-white p-4 rounded-2xl">
                                     <div className="w-48 h-48 bg-gray-100 rounded-lg overflow-hidden mb-2">
                                         <img src="/qr-code.png" alt="QR Code Momo/Bank" className="w-full h-full object-cover" />

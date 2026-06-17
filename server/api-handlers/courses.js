@@ -70,6 +70,10 @@ const COURSE_SCHEDULE_COLUMNS = [
 ].join(', ');
 const USER_COURSE_REQUEST_COLUMNS = 'id, user_id, subject_name, course_code, instructor, status, created_at';
 const PUBLIC_COURSES_CACHE_TTL_MS = 10 * 60 * 1000;
+const DEFAULT_ADMIN_SCHEDULE_LIMIT = 200;
+const MAX_ADMIN_SCHEDULE_LIMIT = 500;
+const ADMIN_SCHEDULE_SCAN_BATCH_SIZE = 500;
+const MAX_ADMIN_SCHEDULE_SCAN_ROWS = 5000;
 const publicCoursesCache = new Map();
 
 const getPublicCoursesCacheKey = (query) => {
@@ -254,46 +258,42 @@ const handleUserSchedules = async (request, response) => {
     return response.status(403).json({ error: 'Forbidden' });
   }
 
-  const { mode = 'changed', semester = 'HK2_2025_2026', phase = 'all', search = '', userId, limit = 10, offset = 0 } = request.query;
-  const pageLimit = Math.max(1, Math.min(Number(limit) || 10, 100));
+  const { mode = 'changed', semester = 'HK2_2025_2026', phase = 'all', search = '', userId, limit, offset = 0 } = request.query;
+  const pageLimit = Math.max(1, Math.min(Number(limit) || DEFAULT_ADMIN_SCHEDULE_LIMIT, MAX_ADMIN_SCHEDULE_LIMIT));
   const pageOffset = Math.max(0, Number(offset) || 0);
   const dbSemester = normalizeSemester(semester);
-
-  let schedulesQuery = supabase
-    .from('user_schedules')
-    .select(`id, user_id, course_id, semester, custom_data, course_schedules (${COURSE_SCHEDULE_COLUMNS})`)
-    .in('semester', [semester, dbSemester]);
-
-  if (mode === 'changed') {
-    schedulesQuery = schedulesQuery
-      .not('custom_data', 'is', null)
-      .not('custom_data', 'eq', '{}');
-  }
-
-  if (mode === 'courses' && userId) {
-    schedulesQuery = schedulesQuery.eq('user_id', userId);
-  }
-
-  const { data: schedules, error } = await schedulesQuery.limit(10000);
-
-  if (error) throw error;
-
-  const rows = schedules || [];
-  const profilesMap = await fetchProfilesMap(rows.map((item) => item.user_id));
+  const semesterValues = [...new Set([semester, dbSemester].filter(Boolean))];
 
   if (mode === 'summaries') {
-    const userIds = [...new Set(rows.map((item) => item.user_id).filter(Boolean))];
+    const { data: summaryRows, error: summaryError } = await supabase
+      .from('user_schedules')
+      .select('user_id, semester')
+      .in('semester', semesterValues);
+
+    if (summaryError) throw summaryError;
+
+    const grouped = (summaryRows || []).reduce((map, item) => {
+      if (!item.user_id) return map;
+      if (!map[item.user_id]) {
+        map[item.user_id] = { course_count: 0, semesters: new Set() };
+      }
+      map[item.user_id].course_count += 1;
+      if (item.semester) map[item.user_id].semesters.add(item.semester);
+      return map;
+    }, {});
+
+    const userIds = Object.keys(grouped);
+    const profilesMap = await fetchProfilesMap(userIds);
     const data = userIds
       .map((id) => {
         const profile = profilesMap[id] || {};
-        const userItems = rows.filter((item) => item.user_id === id);
         return {
           user_id: id,
           full_name: profile.full_name || 'Chưa có tên',
           student_code: profile.student_code || id,
           email: profile.email,
-          course_count: userItems.length,
-          semesters: [...new Set(userItems.map((item) => item.semester).filter(Boolean))],
+          course_count: grouped[id].course_count,
+          semesters: [...grouped[id].semesters],
         };
       })
       .sort((a, b) => a.student_code.localeCompare(b.student_code, 'vi'));
@@ -309,31 +309,75 @@ const handleUserSchedules = async (request, response) => {
   if (mode === 'courses') {
     if (!userId) return response.status(400).json({ error: 'Missing userId' });
 
-    const data = rows
-      .filter((item) => item.user_id === userId)
+    const { data: rows, error, count } = await supabase
+      .from('user_schedules')
+      .select(`id, user_id, course_id, semester, custom_data, course_schedules (${COURSE_SCHEDULE_COLUMNS})`, { count: 'exact' })
+      .in('semester', semesterValues)
+      .eq('user_id', userId)
+      .range(pageOffset, pageOffset + pageLimit - 1);
+
+    if (error) throw error;
+
+    const profilesMap = await fetchProfilesMap([userId]);
+    const data = (rows || [])
       .map((item) => mergeScheduleCourse(item, profilesMap[userId] || {}))
       .filter((course) => course.id);
 
     return response.status(200).json({
       success: true,
-      data: data.slice(pageOffset, pageOffset + pageLimit),
-      hasMore: data.length > pageOffset + pageLimit,
-      total: data.length,
+      data,
+      hasMore: (count || 0) > pageOffset + data.length,
+      total: count || 0,
     });
   }
 
-  const data = rows
-    .filter((item) => Object.keys(getSyncableDiff(item)).length > 0)
-    .map((item) => mergeScheduleCourse(item, profilesMap[item.user_id] || { full_name: 'Ẩn danh', student_code: '???' }))
-    .filter((course) => course.id)
-    .filter((course) => phase === 'all' || String(course.phase || '') === String(phase))
-    .filter((course) => matchesSearch(course, search));
+  const targetCount = pageOffset + pageLimit + 1;
+  const data = [];
+  let scannedRows = 0;
+  let sourceHasMore = true;
+
+  while (data.length < targetCount && sourceHasMore && scannedRows < MAX_ADMIN_SCHEDULE_SCAN_ROWS) {
+    const batchStart = scannedRows;
+    const batchEnd = Math.min(
+      batchStart + ADMIN_SCHEDULE_SCAN_BATCH_SIZE - 1,
+      MAX_ADMIN_SCHEDULE_SCAN_ROWS - 1
+    );
+
+    const { data: schedules, error } = await supabase
+      .from('user_schedules')
+      .select(`id, user_id, course_id, semester, custom_data, course_schedules (${COURSE_SCHEDULE_COLUMNS})`)
+      .in('semester', semesterValues)
+      .not('custom_data', 'is', null)
+      .not('custom_data', 'eq', '{}')
+      .range(batchStart, batchEnd);
+
+    if (error) throw error;
+
+    const rows = schedules || [];
+    sourceHasMore = rows.length === (batchEnd - batchStart + 1);
+    scannedRows += rows.length;
+
+    if (rows.length === 0) break;
+
+    const profilesMap = await fetchProfilesMap(rows.map((item) => item.user_id));
+    const matchedRows = rows
+      .filter((item) => Object.keys(getSyncableDiff(item)).length > 0)
+      .map((item) => mergeScheduleCourse(item, profilesMap[item.user_id] || { full_name: 'Ẩn danh', student_code: '???' }))
+      .filter((course) => course.id)
+      .filter((course) => phase === 'all' || String(course.phase || '') === String(phase))
+      .filter((course) => matchesSearch(course, search));
+
+    data.push(...matchedRows);
+  }
+
+  const hasMore = data.length > pageOffset + pageLimit
+    || (sourceHasMore && scannedRows >= MAX_ADMIN_SCHEDULE_SCAN_ROWS);
 
   return response.status(200).json({
     success: true,
     data: data.slice(pageOffset, pageOffset + pageLimit),
-    hasMore: data.length > pageOffset + pageLimit,
-    total: data.length,
+    hasMore,
+    total: hasMore ? Math.max(data.length, pageOffset + pageLimit + 1) : data.length,
   });
 };
 

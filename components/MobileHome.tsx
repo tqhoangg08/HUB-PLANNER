@@ -21,6 +21,7 @@ import { Link } from 'react-router-dom';
 import { UserData } from '../types';
 import { playClick } from '../utils/audio';
 import { supabase } from '../utils/supabase';
+import { apiUrl } from '../utils/api';
 import NotificationBell from './NotificationBell';
 import PushNotificationPrompt from '../components/PushNotificationPrompt';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
@@ -62,6 +63,15 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                     setCurrentUserId(session.user.id);
                 }
 
+                const response = await fetch(apiUrl('/events?resource=announcements&limit=4'));
+                const payload = await response.json();
+                if (!response.ok) {
+                    console.error('Lỗi truy vấn thông báo:', payload?.error);
+                } else if (payload.data) {
+                    setRealNews(payload.data);
+                }
+                return;
+
                 const { data: newsData, error } = await supabase
                     .from('school_announcements')
                     .select(SCHOOL_ANNOUNCEMENT_COLUMNS)
@@ -89,6 +99,13 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
 
         setLoadingAllNews(true);
         try {
+            const response = await fetch(apiUrl(`/events?resource=announcements&limit=${ALL_NEWS_LIMIT}`));
+            const payload = await response.json();
+            if (response.ok && payload.data) {
+                setAllNews(payload.data);
+            }
+            return;
+
             const { data: fullNewsData, error } = await supabase
                 .from('school_announcements')
                 .select(SCHOOL_ANNOUNCEMENT_COLUMNS)

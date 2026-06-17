@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom'; 
+import { useParams, useNavigate } from 'react-router-dom';
 import {
     Search, Phone, Mail, MapPin, Users, Book, Award,
     Copy, Check, HelpCircle, ExternalLink, Info, Heart, Facebook, User,
@@ -22,7 +22,7 @@ interface MobileHandbookProps {
 }
 
 export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => {
-    const { tab } = useParams<{ tab: string }>(); 
+    const { tab } = useParams<{ tab: string }>();
     const navigate = useNavigate();
 
     const [activeTab, setActiveTab] = useState<TabType>(() => {
@@ -59,7 +59,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
         } else if (tab && VALID_TABS.includes(tab as TabType)) {
             setActiveTab(tab as TabType);
         } else if (!tab) {
-            setActiveTab('contacts'); 
+            setActiveTab('contacts');
         }
     }, [forcedTab, tab]);
 
@@ -73,9 +73,9 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
         setLoadingDonors(true);
         const { data, error } = await supabase
             .from('donations')
-            .select('*')
-            .order('amount', { ascending: false }); 
-        
+            .select('id,name,amount,message,student_id,created_at')
+            .order('amount', { ascending: false });
+
         if (!error && data) {
             setDonors(data);
         }
@@ -102,9 +102,9 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
             });
 
             setDonateTurnstileToken('');
-            alert("Cảm ơn tấm lòng vàng của bạn! �?��?");
-            setDonateForm({ name: '', mssv: '', amount: '', message: '' }); 
-            fetchDonors(); 
+            alert("Cảm ơn tấm lòng vàng của bạn!");
+            setDonateForm({ name: '', mssv: '', amount: '', message: '' });
+            fetchDonors();
         } catch (error) {
             console.error("Lỗi:", error);
             alert("Có lỗi xảy ra, vui lòng thử lại.");
@@ -136,7 +136,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
             setContactInfo('');
             setTimeout(() => setSubmitStatus('idle'), 5000);
         } catch (error) {
-            console.error("Loi gui feedback:", error);
+            console.error("Lỗi gửi feedback:", error);
             setSubmitStatus('error');
         } finally {
             setIsSubmitting(false);
@@ -144,10 +144,10 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
     };
 
     const contacts = [
-        { name: 'Phòng �?ào tạo', email: 'phongdaotao@hub.edu.vn', phone: '028.38.212.430', loc: '56 Hoàng Diệu 2 & 36 Tôn Thất �?ạm' },
+        { name: 'Phòng Đào tạo', email: 'phongdaotao@hub.edu.vn', phone: '028.38.212.430', loc: '56 Hoàng Diệu 2 & 36 Tôn Thất Đạm' },
         { name: 'Phòng Công tác Sinh viên (TT SV&QHDN)', email: 'trungtamsvvaqhdn@hub.edu.vn', phone: '028.38.971.636', loc: '56 Hoàng Diệu 2' },
-        { name: 'Phòng Khảo thí & �?BCL', email: 'phongktdbcl@hub.edu.vn', phone: '028.39.144.932', loc: '56 Hoàng Diệu 2' },
-        { name: 'Phòng Tài chính – Kế toán', email: 'phongketoan@hub.edu.vn', phone: '028.38.212.591', loc: '36 Tôn Thất �?ạm' },
+        { name: 'Phòng Khảo thí & ĐBCL', email: 'phongktdbcl@hub.edu.vn', phone: '028.39.144.932', loc: '56 Hoàng Diệu 2' },
+        { name: 'Phòng Tài chính – Kế toán', email: 'phongketoan@hub.edu.vn', phone: '028.38.212.591', loc: '36 Tôn Thất Đạm' },
         { name: 'Thư viện', email: 'thuvien@hub.edu.vn', phone: '028.38.971.651', loc: '56 Hoàng Diệu 2' },
         { name: 'Trạm Y tế', email: 'toyte.tccb@hub.edu.vn', phone: '0912.048.079', loc: 'Các cơ sở' },
         { name: 'Khoa Tài chính', email: 'khoatc@hub.edu.vn', phone: '028.38.971.631', loc: 'Tầng 1 - Khu B - 56 HD2' },
@@ -162,85 +162,85 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
 
     const clubs = [
         {
-            type: 'H�?c thuật', list: [
-                { name: 'CLB Ngân hàng Quốc tế (IBC)', link: 'https://www.facebook.com/CLBIBC', email: 'ibc@hub.edu.vn', manager: '�?oàn trư�?ng' },
-                { name: 'CLB Anh văn STEP', link: 'https://www.facebook.com/stepclubhub', email: 'clb.step@hub.edu.vn', manager: '�?oàn trư�?ng' },
-                { name: 'CLB Anh văn BEE', link: 'https://www.facebook.com/BeeClubHUB', email: 'clb.bee@hub.edu.vn', manager: '�?oàn trư�?ng' },
-                { name: 'CLB SV Nghiên cứu Khoa h�?c (SRC)', link: 'https://www.facebook.com/spyclubhub', email: 'clb.nckh@hub.edu.vn', manager: '�?oàn trư�?ng' },
-                { name: '�?ội Enactus BU', link: 'https://www.facebook.com/EBankingUniversity', email: 'clb.enactus@hub.edu.vn', manager: 'Hội SV' },
-                { name: 'CLB Tài chính (BUSF)', link: 'https://www.facebook.com/BUSFClub', email: 'busf@hub.edu.vn', manager: '�?oàn khoa TC' },
-                { name: 'CLB Quản trị và Marketing (MMC)', link: 'https://www.facebook.com/HUBMMC', email: 'mmc@hub.edu.vn', manager: '�?oàn khoa QTKD' },
-                { name: 'CLB Anh ngữ Quốc tế (IEC)', link: 'https://www.facebook.com/iec.hub', email: 'iec@hub.edu.vn', manager: '�?oàn khoa KTQT' },
-                { name: 'CLB Kinh doanh và KT Quốc tế (IBEC)', link: 'https://www.facebook.com/IBEC.HUB', email: 'ibec.hub@gmail.com', manager: '�?oàn khoa KTQT' },
-                { name: 'CLB Kết nối ngh�? nghiệp (Career Link)', link: '', email: 'clb.careerlink@hub.edu.vn', manager: '�?oàn khoa NH' },
-                { name: 'CLB Nghiên cứu ứng dụng (SARA)', link: '', email: 'sara@hub.edu.vn', manager: '�?oàn khoa KTKT' },
-                { name: 'CLB Kế toán Kiểm toán (FAAC)', link: 'https://www.facebook.com/hub.faac', email: 'faac.hub@gmail.com', manager: '�?oàn khoa KTKT' },
-                { name: 'CLB Pháp lý', link: 'https://www.facebook.com/CLBPHAPLYHUB', email: 'clb.phaply@hub.edu.vn', manager: '�?oàn khoa Luật' },
-                { name: 'CLB H�?c thuật GIEO', link: '', email: 'gieoclub@hub.edu.vn', manager: '�?oàn khoa HTTTQL' },
-                { name: 'CLB DATA LAB', link: 'https://www.facebook.com/profile.php?id=61576925573439', email: '', manager: '�?oàn khoa Khoa h�?c dữ liệu' },
-                { name: 'CLB Nghiên cứu - Ứng dụng Phân tích Dữ liệu & Phát triển B�?n vững trong Kế toán - Kiểm toán (AICAS)', link: 'https://www.facebook.com/clbaicashub', email: 'clbaicashub@gmail.com', manager: '�?oàn khoa Kế toán - Kiểm toán' }
+            type: 'Học thuật', list: [
+                { name: 'CLB Ngân hàng Quốc tế (IBC)', link: 'https://www.facebook.com/CLBIBC', email: 'ibc@hub.edu.vn', manager: 'Đoàn trường' },
+                { name: 'CLB Anh văn STEP', link: 'https://www.facebook.com/stepclubhub', email: 'clb.step@hub.edu.vn', manager: 'Đoàn trường' },
+                { name: 'CLB Anh văn BEE', link: 'https://www.facebook.com/BeeClubHUB', email: 'clb.bee@hub.edu.vn', manager: 'Đoàn trường' },
+                { name: 'CLB SV Nghiên cứu Khoa học (SRC)', link: 'https://www.facebook.com/spyclubhub', email: 'clb.nckh@hub.edu.vn', manager: 'Đoàn trường' },
+                { name: 'Đội Enactus BU', link: 'https://www.facebook.com/EBankingUniversity', email: 'clb.enactus@hub.edu.vn', manager: 'Hội SV' },
+                { name: 'CLB Tài chính (BUSF)', link: 'https://www.facebook.com/BUSFClub', email: 'busf@hub.edu.vn', manager: 'Đoàn khoa TC' },
+                { name: 'CLB Quản trị và Marketing (MMC)', link: 'https://www.facebook.com/HUBMMC', email: 'mmc@hub.edu.vn', manager: 'Đoàn khoa QTKD' },
+                { name: 'CLB Anh ngữ Quốc tế (IEC)', link: 'https://www.facebook.com/iec.hub', email: 'iec@hub.edu.vn', manager: 'Đoàn khoa KTQT' },
+                { name: 'CLB Kinh doanh và KT Quốc tế (IBEC)', link: 'https://www.facebook.com/IBEC.HUB', email: 'ibec.hub@gmail.com', manager: 'Đoàn khoa KTQT' },
+                { name: 'CLB Kết nối nghề nghiệp (Career Link)', link: '', email: 'clb.careerlink@hub.edu.vn', manager: 'Đoàn khoa NH' },
+                { name: 'CLB Nghiên cứu ứng dụng (SARA)', link: '', email: 'sara@hub.edu.vn', manager: 'Đoàn khoa KTKT' },
+                { name: 'CLB Kế toán Kiểm toán (FAAC)', link: 'https://www.facebook.com/hub.faac', email: 'faac.hub@gmail.com', manager: 'Đoàn khoa KTKT' },
+                { name: 'CLB Pháp lý', link: 'https://www.facebook.com/CLBPHAPLYHUB', email: 'clb.phaply@hub.edu.vn', manager: 'Đoàn khoa Luật' },
+                { name: 'CLB Học thuật GIEO', link: '', email: 'gieoclub@hub.edu.vn', manager: 'Đoàn khoa HTTTQL' },
+                { name: 'CLB DATA LAB', link: 'https://www.facebook.com/profile.php?id=61576925573439', email: '', manager: 'Đoàn khoa Khoa học dữ liệu' },
+                { name: 'CLB Nghiên cứu - Ứng dụng Phân tích Dữ liệu & Phát triển Bền vững trong Kế toán - Kiểm toán (AICAS)', link: 'https://www.facebook.com/clbaicashub', email: 'clbaicashub@gmail.com', manager: 'Đoàn khoa Kế toán - Kiểm toán' }
             ]
         },
         {
             type: 'Kỹ năng', list: [
-                { name: 'Ban Sự kiện', link: 'https://www.facebook.com/bansukienhub', email: 'bansukien@hub.edu.vn', manager: '�?oàn trư�?ng' },
-                { name: 'CLB Mầm sống', link: 'https://www.facebook.com/mamsong.hub', email: 'clb.mamsong@hub.edu.vn', manager: '�?oàn trư�?ng' },
-                { name: 'CLB Kỹ năng', link: 'https://www.facebook.com/clbknbuh', email: 'clb.kynang@hub.edu.vn', manager: '�?oàn trư�?ng' },
+                { name: 'Ban Sự kiện', link: 'https://www.facebook.com/bansukienhub', email: 'bansukien@hub.edu.vn', manager: 'Đoàn trường' },
+                { name: 'CLB Mầm sống', link: 'https://www.facebook.com/mamsong.hub', email: 'clb.mamsong@hub.edu.vn', manager: 'Đoàn trường' },
+                { name: 'CLB Kỹ năng', link: 'https://www.facebook.com/clbknbuh', email: 'clb.kynang@hub.edu.vn', manager: 'Đoàn trường' },
                 { name: 'CLB Khởi nghiệp (FIC)', link: 'https://www.facebook.com/ficstart', email: 'fic@hub.edu.vn', manager: 'Hội SV' },
                 { name: 'CLB Youth For Chance (YFC)', link: 'https://www.facebook.com/youthforchance', email: 'clb.youthforchance@hub.edu.vn', manager: 'Hội SV' },
-                { name: '�?ội Lửa xanh (Blue Fire)', link: 'https://www.facebook.com/luaxanhdoi.hub/', email: 'doi.bluefire@hub.edu.vn', manager: 'Hội SV' },
-                { name: 'CLB Hội nhập Quốc tế (IIC)', link: 'https://www.facebook.com/iic.qtkd.hub', email: 'iic.hub@gmail.com', manager: '�?oàn khoa QTKD' },
-                { name: 'CLB Thể thao trí tuệ (ISTHub)', link: 'https://www.facebook.com/is.hub22', email: 'ISTHub@gmail.com', manager: '�?oàn hệ CLC' }
+                { name: 'Đội Lửa xanh (Blue Fire)', link: 'https://www.facebook.com/luaxanhdoi.hub/', email: 'doi.bluefire@hub.edu.vn', manager: 'Hội SV' },
+                { name: 'CLB Hội nhập Quốc tế (IIC)', link: 'https://www.facebook.com/iic.qtkd.hub', email: 'iic.hub@gmail.com', manager: 'Đoàn khoa QTKD' },
+                { name: 'CLB Thể thao trí tuệ (ISTHub)', link: 'https://www.facebook.com/is.hub22', email: 'ISTHub@gmail.com', manager: 'Đoàn hệ CLC' }
             ]
         },
         {
             type: 'Sở thích & Văn thể', list: [
-                { name: 'Ban Thông tin Truy�?n thông (B4T)', link: 'https://www.facebook.com/b4t.hub', email: 'ban4t@hub.edu.vn', manager: 'Hội SV' },
-                { name: 'CLB Bóng chuy�?n', link: 'https://www.facebook.com/HUBvolleyball', email: 'clb.bongchuyen@hub.edu.vn', manager: 'Hội SV' },
+                { name: 'Ban Thông tin Truyền thông (B4T)', link: 'https://www.facebook.com/b4t.hub', email: 'ban4t@hub.edu.vn', manager: 'Hội SV' },
+                { name: 'CLB Bóng chuyền', link: 'https://www.facebook.com/HUBvolleyball', email: 'clb.bongchuyen@hub.edu.vn', manager: 'Hội SV' },
                 { name: 'CLB Bóng đá (BUFC)', link: 'https://www.facebook.com/footballclubbuh', email: 'clb.bongda@hub.edu.vn', manager: 'Hội SV' },
                 { name: 'CLB Bóng rổ', link: 'https://www.facebook.com/bankingbasketball', email: 'clb.bongro@hub.edu.vn', manager: 'Hội SV' },
                 { name: 'CLB Cầu lông (BBC)', link: 'https://www.facebook.com/hubbadminton', email: 'clb.caulong@hub.edu.vn', manager: 'Hội SV' },
-                { name: 'CLB Dân Ca & Nhạc Cổ Truy�?n', link: 'https://www.facebook.com/HUB.DanCa', email: 'clb.danca@hub.edu.vn', manager: 'Hội SV' },
+                { name: 'CLB Dân Ca & Nhạc Cổ Truyền', link: 'https://www.facebook.com/HUB.DanCa', email: 'clb.danca@hub.edu.vn', manager: 'Hội SV' },
                 { name: 'CLB Guitar', link: 'https://www.facebook.com/guitarclub.hub', email: 'clb.guitar@hub.edu.vn', manager: 'Hội SV' },
-                { name: 'CLB �?iện ảnh và Nghệ thuật (3F)', link: 'https://www.facebook.com/3FProductionfilm', email: 'clb.3f@hub.edu.vn', manager: 'Hội SV' },
-                { name: '�?ội Văn nghệ Xung kích (VNXK)', link: 'https://www.facebook.com/vnxuki.hub', email: 'vnxk@hub.edu.vn', manager: 'Hội SV' },
+                { name: 'CLB Điện ảnh và Nghệ thuật (3F)', link: 'https://www.facebook.com/3FProductionfilm', email: 'clb.3f@hub.edu.vn', manager: 'Hội SV' },
+                { name: 'Đội Văn nghệ Xung kích (VNXK)', link: 'https://www.facebook.com/vnxuki.hub', email: 'vnxk@hub.edu.vn', manager: 'Hội SV' },
                 { name: 'CLB Vovinam', link: 'https://www.facebook.com/vovinam.hub', email: 'clb.vovinam@hub.edu.vn', manager: 'Hội SV' },
                 { name: 'CLB Nữ sinh (GCBU)', link: 'https://www.facebook.com/clbnusinh', email: 'clb.nusinh@hub.edu.vn', manager: 'Hội SV' },
                 { name: 'CLB Phát thanh (VoBU)', link: 'https://www.facebook.com/ClbPhatthanhDHNH', email: 'clb.phatthanh@hub.edu.vn', manager: 'Hội SV' },
-                { name: 'CLB C�? Vua (ICC)', link: 'https://www.facebook.com/chessclubbuh', email: 'iic@hub.edu.vn', manager: '�?oàn khoa KTQT' }
+                { name: 'CLB Cờ Vua (ICC)', link: 'https://www.facebook.com/chessclubbuh', email: 'iic@hub.edu.vn', manager: 'Đoàn khoa KTQT' }
             ]
         },
         {
             type: 'Tình nguyện', list: [
-                { name: 'CLB Hỗ trợ SV Trực tuyến (OSAC)', link: 'https://www.facebook.com/hotrosinhvientructuyen', email: 'osac@hub.edu.vn', manager: '�?oàn trư�?ng' },
+                { name: 'CLB Hỗ trợ SV Trực tuyến (OSAC)', link: 'https://www.facebook.com/hotrosinhvientructuyen', email: 'osac@hub.edu.vn', manager: 'Đoàn trường' },
                 { name: 'CLB Tủ sách tình bạn', link: 'https://www.facebook.com/clbtusachtinhban', email: 'clb.tstb@hub.edu.vn', manager: 'Hội SV' },
-                { name: '�?ội Tình nguyện Mầm Xanh', link: 'https://www.facebook.com/mamxanhtinhnguyen', email: 'mamxanhtn@hub.edu.vn', manager: 'Hội SV' },
-                { name: '�?ội Công tác Xã hội', link: 'https://www.facebook.com/HUB.QTKD.CTXH', email: 'ctxh.qtkd@hub.edu.vn', manager: '�?oàn khoa QTKD' }
+                { name: 'Đội Tình nguyện Mầm Xanh', link: 'https://www.facebook.com/mamxanhtinhnguyen', email: 'mamxanhtn@hub.edu.vn', manager: 'Hội SV' },
+                { name: 'Đội Công tác Xã hội', link: 'https://www.facebook.com/HUB.QTKD.CTXH', email: 'ctxh.qtkd@hub.edu.vn', manager: 'Đoàn khoa QTKD' }
             ]
         }
     ];
 
     const faqs = [
         {
-            group: "Nhóm 1: V�? Bảo Mật & Tài Khoản",
+            group: "Nhóm 1: Về Bảo Mật & Tài Khoản",
             items: [
-                { q: "Web có lưu mật khẩu Portal hay thông tin cá nhân của mình không?", a: "V�? Mật khẩu Portal (Quan tr�?ng): Tuyệt đối KHÔNG. Web không bao gi�? lưu mật khẩu Portal của bạn. Việc đăng nhập Portal chỉ diễn ra cục bộ trên trình duyệt của bạn để lấy bảng điểm. V�? Dữ liệu �?iểm & Thông tin cá nhân: Nếu bạn là Khách (Chưa đăng nhập): Dữ liệu chỉ được lưu trên trình duyệt của chính máy bạn đang dùng (Local Storage). Server không biết bạn là ai. Nếu bạn �?ăng nhập: Tên, MSSV và Bảng điểm sẽ được mã hóa và lưu an toàn trên cơ sở dữ liệu (Database) của hệ thống. �?i�?u này giúp bạn không bị mất dữ liệu khi đổi máy." },
-                { q: "Tại sao mình tải lại trang hoặc đổi máy thì dữ liệu bị mất?", a: "Vì dữ liệu được lưu trên trình duyệt (như đã nói ở trên) để đảm bảo bảo mật. Nếu bạn dùng tab ẩn danh (Incognito) hoặc xóa cache, dữ liệu sẽ biến mất. Hãy dùng tab thư�?ng để dữ liệu được giữ lại cho lần truy cập sau nhé trên thiết bị của bạn hoặc đăng nhập để hệ thống đồng bộ dữ liệu của bạn lên đám mây, giúp bạn truy cập bảng điểm từ bất cứ đâu (điện thoại, laptop) mà không cần nhập lại từ đầu." }
+                { q: "Web có lưu mật khẩu Portal hay thông tin cá nhân của mình không?", a: "Về Mật khẩu Portal (Quan trọng): Tuyệt đối KHÔNG. Web không bao giờ lưu mật khẩu Portal của bạn. Việc đăng nhập Portal chỉ diễn ra cục bộ trên trình duyệt của bạn để lấy bảng điểm. Về Dữ liệu Điểm & Thông tin cá nhân: Nếu bạn là Khách (Chưa đăng nhập): Dữ liệu chỉ được lưu trên trình duyệt của chính máy bạn đang dùng (Local Storage). Server không biết bạn là ai. Nếu bạn Đăng nhập: Tên, MSSV và Bảng điểm sẽ được mã hóa và lưu an toàn trên cơ sở dữ liệu (Database) của hệ thống. Điều này giúp bạn không bị mất dữ liệu khi đổi máy." },
+                { q: "Tại sao mình tải lại trang hoặc đổi máy thì dữ liệu bị mất?", a: "Vì dữ liệu được lưu trên trình duyệt (như đã nói ở trên) để đảm bảo bảo mật. Nếu bạn dùng tab ẩn danh (Incognito) hoặc xóa cache, dữ liệu sẽ biến mất. Hãy dùng tab thường để dữ liệu được giữ lại cho lần truy cập sau nhé trên thiết bị của bạn hoặc đăng nhập để hệ thống đồng bộ dữ liệu của bạn lên đám mây, giúp bạn truy cập bảng điểm từ bất cứ đâu (điện thoại, laptop) mà không cần nhập lại từ đầu." }
             ]
         },
         {
-            group: "Nhóm 2: V�? Tính Năng H�?c Tập",
+            group: "Nhóm 2: Về Tính Năng Học Tập",
             items: [
-                { q: "Làm sao để nhập điểm tự động từ Portal trư�?ng thay vì nhập tay?", a: "Rất đơn giản! Bạn vào Portal -> Xem điểm -> Nhấn Ctrl + P để lưu trang web dưới dạng file PDF. Sau đó quay lại HUB Planner, bấm nút \"Nhập PDF\" màu đ�? và tải file đó lên. Hệ thống sẽ tự tách điểm, tên môn và tín chỉ cho bạn trong 1 giây." },
+                { q: "Làm sao để nhập điểm tự động từ Portal trường thay vì nhập tay?", a: "Rất đơn giản! Bạn vào Portal -> Xem điểm -> Nhấn Ctrl + P để lưu trang web dưới dạng file PDF. Sau đó quay lại HUB Planner, bấm nút \"Nhập PDF\" màu đỏ và tải file đó lên. Hệ thống sẽ tự tách điểm, tên môn và tín chỉ cho bạn trong 1 giây." },
                 { q: "Công cụ tính điểm GPA hệ 4 hay hệ 10?", a: "Web hỗ trợ tính song song cả hai. Khi bạn nhập điểm thành phần (CC, Giữa kỳ, Cuối kỳ), hệ thống sẽ tự động quy đổi ra điểm tổng kết hệ 10, điểm chữ (A, B, C...) và điểm hệ 4 để bạn tiện theo dõi chuẩn đầu ra." },
-                { q: "Tính năng \"Xếp hạng dự báo\" (Ranking) có chính xác không?", a: "�?ây là tính năng tham khảo dựa trên dữ liệu ẩn danh của các khóa trước. Nó giúp bạn biết mức điểm hiện tại của mình đang nằm ở Top bao nhiêu % (ví dụ: Top 10% gi�?i nhất khoa) để có động lực phấn đấu săn h�?c bổng." },
-                { q: "AI Cố vấn (Gemini) có thể giúp gì cho mình?", a: "Bạn có thể chat với AI để h�?i v�? lộ trình h�?c, cách cải thiện điểm các môn khó, hoặc nh�? AI tư vấn xem với GPA hiện tại thì cần nỗ lực bao nhiêu để ra trư�?ng đúng hạn." }
+                { q: "Tính năng \"Xếp hạng dự báo\" (Ranking) có chính xác không?", a: "Đây là tính năng tham khảo dựa trên dữ liệu ẩn danh của các khóa trước. Nó giúp bạn biết mức điểm hiện tại của mình đang nằm ở Top bao nhiêu % (ví dụ: Top 10% giỏi nhất khoa) để có động lực phấn đấu săn học bổng." },
+                { q: "AI Cố vấn (Gemini) có thể giúp gì cho mình?", a: "Bạn có thể chat với AI để hỏi về lộ trình học, cách cải thiện điểm các môn khó, hoặc nhờ AI tư vấn xem với GPA hiện tại thì cần nỗ lực bao nhiêu để ra trường đúng hạn." }
             ]
         },
         {
             group: "Nhóm 3: Tiện ích mở rộng",
             items: [
-                { q: "Mình bị mất đồ tại trư�?ng (Thủ �?ức/Quận 1), làm sao để đăng tin?", a: "Bạn vào mục Lost & Found, bấm nút \"�?ăng tin tìm đồ\". Hãy mô tả chi tiết (loại đồ, màu sắc, khu vực rơi) để các bạn khác dễ thấy. Nếu có hình ảnh minh h�?a càng tốt." }
+                { q: "Mình bị mất đồ tại trường (Thủ Đức/Quận 1), làm sao để đăng tin?", a: "Bạn vào mục Lost & Found, bấm nút \"Đăng tin tìm đồ\". Hãy mô tả chi tiết (loại đồ, màu sắc, khu vực rơi) để các bạn khác dễ thấy. Nếu có hình ảnh minh họa càng tốt." }
             ]
         }
     ];
@@ -299,10 +299,10 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                     <div className="space-y-6 animate-fadeIn">
                         <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 mb-4 cursor-default">
                             <h3 className="font-bold text-[#003375] flex items-center gap-2 mb-1">
-                                <Users size={20} /> Hoạt động �?oàn - Hội
+                                <Users size={20} /> Hoạt động Đoàn - Hội
                             </h3>
                             <p className="text-sm text-blue-800">
-                                HUB có 41 CLB/�?ội/Nhóm. Tham gia để rèn luyện kỹ năng và cộng điểm rèn luyện!
+                                HUB có 41 CLB/Đội/Nhóm. Tham gia để rèn luyện kỹ năng và cộng điểm rèn luyện!
                             </p>
                         </div>
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -312,9 +312,9 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                                     <ul className="space-y-2">
                                         {group.list.map((item, i) => {
                                             let badgeColor = "bg-gray-100 text-gray-600";
-                                            if (item.manager === '�?oàn trư�?ng') badgeColor = "bg-blue-100 text-blue-800";
+                                            if (item.manager === 'Đoàn trường') badgeColor = "bg-blue-100 text-blue-800";
                                             else if (item.manager === 'Hội SV') badgeColor = "bg-orange-100 text-orange-800";
-                                            else if (item.manager.includes('�?oàn khoa')) badgeColor = "bg-purple-100 text-purple-800";
+                                            else if (item.manager.includes('Đoàn khoa')) badgeColor = "bg-purple-100 text-purple-800";
 
                                             return (
                                                 <li key={i} className="group/item border-b border-gray-100 last:border-0 pb-2 mb-2 last:mb-0 last:pb-0">
@@ -356,7 +356,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                 return (
                     <div className="space-y-4 animate-fadeIn max-w-4xl mx-auto">
                         <h3 className="text-lg font-bold text-[#003375] mb-2 flex items-center gap-2">
-                            <Award className="text-[#990000]" /> H�?c bổng Khuyến khích h�?c tập
+                            <Award className="text-[#990000]" /> Học bổng Khuyến khích học tập
                         </h3>
 
                         <div className="bg-white rounded-xl border border-gray-300 overflow-hidden transition-colors duration-200 hover:border-[#003375]" onClick={playClick}>
@@ -365,7 +365,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                                     <tr>
                                         <th className="p-3 text-left">Loại HB</th>
                                         <th className="p-3 text-center">GPA (Hệ 4)</th>
-                                        <th className="p-3 text-center">�?RL</th>
+                                        <th className="p-3 text-center">ĐRL</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
@@ -375,30 +375,30 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                                         <td className="p-3 text-center">Xuất sắc (90-100)</td>
                                     </tr>
                                     <tr className="hover:bg-gray-50 transition-colors">
-                                        <td className="p-3 font-medium">Gi�?i</td>
+                                        <td className="p-3 font-medium">Giỏi</td>
                                         <td className="p-3 text-center font-bold text-blue-600">3.2 - 3.5</td>
                                         <td className="p-3 text-center">Tốt hoặc Xuất sắc (80-100)</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
-                        <p className="text-xs text-gray-500 italic">* �?i�?u kiện: Tích lũy tối thiểu 15 tín chỉ/kỳ, �?RL 80 trở lên, không rớt môn nào, không bị kỷ luật.</p>
+                        <p className="text-xs text-gray-500 italic">* Điều kiện: Tích lũy tối thiểu 15 tín chỉ/kỳ, ĐRL 80 trở lên, không rớt môn nào, không bị kỷ luật.</p>
 
                         <h3 className="text-lg font-bold text-[#003375] mt-6 mb-2 flex items-center gap-2">
-                            <Book className="text-[#990000]" /> Chế độ miễn giảm h�?c phí
+                            <Book className="text-[#990000]" /> Chế độ miễn giảm học phí
                         </h3>
                         <div className="grid gap-2">
                             <div className="p-3 bg-gray-50 rounded-lg border border-gray-300 text-sm transition-colors duration-200 cursor-pointer hover:border-[#003375]" onClick={playClick}>
-                                <span className="font-bold block text-gray-800">Miễn 100% h�?c phí</span>
-                                SV khuyết tật, mồ côi cả cha lẫn mẹ, ngư�?i dân tộc thiểu số rất ít ngư�?i vùng khó khăn, con liệt sĩ/thương binh...
+                                <span className="font-bold block text-gray-800">Miễn 100% học phí</span>
+                                SV khuyết tật, mồ côi cả cha lẫn mẹ, người dân tộc thiểu số rất ít người vùng khó khăn, con liệt sĩ/thương binh...
                             </div>
                             <div className="p-3 bg-gray-50 rounded-lg border border-gray-300 text-sm transition-colors duration-200 cursor-pointer hover:border-[#003375]" onClick={playClick}>
-                                <span className="font-bold block text-gray-800">Giảm 70% h�?c phí</span>
+                                <span className="font-bold block text-gray-800">Giảm 70% học phí</span>
                                 SV dân tộc thiểu số ở thôn/bản đặc biệt khó khăn.
                             </div>
                             <div className="p-3 bg-gray-50 rounded-lg border border-gray-300 text-sm transition-colors duration-200 cursor-pointer hover:border-[#003375]" onClick={playClick}>
-                                <span className="font-bold block text-gray-800">Giảm 50% h�?c phí</span>
-                                Con của cán bộ CNV chức bị tai nạn lao động, bệnh ngh�? nghiệp.
+                                <span className="font-bold block text-gray-800">Giảm 50% học phí</span>
+                                Con của cán bộ, công chức bị tai nạn lao động, bệnh nghề nghiệp.
                             </div>
                         </div>
                     </div>
@@ -412,8 +412,8 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                                 <HelpCircle size={24} className="text-yellow-300" />
                             </div>
                             <div>
-                                <h3 className="font-bold text-lg">Câu h�?i thư�?ng gặp (FAQs)</h3>
-                                <p className="text-blue-100 text-sm">Giải đáp nhanh các thắc mắc v�? tính năng và bảo mật.</p>
+                                <h3 className="font-bold text-lg">Câu hỏi thường gặp (FAQs)</h3>
+                                <p className="text-blue-100 text-sm">Giải đáp nhanh các thắc mắc về tính năng và bảo mật.</p>
                             </div>
                         </div>
 
@@ -522,7 +522,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
 
                                     <TurnstileBox token={feedbackTurnstileToken} onTokenChange={setFeedbackTurnstileToken} />
 
-                                    <button 
+                                    <button
                                         type="submit"
                                         disabled={isSubmitting || !feedbackContent.trim() || !feedbackTurnstileToken}
                                         className="w-full bg-[#003375] hover:bg-[#002855] text-white font-bold py-3 rounded-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -549,7 +549,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                         {/* 1. HEADER KÊU GỌI & QR CODE */}
                         <div className="bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl p-8 text-white mb-10 relative overflow-hidden">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -translate-y-1/2 translate-x-1/3"></div>
-                            
+
                             <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
                                 <div className="flex-1 text-center md:text-left">
                                     <div className="inline-flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 border border-white/30">
@@ -559,7 +559,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                                         Chung tay phát triển <br/> Cộng đồng sinh viên
                                     </h2>
                                     <p className="text-pink-100 text-lg mb-6 leading-relaxed">
-                                        Dự án phi lợi nhuận cần sự hỗ trợ của bạn để duy trì Server và phát triển tính năng mới. 
+                                        Dự án phi lợi nhuận cần sự hỗ trợ của bạn để duy trì server và phát triển tính năng mới.
                                         Mọi sự đóng góp dù nhỏ nhất đều là động lực to lớn với chúng mình!
                                     </p>
                                 </div>
@@ -579,13 +579,13 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                             <div className="bg-white p-6 rounded-xl border border-gray-300 h-fit">
                                 <h3 className="text-xl font-bold text-[#003375] mb-1">Xác nhận ủng hộ</h3>
                                 <p className="text-sm text-gray-500 mb-6">Điền thông tin để chúng mình vinh danh bạn trên Bảng vàng nhé!</p>
-                                
+
                                 <form onSubmit={handleDonateSubmit} className="space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Họ tên <span className="text-red-500">*</span></label>
-                                            <input 
-                                                type="text" required 
+                                            <input
+                                                type="text" required
                                                 className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 outline-none transition-all"
                                                 placeholder="Nguyễn Văn A"
                                                 value={donateForm.name}
@@ -594,8 +594,8 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                                         </div>
                                         <div>
                                             <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Số tiền <span className="text-red-500">*</span></label>
-                                            <input 
-                                                type="text" required 
+                                            <input
+                                                type="text" required
                                                 className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 outline-none transition-all"
                                                 placeholder="Ví dụ: 20.000"
                                                 value={donateForm.amount}
@@ -603,11 +603,11 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                                             />
                                         </div>
                                     </div>
-                                    
+
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 uppercase mb-1">MSSV (Tùy chọn)</label>
-                                        <input 
-                                            type="text" 
+                                        <input
+                                            type="text"
                                             className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 outline-none transition-all"
                                             placeholder="Để trống nếu muốn ẩn danh"
                                             value={donateForm.mssv}
@@ -617,7 +617,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
 
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Lời nhắn gửi</label>
-                                        <textarea 
+                                        <textarea
                                             rows={3}
                                             className="w-full p-2.5 rounded-lg border border-gray-300 focus:border-pink-500 outline-none transition-all"
                                             placeholder="Gửi lời yêu thương đến team..."
@@ -628,8 +628,8 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
 
                                     <TurnstileBox token={donateTurnstileToken} onTokenChange={setDonateTurnstileToken} />
 
-                                    <button 
-                                        type="submit" 
+                                    <button
+                                        type="submit"
                                         disabled={isDonating || !donateTurnstileToken}
                                         className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-lg transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                                     >
@@ -660,9 +660,9 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                                     ) : (
                                         donors.map((donor, idx) => (
                                             <div key={idx} className="bg-white p-3 rounded-lg border border-gray-300 flex items-start gap-3 hover:bg-gray-50 transition-colors">
-                                                <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm 
-                                                    ${idx === 0 ? 'bg-yellow-400 text-white ring-2 ring-yellow-200' : 
-                                                      idx === 1 ? 'bg-gray-300 text-white' : 
+                                                <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm
+                                                    ${idx === 0 ? 'bg-yellow-400 text-white ring-2 ring-yellow-200' :
+                                                      idx === 1 ? 'bg-gray-300 text-white' :
                                                       idx === 2 ? 'bg-orange-300 text-white' : 'bg-blue-50 text-blue-600'}`}
                                                 >
                                                     {idx + 1}
@@ -817,9 +817,9 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
     const getTabHeaderInfo = (tab: TabType) => {
         switch (tab) {
             case 'contacts': return { title: 'Danh bạ & Khoa', sub: 'Thông tin liên hệ các phòng ban' };
-            case 'clubs': return { title: 'CLB - �?ội - Nhóm', sub: 'Hoạt động ngoại khóa & �?oàn - Hội' };
-            case 'scholarships': return { title: 'H�?c bổng & Quy chế', sub: 'Thông tin h�?c vụ & Chế độ' };
-            case 'faqs': return { title: 'Câu h�?i thư�?ng gặp', sub: 'Hỗ trợ giải đáp (FAQs)' };
+            case 'clubs': return { title: 'CLB - Đội - Nhóm', sub: 'Hoạt động ngoại khóa & Đoàn - Hội' };
+            case 'scholarships': return { title: 'Học bổng & Quy chế', sub: 'Thông tin học vụ & Chế độ' };
+            case 'faqs': return { title: 'Câu hỏi thường gặp', sub: 'Hỗ trợ giải đáp (FAQs)' };
             case 'feedback': return { title: 'Góp ý & Phản hồi', sub: 'Đóng góp ý tưởng phát triển' };
             case 'donate': return { title: 'Ủng hộ & Tri ân', sub: 'Đồng hành cùng dự án' };
             case 'about': return { title: 'Về chúng mình', sub: 'Đội ngũ HUB Planner' };
@@ -845,7 +845,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                     <div className="w-[42px]"></div>
                 </div>
             </div>
-            
+
             <div className="mobile-handbook-content w-full flex-1 overflow-y-auto px-5 pb-[calc(104px+env(safe-area-inset-bottom))] pt-2 custom-scrollbar">
                 {renderContent()}
             </div>

@@ -22,15 +22,15 @@ export const setActivePushNotificationUser = (userId: string | null) => {
 
 const assertActivePushUser = (userId: string | null) => {
   if (!userId) {
-    throw new Error('Can dang nhap de dong bo thiet bi nhan thong bao.');
+    throw new Error('Cần đăng nhập để đồng bộ thiết bị nhận thông báo.');
   }
 
   if (activePushUserId === null) {
-    throw new Error('Da dang xuat, bo qua dong bo thong bao cu.');
+    throw new Error('Đã đăng xuất, bỏ qua đồng bộ thông báo cũ.');
   }
 
   if (activePushUserId !== undefined && activePushUserId !== userId) {
-    throw new Error('Phien thong bao da doi tai khoan, bo qua dong bo cu.');
+    throw new Error('Phiên thông báo đã đổi tài khoản, bỏ qua đồng bộ cũ.');
   }
 };
 
@@ -84,14 +84,14 @@ const waitForActiveRegistration = async (registration: ServiceWorkerRegistration
     worker.addEventListener('statechange', () => {
       if (worker.state === 'activated') resolve();
     });
-  }), SERVICE_WORKER_TIMEOUT_MS, 'Service worker chua san sang.');
+  }), SERVICE_WORKER_TIMEOUT_MS, 'Service worker chưa sẵn sàng.');
 
   return registration;
 };
 
 export const getPushRegistration = async () => {
   if (!isPushSupported()) {
-    throw new Error('Trinh duyet khong ho tro push notification.');
+    throw new Error('Trình duyệt không hỗ trợ push notification.');
   }
 
   const scope = new URL(ROOT_SCOPE, window.location.origin).href;
@@ -108,7 +108,7 @@ export const getPushRegistration = async () => {
       await withTimeout(
         navigator.serviceWorker.register('/sw.js', { scope: ROOT_SCOPE }),
         SERVICE_WORKER_TIMEOUT_MS,
-        'Khong dang ky duoc service worker.'
+        'Không đăng ký được service worker.'
       )
     );
   } catch {
@@ -116,7 +116,7 @@ export const getPushRegistration = async () => {
       await withTimeout(
         navigator.serviceWorker.register('/hub-sw.js', { scope: ROOT_SCOPE }),
         SERVICE_WORKER_TIMEOUT_MS,
-        'Khong dang ky duoc service worker thong bao.'
+        'Không đăng ký được service worker thông báo.'
       )
     );
   }
@@ -133,12 +133,12 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
   const bindingStartedAt = new Date().toISOString();
 
   if (!isPushSupported()) {
-    throw new Error('Trinh duyet khong ho tro thong bao day.');
+    throw new Error('Trình duyệt không hỗ trợ thông báo đẩy.');
   }
 
   const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
   if (!publicKey) {
-    throw new Error('Thieu VITE_VAPID_PUBLIC_KEY.');
+    throw new Error('Thiếu VITE_VAPID_PUBLIC_KEY.');
   }
 
   const registration = await getPushRegistration();
@@ -151,7 +151,7 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
       applicationServerKey: urlBase64ToUint8Array(publicKey),
     }),
     PUSH_SUBSCRIBE_TIMEOUT_MS,
-    'Trinh duyet dang ky push qua lau.'
+    'Trình duyệt đăng ký push quá lâu.'
   );
 
   if (userId && hasRecentPushSync(userId, subscription.endpoint)) {
@@ -164,7 +164,7 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
   const sessionUserId = sessionData.session?.user?.id || null;
 
   if (resolvedUserId !== sessionUserId) {
-    throw new Error('Phien dang nhap da thay doi, bo qua dong bo thong bao cu.');
+    throw new Error('Phiên đăng nhập đã thay đổi, bỏ qua đồng bộ thông báo cũ.');
   }
 
   assertActivePushUser(resolvedUserId);
@@ -190,7 +190,7 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => '');
-      throw new Error(`Khong the dong bo thiet bi nhan thong bao (${response.status}). ${errorText}`);
+      throw new Error(`Không thể đồng bộ thiết bị nhận thông báo (${response.status}). ${errorText}`);
     }
 
     markPushSynced(resolvedUserId, subscription.endpoint);
@@ -229,6 +229,6 @@ export const unbindDeviceNotificationsForCurrentUser = async (userId?: string | 
   });
 
   if (!response.ok) {
-    throw new Error('Khong the go lien ket thong bao cua thiet bi.');
+    throw new Error('Không thể gỡ liên kết thông báo của thiết bị.');
   }
 };

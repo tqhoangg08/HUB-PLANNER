@@ -115,10 +115,10 @@ const handleSendNotification = async (req: Request, body: any) => {
   if (targetUserId) query = query.eq('user_id', targetUserId)
   const { data: subscriptions, error } = await query
   if (error) return json({ error: error.message }, 500)
-  if (!subscriptions?.length) return json({ error: 'Khong tim thay nguoi nhan' }, 404)
+  if (!subscriptions?.length) return json({ error: 'Không tìm thấy người nhận' }, 404)
   const payloadObject = { title: title || 'HUB Planner', body: messageBody || 'Bạn có thông báo mới.', url: url || '/', category: body.category || undefined }
   const allowedSubscriptions = await filterSubscriptionsByPreference(subscriptions, categoryFromPayload(payloadObject))
-  if (!allowedSubscriptions.length) return json({ success: false, skipped: true, message: 'Tat ca nguoi nhan da tat loai thong bao nay', sent: 0, failed: 0 })
+  if (!allowedSubscriptions.length) return json({ success: false, skipped: true, message: 'Tất cả người nhận đã tắt loại thông báo này', sent: 0, failed: 0 })
   const payload = JSON.stringify(payloadObject)
   const results = await Promise.all(allowedSubscriptions.map(async (sub: any) => {
     try {

@@ -26,8 +26,8 @@ interface ChatMessage {
 
 interface ChatSessionLog {
     id: number;
-    user_message: string;
-    bot_reply: string;
+    user_message?: string;
+    bot_reply?: string;
     created_at: string;
     is_helpful: boolean | null;
     title?: string | null;
@@ -40,6 +40,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   const [showSidebar, setShowSidebar] = useState(window.innerWidth >= 768); 
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingSessionId, setLoadingSessionId] = useState<number | null>(null);
   const [hasAIConsent, setHasAIConsent] = useState(false);
   
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -85,17 +86,14 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
               try {
                   const { data: logs, error } = await supabase
                       .from('ai_chat_logs')
-                      .select('*')
+                      .select('id,created_at,is_helpful,title,is_deleted,is_pinned')
                       .eq('user_id', userId)
                       .order('created_at', { ascending: false }) 
                       .limit(50); 
 
                   if (error) throw error;
                   if (logs) {
-                    setSavedSessions(logs.map(log => ({
-                      ...log,
-                      bot_reply: sanitizeAIReply(log.bot_reply || ''),
-                    })));
+                    setSavedSessions(logs);
                   }
               } catch (err) {
                   console.error("Lỗi kéo lịch sử chat:", err);
@@ -223,19 +221,54 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       if (window.innerWidth < 768) setShowSidebar(false);
   }
 
-  const loadPastSession = (session: ChatSessionLog) => {
+  const getSessionLabel = (session: ChatSessionLog) => (
+      session.title
+      || session.user_message
+      || `Cuộc trò chuyện ${new Date(session.created_at).toLocaleDateString('vi-VN')}`
+  );
+
+  const loadPastSession = async (session: ChatSessionLog) => {
       playClick();
+      setLoadingSessionId(session.id);
+
+      try {
+          let fullSession = session;
+          const hasFullContent = typeof session.user_message === 'string' && typeof session.bot_reply === 'string';
+
+          if (!hasFullContent) {
+              const { data, error } = await supabase
+                  .from('ai_chat_logs')
+                  .select('id,user_message,bot_reply,created_at,is_helpful,title,is_deleted,is_pinned')
+                  .eq('id', session.id)
+                  .maybeSingle();
+
+              if (error) throw error;
+              if (!data) throw new Error('Không tìm thấy cuộc trò chuyện này.');
+
+              fullSession = {
+                  ...session,
+                  ...data,
+                  bot_reply: sanitizeAIReply(data.bot_reply || ''),
+              };
+              setSavedSessions(prev => prev.map(item => item.id === session.id ? fullSession : item));
+          }
+
       setChatHistory([
-          { role: 'user', content: session.user_message, isHistory: true },
-          { 
-              role: 'assistant', 
-              content: sanitizeAIReply(session.bot_reply), 
-              logId: session.id, 
-              rating: session.is_helpful === true ? 'up' : (session.is_helpful === false ? 'down' : null), 
-              isHistory: true 
+          { role: 'user', content: fullSession.user_message || '', isHistory: true },
+          {
+              role: 'assistant',
+              content: sanitizeAIReply(fullSession.bot_reply || ''),
+              logId: fullSession.id,
+              rating: fullSession.is_helpful === true ? 'up' : (fullSession.is_helpful === false ? 'down' : null),
+              isHistory: true
           }
       ]);
-      if (window.innerWidth < 768) setShowSidebar(false); 
+      if (window.innerWidth < 768) setShowSidebar(false);
+      } catch (err) {
+          console.error("Lỗi tải chi tiết lịch sử chat:", err);
+      } finally {
+          setLoadingSessionId(null);
+      }
   };
 
   // ✨ CÁC HÀM XỬ LÝ OPTIONS CỦA LỊCH SỬ
@@ -268,7 +301,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
   const startRename = (session: ChatSessionLog) => {
       playClick();
       setEditingSessionId(session.id);
-      setEditingTitle(session.title || session.user_message);
+      setEditingTitle(getSessionLabel(session));
       setActiveDropdown(null);
   };
 
@@ -380,14 +413,16 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                                                 <button 
                                                     onClick={() => loadPastSession(session)} 
                                                     className={`flex-1 text-left px-3 py-2.5 text-sm flex items-start gap-2 truncate group/btn rounded-lg transition-colors ${chatHistory.length > 0 && chatHistory[1]?.logId === session.id ? 'bg-blue-50 text-[#003375]' : 'text-gray-700'}`}
-                                                    title={session.title || session.user_message}
+                                                    title={getSessionLabel(session)}
                                                 >
-                                                    {session.is_pinned ? (
+                                                    {loadingSessionId === session.id ? (
+                                                        <Loader2 size={14} className="shrink-0 mt-0.5 animate-spin text-[#003375]" />
+                                                    ) : session.is_pinned ? (
                                                         <Pin size={14} className="shrink-0 mt-0.5 text-[#003375] fill-current" />
                                                     ) : (
                                                         <MessageCircle size={14} className="shrink-0 mt-0.5 opacity-40 group-hover/btn:text-[#003375] group-hover/btn:opacity-100 transition-colors" />
                                                     )}
-                                                    <span className="truncate flex-1 font-medium leading-snug">{session.title || session.user_message}</span>
+                                                    <span className="truncate flex-1 font-medium leading-snug">{getSessionLabel(session)}</span>
                                                 </button>
                                                 
                                                 <div className="absolute right-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center bg-gradient-to-l from-gray-100 via-gray-100 to-transparent pl-4 pr-1 py-1 rounded-r-lg">

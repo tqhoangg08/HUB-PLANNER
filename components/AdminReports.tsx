@@ -8,6 +8,15 @@ import { showConfirm } from '../utils/appNotifications';
 
 type TabType = 'course_reports' | 'bug_reports' | 'ctv_requests' | 'event_reports' | 'feedback';
 
+const REPORT_SELECT_COLUMNS: Record<TabType, string> = {
+    course_reports: 'id,user_id,status,created_at,full_name,student_code,email,subject_name,course_code,error_description,suggested_correction',
+    bug_reports: 'id,user_id,status,created_at,full_name,student_code,email,error_location,description',
+    ctv_requests: 'id,user_id,status,created_at,full_name,student_code,email,student_batch,major,contact_info',
+    event_reports: 'id,user_id,status,created_at,full_name,student_code,email,event_id,event_name,organizer,issue_description',
+    feedback: 'id,user_id,status,created_at,full_name,student_code,email,type,content,contact'
+};
+const REPORT_PAGE_SIZE = 30;
+
 interface ReportData {
     id: any;
     user_id: string | null;
@@ -26,6 +35,8 @@ export const AdminReports: React.FC = () => {
     const [reports, setReports] = useState<ReportData[]>([]);
     const [loading, setLoading] = useState(false);
     const [updatingId, setUpdatingId] = useState<any>(null);
+    const [page, setPage] = useState(0);
+    const [totalReports, setTotalReports] = useState(0);
 
     // Cập nhật lại danh sách các tab theo đúng yêu cầu
     const tabs = [
@@ -42,12 +53,16 @@ export const AdminReports: React.FC = () => {
 
         try {
             // Lấy dữ liệu báo cáo
-            const { data: reportData, error: reportError } = await supabase
+            const from = page * REPORT_PAGE_SIZE;
+            const to = from + REPORT_PAGE_SIZE - 1;
+            const { data: reportData, error: reportError, count } = await supabase
                 .from(activeTab)
-                .select('*')
-                .order('created_at', { ascending: false });
+                .select(REPORT_SELECT_COLUMNS[activeTab], { count: 'exact' })
+                .order('created_at', { ascending: false })
+                .range(from, to);
 
             if (reportError) throw reportError;
+            setTotalReports(count || 0);
 
             if (reportData && reportData.length > 0) {
                 // Gom tất cả user_id duy nhất để query profile 1 lần
@@ -88,8 +103,12 @@ export const AdminReports: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchReports();
+        setPage(0);
     }, [activeTab]);
+
+    useEffect(() => {
+        fetchReports();
+    }, [activeTab, page]);
 
     const handleUpdateStatus = async (id: any, newStatus: string) => {
         if (!supabase) return;
@@ -128,6 +147,7 @@ export const AdminReports: React.FC = () => {
             if (error) throw error;
             
             setReports(prev => prev.filter(r => r.id !== id));
+            setTotalReports(prev => Math.max(0, prev - 1));
         } catch (error) {
             console.error("Lỗi xóa:", error);
             alert("Xóa thất bại!");
@@ -286,7 +306,7 @@ export const AdminReports: React.FC = () => {
                         {tabs.find(t => t.id === activeTab)?.label}
                     </h3>
                     <div className="text-xs font-bold text-gray-500 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
-                        Tổng cộng: {reports.length}
+                        Tổng cộng: {totalReports}
                     </div>
                 </div>
 
@@ -304,6 +324,27 @@ export const AdminReports: React.FC = () => {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {reports.map(renderReportCard)}
+                    </div>
+                )}
+                {totalReports > REPORT_PAGE_SIZE && (
+                    <div className="mt-4 flex items-center justify-end gap-2 px-1 text-xs font-bold text-gray-600">
+                        <button
+                            onClick={() => setPage(prev => Math.max(0, prev - 1))}
+                            disabled={page === 0 || loading}
+                            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 disabled:opacity-40"
+                        >
+                            Trước
+                        </button>
+                        <span>
+                            Trang {page + 1}/{Math.max(1, Math.ceil(totalReports / REPORT_PAGE_SIZE))}
+                        </span>
+                        <button
+                            onClick={() => setPage(prev => prev + 1)}
+                            disabled={loading || (page + 1) * REPORT_PAGE_SIZE >= totalReports}
+                            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 disabled:opacity-40"
+                        >
+                            Sau
+                        </button>
                     </div>
                 )}
             </div>

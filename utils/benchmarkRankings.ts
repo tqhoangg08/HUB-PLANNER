@@ -11,7 +11,7 @@ export const getBenchmarkRankingTotal = (semesterId: string): Promise<number | n
 
   const promise = supabase
     .from('benchmark_rankings')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('semester', key)
     .then(({ count, error }) => {
       if (error) throw error;

@@ -13,7 +13,7 @@ const FollowButton = ({ targetUserId, currentUserId }) => {
       // 1. Mình có follow họ chưa?
       const { data: amFollowing } = await supabase
         .from('follows')
-        .select('*')
+        .select('id')
         .eq('follower_id', currentUserId)
         .eq('following_id', targetUserId)
         .maybeSingle();
@@ -21,7 +21,7 @@ const FollowButton = ({ targetUserId, currentUserId }) => {
       // 2. Họ có follow mình chưa?
       const { data: isFollowingMe } = await supabase
         .from('follows')
-        .select('*')
+        .select('id')
         .eq('follower_id', targetUserId)
         .eq('following_id', currentUserId)
         .maybeSingle();
@@ -54,7 +54,7 @@ const FollowButton = ({ targetUserId, currentUserId }) => {
         // Kiểm tra xem họ có đang follow mình không để cập nhật thành Bạn bè
         const { data: isFollowingMe } = await supabase
           .from('follows')
-          .select('*')
+          .select('id')
           .eq('follower_id', targetUserId)
           .eq('following_id', currentUserId)
           .maybeSingle();

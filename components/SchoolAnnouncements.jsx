@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { supabase } from '../utils/supabase';
 import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter, Building } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
+import { apiUrl } from '../utils/api';
 
 const ITEMS_PER_PAGE = 10;
-const ANNOUNCEMENT_LIST_COLUMNS = 'id, title, link, is_new, date, created_at';
 const ANNOUNCEMENT_WIDGET_CACHE_KEY = 'hub_school_announcements_widget_v1';
 const ANNOUNCEMENT_WIDGET_CACHE_TTL_MS = 5 * 60 * 1000;
 let announcementWidgetMemoryCache = null;
@@ -102,13 +101,20 @@ const SchoolAnnouncements = () => {
 
     const fetchNews = async () => {
       try {
-        const { data, error } = await supabase
+        const response = await fetch(apiUrl('/events?resource=announcements&limit=10'));
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error || 'Không tải được thông báo trường.');
+        const data = payload.data;
+        const error = null;
+        /*
+        await supabase
           .from('school_announcements')
           .select(ANNOUNCEMENT_LIST_COLUMNS)
           .or('is_hidden.eq.false,is_hidden.is.null') // ✨ ĐÃ THÊM: Chỉ lấy tin chưa bị ẩn
           .order('date', { ascending: false }) 
           .order('created_at', { ascending: false }) 
           .limit(10); 
+        */
         
         if (error) throw error;
         if (data) {
@@ -126,6 +132,23 @@ const SchoolAnnouncements = () => {
   const fetchModalNews = async () => {
     setIsLoadingModal(true);
     try {
+      const pageOffset = (currentPage - 1) * ITEMS_PER_PAGE;
+      const params = new URLSearchParams({
+        resource: 'announcements',
+        limit: String(ITEMS_PER_PAGE),
+        offset: String(pageOffset),
+      });
+      if (searchQuery) params.set('search', searchQuery);
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+
+      const response = await fetch(apiUrl(`/events?${params.toString()}`));
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || 'Không tải được thông báo trường.');
+      setModalNews(payload.data || []);
+      setTotalCount(payload.total || 0);
+      return;
+
       let query = supabase
         .from('school_announcements')
         .select(ANNOUNCEMENT_LIST_COLUMNS, { count: 'exact' })

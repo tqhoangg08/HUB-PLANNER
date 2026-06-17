@@ -35,7 +35,7 @@ Neu co nhieu key, dung bien comma-separated:
 .\supabase.exe secrets set PRACTICE_OPENROUTER_API_KEYS=openrouter1,openrouter2,openrouter3,openrouter4,openrouter5
 ```
 
-Khong mac dinh dung `GROQ_API_KEY` den `GROQ_API_KEY_5` vi cac key nay dang duoc dung cho luong import/OCR PDF. Neu muon cho luyen de dung chung pool Groq cu, bat rieng:
+Không mặc định dùng `GROQ_API_KEY` đến `GROQ_API_KEY_5` vì các key này đang được dùng cho luồng import/OCR PDF. Nếu muốn cho luyện đề dùng chung pool Groq cũ, bật riêng:
 
 ```powershell
 .\supabase.exe secrets set PRACTICE_USE_SHARED_GROQ_KEYS=true

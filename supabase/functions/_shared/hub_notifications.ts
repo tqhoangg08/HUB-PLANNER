@@ -26,7 +26,7 @@ export const HUB_NOTIFICATION_SOURCES: NotificationSource[] = [
   { id: 'scc', department: 'Trung tam Sinh vien va Quan he doanh nghiep', url: 'https://scc.hub.edu.vn/thong-bao' },
   { id: 'clc', department: 'Ban quan ly Chuong trinh Chat luong cao', url: 'https://clc.hub.edu.vn/thong-bao' },
   { id: 'ktdbcl', department: 'Phong Khao thi va Dam bao chat luong', url: 'https://phongktdbcl.hub.edu.vn/thong-bao' },
-  { id: 'qlcntt', department: 'Phong Quan ly Cong nghe thong tin', url: 'https://phongqlcntt.hub.edu.vn/tin-hoat-dong/thong-bao' },
+  { id: 'qlcntt', department: 'Phòng Quản lý Công nghệ thông tin', url: 'https://phongqlcntt.hub.edu.vn/tin-hoat-dong/thong-bao' },
   { id: 'tstt', department: 'Phong Tuyen sinh truyen thong', url: 'https://phongtstt.hub.edu.vn/thong-bao' },
   { id: 'ketoan', department: 'Phong Ke toan', url: 'https://phongketoan.hub.edu.vn/thong-bao' },
 ]
@@ -371,9 +371,9 @@ async function extractPdfTextWithGemini(pdfBytes: Uint8Array) {
         parts: [
           {
             text: [
-              'Trich xuat toan bo van ban co the doc duoc trong PDF thong bao nay.',
-              'Tra ve van ban thuan tuy, giu tieng Viet co dau, giu so thong bao, ngay thang, so tien, dia diem.',
-              'Khong tom tat, khong giai thich, khong them noi dung khong co trong PDF.',
+              'Trích xuất toàn bộ văn bản có thể đọc được trong PDF thông báo này.',
+              'Trả về văn bản thuần túy, giữ tiếng Việt có dấu, giữ số thông báo, ngày tháng, số tiền, địa điểm.',
+              'Không tóm tắt, không giải thích, không thêm nội dung không có trong PDF.',
               'Neu mot doan khong doc duoc thi bo qua doan do.',
             ].join('\n'),
           },
@@ -500,7 +500,7 @@ Khi trả lời, luôn nêu:
       system_instruction: { parts: [{ text: systemPrompt }] },
       contents: [{
         role: 'user',
-        parts: [{ text: `Cau hoi cua sinh vien:\n${question}\n\nContext thong bao chinh thuc:\n${context}` }],
+        parts: [{ text: `Câu hỏi của sinh viên:\n${question}\n\nNgữ cảnh thông báo chính thức:\n${context}` }],
       }],
       generationConfig: { temperature: 0.1 },
     }),
