@@ -1084,7 +1084,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         course_code: cleanCode, subject_name: course.subject_name, credits: course.credits,
                         instructor: course.instructor, day_of_week: course.day_of_week, shift: course.shift,
                         room: course.room, campus: course.campus || 'TD', weeks: finalWeeks, semester: currentSem,
-                        phase: phaseStr, is_user_added: false 
+                        phase: phaseStr, is_user_added: true 
                     }).select('id').single();
                 if (!insertErr && newCourse) targetCourseId = newCourse.id;
             }

@@ -1335,7 +1335,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         credits: course.credits, instructor: course.instructor,
                         day_of_week: course.day_of_week, shift: course.shift,
                         room: course.room, campus: course.campus || 'TD', 
-                        weeks: finalWeeks, semester: currentSem, phase: phaseStr, is_user_added: false 
+                        weeks: finalWeeks, semester: currentSem, phase: phaseStr, is_user_added: true 
                     })
                     .select('id')
                     .single();
