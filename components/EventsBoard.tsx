@@ -67,6 +67,33 @@ const formatTimeString = (timeStr: string | null): string => {
     return timeStr;
 };
 
+const EventImage = ({ src, alt, className, iconSize = 34 }: { src?: string | null; alt: string; className?: string; iconSize?: number }) => {
+    const [failed, setFailed] = useState(false);
+
+    useEffect(() => {
+        setFailed(false);
+    }, [src]);
+
+    if (!src || failed) {
+        return (
+            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-2">
+                <ImageOff size={iconSize} />
+                <span className="text-xs font-semibold">Chưa có ảnh</span>
+            </div>
+        );
+    }
+
+    return (
+        <img
+            src={src}
+            alt={alt}
+            loading="lazy"
+            onError={() => setFailed(true)}
+            className={className}
+        />
+    );
+};
+
 const notifyAllUsersAboutEvent = async (event: any) => {
     if (!event || event.status === 'pending') return;
 
@@ -1031,14 +1058,7 @@ const EventDetailModal = ({
                         <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-5">
                             <div className="space-y-4">
                                 <div className="aspect-video rounded-xl border border-gray-300 bg-gray-50 overflow-hidden">
-                                    {event.image_url ? (
-                                        <img src={event.image_url} alt={event.name} className="w-full h-full object-cover" loading="lazy" />
-                                    ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-2">
-                                            <ImageOff size={38} />
-                                            <span className="text-sm font-semibold">Chưa có ảnh</span>
-                                        </div>
-                                    )}
+                                    <EventImage src={event.image_url} alt={event.name} className="w-full h-full object-cover" iconSize={38} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <button type="button" onClick={() => onToggleParticipation(event.id)} className={`rounded-lg border px-3 py-2 text-sm font-bold flex items-center justify-center gap-2 ${isParticipated ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
@@ -1753,14 +1773,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
             className="relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-gray-50 border border-gray-200 mb-3 text-left"
             title="Xem chi tiết sự kiện"
         >
-            {evt.image_url ? (
-                <img src={evt.image_url} alt={evt.name} loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
-            ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 gap-2">
-                    <ImageOff size={34} />
-                    <span className="text-xs font-semibold">Chưa có ảnh</span>
-                </div>
-            )}
+            <EventImage src={evt.image_url} alt={evt.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
         </button>
         
         {/* HEADER: Organizer & Status */}

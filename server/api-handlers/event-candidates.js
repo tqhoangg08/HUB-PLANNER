@@ -1,4 +1,5 @@
 import Groq from 'groq-sdk';
+import { createHash, createHmac } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { withLogging } from '../middleware.js';
 import { sendModeratorAlert } from '../moderator-notifications.shared.js';
@@ -11,6 +12,10 @@ const supabase = createClient(
 );
 
 const INGEST_SECRET = String(process.env.EVENT_CANDIDATE_INGEST_SECRET || '');
+const R2_ENDPOINT = process.env.R2_ACCOUNT_ID
+  ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+  : '';
+const MAX_CANDIDATE_IMAGE_BYTES = 8 * 1024 * 1024;
 const GROQ_KEYS = [
   process.env.GROQ_API_KEY,
   process.env.GROQ_API_KEY_2,
@@ -53,6 +58,149 @@ const normalizeText = (value) => String(value || '').trim();
 const normalizeOptionalText = (value) => {
   const text = normalizeText(value);
   return text ? text : null;
+};
+const encodeR2Path = (key) => key.split('/').map(encodeURIComponent).join('/');
+const hmac = (key, value, encoding) => createHmac('sha256', key).update(value).digest(encoding);
+const getSignatureKey = (secretKey, dateStamp, region, service) => {
+  const kDate = hmac(`AWS4${secretKey}`, dateStamp);
+  const kRegion = hmac(kDate, region);
+  const kService = hmac(kRegion, service);
+  return hmac(kService, 'aws4_request');
+};
+const getR2Config = () => {
+  const bucket = process.env.R2_BUCKET_NAME;
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  const publicBaseUrl = process.env.R2_PUBLIC_URL;
+
+  if (!R2_ENDPOINT || !bucket || !accessKeyId || !secretAccessKey || !publicBaseUrl) {
+    const error = new Error('Chưa cấu hình R2.');
+    error.statusCode = 500;
+    throw error;
+  }
+
+  return { bucket, accessKeyId, secretAccessKey, publicBaseUrl };
+};
+const putR2Object = async ({ key, body, contentType }) => {
+  const { bucket, accessKeyId, secretAccessKey } = getR2Config();
+  const encodedKey = encodeR2Path(key);
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+  const dateStamp = amzDate.slice(0, 8);
+  const region = 'auto';
+  const service = 's3';
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const host = `${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  const payloadHash = createHash('sha256').update(body).digest('hex');
+  const canonicalHeaders = [
+    `content-type:${contentType}`,
+    `host:${host}`,
+    `x-amz-content-sha256:${payloadHash}`,
+    `x-amz-date:${amzDate}`,
+    '',
+  ].join('\n');
+  const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
+  const canonicalRequest = [
+    'PUT',
+    `/${bucket}/${encodedKey}`,
+    '',
+    canonicalHeaders,
+    signedHeaders,
+    payloadHash,
+  ].join('\n');
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    amzDate,
+    credentialScope,
+    createHash('sha256').update(canonicalRequest).digest('hex'),
+  ].join('\n');
+  const signature = hmac(getSignatureKey(secretAccessKey, dateStamp, region, service), stringToSign, 'hex');
+  const authorization = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  const uploadResponse = await fetch(`${R2_ENDPOINT}/${bucket}/${encodedKey}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: authorization,
+      'Content-Type': contentType,
+      'X-Amz-Content-Sha256': payloadHash,
+      'X-Amz-Date': amzDate,
+    },
+    body,
+  });
+
+  if (!uploadResponse.ok) {
+    const detail = await uploadResponse.text().catch(() => '');
+    throw new Error(`Không thể upload ảnh candidate lên R2 (${uploadResponse.status}). ${detail}`.trim());
+  }
+};
+const getCandidateImageExtension = (contentType, imageUrl) => {
+  const type = String(contentType || '').toLowerCase();
+  if (type.includes('png')) return 'png';
+  if (type.includes('webp')) return 'webp';
+  if (type.includes('gif')) return 'gif';
+  if (type.includes('avif')) return 'avif';
+
+  try {
+    const pathname = new URL(imageUrl).pathname.toLowerCase();
+    const match = pathname.match(/\.([a-z0-9]{2,5})$/);
+    if (match && ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'].includes(match[1])) {
+      return match[1] === 'jpeg' ? 'jpg' : match[1];
+    }
+  } catch {
+    // Ignore and fall back to jpg.
+  }
+
+  return 'jpg';
+};
+const isR2PublicUrl = (imageUrl) => {
+  const publicBaseUrl = String(process.env.R2_PUBLIC_URL || '').replace(/\/$/, '');
+  return Boolean(publicBaseUrl && String(imageUrl || '').startsWith(`${publicBaseUrl}/`));
+};
+const mirrorCandidateImageToR2 = async (imageUrl) => {
+  const sourceUrl = normalizeOptionalText(imageUrl);
+  if (!sourceUrl || isR2PublicUrl(sourceUrl)) return sourceUrl;
+
+  let parsed;
+  try {
+    parsed = new URL(sourceUrl);
+  } catch {
+    return sourceUrl;
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+
+  const imageResponse = await fetch(sourceUrl, {
+    headers: {
+      accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+      'user-agent': 'Mozilla/5.0 (compatible; HUBPlannerEventCollector/1.0)',
+    },
+  });
+
+  if (!imageResponse.ok) {
+    throw new Error(`Không tải được ảnh nguồn (${imageResponse.status}).`);
+  }
+
+  const contentType = String(imageResponse.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (contentType && !contentType.startsWith('image/')) {
+    throw new Error(`URL nguồn không phải ảnh (${contentType}).`);
+  }
+
+  const contentLength = Number(imageResponse.headers.get('content-length') || 0);
+  if (contentLength > MAX_CANDIDATE_IMAGE_BYTES) {
+    throw new Error('Ảnh nguồn quá lớn.');
+  }
+
+  const buffer = Buffer.from(await imageResponse.arrayBuffer());
+  if (!buffer.length || buffer.length > MAX_CANDIDATE_IMAGE_BYTES) {
+    throw new Error('Ảnh nguồn quá lớn hoặc không hợp lệ.');
+  }
+
+  const safeContentType = contentType && contentType.startsWith('image/') ? contentType : 'image/jpeg';
+  const extension = getCandidateImageExtension(safeContentType, sourceUrl);
+  const key = `event-candidates/${new Date().toISOString().slice(0, 10)}/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${extension}`;
+  await putR2Object({ key, body: buffer, contentType: safeContentType });
+  const { publicBaseUrl } = getR2Config();
+  return `${publicBaseUrl.replace(/\/$/, '')}/${encodeR2Path(key)}`;
 };
 const normalizeCategory = (value) => {
   const text = normalizeOptionalText(value);
@@ -368,9 +516,18 @@ const ingestCandidate = async (request, response, body) => {
   const sourceName = normalizeText(body.source_name);
   const postUrl = normalizeText(body.post_url);
   const rawContent = normalizeText(body.raw_content);
-  const imageUrl = body.image_url === null || body.image_url === undefined || body.image_url === ''
+  let imageUrl = body.image_url === null || body.image_url === undefined || body.image_url === ''
     ? null
     : normalizeText(body.image_url);
+  let imageMirrorError = null;
+  if (imageUrl) {
+    try {
+      imageUrl = await mirrorCandidateImageToR2(imageUrl);
+    } catch (error) {
+      imageMirrorError = error?.message || 'Mirror image failed';
+      console.warn('Mirror event candidate image failed:', imageMirrorError);
+    }
+  }
   const submittedFrom = normalizeText(body.submitted_from) || 'chrome_extension';
   const clientCreatedAt = toIsoTimestamp(body.client_created_at);
 
@@ -383,33 +540,48 @@ const ingestCandidate = async (request, response, body) => {
 
   const existing = await getDuplicateCandidate(postUrl);
   if (existing) {
+    let existingForResponse = existing;
+    if (imageUrl && imageUrl !== existing.image_url && (!existing.image_url || !isR2PublicUrl(existing.image_url))) {
+      const { data: updatedExisting, error: updateExistingError } = await supabase
+        .from('event_candidates')
+        .update({ image_url: imageUrl })
+        .eq('id', existing.id)
+        .select('*')
+        .single();
+      if (updateExistingError) throw updateExistingError;
+      existingForResponse = updatedExisting || existing;
+    }
+
     if (!existing.ai_result && normalizeText(existing.raw_content)) {
       try {
-        const analyzed = await analyzeAndUpdateCandidate(existing);
+        const analyzed = await analyzeAndUpdateCandidate(existingForResponse);
         return response.status(200).json({
           success: true,
           candidate: analyzed.candidate,
           ai_result: analyzed.ai_result,
           message: 'Candidate already exists',
           analyzed: true,
+          image_mirror_error: imageMirrorError,
         });
       } catch (error) {
         console.warn('Auto analyze existing candidate failed:', error?.details || error?.message || error);
         return response.status(200).json({
           success: true,
-          candidate: existing,
+          candidate: existingForResponse,
           message: 'Candidate already exists',
           analyzed: false,
           analyze_error: error?.message || 'Auto analyze failed',
           analyze_details: error?.details || null,
+          image_mirror_error: imageMirrorError,
         });
       }
     }
 
     return response.status(200).json({
       success: true,
-      candidate: existing,
+      candidate: existingForResponse,
       message: 'Candidate already exists',
+      image_mirror_error: imageMirrorError,
     });
   }
 
@@ -441,6 +613,7 @@ const ingestCandidate = async (request, response, body) => {
             ai_result: analyzed.ai_result,
             message: 'Candidate already exists',
             analyzed: true,
+            image_mirror_error: imageMirrorError,
           });
         } catch (analyzeError) {
           console.warn('Auto analyze duplicate candidate failed:', analyzeError?.details || analyzeError?.message || analyzeError);
@@ -450,6 +623,7 @@ const ingestCandidate = async (request, response, body) => {
         success: true,
         candidate: duplicate,
         message: 'Candidate already exists',
+        image_mirror_error: imageMirrorError,
       });
     }
     throw error;
@@ -484,6 +658,7 @@ const ingestCandidate = async (request, response, body) => {
     ai_result: aiResult,
     analyzed: Boolean(aiResult),
     analyze_error: analyzeError,
+    image_mirror_error: imageMirrorError,
   });
 };
 

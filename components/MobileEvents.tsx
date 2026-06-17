@@ -45,6 +45,7 @@ interface HubEvent {
   event_time: string | null;
   registration_start_date: string | null;
   registration_start_time: string | null;
+  image_url: string | null;
 }
 
 interface MobileEventsProps {
@@ -810,7 +811,8 @@ const canManage = isAdmin || isAuditor || isCTV;
                 status: row.status || 'Sắp diễn ra', is_manually_closed: row.is_manually_closed || false,
                 is_deleted: row.is_deleted || false, created_at: row.created_at || new Date().toISOString(),
                 event_date: row.event_date || null, event_time: row.event_time || null,
-                registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null
+                registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null,
+                image_url: row.image_url || null
             };
         });
         setEvents(parsedEvents);
@@ -886,7 +888,8 @@ const canManage = isAdmin || isAuditor || isCTV;
               status: row.status || 'Sắp diễn ra', is_manually_closed: row.is_manually_closed || false,
               is_deleted: row.is_deleted || false, created_at: row.created_at || new Date().toISOString(),
               event_date: row.event_date || null, event_time: row.event_time || null,
-              registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null
+              registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null,
+              image_url: row.image_url || null
           };
       });
       setEvents(parsedEvents);
