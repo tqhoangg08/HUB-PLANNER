@@ -64,6 +64,19 @@ const hmac = (key, value, encoding) => createHmac('sha256', key).update(value).d
 const anonymizationSecret = () => process.env.DATA_ANONYMIZATION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'hub-planner';
 const anonymizedUserHash = (userId) => hmac(anonymizationSecret(), `user:${userId}`, 'hex');
 
+const subscriptionExpiryForPlan = (plan) => {
+  const now = new Date();
+  if (plan === 'plus') {
+    now.setMonth(now.getMonth() + 1);
+    return now.toISOString();
+  }
+  if (plan === 'pro') {
+    now.setMonth(now.getMonth() + 6);
+    return now.toISOString();
+  }
+  return null;
+};
+
 const getSignatureKey = (secretKey, dateStamp, region, service) => {
   const kDate = hmac(`AWS4${secretKey}`, dateStamp);
   const kRegion = hmac(kDate, region);
@@ -805,6 +818,118 @@ const uploadAvatar = async (request, response) => {
   });
 };
 
+const requireAdminUser = async (request) => {
+  const token = String(request.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!token) {
+    const error = new Error('Unauthorized');
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !userData?.user?.id) {
+    const error = new Error('Unauthorized');
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const userId = userData.user.id;
+  const { data: roleRow, error: roleError } = await supabase
+    .from('user_roles')
+    .select('role')
+    .or(`id.eq.${userId},user_id.eq.${userId}`)
+    .eq('role', 'admin')
+    .limit(1)
+    .maybeSingle();
+
+  if (roleError) throw roleError;
+  if (!roleRow?.role) {
+    const error = new Error('Forbidden');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return userData.user;
+};
+
+const upsertSubscription = async ({ userId, plan, sourcePaymentId = null, updatedBy }) => {
+  if (!['free', 'plus', 'pro'].includes(plan)) {
+    const error = new Error('Invalid subscription plan.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .upsert({
+      user_id: userId,
+      plan,
+      status: 'active',
+      starts_at: new Date().toISOString(),
+      expires_at: subscriptionExpiryForPlan(plan),
+      source_payment_id: sourcePaymentId,
+      updated_by: updatedBy,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' })
+    .select('*')
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+const adminSetSubscription = async (request, response) => {
+  const adminUser = await requireAdminUser(request);
+  const { userId, plan } = request.body || {};
+  if (!userId || !plan) return response.status(400).json({ error: 'Missing subscription data.' });
+
+  const data = await upsertSubscription({
+    userId,
+    plan,
+    updatedBy: adminUser.id,
+  });
+
+  return response.status(200).json({ success: true, data });
+};
+
+const approvePaymentRequest = async (request, response) => {
+  const adminUser = await requireAdminUser(request);
+  const { requestId } = request.body || {};
+  if (!requestId) return response.status(400).json({ error: 'Missing payment request id.' });
+
+  const { data: paymentRequest, error: readError } = await supabase
+    .from('payment_requests')
+    .select('*')
+    .eq('id', requestId)
+    .single();
+
+  if (readError) throw readError;
+  if (paymentRequest.status === 'rejected') {
+    return response.status(409).json({ error: 'Payment request was rejected.' });
+  }
+
+  const { error: updateError } = await supabase
+    .from('payment_requests')
+    .update({
+      status: 'approved',
+      paid_at: paymentRequest.paid_at || new Date().toISOString(),
+      approved_at: new Date().toISOString(),
+      approved_by: adminUser.id,
+    })
+    .eq('id', requestId);
+
+  if (updateError) throw updateError;
+
+  const data = await upsertSubscription({
+    userId: paymentRequest.user_id,
+    plan: paymentRequest.plan,
+    sourcePaymentId: paymentRequest.id,
+    updatedBy: adminUser.id,
+  });
+
+  return response.status(200).json({ success: true, data });
+};
+
 async function handler(request, response) {
   if (handleCors(request, response, {
     methods: 'POST,OPTIONS',
@@ -827,6 +952,8 @@ async function handler(request, response) {
     if (action === 'delete-account') return await deleteAccount(request, response);
     if (action === 'create-avatar-upload') return await createAvatarUpload(request, response);
     if (action === 'upload-avatar') return await uploadAvatar(request, response);
+    if (action === 'admin-set-subscription') return await adminSetSubscription(request, response);
+    if (action === 'approve-payment-request') return await approvePaymentRequest(request, response);
     return response.status(400).json({ error: 'Thao tac auth khong hop le.' });
   } catch (error) {
     const statusCode = error.statusCode || 500;

@@ -14,7 +14,6 @@ const VERCEL_API_ROUTES = new Set([
   'push',
   'schedule-reminders',
   'scraper',
-  'subscriptions',
 ]);
 
 export const API_BASE_URL = String(
