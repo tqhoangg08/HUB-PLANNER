@@ -656,8 +656,6 @@ const deleteAccount = async (request, response) => {
     'ai_chat_logs',
     'benchmark_rankings',
     'bug_reports',
-    'comment_likes',
-    'comments',
     'course_reports',
     'ctv_requests',
     'donations',
