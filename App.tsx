@@ -2133,6 +2133,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/handbook" element={<MobileHandbook />} />
                 <Route path="/terms" element={<MobileHandbook forcedTab="terms" />} />
                 <Route path="/privacy" element={<MobileHandbook forcedTab="privacy" />} />
+                <Route path="/admin-reports" element={(isAdmin || isAuditor) ? <AdminReports /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/event-candidates" element={(isAdmin || isAuditor) ? <AdminEventCandidates /> : <Navigate to="/mobile-home" replace />} />
 

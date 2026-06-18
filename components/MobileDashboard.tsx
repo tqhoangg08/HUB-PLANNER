@@ -15,7 +15,7 @@ import {
     calculateRequiredGPA,
     getGradeDetails
 } from '../utils/calculations';
-import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CalendarDays, Check, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter, Sparkles, Bell, Edit3, Home, Lock } from 'lucide-react';
+import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CalendarDays, Check, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter, Sparkles, Bell, Edit3, Home, Lock, ShieldCheck, ClipboardList, Activity } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { playClick } from '../utils/audio';
 import { mapIdToDisplay, normalizeSemesterId } from '../utils/rankingData';
@@ -1457,6 +1457,80 @@ const NativeQuickActions = ({
             </button>
           );
         })}
+        <Link
+          to="/handbook/plagiarism"
+          onClick={playClick}
+          className="flex min-h-[58px] flex-col items-center justify-center gap-1.5 rounded-2xl bg-[#F6F8FC] px-2 text-center text-[10.5px] font-black leading-tight text-[#0D1B3E] transition active:scale-[0.98]"
+        >
+          <ShieldCheck size={17} className="text-[#7B2FFF]" strokeWidth={2.3} />
+          <span>Check đạo văn</span>
+        </Link>
+      </div>
+    </section>
+  );
+};
+
+const NativeAdminTools = () => {
+  const { isAdmin, isAuditor } = useUserRole();
+  const tools = [
+    {
+      to: '/admin-reports',
+      label: 'Báo cáo quản trị',
+      description: 'Xử lý báo cáo lỗi, CTV và góp ý.',
+      icon: ClipboardList,
+      className: 'bg-red-50 text-red-600',
+      visible: isAdmin || isAuditor,
+    },
+    {
+      to: '/admin/event-candidates',
+      label: 'Duyệt đề xuất sự kiện',
+      description: 'Duyệt đề xuất sự kiện từ cộng tác viên.',
+      icon: CalendarDays,
+      className: 'bg-blue-50 text-[#1A56FF]',
+      visible: isAdmin || isAuditor,
+    },
+    {
+      to: '/admin/activity',
+      label: 'Nhật ký hoạt động',
+      description: 'Theo dõi hoạt động quản trị hệ thống.',
+      icon: Activity,
+      className: 'bg-emerald-50 text-emerald-600',
+      visible: isAdmin,
+    },
+  ].filter(tool => tool.visible);
+
+  if (tools.length === 0) return null;
+
+  return (
+    <section className="mx-6 mb-3 rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[13.5px] font-black text-[#0D1B3E]">Công cụ quản trị</div>
+          <p className="mt-0.5 text-[10.5px] font-semibold leading-snug text-[#7B8AB0]">Truy cập nhanh các khu vực kiểm duyệt trên mobile.</p>
+        </div>
+        <ShieldCheck size={18} className="shrink-0 text-[#1A56FF]" strokeWidth={2.4} />
+      </div>
+      <div className="grid grid-cols-1 gap-2">
+        {tools.map((tool) => {
+          const Icon = tool.icon;
+          return (
+            <Link
+              key={tool.to}
+              to={tool.to}
+              onClick={playClick}
+              className="flex items-center gap-3 rounded-2xl bg-[#F6F8FC] p-3 active:scale-[0.99]"
+            >
+              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${tool.className}`}>
+                <Icon size={18} strokeWidth={2.3} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[12.5px] font-black leading-tight text-[#0D1B3E]">{tool.label}</span>
+                <span className="mt-0.5 line-clamp-2 block text-[10.5px] font-semibold leading-snug text-[#7B8AB0]">{tool.description}</span>
+              </span>
+              <ChevronRight size={17} className="shrink-0 text-[#C0CBDF]" strokeWidth={2.5} />
+            </Link>
+          );
+        })}
       </div>
     </section>
   );
@@ -2141,7 +2215,10 @@ export const MobileDashboardNative: React.FC<MobileDashboardNativeProps> = ({
         {activeTab === 'schedule' ? (
           <div className={isManagementUser ? 'px-6 pb-0' : 'flex-1 overflow-y-auto px-6 pb-0'}>{scheduleContent}</div>
         ) : isManagementUser ? (
-          <NativeAdminStudentManager />
+          <>
+            <NativeAdminTools />
+            <NativeAdminStudentManager />
+          </>
         ) : (
           <main className="relative flex-1 overflow-y-auto pb-[calc(76px+env(safe-area-inset-bottom))]">
             <div className="mb-2 px-6 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Tổng quan</div>
