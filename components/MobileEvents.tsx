@@ -19,6 +19,7 @@ import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
+import { apiHeaders, apiUrl } from '../utils/api';
 
 // --- Types ---
 interface HubEvent {
@@ -748,7 +749,7 @@ const canManage = isAdmin || isAuditor || isCTV;
       }
       const pageOffset = Math.max(0, page) * EVENTS_PAGE_SIZE;
       const term = searchTerm.trim();
-      if (!(isManagementView && canManage)) {
+      if (!(isManagementView && canManage) && !supabase) {
         const participantIds = participatedEvents.map(id => Number(id)).filter(id => Number.isFinite(id));
         const buildApiParams = (group: 'open' | 'closed', offset: number, limit: number) => {
           const params = new URLSearchParams({
