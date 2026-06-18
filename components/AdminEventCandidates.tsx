@@ -769,64 +769,66 @@ export const AdminEventCandidates: React.FC = () => {
   };
 
   return (
-    <div className="min-h-full">
-      <div className="w-full pt-1 pb-3 sm:pt-1 sm:pb-4">
-        <div className="flex flex-col gap-2 sm:gap-2.5 mb-2.5">
+    <div className="mobile-page w-full min-h-[100dvh] bg-[#E8ECF4] md:min-h-full md:bg-transparent">
+      <div className="mx-auto min-h-[100dvh] w-full max-w-[430px] bg-[#F2F4F8] px-6 pb-[calc(110px+env(safe-area-inset-bottom))] text-[#0D1B3E] md:min-h-full md:max-w-none md:bg-transparent md:px-0 md:pb-0">
+        <div className="h-[calc(env(safe-area-inset-top)+16px)] shrink-0 md:hidden" aria-hidden="true" />
+        <div className="w-full pt-1 pb-3 sm:pt-1 sm:pb-4">
+        <div className="flex flex-col gap-2 sm:gap-2.5 mb-4">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
             <div>
-              <h1 className="text-2xl sm:text-[28px] font-black text-[#003375]">Duyệt candidate sự kiện</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Kiểm tra bài đăng từ Chrome Extension, phân tích AI và duyệt thành sự kiện chính thức.</p>
+              <h1 className="text-[30px] sm:text-[28px] font-black leading-[1.08] tracking-normal text-[#0D1B3E] md:text-[#003375]">Duyệt sự kiện</h1>
+              <p className="mt-1 text-[13px] font-semibold leading-snug text-[#7B8AB0] md:text-sm md:text-gray-500">Kiểm tra bài đăng từ Extension, phân tích AI và duyệt thành sự kiện chính thức.</p>
             </div>
             <button
               type="button"
               onClick={() => fetchCandidates()}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-300 text-[#003375] text-sm font-bold"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-[14px] bg-white px-4 text-[#0D1B3E] text-sm font-black shadow-[0_2px_10px_rgba(13,27,62,0.08)] md:h-auto md:rounded-lg md:border md:border-gray-300 md:py-2 md:text-[#003375] md:shadow-none"
             >
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Tải lại
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-4">
-          <div className="bg-white rounded-lg border border-gray-300 p-3.5">
-            <div className="text-[11px] font-semibold text-gray-500">Tổng candidate</div>
-            <div className="mt-1.5 text-2xl font-black text-[#003375]">{counts.all}</div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          <div className="bg-white rounded-[20px] border border-transparent p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)] md:rounded-lg md:border-gray-300 md:p-3.5 md:shadow-none">
+            <div className="text-[11px] font-bold text-[#7B8AB0] md:font-semibold md:text-gray-500">Tổng candidate</div>
+            <div className="mt-2 text-[27px] font-black leading-none text-[#1A56FF] md:mt-1.5 md:text-2xl md:text-[#003375]">{counts.all}</div>
           </div>
-          <div className="bg-white rounded-lg border border-gray-300 p-3.5">
-            <div className="text-[11px] font-semibold text-gray-500">Chờ duyệt</div>
-            <div className="mt-1.5 text-2xl font-black text-amber-600">{counts.pending}</div>
+          <div className="bg-white rounded-[20px] border border-transparent p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)] md:rounded-lg md:border-gray-300 md:p-3.5 md:shadow-none">
+            <div className="text-[11px] font-bold text-[#7B8AB0] md:font-semibold md:text-gray-500">Chờ duyệt</div>
+            <div className="mt-2 text-[27px] font-black leading-none text-amber-500 md:mt-1.5 md:text-2xl md:text-amber-600">{counts.pending}</div>
           </div>
-          <div className="bg-white rounded-lg border border-gray-300 p-3.5">
-            <div className="text-[11px] font-semibold text-gray-500">Đã duyệt</div>
-            <div className="mt-1.5 text-2xl font-black text-green-600">{counts.approved}</div>
+          <div className="bg-white rounded-[20px] border border-transparent p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)] md:rounded-lg md:border-gray-300 md:p-3.5 md:shadow-none">
+            <div className="text-[11px] font-bold text-[#7B8AB0] md:font-semibold md:text-gray-500">Đã duyệt</div>
+            <div className="mt-2 text-[27px] font-black leading-none text-[#00C07F] md:mt-1.5 md:text-2xl md:text-green-600">{counts.approved}</div>
           </div>
-          <div className="bg-white rounded-lg border border-gray-300 p-3.5">
-            <div className="text-[11px] font-semibold text-gray-500">Từ chối</div>
-            <div className="mt-1.5 text-2xl font-black text-red-600">{counts.rejected}</div>
+          <div className="bg-white rounded-[20px] border border-transparent p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)] md:rounded-lg md:border-gray-300 md:p-3.5 md:shadow-none">
+            <div className="text-[11px] font-bold text-[#7B8AB0] md:font-semibold md:text-gray-500">Từ chối</div>
+            <div className="mt-2 text-[27px] font-black leading-none text-red-600 md:mt-1.5 md:text-2xl">{counts.rejected}</div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-300 overflow-hidden">
-          <div className="p-3 sm:p-4 border-b border-gray-300 flex flex-col lg:flex-row lg:items-center gap-2.5">
+        <div className="bg-white rounded-[20px] border border-transparent overflow-hidden shadow-[0_2px_14px_rgba(13,27,62,0.06)] md:rounded-xl md:border-gray-300 md:shadow-none">
+          <div className="p-4 border-b border-[#EEF2FF] flex flex-col lg:flex-row lg:items-center gap-2.5 md:border-gray-300">
             <div className="relative flex-1">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8B2C8] md:text-gray-400" />
               <input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Tìm source, link hoặc nội dung..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg outline-none focus:border-[#003375] focus:ring-2 focus:ring-blue-100 text-sm"
+                className="h-11 w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] pl-9 pr-3 text-[12px] font-bold text-[#0D1B3E] outline-none focus:border-[#1A56FF] md:h-auto md:rounded-lg md:border-gray-300 md:bg-white md:py-2 md:text-sm md:font-normal md:focus:border-[#003375]"
               />
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar md:flex-wrap md:overflow-visible md:pb-0">
               {REVIEW_TABS.map((tab) => (
                 <button
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition-colors ${
+                  className={`shrink-0 rounded-full px-3 py-2 text-[11px] font-black transition-colors md:rounded-lg md:py-1.5 md:text-sm md:border ${
                     activeTab === tab.key
-                      ? 'bg-[#003375] text-white border-[#003375]'
-                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                      ? 'bg-[#1A56FF] text-white shadow-[0_6px_16px_rgba(26,86,255,0.25)] md:bg-[#003375] md:border-[#003375] md:shadow-none'
+                      : 'bg-[#F6F8FC] text-[#7B8AB0] md:bg-white md:text-gray-600 md:border-gray-300 md:hover:bg-gray-50'
                   }`}
                 >
                   {tab.label}
@@ -951,7 +953,7 @@ export const AdminEventCandidates: React.FC = () => {
               <div className="py-16 text-center text-gray-500">Không có candidate nào phù hợp.</div>
             ) : (
               filteredCandidates.map((candidate) => (
-                <div key={candidate.id} className="rounded-xl border border-gray-300 bg-white p-4 space-y-3">
+                <div key={candidate.id} className="rounded-[20px] border border-[#EEF2FF] bg-[#F8FAFD] p-4 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="font-bold text-gray-900 truncate">{candidate.source_name}</div>
@@ -976,7 +978,7 @@ export const AdminEventCandidates: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 pt-1">
-                    <button onClick={() => openCandidate(candidate)} className="px-3 py-2 rounded-xl bg-[#003375] text-white text-xs font-bold">
+                    <button onClick={() => openCandidate(candidate)} className="px-3 py-2 rounded-xl bg-[#1A56FF] text-white text-xs font-bold">
                       Chi tiết
                     </button>
                     <button
@@ -1014,7 +1016,6 @@ export const AdminEventCandidates: React.FC = () => {
           rejecting={savingAction === 'reject'}
         />
       ) : null}
-
       {toast ? (
         <div className={`fixed bottom-6 right-6 z-[100001] px-4 py-3 rounded-2xl shadow-xl border text-sm font-medium bg-white ${toast.type === 'success' ? 'border-green-200 text-green-700' : 'border-red-200 text-red-700'}`}>
           <div className="flex items-center gap-2">
@@ -1022,7 +1023,8 @@ export const AdminEventCandidates: React.FC = () => {
           </div>
         </div>
       ) : null}
-    </div>
+        </div>
+      </div>
   );
 };
 

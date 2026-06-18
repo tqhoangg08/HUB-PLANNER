@@ -175,22 +175,22 @@ export const AdminReports: React.FC = () => {
         const lostFoundItemUrl = activeTab === 'feedback' ? getLostFoundItemUrl(item.content) : null;
 
         return (
-            <div key={item.id} className={`bg-white rounded-xl border ${isResolved ? 'border-green-200 bg-green-50/20' : 'border-gray-200'} p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col gap-4 relative`}>
+            <div key={item.id} className={`rounded-[20px] border ${isResolved ? 'border-green-200 bg-green-50/20' : 'border-[#EEF2FF] bg-white'} p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)] transition-shadow md:rounded-xl md:border-gray-200 md:p-5 md:shadow-sm md:hover:shadow-md flex flex-col gap-4 relative`}>
                 
                 {/* Header */}
-                <div className="flex justify-between items-start border-b border-gray-100 pb-3">
-                    <div className="flex items-center gap-3">
+                <div className="flex justify-between items-start gap-3 border-b border-gray-100 pb-3">
+                    <div className="flex min-w-0 items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-[#003375] font-bold text-lg border border-gray-200">
                             {item.profile?.full_name ? item.profile.full_name.charAt(0).toUpperCase() : (item.full_name ? item.full_name.charAt(0).toUpperCase() : '?')}
                         </div>
-                        <div>
+                        <div className="min-w-0">
                             <p className="font-bold text-gray-900 text-sm">{item.profile?.full_name || item.full_name || 'Người dùng ẩn danh'}</p>
                             <p className="text-xs text-gray-500 font-medium">
                                 MSSV: {item.profile?.student_code || item.student_code || '---'} | Email: {item.profile?.email || item.email || '---'}
                             </p>
                         </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex shrink-0 flex-col items-end gap-1">
                         <span className="text-[10px] text-gray-400 flex items-center gap-1"><Calendar size={12}/> {dateStr}</span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${isResolved ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-100 text-yellow-700 border-yellow-200'}`}>
                             {isResolved ? 'Đã xử lý' : 'Đang chờ'}
@@ -290,17 +290,20 @@ export const AdminReports: React.FC = () => {
     };
 
     return (
-        <div className="animate-fadeIn pb-10">
+        <div className="mobile-page w-full min-h-[100dvh] bg-[#E8ECF4] md:min-h-full md:bg-transparent">
+            <div className="mx-auto min-h-[100dvh] w-full max-w-[430px] bg-[#F2F4F8] px-6 pb-[calc(110px+env(safe-area-inset-bottom))] text-[#0D1B3E] md:min-h-full md:max-w-none md:bg-transparent md:px-0 md:pb-10">
+            <div className="h-[calc(env(safe-area-inset-top)+16px)] shrink-0 md:hidden" aria-hidden="true" />
+        <div className="animate-fadeIn">
             {/* Header tinh gọn lại trên Mobile */}
-            <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-2 sm:pb-4 -mt-2 mb-3 sm:mb-5 border-b border-gray-200/60 md:shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">
-                <h2 className="text-2xl sm:text-[28px] font-black text-[#003375] mb-1">
+            <div className="relative z-40 mb-4 bg-transparent pb-0 pt-1 md:sticky md:top-0 md:-mt-2 md:mb-5 md:border-b md:border-gray-200/60 md:bg-[#F8FAFC] md:pb-4 md:shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">
+                <h2 className="mb-1 text-[30px] font-black leading-[1.08] tracking-normal text-[#0D1B3E] md:text-[28px] md:text-[#003375]">
                     Xử lý báo cáo
                 </h2>
-                <p className="text-[11px] sm:text-sm text-gray-500 truncate">Quản lý phản hồi, lỗi hệ thống và đơn xin CTV</p>
+                <p className="text-[13px] font-semibold leading-snug text-[#7B8AB0] md:text-sm md:text-gray-500">Quản lý phản hồi, lỗi hệ thống và đơn xin CTV.</p>
             </div>
 
             {/* Menu Tabs: Chuyển sang dạng cuộn ngang (Horizontal Scroll) */}
-            <div className="flex overflow-x-auto no-scrollbar gap-2 mb-4 pb-1">
+            <div className="-mx-6 mb-4 flex gap-2 overflow-x-auto px-6 pb-1 no-scrollbar md:mx-0 md:px-0">
                 {tabs.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id;
@@ -308,26 +311,26 @@ export const AdminReports: React.FC = () => {
                         <button
                             key={tab.id}
                             onClick={() => { playClick(); setActiveTab(tab.id); }}
-                            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border transition-all shrink-0 ${
+                            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[11px] font-black shadow-[0_2px_10px_rgba(13,27,62,0.04)] transition-all md:rounded-xl md:border ${
                                 isActive 
-                                ? `${tab.bg} ${tab.color} border-current shadow-sm ring-1 ring-current/20` 
-                                : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-700'
+                                ? 'bg-[#1A56FF] text-white shadow-[0_6px_16px_rgba(26,86,255,0.25)] md:ring-1 md:ring-current/20'
+                                : 'bg-white text-[#7B8AB0] md:border-gray-200 md:text-gray-500 md:hover:bg-gray-50 md:hover:text-gray-700'
                             }`}
                         >
                             <Icon size={16} className={isActive ? '' : 'opacity-70'} />
-                            <span className="text-[11px] sm:text-xs font-bold whitespace-nowrap">{tab.label}</span>
+                            <span className="whitespace-nowrap">{tab.label}</span>
                         </button>
                     );
                 })}
             </div>
 
             {/* Bảng dữ liệu / Danh sách Cards */}
-            <div className="bg-gray-50/50 p-1 rounded-xl">
-                <div className="flex justify-between items-center mb-3 sm:mb-4 px-1 sm:px-2">
-                    <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+            <div className="rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)] md:rounded-xl md:bg-gray-50/50 md:p-1 md:shadow-none">
+                <div className="mb-3 flex items-center justify-between gap-3 md:mb-4 md:px-2">
+                    <h3 className="flex min-w-0 items-center gap-2 truncate text-[16px] font-black text-[#0D1B3E] md:text-lg md:text-gray-800">
                         {tabs.find(t => t.id === activeTab)?.label}
                     </h3>
-                    <div className="text-xs font-bold text-gray-500 bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">
+                    <div className="shrink-0 rounded-full bg-[#F6F8FC] px-3 py-1 text-[11px] font-black text-[#7B8AB0] md:border md:border-gray-200 md:bg-white md:text-xs md:text-gray-500 md:shadow-sm">
                         Tổng cộng: {totalReports}
                     </div>
                 </div>
@@ -344,7 +347,7 @@ export const AdminReports: React.FC = () => {
                         <p className="text-gray-400 text-sm">Hiện tại không có báo cáo nào cần xử lý trong mục này.</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
                         {reports.map(renderReportCard)}
                     </div>
                 )}
@@ -369,6 +372,8 @@ export const AdminReports: React.FC = () => {
                         </button>
                     </div>
                 )}
+            </div>
+        </div>
             </div>
         </div>
     );
