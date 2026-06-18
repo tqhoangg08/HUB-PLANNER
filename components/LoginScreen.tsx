@@ -12,6 +12,7 @@ import {
     Loader2,
     Lock,
     Mail,
+    ShieldCheck,
     Target,
     UserRound,
 } from 'lucide-react';
@@ -88,6 +89,8 @@ export const LoginScreen: React.FC = () => {
     const [agreed, setAgreed] = useState(false);
     const [otpCooldownRemaining, setOtpCooldownRemaining] = useState(0);
     const [captchaToken, setCaptchaToken] = useState('');
+    const [captchaStatus, setCaptchaStatus] = useState<'idle' | 'verified' | 'error'>('idle');
+    const [captchaRetryKey, setCaptchaRetryKey] = useState(0);
     useEffect(() => {
         if (!supabase) return;
 
@@ -135,6 +138,8 @@ export const LoginScreen: React.FC = () => {
         setOtpState(null);
         setOtp('');
         setIsRecoveryMode(false);
+        setCaptchaToken('');
+        setCaptchaStatus('idle');
     };
 
     const handleGoogleLogin = async () => {
@@ -192,7 +197,7 @@ export const LoginScreen: React.FC = () => {
 
     const sendOtpCode = async (email: string, purpose: 'register' | 'forgot_password') => {
         if (!captchaToken) {
-            throw new Error('Vui lòng xác minh bạn không phải robot.');
+            throw new Error(captchaStatus === 'error' ? 'Không thể xác minh bảo mật. Vui lòng thử lại.' : 'Vui lòng hoàn tất bước xác minh bảo mật.');
         }
         const storedCooldown = getStoredOtpCooldown(email, purpose);
         if (storedCooldown > 0) {
@@ -239,7 +244,7 @@ export const LoginScreen: React.FC = () => {
         try {
             const email = await resolveLoginEmail(identifier);
                         // Chặn nếu chưa xác minh CAPTCHA
-            if (!captchaToken) throw new Error('Vui lòng xác minh bạn không phải robot.');
+            if (!captchaToken) throw new Error(captchaStatus === 'error' ? 'Không thể xác minh bảo mật. Vui lòng thử lại.' : 'Vui lòng hoàn tất bước xác minh bảo mật.');
                         // Bắn token lên cho Supabase kiểm tra
             const { error } = await supabase.auth.signInWithPassword({ 
                 email, 
@@ -435,16 +440,100 @@ export const LoginScreen: React.FC = () => {
                 placeholder={placeholder}
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-11 text-sm font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.12)]"
+                className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-9 pr-10 text-[13.5px] font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.12)] lg:h-11 lg:rounded-xl lg:text-sm"
             />
             <button
                 type="button"
                 onClick={() => setVisible(!visible)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 transition-colors hover:text-[#003B7A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)]"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 transition-colors hover:text-[#003B7A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)]"
                 aria-label={visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
             >
                 {visible ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
+        </div>
+    );
+
+    const renderSecurityCheck = (action: string) => (
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white px-2.5 py-1.5">
+            {captchaStatus === 'error' ? (
+                <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
+                        <AlertCircle size={15} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-[12px] font-semibold text-slate-800">Không thể xác minh bảo mật.</p>
+                        <p className="text-[11px] font-medium text-slate-500">Vui lòng kiểm tra mạng và thử lại.</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setCaptchaToken('');
+                            setCaptchaStatus('idle');
+                            setCaptchaRetryKey((value) => value + 1);
+                        }}
+                        className="rounded-xl bg-slate-100 px-2.5 py-1.5 text-[11.5px] font-bold text-[#003B7A] active:bg-slate-200"
+                    >
+                        Thử lại
+                    </button>
+                </div>
+            ) : (
+                <div className="space-y-1.5">
+                    <div className="flex items-center gap-2.5">
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${captchaStatus === 'verified' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-[#003B7A]'}`}>
+                        {captchaStatus === 'verified' ? <ShieldCheck size={16} /> : <Loader2 size={15} className="animate-spin" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <p className="text-[12px] font-semibold text-slate-800">
+                            {captchaStatus === 'verified' ? 'Đã xác minh bảo mật' : 'Đang chuẩn bị xác minh'}
+                        </p>
+                        <p className="text-[11px] font-medium text-slate-500">
+                            {captchaStatus === 'verified' ? 'Bạn có thể tiếp tục đăng nhập.' : 'Nếu được yêu cầu, hãy hoàn tất bước bảo mật.'}
+                        </p>
+                    </div>
+                    </div>
+                    <div className="flex h-[58px] w-full items-center justify-center overflow-hidden">
+                        <Turnstile
+                            key={`${action}-${captchaRetryKey}`}
+                            siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+                            options={{
+                                action,
+                                appearance: 'interaction-only',
+                                feedbackEnabled: false,
+                                language: 'vi',
+                                size: 'flexible',
+                                theme: 'light',
+                            }}
+                            onSuccess={(token) => {
+                                setCaptchaToken(token);
+                                setCaptchaStatus('verified');
+                            }}
+                            onError={() => {
+                                setCaptchaToken('');
+                                setCaptchaStatus('error');
+                            }}
+                            onExpire={() => {
+                                setCaptchaToken('');
+                                setCaptchaStatus('idle');
+                            }}
+                            onTimeout={() => {
+                                setCaptchaToken('');
+                                setCaptchaStatus('error');
+                            }}
+                            onUnsupported={() => {
+                                setCaptchaToken('');
+                                setCaptchaStatus('error');
+                            }}
+                            scriptOptions={{
+                                onError: () => {
+                                    setCaptchaToken('');
+                                    setCaptchaStatus('error');
+                                },
+                            }}
+                            className="w-full"
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 
@@ -456,14 +545,36 @@ export const LoginScreen: React.FC = () => {
                     playClick();
                     navigate('/');
                 }}
-                className="fixed left-4 top-4 z-30 inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3 text-sm font-bold text-slate-600 shadow-sm transition-colors hover:text-[#003B7A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)] sm:left-6 sm:top-6"
+                className="fixed left-4 top-4 z-30 hidden h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3 text-sm font-bold text-slate-600 shadow-sm transition-colors hover:text-[#003B7A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)] sm:left-6 sm:top-6 lg:inline-flex"
             >
                 <ArrowLeft size={17} />
-                <span className="hidden sm:inline">Về trang chủ</span>
+                <span>Về trang chủ</span>
             </button>
 
-            <main className="mx-auto flex min-h-[100dvh] w-full items-center justify-center px-4 pb-6 pt-16 sm:px-6 lg:h-[100dvh] lg:min-h-0 lg:py-6">
-                <div className="w-full max-w-[500px] lg:grid lg:h-[min(700px,calc(100dvh-96px))] lg:max-w-6xl lg:grid-cols-[0.95fr_1.05fr] lg:overflow-hidden lg:rounded-[28px] lg:bg-white lg:shadow-[0_28px_70px_rgba(15,23,42,0.12)] lg:ring-1 lg:ring-slate-200/80">
+            <main className="mx-auto flex min-h-[100dvh] w-full items-stretch justify-start p-0 lg:h-[100dvh] lg:min-h-0 lg:items-center lg:justify-center lg:px-6 lg:py-6">
+                <div className="flex min-h-[100dvh] w-full flex-col lg:grid lg:h-[min(700px,calc(100dvh-96px))] lg:min-h-0 lg:max-w-6xl lg:grid-cols-[0.95fr_1.05fr] lg:overflow-hidden lg:rounded-[28px] lg:bg-white lg:shadow-[0_28px_70px_rgba(15,23,42,0.12)] lg:ring-1 lg:ring-slate-200/80">
+                <section className="relative overflow-hidden bg-[#003B7A] px-4 pb-4 pt-[calc(6px+env(safe-area-inset-top))] text-white lg:hidden">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            playClick();
+                            navigate('/');
+                        }}
+                        className="relative z-10 mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white/12 text-white active:bg-white/18"
+                        aria-label="Về trang chủ"
+                    >
+                        <ArrowLeft size={17} />
+                    </button>
+                    <div className="relative z-10 flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-white shadow-[0_8px_18px_rgba(0,0,0,0.12)]">
+                            <img src="/logoapp.png" alt="HUB Planner" className="h-full w-full object-cover" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-[14px] font-bold leading-tight">HUB Planner</p>
+                            <p className="mt-0.5 text-[11.5px] font-medium text-blue-100">Tài khoản sinh viên HUB</p>
+                        </div>
+                    </div>
+                </section>
                 <section className="hidden h-full min-h-0 flex-col justify-between overflow-hidden bg-[#003B7A] p-6 text-white lg:flex lg:rounded-l-[28px]">
                     <div className="flex items-center gap-3">
                         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white">
@@ -526,39 +637,44 @@ export const LoginScreen: React.FC = () => {
                     </div>
                 </section>
 
-                <section className="mx-auto flex w-full max-w-[500px] flex-col rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_18px_48px_rgba(15,23,42,0.08)] sm:p-6 lg:mx-0 lg:h-full lg:min-h-0 lg:max-w-none lg:overflow-y-auto lg:rounded-none lg:rounded-r-[28px] lg:border-0 lg:border-l lg:border-slate-200 lg:p-6 lg:shadow-none">
-                    <div className="mb-4 flex items-center gap-3 lg:hidden">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-100 bg-white shadow-sm">
-                            <img src="/logo.png" alt="HUB Planner" className="h-8 w-8 object-contain" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-black text-[#003B7A]">HUB Planner</p>
-                            <p className="text-xs font-semibold text-slate-500">Tài khoản sinh viên HUB</p>
-                        </div>
-                    </div>
-
-                    <div className="mb-4 grid grid-cols-2 rounded-xl bg-slate-50 p-1 ring-1 ring-slate-100">
+                <section className="-mt-2 flex w-full flex-1 flex-col rounded-t-[20px] bg-white px-4 pb-[calc(16px+env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_28px_rgba(15,23,42,0.08)] sm:px-6 lg:mx-0 lg:mt-0 lg:h-full lg:min-h-0 lg:max-w-none lg:overflow-y-auto lg:rounded-none lg:rounded-r-[28px] lg:border-0 lg:border-l lg:border-slate-200 lg:p-6 lg:shadow-none">
+                    <div className="mb-3 grid grid-cols-2 rounded-xl bg-slate-50 p-0.5 ring-1 ring-slate-100">
                         <button
                             type="button"
                             onClick={() => switchFlow('login')}
-                            className={`h-9 rounded-lg text-sm font-semibold transition-all ${flow === 'login' ? 'bg-white text-[#003B7A] shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500'}`}
+                            className={`h-9 rounded-[10px] text-[13px] font-semibold transition-all ${flow === 'login' ? 'bg-white text-[#003B7A]' : 'text-slate-500'}`}
                         >
                             Đăng nhập
                         </button>
                         <button
                             type="button"
                             onClick={() => switchFlow('register')}
-                            className={`h-9 rounded-lg text-sm font-semibold transition-all ${flow === 'register' ? 'bg-white text-[#003B7A] shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500'}`}
+                            className={`h-9 rounded-[10px] text-[13px] font-semibold transition-all ${flow === 'register' ? 'bg-white text-[#003B7A]' : 'text-slate-500'}`}
                         >
                             Đăng ký
                         </button>
                     </div>
 
-                    <div className="mb-4">
-                        <h2 className="text-2xl font-black tracking-normal text-slate-950 sm:text-[28px]">
+                    <div className="mb-2.5 lg:hidden">
+                        <h2 className="text-[20px] font-bold leading-tight tracking-normal text-slate-950">
+                            {isRecoveryMode ? 'Đặt mật khẩu mới' : otpState ? 'Nhập mã OTP' : flow === 'login' ? 'Vào HUB Planner' : 'Bắt đầu với HUB'}
+                        </h2>
+                        <p className="mt-1 text-[12.5px] font-medium leading-5 text-slate-500">
+                            {isRecoveryMode
+                                ? 'Tạo mật khẩu mới để tiếp tục dùng tài khoản HUB Planner.'
+                                : otpState
+                                ? (otpState.purpose === 'forgot_password' ? 'Xác nhận OTP rồi đặt mật khẩu mới cho tài khoản.' : 'Kiểm tra Gmail HUB và nhập mã OTP để hoàn tất.')
+                                : flow === 'login'
+                                    ? 'Dùng Google HUB nhanh nhất, hoặc MSSV/Gmail với mật khẩu riêng.'
+                                    : `Chỉ dùng Gmail sinh viên có đuôi @${SCHOOL_DOMAIN}.`}
+                        </p>
+                    </div>
+
+                    <div className="mb-4 hidden lg:block">
+                        <h2 className="text-[25px] font-black leading-tight tracking-normal text-slate-950 sm:text-[28px]">
                             {isRecoveryMode ? '\u0110\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u' : otpState ? 'X\u00e1c nh\u1eadn OTP' : flow === 'login' ? 'Ch\u00e0o m\u1eebng tr\u1edf l\u1ea1i' : 'T\u1ea1o t\u00e0i kho\u1ea3n HUB'}
                         </h2>
-                        <p className="mt-2 text-sm leading-6 text-slate-500">
+                        <p className="mt-2 text-[13px] leading-6 text-slate-500 sm:text-sm">
                             {isRecoveryMode
                                 ? 'Tạo mật khẩu mới cho tài khoản HUB Planner của bạn.'
                                 : otpState
@@ -582,8 +698,30 @@ export const LoginScreen: React.FC = () => {
                         </div>
                     )}
 
+                    {flow === 'login' && !isRecoveryMode && !otpState && (
+                        <div className="mb-2.5 lg:hidden">
+                            <p className="mb-1.5 text-[12.5px] font-semibold text-slate-500">
+                                Đăng nhập nhanh
+                            </p>
+                            <button
+                                type="button"
+                                onClick={handleGoogleLogin}
+                                disabled={googleLoading || loading}
+                                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-4 text-[13.5px] font-semibold text-slate-900 shadow-[0_4px_12px_rgba(15,23,42,0.06)] transition-colors active:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                            >
+                                {googleLoading ? <Loader2 className="animate-spin" size={18} /> : <GoogleIcon />}
+                                {googleLoading ? 'Đang kết nối...' : 'Đăng nhập bằng Google HUB'}
+                            </button>
+                            <div className="my-2.5 flex items-center gap-3 text-[12px] font-medium text-slate-400">
+                                <span className="h-px flex-1 bg-slate-200" />
+                                Hoặc đăng nhập bằng mật khẩu
+                                <span className="h-px flex-1 bg-slate-200" />
+                            </div>
+                        </div>
+                    )}
+
                     {isRecoveryMode ? (
-                        <form onSubmit={handleRecoveryPasswordUpdate} className="space-y-3">
+                        <form onSubmit={handleRecoveryPasswordUpdate} className="space-y-2 rounded-[18px] border border-slate-100 bg-slate-50/70 p-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.035)] lg:space-y-3 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
                             <div>
                                 <label htmlFor="recovery-password" className="mb-1.5 block text-sm font-bold text-slate-700">Mật khẩu mới</label>
                                 {renderPasswordInput('recovery-password', recoveryPassword, setRecoveryPassword, showRecoveryPassword, setShowRecoveryPassword, 'Nhập mật khẩu mới')}
@@ -604,11 +742,11 @@ export const LoginScreen: React.FC = () => {
                             </button>
                         </form>
                     ) : flow === 'login' && !otpState ? (
-                        <form onSubmit={handlePasswordLogin} className="space-y-3">
+                        <form onSubmit={handlePasswordLogin} className="space-y-2 rounded-[18px] border border-slate-100 bg-slate-50/70 p-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.035)] lg:space-y-3 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
                             <div>
-                                <label htmlFor="login-identifier" className="mb-1.5 block text-sm font-bold text-slate-700">Tài khoản</label>
+                                <label htmlFor="login-identifier" className="mb-1 block text-[12.5px] font-semibold text-slate-700 lg:text-sm lg:font-bold">Tài khoản</label>
                                 <div className="relative">
-                                    <UserRound className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                    <UserRound className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
                                     <input
                                         id="login-identifier"
                                         type="text"
@@ -616,19 +754,19 @@ export const LoginScreen: React.FC = () => {
                                         placeholder={`MSSV hoặc Gmail HUB`}
                                         value={identifier}
                                         onChange={(e) => setIdentifier(e.target.value)}
-                                        className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.12)]"
+                                        className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-9 pr-4 text-[13.5px] font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.12)] lg:h-11 lg:rounded-xl lg:text-sm"
                                     />
                                 </div>
                             </div>
 
                             <div>
                                 <div className="mb-1.5 flex items-center justify-between gap-3">
-                                    <label htmlFor="login-password" className="block text-sm font-bold text-slate-700">Mật khẩu</label>
+                                    <label htmlFor="login-password" className="block text-[12.5px] font-semibold text-slate-700 lg:text-sm lg:font-bold">Mật khẩu</label>
                                     <button
                                         type="button"
                                         onClick={handleForgotPassword}
                                         disabled={loading || googleLoading}
-                                        className="text-xs font-black text-[#003B7A] transition-colors hover:text-[#002F61] hover:underline disabled:cursor-not-allowed disabled:text-slate-400"
+                                        className="text-[12px] font-bold text-[#003B7A] transition-colors hover:text-[#002F61] hover:underline disabled:cursor-not-allowed disabled:text-slate-400"
                                     >
                                         Quên mật khẩu?
                                     </button>
@@ -636,27 +774,21 @@ export const LoginScreen: React.FC = () => {
                                 {renderPasswordInput('login-password', loginPassword, setLoginPassword, showLoginPassword, setShowLoginPassword)}
                             </div>
 
-                            <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-xs leading-5 text-slate-600">
-                                Nếu trước đây bạn chỉ đăng nhập Google, hệ thống có thể yêu cầu đặt mật khẩu riêng để đăng nhập nhanh bằng MSSV/Gmail ở lần sau.
+                            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-2.5 py-1.5 text-[11.5px] font-medium leading-5 text-slate-600 lg:rounded-xl lg:text-xs">
+                                Nếu từng đăng nhập bằng Google, bạn có thể cần đặt mật khẩu riêng để đăng nhập bằng MSSV/Gmail.
                             </div>
-                        <div className="flex justify-center py-2">
-                                <Turnstile
-                                    siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-                                    onSuccess={(token) => setCaptchaToken(token)}
-                                    onError={() => setCaptchaToken('')}
-                                />
-                            </div>
+                            {renderSecurityCheck('login')}
                             <button
                                 type="submit"
                                 disabled={loading || googleLoading}
-                                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#003B7A] px-4 text-sm font-black text-white shadow-sm transition-colors hover:bg-[#002F61] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.18)] disabled:cursor-not-allowed disabled:bg-slate-300"
+                                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#003B7A] px-4 text-[13.5px] font-bold text-white shadow-sm transition-colors hover:bg-[#002F61] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.18)] disabled:cursor-not-allowed disabled:bg-slate-300 lg:h-11 lg:text-sm lg:font-black"
                             >
                                 {loading ? <Loader2 className="animate-spin" size={18} /> : null}
                                 {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
                             </button>
                         </form>
                     ) : otpState ? (
-                        <form onSubmit={handleVerifyOtp} className="space-y-3">
+                        <form onSubmit={handleVerifyOtp} className="space-y-2 rounded-[18px] border border-slate-100 bg-slate-50/70 p-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.035)] lg:space-y-3 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
                             <div>
                                 <label htmlFor="register-otp" className="mb-1.5 block text-sm font-bold text-slate-700">Mã OTP</label>
                                 <input
@@ -712,30 +844,31 @@ export const LoginScreen: React.FC = () => {
                             </button>
                         </form>
                     ) : (
-                        <form onSubmit={handleRegister} className="space-y-3">
+                        <form onSubmit={handleRegister} className="space-y-2 rounded-[18px] border border-slate-100 bg-slate-50/70 p-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.035)] lg:space-y-3 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
                             <div>
-                                <label htmlFor="register-email" className="mb-1.5 block text-sm font-bold text-slate-700">Tài khoản</label>
+                                <label htmlFor="register-email" className="mb-1 block text-[12.5px] font-semibold text-slate-700 lg:text-sm lg:font-bold">Tài khoản</label>
                                 <div className="relative">
-                                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
                                     <input
                                         id="register-email"
                                         type="email"
                                         required
-                                        placeholder={`MSSV@${SCHOOL_DOMAIN}`}
+                                        placeholder="Nhập Gmail sinh viên HUB"
                                         value={registerEmail}
                                         onChange={(e) => setRegisterEmail(e.target.value)}
-                                        className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.12)]"
+                                        className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-9 pr-4 text-[13.5px] font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.12)] lg:h-11 lg:rounded-xl lg:text-sm"
                                     />
                                 </div>
                             </div>
 
                             <div>
-                                <label htmlFor="register-password" className="mb-1.5 block text-sm font-bold text-slate-700">Mật khẩu</label>
+                                <label htmlFor="register-password" className="mb-1 block text-[12.5px] font-semibold text-slate-700 lg:text-sm lg:font-bold">Mật khẩu</label>
                                 {renderPasswordInput('register-password', registerPassword, setRegisterPassword, showRegisterPassword, setShowRegisterPassword)}
+                                <p className="mt-1 text-[11px] font-medium text-slate-500">Tối thiểu 8 ký tự.</p>
                             </div>
 
                             <div>
-                                <label htmlFor="register-confirm" className="mb-1.5 block text-sm font-bold text-slate-700">Nhập lại mật khẩu</label>
+                                <label htmlFor="register-confirm" className="mb-1 block text-[12.5px] font-semibold text-slate-700 lg:text-sm lg:font-bold">Nhập lại mật khẩu</label>
                                 {renderPasswordInput('register-confirm', registerConfirm, setRegisterConfirm, showRegisterPassword, setShowRegisterPassword, 'Nhập lại mật khẩu')}
                             </div>
 
@@ -767,14 +900,17 @@ export const LoginScreen: React.FC = () => {
                                 </span>
                             </label>
                             {!agreed && (
-                                <p className="-mt-2 text-xs font-semibold text-slate-500">
+                                <p className="-mt-1 text-[11px] font-medium text-slate-500">
+                                    Cần đồng ý điều khoản để tiếp tục đăng ký.
                                 </p>
                             )}
+
+                            {renderSecurityCheck('register')}
 
                             <button
                                 type="submit"
                                 disabled={loading || googleLoading || !agreed}
-                                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#003B7A] px-4 text-sm font-black text-white shadow-sm transition-colors hover:bg-[#002F61] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.18)] disabled:cursor-not-allowed disabled:bg-slate-300"
+                                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#003B7A] px-4 text-[13.5px] font-bold text-white shadow-sm transition-colors hover:bg-[#002F61] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.18)] disabled:cursor-not-allowed disabled:bg-slate-300 lg:h-11 lg:text-sm lg:font-black"
                             >
                                 {loading ? <Loader2 className="animate-spin" size={18} /> : null}
                                 {loading ? 'Đang gửi OTP...' : 'Đăng ký'}
@@ -783,8 +919,11 @@ export const LoginScreen: React.FC = () => {
                     )}
 
                     {!isRecoveryMode && !otpState && (
-                        <div className="mt-4">
-                            <div className="mb-4 flex items-center gap-3 text-xs font-semibold uppercase tracking-normal text-slate-400">
+                        <div className={flow === 'login' ? 'hidden lg:block lg:mt-4' : 'mt-4'}>
+                            <p className="mb-1.5 text-[12.5px] font-semibold text-slate-500 lg:hidden">
+                                {flow === 'register' ? 'Đăng ký nhanh' : 'Đăng nhập nhanh'}
+                            </p>
+                            <div className="mb-4 hidden items-center gap-3 text-xs font-semibold uppercase tracking-normal text-slate-400 lg:flex">
                                 <span className="h-px flex-1 bg-slate-200" />
                                 hoặc
                                 <span className="h-px flex-1 bg-slate-200" />
@@ -794,14 +933,14 @@ export const LoginScreen: React.FC = () => {
                                 type="button"
                                 onClick={handleGoogleLogin}
                                 disabled={googleLoading || loading || (flow === 'register' && !agreed)}
-                                className="flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-800 shadow-sm transition-colors hover:border-blue-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-4 text-[13.5px] font-semibold text-slate-900 shadow-[0_4px_12px_rgba(15,23,42,0.06)] transition-colors active:bg-slate-50 hover:border-blue-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 lg:h-11 lg:rounded-xl lg:text-sm lg:font-bold lg:shadow-sm"
                             >
                                 {googleLoading ? <Loader2 className="animate-spin" size={18} /> : <GoogleIcon />}
                                 {googleLoading ? 'Đang kết nối...' : flow === 'login' ? 'Đăng nhập bằng Google HUB' : 'Đăng ký bằng Google HUB'}
                             </button>
 
                             {flow === 'login' && (
-                                <p className="mt-3 text-center text-xs leading-5 text-slate-500">
+                                <p className="mt-3 hidden text-center text-xs leading-5 text-slate-500 lg:block">
                                     Bằng việc đăng nhập, bạn đồng ý với{' '}
                                     <Link to="/terms" className="font-semibold text-[#003B7A] hover:underline">Điều khoản</Link>
                                     {' '}và{' '}
