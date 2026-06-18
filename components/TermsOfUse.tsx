@@ -76,10 +76,10 @@ const sections = [
     id: 'dieu-9',
     title: 'Tìm đồ thất lạc',
     content: [
-      'Tính năng tìm đồ thất lạc được cung cấp để hỗ trợ cộng đồng sinh viên đăng tin báo mất, nhặt được hoặc cập nhật trạng thái xử lý. Người dùng khi đăng tin cần cung cấp thông tin trung thực, vừa đủ, không đăng thông tin nhạy cảm quá mức và không lợi dụng tính năng này để lừa đảo, quấy rối hoặc xâm phạm quyền riêng tư của người khác.',
+      'Tính năng tìm đồ thất lạc được cung cấp để hỗ trợ sinh viên gửi thông tin báo mất, nhặt được đồ hoặc yêu cầu cập nhật trạng thái cho Ban quản trị. Người dùng chỉ gửi thông tin/yêu cầu qua biểu mẫu; nội dung chỉ có thể được hiển thị công khai sau khi Ban quản trị hoặc auditor tiếp nhận, kiểm duyệt và đăng/cập nhật dưới tư cách quản trị.',
       'Người dùng không được yêu cầu chuyển khoản trước, đặt cọc, thu phí bất hợp lý hoặc lợi dụng việc trả lại đồ để trục lợi. Mọi giao dịch, liên hệ hoặc gặp mặt ngoài hệ thống là trách nhiệm của các bên liên quan.',
-      'HUB Planner có thể kiểm duyệt, ẩn, chỉnh sửa trạng thái hoặc gỡ bỏ tin đăng nếu tin có dấu hiệu sai sự thật, mạo danh, lừa đảo, lộ thông tin cá nhân, vi phạm pháp luật hoặc vi phạm Điều khoản.',
-      'Người dùng có thể gửi báo cáo hoặc yêu cầu gỡ nội dung. Các yêu cầu hợp lệ sẽ được ban quản trị rà soát và xử lý trong vòng 24 giờ kể từ khi tiếp nhận hợp lệ, tùy tính chất và mức độ vi phạm.',
+      'HUB Planner có thể kiểm duyệt, ẩn, chỉnh sửa trạng thái hoặc gỡ bỏ thông tin hiển thị nếu thông tin có dấu hiệu sai sự thật, mạo danh, lừa đảo, lộ thông tin cá nhân, vi phạm pháp luật hoặc vi phạm Điều khoản.',
+      'Người dùng gửi thông tin được gắn quyền liên quan đến nội dung đó và có thể gửi yêu cầu sửa, cập nhật trạng thái hoặc xóa/gỡ. Các yêu cầu hợp lệ sẽ được Ban quản trị/auditor rà soát và thực hiện trong vòng 24 giờ kể từ khi tiếp nhận hợp lệ, tùy tính chất và mức độ vi phạm.',
     ],
   },
   {

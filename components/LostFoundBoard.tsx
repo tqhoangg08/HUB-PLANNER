@@ -26,6 +26,7 @@ interface LostFoundItem {
   is_deleted: boolean; 
   user_id?: string; 
 }
+type LostFoundRequestIntent = 'report' | 'edit' | 'delete' | 'resolve';
 const LOST_FOUND_PAGE_SIZE = 24;
 const MAX_LOST_FOUND_IMAGE_BYTES = 3 * 1024 * 1024;
 
@@ -169,7 +170,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                     },
                 });
                 void notifyModerators('lost_found_pending', data?.id);
-                onShowToast("Đăng tin thành công! Tin sẽ hiển thị sau khi duyệt.", 'success');
+                onShowToast("Đã gửi thông tin. Nội dung chỉ hiển thị sau khi được duyệt.", 'success');
             }
             onClose();
         } catch (err: any) {
@@ -188,7 +189,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                 <div className={`p-4 text-white flex justify-between items-center shrink-0 ${type === 'FOUND' ? 'bg-[#003375]' : 'bg-[#990000]'}`}>
                     <h3 className="font-bold text-lg flex items-center gap-2">
                         {editingItem ? <Edit2 size={20}/> : (type === 'FOUND' ? <PlusCircle size={20}/> : <Megaphone size={20}/>)}
-                        {editingItem ? 'Chỉnh sửa tin' : (type === 'FOUND' ? 'Đăng tin Nhặt được đồ' : 'Đăng tin Báo mất đồ')}
+                        {editingItem ? 'Admin chỉnh sửa tin' : (type === 'FOUND' ? 'Gửi thông tin nhặt được đồ' : 'Báo cáo mất đồ cho Ban quản trị')}
                     </h3>
                     <button onClick={onClose} className="hover:bg-white/20 p-2 rounded-full transition-colors"><X size={20}/></button>
                 </div>
@@ -246,7 +247,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
 
                     <button type="submit" disabled={isSubmitting || (!editingItem && !turnstileToken)} className={`w-full py-3 rounded-xl font-bold text-white shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 mt-2 ${type === 'FOUND' ? 'bg-[#003375] hover:bg-[#002855]' : 'bg-[#990000] hover:bg-[#7a0000]'}`}>
                         {isSubmitting ? <Loader2 className="animate-spin"/> : <UploadCloud size={20}/>}
-                        {isSubmitting ? 'Đang lưu...' : (editingItem ? 'Lưu thay đổi' : 'Đăng tin ngay')}
+                        {isSubmitting ? 'Đang gửi...' : (editingItem ? 'Lưu thay đổi' : 'Gửi thông tin cho Ban quản trị')}
                     </button>
                 </form>
             </div>
@@ -291,7 +292,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
                                 {isResolved ? <CheckCircle2 size={24} className="shrink-0 mt-1" /> : (item.type === 'FOUND' ? <MapPin size={24} className="shrink-0 mt-1" /> : <Tag size={24} className="shrink-0 mt-1" />)}
                                 {item.title}
                             </h3>
-                            <div className="flex items-center gap-2 text-gray-500 text-sm mt-2"><Calendar size={14} /><span>Ngày đăng: {new Date(item.created_at).toLocaleDateString('vi-VN')}</span></div>
+                            <div className="flex items-center gap-2 text-gray-500 text-sm mt-2"><Calendar size={14} /><span>Ngày hiển thị: {new Date(item.created_at).toLocaleDateString('vi-VN')}</span></div>
                         </div>
                         <div className="bg-white p-3 rounded-xl border border-gray-200 text-sm text-gray-700 italic">"{item.description || 'Không có mô tả chi tiết'}"</div>
                         <div className="space-y-3 pt-4 border-t border-gray-200">
@@ -317,9 +318,10 @@ interface ReportModalProps {
     onClose: () => void;
     onShowToast: (msg: string, type: 'success' | 'error') => void;
     currentUserId?: string | null;
+    requestIntent: LostFoundRequestIntent;
 }
 
-const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, currentUserId }) => {
+const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, currentUserId, requestIntent }) => {
     const [reason, setReason] = useState('');
     const [contact, setContact] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -339,32 +341,39 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
 
         setIsSubmitting(true);
         try {
+            const requestLabel = requestIntent === 'edit'
+                ? 'Yêu cầu chỉnh sửa thông tin Lost & Found'
+                : requestIntent === 'delete'
+                    ? 'Yêu cầu xóa/gỡ thông tin Lost & Found'
+                    : requestIntent === 'resolve'
+                        ? 'Yêu cầu cập nhật trạng thái Lost & Found'
+                        : 'Yêu cầu báo cáo/gỡ nội dung Lost & Found';
             const content = [
-                `Yêu cầu report/takedown Lost & Found`,
+                requestLabel,
                 `Item ID: ${item.id}`,
                 `Tiêu đề: ${item.title}`,
                 `Loại: ${item.type}`,
                 `Link nội bộ: /lost-found?item=${item.id}`,
-                `Lý do: ${reason.trim()}`,
-                `Cam kết xử lý: yêu cầu cần được rà soát và gỡ/ẩn nội dung vi phạm trong vòng 24 giờ nếu hợp lệ.`,
+                `Nội dung yêu cầu: ${reason.trim()}`,
+                `Cam kết xử lý: yêu cầu được Ban quản trị/auditor tiếp nhận, rà soát và thực hiện nếu hợp lệ.`,
             ].join('\n');
 
             const data = await protectedSubmit<{ id?: number }>({
                 action: 'feedback',
                 turnstileToken,
                 payload: {
-                    type: 'takedown',
+                    type: requestIntent === 'report' ? 'takedown' : 'lost_found_owner_request',
                     content,
                     contact: contact.trim() || 'EMPTY',
                     user_id: currentUserId || null,
                 },
             });
             void notifyModerators('feedback', data?.id);
-            onShowToast('Đã gửi yêu cầu báo cáo. Admin sẽ rà soát và xử lý trong vòng 24 giờ nếu nội dung vi phạm.', 'success');
+            onShowToast('Đã gửi yêu cầu thành công', 'success');
             onClose();
         } catch (error: any) {
             console.error(error);
-            onShowToast('Không thể gửi báo cáo: ' + (error.message || 'Vui lòng thử lại.'), 'error');
+            onShowToast('Không thể gửi yêu cầu: ' + (error.message || 'Vui lòng thử lại.'), 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -372,30 +381,44 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
 
     if (!item) return null;
 
+    const isOwnerRequest = requestIntent !== 'report';
+    const title = isOwnerRequest ? 'Gửi yêu cầu' : 'Báo cáo nội dung';
+    const helper = isOwnerRequest
+        ? 'Yêu cầu của bạn sẽ được tiếp nhận và thực hiện nếu hợp lệ. Người dùng không tự sửa/xóa nội dung đang hiển thị.'
+        : 'Yêu cầu hợp lệ sẽ được rà soát và gỡ/ẩn nội dung vi phạm trong vòng 24 giờ.';
+    const reasonLabel = isOwnerRequest ? 'Nội dung yêu cầu' : 'Lý do báo cáo';
+    const placeholder = requestIntent === 'edit'
+        ? 'VD: Vui lòng sửa số điện thoại thành..., cập nhật mô tả thành...'
+        : requestIntent === 'delete'
+            ? 'VD: Đây là thông tin của tôi, vui lòng xóa/gỡ vì...'
+            : requestIntent === 'resolve'
+                ? 'VD: Đồ đã được trả lại / đã tìm thấy, vui lòng cập nhật trạng thái.'
+                : 'VD: lộ thông tin cá nhân, nội dung sai sự thật, spam, mạo danh, yêu cầu chuyển khoản...';
+
     return createPortal(
         <div className="fixed inset-0 z-[100000] bg-black/60 flex items-center justify-center p-4 animate-fadeIn">
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-scaleIn">
                 <div className="flex items-center justify-between bg-red-600 px-4 py-3 text-white">
-                    <h3 className="font-bold flex items-center gap-2"><Flag size={18} /> Báo cáo nội dung</h3>
+                    <h3 className="font-bold flex items-center gap-2"><Flag size={18} /> {title}</h3>
                     <button onClick={onClose} className="rounded-full p-1.5 hover:bg-white/20"><X size={18} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="p-5 space-y-4">
                     <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-800">
-                        Yêu cầu hợp lệ sẽ được admin rà soát và gỡ/ẩn nội dung vi phạm trong vòng 24 giờ.
+                        {helper}
                     </div>
                     <div>
-                        <label className="mb-1 block text-sm font-bold text-gray-700">Tin cần báo cáo</label>
+                        <label className="mb-1 block text-sm font-bold text-gray-700">Thông tin liên quan</label>
                         <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-800">{item.title}</div>
                     </div>
                     <div>
-                        <label className="mb-1 block text-sm font-bold text-gray-700">Lý do báo cáo <span className="text-red-500">*</span></label>
+                        <label className="mb-1 block text-sm font-bold text-gray-700">{reasonLabel} <span className="text-red-500">*</span></label>
                         <textarea
                             required
                             rows={4}
                             value={reason}
                             onChange={(event) => setReason(event.target.value)}
                             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
-                            placeholder="VD: lộ thông tin cá nhân, nội dung sai sự thật, spam, mạo danh, yêu cầu chuyển khoản..."
+                            placeholder={placeholder}
                         />
                     </div>
                     <div>
@@ -413,7 +436,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
                     </div>
                     <button type="submit" disabled={isSubmitting || !reason.trim() || !turnstileToken} className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 font-bold text-white hover:bg-red-700 disabled:opacity-60">
                         {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Flag size={18} />}
-                        Gửi báo cáo
+                        {isOwnerRequest ? 'Gửi yêu cầu hỗ trợ' : 'Gửi báo cáo'}
                     </button>
                 </form>
             </div>
@@ -441,6 +464,7 @@ export const LostFoundBoard: React.FC = () => {
   
   const [selectedItem, setSelectedItem] = useState<LostFoundItem | null>(null);
   const [reportingItem, setReportingItem] = useState<LostFoundItem | null>(null);
+  const [requestIntent, setRequestIntent] = useState<LostFoundRequestIntent>('report');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [editingItem, setEditingItem] = useState<LostFoundItem | null>(null);
   const [submitType, setSubmitType] = useState<'FOUND' | 'LOST'>('LOST');
@@ -536,10 +560,8 @@ export const LostFoundBoard: React.FC = () => {
       }
   };
 
-  // Cho phép admin hoặc chủ bài viết xóa tin.
   const handleDelete = async (item: LostFoundItem) => {
-      // Chủ bài viết cũng được xóa bài của chính mình.
-      if (!isAdmin && session?.user?.id !== item.user_id) return;
+      if (!isAdmin) return;
       
       playClick();
       if (!await showConfirm("Bạn có chắc chắn muốn xóa tin này không?")) return;
@@ -558,8 +580,9 @@ export const LostFoundBoard: React.FC = () => {
   };
 
   const handleResolve = async (id: number) => {
+      if (!canManage) return;
       playClick();
-      if (!await showConfirm("Bạn xác nhận là đã giải quyết xong (tìm thấy đồ / đã trả lại đồ) cho bài đăng này?")) return;
+      if (!await showConfirm("Bạn xác nhận là đã giải quyết xong (tìm thấy đồ / đã trả lại đồ) cho tin này?")) return;
       
       const { error } = await supabase!
         .from('lost_found_items')
@@ -574,10 +597,17 @@ export const LostFoundBoard: React.FC = () => {
   };
 
   const handleEdit = (item: LostFoundItem) => {
+      if (!canManage) return;
       playClick();
       setEditingItem(item);
       setSubmitType(item.type);
       setShowSubmitModal(true);
+  };
+
+  const openRequestModal = (item: LostFoundItem, intent: LostFoundRequestIntent) => {
+      playClick();
+      setRequestIntent(intent);
+      setReportingItem(item);
   };
 
   const openSubmitModal = (type: 'FOUND' | 'LOST') => {
@@ -626,7 +656,7 @@ return (
                 <div className="flex gap-2">
                     <button onClick={() => { playClick(); fetchItems(); }} className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-[#003375] transition-all active:scale-95 hover:rotate-180 duration-500" title="Làm mới"><RefreshCw size={20} className={loading ? "animate-spin" : ""} /></button>
                     <button onClick={() => openSubmitModal(activeTab)} className={`px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 font-bold transition-all active:scale-95 hover:shadow-md whitespace-nowrap justify-center flex-1 ${activeTab === 'FOUND' ? 'bg-[#003375] hover:bg-[#002855] text-white' : 'bg-[#990000] hover:bg-[#7a0000] text-white'}`}>
-                        <PlusCircle size={18} /> {activeTab === 'FOUND' ? 'Đăng tin Nhặt được' : 'Đăng tin Báo mất'}
+                        <PlusCircle size={18} /> {activeTab === 'FOUND' ? 'Gửi thông tin' : 'Gửi thông tin'}
                     </button>
                 </div>
             </div>
@@ -708,16 +738,19 @@ return (
                         </div>
 
                         <div className="mt-auto pt-3 sm:pt-4 border-t border-gray-200 flex flex-col gap-2">
-                            {/* Nút dành riêng cho người đăng */}
+                            {/* Nút yêu cầu dành riêng cho người gửi thông tin */}
                             {session?.user?.id === item.user_id && (
                                 <>
                                     {!isResolved && (
-                                        <button onClick={(e) => { e.stopPropagation(); handleResolve(item.id); }} className="w-full py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-green-200">
-                                            <CheckCircle2 size={16} /> {item.type === 'FOUND' ? 'Đánh dấu đã trao trả' : 'Đánh dấu đã tìm thấy'}
+                                        <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'resolve'); }} className="w-full py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-green-200">
+                                            <CheckCircle2 size={16} /> {item.type === 'FOUND' ? 'Yêu cầu cập nhật đã trao trả' : 'Yêu cầu cập nhật đã tìm thấy'}
                                         </button>
                                     )}
-                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(item); }} className="w-full py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-red-200">
-                                        <Trash2 size={16} /> Xóa bài đăng
+                                    <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'edit'); }} className="w-full py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-blue-200">
+                                        <Edit2 size={16} /> Yêu cầu chỉnh sửa
+                                    </button>
+                                    <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'delete'); }} className="w-full py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-red-200">
+                                        <Trash2 size={16} /> Yêu cầu xóa/gỡ
                                     </button>
                                 </>
                             )}
@@ -728,7 +761,7 @@ return (
                         </div>
 
                         {/* Tính năng của admin/CTV */}
-                        <button onClick={(e) => { e.stopPropagation(); playClick(); setReportingItem(item); }} className="mt-2 w-full py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-red-100">
+                        <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'report'); }} className="mt-2 w-full py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-red-100">
                             <Flag size={16} /> Báo cáo
                         </button>
 
@@ -754,7 +787,7 @@ return (
             ) : (
                 <div className="col-span-full py-16 text-center bg-white rounded-xl border border-dashed border-gray-300">
                     <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">{activeTab === 'FOUND' ? <Search size={32} /> : <Megaphone size={32} />}</div>
-                    <p className="text-gray-500 font-medium">Chưa có tin nào. Hãy là người đầu tiên đăng tin!</p>
+                    <p className="text-gray-500 font-medium">Chưa có thông tin nào. Bạn có thể gửi thông tin để được hỗ trợ.</p>
                 </div>
             )}
         </div>
@@ -796,6 +829,7 @@ return (
         onClose={() => setReportingItem(null)}
         onShowToast={showToast}
         currentUserId={session?.user?.id}
+        requestIntent={requestIntent}
       />
     </div>
   );

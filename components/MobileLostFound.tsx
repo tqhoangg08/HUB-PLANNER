@@ -25,6 +25,7 @@ interface LostFoundItem {
   is_deleted: boolean; 
   user_id?: string; 
 }
+type LostFoundRequestIntent = 'report' | 'edit' | 'delete' | 'resolve';
 const LOST_FOUND_PAGE_SIZE = 12;
 const MAX_LOST_FOUND_IMAGE_BYTES = 3 * 1024 * 1024;
 
@@ -153,7 +154,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                         user_id: currentUserId || null,
                     },
                 });
-                onShowToast("Đăng tin thành công! Tin sẽ hiển thị sau khi duyệt.", 'success');
+                onShowToast("Đã gửi thông tin cho Ban quản trị. Nội dung chỉ hiển thị sau khi được duyệt.", 'success');
             }
             onClose();
         } catch (err: any) {
@@ -172,7 +173,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                 <div className="px-5 pt-2 pb-3 flex justify-between items-center shrink-0 border-b border-gray-100">
                     <h3 className={`font-bold text-lg flex items-center gap-2 ${type === 'FOUND' ? 'text-[#003375]' : 'text-[#990000]'}`}>
                         {editingItem ? <Edit2 size={20}/> : (type === 'FOUND' ? <PlusCircle size={20}/> : <Megaphone size={20}/>)}
-                        {editingItem ? 'Chỉnh sửa tin' : (type === 'FOUND' ? 'Tin Nhặt được đồ' : 'Tin Báo mất đồ')}
+                        {editingItem ? 'Admin chỉnh sửa tin' : (type === 'FOUND' ? 'Gửi thông tin nhặt được đồ' : 'Báo cáo mất đồ cho Ban quản trị')}
                     </h3>
                     <button onClick={onClose} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95"><X size={18}/></button>
                 </div>
@@ -230,7 +231,7 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
 
                     <button type="submit" disabled={isSubmitting || (!editingItem && !turnstileToken)} className={`w-full py-4 rounded-xl font-bold text-white shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 mt-4 ${type === 'FOUND' ? 'bg-[#003375]' : 'bg-[#990000]'}`}>
                         {isSubmitting ? <Loader2 className="animate-spin"/> : <UploadCloud size={20}/>}
-                        {isSubmitting ? 'Đang xử lý...' : (editingItem ? 'Lưu thay đổi' : 'Đăng tin ngay')}
+                        {isSubmitting ? 'Đang gửi...' : (editingItem ? 'Lưu thay đổi' : 'Gửi thông tin cho Ban quản trị')}
                     </button>
                 </form>
             </div>
@@ -278,7 +279,7 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose, onRepo
                             {isResolved ? <CheckCircle2 size={22} className="shrink-0 mt-0.5" /> : (item.type === 'FOUND' ? <MapPin size={22} className="shrink-0 mt-0.5" /> : <Tag size={22} className="shrink-0 mt-0.5" />)}
                             {item.title}
                         </h3>
-                        <div className="flex items-center gap-2 text-gray-500 text-xs mb-4"><Calendar size={14} /><span>Đăng ngày: {new Date(item.created_at).toLocaleDateString('vi-VN')}</span></div>
+                        <div className="flex items-center gap-2 text-gray-500 text-xs mb-4"><Calendar size={14} /><span>Ngày hiển thị: {new Date(item.created_at).toLocaleDateString('vi-VN')}</span></div>
                         
                         {item.description && (
                             <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-sm text-gray-700 mb-4 whitespace-pre-line">
@@ -329,9 +330,10 @@ interface ReportModalProps {
     onClose: () => void;
     onShowToast: (msg: string, type: 'success' | 'error') => void;
     currentUserId?: string | null;
+    requestIntent: LostFoundRequestIntent;
 }
 
-const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, currentUserId }) => {
+const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, currentUserId, requestIntent }) => {
     const [reason, setReason] = useState('');
     const [contact, setContact] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -351,32 +353,39 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
 
         setIsSubmitting(true);
         try {
+            const requestLabel = requestIntent === 'edit'
+                ? 'Yêu cầu chỉnh sửa thông tin Lost & Found'
+                : requestIntent === 'delete'
+                    ? 'Yêu cầu xóa/gỡ thông tin Lost & Found'
+                    : requestIntent === 'resolve'
+                        ? 'Yêu cầu cập nhật trạng thái Lost & Found'
+                        : 'Yêu cầu báo cáo/gỡ nội dung Lost & Found';
             const content = [
-                'Yêu cầu report/takedown Lost & Found',
+                requestLabel,
                 `Item ID: ${item.id}`,
                 `Tiêu đề: ${item.title}`,
                 `Loại: ${item.type}`,
                 `Link nội bộ: /lost-found?item=${item.id}`,
-                `Lý do: ${reason.trim()}`,
-                'Cam kết xử lý: yêu cầu hợp lệ sẽ được rà soát và gỡ/ẩn nội dung vi phạm trong vòng 24 giờ.',
+                `Nội dung yêu cầu: ${reason.trim()}`,
+                'Cam kết xử lý: yêu cầu được Ban quản trị/auditor tiếp nhận, rà soát và thực hiện nếu hợp lệ.',
             ].join('\n');
 
             const data = await protectedSubmit<{ id?: number }>({
                 action: 'feedback',
                 turnstileToken,
                 payload: {
-                    type: 'takedown',
+                    type: requestIntent === 'report' ? 'takedown' : 'lost_found_owner_request',
                     content,
                     contact: contact.trim() || 'EMPTY',
                     user_id: currentUserId || null,
                 },
             });
             void notifyModerators('feedback', data?.id);
-            onShowToast('Đã gửi yêu cầu báo cáo. Admin sẽ rà soát và xử lý trong vòng 24 giờ nếu nội dung vi phạm.', 'success');
+            onShowToast('Đã gửi yêu cầu cho Ban quản trị. Admin/auditor sẽ rà soát và xử lý nếu hợp lệ.', 'success');
             onClose();
         } catch (error: any) {
             console.error(error);
-            onShowToast('Không thể gửi báo cáo: ' + (error.message || 'Vui lòng thử lại.'), 'error');
+            onShowToast('Không thể gửi yêu cầu: ' + (error.message || 'Vui lòng thử lại.'), 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -384,31 +393,45 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
 
     if (!item) return null;
 
+    const isOwnerRequest = requestIntent !== 'report';
+    const title = isOwnerRequest ? 'Gửi yêu cầu cho Ban quản trị' : 'Báo cáo nội dung';
+    const helper = isOwnerRequest
+        ? 'Yêu cầu của bạn sẽ được admin/auditor tiếp nhận và thực hiện nếu hợp lệ. Người dùng không tự sửa/xóa nội dung đang hiển thị.'
+        : 'Yêu cầu hợp lệ sẽ được admin/auditor rà soát và gỡ/ẩn nội dung vi phạm trong vòng 24 giờ.';
+    const reasonLabel = isOwnerRequest ? 'Nội dung yêu cầu' : 'Lý do báo cáo';
+    const placeholder = requestIntent === 'edit'
+        ? 'VD: Vui lòng sửa số điện thoại thành..., cập nhật mô tả thành...'
+        : requestIntent === 'delete'
+            ? 'VD: Đây là thông tin của tôi, vui lòng xóa/gỡ vì...'
+            : requestIntent === 'resolve'
+                ? 'VD: Đồ đã được trả lại / đã tìm thấy, vui lòng cập nhật trạng thái.'
+                : 'VD: lộ thông tin cá nhân, sai sự thật, spam, mạo danh, lừa đảo...';
+
     return createPortal(
         <div className="fixed inset-0 z-[100000] bg-black/60 flex items-end justify-center animate-fadeIn" onClick={onClose}>
             <div className="bg-white w-full rounded-t-3xl shadow-2xl flex flex-col max-h-[88vh] animate-slideUp" onClick={e => e.stopPropagation()}>
                 <DragHandle />
                 <div className="flex items-center justify-between border-b border-gray-100 px-5 pb-3 pt-2">
-                    <h3 className="flex items-center gap-2 text-lg font-black text-red-600"><Flag size={18} /> Báo cáo nội dung</h3>
+                    <h3 className="flex items-center gap-2 text-lg font-black text-red-600"><Flag size={18} /> {title}</h3>
                     <button onClick={onClose} className="rounded-full bg-gray-100 p-2 text-gray-500 active:scale-95"><X size={18} /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="flex-1 space-y-4 overflow-y-auto p-5 custom-scrollbar pb-safe">
                     <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm font-semibold leading-relaxed text-red-800">
-                        Yêu cầu hợp lệ sẽ được admin rà soát và gỡ/ẩn nội dung vi phạm trong vòng 24 giờ.
+                        {helper}
                     </div>
                     <div>
-                        <label className="mb-1 block text-sm font-bold text-gray-700">Tin cần báo cáo</label>
+                        <label className="mb-1 block text-sm font-bold text-gray-700">Thông tin liên quan</label>
                         <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-bold text-gray-800">{item.title}</div>
                     </div>
                     <div>
-                        <label className="mb-1 block text-sm font-bold text-gray-700">Lý do báo cáo <span className="text-red-500">*</span></label>
+                        <label className="mb-1 block text-sm font-bold text-gray-700">{reasonLabel} <span className="text-red-500">*</span></label>
                         <textarea
                             required
                             rows={4}
                             value={reason}
                             onChange={(event) => setReason(event.target.value)}
                             className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
-                            placeholder="VD: lộ thông tin cá nhân, sai sự thật, spam, mạo danh, lừa đảo..."
+                            placeholder={placeholder}
                         />
                     </div>
                     <div>
@@ -426,7 +449,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
                     </div>
                     <button type="submit" disabled={isSubmitting || !reason.trim() || !turnstileToken} className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 py-3 text-sm font-black text-white disabled:opacity-60">
                         {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Flag size={18} />}
-                        Gửi báo cáo
+                        {isOwnerRequest ? 'Gửi yêu cầu hỗ trợ' : 'Gửi báo cáo'}
                     </button>
                 </form>
             </div>
@@ -454,6 +477,7 @@ export const MobileLostFound: React.FC = () => {
   
   const [selectedItem, setSelectedItem] = useState<LostFoundItem | null>(null);
   const [reportingItem, setReportingItem] = useState<LostFoundItem | null>(null);
+  const [requestIntent, setRequestIntent] = useState<LostFoundRequestIntent>('report');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [editingItem, setEditingItem] = useState<LostFoundItem | null>(null);
   const [submitType, setSubmitType] = useState<'FOUND' | 'LOST'>('LOST');
@@ -550,7 +574,7 @@ export const MobileLostFound: React.FC = () => {
   };
 
   const handleDelete = async (item: LostFoundItem) => {
-      if (!isAdmin && session?.user?.id !== item.user_id) return;
+      if (!isAdmin) return;
       playClick();
       if (!await showConfirm("Bạn có chắc chắn muốn xóa tin này không?")) return;
       
@@ -564,8 +588,9 @@ export const MobileLostFound: React.FC = () => {
   };
 
   const handleResolve = async (id: number) => {
+      if (!canManage) return;
       playClick();
-      if (!await showConfirm("Xác nhận đã giải quyết xong bài đăng này?")) return;
+      if (!await showConfirm("Xác nhận đã giải quyết xong tin này?")) return;
       
       const { error } = await supabase!.from('lost_found_items').update({ status: 'resolved' }).eq('id', id);
       if (error) showToast("Lỗi cập nhật: " + error.message, 'error');
@@ -576,10 +601,17 @@ export const MobileLostFound: React.FC = () => {
   };
 
   const handleEdit = (item: LostFoundItem) => {
+      if (!canManage) return;
       playClick();
       setEditingItem(item);
       setSubmitType(item.type);
       setShowSubmitModal(true);
+  };
+
+  const openRequestModal = (item: LostFoundItem, intent: LostFoundRequestIntent) => {
+      playClick();
+      setRequestIntent(intent);
+      setReportingItem(item);
   };
 
   const openSubmitModal = (type: 'FOUND' | 'LOST') => {
@@ -623,7 +655,7 @@ return (
                   <button onClick={() => { playClick(); fetchItems(); }} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] active:scale-95" title="Làm mới">
                       <RefreshCw size={19} className={loading ? "animate-spin" : ""} />
                   </button>
-                  <button onClick={() => openSubmitModal(activeTab)} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-[#1A56FF] text-white shadow-[0_8px_18px_rgba(26,86,255,0.26)] active:scale-95" title="Đăng tin">
+                  <button onClick={() => openSubmitModal(activeTab)} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-[#1A56FF] text-white shadow-[0_8px_18px_rgba(26,86,255,0.26)] active:scale-95" title={activeTab === 'FOUND' ? 'Gửi thông tin nhặt được đồ' : 'Báo cáo mất đồ cho Ban quản trị'}>
                       <PlusCircle size={19} />
                   </button>
               </div>
@@ -691,12 +723,12 @@ return (
 
           <div className="mb-3 flex gap-2 rounded-[18px] border border-[#FFE8A1] bg-[#FFF8E6] p-3 text-[#92400E] shadow-[0_2px_12px_rgba(245,158,11,0.08)]">
               <Info size={18} className="mt-0.5 shrink-0 text-[#D97706]" />
-              <p className="text-[10.8px] font-semibold leading-normal"><b className="font-black">Lưu ý:</b> Tin sẽ được kiểm duyệt trước khi hiển thị. Không yêu cầu chuyển khoản trước để nhận lại đồ. Nếu thấy tin lộ thông tin cá nhân, sai sự thật, mạo danh hoặc có dấu hiệu lừa đảo, hãy bấm "Báo cáo"; yêu cầu hợp lệ sẽ được rà soát và gỡ/ẩn trong vòng 24 giờ.</p>
+              <p className="text-[10.8px] font-semibold leading-normal"><b className="font-black">Lưu ý:</b> Thông tin bạn gửi sẽ được Ban quản trị kiểm duyệt trước khi hiển thị. Không yêu cầu chuyển khoản trước để nhận lại đồ. Nếu thấy tin lộ thông tin cá nhân, sai sự thật, mạo danh hoặc có dấu hiệu lừa đảo, hãy bấm "Báo cáo"; yêu cầu hợp lệ sẽ được rà soát và gỡ/ẩn trong vòng 24 giờ.</p>
           </div>
 
           {canManage && (
               <div className="mb-3 flex items-center gap-2 rounded-[18px] border border-[#DAE6FF] bg-[#EEF2FF] p-3 text-[11px] font-bold text-[#1A56FF]">
-                  <Shield size={16} /> Chế độ quản trị viên: hiển thị cả bài chưa duyệt.
+                  <Shield size={16} /> Chế độ quản trị viên: hiển thị cả thông tin chưa duyệt.
               </div>
           )}
 
@@ -760,7 +792,7 @@ return (
                                           </div>
                                           <div className="flex min-w-0 items-center gap-2 text-[10.8px] font-semibold text-[#637087]">
                                               <User size={14} className="shrink-0 text-[#9AA5C0]" />
-                                              <span className="truncate">{isFound ? 'Người đăng:' : 'Người báo:'} <b className="font-black text-[#0D1B3E]">{item.user_name}</b></span>
+                                              <span className="truncate">{isFound ? 'Người gửi:' : 'Người báo mất:'} <b className="font-black text-[#0D1B3E]">{item.user_name}</b></span>
                                           </div>
                                       </div>
 
@@ -769,12 +801,15 @@ return (
                                       {isOwner && (
                                           <div className="mb-2 flex gap-2">
                                               {!isResolved && (
-                                                  <button onClick={(e) => { e.stopPropagation(); handleResolve(item.id); }} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#D1FAE5] bg-[#EDFAF3] text-[11px] font-black text-[#059669] active:bg-green-100">
-                                                      <CheckCircle2 size={15} /> Đã xong
+                                                  <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'resolve'); }} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#D1FAE5] bg-[#EDFAF3] text-[11px] font-black text-[#059669] active:bg-green-100">
+                                                      <CheckCircle2 size={15} /> Yêu cầu cập nhật
                                                   </button>
                                               )}
-                                              <button onClick={(e) => { e.stopPropagation(); handleDelete(item); }} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#FFE0E8] bg-[#FFF0F3] text-[11px] font-black text-[#E11D48] active:bg-red-100">
-                                                  <Trash2 size={15} /> Xóa bài
+                                              <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'edit'); }} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#DAE6FF] bg-[#EEF2FF] text-[11px] font-black text-[#1A56FF] active:bg-blue-100">
+                                                  <Edit2 size={15} /> Yêu cầu sửa
+                                              </button>
+                                              <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'delete'); }} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#FFE0E8] bg-[#FFF0F3] text-[11px] font-black text-[#E11D48] active:bg-red-100">
+                                                  <Trash2 size={15} /> Yêu cầu xóa
                                               </button>
                                           </div>
                                       )}
@@ -783,7 +818,7 @@ return (
                                           <button type="button" className={`flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border ${isResolved ? 'border-[#D1FAE5] bg-[#EDFAF3] text-[#059669]' : 'border-[#E8EDF6] bg-white text-[#7B8AB0]'}`}>
                                               {isResolved ? <BookmarkCheck size={19} /> : <Bookmark size={19} />}
                                           </button>
-                                          <button onClick={(e) => { e.stopPropagation(); playClick(); setReportingItem(item); }} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border border-red-100 bg-red-50 text-red-600">
+                                          <button onClick={(e) => { e.stopPropagation(); openRequestModal(item, 'report'); }} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border border-red-100 bg-red-50 text-red-600">
                                               <Flag size={18} />
                                           </button>
                                           <button onClick={() => { playClick(); setSelectedItem(item); }} className={`flex h-[42px] flex-1 items-center justify-center rounded-[14px] text-[12px] font-black text-white ${isResolved ? 'bg-[#F2F4F8] !text-[#A8B2C8]' : isFound ? 'bg-[#1A56FF] shadow-[0_6px_14px_rgba(26,86,255,0.2)]' : 'bg-[#E11D48] shadow-[0_6px_14px_rgba(225,29,72,0.18)]'}`}>
@@ -816,7 +851,7 @@ return (
                       <div className="rounded-[22px] border border-dashed border-[#DDE3F0] bg-white py-14 text-center shadow-[0_2px_14px_rgba(13,27,62,0.04)]">
                           <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-[22px] bg-[#F8FAFD] text-[#A8B2C8]">{activeTab === 'FOUND' ? <Search size={32} /> : <Megaphone size={32} />}</div>
                           <p className="text-sm font-bold text-[#7B8AB0]">Chưa có tin nào.</p>
-                          <p className="mt-1 text-xs font-semibold text-[#9AA5C0]">Hãy là người đầu tiên đăng tin.</p>
+                          <p className="mt-1 text-xs font-semibold text-[#9AA5C0]">Bạn có thể gửi thông tin cho Ban quản trị để được hỗ trợ.</p>
                       </div>
                   )}
                   {totalItems > LOST_FOUND_PAGE_SIZE && (
@@ -857,6 +892,7 @@ return (
         onClose={() => setSelectedItem(null)}
         onReport={(item) => {
           setSelectedItem(null);
+          setRequestIntent('report');
           setReportingItem(item);
         }}
       />
@@ -865,6 +901,7 @@ return (
         onClose={() => setReportingItem(null)}
         onShowToast={showToast}
         currentUserId={session?.user?.id}
+        requestIntent={requestIntent}
       />
     </div>
   );

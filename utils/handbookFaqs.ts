@@ -75,8 +75,8 @@ export const HANDBOOK_FAQS: HandbookFaqGroup[] = [
         a: 'Hãy dùng file PDF gốc từ nút In thời khóa biểu của Portal, không dùng ảnh chụp hoặc file đã chỉnh sửa quá nhiều. Nếu file vẫn lỗi, gửi phản hồi ở Cẩm nang > Góp ý để team kiểm tra mẫu PDF mới.',
       },
       {
-        q: 'Mất đồ trong trường thì đăng ở đâu?',
-        a: 'Vào mục Tìm đồ thất lạc, tạo bài đăng và mô tả rõ loại đồ, màu sắc, khu vực, thời gian mất/nhặt được. Các bài đăng có thể được duyệt trước khi hiển thị công khai để tránh spam.',
+        q: 'Mất đồ trong trường thì gửi thông tin ở đâu?',
+        a: 'Vào mục Tìm đồ thất lạc, gửi thông tin cho Ban quản trị và mô tả rõ loại đồ, màu sắc, khu vực, thời gian mất/nhặt được. Thông tin chỉ hiển thị công khai sau khi Ban quản trị/auditor tiếp nhận và kiểm duyệt.',
       },
       {
         q: 'Làm sao cài HUB Planner như app trên điện thoại hoặc máy tính?',

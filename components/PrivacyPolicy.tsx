@@ -28,7 +28,7 @@ const sections = [
     title: 'Nhóm dữ liệu cá nhân cơ bản',
     content: [
       'Dữ liệu cá nhân cơ bản là các thông tin dùng để nhận diện, quản lý tài khoản, hiển thị hồ sơ hoặc liên hệ với người dùng trong phạm vi cần thiết.',
-      'Nhóm này có thể bao gồm: họ tên hoặc tên hiển thị, email, ảnh đại diện, mã sinh viên, lớp, khóa, ngành/chuyên ngành, vai trò tài khoản, thông tin liên hệ do người dùng tự nhập khi gửi phản hồi, báo lỗi, báo cáo nội dung hoặc đăng tin tìm đồ thất lạc.',
+      'Nhóm này có thể bao gồm: họ tên hoặc tên hiển thị, email, ảnh đại diện, mã sinh viên, lớp, khóa, ngành/chuyên ngành, vai trò tài khoản, thông tin liên hệ do người dùng tự nhập khi gửi phản hồi, báo lỗi, báo cáo nội dung hoặc gửi thông tin tìm đồ thất lạc cho Ban quản trị.',
       'Một số thông tin hồ sơ như tên hiển thị, mã sinh viên, lớp, ảnh đại diện, mô tả cá nhân hoặc tag hồ sơ chỉ được hiển thị công khai khi người dùng chủ động bật hồ sơ công khai hoặc tự đăng nội dung trong khu vực có tính chất cộng đồng.',
     ],
   },
