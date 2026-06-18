@@ -4,7 +4,7 @@ import { Heart, X } from 'lucide-react';
 import { SUPPORT_NOTICE_DISMISSED_KEY } from '../utils/devicePreferences';
 import { playClick } from '../utils/audio';
 
-const SUPPORT_NOTICE_CLOSED_THIS_SESSION_KEY = 'hubplanner:support-notice-closed-this-session';
+const SUPPORT_NOTICE_CLOSED_THIS_SESSION_KEY = 'hubplanner:support-notice-closed-this-session-v2';
 
 export const SupportNoticeModal: React.FC = () => {
     const [isVisible, setIsVisible] = useState(false);

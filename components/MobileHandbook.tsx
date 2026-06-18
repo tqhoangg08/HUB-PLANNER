@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
     Search, Phone, Mail, MapPin, Users, Book, Award,
     Copy, Check, HelpCircle, ExternalLink, Info, Heart, Facebook, User,
-    MessageSquarePlus, Crown, ChevronLeft
+    MessageSquarePlus, Crown, ChevronLeft, ShieldCheck, ChevronDown
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { supabase } from '../utils/supabase';
@@ -12,10 +12,11 @@ import { TermsOfUse } from './TermsOfUse';
 import { PrivacyPolicy } from './PrivacyPolicy';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
+import { HANDBOOK_FAQS } from '../utils/handbookFaqs';
 
-type TabType = 'contacts' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'about' | 'feedback' | 'donate' | 'terms' | 'privacy';
+type TabType = 'contacts' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'plagiarism' | 'about' | 'feedback' | 'donate' | 'terms' | 'privacy';
 
-const VALID_TABS: TabType[] = ['contacts', 'clubs', 'scholarships', 'regulations', 'faqs', 'about', 'feedback', 'donate', 'terms', 'privacy'];
+const VALID_TABS: TabType[] = ['contacts', 'clubs', 'scholarships', 'regulations', 'faqs', 'plagiarism', 'about', 'feedback', 'donate', 'terms', 'privacy'];
 
 interface MobileHandbookProps {
     forcedTab?: TabType;
@@ -34,6 +35,8 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
     });
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [faqSearchTerm, setFaqSearchTerm] = useState('');
+    const [openFaqItem, setOpenFaqItem] = useState('0-0');
     const [copiedId, setCopiedId] = useState<string | null>(null);
 
     const [feedbackType, setFeedbackType] = useState<'bug' | 'idea'>('idea');
@@ -220,35 +223,25 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
         }
     ];
 
-    const faqs = [
-        {
-            group: "Nhóm 1: Về Bảo Mật & Tài Khoản",
-            items: [
-                { q: "Web có lưu mật khẩu Portal hay thông tin cá nhân của mình không?", a: "Về Mật khẩu Portal (Quan trọng): Tuyệt đối KHÔNG. Web không bao giờ lưu mật khẩu Portal của bạn. Việc đăng nhập Portal chỉ diễn ra cục bộ trên trình duyệt của bạn để lấy bảng điểm. Về Dữ liệu Điểm & Thông tin cá nhân: Nếu bạn là Khách (Chưa đăng nhập): Dữ liệu chỉ được lưu trên trình duyệt của chính máy bạn đang dùng (Local Storage). Server không biết bạn là ai. Nếu bạn Đăng nhập: Tên, MSSV và Bảng điểm sẽ được mã hóa và lưu an toàn trên cơ sở dữ liệu (Database) của hệ thống. Điều này giúp bạn không bị mất dữ liệu khi đổi máy." },
-                { q: "Tại sao mình tải lại trang hoặc đổi máy thì dữ liệu bị mất?", a: "Vì dữ liệu được lưu trên trình duyệt (như đã nói ở trên) để đảm bảo bảo mật. Nếu bạn dùng tab ẩn danh (Incognito) hoặc xóa cache, dữ liệu sẽ biến mất. Hãy dùng tab thường để dữ liệu được giữ lại cho lần truy cập sau nhé trên thiết bị của bạn hoặc đăng nhập để hệ thống đồng bộ dữ liệu của bạn lên đám mây, giúp bạn truy cập bảng điểm từ bất cứ đâu (điện thoại, laptop) mà không cần nhập lại từ đầu." }
-            ]
-        },
-        {
-            group: "Nhóm 2: Về Tính Năng Học Tập",
-            items: [
-                { q: "Làm sao để nhập điểm tự động từ Portal trường thay vì nhập tay?", a: "Rất đơn giản! Bạn vào Portal -> Xem điểm -> Nhấn Ctrl + P để lưu trang web dưới dạng file PDF. Sau đó quay lại HUB Planner, bấm nút \"Nhập PDF\" màu đỏ và tải file đó lên. Hệ thống sẽ tự tách điểm, tên môn và tín chỉ cho bạn trong 1 giây." },
-                { q: "Công cụ tính điểm GPA hệ 4 hay hệ 10?", a: "Web hỗ trợ tính song song cả hai. Khi bạn nhập điểm thành phần (CC, Giữa kỳ, Cuối kỳ), hệ thống sẽ tự động quy đổi ra điểm tổng kết hệ 10, điểm chữ (A, B, C...) và điểm hệ 4 để bạn tiện theo dõi chuẩn đầu ra." },
-                { q: "Tính năng \"Xếp hạng dự báo\" (Ranking) có chính xác không?", a: "Đây là tính năng tham khảo dựa trên dữ liệu ẩn danh của các khóa trước. Nó giúp bạn biết mức điểm hiện tại của mình đang nằm ở Top bao nhiêu % (ví dụ: Top 10% giỏi nhất khoa) để có động lực phấn đấu săn học bổng." },
-                { q: "AI Cố vấn (Gemini) có thể giúp gì cho mình?", a: "Bạn có thể chat với AI để hỏi về lộ trình học, cách cải thiện điểm các môn khó, hoặc nhờ AI tư vấn xem với GPA hiện tại thì cần nỗ lực bao nhiêu để ra trường đúng hạn." }
-            ]
-        },
-        {
-            group: "Nhóm 3: Tiện ích mở rộng",
-            items: [
-                { q: "Mình bị mất đồ tại trường (Thủ Đức/Quận 1), làm sao để đăng tin?", a: "Bạn vào mục Lost & Found, bấm nút \"Đăng tin tìm đồ\". Hãy mô tả chi tiết (loại đồ, màu sắc, khu vực rơi) để các bạn khác dễ thấy. Nếu có hình ảnh minh họa càng tốt." }
-            ]
-        }
-    ];
+    const faqs = HANDBOOK_FAQS;
 
     const filteredContacts = contacts.filter(c =>
         c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const normalizedFaqSearch = faqSearchTerm.trim().toLowerCase();
+    const filteredFaqs = faqs
+        .map(group => ({
+            ...group,
+            items: group.items.filter(item =>
+                !normalizedFaqSearch ||
+                item.q.toLowerCase().includes(normalizedFaqSearch) ||
+                item.a.toLowerCase().includes(normalizedFaqSearch) ||
+                group.group.toLowerCase().includes(normalizedFaqSearch)
+            ),
+        }))
+        .filter(group => group.items.length > 0);
 
     const copyToClipboard = (text: string, id: string) => {
         playClick();
@@ -406,47 +399,130 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
 
             case 'faqs':
                 return (
-                    <div className="space-y-6 animate-fadeIn max-w-4xl mx-auto">
-                        <div className="bg-gradient-to-r from-[#003375] to-blue-600 p-4 rounded-xl mb-6 text-white flex items-center gap-3">
-                            <div className="bg-white/20 p-2 rounded-full">
-                                <HelpCircle size={24} className="text-yellow-300" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-lg">Câu hỏi thường gặp (FAQs)</h3>
-                                <p className="text-blue-100 text-sm">Giải đáp nhanh các thắc mắc về tính năng và bảo mật.</p>
-                            </div>
+                    <div className="space-y-3 animate-fadeIn pt-1">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                            <input
+                                type="text"
+                                value={faqSearchTerm}
+                                onChange={(e) => setFaqSearchTerm(e.target.value)}
+                                placeholder="Tìm câu hỏi..."
+                                className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm font-medium outline-none transition-all focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
+                            />
                         </div>
 
-                        {faqs.map((group, idx) => (
-                            <div key={idx} className="bg-white rounded-xl border border-gray-300 overflow-hidden">
-                                <div className="bg-gray-50 px-4 py-3 text-[#003375] font-bold text-sm uppercase tracking-wide border-b border-gray-200">
+                        {filteredFaqs.map((group, idx) => (
+                            <div key={idx} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+                                <div className="bg-gray-50 px-4 py-2.5 text-[#003375] font-bold text-xs uppercase tracking-wide border-b border-gray-200">
                                     {group.group}
                                 </div>
                                 <div className="divide-y divide-gray-200">
                                     {group.items.map((item, i) => (
-                                        <div key={i} className="p-4 hover:bg-blue-50/30 transition-colors">
-                                            <h4 className="font-bold text-gray-800 mb-2 flex gap-2">
-                                                <span className="text-[#990000] font-black shrink-0">Q:</span>
-                                                <span className="text-gray-900">{item.q}</span>
-                                            </h4>
-                                            <p className="text-gray-600 text-sm leading-relaxed ml-6 pl-2 border-l-2 border-blue-100">
-                                                <span className="font-bold text-[#003375] mr-1">A:</span>
-                                                {item.a}
-                                            </p>
+                                        <div key={i} className="hover:bg-blue-50/30 transition-colors">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    playClick();
+                                                    const itemKey = `${idx}-${i}`;
+                                                    setOpenFaqItem(openFaqItem === itemKey ? '' : itemKey);
+                                                }}
+                                                aria-expanded={openFaqItem === `${idx}-${i}`}
+                                                className="w-full flex items-start justify-between gap-3 px-4 py-3 text-left"
+                                            >
+                                                <span className="font-bold text-sm text-gray-900 leading-snug">{item.q}</span>
+                                                <ChevronDown size={18} className={`mt-0.5 shrink-0 text-gray-400 transition-transform ${openFaqItem === `${idx}-${i}` ? 'rotate-180 text-[#003375]' : ''}`} />
+                                            </button>
+                                            {openFaqItem === `${idx}-${i}` && (
+                                                <div className="px-4 pb-4 -mt-1">
+                                                    <p className="text-gray-600 text-sm leading-relaxed border-l-2 border-blue-100 pl-3">
+                                                        {item.a}
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         ))}
+
+                        {filteredFaqs.length === 0 && (
+                            <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center text-sm text-gray-500">
+                                Chưa tìm thấy câu hỏi phù hợp.
+                            </div>
+                        )}
+                    </div>
+                );
+
+            case 'plagiarism':
+                return (
+                    <div className="animate-fadeIn space-y-3 pt-1">
+                        <div className="bg-white p-4 rounded-2xl border border-gray-300">
+                            <div className="flex items-start gap-3">
+                                <div className="rounded-xl bg-violet-100 p-2.5 text-violet-700">
+                                    <ShieldCheck size={22} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black text-[#003375]">Cần check đạo văn?</h3>
+                                    <p className="mt-1 text-sm text-gray-600 leading-relaxed">
+                                        Gửi tài liệu qua Zalo để được hỗ trợ kiểm tra mức độ trùng lặp nội dung bằng Turnitin.
+                                    </p>
+                                    <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+                                        Turnitin là hệ thống đối chiếu bài viết với nhiều nguồn học thuật, website và tài liệu đã có để phát hiện phần trùng lặp trước khi nộp bài.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="mt-3 rounded-xl bg-gray-50 border border-gray-300 p-3">
+                                <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Zalo hỗ trợ</p>
+                                <p className="mt-1 text-2xl font-black text-[#003375]">0389342812</p>
+                            </div>
+                            <a
+                                href="https://zalo.me/0389342812"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={playClick}
+                                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0068ff] px-5 py-3.5 text-sm font-bold text-white active:scale-95 transition-transform"
+                            >
+                                <Phone size={18} />
+                                Liên hệ Zalo
+                            </a>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-2xl border border-gray-300">
+                            <h4 className="font-black text-gray-900">Quy trình sử dụng</h4>
+                            <div className="mt-3 space-y-3">
+                                {[
+                                    ['Gửi file qua Zalo', 'Gửi tài liệu cần kiểm tra.'],
+                                    ['Chờ kiểm tra', 'Team tiếp nhận file và xử lý theo lượt.'],
+                                    ['Nhận kết quả', 'Kết quả được gửi lại qua Zalo.'],
+                                ].map(([title, desc], index) => (
+                                    <div key={title} className="flex gap-3">
+                                        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#003375] text-xs font-black text-white">
+                                            {index + 1}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-gray-900">{title}</p>
+                                            <p className="mt-0.5 text-sm leading-relaxed text-gray-600">{desc}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                {['Tiểu luận', 'Báo cáo', 'Khóa luận'].map((item) => (
+                                    <span key={item} className="rounded-full border border-gray-300 bg-gray-50 px-3 py-1 text-xs font-bold text-violet-700">
+                                        {item}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 );
 
             case 'feedback':
                 return (
-                    <div className="animate-fadeIn space-y-6 max-w-4xl mx-auto">
-                        <div className="bg-white p-6 rounded-xl border border-gray-300">
+                    <div className="animate-fadeIn space-y-3 pt-1">
+                        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
                             {submitStatus === 'success' ? (
-                                <div className="text-center py-10 animate-scaleIn">
+                                <div className="text-center py-8 animate-scaleIn">
                                     <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
                                         <Check size={32} />
                                     </div>
@@ -463,11 +539,11 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                                 <form onSubmit={handleSubmitFeedback} className="space-y-4">
                                     <div>
                                         <label className="block text-sm font-bold text-gray-700 mb-2">Bạn muốn gửi nội dung gì?</label>
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3">
                                             <button
                                                 type="button"
                                                 onClick={() => setFeedbackType('bug')}
-                                                className={`p-4 rounded-lg border flex flex-col items-center gap-2 transition-all ${feedbackType === 'bug' ? 'bg-red-50 border-red-500 text-red-700 ring-1 ring-red-500' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+                                                className={`p-3 rounded-lg border flex items-center gap-3 text-left transition-all ${feedbackType === 'bug' ? 'bg-red-50 border-red-500 text-red-700 ring-1 ring-red-500' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
                                             >
                                                 <div className={`p-2 rounded-full ${feedbackType === 'bug' ? 'bg-red-200' : 'bg-gray-100'}`}>
                                                     <Mail size={20} />
@@ -477,7 +553,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                                             <button
                                                 type="button"
                                                 onClick={() => setFeedbackType('idea')}
-                                                className={`p-4 rounded-lg border flex flex-col items-center gap-2 transition-all ${feedbackType === 'idea' ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
+                                                className={`p-3 rounded-lg border flex items-center gap-3 text-left transition-all ${feedbackType === 'idea' ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-500' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
                                             >
                                                 <div className={`p-2 rounded-full ${feedbackType === 'idea' ? 'bg-blue-200' : 'bg-gray-100'}`}>
                                                     <ExternalLink size={20} />
@@ -494,7 +570,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                                         <textarea
                                             required
                                             rows={4}
-                                            placeholder={feedbackType === 'bug' ? "Mô tả lỗi bạn gặp phải (Ví dụ: Không nhập được file PDF, tính sai điểm môn Toán...)" : "Bạn mong muốn có thêm tính năng gì?..."}
+                                            placeholder={feedbackType === 'bug' ? "Mô tả lỗi bạn gặp, thiết bị đang dùng và thời điểm xảy ra lỗi..." : "Bạn muốn HUB Planner có thêm tính năng gì? Tính năng đó giúp ích như thế nào?"}
                                             className="w-full p-3 rounded-lg border border-gray-300 focus:border-[#003375] outline-none transition-all"
                                             value={feedbackContent}
                                             onChange={(e) => setFeedbackContent(e.target.value)}
@@ -537,7 +613,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                             )}
                         </div>
 
-                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-300 text-center text-sm text-gray-600">
+                        <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200 text-center text-sm text-gray-600">
                             Bạn cũng có thể liên hệ trực tiếp qua Fanpage <a href="https://www.facebook.com/hubplannerr" target="_blank" rel="noopener noreferrer" className="font-bold text-[#003375] hover:underline">HUB Planner</a>.
                         </div>
                     </div>
@@ -820,6 +896,7 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
             case 'clubs': return { title: 'CLB - Đội - Nhóm', sub: 'Hoạt động ngoại khóa & Đoàn - Hội' };
             case 'scholarships': return { title: 'Học bổng & Quy chế', sub: 'Thông tin học vụ & Chế độ' };
             case 'faqs': return { title: 'Câu hỏi thường gặp', sub: 'Hỗ trợ giải đáp (FAQs)' };
+            case 'plagiarism': return { title: 'Check đạo văn Turnitin', sub: 'Liên hệ Zalo 0389342812' };
             case 'feedback': return { title: 'Góp ý & Phản hồi', sub: 'Đóng góp ý tưởng phát triển' };
             case 'donate': return { title: 'Ủng hộ & Tri ân', sub: 'Đồng hành cùng dự án' };
             case 'about': return { title: 'Về chúng mình', sub: 'Đội ngũ HUB Planner' };
@@ -833,20 +910,20 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
 
     return (
         <div className="mobile-page mobile-handbook-page w-full min-h-[100dvh] bg-[#F2F4F8] flex flex-col font-sans relative">
-            <div className="mobile-handbook-header bg-[#003375] px-5 pt-[calc(env(safe-area-inset-top)+12px)] pb-3 text-white shrink-0 sticky top-0 z-40 shadow-[0_8px_20px_rgba(0,51,117,0.18)]">
+            <div className="mobile-handbook-header bg-[#003375] px-5 pt-[calc(env(safe-area-inset-top)+10px)] pb-2.5 text-white shrink-0 sticky top-0 z-40 shadow-[0_8px_20px_rgba(0,51,117,0.18)]">
                 <div className="grid grid-cols-[42px_1fr_42px] items-center gap-3">
                     <button onClick={() => { playClick(); navigate(-1); }} className="flex h-[42px] w-[42px] items-center justify-center rounded-[14px] bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] transition-colors active:scale-95">
                         <ChevronLeft size={22} strokeWidth={2.5} />
                     </button>
                     <div className="min-w-0 text-center">
-                        <h1 className="truncate text-[23px] font-black leading-tight tracking-normal text-white">{headerInfo.title}</h1>
+                        <h1 className="truncate text-[20px] font-black leading-tight tracking-normal text-white">{headerInfo.title}</h1>
                         <p className="mt-0.5 truncate text-[12px] font-semibold text-blue-100">{headerInfo.sub}</p>
                     </div>
                     <div className="w-[42px]"></div>
                 </div>
             </div>
 
-            <div className="mobile-handbook-content w-full flex-1 overflow-y-auto px-5 pb-[calc(104px+env(safe-area-inset-bottom))] pt-2 custom-scrollbar">
+            <div className="mobile-handbook-content w-full flex-1 overflow-y-auto px-4 sm:px-5 pb-[calc(104px+env(safe-area-inset-bottom))] pt-2 custom-scrollbar">
                 {renderContent()}
             </div>
         </div>

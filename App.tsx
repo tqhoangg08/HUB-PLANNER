@@ -38,7 +38,7 @@ import { MobileEvents } from './components/MobileEvents';
 import { MobileLostFound } from './components/MobileLostFound';
 import { MobileProfile } from './components/MobileProfile';
 import { PasswordSetupModal } from './components/PasswordSetupModal';
-import { DataIncidentNoticeModal } from './components/DataIncidentNoticeModal';
+import { SupportNoticeModal } from './components/SupportNoticeModal';
 import { MobileHandbook } from './components/MobileHandbook';
 import { showAlert, showConfirm } from './utils/appNotifications';
 import { clearLocalStoragePreservingDevicePreferences } from './utils/devicePreferences';
@@ -316,7 +316,6 @@ const App: React.FC = () => {
     const [isAppMode, setIsAppMode] = useState(false);
     const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth < 768);
     const [forceMobileAppPreview, setForceMobileAppPreview] = useState(() => shouldForceMobileAppPreview());
-    const [isDataIncidentNoticeDone, setIsDataIncidentNoticeDone] = useState(false);
     const lastLoggedUserIdRef = useRef<string | null>(null);
     const lastPushDeviceSyncRef = useRef<{ userId: string | null; syncedAt: number }>({ userId: null, syncedAt: 0 });
 
@@ -886,13 +885,13 @@ const App: React.FC = () => {
         fullScreen: { enable: true, zIndex: 0 },
         fpsLimit: 60,
         particles: {
-            number: { value: 30, density: { enable: true, area: 800 } },
+            number: { value: 18, density: { enable: true, area: 900 } },
             color: { value: ["#FFC0CB", "#FF69B4", "#FFD700", "#FFFF00"] },
             shape: { type: "circle" },
-            opacity: { value: { min: 0.3, max: 0.7 }, animation: { enable: true, speed: 0.5 } },
-            size: { value: { min: 3, max: 5 } },
-            move: { enable: true, speed: { min: 1, max: 2 }, direction: "bottom-right", random: true, straight: false, outModes: "out" },
-            wobble: { enable: true, distance: 5, speed: 5 }
+            opacity: { value: { min: 0.12, max: 0.36 }, animation: { enable: true, speed: 0.35 } },
+            size: { value: { min: 2, max: 4 } },
+            move: { enable: true, speed: { min: 0.6, max: 1.3 }, direction: "bottom-right", random: true, straight: false, outModes: "out" },
+            wobble: { enable: true, distance: 3, speed: 3 }
         },
         detectRetina: true,
     }), []);
@@ -2155,14 +2154,14 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         const commonModals = (
             <>
                 {!isExamStudyRoute && !useMobileLayout && !isMobileScreen && (
-    <div className="desktop-ai-hint fixed bottom-[85px] right-6 z-50 flex flex-col items-end pointer-events-none">
+    <div className="desktop-ai-hint fixed bottom-[86px] right-6 z-50 flex flex-col items-end pointer-events-none">
                         <div
-                            className={`relative w-60 bg-white text-gray-800 text-sm font-medium p-3 rounded-2xl shadow-xl border border-blue-100 transition-all duration-500 ease-in-out transform origin-bottom-right ${
+                            className={`relative w-44 bg-white/95 text-gray-700 text-xs font-bold p-2.5 rounded-xl shadow-lg border border-blue-100 transition-all duration-500 ease-in-out transform origin-bottom-right ${
                                 showBubble ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-50 translate-y-4'
                             }`}
                         >
-                            <p>✨ Tèn ten! Trợ lý AI HUB Planner đã sẵn sàng hỗ trợ bạn học tập rồi nè! Thử ngay nha 💖</p>
-                            <div className="absolute -bottom-2 right-4 w-4 h-4 bg-white transform rotate-45 border-b border-r border-blue-100"></div>
+                            <p>Trợ lý AI sẵn sàng hỗ trợ học tập.</p>
+                            <div className="absolute -bottom-1.5 right-4 w-3 h-3 bg-white transform rotate-45 border-b border-r border-blue-100"></div>
                         </div>
                     </div>
                 )}
@@ -2888,7 +2887,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/" element={<Navigate to={useMobileLayout ? "/mobile-home" : "/dashboard"} replace />} />
                 <Route path="/*" element={renderProtectedApp()} />
             </Routes>
-            <DataIncidentNoticeModal onDone={() => setIsDataIncidentNoticeDone(true)} />
+            <SupportNoticeModal />
         </>
     );
 };

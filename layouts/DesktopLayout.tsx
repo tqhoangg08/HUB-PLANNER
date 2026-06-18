@@ -619,7 +619,10 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                                       </Link>
                                       <div className="h-px bg-gray-100 my-1 mx-2"></div>
                                       <Link to="/handbook/faqs" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-indigo-600 rounded-lg transition-colors group">
-                          <HelpCircle size={16} /> Trợ giúp
+                                          <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors"><HelpCircle size={16} /></div> Trợ giúp
+                                      </Link>
+                                      <Link to="/handbook/plagiarism" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-violet-600 rounded-lg transition-colors group">
+                                          <div className="bg-violet-100 p-1.5 rounded-lg text-violet-600 group-hover:bg-violet-600 group-hover:text-white transition-colors"><ShieldCheck size={16} /></div> Check đạo văn Turnitin
                                       </Link>
                                       <Link to="/handbook/feedback" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-teal-600 rounded-lg transition-colors group">
                                           <div className="bg-teal-100 p-1.5 rounded-lg text-teal-600 group-hover:bg-teal-600 group-hover:text-white transition-colors"><MessageSquarePlus size={16} /></div> Góp ý
@@ -1036,6 +1039,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           </Link>
                           <Link to="/handbook/faqs" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-indigo-600 transition-colors">
                               <HelpCircle size={14} /> FAQs
+                          </Link>
+                          <Link to="/handbook/plagiarism" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-violet-600 transition-colors">
+                              <ShieldCheck size={14} /> Check đạo văn Turnitin
                           </Link>
                           <Link to="/handbook/feedback" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-teal-600 transition-colors">
                               <MessageSquarePlus size={14} /> Góp ý

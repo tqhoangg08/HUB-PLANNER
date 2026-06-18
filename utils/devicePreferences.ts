@@ -1,4 +1,4 @@
-export const SUPPORT_NOTICE_DISMISSED_KEY = 'hubplanner:support-notice-dismissed';
+export const SUPPORT_NOTICE_DISMISSED_KEY = 'hubplanner:support-notice-dismissed-v2';
 export const DATA_INCIDENT_NOTICE_DISMISSED_KEY = 'hubplanner:data-incident-notice-dismissed';
 
 const PRESERVED_DEVICE_PREFERENCE_KEYS = [SUPPORT_NOTICE_DISMISSED_KEY, DATA_INCIDENT_NOTICE_DISMISSED_KEY];
