@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { fetchProfilePrivateMap } from '../utils/profilePrivate';
 import { Link } from 'react-router-dom';
-import { Loader2, CheckCircle2, AlertTriangle, Bug, BookOpen, UserPlus, CalendarDays, MessageSquare, Trash2, Calendar, Edit2 } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, Bug, BookOpen, UserPlus, CalendarDays, MessageSquare, Trash2, Calendar, Edit2, ExternalLink } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 
@@ -16,6 +16,18 @@ const REPORT_SELECT_COLUMNS: Record<TabType, string> = {
     feedback: 'id,user_id,status,created_at,full_name,student_code,email,type,content,contact'
 };
 const REPORT_PAGE_SIZE = 30;
+
+const getLostFoundItemUrl = (content?: string | null) => {
+    if (!content) return null;
+
+    const linkMatch = content.match(/\/lost-found\?item=(\d+)/i);
+    if (linkMatch?.[1]) return `/lost-found?item=${linkMatch[1]}`;
+
+    const itemIdMatch = content.match(/Item ID:\s*(\d+)/i);
+    if (itemIdMatch?.[1]) return `/lost-found?item=${itemIdMatch[1]}`;
+
+    return null;
+};
 
 interface ReportData {
     id: any;
@@ -160,6 +172,7 @@ export const AdminReports: React.FC = () => {
     const renderReportCard = (item: ReportData) => {
         const dateStr = new Date(item.created_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
         const isResolved = item.status === 'ok' || item.status === 'resolved';
+        const lostFoundItemUrl = activeTab === 'feedback' ? getLostFoundItemUrl(item.content) : null;
 
         return (
             <div key={item.id} className={`bg-white rounded-xl border ${isResolved ? 'border-green-200 bg-green-50/20' : 'border-gray-200'} p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col gap-4 relative`}>
@@ -244,6 +257,15 @@ export const AdminReports: React.FC = () => {
                             className="px-3 py-1.5 text-xs font-bold text-[#003375] bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-1 border border-blue-100"
                         >
                             <Edit2 size={14}/> Sửa sự kiện
+                        </Link>
+                    )}
+                    {lostFoundItemUrl && (
+                        <Link
+                            to={lostFoundItemUrl}
+                            onClick={() => playClick()}
+                            className="px-3 py-1.5 text-xs font-bold text-[#003375] bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-1 border border-blue-100"
+                        >
+                            <ExternalLink size={14}/> Đi tới đồ thất lạc
                         </Link>
                     )}
                     <button 

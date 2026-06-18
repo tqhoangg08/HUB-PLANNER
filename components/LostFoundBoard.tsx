@@ -260,8 +260,9 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
 interface ItemDetailModalProps {
     item: LostFoundItem | null;
     onClose: () => void;
+    onDelete?: (item: LostFoundItem) => Promise<boolean>;
 }
-const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
+const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose, onDelete }) => {
     if (!item) return null;
     const isResolved = item.status === 'resolved';
 
@@ -305,6 +306,18 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({ item, onClose }) => {
                                 <div><span className="block text-xs text-gray-500 font-bold uppercase">Liên hệ</span><span className="font-bold text-green-700 text-lg">{item.contact_info}</span></div>
                             </div>
                             <div className="flex items-start gap-2 text-sm text-gray-600 mt-2"><MapPin size={16} className="mt-0.5 shrink-0" /><span>Khu vực: <strong>{item.location}</strong></span></div>
+                            {onDelete && (
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        const deleted = await onDelete(item);
+                                        if (deleted) onClose();
+                                    }}
+                                    className="w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-100 flex items-center justify-center gap-2"
+                                >
+                                    <Trash2 size={16} /> Xóa thông tin này
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -532,6 +545,29 @@ export const LostFoundBoard: React.FC = () => {
     setPage(0);
   }, [activeTab, searchTerm, isAdmin, isCTV, isStudent]);
 
+  useEffect(() => {
+    const targetItemId = Number(new URLSearchParams(window.location.search).get('item'));
+    if (!targetItemId || !supabase) return;
+
+    let cancelled = false;
+    const openTargetItem = async () => {
+      const { data, error } = await supabase
+        .from('lost_found_items')
+        .select('id,created_at,type,title,description,location,contact_info,user_name,image_url,status,is_deleted,user_id')
+        .eq('id', targetItemId)
+        .eq('is_deleted', false)
+        .maybeSingle();
+
+      if (cancelled || error || !data) return;
+      const item = data as LostFoundItem;
+      setActiveTab(item.type);
+      setSelectedItem(item);
+    };
+
+    openTargetItem();
+    return () => { cancelled = true; };
+  }, [canManage]);
+
   const filteredItems = items;
 
   const handleApprove = async (id: number) => {
@@ -561,21 +597,24 @@ export const LostFoundBoard: React.FC = () => {
   };
 
   const handleDelete = async (item: LostFoundItem) => {
-      if (!isAdmin) return;
+      if (!isAdmin) return false;
       
       playClick();
-      if (!await showConfirm("Bạn có chắc chắn muốn xóa tin này không?")) return;
+      if (!await showConfirm("Bạn có chắc chắn muốn xóa tin này không?")) return false;
       
       const { error } = await supabase!
         .from('lost_found_items')
         .update({ is_deleted: true })
         .eq('id', item.id);
 
-      if (error) showToast("Lỗi xóa: " + error.message, 'error');
-      else {
+      if (error) {
+          showToast("Lỗi xóa: " + error.message, 'error');
+          return false;
+      } else {
           showToast("Đã xóa tin thành công", 'success');
           setItems(prev => prev.filter(i => i.id !== item.id));
           setTotalItems(prev => Math.max(0, prev - 1));
+          return true;
       }
   };
 
@@ -823,6 +862,7 @@ return (
       <ItemDetailModal 
         item={selectedItem} 
         onClose={() => setSelectedItem(null)}
+        onDelete={isAdmin ? handleDelete : undefined}
       />
       <ReportModal
         item={reportingItem}
