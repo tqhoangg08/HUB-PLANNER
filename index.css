@@ -751,6 +751,86 @@
 }
 
 .mobile-bottom-nav {
+  --active-center: 10%;
+  --indicator-x: 0%;
+  --liquid-stretch: 1;
+  --nav-blue: #1a56ff;
+  --nav-muted: #b0bcda;
+
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  padding: 0.5rem 0.25rem calc(18px + env(safe-area-inset-bottom));
+  border-top: 1px solid #eef2ff;
+  background: #ffffff;
+  box-shadow: 0 -10px 24px rgba(13, 27, 62, 0.06);
+  isolation: isolate;
+}
+
+.mobile-bottom-nav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: #ffffff;
+  box-shadow: 0 -10px 24px rgba(13, 27, 62, 0.06);
+}
+
+.mobile-bottom-nav__indicator {
+  position: absolute;
+  top: 0.5rem;
+  left: calc(var(--active-center) - 16px);
+  z-index: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 10px;
+  background: #eef2ff;
+  pointer-events: none;
+  transition: left 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mobile-bottom-nav__tab {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--nav-muted);
+  text-decoration: none;
+}
+
+.mobile-bottom-nav__icon {
+  display: flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  color: inherit;
+  transition: color 300ms ease;
+}
+
+.mobile-bottom-nav__label {
+  max-width: 100%;
+  overflow: hidden;
+  color: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mobile-main {
+  scroll-padding-bottom: calc(132px + env(safe-area-inset-bottom));
+}
+
+.platform-ios.mobile-app-root .mobile-bottom-nav {
   --nav-pad: 7px;
   --seg-w: calc((100% - (var(--nav-pad) * 2)) / 5);
   --active-index: 0;
@@ -763,8 +843,7 @@
   position: fixed;
   left: 14px;
   right: 14px;
-  bottom: calc(12px + env(safe-area-inset-bottom));
-  z-index: 50;
+  bottom: max(4px, calc(env(safe-area-inset-bottom) - 26px));
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: stretch;
@@ -777,35 +856,35 @@
   overflow: hidden;
   pointer-events: auto;
   user-select: none;
-  border: 1px solid rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.58);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.52)),
-    rgba(255, 255, 255, 0.48);
-  -webkit-backdrop-filter: blur(26px) saturate(175%);
-  backdrop-filter: blur(26px) saturate(175%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.56), rgba(255, 255, 255, 0.24)),
+    rgba(255, 255, 255, 0.22);
+  -webkit-backdrop-filter: blur(30px) saturate(185%);
+  backdrop-filter: blur(30px) saturate(185%);
   box-shadow:
-    0 20px 50px rgba(26, 52, 102, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -1px 0 rgba(88, 130, 203, 0.08);
+    0 16px 36px rgba(26, 52, 102, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -1px 0 rgba(88, 130, 203, 0.06);
   contain: layout paint;
   will-change: transform;
 }
 
-.mobile-bottom-nav::before {
+.platform-ios.mobile-app-root .mobile-bottom-nav::before {
   content: "";
   position: absolute;
   inset: 1px;
   z-index: 0;
   border-radius: 30px;
   background:
-    radial-gradient(circle at var(--active-center) 20%, rgba(255, 255, 255, 0.88), transparent 26%),
-    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.34), transparent);
+    radial-gradient(circle at var(--active-center) 20%, rgba(255, 255, 255, 0.62), transparent 26%),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
   mix-blend-mode: screen;
-  opacity: 0.88;
+  opacity: 0.72;
   pointer-events: none;
 }
 
-.mobile-bottom-nav::after {
+.platform-ios.mobile-app-root .mobile-bottom-nav::after {
   content: "";
   position: absolute;
   z-index: 1;
@@ -814,9 +893,9 @@
   width: 95px;
   height: 56px;
   border-radius: 999px;
-  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.56), rgba(255, 255, 255, 0) 66%);
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0) 66%);
   filter: blur(10px);
-  opacity: 0.45;
+  opacity: 0.34;
   transform: scaleX(var(--liquid-stretch));
   transition:
     left 500ms cubic-bezier(0.2, 0.9, 0.18, 1),
@@ -824,7 +903,7 @@
   pointer-events: none;
 }
 
-.mobile-bottom-nav__indicator {
+.platform-ios.mobile-app-root .mobile-bottom-nav__indicator {
   position: absolute;
   top: var(--nav-pad);
   left: var(--nav-pad);
@@ -834,13 +913,13 @@
   border-radius: 26px;
   pointer-events: none;
   background:
-    radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.22) 34%, transparent 68%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.68), rgba(210, 231, 255, 0.26));
-  border: 1px solid rgba(255, 255, 255, 0.72);
+    radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.14) 34%, transparent 68%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.42), rgba(210, 231, 255, 0.14));
+  border: 1px solid rgba(255, 255, 255, 0.52);
   box-shadow:
-    0 8px 22px rgba(34, 99, 208, 0.12),
-    inset 0 1px 1px rgba(255, 255, 255, 0.98),
-    inset 0 -8px 18px rgba(24, 101, 255, 0.06);
+    0 7px 18px rgba(34, 99, 208, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 0.70),
+    inset 0 -8px 18px rgba(24, 101, 255, 0.04);
   transform: translate3d(var(--indicator-x), 0, 0) scaleX(var(--liquid-stretch));
   transform-origin: center;
   transition:
@@ -849,25 +928,25 @@
   will-change: transform;
 }
 
-.mobile-bottom-nav__indicator::before {
+.platform-ios.mobile-app-root .mobile-bottom-nav__indicator::before {
   content: "";
   position: absolute;
   inset: 2px 8px auto;
   height: 22px;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0));
-  opacity: 0.9;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.56), rgba(255, 255, 255, 0));
+  opacity: 0.72;
 }
 
-.mobile-bottom-nav__indicator::after {
+.platform-ios.mobile-app-root .mobile-bottom-nav__indicator::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   background:
-    radial-gradient(circle at 72% 30%, rgba(37, 113, 255, 0.14), transparent 26%),
-    radial-gradient(circle at 26% 70%, rgba(255, 255, 255, 0.60), transparent 24%);
-  opacity: 0.8;
+    radial-gradient(circle at 72% 30%, rgba(37, 113, 255, 0.10), transparent 26%),
+    radial-gradient(circle at 26% 70%, rgba(255, 255, 255, 0.34), transparent 24%);
+  opacity: 0.62;
   animation: mobileLiquidPulse 2.8s ease-in-out infinite;
 }
 
@@ -884,10 +963,11 @@
   }
 }
 
-.mobile-bottom-nav__tab {
+.platform-ios.mobile-app-root .mobile-bottom-nav__tab {
   position: relative;
   z-index: 3;
   display: grid;
+  flex: initial;
   grid-template-rows: 28px 18px;
   align-content: center;
   justify-items: center;
@@ -902,16 +982,16 @@
     transform 240ms ease;
 }
 
-.mobile-bottom-nav__tab[aria-current="page"] {
+.platform-ios.mobile-app-root .mobile-bottom-nav__tab[aria-current="page"] {
   color: var(--nav-blue);
   transform: translateY(-1px);
 }
 
-.mobile-bottom-nav__tab:active {
+.platform-ios.mobile-app-root .mobile-bottom-nav__tab:active {
   transform: translateY(1px) scale(0.96);
 }
 
-.mobile-bottom-nav__icon {
+.platform-ios.mobile-app-root .mobile-bottom-nav__icon {
   display: grid;
   width: 28px;
   height: 28px;
@@ -921,13 +1001,13 @@
   transition: color 240ms ease;
 }
 
-.mobile-bottom-nav__icon svg {
+.platform-ios.mobile-app-root .mobile-bottom-nav__icon svg {
   width: 24px;
   height: 24px;
   stroke-width: 2.35;
 }
 
-.mobile-bottom-nav__label {
+.platform-ios.mobile-app-root .mobile-bottom-nav__label {
   max-width: 100%;
   overflow: hidden;
   color: inherit;
@@ -940,34 +1020,30 @@
   transition: color 240ms ease;
 }
 
-.mobile-main {
-  scroll-padding-bottom: calc(132px + env(safe-area-inset-bottom));
-}
-
 @media (max-width: 374px) {
-  .mobile-bottom-nav {
+  .platform-ios.mobile-app-root .mobile-bottom-nav {
     left: 10px;
     right: 10px;
     width: min(calc(100vw - 20px), 430px);
   }
 
-  .mobile-bottom-nav__label {
+  .platform-ios.mobile-app-root .mobile-bottom-nav__label {
     font-size: 10.8px;
   }
 }
 
 @supports not ((backdrop-filter: blur(18px)) or (-webkit-backdrop-filter: blur(18px))) {
-  .mobile-bottom-nav {
+  .platform-ios.mobile-app-root .mobile-bottom-nav {
     background: rgba(255, 255, 255, 0.96);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mobile-bottom-nav,
-  .mobile-bottom-nav::after,
-  .mobile-bottom-nav__indicator,
-  .mobile-bottom-nav__indicator::after,
-  .mobile-bottom-nav__tab {
+  .platform-ios.mobile-app-root .mobile-bottom-nav,
+  .platform-ios.mobile-app-root .mobile-bottom-nav::after,
+  .platform-ios.mobile-app-root .mobile-bottom-nav__indicator,
+  .platform-ios.mobile-app-root .mobile-bottom-nav__indicator::after,
+  .platform-ios.mobile-app-root .mobile-bottom-nav__tab {
     animation: none !important;
     transition-duration: 0.01ms !important;
   }
