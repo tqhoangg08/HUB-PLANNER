@@ -160,6 +160,25 @@ const formatVietnamTime = (date) => date.toLocaleTimeString('vi-VN', {
   timeZone: 'Asia/Ho_Chi_Minh',
 });
 
+const OTP_EMAIL_COPY = {
+  register: {
+    title: 'Xác nhận đăng ký HUB Planner',
+    subjectAction: 'tạo mới tài khoản',
+    actionText: 'tạo mới tài khoản',
+  },
+  forgot_password: {
+    title: 'Đặt lại mật khẩu HUB Planner',
+    subjectAction: 'cài đặt lại mật khẩu',
+    actionText: 'cài đặt lại mật khẩu',
+  },
+};
+
+const getOtpEmailCopy = (purpose) => {
+  const copy = OTP_EMAIL_COPY[purpose];
+  if (!copy) throw new Error(`Loại OTP không hợp lệ khi gửi email: ${String(purpose || 'missing')}`);
+  return copy;
+};
+
 const hashOtp = (email, purpose, otp) => {
   const secret = process.env.OTP_SECRET || process.env.RESEND_API_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
   return createHash('sha256').update(`${email}:${purpose}:${otp}:${secret}`).digest('hex');
@@ -344,12 +363,7 @@ const sendEmail = async ({ email, otp, purpose }) => {
   }
 
   const from = process.env.RESEND_FROM_EMAIL || 'HUB Planner <onboarding@resend.dev>';
-  const title = purpose === 'register'
-    ? 'X\u00e1c nh\u1eadn \u0111\u0103ng k\u00fd HUB Planner'
-    : '\u0110\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u HUB Planner';
-  const actionText = purpose === 'register'
-    ? 'ho\u00e0n t\u1ea5t \u0111\u0103ng k\u00fd t\u00e0i kho\u1ea3n'
-    : '\u0111\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u';
+  const copy = getOtpEmailCopy(purpose);
   const expireTime = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
   const time = formatVietnamTime(expireTime);
 
@@ -362,16 +376,16 @@ const sendEmail = async ({ email, otp, purpose }) => {
     body: JSON.stringify({
       from,
       to: email,
-      subject: `${otp} l\u00e0 m\u00e3 x\u00e1c nh\u1eadn HUB Planner`,
+      subject: `${otp} là mã xác nhận ${copy.subjectAction} HUB Planner`,
       html: `
         <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a">
-          <h2 style="margin:0 0 12px;color:#003375">${title}</h2>
-          <p>M\u00e3 x\u00e1c nh\u1eadn \u0111\u1ec3 ${actionText} c\u1ee7a b\u1ea1n l\u00e0:</p>
+          <h2 style="margin:0 0 12px;color:#003375">${copy.title}</h2>
+          <p>Mã xác nhận để ${copy.actionText} của bạn là:</p>
           <div style="font-size:32px;font-weight:800;letter-spacing:6px;color:#003375;margin:16px 0">${otp}</div>
-          <p>M\u00e3 n\u00e0y s\u1ebd h\u1ebft h\u1ea1n v\u00e0o l\u00fac <strong>${time}</strong> theo gi\u1edd Vi\u1ec7t Nam. N\u1ebfu b\u1ea1n kh\u00f4ng y\u00eau c\u1ea7u thao t\u00e1c n\u00e0y, h\u00e3y b\u1ecf qua email.</p>
+          <p>Mã này sẽ hết hạn vào lúc <strong>${time}</strong> theo giờ Việt Nam. Nếu bạn không yêu cầu thao tác này, hãy bỏ qua email.</p>
         </div>
       `,
-      text: `${otp} l\u00e0 m\u00e3 x\u00e1c nh\u1eadn HUB Planner. ${title}. M\u00e3 h\u1ebft h\u1ea1n l\u00fac ${time} theo gi\u1edd Vi\u1ec7t Nam.`,
+      text: `${otp} là mã xác nhận ${copy.subjectAction} HUB Planner. ${copy.title}. Mã hết hạn lúc ${time} theo giờ Việt Nam.`,
     }),
   });
 

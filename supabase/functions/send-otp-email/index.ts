@@ -14,29 +14,52 @@ const ratelimit = redisUrl && redisToken
     })
   : null;
 
-type OtpPurpose = "delete_data" | "forgot_password" | "register";
+type OtpPurpose = "delete_data" | "reset_data" | "forgot_password" | "reset_password" | "register";
 
-const purposeCopy: Record<OtpPurpose, { title: string; message: string; safety: string }> = {
+const purposeCopy: Record<OtpPurpose, { title: string; subjectAction: string; message: string; safety: string }> = {
   delete_data: {
-    title: "Xác nhận xóa dữ liệu HUB Planner",
-    message: "Dưới đây là mã xác nhận để tiến hành xóa dữ liệu học tập của bạn trên hệ thống:",
-    safety: "Nếu bạn không yêu cầu xóa dữ liệu, vui lòng bỏ qua email này và không chia sẻ mã cho bất kỳ ai.",
+    title: "Xác nhận xoá dữ liệu HUB Planner",
+    subjectAction: "xoá dữ liệu",
+    message: "Dưới đây là mã xác nhận để tiến hành xoá dữ liệu của bạn trên hệ thống:",
+    safety: "Nếu bạn không yêu cầu xoá dữ liệu, vui lòng bỏ qua email này.",
+  },
+  reset_data: {
+    title: "Xác nhận xoá dữ liệu HUB Planner",
+    subjectAction: "xoá dữ liệu",
+    message: "Dưới đây là mã xác nhận để tiến hành xoá dữ liệu của bạn trên hệ thống:",
+    safety: "Nếu bạn không yêu cầu xoá dữ liệu, vui lòng bỏ qua email này.",
   },
   forgot_password: {
     title: "Đặt lại mật khẩu HUB Planner",
-    message: "Dưới đây là mã xác nhận để đặt lại mật khẩu tài khoản HUB Planner của bạn:",
-    safety: "Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này và không chia sẻ mã cho bất kỳ ai.",
+    subjectAction: "cài đặt lại mật khẩu",
+    message: "Dưới đây là mã xác nhận để tiến hành cài đặt lại mật khẩu của bạn trên hệ thống:",
+    safety: "Nếu bạn không yêu cầu cài đặt lại mật khẩu, vui lòng bỏ qua email này.",
+  },
+  reset_password: {
+    title: "Đặt lại mật khẩu HUB Planner",
+    subjectAction: "cài đặt lại mật khẩu",
+    message: "Dưới đây là mã xác nhận để tiến hành cài đặt lại mật khẩu của bạn trên hệ thống:",
+    safety: "Nếu bạn không yêu cầu cài đặt lại mật khẩu, vui lòng bỏ qua email này.",
   },
   register: {
     title: "Xác nhận đăng ký HUB Planner",
-    message: "Dưới đây là mã xác nhận để hoàn tất đăng ký tài khoản HUB Planner của bạn:",
-    safety: "Nếu bạn không thực hiện đăng ký, vui lòng bỏ qua email này và không chia sẻ mã cho bất kỳ ai.",
+    subjectAction: "tạo mới tài khoản",
+    message: "Dưới đây là mã xác nhận để tiến hành tạo mới tài khoản của bạn trên hệ thống:",
+    safety: "Nếu bạn không yêu cầu tạo mới tài khoản, vui lòng bỏ qua email này.",
   },
 };
 
 const normalizePurpose = (value: unknown): OtpPurpose => {
-  if (value === "forgot_password" || value === "register" || value === "delete_data") return value;
-  return "delete_data";
+  if (
+    value === "delete_data" ||
+    value === "reset_data" ||
+    value === "forgot_password" ||
+    value === "reset_password" ||
+    value === "register"
+  ) {
+    return value;
+  }
+  throw new Error(`Loại OTP không hợp lệ: ${String(value || "missing")}`);
 };
 
 const formatVietnamTime = (value?: string) => {
@@ -119,7 +142,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: "HUB Planner <noreply@hotrosinhvienhub.id.vn>",
         to: [email],
-        subject: `${passcode} là mã xác nhận HUB Planner của bạn`,
+        subject: `${passcode} là mã xác nhận ${copy.subjectAction} HUB Planner của bạn`,
         html: `
           <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background-color:#f9f9f9;padding:40px 0;margin:0;">
             <div style="max-width:600px;margin:0 auto;background-color:#ffffff;padding:40px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
@@ -127,7 +150,7 @@ serve(async (req) => {
               <h2 style="font-size:22px;color:#003375;margin:0 0 18px 0;">${copy.title}</h2>
               <p style="font-size:15px;color:#333333;line-height:1.6;">${copy.message}</p>
               <div style="font-size:38px;font-weight:bold;color:#000000;letter-spacing:2px;margin:25px 0;">${passcode}</div>
-              <p style="font-size:14px;color:#666666;">Mã này sẽ hết hạn vào lúc <strong>${expiresTime}</strong> theo giờ Việt Nam.</p>
+              <p style="font-size:14px;color:#666666;">Mã này sẽ hết hạn vào lúc <strong>${expiresTime}</strong>.</p>
               <p style="font-size:14px;color:#333333;margin-bottom:30px;">${copy.safety}</p>
               <p style="font-size:15px;color:#333333;margin-bottom:5px;">Trân trọng,</p>
               <p style="font-size:15px;font-weight:bold;color:#333333;margin-top:0;">Đội ngũ HUB Planner</p>
@@ -162,7 +185,7 @@ serve(async (req) => {
             </div>
           </div>
         `,
-        text: `${passcode} là mã xác nhận HUB Planner. ${copy.title}. Mã hết hạn lúc ${expiresTime} theo giờ Việt Nam.`,
+        text: `${passcode} là mã xác nhận ${copy.subjectAction} HUB Planner. ${copy.title}. Mã hết hạn lúc ${expiresTime}.`,
       }),
     });
 
@@ -172,6 +195,7 @@ serve(async (req) => {
       status: res.ok ? 200 : res.status,
     });
   } catch (error) {
+    console.error("send-otp-email error", error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
