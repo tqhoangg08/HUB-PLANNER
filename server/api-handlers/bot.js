@@ -148,7 +148,22 @@ const keywordTerms = (question = "") => normalizeText(question)
   .filter((word) => word.length >= 3 && !['thong', 'bao', 'nhat', 'khong', 'gi'].includes(word))
   .slice(0, 10);
 
-const pickGeminiKey = () => GEMINI_KEYS[Math.floor(Math.random() * GEMINI_KEYS.length)];
+const getAnnouncementSource = (link = '') => {
+  try {
+    const host = new URL(link).hostname.replace(/^www\./, '');
+    const knownSources = {
+      'hub.edu.vn': 'Website HUB',
+      'online.hub.edu.vn': 'HUB Online',
+      'pdt.hub.edu.vn': 'Phong Dao tao',
+      'phongktdbcl.hub.edu.vn': 'Phong Khao thi va Dam bao chat luong',
+      'scb.hub.edu.vn': 'Khoa Sau dai hoc',
+      'clc.hub.edu.vn': 'Chuong trinh Chat luong cao',
+    };
+    return knownSources[host] || host;
+  } catch {
+    return link || 'khong ro nguon';
+  }
+};
 
 const getBearerToken = (req) => {
   const authorization = req.headers.authorization || '';
@@ -164,127 +179,6 @@ async function getAuthenticatedUser(req) {
   if (error || !data?.user?.id) return null;
 
   return data.user;
-}
-
-async function embedNotificationQuery(question) {
-  const model = process.env.GEMINI_EMBEDDING_MODEL || 'gemini-embedding-001';
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${pickGeminiKey()}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      content: { parts: [{ text: String(question).slice(0, 8000) }] },
-      taskType: 'RETRIEVAL_QUERY',
-      outputDimensionality: 768,
-    }),
-  });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload?.error?.message || `Gemini embedding failed ${response.status}`);
-  return payload.embedding?.values || [];
-}
-
-async function findUnindexedNotifications(question) {
-  const terms = keywordTerms(question);
-  const { data, error } = await supabase
-    .from('school_notifications')
-    .select('title, published_date, detail_url, pdf_url, extraction_status')
-    .in('extraction_status', ['failed', 'need_review'])
-    .order('published_date', { ascending: false, nullsFirst: false })
-    .limit(50);
-
-  if (error) {
-    console.warn('Failed to search unindexed notifications:', error);
-    return [];
-  }
-
-  return (data || [])
-    .filter((item) => {
-      if (terms.length === 0) return true;
-      const title = normalizeText(item.title || '');
-      return terms.some((term) => title.includes(term));
-    })
-    .slice(0, 5);
-}
-
-function buildUnindexedNotificationReply(notifications) {
-  const lines = notifications.slice(0, 3).map((item, index) => {
-    const date = item.published_date ? ` (${item.published_date})` : '';
-    const url = item.pdf_url || item.detail_url;
-    return `${index + 1}. ${item.title}${date}\nNguồn gốc: ${url}`;
-  });
-
-  return [
-    'Mình tìm thấy thông báo có vẻ liên quan, nhưng hệ thống chưa đọc được nội dung PDF đủ tin cậy để trích dẫn tự động.',
-    'Bạn nên mở link gốc để xem nội dung chính thức:',
-    ...lines,
-  ].join('\n');
-}
-
-async function answerFromNotificationRag(question) {
-  const queryEmbedding = await embedNotificationQuery(question);
-  const { data: chunks, error } = await supabase.rpc('match_notification_chunks', {
-    query_embedding: queryEmbedding,
-    match_threshold: Number(process.env.NOTIFICATION_MATCH_THRESHOLD || 0.52),
-    match_count: Number(process.env.NOTIFICATION_MATCH_COUNT || 12),
-  });
-  if (error) throw error;
-
-  if (!chunks || chunks.length === 0) {
-    const unindexed = await findUnindexedNotifications(question);
-    if (unindexed.length === 0) return null;
-    return {
-      reply: buildUnindexedNotificationReply(unindexed),
-      sources: unindexed.map((item) => ({
-        title: item.title,
-        published_date: item.published_date,
-        detail_url: item.detail_url,
-        pdf_url: item.pdf_url,
-        extraction_status: item.extraction_status,
-      })),
-    };
-  }
-
-  const context = chunks.map((chunk, index) => [
-    `[${index + 1}] ${chunk.title}`,
-    `Ngày đăng: ${chunk.published_date || 'không rõ'}`,
-    `Nguồn: ${chunk.detail_url}`,
-    `PDF: ${chunk.pdf_url || 'không có'}`,
-    chunk.chunk_text,
-  ].join('\n')).join('\n\n---\n\n');
-
-  const prompt = `Bạn là trợ lý thông báo HUB.
-Chỉ trả lời dựa trên các đoạn thông báo chính thức bên dưới.
-Nếu nhiều thông báo cùng chủ đề, ưu tiên thông báo có ngày đăng mới nhất.
-Không tự suy đoán, không bịa deadline/ngày/địa điểm/đối tượng áp dụng.
-Nếu dữ liệu không đủ chắc chắn, nói rõ là chưa đủ dữ liệu và đưa link nguồn.
-Khi trả lời luôn nêu tên thông báo, ngày đăng và link nguồn.
-
-Câu hỏi:
-${question}
-
-Context:
-${context}`;
-
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${pickGeminiKey()}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.05 },
-    }),
-  });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload?.error?.message || `Gemini notification answer failed ${response.status}`);
-
-  return {
-    reply: payload.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '',
-    sources: chunks.map((chunk) => ({
-      title: chunk.title,
-      published_date: chunk.published_date,
-      detail_url: chunk.detail_url,
-      pdf_url: chunk.pdf_url,
-      similarity: chunk.similarity,
-    })),
-  };
 }
 
 export default async function handler(req, res) {
@@ -344,23 +238,10 @@ export default async function handler(req, res) {
       return res.status(200).json({ reply: SENSITIVE_TECH_REPLY, logId });
     }
 
-    if (isNotificationQuestion(question)) {
-      try {
-        const notificationAnswer = await answerFromNotificationRag(question);
-        if (notificationAnswer?.reply) {
-          if (supabase && logId) {
-            await supabase.from('ai_chat_logs').update({ bot_reply: notificationAnswer.reply }).eq('id', logId);
-          }
-          return res.status(200).json({ reply: notificationAnswer.reply, logId, sources: notificationAnswer.sources || [] });
-        }
-      } catch (notificationError) {
-        console.error('Notification RAG failed, falling back to general bot:', notificationError);
-      }
-    }
-
     // ===========================================
     // ✨ KÉO TẤT CẢ DỮ LIỆU SONG SONG BẰNG PROMISE.ALL ✨
     // ===========================================
+    const shouldFetchAnnouncements = isNotificationQuestion(question);
     const [
         { data: kbData },
         { data: eventsData },
@@ -377,8 +258,10 @@ export default async function handler(req, res) {
                 .order('id', { ascending: false }),
                 
         // 3. Thông báo mới nhất
-        supabase.from('school_announcements').select('title, date, link')
-                .eq('is_hidden', false).order('date', { ascending: false }).limit(5),
+        shouldFetchAnnouncements
+            ? supabase.from('school_announcements').select('title, date, link')
+                .eq('is_hidden', false).order('date', { ascending: false }).limit(50)
+            : Promise.resolve({ data: [] }),
                 
         // 4. Tìm đồ thất lạc mới nhất
         supabase.from('lost_found_items').select('title, description, location, contact_info')
@@ -392,14 +275,24 @@ export default async function handler(req, res) {
     // XỬ LÝ TEXT CHO TỪNG PHẦN
     let handbookText = kbData?.length ? kbData.map(row => `--- TÀI LIỆU PHẦN ${row.id} ---\n${row.content}`).join('\n\n') : "Không có cẩm nang.";
     
-    let realtimeContext = "\n[THÔNG TIN THỰC TẾ TRÊN WEB (REAL-TIME)]\n";
+    const announcementTerms = keywordTerms(question);
+    const relatedAnnouncements = (announcementsData || []).filter((item) => {
+        if (announcementTerms.length === 0) return true;
+        const title = normalizeText(item.title || '');
+        return announcementTerms.some((term) => title.includes(term));
+    });
+    const announcementSources = relatedAnnouncements.length
+        ? relatedAnnouncements.slice(0, 5)
+        : (shouldFetchAnnouncements ? (announcementsData || []).slice(0, 5) : []);
+
+    let realtimeContext = "\n[THONG TIN BO SUNG TU WEB]\n";
     
     if (eventsData?.length) {
         realtimeContext += "\n**🎉 SỰ KIỆN NỔI BẬT:**\n" + eventsData.map(e => `- ${e.title} (${e.status}). Hình thức: ${e.format}. Điểm: ${e.points}. Hạn: ${e.deadline || 'Không có'}`).join('\n');
     }
     
-    if (announcementsData?.length) {
-        realtimeContext += "\n\n**📢 THÔNG BÁO MỚI NHẤT:**\n" + announcementsData.map(a => `- ${a.title} (Ngày: ${a.date}). Link: ${a.link}`).join('\n');
+    if (announcementSources?.length) {
+        realtimeContext += "\n\n**THONG BAO LIEN QUAN TU school_announcements:**\n" + announcementSources.map(a => `- Tieu de thong bao: ${a.title}\n  Ngay thong bao: ${a.date || 'khong ro'}\n  Nguon thong bao: ${getAnnouncementSource(a.link || '')}\n  Link tham khao HTML: <a href=\"${a.link || '#'}\" target=\"_blank\" rel=\"noopener noreferrer\"><b>Link tham khảo</b></a>`).join('\n');
     }
 
     if (lostFoundData?.length) {
@@ -432,6 +325,15 @@ NGUYÊN TẮC BẮT BUỘC:
 5. Trình bày rõ ràng, thân thiện, xưng "mình" gọi "bạn". Dùng gạch đầu dòng (-) hoặc số thứ tự (1. 2. 3.) để liệt kê. TUYỆT ĐỐI KHÔNG xài các ký tự Markdown như (#, ###, *). Chỉ được phép dùng **để in đậm**. Không tự ý bịa thông tin.`;
     
     // Chuẩn bị lịch sử chat cho Gemini
+    const finalSystemInstruction = `${systemInstruction}
+
+QUY TRINH UU TIEN:
+1. Tra loi cau hoi chinh dua tren CAM NANG TRUONG/knowledge he thong truoc.
+2. Neu co thong bao lien quan, chi bo sung muc "Thong bao lien quan" bang tieu de, link, nguon thong bao va ngay thong bao tu school_announcements.
+3. Moi thong bao lien quan phai la mot bullet rieng. Bat dau bullet bang tieu de thong bao, sau do ghi ngay thong bao, nguon thong bao, va link trong cung bullet do. Khong tach cac link thanh danh sach rieng.
+4. Khong hien URL dai trong cau tra loi. Moi link thong bao phai hien bang HTML anchor co text in dam "Link tham khảo", vi du: <a href="URL_THAT" target="_blank" rel="noopener noreferrer"><b>Link tham khảo</b></a>.
+5. Khong dung tieu de/link thong bao de suy dien noi dung chi tiet, deadline, dia diem hay doi tuong ap dung.`;
+
     const formattedHistory = (history || []).slice(-4).map(msg => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: msg.content.substring(0, 500) }]
@@ -446,7 +348,7 @@ NGUYÊN TẮC BẮT BUỘC:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            system_instruction: { parts: [{ text: systemInstruction }] },
+            system_instruction: { parts: [{ text: finalSystemInstruction }] },
             contents: formattedHistory,
             generationConfig: { temperature: 0.2 } 
         })
@@ -490,7 +392,14 @@ NGUYÊN TẮC BẮT BUỘC:
         await supabase.from('ai_chat_logs').update({ bot_reply: replyText }).eq('id', logId);
     }
     
-    return res.status(200).json({ reply: replyText, logId: logId });
+    return res.status(200).json({
+        reply: replyText,
+        logId: logId,
+        sources: announcementSources.map((item) => ({
+            ...item,
+            source: getAnnouncementSource(item.link || '')
+        }))
+    });
 
   } catch (error) {
     // ===========================================

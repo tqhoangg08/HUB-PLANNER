@@ -3,7 +3,6 @@ import { Ratelimit } from 'https://esm.sh/@upstash/ratelimit@2.0.8'
 import { Redis } from 'https://esm.sh/@upstash/redis@1.36.1'
 import { corsHeaders, getCorsHeaders, isAllowedCorsOrigin } from '../_shared/cors.ts'
 import { supabase } from '../_shared/supabase.ts'
-import { embedText } from '../_shared/hub_notifications.ts'
 
 const keyPool = [
   ...(Deno.env.get('GEMINI_API_KEYS') || Deno.env.get('GEMINI_API_KEY') || '')
@@ -132,6 +131,23 @@ const keywordTerms = (question = '') => normalizeText(question)
   .filter((word) => word.length >= 3 && !['thong', 'bao', 'nhat', 'khong', 'nay', 'gi'].includes(word))
   .slice(0, 10)
 
+const getAnnouncementSource = (link = '') => {
+  try {
+    const host = new URL(link).hostname.replace(/^www\./, '')
+    const knownSources: Record<string, string> = {
+      'hub.edu.vn': 'Website HUB',
+      'online.hub.edu.vn': 'HUB Online',
+      'pdt.hub.edu.vn': 'Phong Dao tao',
+      'phongktdbcl.hub.edu.vn': 'Phong Khao thi va Dam bao chat luong',
+      'scb.hub.edu.vn': 'Khoa Sau dai hoc',
+      'clc.hub.edu.vn': 'Chuong trinh Chat luong cao',
+    }
+    return knownSources[host] || host
+  } catch {
+    return link || 'khong ro nguon'
+  }
+}
+
 const redis = Deno.env.get('UPSTASH_REDIS_REST_URL') && Deno.env.get('UPSTASH_REDIS_REST_TOKEN')
   ? new Redis({
     url: Deno.env.get('UPSTASH_REDIS_REST_URL')!,
@@ -189,14 +205,6 @@ const getAuthenticatedUser = async (req: Request) => {
 
 const normalizeGeminiModel = (model: string | null | undefined) =>
   model === 'gemini-3.1-flash-lite-preview' ? 'gemini-3.1-flash-lite' : model
-
-type NotificationLike = {
-  title?: string
-  published_date?: string | null
-  detail_url?: string | null
-  pdf_url?: string | null
-  extraction_status?: string | null
-}
 
 const fetchSystemKnowledge = async () => {
   const { data, error } = await supabase
@@ -279,106 +287,44 @@ const callGemini = async (apiKey: string, messages: ChatMessage[], temperature =
   return payload.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
 }
 
-const findUnindexedNotifications = async (question: string) => {
+const fetchRelatedSchoolAnnouncements = async (question: string) => {
+  if (!isNotificationQuestion(question)) return []
+
   const terms = keywordTerms(question)
   const { data, error } = await supabase
-    .from('school_notifications')
-    .select('title, published_date, detail_url, pdf_url, extraction_status')
-    .in('extraction_status', ['failed', 'need_review'])
-    .order('published_date', { ascending: false, nullsFirst: false })
+    .from('school_announcements')
+    .select('title, date, link, created_at')
+    .eq('is_hidden', false)
+    .order('date', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false, nullsFirst: false })
     .limit(50)
 
   if (error) {
-    console.warn('Failed to search unindexed notifications:', error)
+    console.warn('Failed to search school announcements:', error)
     return []
   }
 
-  return ((data || []) as NotificationLike[])
-    .filter((item) => {
-      if (terms.length === 0) return true
-      const title = normalizeText(item.title || '')
-      return terms.some((term) => title.includes(term))
-    })
-    .slice(0, 5)
-}
-
-const buildUnindexedNotificationReply = (notifications: NotificationLike[]) => {
-  const lines = notifications.slice(0, 3).map((item, index) => {
-    const date = item.published_date ? ` (${item.published_date})` : ''
-    const url = item.pdf_url || item.detail_url || 'không có link'
-    return `${index + 1}. ${item.title || 'Thông báo'}${date}\nNguồn gốc: ${url}`
+  const rows = ((data || []) as Array<{ title?: string | null; date?: string | null; link?: string | null; created_at?: string | null }>)
+  const related = rows.filter((item) => {
+    if (terms.length === 0) return true
+    const title = normalizeText(item.title || '')
+    return terms.some((term) => title.includes(term))
   })
 
-  return [
-    'Mình tìm thấy thông báo có vẻ liên quan, nhưng hệ thống chưa đọc được nội dung PDF đủ tin cậy để trích dẫn tự động.',
-    'Bạn nên mở link gốc để xem nội dung chính thức:',
-    ...lines,
-  ].join('\n')
+  if (related.length > 0) return related.slice(0, 5)
+  return isNotificationQuestion(question) ? rows.slice(0, 5) : []
 }
 
-const isInsufficientNotificationReply = (reply = '') => {
-  const text = normalizeText(reply)
-  return [
-    'chua co du lieu',
-    'chua du du lieu',
-    'khong du du lieu',
-    'khong tim thay thong tin',
-  ].some((phrase) => text.includes(phrase))
-}
+const buildAnnouncementContext = (
+  announcements: Array<{ title?: string | null; date?: string | null; link?: string | null }>,
+) => {
+  if (!announcements.length) return 'Khong co thong bao lien quan tu bang school_announcements.'
 
-const answerFromNotificationRag = async (question: string) => {
-  const queryEmbedding = await embedText(question, 'RETRIEVAL_QUERY')
-  const { data: chunks, error } = await supabase.rpc('match_notification_chunks', {
-    query_embedding: queryEmbedding,
-    match_threshold: Number(Deno.env.get('NOTIFICATION_MATCH_THRESHOLD') || 0.52),
-    match_count: Number(Deno.env.get('NOTIFICATION_MATCH_COUNT') || 12),
-  })
-
-  if (error) throw error
-
-  if (!chunks || chunks.length === 0) {
-    const unindexed = await findUnindexedNotifications(question)
-    if (unindexed.length === 0) return null
-    return {
-      reply: buildUnindexedNotificationReply(unindexed),
-      sources: unindexed,
-    }
-  }
-
-  const context = chunks.map((chunk: any, index: number) => [
-    `[${index + 1}] ${chunk.title}`,
-    `Ngày đăng: ${chunk.published_date || 'không rõ'}`,
-    `Nguồn: ${chunk.detail_url || 'không có'}`,
-    `PDF: ${chunk.pdf_url || 'không có'}`,
-    chunk.chunk_text,
-  ].join('\n')).join('\n\n---\n\n')
-
-  const messages: ChatMessage[] = [{
-    role: 'system',
-    content: [
-      'Bạn là trợ lý thông báo HUB.',
-      'Chỉ trả lời dựa trên các đoạn thông báo chính thức được cung cấp.',
-      'Nếu nhiều thông báo cùng chủ đề, ưu tiên thông báo có ngày đăng mới nhất.',
-      'Không tự suy đoán, không bịa deadline/ngày/địa điểm/đối tượng áp dụng.',
-      'Nếu dữ liệu không đủ chắc chắn, nói rõ là chưa đủ dữ liệu và đưa link nguồn.',
-      'Khi trả lời luôn nêu tên thông báo, ngày đăng và link nguồn.',
-    ].join('\n'),
-  }, {
-    role: 'user',
-    content: `Câu hỏi:\n${question}\n\nContext thông báo chính thức:\n${context}`,
-  }]
-
-  const reply = await callGemini(getRandomKey(), messages, 0.05)
-  return {
-    reply,
-    sources: chunks.map((chunk: any) => ({
-      title: chunk.title,
-      published_date: chunk.published_date,
-      detail_url: chunk.detail_url,
-      pdf_url: chunk.pdf_url,
-      similarity: chunk.similarity,
-    })),
-  }
+  return announcements.map((item, index) => {
+    const date = item.date ? `Ngay: ${item.date}. ` : ''
+    const link = item.link || 'khong co link'
+    return `${index + 1}. Tieu de thong bao: ${item.title || 'Thong bao'}\n${date}Nguon thong bao: ${getAnnouncementSource(item.link || '')}\nLink tham khao HTML: <a href="${link}" target="_blank" rel="noopener noreferrer"><b>Link tham khảo</b></a>`
+  }).join('\n')
 }
 
 Deno.serve(async (req) => {
@@ -479,27 +425,27 @@ Deno.serve(async (req) => {
       return replyJson(SENSITIVE_TECH_REPLY)
     }
 
-    if (isNotificationQuestion(question)) {
-      try {
-        const notificationAnswer = await answerFromNotificationRag(question)
-        if (notificationAnswer?.reply && !isInsufficientNotificationReply(notificationAnswer.reply)) {
-          return replyJson(notificationAnswer.reply, {
-            sources: notificationAnswer.sources || [],
-          })
-        }
-      } catch (error) {
-        console.error('Notification RAG failed, falling back to general bot:', error)
-      }
-    }
-
     const systemKnowledge = await fetchSystemKnowledge()
-    const { messages } = buildMessages(body, systemKnowledge)
+    const schoolAnnouncements = await fetchRelatedSchoolAnnouncements(question)
+    const announcementContext = [
+      'Thong bao moi lien quan tu bang school_announcements (chi dung de bo sung tieu de va link nguon, khong suy dien noi dung chi tiet):',
+      buildAnnouncementContext(schoolAnnouncements),
+      'Quy trinh tra loi: uu tien tra loi bang cam nang he thong; sau do neu phu hop thi bo sung muc "Thong bao lien quan" gom tieu de, ngay thong bao, nguon thong bao va link.',
+      'Moi thong bao lien quan phai la mot bullet rieng. Bat dau bullet bang tieu de thong bao, sau do ghi ngay thong bao, nguon thong bao, va link trong cung bullet do. Khong tach cac link thanh danh sach rieng.',
+      'Khong hien URL dai trong cau tra loi. Moi link thong bao phai hien bang HTML anchor co text in dam "Link tham khảo", vi du: <a href="URL_THAT" target="_blank" rel="noopener noreferrer"><b>Link tham khảo</b></a>.',
+    ].join('\n')
+    const { messages } = buildMessages(body, `${systemKnowledge}\n\n${announcementContext}`)
 
     let lastError: any = null
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         const reply = await callGemini(getRandomKey(), messages, 0.2)
-        return replyJson(containsSensitiveTechnicalDetails(reply) ? SENSITIVE_TECH_REPLY : reply)
+        return replyJson(containsSensitiveTechnicalDetails(reply) ? SENSITIVE_TECH_REPLY : reply, {
+          sources: schoolAnnouncements.map((item) => ({
+            ...item,
+            source: getAnnouncementSource(item.link || ''),
+          })),
+        })
       } catch (error) {
         console.error(`Bot attempt ${attempt + 1} failed:`, error)
         lastError = error
