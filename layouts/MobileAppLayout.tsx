@@ -37,7 +37,8 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
   const platform = usePlatform();
 
   const [slideDirection, setSlideDirection] = useState<'slide-left' | 'slide-right' | 'fade'>('fade');
-  const [prevIndex, setPrevIndex] = useState(getTabIndex(location.pathname));
+  const prevIndexRef = useRef(getTabIndex(location.pathname));
+  const [navStretch, setNavStretch] = useState(1);
 
   const currentStudentId = session?.user?.email?.split('@')[0] || 'guest';
 
@@ -58,21 +59,36 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
 
   useEffect(() => {
     const currentIndex = getTabIndex(location.pathname);
+    const previousIndex = prevIndexRef.current;
+    const distance = Math.abs(currentIndex - previousIndex);
+    let stretchTimer: number | undefined;
 
-    if (currentIndex > prevIndex) {
+    if (currentIndex > previousIndex) {
       setSlideDirection('slide-left');
-    } else if (currentIndex < prevIndex) {
+    } else if (currentIndex < previousIndex) {
       setSlideDirection('slide-right');
     } else {
       setSlideDirection('fade');
     }
 
-    setPrevIndex(currentIndex);
+    if (distance > 0) {
+      setNavStretch(Math.min(1.36, 1 + distance * 0.16));
+      stretchTimer = window.setTimeout(() => setNavStretch(1), 420);
+    } else {
+      setNavStretch(1);
+    }
+    prevIndexRef.current = currentIndex;
 
     if (mainRef.current) {
       mainRef.current.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
     }
-  }, [location.pathname, prevIndex]);
+
+    return () => {
+      if (stretchTimer) {
+        window.clearTimeout(stretchTimer);
+      }
+    };
+  }, [location.pathname]);
 
   const navItems = [
     { id: 'home', path: '/mobile-home', match: ['/dashboard', '/mobile-home'], icon: LayoutDashboard, label: 'Trang chủ' },
@@ -94,17 +110,26 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
       <main ref={mainRef} className="mobile-main custom-scrollbar relative w-full flex-1 overflow-y-auto overflow-x-hidden bg-[#F8FAFC]">
         <div key={location.pathname} className={`flex min-h-0 w-full flex-col animate-${slideDirection}`}>
           {children}
-          <footer className="px-5 pb-[calc(92px+env(safe-area-inset-bottom))] pt-2 text-center text-[10px] font-medium leading-5 text-[#64748B]">
+          <footer className="px-5 pb-[calc(126px+env(safe-area-inset-bottom))] pt-2 text-center text-[10px] font-medium leading-5 text-[#64748B]">
             HUB Planner là dự án độc lập, không trực thuộc/không đại diện Trường. Vui lòng đối chiếu nguồn chính thức.
           </footer>
         </div>
       </main>
 
       {showBottomNav && (
-        <nav className="mobile-bottom-nav absolute inset-x-0 bottom-0 z-50 flex border-t border-[#EEF2FF] bg-white px-1 pb-[calc(18px+env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_24px_rgba(13,27,62,0.06)]">
+        <nav
+          className="mobile-bottom-nav"
+          style={{
+            '--active-index': safeActiveNavIndex,
+            '--active-center': `${((safeActiveNavIndex + 0.5) / navItems.length) * 100}%`,
+            '--indicator-x': `${safeActiveNavIndex * 100}%`,
+            '--liquid-stretch': navStretch,
+          } as React.CSSProperties}
+          aria-label="Thanh điều hướng"
+        >
           <span
             aria-hidden="true"
-            className={`absolute top-2 h-8 w-8 rounded-[10px] bg-[#EEF2FF] transition-[left] duration-500 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] mobile-nav-indicator-${safeActiveNavIndex}`}
+            className="mobile-bottom-nav__indicator"
           />
           {navItems.map((item) => {
             const isActive = checkIsActive(location.pathname, item.match);
@@ -115,12 +140,12 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
                 key={item.id}
                 to={item.path}
                 onClick={playClick}
-                className="relative z-10 flex flex-1 flex-col items-center gap-1"
+                className="mobile-bottom-nav__tab"
               >
-                <span className={`flex h-8 w-8 items-center justify-center rounded-[10px] transition-colors duration-300 ${isActive ? 'text-[#1A56FF]' : 'text-[#B0BCDA]'}`}>
+                <span className={`mobile-bottom-nav__icon ${isActive ? 'text-[#1664F5]' : 'text-[#647592]'}`}>
                   <Icon size={20} strokeWidth={2.2} />
                 </span>
-                <span className={`text-[10px] font-bold ${isActive ? 'text-[#1A56FF]' : 'text-[#B0BCDA]'}`}>
+                <span className={`mobile-bottom-nav__label ${isActive ? 'text-[#1664F5]' : 'text-[#647592]'}`}>
                   {item.label}
                 </span>
               </NavLink>
