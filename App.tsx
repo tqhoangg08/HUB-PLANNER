@@ -785,6 +785,7 @@ const App: React.FC = () => {
     const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
     const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null);
     const [passwordChangeNotice, setPasswordChangeNotice] = useState<string | null>(null);
+    const [accountPasswordTurnstileToken, setAccountPasswordTurnstileToken] = useState('');
 
     const [draftStudentName, setDraftStudentName] = useState('');
     const [draftProgram, setDraftProgram] = useState<Program | null>(null);
@@ -1251,6 +1252,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             setIsAccountPasswordOtpMode(false);
             setPasswordChangeError(null);
             setPasswordChangeNotice(null);
+            setAccountPasswordTurnstileToken('');
 
             setDraftStudentName(data.studentName || '');
 
@@ -1711,6 +1713,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
     const validateAccountPasswordChange = () => {
         if (isAccountPasswordOtpMode && accountPasswordOtp.length !== 6) return 'Nhập mã OTP gồm 6 chữ số.';
         if (!isAccountPasswordOtpMode && !currentPassword) return 'Nhập mật khẩu cũ để xác nhận.';
+        if (!isAccountPasswordOtpMode && !accountPasswordTurnstileToken) return 'Vui lòng xác minh bạn không phải robot.';
         if (newPassword.length < 8) return 'Mật khẩu mới cần ít nhất 8 ký tự.';
         if (newPassword !== confirmNewPassword) return 'Mật khẩu mới và nhập lại mật khẩu mới chưa trùng khớp.';
         if (!isAccountPasswordOtpMode && currentPassword === newPassword) return 'Mật khẩu mới cần khác mật khẩu cũ.';
@@ -1724,6 +1727,12 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         const invalid = validateAccountPasswordChange();
         if (invalid) {
             setPasswordChangeError(invalid);
+            setPasswordChangeNotice(null);
+            return;
+        }
+
+        if (!isAccountPasswordOtpMode && !accountPasswordTurnstileToken) {
+            setPasswordChangeError('Vui lòng xác minh bạn không phải robot.');
             setPasswordChangeNotice(null);
             return;
         }
@@ -1751,6 +1760,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 const payload = await response.json().catch(() => ({}));
                 if (!response.ok) throw new Error(payload.error || 'Mã OTP không chính xác hoặc đã hết hạn.');
             } else {
+                await verifyTurnstileOnly(accountPasswordTurnstileToken);
                 const { error: verifyError } = await supabase.auth.signInWithPassword({
                     email,
                     password: currentPassword,
@@ -1776,9 +1786,11 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             setNewPassword('');
             setConfirmNewPassword('');
             setIsAccountPasswordOtpMode(false);
+            setAccountPasswordTurnstileToken('');
             setPasswordChangeNotice('Đã cập nhật mật khẩu thành công.');
         } catch (error: any) {
             setPasswordChangeError(error.message || 'Không thể cập nhật mật khẩu lúc này.');
+            if (!isAccountPasswordOtpMode) setAccountPasswordTurnstileToken('');
         } finally {
             setPasswordChangeLoading(false);
         }
@@ -1798,6 +1810,12 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             return;
         }
 
+        if (!accountPasswordTurnstileToken) {
+            setPasswordChangeError('Vui lòng xác minh bạn không phải robot.');
+            setPasswordChangeNotice(null);
+            return;
+        }
+
         setPasswordChangeLoading(true);
         setPasswordChangeError(null);
         setPasswordChangeNotice(null);
@@ -1807,7 +1825,12 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             const response = await fetch(apiUrl('/auth'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'send-otp', purpose: 'forgot_password', email }),
+                body: JSON.stringify({
+                    action: 'send-otp',
+                    purpose: 'forgot_password',
+                    email,
+                    turnstileToken: accountPasswordTurnstileToken,
+                }),
             });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) {
@@ -1835,6 +1858,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             setPasswordChangeNotice(`\u0110\u00e3 g\u1eedi m\u00e3 OTP \u0111\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u \u0111\u1ebfn ${email}.`);
         } catch (error: any) {
             setPasswordChangeError(error.message || 'Kh\u00f4ng th\u1ec3 g\u1eedi m\u00e3 OTP \u0111\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u.');
+            setAccountPasswordTurnstileToken('');
         } finally {
             setPasswordChangeLoading(false);
         }
@@ -2546,6 +2570,11 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                         </div>
                                     )}
 
+                                    <div className="mb-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
+                                        <p className="mb-2 text-xs font-bold text-gray-500">Xác minh bạn không phải robot</p>
+                                        <TurnstileBox token={accountPasswordTurnstileToken} onTokenChange={setAccountPasswordTurnstileToken} />
+                                    </div>
+
                                     {!showPasswordChange ? (
                                         <button
                                             type="button"
@@ -2643,6 +2672,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                                         setNewPassword('');
                                                         setConfirmNewPassword('');
                                                         setIsAccountPasswordOtpMode(false);
+                                                        setAccountPasswordTurnstileToken('');
                                                         setPasswordChangeError(null);
                                                         setPasswordChangeNotice(null);
                                                     }}
