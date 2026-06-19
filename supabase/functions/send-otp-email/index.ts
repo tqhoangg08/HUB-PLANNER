@@ -142,7 +142,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: "HUB Planner <noreply@hotrosinhvienhub.id.vn>",
         to: [email],
-        subject: `${passcode} là mã xác nhận ${copy.subjectAction} HUB Planner của bạn`,
+        subject: `[OTP-V2:${purpose}] ${passcode} là mã xác nhận ${copy.subjectAction} HUB Planner của bạn`,
         html: `
           <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background-color:#f9f9f9;padding:40px 0;margin:0;">
             <div style="max-width:600px;margin:0 auto;background-color:#ffffff;padding:40px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.05);">

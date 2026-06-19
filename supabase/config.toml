@@ -3,7 +3,7 @@
 enabled = false
 
 [functions.send-otp-email]
-enabled = false
+enabled = true
 verify_jwt = true
 import_map = "./functions/send-otp-email/deno.json"
 entrypoint = "./functions/send-otp-email/index.ts"

@@ -526,7 +526,7 @@ const sendEmail = async ({ email, otp, purpose }: { email: string; otp: string; 
     body: JSON.stringify({
       from,
       to: email,
-      subject: `${otp} là mã xác nhận ${copy.subjectAction} HUB Planner`,
+      subject: `[OTP-V2:${purpose}] ${otp} là mã xác nhận ${copy.subjectAction} HUB Planner`,
       html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a"><h2 style="margin:0 0 12px;color:#003375">${copy.title}</h2><p>Mã xác nhận để ${copy.actionText} của bạn là:</p><div style="font-size:32px;font-weight:800;letter-spacing:6px;color:#003375;margin:16px 0">${otp}</div><p>Mã này sẽ hết hạn vào lúc <strong>${time}</strong> theo giờ Việt Nam.</p></div>`,
       text: `${otp} là mã xác nhận ${copy.subjectAction} HUB Planner. ${copy.title}. Mã hết hạn lúc ${time} theo giờ Việt Nam.`,
     }),
