@@ -213,6 +213,28 @@ const insertDonation = async (body, user) => {
   return { id: data?.id };
 };
 
+const insertCanvaProRequest = async (body, user) => {
+  const payload = body.payload || {};
+  const row = {
+    user_id: user?.id || payload.user_id || null,
+    email: text(payload.email, 320),
+    full_name: text(payload.full_name || payload.fullName, 200),
+    student_batch: text(payload.student_batch || payload.cohort, 80),
+    major: text(payload.major, 200),
+    status: 'pending',
+  };
+  if (!row.email || !row.email.toLowerCase().endsWith('@st.buh.edu.vn') || !row.full_name || !row.student_batch || !row.major) {
+    throw Object.assign(new Error('Thiáº¿u thÃ´ng tin Ä‘Äƒng kÃ½ Canva Pro.'), { statusCode: 400 });
+  }
+  const { data, error } = await supabase
+    .from('canva_pro_requests')
+    .insert([row])
+    .select('id')
+    .single();
+  if (error) throw error;
+  return { id: data?.id };
+};
+
 const insertLostFound = async (body, user) => {
   const payload = body.payload || {};
   const imageUrl = await uploadLostFoundImageToR2(payload);
@@ -317,6 +339,7 @@ async function handler(request, response) {
     const result = action === 'verify-only' ? { verified: true }
       : action === 'feedback' ? await insertFeedback(body, user)
       : action === 'donation' ? await insertDonation(body, user)
+      : action === 'canva-pro-request' ? await insertCanvaProRequest(body, user)
       : action === 'lost-found' ? await insertLostFound(body, user)
       : action === 'event-contribution' ? await insertEventContribution(body, user)
       : action === 'bug-report' ? await insertBugReport(body, user)

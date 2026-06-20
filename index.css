@@ -831,7 +831,7 @@
 }
 
 .platform-ios.mobile-app-root .mobile-bottom-nav {
-  --nav-pad: 7px;
+  --nav-pad: 5px;
   --seg-w: calc((100% - (var(--nav-pad) * 2)) / 5);
   --active-index: 0;
   --active-center: 10%;
@@ -841,25 +841,26 @@
   --nav-muted: #647592;
 
   position: fixed;
-  left: 14px;
-  right: 14px;
-  bottom: max(4px, calc(env(safe-area-inset-bottom) - 26px));
+  left: 16px;
+  right: 16px;
+  bottom: max(2px, calc(env(safe-area-inset-bottom) - 28px));
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: stretch;
-  width: min(calc(100vw - 28px), 430px);
-  height: 78px;
+  width: min(calc(100vw - 32px), 430px);
+  height: 70px;
   margin-inline: auto;
   padding: var(--nav-pad);
-  border-radius: 31px;
+  border-radius: 28px;
   isolation: isolate;
   overflow: hidden;
   pointer-events: auto;
+  touch-action: pan-x;
   user-select: none;
   border: 1px solid rgba(255, 255, 255, 0.58);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.56), rgba(255, 255, 255, 0.24)),
-    rgba(255, 255, 255, 0.22);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.20)),
+    rgba(255, 255, 255, 0.18);
   -webkit-backdrop-filter: blur(30px) saturate(185%);
   backdrop-filter: blur(30px) saturate(185%);
   box-shadow:
@@ -875,7 +876,7 @@
   position: absolute;
   inset: 1px;
   z-index: 0;
-  border-radius: 30px;
+  border-radius: 27px;
   background:
     radial-gradient(circle at var(--active-center) 20%, rgba(255, 255, 255, 0.62), transparent 26%),
     linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
@@ -888,10 +889,10 @@
   content: "";
   position: absolute;
   z-index: 1;
-  top: 11px;
-  left: calc(var(--active-center) - 48px);
-  width: 95px;
-  height: 56px;
+  top: 8px;
+  left: calc(var(--active-center) - 46px);
+  width: 92px;
+  height: 54px;
   border-radius: 999px;
   background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0) 66%);
   filter: blur(10px);
@@ -909,8 +910,8 @@
   left: var(--nav-pad);
   z-index: 2;
   width: var(--seg-w);
-  height: 64px;
-  border-radius: 26px;
+  height: 60px;
+  border-radius: 24px;
   pointer-events: none;
   background:
     radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.14) 34%, transparent 68%),
@@ -968,10 +969,10 @@
   z-index: 3;
   display: grid;
   flex: initial;
-  grid-template-rows: 28px 18px;
+  grid-template-rows: 26px 16px;
   align-content: center;
   justify-items: center;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
   border-radius: 24px;
   color: var(--nav-muted);
@@ -993,8 +994,8 @@
 
 .platform-ios.mobile-app-root .mobile-bottom-nav__icon {
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   place-items: center;
   color: inherit;
   filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.7));
@@ -1002,8 +1003,8 @@
 }
 
 .platform-ios.mobile-app-root .mobile-bottom-nav__icon svg {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   stroke-width: 2.35;
 }
 
@@ -1011,9 +1012,9 @@
   max-width: 100%;
   overflow: hidden;
   color: inherit;
-  font-size: 11.5px;
-  font-weight: 800;
-  line-height: 18px;
+  font-size: 11px;
+  font-weight: 780;
+  line-height: 16px;
   white-space: nowrap;
   text-overflow: ellipsis;
   letter-spacing: 0;

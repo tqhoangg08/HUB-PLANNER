@@ -341,6 +341,30 @@ const insertDonation = async (body: any, user: any) => {
   return { id: data?.id }
 }
 
+const insertCanvaProRequest = async (body: any, user: any) => {
+  const payload = body?.payload || {}
+  const row = {
+    user_id: user?.id || payload.user_id || null,
+    email: text(payload.email, 320),
+    full_name: text(payload.full_name || payload.fullName, 200),
+    student_batch: text(payload.student_batch || payload.cohort, 80),
+    major: text(payload.major, 200),
+    status: 'pending',
+  }
+  if (!row.email || !row.email.toLowerCase().endsWith('@st.buh.edu.vn') || !row.full_name || !row.student_batch || !row.major) {
+    const error: any = new Error('Thiáº¿u thÃ´ng tin Ä‘Äƒng kÃ½ Canva Pro.')
+    error.statusCode = 400
+    throw error
+  }
+  const { data, error } = await supabase
+    .from('canva_pro_requests')
+    .insert([row])
+    .select('id')
+    .single()
+  if (error) throw error
+  return { id: data?.id }
+}
+
 const insertLostFound = async (body: any, user: any) => {
   const payload = body?.payload || {}
   const row = {
@@ -449,6 +473,7 @@ const protectedSubmit = async (req: Request, body: any) => {
   const result = action === 'verify-only' ? { verified: true }
     : action === 'feedback' ? await insertFeedback(body, user)
     : action === 'donation' ? await insertDonation(body, user)
+    : action === 'canva-pro-request' ? await insertCanvaProRequest(body, user)
     : action === 'lost-found' ? await insertLostFound(body, user)
     : action === 'event-contribution' ? await insertEventContribution(body)
     : action === 'bug-report' ? await insertBugReport(body, user)
@@ -526,7 +551,7 @@ const sendEmail = async ({ email, otp, purpose }: { email: string; otp: string; 
     body: JSON.stringify({
       from,
       to: email,
-      subject: `[OTP-V2:${purpose}] ${otp} là mã xác nhận ${copy.subjectAction} HUB Planner`,
+      subject: `Mã xác nhận ${copy.subjectAction} HUB Planner của bạn`,
       html: `<div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a"><h2 style="margin:0 0 12px;color:#003375">${copy.title}</h2><p>Mã xác nhận để ${copy.actionText} của bạn là:</p><div style="font-size:32px;font-weight:800;letter-spacing:6px;color:#003375;margin:16px 0">${otp}</div><p>Mã này sẽ hết hạn vào lúc <strong>${time}</strong> theo giờ Việt Nam.</p></div>`,
       text: `${otp} là mã xác nhận ${copy.subjectAction} HUB Planner. ${copy.title}. Mã hết hạn lúc ${time} theo giờ Việt Nam.`,
     }),
@@ -749,6 +774,7 @@ const deleteAccount = async (req: Request) => {
     'ai_chat_logs',
     'benchmark_rankings',
     'bug_reports',
+    'canva_pro_requests',
     'comment_likes',
     'comments',
     'course_reports',

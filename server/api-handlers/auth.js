@@ -376,7 +376,7 @@ const sendEmail = async ({ email, otp, purpose }) => {
     body: JSON.stringify({
       from,
       to: email,
-      subject: `[OTP-V2:${purpose}] ${otp} là mã xác nhận ${copy.subjectAction} HUB Planner`,
+      subject: `Mã xác nhận ${copy.subjectAction} HUB Planner của bạn`,
       html: `
         <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a">
           <h2 style="margin:0 0 12px;color:#003375">${copy.title}</h2>
@@ -683,6 +683,7 @@ const deleteAccount = async (request, response) => {
     'ai_chat_logs',
     'benchmark_rankings',
     'bug_reports',
+    'canva_pro_requests',
     'course_reports',
     'ctv_requests',
     'donations',

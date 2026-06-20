@@ -1101,7 +1101,7 @@ const App: React.FC = () => {
             }
             return;
 
-            const targetUserId = ((isAdmin || isAuditor) && viewingUser) ? viewingUser.id : session.user.id;
+            const targetUserId = ((isAdmin || isAuditor) && viewingUser) ? viewingUser.id : session!.user.id;
 
 if (dataOwnerIdRef.current !== targetUserId) return;
 
@@ -1137,8 +1137,8 @@ if (isAdmin && viewingUser) {
 }
 else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR LẠI
     // User thường mới được tự động save (Auditor thì bị chặn lại không cho save)
-    const userEmail = session.user.email || '';
-    const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
+    const userEmail = session!.user.email || '';
+    const metaName = session!.user.user_metadata.full_name || session!.user.user_metadata.name || '';
     const nameToSave = profileFullName || metaName;
 
     const { error } = await supabase
@@ -1148,11 +1148,11 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             avatar_url: profileAvatarUrl,
             updated_at: new Date().toISOString()
         })
-        .eq('id', session.user.id);
+        .eq('id', session!.user.id);
 
     try {
         await upsertProfilePrivate({
-            user_id: session.user.id,
+            user_id: session!.user.id,
             email: userEmail,
             data,
             updated_at: new Date().toISOString(),

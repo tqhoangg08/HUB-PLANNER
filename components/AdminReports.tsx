@@ -2,18 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { fetchProfilePrivateMap } from '../utils/profilePrivate';
 import { Link } from 'react-router-dom';
-import { Loader2, CheckCircle2, AlertTriangle, Bug, BookOpen, UserPlus, CalendarDays, MessageSquare, Trash2, Calendar, Edit2, ExternalLink } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, Bug, BookOpen, UserPlus, CalendarDays, MessageSquare, Trash2, Calendar, Edit2, ExternalLink, Crown } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 
-type TabType = 'course_reports' | 'bug_reports' | 'ctv_requests' | 'event_reports' | 'feedback';
+type TabType = 'course_reports' | 'bug_reports' | 'ctv_requests' | 'event_reports' | 'feedback' | 'canva_pro_requests';
 
 const REPORT_SELECT_COLUMNS: Record<TabType, string> = {
     course_reports: 'id,user_id,status,created_at,full_name,student_code,email,subject_name,course_code,error_description,suggested_correction',
     bug_reports: 'id,user_id,status,created_at,full_name,student_code,email,error_location,description',
     ctv_requests: 'id,user_id,status,created_at,full_name,student_code,email,student_batch,major,contact_info',
     event_reports: 'id,user_id,status,created_at,full_name,student_code,email,event_id,event_name,organizer,issue_description',
-    feedback: 'id,user_id,status,created_at,full_name,student_code,email,type,content,contact'
+    feedback: 'id,user_id,status,created_at,full_name,student_code,email,type,content,contact',
+    canva_pro_requests: 'id,user_id,status,created_at,email,full_name,student_batch,major,note,reviewed_at'
 };
 const REPORT_PAGE_SIZE = 30;
 
@@ -56,7 +57,8 @@ export const AdminReports: React.FC = () => {
         { id: 'bug_reports', label: 'Lỗi bảng điểm', icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50' },
         { id: 'ctv_requests', label: 'Đơn xin CTV', icon: UserPlus, color: 'text-blue-600', bg: 'bg-blue-50' },
         { id: 'event_reports', label: 'Lỗi sự kiện', icon: CalendarDays, color: 'text-purple-600', bg: 'bg-purple-50' },
-        { id: 'feedback', label: 'Feedback / Takedown', icon: Bug, color: 'text-emerald-600', bg: 'bg-emerald-50' }
+        { id: 'feedback', label: 'Feedback / Takedown', icon: Bug, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+        { id: 'canva_pro_requests', label: 'Canva Pro', icon: Crown, color: 'text-sky-600', bg: 'bg-sky-50' }
     ] as const;
 
     const fetchReports = async () => {
@@ -171,7 +173,7 @@ export const AdminReports: React.FC = () => {
     // Render nội dung tương ứng theo bảng
     const renderReportCard = (item: ReportData) => {
         const dateStr = new Date(item.created_at).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
-        const isResolved = item.status === 'ok' || item.status === 'resolved';
+        const isResolved = item.status === 'ok' || item.status === 'resolved' || item.status === 'contacted' || item.status === 'approved' || item.status === 'rejected';
         const lostFoundItemUrl = activeTab === 'feedback' ? getLostFoundItemUrl(item.content) : null;
 
         return (
@@ -248,6 +250,16 @@ export const AdminReports: React.FC = () => {
                     )}
                 </div>
 
+                    {activeTab === 'canva_pro_requests' && (
+                        <div className="grid grid-cols-2 gap-2 bg-sky-50/60 p-3 rounded-lg border border-sky-100">
+                            <p><strong className="text-gray-600">Email:</strong> <span className="font-bold text-[#003375]">{item.email}</span></p>
+                            <p><strong className="text-gray-600">Ho ten:</strong> {item.full_name}</p>
+                            <p><strong className="text-gray-600">Khoa:</strong> {item.student_batch}</p>
+                            <p><strong className="text-gray-600">Nganh:</strong> {item.major}</p>
+                            {item.note && <p className="col-span-2"><strong className="text-gray-600">Ghi chu:</strong> {item.note}</p>}
+                        </div>
+                    )}
+
                 {/* Footer Actions */}
                 <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
                     {activeTab === 'event_reports' && item.event_id && (
@@ -277,7 +289,7 @@ export const AdminReports: React.FC = () => {
                     </button>
                     {!isResolved && (
                         <button 
-                            onClick={() => handleUpdateStatus(item.id, 'ok')}
+                            onClick={() => handleUpdateStatus(item.id, activeTab === 'canva_pro_requests' ? 'contacted' : 'ok')}
                             disabled={updatingId === item.id}
                             className="px-4 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50 shadow-sm"
                         >

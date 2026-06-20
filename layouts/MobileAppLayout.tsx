@@ -34,11 +34,14 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
 }) => {
   const location = useLocation();
   const mainRef = useRef<HTMLElement>(null);
+  const navRef = useRef<HTMLElement>(null);
   const platform = usePlatform();
 
   const [slideDirection, setSlideDirection] = useState<'slide-left' | 'slide-right' | 'fade'>('fade');
   const prevIndexRef = useRef(getTabIndex(location.pathname));
   const [navStretch, setNavStretch] = useState(1);
+  const [previewNavIndex, setPreviewNavIndex] = useState<number | null>(null);
+  const navDragRef = useRef({ startX: 0, lastIndex: getTabIndex(location.pathname), dragged: false, pressed: false });
 
   const currentStudentId = session?.user?.email?.split('@')[0] || 'guest';
 
@@ -104,6 +107,35 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
 
   const activeNavIndex = navItems.findIndex((item) => checkIsActive(location.pathname, item.match));
   const safeActiveNavIndex = activeNavIndex >= 0 ? activeNavIndex : 0;
+  const visualNavIndex = platform === 'ios' ? previewNavIndex ?? safeActiveNavIndex : safeActiveNavIndex;
+  const visualDistance = Math.abs(visualNavIndex - safeActiveNavIndex);
+  const visualStretch = previewNavIndex === null ? navStretch : Math.min(1.24, 1 + visualDistance * 0.08);
+
+  const getIndexFromClientX = (clientX: number) => {
+    const rect = navRef.current?.getBoundingClientRect();
+    if (!rect) return safeActiveNavIndex;
+
+    const x = Math.min(Math.max(clientX - rect.left, 0), rect.width - 1);
+    return Math.floor((x / rect.width) * navItems.length);
+  };
+
+  const previewNavAt = (clientX: number) => {
+    if (platform !== 'ios') return;
+
+    const index = getIndexFromClientX(clientX);
+    navDragRef.current.lastIndex = index;
+    setPreviewNavIndex(index);
+  };
+
+  const resetPreviewNav = () => {
+    if (platform !== 'ios') return;
+
+    window.setTimeout(() => {
+      setPreviewNavIndex(null);
+      navDragRef.current.dragged = false;
+      navDragRef.current.pressed = false;
+    }, 90);
+  };
 
   return (
     <div className={`mobile-app-root app-root platform-${platform} ${isLearningPath ? 'mobile-route-learning' : ''} flex h-[100dvh] w-full flex-col overflow-hidden bg-[#F8FAFC] pb-safe relative z-10`}>
@@ -118,13 +150,43 @@ export const MobileAppLayout: React.FC<MobileAppLayoutProps> = ({
 
       {showBottomNav && (
         <nav
+          ref={navRef}
           className="mobile-bottom-nav"
           style={{
-            '--active-index': safeActiveNavIndex,
-            '--active-center': `${((safeActiveNavIndex + 0.5) / navItems.length) * 100}%`,
-            '--indicator-x': `${safeActiveNavIndex * 100}%`,
-            '--liquid-stretch': navStretch,
+            '--active-index': visualNavIndex,
+            '--active-center': `${((visualNavIndex + 0.5) / navItems.length) * 100}%`,
+            '--indicator-x': `${visualNavIndex * 100}%`,
+            '--liquid-stretch': visualStretch,
           } as React.CSSProperties}
+          onPointerDown={(event) => {
+            if (platform !== 'ios') return;
+
+            navDragRef.current = {
+              startX: event.clientX,
+              lastIndex: visualNavIndex,
+              dragged: false,
+              pressed: true,
+            };
+            event.currentTarget.setPointerCapture(event.pointerId);
+            previewNavAt(event.clientX);
+          }}
+          onPointerMove={(event) => {
+            if (platform !== 'ios') return;
+
+            if (navDragRef.current.pressed && Math.abs(event.clientX - navDragRef.current.startX) > 8) {
+              navDragRef.current.dragged = true;
+            }
+            previewNavAt(event.clientX);
+          }}
+          onPointerUp={resetPreviewNav}
+          onPointerCancel={resetPreviewNav}
+          onPointerLeave={resetPreviewNav}
+          onClickCapture={(event) => {
+            if (platform === 'ios' && navDragRef.current.dragged) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          }}
           aria-label="Thanh điều hướng"
         >
           <span

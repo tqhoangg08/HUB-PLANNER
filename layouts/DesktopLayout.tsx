@@ -624,6 +624,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                                       <Link to="/handbook/plagiarism" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-violet-600 rounded-lg transition-colors group">
                                           <div className="bg-violet-100 p-1.5 rounded-lg text-violet-600 group-hover:bg-violet-600 group-hover:text-white transition-colors"><ShieldCheck size={16} /></div> Check đạo văn Turnitin
                                       </Link>
+                                      <Link to="/handbook/canva" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-sky-600 rounded-lg transition-colors group">
+                                          <div className="bg-sky-100 p-1.5 rounded-lg text-sky-600 group-hover:bg-sky-600 group-hover:text-white transition-colors"><Sparkles size={16} /></div> Canva Pro
+                                      </Link>
                                       <Link to="/handbook/feedback" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-teal-600 rounded-lg transition-colors group">
                                           <div className="bg-teal-100 p-1.5 rounded-lg text-teal-600 group-hover:bg-teal-600 group-hover:text-white transition-colors"><MessageSquarePlus size={16} /></div> Góp ý
                                       </Link>
@@ -1042,6 +1045,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           </Link>
                           <Link to="/handbook/plagiarism" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-violet-600 transition-colors">
                               <ShieldCheck size={14} /> Check đạo văn Turnitin
+                          </Link>
+                          <Link to="/handbook/canva" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-sky-600 transition-colors">
+                              <Sparkles size={14} /> Canva Pro
                           </Link>
                           <Link to="/handbook/feedback" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-teal-600 transition-colors">
                               <MessageSquarePlus size={14} /> Góp ý

@@ -12,9 +12,9 @@ import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { HANDBOOK_FAQS } from '../utils/handbookFaqs';
 
-type TabType = 'contacts' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'plagiarism' | 'about' | 'feedback' | 'donate';
+type TabType = 'contacts' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'plagiarism' | 'canva' | 'about' | 'feedback' | 'donate';
 
-const VALID_TABS: TabType[] = ['contacts', 'clubs', 'scholarships', 'regulations', 'faqs', 'plagiarism', 'about', 'feedback', 'donate'];
+const VALID_TABS: TabType[] = ['contacts', 'clubs', 'scholarships', 'regulations', 'faqs', 'plagiarism', 'canva', 'about', 'feedback', 'donate'];
 
 export const Handbook: React.FC = () => {
     const { tab } = useParams<{ tab: string }>(); 
@@ -43,6 +43,13 @@ export const Handbook: React.FC = () => {
     const [donateTurnstileToken, setDonateTurnstileToken] = useState('');
     const [donors, setDonors] = useState<any[]>([]);
     const [loadingDonors, setLoadingDonors] = useState(false);
+    const [canvaForm, setCanvaForm] = useState({ email: '', fullName: '', cohort: '', major: '' });
+    const [isCanvaContactReady, setIsCanvaContactReady] = useState(false);
+    const [isCanvaSubmitting, setIsCanvaSubmitting] = useState(false);
+    const [canvaSubmitStatus, setCanvaSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+    const [canvaTurnstileToken, setCanvaTurnstileToken] = useState('');
+    const [canvaRequestId, setCanvaRequestId] = useState<number | null>(null);
+    const [isCanvaModalOpen, setIsCanvaModalOpen] = useState(false);
 
     useEffect(() => {
         document.title = "Cẩm nang | HUB Planner";
@@ -262,6 +269,56 @@ export const Handbook: React.FC = () => {
         setCopiedId(id);
         setTimeout(() => setCopiedId(null), 2000);
     };
+
+    const handleCanvaFormSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!canvaForm.email.trim().toLowerCase().endsWith('@st.buh.edu.vn') || !canvaForm.fullName.trim() || !canvaForm.cohort.trim() || !canvaForm.major.trim()) {
+            setCanvaSubmitStatus('error');
+            return;
+        }
+
+        setIsCanvaSubmitting(true);
+        setCanvaSubmitStatus('idle');
+        try {
+            const data = await protectedSubmit<{ id?: number }>({
+                action: 'canva-pro-request',
+                turnstileToken: canvaTurnstileToken,
+                payload: {
+                    email: canvaForm.email,
+                    full_name: canvaForm.fullName,
+                    student_batch: canvaForm.cohort,
+                    major: canvaForm.major,
+                },
+            });
+            setCanvaRequestId(data?.id || null);
+            setCanvaTurnstileToken('');
+            setCanvaSubmitStatus('success');
+            setIsCanvaContactReady(true);
+            playClick();
+        } catch (error) {
+            console.error('Không thể lưu đăng ký Canva Pro:', error);
+            setCanvaSubmitStatus('error');
+            setIsCanvaContactReady(false);
+        } finally {
+            setIsCanvaSubmitting(false);
+        }
+    };
+
+    const updateCanvaForm = (field: keyof typeof canvaForm, value: string) => {
+        setCanvaForm(prev => ({ ...prev, [field]: value }));
+        setIsCanvaContactReady(false);
+        setCanvaSubmitStatus('idle');
+        setCanvaRequestId(null);
+    };
+
+    const canvaApprovalMessage = [
+        'Đăng ký Canva Pro - HUB Planner',
+        ...(canvaRequestId ? [`Mã đăng ký: #${canvaRequestId}`] : []),
+        `Email: ${canvaForm.email}`,
+        `Họ tên: ${canvaForm.fullName}`,
+        `Khóa: ${canvaForm.cohort}`,
+        `Ngành: ${canvaForm.major}`,
+    ].join('\n');
 
 const renderContent = () => {
         switch (activeTab) {
@@ -532,6 +589,193 @@ const renderContent = () => {
                             </div>
                             <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
                                 Lưu ý: Chuẩn bị file hoàn chỉnh và ghi rõ nhu cầu kiểm tra để nhận hỗ trợ nhanh hơn.
+                            </div>
+                        </div>
+                    </div>
+                );
+
+            case 'canva':
+                return (
+                    <div className="animate-fadeIn max-w-6xl mx-auto grid min-h-[620px] gap-4 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
+                        <div className="bg-white p-6 rounded-xl border border-gray-300">
+                            <div className="flex items-start gap-3">
+                                <div className="rounded-xl bg-sky-100 p-2.5 text-sky-700">
+                                    <Crown size={24} />
+                                </div>
+                                <div className="min-w-0">
+                                    <h3 className="text-lg font-black text-[#003375]">Cần Canva Pro?</h3>
+                                    <p className="mt-1 text-sm text-gray-600 leading-relaxed">
+                                        HUB Planner hỗ trợ Canva Pro, cung cấp mail HUB để sử dụng và kích hoạt theo hướng dẫn.
+                                    </p>
+                                    <p className="mt-2 text-sm text-gray-600 leading-relaxed">
+                                        Nhập thông tin bên dưới trước, sau đó liên hệ Zalo để được duyệt và hướng dẫn nhận mail HUB.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="mt-5 rounded-xl border border-sky-100 bg-sky-50/70 p-4">
+                                <h4 className="text-sm font-black text-[#003375]">Canva Pro là gì?</h4>
+                                <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                                    Canva Pro là gói thiết kế nâng cao của Canva, mở khóa nhiều mẫu, ảnh, icon, font chữ và công cụ chỉnh sửa nhanh hơn bản miễn phí.
+                                </p>
+                                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                    {[
+                                        'Làm slide thuyết trình đẹp hơn',
+                                        'Thiết kế poster, banner, CV',
+                                        'Xóa nền và chỉnh ảnh nhanh',
+                                        'Dùng kho template Pro cho bài học',
+                                    ].map((item) => (
+                                        <div key={item} className="flex items-start gap-2 text-sm font-semibold text-gray-700">
+                                            <Check size={16} className="mt-0.5 shrink-0 text-sky-700" />
+                                            <span>{item}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => { playClick(); setIsCanvaModalOpen(true); }}
+                                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#003375] px-5 py-3 text-sm font-bold text-white hover:bg-[#00265a] transition-colors"
+                            >
+                                <Crown size={18} />
+                                Đăng ký Canva Pro
+                            </button>
+
+                            {isCanvaContactReady && (
+                                <div className="mt-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+                                    Đã lưu đăng ký #{canvaRequestId}. Tiếp tục liên hệ Zalo để được duyệt.
+                                </div>
+                            )}
+
+                            <div className="mt-4 flex flex-wrap gap-2">
+                                {['Canva Pro', 'Mail HUB', 'Hỗ trợ kích hoạt'].map((item) => (
+                                    <span key={item} className="rounded-full border border-gray-300 bg-gray-50 px-3 py-1 text-xs font-bold text-sky-700">
+                                        {item}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+
+                        {isCanvaModalOpen && (
+                            <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/50 px-4 py-6">
+                                <div className="max-h-[calc(100dvh-48px)] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
+                                    <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4">
+                                        <div>
+                                            <h3 className="text-xl font-black text-[#003375]">Đăng ký Canva Pro</h3>
+                                            <p className="mt-1 text-sm text-gray-600">Nhập thông tin sinh viên để team lưu yêu cầu và duyệt qua Zalo.</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => { playClick(); setIsCanvaModalOpen(false); }}
+                                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xl font-bold text-gray-500 hover:bg-gray-200"
+                                            aria-label="Đóng"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+
+                                    <form onSubmit={handleCanvaFormSubmit} className="mt-5 space-y-4">
+                                        <div className="grid gap-4 sm:grid-cols-2">
+                                            <div>
+                                                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">Email của bạn</label>
+                                                <input type="email" required pattern="^[^@\s]+@st\.buh\.edu\.vn$" title="Vui lòng nhập email sinh viên có đuôi @st.buh.edu.vn" value={canvaForm.email} onChange={(e) => updateCanvaForm('email', e.target.value)} placeholder="mssv@st.buh.edu.vn" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-3 text-sm font-semibold text-gray-900 outline-none transition-colors focus:border-sky-500 focus:ring-2 focus:ring-sky-100" />
+                                                <p className="mt-1 text-xs font-semibold text-gray-500">Chỉ chấp nhận email sinh viên đuôi @st.buh.edu.vn.</p>
+                                            </div>
+                                            <div>
+                                                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">Họ tên</label>
+                                                <input type="text" required value={canvaForm.fullName} onChange={(e) => updateCanvaForm('fullName', e.target.value)} placeholder="Nguyễn Văn A" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-3 text-sm font-semibold text-gray-900 outline-none transition-colors focus:border-sky-500 focus:ring-2 focus:ring-sky-100" />
+                                            </div>
+                                            <div>
+                                                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">Khóa</label>
+                                                <input type="text" required value={canvaForm.cohort} onChange={(e) => updateCanvaForm('cohort', e.target.value)} placeholder="K48" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-3 text-sm font-semibold text-gray-900 outline-none transition-colors focus:border-sky-500 focus:ring-2 focus:ring-sky-100" />
+                                            </div>
+                                            <div>
+                                                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">Ngành</label>
+                                                <input type="text" required value={canvaForm.major} onChange={(e) => updateCanvaForm('major', e.target.value)} placeholder="Tài chính - Ngân hàng" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-3 text-sm font-semibold text-gray-900 outline-none transition-colors focus:border-sky-500 focus:ring-2 focus:ring-sky-100" />
+                                            </div>
+                                        </div>
+                                        {canvaSubmitStatus === 'error' && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">Không thể lưu thông tin đăng ký. Vui lòng dùng email @st.buh.edu.vn, xác minh bảo mật rồi thử lại.</div>}
+                                        {canvaSubmitStatus === 'success' && <div className="rounded-lg bg-green-50 px-3 py-2 text-sm font-semibold text-green-700">Đã lưu thông tin đăng ký. Bạn có thể sao chép thông tin và liên hệ Zalo để được duyệt.</div>}
+                                        <TurnstileBox token={canvaTurnstileToken} onTokenChange={setCanvaTurnstileToken} />
+                                        <button type="submit" disabled={isCanvaSubmitting || !canvaTurnstileToken} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#003375] px-5 py-3 text-sm font-bold text-white hover:bg-[#00265a] transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+                                            <Check size={18} />
+                                            {isCanvaSubmitting ? 'Đang lưu...' : 'Lưu thông tin đăng ký'}
+                                        </button>
+                                    </form>
+
+                                    {isCanvaContactReady && (
+                                        <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4">
+                                            <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Thông tin duyệt</p>
+                                            <pre className="mt-2 whitespace-pre-wrap rounded-lg bg-white p-3 text-xs leading-relaxed text-gray-700">{canvaApprovalMessage}</pre>
+                                            <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                                                <button type="button" onClick={() => copyToClipboard(canvaApprovalMessage, 'canva-approval')} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-sky-200 bg-white px-4 py-3 text-sm font-bold text-sky-700 hover:bg-sky-50 transition-colors">
+                                                    {copiedId === 'canva-approval' ? <Check size={18} /> : <Copy size={18} />}
+                                                    {copiedId === 'canva-approval' ? 'Đã sao chép' : 'Sao chép thông tin'}
+                                                </button>
+                                                <a href="https://zalo.me/0389342812" target="_blank" rel="noopener noreferrer" onClick={playClick} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#0068ff] px-5 py-3 text-sm font-bold text-white hover:bg-[#005be0] transition-colors">
+                                                    <Phone size={18} />
+                                                    Liên hệ Zalo để duyệt
+                                                </a>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="bg-white p-5 rounded-xl border border-gray-300">
+                            <h4 className="font-black text-gray-900">Thông tin cần gửi</h4>
+                            <div className="mt-4 space-y-3">
+                                {[
+                                    ['Email của bạn', 'Dùng để đối chiếu và trao đổi thông tin duyệt.'],
+                                    ['Họ tên', 'Ghi đúng họ tên sinh viên cần hỗ trợ Canva Pro.'],
+                                    ['Khóa & ngành', 'Cho biết khóa học và ngành đang theo học tại HUB.'],
+                                ].map(([title, desc], index) => (
+                                    <div key={title} className="flex gap-3">
+                                        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#003375] text-xs font-black text-white">
+                                            {index + 1}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-gray-900">{title}</p>
+                                            <p className="mt-0.5 text-sm leading-relaxed text-gray-600">{desc}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                        </div>
+
+                        <div className="lg:col-span-2 grid gap-4 md:grid-cols-3">
+                            <div className="rounded-xl border border-gray-300 bg-white p-5">
+                                <div className="flex items-center gap-2 text-[#003375]">
+                                    <Info size={18} />
+                                    <h4 className="font-black text-gray-900">Lưu ý</h4>
+                                </div>
+                                <p className="mt-3 text-sm leading-relaxed text-gray-600">
+                                    Mỗi bạn nên gửi đúng email sinh viên đuôi @st.buh.edu.vn để team đối chiếu nhanh và tránh cấp nhầm tài khoản.
+                                </p>
+                            </div>
+
+                            <div className="rounded-xl border border-gray-300 bg-white p-5">
+                                <div className="flex items-center gap-2 text-[#003375]">
+                                    <Check size={18} />
+                                    <h4 className="font-black text-gray-900">Thời gian xử lý</h4>
+                                </div>
+                                <p className="mt-3 text-sm leading-relaxed text-gray-600">
+                                    Yêu cầu được kiểm tra theo lượt. Sau khi lưu thông tin, hãy nhắn Zalo kèm nội dung đã sao chép để được duyệt.
+                                </p>
+                            </div>
+
+                            <div className="rounded-xl border border-gray-300 bg-white p-5">
+                                <div className="flex items-center gap-2 text-[#003375]">
+                                    <HelpCircle size={18} />
+                                    <h4 className="font-black text-gray-900">FAQ nhanh</h4>
+                                </div>
+                                <div className="mt-3 space-y-2 text-sm leading-relaxed text-gray-600">
+                                    <p><span className="font-bold text-gray-900">Có cần dùng mail HUB?</span> Có, team sẽ hướng dẫn nhận mail HUB sau khi duyệt.</p>
+                                    <p><span className="font-bold text-gray-900">Email cá nhân được không?</span> Không, chỉ nhận email sinh viên HUB.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -920,7 +1164,8 @@ const renderContent = () => {
             case 'clubs': return { title: 'CLB - Đội - Nhóm', sub: 'Hoạt động ngoại khóa & Đoàn - Hội' };
             case 'scholarships': return { title: 'Học bổng & Quy chế', sub: 'Thông tin học vụ & Chế độ' };
             case 'faqs': return { title: 'Câu hỏi thường gặp', sub: 'Hỗ trợ giải đáp (FAQs)' };
-            case 'plagiarism': return { title: 'Check đạo văn Turnitin', sub: 'Liên hệ Zalo 0389342812' };
+            case 'plagiarism': return { title: 'Check đạo văn Turnitin', sub: 'Kiểm tra tỷ lệ trùng lắp' };
+            case 'canva': return { title: 'Canva Pro', sub: 'Đăng ký tài khoản Canva' };
             case 'feedback': return { title: 'Góp ý & Phản hồi', sub: 'Đóng góp ý tưởng phát triển' };
             case 'donate': return { title: 'Ủng hộ & Tri ân', sub: 'Đồng hành cùng dự án' };
             case 'about': return { title: 'Về chúng mình', sub: 'Đội ngũ HUB Planner' };
