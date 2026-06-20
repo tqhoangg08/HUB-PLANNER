@@ -68,6 +68,14 @@ const passwordError = (password: string, confirm?: string) => {
 
 export const LoginScreen: React.FC = () => {
     const navigate = useNavigate();
+    const isMobileAppLogin = (() => {
+        if (typeof window === 'undefined') return false;
+        const params = new URLSearchParams(window.location.search);
+        const isPreview = params.get('appPreview') === '1' || params.get('preview') === '1';
+        const isStandalone = window.matchMedia?.('(display-mode: standalone)').matches
+            || (window.navigator as any).standalone === true;
+        return isPreview || isStandalone;
+    })();
     const [flow, setFlow] = useState<AuthFlow>('login');
     const [identifier, setIdentifier] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
@@ -440,7 +448,7 @@ export const LoginScreen: React.FC = () => {
                 placeholder={placeholder}
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-9 pr-10 text-[13.5px] font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.12)] lg:h-11 lg:rounded-xl lg:text-sm"
+                className={passwordInputClassName}
             />
             <button
                 type="button"
@@ -537,6 +545,30 @@ export const LoginScreen: React.FC = () => {
         </div>
     );
 
+    const backButtonClassName = isMobileAppLogin
+        ? 'fixed left-4 top-4 z-30 hidden h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3 text-sm font-bold text-slate-600 shadow-sm transition-colors hover:text-[#003B7A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)] sm:left-6 sm:top-6 lg:inline-flex'
+        : 'fixed left-4 top-4 z-30 inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3 text-sm font-bold text-slate-600 shadow-sm transition-colors hover:text-[#003B7A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)] sm:left-6 sm:top-6';
+    const mainClassName = isMobileAppLogin
+        ? 'mx-auto flex min-h-[100dvh] w-full items-stretch justify-start p-0 lg:h-[100dvh] lg:min-h-0 lg:items-center lg:justify-center lg:px-6 lg:py-6'
+        : 'mx-auto flex min-h-[100dvh] w-full items-center justify-center px-4 pb-6 pt-16 sm:px-6 lg:h-[100dvh] lg:min-h-0 lg:py-6';
+    const shellClassName = isMobileAppLogin
+        ? 'flex min-h-[100dvh] w-full flex-col lg:grid lg:h-[min(700px,calc(100dvh-96px))] lg:min-h-0 lg:max-w-6xl lg:grid-cols-[0.95fr_1.05fr] lg:overflow-hidden lg:rounded-[28px] lg:bg-white lg:shadow-[0_28px_70px_rgba(15,23,42,0.12)] lg:ring-1 lg:ring-slate-200/80'
+        : 'w-full max-w-[500px] lg:grid lg:h-[min(700px,calc(100dvh-96px))] lg:max-w-6xl lg:grid-cols-[0.95fr_1.05fr] lg:overflow-hidden lg:rounded-[28px] lg:bg-white lg:shadow-[0_28px_70px_rgba(15,23,42,0.12)] lg:ring-1 lg:ring-slate-200/80';
+    const formSectionClassName = isMobileAppLogin
+        ? '-mt-2 flex w-full flex-1 flex-col rounded-t-[20px] bg-white px-4 pb-[calc(16px+env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_28px_rgba(15,23,42,0.08)] sm:px-6 lg:mx-0 lg:mt-0 lg:h-full lg:min-h-0 lg:max-w-none lg:overflow-y-auto lg:rounded-none lg:rounded-r-[28px] lg:border-0 lg:border-l lg:border-slate-200 lg:p-6 lg:shadow-none'
+        : 'mx-auto flex w-full max-w-[500px] flex-col rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_18px_48px_rgba(15,23,42,0.08)] sm:p-6 lg:mx-0 lg:h-full lg:min-h-0 lg:max-w-none lg:overflow-y-auto lg:rounded-none lg:rounded-r-[28px] lg:border-0 lg:border-l lg:border-slate-200 lg:p-6 lg:shadow-none';
+    const authFormClassName = isMobileAppLogin
+        ? 'space-y-2 rounded-[18px] border border-slate-100 bg-slate-50/70 p-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.035)] lg:space-y-3 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none'
+        : 'space-y-3';
+    const fieldInputClassName = isMobileAppLogin
+        ? 'h-11 w-full rounded-2xl border border-slate-200 bg-white pl-9 pr-4 text-[13.5px] font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.12)] lg:h-11 lg:rounded-xl lg:text-sm'
+        : 'h-14 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-base font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.12)]';
+    const passwordInputClassName = isMobileAppLogin
+        ? 'h-11 w-full rounded-2xl border border-slate-200 bg-white pl-9 pr-10 text-[13.5px] font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.12)] lg:h-11 lg:rounded-xl lg:text-sm'
+        : 'h-14 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-12 text-base font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.12)]';
+    const tabButtonClassName = (active: boolean) =>
+        `${isMobileAppLogin ? 'h-9 rounded-[10px] text-[13px]' : 'h-11 rounded-xl text-sm'} font-semibold transition-all ${active ? 'bg-white text-[#003B7A] shadow-sm' : 'text-slate-500'}`;
+
     return (
         <div className="min-h-[100dvh] w-full overflow-x-hidden bg-[#F7F9FC] text-slate-950 lg:h-[100dvh] lg:overflow-hidden">
             <button
@@ -545,15 +577,15 @@ export const LoginScreen: React.FC = () => {
                     playClick();
                     navigate('/');
                 }}
-                className="fixed left-4 top-4 z-30 hidden h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3 text-sm font-bold text-slate-600 shadow-sm transition-colors hover:text-[#003B7A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)] sm:left-6 sm:top-6 lg:inline-flex"
+                className={backButtonClassName}
             >
                 <ArrowLeft size={17} />
                 <span>Về trang chủ</span>
             </button>
 
-            <main className="mx-auto flex min-h-[100dvh] w-full items-stretch justify-start p-0 lg:h-[100dvh] lg:min-h-0 lg:items-center lg:justify-center lg:px-6 lg:py-6">
-                <div className="flex min-h-[100dvh] w-full flex-col lg:grid lg:h-[min(700px,calc(100dvh-96px))] lg:min-h-0 lg:max-w-6xl lg:grid-cols-[0.95fr_1.05fr] lg:overflow-hidden lg:rounded-[28px] lg:bg-white lg:shadow-[0_28px_70px_rgba(15,23,42,0.12)] lg:ring-1 lg:ring-slate-200/80">
-                <section className="relative overflow-hidden bg-[#003B7A] px-4 pb-4 pt-[calc(6px+env(safe-area-inset-top))] text-white lg:hidden">
+            <main className={mainClassName}>
+                <div className={shellClassName}>
+                <section className={isMobileAppLogin ? 'relative overflow-hidden bg-[#003B7A] px-4 pb-4 pt-[calc(6px+env(safe-area-inset-top))] text-white lg:hidden' : 'hidden'}>
                     <button
                         type="button"
                         onClick={() => {
@@ -637,25 +669,37 @@ export const LoginScreen: React.FC = () => {
                     </div>
                 </section>
 
-                <section className="-mt-2 flex w-full flex-1 flex-col rounded-t-[20px] bg-white px-4 pb-[calc(16px+env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_28px_rgba(15,23,42,0.08)] sm:px-6 lg:mx-0 lg:mt-0 lg:h-full lg:min-h-0 lg:max-w-none lg:overflow-y-auto lg:rounded-none lg:rounded-r-[28px] lg:border-0 lg:border-l lg:border-slate-200 lg:p-6 lg:shadow-none">
-                    <div className="mb-3 grid grid-cols-2 rounded-xl bg-slate-50 p-0.5 ring-1 ring-slate-100">
+                <section className={formSectionClassName}>
+                    {!isMobileAppLogin && (
+                        <div className="mb-4 flex items-center gap-3 lg:hidden">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-100 bg-white shadow-sm">
+                                <img src="/logo.png" alt="HUB Planner" className="h-8 w-8 object-contain" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-black text-[#003B7A]">HUB Planner</p>
+                                <p className="text-xs font-semibold text-slate-500">TÃ i khoáº£n sinh viÃªn HUB</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className={`mb-3 grid grid-cols-2 bg-slate-50 p-0.5 ring-1 ring-slate-100 ${isMobileAppLogin ? 'rounded-xl' : 'rounded-2xl'}`}>
                         <button
                             type="button"
                             onClick={() => switchFlow('login')}
-                            className={`h-9 rounded-[10px] text-[13px] font-semibold transition-all ${flow === 'login' ? 'bg-white text-[#003B7A]' : 'text-slate-500'}`}
+                            className={tabButtonClassName(flow === 'login')}
                         >
                             Đăng nhập
                         </button>
                         <button
                             type="button"
                             onClick={() => switchFlow('register')}
-                            className={`h-9 rounded-[10px] text-[13px] font-semibold transition-all ${flow === 'register' ? 'bg-white text-[#003B7A]' : 'text-slate-500'}`}
+                            className={tabButtonClassName(flow === 'register')}
                         >
                             Đăng ký
                         </button>
                     </div>
 
-                    <div className="mb-2.5 lg:hidden">
+                    <div className={isMobileAppLogin ? 'mb-2.5 lg:hidden' : 'hidden'}>
                         <h2 className="text-[20px] font-bold leading-tight tracking-normal text-slate-950">
                             {isRecoveryMode ? 'Đặt mật khẩu mới' : otpState ? 'Nhập mã OTP' : flow === 'login' ? 'Vào HUB Planner' : 'Bắt đầu với HUB'}
                         </h2>
@@ -670,7 +714,7 @@ export const LoginScreen: React.FC = () => {
                         </p>
                     </div>
 
-                    <div className="mb-4 hidden lg:block">
+                    <div className={isMobileAppLogin ? 'mb-4 hidden lg:block' : 'mb-4'}>
                         <h2 className="text-[25px] font-black leading-tight tracking-normal text-slate-950 sm:text-[28px]">
                             {isRecoveryMode ? '\u0110\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u' : otpState ? 'X\u00e1c nh\u1eadn OTP' : flow === 'login' ? 'Ch\u00e0o m\u1eebng tr\u1edf l\u1ea1i' : 'T\u1ea1o t\u00e0i kho\u1ea3n HUB'}
                         </h2>
@@ -698,7 +742,7 @@ export const LoginScreen: React.FC = () => {
                         </div>
                     )}
 
-                    {flow === 'login' && !isRecoveryMode && !otpState && (
+                    {isMobileAppLogin && flow === 'login' && !isRecoveryMode && !otpState && (
                         <div className="mb-2.5 lg:hidden">
                             <p className="mb-1.5 text-[12.5px] font-semibold text-slate-500">
                                 Đăng nhập nhanh
@@ -721,7 +765,7 @@ export const LoginScreen: React.FC = () => {
                     )}
 
                     {isRecoveryMode ? (
-                        <form onSubmit={handleRecoveryPasswordUpdate} className="space-y-2 rounded-[18px] border border-slate-100 bg-slate-50/70 p-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.035)] lg:space-y-3 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+                        <form onSubmit={handleRecoveryPasswordUpdate} className={authFormClassName}>
                             <div>
                                 <label htmlFor="recovery-password" className="mb-1.5 block text-sm font-bold text-slate-700">Mật khẩu mới</label>
                                 {renderPasswordInput('recovery-password', recoveryPassword, setRecoveryPassword, showRecoveryPassword, setShowRecoveryPassword, 'Nhập mật khẩu mới')}
@@ -742,7 +786,7 @@ export const LoginScreen: React.FC = () => {
                             </button>
                         </form>
                     ) : flow === 'login' && !otpState ? (
-                        <form onSubmit={handlePasswordLogin} className="space-y-2 rounded-[18px] border border-slate-100 bg-slate-50/70 p-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.035)] lg:space-y-3 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+                        <form onSubmit={handlePasswordLogin} className={authFormClassName}>
                             <div>
                                 <label htmlFor="login-identifier" className="mb-1 block text-[12.5px] font-semibold text-slate-700 lg:text-sm lg:font-bold">Tài khoản</label>
                                 <div className="relative">
@@ -754,7 +798,7 @@ export const LoginScreen: React.FC = () => {
                                         placeholder={`MSSV hoặc Gmail HUB`}
                                         value={identifier}
                                         onChange={(e) => setIdentifier(e.target.value)}
-                                        className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-9 pr-4 text-[13.5px] font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.12)] lg:h-11 lg:rounded-xl lg:text-sm"
+                                        className={fieldInputClassName}
                                     />
                                 </div>
                             </div>
@@ -788,7 +832,7 @@ export const LoginScreen: React.FC = () => {
                             </button>
                         </form>
                     ) : otpState ? (
-                        <form onSubmit={handleVerifyOtp} className="space-y-2 rounded-[18px] border border-slate-100 bg-slate-50/70 p-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.035)] lg:space-y-3 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+                        <form onSubmit={handleVerifyOtp} className={authFormClassName}>
                             <div>
                                 <label htmlFor="register-otp" className="mb-1.5 block text-sm font-bold text-slate-700">Mã OTP</label>
                                 <input
@@ -844,7 +888,7 @@ export const LoginScreen: React.FC = () => {
                             </button>
                         </form>
                     ) : (
-                        <form onSubmit={handleRegister} className="space-y-2 rounded-[18px] border border-slate-100 bg-slate-50/70 p-2.5 shadow-[0_6px_18px_rgba(15,23,42,0.035)] lg:space-y-3 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+                        <form onSubmit={handleRegister} className={authFormClassName}>
                             <div>
                                 <label htmlFor="register-email" className="mb-1 block text-[12.5px] font-semibold text-slate-700 lg:text-sm lg:font-bold">Tài khoản</label>
                                 <div className="relative">
@@ -856,7 +900,7 @@ export const LoginScreen: React.FC = () => {
                                         placeholder="Nhập Gmail sinh viên HUB"
                                         value={registerEmail}
                                         onChange={(e) => setRegisterEmail(e.target.value)}
-                                        className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-9 pr-4 text-[13.5px] font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.12)] lg:h-11 lg:rounded-xl lg:text-sm"
+                                        className={fieldInputClassName}
                                     />
                                 </div>
                             </div>
@@ -919,11 +963,11 @@ export const LoginScreen: React.FC = () => {
                     )}
 
                     {!isRecoveryMode && !otpState && (
-                        <div className={flow === 'login' ? 'hidden lg:block lg:mt-4' : 'mt-4'}>
-                            <p className="mb-1.5 text-[12.5px] font-semibold text-slate-500 lg:hidden">
+                        <div className={isMobileAppLogin ? (flow === 'login' ? 'hidden lg:block lg:mt-4' : 'mt-4') : 'mt-4'}>
+                            <p className={isMobileAppLogin ? 'mb-1.5 text-[12.5px] font-semibold text-slate-500 lg:hidden' : 'hidden'}>
                                 {flow === 'register' ? 'Đăng ký nhanh' : 'Đăng nhập nhanh'}
                             </p>
-                            <div className="mb-4 hidden items-center gap-3 text-xs font-semibold uppercase tracking-normal text-slate-400 lg:flex">
+                            <div className={isMobileAppLogin ? 'mb-4 hidden items-center gap-3 text-xs font-semibold uppercase tracking-normal text-slate-400 lg:flex' : 'mb-4 flex items-center gap-3 text-xs font-semibold uppercase tracking-normal text-slate-400'}>
                                 <span className="h-px flex-1 bg-slate-200" />
                                 hoặc
                                 <span className="h-px flex-1 bg-slate-200" />

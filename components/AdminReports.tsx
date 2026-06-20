@@ -302,20 +302,19 @@ export const AdminReports: React.FC = () => {
     };
 
     return (
-        <div className="mobile-page w-full min-h-[100dvh] bg-[#E8ECF4] md:min-h-full md:bg-transparent">
-            <div className="mx-auto min-h-[100dvh] w-full max-w-[430px] bg-[#F2F4F8] px-6 pb-[calc(110px+env(safe-area-inset-bottom))] text-[#0D1B3E] md:min-h-full md:max-w-none md:bg-transparent md:px-0 md:pb-10">
-            <div className="h-[calc(env(safe-area-inset-top)+16px)] shrink-0 md:hidden" aria-hidden="true" />
+        <div className="w-full min-h-full bg-transparent">
+            <div className="min-h-full w-full pb-10 text-[#0D1B3E]">
         <div className="animate-fadeIn">
             {/* Header tinh gọn lại trên Mobile */}
-            <div className="relative z-40 mb-4 bg-transparent pb-0 pt-1 md:sticky md:top-0 md:-mt-2 md:mb-5 md:border-b md:border-gray-200/60 md:bg-[#F8FAFC] md:pb-4 md:shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)]">
-                <h2 className="mb-1 text-[30px] font-black leading-[1.08] tracking-normal text-[#0D1B3E] md:text-[28px] md:text-[#003375]">
+            <div className="relative z-40 mb-5 border-b border-gray-200/60 bg-[#F8FAFC] pb-4 pt-1 shadow-[0_4px_6px_-6px_rgba(0,0,0,0.1)] md:sticky md:top-0 md:-mt-2">
+                <h2 className="mb-1 text-2xl font-black leading-tight tracking-normal text-[#003375] sm:text-[28px]">
                     Xử lý báo cáo
                 </h2>
                 <p className="text-[13px] font-semibold leading-snug text-[#7B8AB0] md:text-sm md:text-gray-500">Quản lý phản hồi, lỗi hệ thống và đơn xin CTV.</p>
             </div>
 
             {/* Menu Tabs: Chuyển sang dạng cuộn ngang (Horizontal Scroll) */}
-            <div className="-mx-6 mb-4 flex gap-2 overflow-x-auto px-6 pb-1 no-scrollbar md:mx-0 md:px-0">
+            <div className="mb-4 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                 {tabs.map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeTab === tab.id;
@@ -323,10 +322,10 @@ export const AdminReports: React.FC = () => {
                         <button
                             key={tab.id}
                             onClick={() => { playClick(); setActiveTab(tab.id); }}
-                            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[11px] font-black shadow-[0_2px_10px_rgba(13,27,62,0.04)] transition-all md:rounded-xl md:border ${
+                            className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold transition-all ${
                                 isActive 
-                                ? 'bg-[#1A56FF] text-white shadow-[0_6px_16px_rgba(26,86,255,0.25)] md:ring-1 md:ring-current/20'
-                                : 'bg-white text-[#7B8AB0] md:border-gray-200 md:text-gray-500 md:hover:bg-gray-50 md:hover:text-gray-700'
+                                ? 'bg-[#003375] text-white border-[#003375]'
+                                : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700'
                             }`}
                         >
                             <Icon size={16} className={isActive ? '' : 'opacity-70'} />
@@ -337,12 +336,12 @@ export const AdminReports: React.FC = () => {
             </div>
 
             {/* Bảng dữ liệu / Danh sách Cards */}
-            <div className="rounded-[20px] bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)] md:rounded-xl md:bg-gray-50/50 md:p-1 md:shadow-none">
-                <div className="mb-3 flex items-center justify-between gap-3 md:mb-4 md:px-2">
-                    <h3 className="flex min-w-0 items-center gap-2 truncate text-[16px] font-black text-[#0D1B3E] md:text-lg md:text-gray-800">
+            <div className="rounded-xl bg-gray-50/50 p-1">
+                <div className="mb-4 flex items-center justify-between gap-3 px-2">
+                    <h3 className="flex min-w-0 items-center gap-2 truncate text-lg font-black text-gray-800">
                         {tabs.find(t => t.id === activeTab)?.label}
                     </h3>
-                    <div className="shrink-0 rounded-full bg-[#F6F8FC] px-3 py-1 text-[11px] font-black text-[#7B8AB0] md:border md:border-gray-200 md:bg-white md:text-xs md:text-gray-500 md:shadow-sm">
+                    <div className="shrink-0 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-black text-gray-500 shadow-sm">
                         Tổng cộng: {totalReports}
                     </div>
                 </div>

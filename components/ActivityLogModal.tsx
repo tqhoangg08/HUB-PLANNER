@@ -430,23 +430,22 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
     }, [visibleLogs]);
 
     const content = (
-        <div className={onClose ? 'bg-white w-full max-w-7xl h-[90vh] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-scaleIn border border-gray-200' : 'mobile-page w-full min-h-[100dvh] bg-[#E8ECF4] md:min-h-full md:bg-transparent'}>
-            <div className={onClose ? 'contents' : 'mx-auto min-h-[100dvh] w-full max-w-[430px] bg-[#F2F4F8] px-6 pb-[calc(110px+env(safe-area-inset-bottom))] text-[#0D1B3E] md:min-h-full md:max-w-none md:bg-transparent md:px-0 md:pb-0'}>
-                {!onClose && <div className="h-[calc(env(safe-area-inset-top)+16px)] shrink-0 md:hidden" aria-hidden="true" />}
-            <div className={`${onClose ? 'bg-[#003375] p-4 text-white' : 'mb-4 pt-1 pb-0 md:mb-2.5 md:pb-4'} flex items-start justify-between gap-3`}>
+        <div className={onClose ? 'bg-white w-full max-w-7xl h-[90vh] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-scaleIn border border-gray-200' : 'w-full min-h-full bg-transparent'}>
+            <div className={onClose ? 'contents' : 'min-h-full w-full pb-0 text-[#0D1B3E]'}>
+            <div className={`${onClose ? 'bg-[#003375] p-4 text-white' : 'mb-2.5 border-b border-slate-200 pb-4 pt-1'} flex items-start justify-between gap-3`}>
                 <div>
-                    <h1 className={`${onClose ? 'text-lg text-white' : 'text-[30px] leading-[1.08] tracking-normal text-[#0D1B3E] md:text-[28px] md:text-[#003375]'} font-black flex items-center gap-2`}>
-                        <Activity size={22} className={onClose ? 'text-blue-100' : 'text-[#1A56FF] md:text-[#003375]'} />
+                    <h1 className={`${onClose ? 'text-lg text-white' : 'text-2xl leading-tight tracking-normal text-[#003375] sm:text-[28px]'} font-black flex items-center gap-2`}>
+                        <Activity size={22} className={onClose ? 'text-blue-100' : 'text-[#003375]'} />
                         Nhật ký hoạt động
                     </h1>
-                    <p className={`${onClose ? 'text-blue-100' : 'text-[#7B8AB0] md:text-slate-500'} mt-1 text-[13px] font-semibold leading-snug md:text-sm md:font-normal`}>
+                    <p className={`${onClose ? 'text-blue-100' : 'text-slate-500'} mt-1 text-sm leading-snug`}>
                         Theo dõi đăng nhập, điều hướng và thao tác nghiệp vụ của Admin/Auditor.
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => { playClick(); fetchLogs(); }}
-                        className={`${onClose ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-white text-[#0D1B3E] shadow-[0_2px_10px_rgba(13,27,62,0.08)] md:border md:border-slate-200 md:text-slate-700 md:shadow-none md:hover:bg-slate-50'} rounded-[14px] px-3 py-2 text-sm font-bold transition-colors flex items-center gap-2 md:rounded-lg`}
+                        className={`${onClose ? 'bg-white/10 text-white hover:bg-white/20' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'} rounded-lg px-3 py-2 text-sm font-bold transition-colors flex items-center gap-2`}
                     >
                         <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
                         Tải lại
@@ -461,23 +460,23 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
 
             <div className={`${onClose ? 'flex-1 overflow-auto bg-[#F8FAFC] p-4' : ''}`}>
                 <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
-                    <div className="rounded-[20px] border border-transparent bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)] md:rounded-lg md:border-slate-200 md:p-3 md:shadow-none">
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
                         <p className="text-xs font-bold uppercase text-slate-500">7 ngày</p>
                         <p className="mt-1 text-2xl font-black text-slate-950">{summary.sevenDays}</p>
                     </div>
-                    <div className="rounded-[20px] border border-transparent bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)] md:rounded-lg md:border-slate-200 md:p-3 md:shadow-none">
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
                         <p className="text-xs font-bold uppercase text-slate-500">30 ngày</p>
                         <p className="mt-1 text-2xl font-black text-slate-950">{summary.thirtyDays}</p>
                     </div>
-                    <div className="rounded-[20px] border border-transparent bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)] md:rounded-lg md:border-slate-200 md:p-3 md:shadow-none">
+                    <div className="rounded-lg border border-slate-200 bg-white p-3">
                         <p className="text-xs font-bold uppercase text-slate-500">Lỗi</p>
                         <p className="mt-1 text-2xl font-black text-red-700">{summary.errors}</p>
                     </div>
-                    <div className="col-span-2 rounded-[20px] border border-transparent bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)] md:col-span-1 md:rounded-lg md:border-slate-200 md:p-3 md:shadow-none">
+                    <div className="col-span-2 rounded-lg border border-slate-200 bg-white p-3 lg:col-span-1">
                         <p className="text-xs font-bold uppercase text-slate-500">Hoạt động gần nhất</p>
                         <p className="mt-2 text-sm font-bold text-slate-800">{summary.latest}</p>
                     </div>
-                    <div className="col-span-2 rounded-[20px] border border-transparent bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)] md:col-span-1 md:rounded-lg md:border-slate-200 md:p-3 md:shadow-none">
+                    <div className="col-span-2 rounded-lg border border-slate-200 bg-white p-3 lg:col-span-1">
                         <p className="text-xs font-bold uppercase text-slate-500">Admin/Auditor nổi bật</p>
                         <p className="mt-2 truncate text-sm font-bold text-[#003375]" title={summary.topUser?.[0]}>
                             {summary.topUser ? `${summary.topUser[0]} (${summary.topUser[1]})` : '-'}
@@ -485,7 +484,7 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
                     </div>
                 </div>
 
-                <div className="mb-4 rounded-[20px] border border-transparent bg-white p-4 shadow-[0_2px_14px_rgba(13,27,62,0.06)] md:rounded-lg md:border-slate-200 md:p-3 md:shadow-none">
+                <div className="mb-4 rounded-lg border border-slate-200 bg-white p-3">
                     <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-800">
                         <Filter size={16} /> Bộ lọc
                     </div>
@@ -538,7 +537,7 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
                         </div>
                     ) : (
                         <>
-                        <div className="space-y-3 md:hidden">
+                        <div className="hidden">
                             {pageLogs.map(log => {
                                 const device = parseDevice(log.device_info);
                                 const expanded = expandedId === log.id;
@@ -594,7 +593,7 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
                                 </div>
                             )}
                         </div>
-                        <div className="hidden overflow-auto md:block">
+                        <div className="overflow-auto">
                             <table className="min-w-[980px] w-full border-collapse text-left text-sm">
                                 <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                                     <tr>

@@ -1955,20 +1955,25 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 {/* CỘT TRÁI: SIDEBAR FILTER */}
                 <div className={`w-full lg:w-[300px] bg-white rounded-xl border border-gray-300 flex flex-col shrink-0 overflow-hidden transition-all ${searchTerm.trim() ? 'h-[450px]' : 'h-auto'} lg:h-full`}>
                     <div className="p-3 sm:p-4 border-b border-gray-200 flex justify-between items-center bg-[#f8fafc]">
-                        <h2 className="text-base font-bold text-[#003375] flex items-center gap-2"><Search size={18} className="text-[#990000]" /> Tìm kiếm & Lọc</h2>
+                        <h2 className="text-sm sm:text-base font-bold text-[#003375] flex items-center gap-2"><Search size={16} className="text-[#003375]" /> Bộ lọc</h2>
                         {isSyncing ? ( <Loader2 size={16} className="text-blue-500 animate-spin" /> ) : ( <button onClick={fetchCourses} className="text-gray-400 hover:text-[#003375] transition-colors" title="Làm mới"><RefreshCw size={14}/></button> )}
                     </div>
                     
-                    <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 border-b border-gray-200">
-                        <div className="flex gap-2">
+                    <div className="p-3 sm:p-4 space-y-2.5 sm:space-y-3 border-b border-gray-200">
+                        <div className="relative">
+                            <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-12 w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 text-sm outline-none transition-all hover:border-gray-400 focus:border-[#003375] focus:ring-1 focus:ring-[#003375] disabled:bg-gray-50 disabled:cursor-not-allowed"/>
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                        </div>
+
+                        <div className="grid grid-cols-[1fr_0.72fr] gap-2">
                             <div className="flex-1">
-                                <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="w-full px-3 py-2 sm:py-2.5 rounded-lg border border-gray-300 outline-none text-sm font-bold text-[#003375] bg-white hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
+                                <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm font-bold text-[#003375] outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
                                     <option value="HK2_2025_2026">HK2 (2025-2026)</option>
                                     <option value="HK1_2025_2026">HK1 (2025-2026)</option>
                                 </select>
                             </div>
-                            <div className="w-[35%]">
-                                <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="w-full px-3 py-2 sm:py-2.5 rounded-lg border border-gray-300 outline-none text-sm font-bold text-gray-700 bg-white hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
+                            <div className="min-w-0">
+                                <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
                                     <option value="all">Mọi đợt</option>
                                     <option value="1">Đợt 1</option>
                                     <option value="2">Đợt 2</option>
@@ -1976,17 +1981,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             </div>
                         </div>
 
-                        <div className="relative">
-                            <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 sm:py-2.5 rounded-lg border border-gray-300 outline-none text-sm transition-all hover:border-gray-400 focus:border-[#003375] focus:ring-1 focus:ring-[#003375] disabled:bg-gray-50 disabled:cursor-not-allowed"/>
-                            <Search className="absolute left-3 top-2.5 sm:top-3 text-gray-400" size={16} />
-                        </div>
-
                         <div className="flex gap-2">
-                            <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] sm:text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><AlertTriangle size={14} /> Báo lỗi môn</button>
-                            <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><BookPlus size={14} /> Yêu cầu thêm</button>
+                            <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }} className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg text-[11px] sm:text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><AlertTriangle size={14} /> Báo lỗi môn</button>
+                            <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg text-[11px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><BookPlus size={14} /> Yêu cầu thêm</button>
                         </div>
 
-                        <button disabled={!isAuthenticated || isProcessingPdf} onClick={() => setIsPdfGuideOpen(true)} className="w-full flex items-center justify-center gap-2 p-2.5 mt-2 rounded-lg bg-[#003375] text-white hover:bg-[#002855] font-bold text-sm transition-all active:scale-95 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed">
+                        <button disabled={!isAuthenticated || isProcessingPdf} onClick={() => setIsPdfGuideOpen(true)} className="w-full flex h-11 items-center justify-center gap-2 rounded-lg bg-[#003375] text-white hover:bg-[#002855] font-bold text-sm transition-all active:scale-95 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed">
                             {isProcessingPdf ? <Loader2 className="animate-spin" size={16} /> : <FileUp size={16} />} {isProcessingPdf ? 'Đang phân tích PDF...' : 'Nhập TKB từ PDF'}
                         </button>
                         <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload} />

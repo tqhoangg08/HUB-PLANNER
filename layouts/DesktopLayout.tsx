@@ -807,7 +807,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
     <main
         className={
             isMobileBrowser
-                          ? "desktop-page-main w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-0 pt-2 min-h-0 flex flex-col"
+                          ? "desktop-page-main w-full max-w-[1600px] mx-auto px-2 sm:px-6 lg:px-8 pb-0 pt-2 min-h-0 flex flex-col"
                 : isEventCandidatesPage
                 ? "desktop-page-main w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-4 pt-0 sm:pt-1 min-h-full flex flex-col"
                 : "desktop-page-main w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-6 pt-2 sm:pt-3 min-h-full flex flex-col"
