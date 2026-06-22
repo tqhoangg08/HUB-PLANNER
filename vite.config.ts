@@ -188,7 +188,7 @@ export default defineConfig(({ mode }) => {
           }
         ],
 
-        // 👈 ĐÃ FIX Ở ĐÂY: Thêm https:// và bỏ dấu *
+        // Fix: thêm https:// và bỏ dấu *
         scope_extensions: [
           { origin: "https://hotrosinhvienhub.id.vn" }
         ],
@@ -209,12 +209,19 @@ export default defineConfig(({ mode }) => {
             short_name: "Tìm đồ",
             url: "/lost-found",
             icons: [{ src: "/logo192.png", sizes: "192x192" }]
+          },
+          {
+            name: "Hỗ trợ",
+            short_name: "Hỗ trợ",
+            description: "Tạo ticket hỗ trợ trực tiếp với admin",
+            url: "/support",
+            icons: [{ src: "/logo192.png", sizes: "192x192" }]
           }
         ],
         share_target: {
           action: "/dashboard",
           method: "GET",
-          // 👈 ĐÃ FIX Ở ĐÂY: Khai báo rõ định dạng mã hóa để trình duyệt không nhắc nhở nữa
+          // Khai báo rõ định dạng mã hóa để trình duyệt không nhắc nhở nữa
           enctype: "application/x-www-form-urlencoded",
           params: { title: "title", text: "text", url: "url" }
         },

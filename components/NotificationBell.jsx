@@ -14,13 +14,21 @@ import { setRuntimeStyleRule } from '../utils/runtimeStyles';
 import { FEATURE_SCHEDULE_REMINDERS } from '../utils/featureFlags';
 
 const notificationStreams = new Map();
+const isDev = import.meta.env.DEV;
 
 const countUnread = (items) => items.filter((item) => !item.is_read).length;
+
+const logNotificationPayload = (queryName, data) => {
+  if (!isDev) return;
+  const rows = Array.isArray(data) ? data.length : data ? 1 : 0;
+  const bytes = new Blob([JSON.stringify(data ?? null)]).size;
+  console.info(`[notification-query] ${queryName}`, { rows, bytes });
+};
 
 const emitNotificationStream = (stream) => {
   const snapshot = {
     notifications: stream.notifications,
-    unreadCount: countUnread(stream.notifications),
+    unreadCount: stream.notificationsLoaded ? countUnread(stream.notifications) : stream.unreadCount,
   };
 
   stream.listeners.forEach((listener) => listener(snapshot));
@@ -39,13 +47,16 @@ const fetchNotificationStream = (stream) => {
 
   stream.fetchPromise = supabase
     .from('notifications')
-    .select('*, actor:profiles!actor_id(full_name, avatar_url, student_code)')
+    .select('id,receiver_id,actor_id,type,content,link,is_read,created_at,actor:profiles!actor_id(full_name,avatar_url,student_code)')
     .eq('receiver_id', stream.userId)
     .order('created_at', { ascending: false })
     .limit(20)
     .then(({ data }) => {
       if (data) {
+        logNotificationPayload('notification_list', data);
         stream.notifications = data;
+        stream.notificationsLoaded = true;
+        stream.unreadCount = countUnread(data);
         emitNotificationStream(stream);
       }
     })
@@ -54,6 +65,26 @@ const fetchNotificationStream = (stream) => {
     });
 
   return stream.fetchPromise;
+};
+
+const fetchNotificationUnreadCount = (stream) => {
+  if (stream.unreadFetchPromise) return stream.unreadFetchPromise;
+
+  stream.unreadFetchPromise = supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('receiver_id', stream.userId)
+    .eq('is_read', false)
+    .then(({ count }) => {
+      logNotificationPayload('notification_unread_count', { count: count || 0 });
+      stream.unreadCount = count || 0;
+      emitNotificationStream(stream);
+    })
+    .finally(() => {
+      stream.unreadFetchPromise = null;
+    });
+
+  return stream.unreadFetchPromise;
 };
 
 const ensureNotificationChannel = (stream) => {
@@ -70,6 +101,12 @@ const ensureNotificationChannel = (stream) => {
         filter: `receiver_id=eq.${stream.userId}`,
       },
       async (payload) => {
+        if (!stream.notificationsLoaded) {
+          if (!payload.new.is_read) stream.unreadCount += 1;
+          emitNotificationStream(stream);
+          return;
+        }
+
         let actorData = null;
 
         if (payload.new.actor_id) {
@@ -98,18 +135,21 @@ const subscribeToNotificationStream = (userId, listener) => {
     stream = {
       userId,
       notifications: [],
+      notificationsLoaded: false,
+      unreadCount: 0,
       listeners: new Set(),
       subscribers: 0,
       channel: null,
       fetchPromise: null,
+      unreadFetchPromise: null,
     };
     notificationStreams.set(userId, stream);
   }
 
   stream.subscribers += 1;
   stream.listeners.add(listener);
-  listener({ notifications: stream.notifications, unreadCount: countUnread(stream.notifications) });
-  fetchNotificationStream(stream);
+  listener({ notifications: stream.notifications, unreadCount: stream.notificationsLoaded ? countUnread(stream.notifications) : stream.unreadCount });
+  fetchNotificationUnreadCount(stream);
   ensureNotificationChannel(stream);
 
   return () => {
@@ -121,6 +161,12 @@ const subscribeToNotificationStream = (userId, listener) => {
       notificationStreams.delete(userId);
     }
   };
+};
+
+const hydrateNotificationStream = (userId) => {
+  const stream = notificationStreams.get(userId);
+  if (!stream) return Promise.resolve();
+  return fetchNotificationStream(stream);
 };
 
 const NotificationBell = ({ currentUserId }) => {
@@ -277,6 +323,7 @@ const NotificationBell = ({ currentUserId }) => {
   useEffect(() => {
     if (!isOpen) return;
 
+    if (currentUserId) void hydrateNotificationStream(currentUserId);
     updatePanelPosition();
     window.addEventListener('resize', updatePanelPosition);
     window.addEventListener('scroll', updatePanelPosition, true);

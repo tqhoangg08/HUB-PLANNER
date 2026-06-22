@@ -531,13 +531,24 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                                     ) : ( <p>{msg.content}</p> )}
                                     </div>
                                     {msg.role === 'assistant' && (
-                                        <div className="flex gap-2 mt-1.5 ml-2 opacity-40 hover:opacity-100 transition-opacity">
-                                            <button onClick={() => handleRate(idx, true)} className={`p-1.5 rounded-full hover:bg-gray-200 transition ${msg.rating === 'up' ? 'text-green-600 bg-green-50' : 'text-gray-500'}`}>
-                                                <ThumbsUp size={14} className={msg.rating === 'up' ? 'fill-current' : ''} />
-                                            </button>
-                                            <button onClick={() => handleRate(idx, false)} className={`p-1.5 rounded-full hover:bg-gray-200 transition ${msg.rating === 'down' ? 'text-red-600 bg-red-50' : 'text-gray-500'}`}>
-                                                <ThumbsDown size={14} className={msg.rating === 'down' ? 'fill-current' : ''} />
-                                            </button>
+                                        <div className="ml-2 mt-1.5 flex flex-wrap items-center gap-2">
+                                            <div className="flex gap-2 opacity-40 transition-opacity hover:opacity-100">
+                                                <button onClick={() => handleRate(idx, true)} className={`p-1.5 rounded-full hover:bg-gray-200 transition ${msg.rating === 'up' ? 'text-green-600 bg-green-50' : 'text-gray-500'}`}>
+                                                    <ThumbsUp size={14} className={msg.rating === 'up' ? 'fill-current' : ''} />
+                                                </button>
+                                                <button onClick={() => handleRate(idx, false)} className={`p-1.5 rounded-full hover:bg-gray-200 transition ${msg.rating === 'down' ? 'text-red-600 bg-red-50' : 'text-gray-500'}`}>
+                                                    <ThumbsDown size={14} className={msg.rating === 'down' ? 'fill-current' : ''} />
+                                                </button>
+                                            </div>
+                                            {userId && (
+                                                <Link
+                                                    to="/support/new"
+                                                    onClick={() => { playClick(); setIsOpen(false); }}
+                                                    className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-bold text-[#003375] transition hover:bg-blue-100"
+                                                >
+                                                    Chưa hài lòng? Tạo ticket admin hỗ trợ trực tiếp
+                                                </Link>
+                                            )}
                                         </div>
                                     )}
                                 </div>

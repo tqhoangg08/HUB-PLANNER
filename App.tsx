@@ -27,8 +27,11 @@ import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
 import { AdminReports } from './components/AdminReports';
 import { AdminEventCandidates } from './components/AdminEventCandidates';
+import { AdminSupportTickets } from './components/AdminSupportTickets';
 import { AIAdvisor } from './components/AIAdvisor';
+import { FloatingSupportTab } from './components/FloatingSupportTab';
 import { MobileAIAdvisor } from './components/MobileAIAdvisor';
+import { SupportTickets } from './components/SupportTickets';
 import { ACADEMIC_PROGRAMS, Program, Major, Specialization, getMajors } from './utils/programs';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileAppLayout } from './layouts/MobileAppLayout';
@@ -2132,12 +2135,17 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/events/edit/:eventId" element={<EventsBoard viewUserId={viewingUser?.id} />} />
                 <Route path="/events/:eventId" element={<EventsBoard viewUserId={viewingUser?.id} />} />
                 <Route path="/lost-found" element={<LostFoundBoard />} />
+                <Route path="/support" element={<SupportTickets />} />
+                <Route path="/support/new" element={<SupportTickets />} />
+                <Route path="/support/:ticketId" element={<SupportTickets />} />
                 <Route path="/handbook/:tab?" element={<Handbook />} />
 
                 <Route path="/profile/:id" element={<ProfilePage refreshKey={profileRefreshKey} onEditProfile={() => setShowAccountSettings(true)} />} />
                 <Route path="/profiles/search" element={<ProfileSearchPage />} />
 
                 <Route path="/admin-reports" element={(isAdmin || isAuditor) ? <AdminReports /> : <Navigate to="/dashboard" replace />} />
+                <Route path="/admin/support" element={(isAdmin || isAuditor) ? <AdminSupportTickets /> : <Navigate to="/dashboard" replace />} />
+                <Route path="/admin/support/:ticketId" element={(isAdmin || isAuditor) ? <AdminSupportTickets /> : <Navigate to="/dashboard" replace />} />
                 <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/dashboard" replace />} />
                 <Route path="/admin/event-candidates" element={(isAdmin || isAuditor) ? <AdminEventCandidates /> : <Navigate to="/dashboard" replace />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -2153,11 +2161,16 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/events/edit/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/events/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/lost-found" element={<MobileLostFound />} />
+                <Route path="/support" element={<SupportTickets />} />
+                <Route path="/support/new" element={<SupportTickets />} />
+                <Route path="/support/:ticketId" element={<SupportTickets />} />
                 <Route path="/handbook/:tab?" element={<MobileHandbook />} />
                 <Route path="/handbook" element={<MobileHandbook />} />
                 <Route path="/terms" element={<MobileHandbook forcedTab="terms" />} />
                 <Route path="/privacy" element={<MobileHandbook forcedTab="privacy" />} />
                 <Route path="/admin-reports" element={(isAdmin || isAuditor) ? <AdminReports /> : <Navigate to="/mobile-home" replace />} />
+                <Route path="/admin/support" element={(isAdmin || isAuditor) ? <AdminSupportTickets /> : <Navigate to="/mobile-home" replace />} />
+                <Route path="/admin/support/:ticketId" element={(isAdmin || isAuditor) ? <AdminSupportTickets /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/event-candidates" element={(isAdmin || isAuditor) ? <AdminEventCandidates /> : <Navigate to="/mobile-home" replace />} />
 
@@ -2876,6 +2889,13 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 </LayoutComponent>
 
                 {commonModals}
+                <FloatingSupportTab
+                    currentUserId={session?.user?.id || null}
+                    isGuest={isGuest}
+                    isAdmin={isAdmin}
+                    isAuditor={isAuditor}
+                    isMobileLayout={useMobileLayout || isMobileScreen}
+                />
                 {passwordSetupSchemaMissing && !isPrivilegedUser && (
                     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/65 p-4">
                         <div className="w-full max-w-md rounded-[24px] border border-amber-200 bg-white p-6 shadow-2xl sm:p-8">

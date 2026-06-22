@@ -665,13 +665,24 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                                 </div>
                                 
                                 {msg.role === 'assistant' && (
-                                    <div className="flex gap-2 mt-1 ml-1">
-                                        <button onClick={() => handleRate(idx, true)} className={`p-1.5 rounded-full active:bg-gray-200 transition ${msg.rating === 'up' ? 'text-green-600 bg-green-50' : 'text-gray-400'}`}>
-                                            <ThumbsUp size={14} className={msg.rating === 'up' ? 'fill-current' : ''} />
-                                        </button>
-                                        <button onClick={() => handleRate(idx, false)} className={`p-1.5 rounded-full active:bg-gray-200 transition ${msg.rating === 'down' ? 'text-red-600 bg-red-50' : 'text-gray-400'}`}>
-                                            <ThumbsDown size={14} className={msg.rating === 'down' ? 'fill-current' : ''} />
-                                        </button>
+                                    <div className="mt-1 ml-1 flex flex-wrap items-center gap-2">
+                                        <div className="flex gap-2">
+                                            <button onClick={() => handleRate(idx, true)} className={`p-1.5 rounded-full active:bg-gray-200 transition ${msg.rating === 'up' ? 'text-green-600 bg-green-50' : 'text-gray-400'}`}>
+                                                <ThumbsUp size={14} className={msg.rating === 'up' ? 'fill-current' : ''} />
+                                            </button>
+                                            <button onClick={() => handleRate(idx, false)} className={`p-1.5 rounded-full active:bg-gray-200 transition ${msg.rating === 'down' ? 'text-red-600 bg-red-50' : 'text-gray-400'}`}>
+                                                <ThumbsDown size={14} className={msg.rating === 'down' ? 'fill-current' : ''} />
+                                            </button>
+                                        </div>
+                                        {userId && (
+                                            <Link
+                                                to="/support/new"
+                                                onClick={() => { playClick(); setIsOpen(false); }}
+                                                className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[11px] font-bold text-[#003375]"
+                                            >
+                                                Chưa hài lòng? Tạo ticket admin hỗ trợ trực tiếp
+                                            </Link>
+                                        )}
                                     </div>
                                 )}
                             </div>

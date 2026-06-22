@@ -1,6 +1,6 @@
 ﻿import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Book, Calendar, ChevronDown, ClipboardList, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Menu, X, FileText, ShieldCheck, Sparkles } from 'lucide-react';
+import { Book, Calendar, ChevronDown, ClipboardList, Headphones, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Menu, X, FileText, ShieldCheck, Sparkles } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import NotificationBell from '../components/NotificationBell';
 import { supabase } from '../utils/supabase';
@@ -157,7 +157,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
           if (location.pathname.includes('/schedule')) return 1;
           if (location.pathname.includes('/events')) return 2;
           if (location.pathname.includes('/lost-found')) return 3;
-          if (location.pathname.includes('/handbook') || isHandbookMenuOpen || location.pathname.includes('/admin-reports')) return 4;
+          if (location.pathname.includes('/handbook') || location.pathname.includes('/support') || isHandbookMenuOpen || location.pathname.includes('/admin-reports')) return 4;
           return -1;
       };
 
@@ -370,6 +370,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               <div className="w-2 h-2 rounded-full bg-red-500" title={`${pendingReportCount} mục chờ xử lý`}></div>
                           )}
                       </NavLink>
+                      <NavLink to="/admin/support" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
+                          <MessageSquarePlus size={16} /> Hỗ trợ ticket
+                      </NavLink>
                       {isAdmin && (
                           <NavLink to="/admin/activity" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
                               <Clock size={16} /> Theo dõi hoạt động
@@ -441,11 +444,19 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               <span className="opacity-50">/</span>
                               <span className="text-gray-900 font-bold truncate max-w-[150px] sm:max-w-full">
                                   {location.pathname.includes('admin/activity')
-                                      ? 'Theo dõi hoạt động'
+                                      ? 'Quản lý hoạt động'
                                       : location.pathname.includes('admin/event-candidates')
-                                      ? 'Event candidate'
+                                      ? 'Quản lý Duyệt sự kiện'
                                       : location.pathname.includes('admin-reports')
-                                          ? 'Xử lý báo cáo'
+                                          ? 'Quản lý Báo cáo'
+                                           : location.pathname.includes('support')
+                                          ? 'Quản lý Hỗ trợ'
+                                          : location.pathname.includes('lost-found')
+                                          ? 'Quản lý Đồ thất lạc'
+                                          : location.pathname.includes('events')
+                                          ? 'Quản lý Sự kiện'
+                                          : location.pathname.includes('schedule')
+                                          ? 'Quản lý Lịch học'
                                           : location.pathname.includes('dashboard')
                                               ? 'Quản lý Sinh viên'
                                               : 'Hệ thống'}
@@ -598,7 +609,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       <span className="hidden sm:block">Tìm đồ thất lạc</span>
                   </NavLink>
                   <div className="relative flex items-center justify-center sm:h-full shrink-0 z-10" ref={handbookMenuRef} onMouseEnter={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(true)} onMouseLeave={() => window.innerWidth >= 640 && setIsHandbookMenuOpen(false)}>
-                      <button ref={(el) => { navRefs.current[4] = el; }} onClick={(e) => { e.preventDefault(); playClick(); setIsHandbookMenuOpen(!isHandbookMenuOpen); }} className={`relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none ${location.pathname.includes('/handbook') || isHandbookMenuOpen ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
+                      <button ref={(el) => { navRefs.current[4] = el; }} onClick={(e) => { e.preventDefault(); playClick(); setIsHandbookMenuOpen(!isHandbookMenuOpen); }} className={`relative flex items-center justify-center sm:h-full px-3 py-1.5 sm:px-1 sm:py-0 text-sm font-semibold transition-colors whitespace-nowrap rounded-full sm:rounded-none ${location.pathname.includes('/handbook') || location.pathname.includes('/support') || isHandbookMenuOpen ? 'bg-white sm:bg-transparent shadow-lg sm:shadow-none text-[#0052cc]' : 'text-gray-400 sm:text-gray-500 hover:text-gray-900'}`}>
                           <Book size={20} className="sm:hidden" />
                           <span className="hidden sm:flex items-center gap-1">Cẩm nang <ChevronDown size={14} className={`transition-transform duration-200 ml-1 ${isHandbookMenuOpen ? 'rotate-180' : ''}`}/></span>
                       </button>
@@ -620,6 +631,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                                       <div className="h-px bg-gray-100 my-1 mx-2"></div>
                                       <Link to="/handbook/faqs" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-indigo-600 rounded-lg transition-colors group">
                                           <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors"><HelpCircle size={16} /></div> Trợ giúp
+                                      </Link>
+                                      <Link to="/support" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-[#003375] rounded-lg transition-colors group">
+                                          <div className="bg-blue-100 p-1.5 rounded-lg text-[#003375] group-hover:bg-[#003375] group-hover:text-white transition-colors"><Headphones size={16} /></div> Hỗ trợ
                                       </Link>
                                       <Link to="/handbook/plagiarism" onClick={() => { setIsHandbookMenuOpen(false); playClick(); }} className="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-violet-600 rounded-lg transition-colors group">
                                           <div className="bg-violet-100 p-1.5 rounded-lg text-violet-600 group-hover:bg-violet-600 group-hover:text-white transition-colors"><ShieldCheck size={16} /></div> Check đạo văn Turnitin
@@ -1020,10 +1034,10 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               <div className="flex flex-col">
                   <button 
                       onClick={() => { playClick(); setIsMobileHandbookOpen(!isMobileHandbookOpen); }} 
-                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-[14px] font-medium transition-colors ${location.pathname.includes('/handbook') && !location.pathname.includes('/handbook/about') ? 'bg-blue-50 text-[#0052cc] border border-blue-100 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
+                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-[14px] font-medium transition-colors ${(location.pathname.includes('/handbook') || location.pathname.includes('/support')) && !location.pathname.includes('/handbook/about') ? 'bg-blue-50 text-[#0052cc] border border-blue-100 font-bold' : 'text-gray-700 hover:bg-gray-50'}`}
                   >
                       <div className="flex items-center gap-3.5">
-                          <Book size={20} className={location.pathname.includes('/handbook') && !location.pathname.includes('/handbook/about') ? 'text-[#0052cc]' : 'text-gray-500'} /> 
+                          <Book size={20} className={(location.pathname.includes('/handbook') || location.pathname.includes('/support')) && !location.pathname.includes('/handbook/about') ? 'text-[#0052cc]' : 'text-gray-500'} /> 
                           <span>Cẩm nang</span>
                       </div>
                       <ChevronDown size={16} className={`transition-transform duration-200 text-gray-500 ${isMobileHandbookOpen ? 'rotate-180' : ''}`} />
@@ -1042,6 +1056,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           </Link>
                           <Link to="/handbook/faqs" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-indigo-600 transition-colors">
                               <HelpCircle size={14} /> FAQs
+                          </Link>
+                          <Link to="/support" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-[#003375] transition-colors">
+                              <Headphones size={14} /> Hỗ trợ
                           </Link>
                           <Link to="/handbook/plagiarism" onClick={() => { setIsMobileMenuOpen(false); playClick(); }} className="flex items-center gap-3 py-2 text-[13px] font-medium text-gray-500 hover:text-violet-600 transition-colors">
                               <ShieldCheck size={14} /> Check đạo văn Turnitin

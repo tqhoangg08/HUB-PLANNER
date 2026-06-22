@@ -1,5 +1,6 @@
-import { createHash, createHmac, randomInt } from 'crypto';
+import { createHash, createHmac, randomInt, randomUUID } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import webpush from 'web-push';
 import { withLogging } from '../middleware.js';
 import { handleCors } from '../api-cors.js';
 import protectedSubmitHandler from './protected-submit.js';
@@ -13,6 +14,15 @@ const R2_ENDPOINT = process.env.R2_ACCOUNT_ID
   ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
   : '';
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+const hasSupportPushConfig = Boolean(process.env.VITE_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+
+if (hasSupportPushConfig) {
+  webpush.setVapidDetails(
+    'mailto:admin@hotrosinhvienhub.id.vn',
+    process.env.VITE_VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -99,6 +109,677 @@ const getR2Config = () => {
   return { bucket, accessKeyId, secretAccessKey, publicBaseUrl };
 };
 
+const getPrivateR2Config = () => {
+  const bucket = process.env.R2_BUCKET_NAME;
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+
+  if (!R2_ENDPOINT || !bucket || !accessKeyId || !secretAccessKey) {
+    const error = new Error('Chưa cấu hình R2 cho file hỗ trợ.');
+    error.statusCode = 500;
+    throw error;
+  }
+
+  return { bucket, accessKeyId, secretAccessKey };
+};
+
+const SUPPORT_ATTACHMENT_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+const SUPPORT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const SUPPORT_PDF_MAX_BYTES = 10 * 1024 * 1024;
+const SUPPORT_UPLOAD_EXPIRES_SECONDS = 5 * 60;
+const SUPPORT_DOWNLOAD_EXPIRES_SECONDS = 3 * 60;
+
+const supportAttachmentExt = (mimeType) => ({
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'application/pdf': 'pdf',
+})[mimeType] || 'bin';
+
+const sanitizeAttachmentFileName = (value = '') => String(value)
+  .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .slice(0, 180) || 'attachment';
+
+const assertSupportAttachmentFile = ({ fileName, mimeType, size }) => {
+  const cleanMimeType = String(mimeType || '').toLowerCase();
+  const cleanSize = Number(size || 0);
+  if (!SUPPORT_ATTACHMENT_MIME.has(cleanMimeType)) {
+    const error = new Error('Chỉ hỗ trợ JPG, PNG, WEBP và PDF.');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (!Number.isFinite(cleanSize) || cleanSize <= 0) {
+    const error = new Error('File không được để trống.');
+    error.statusCode = 400;
+    throw error;
+  }
+  const limit = cleanMimeType === 'application/pdf' ? SUPPORT_PDF_MAX_BYTES : SUPPORT_IMAGE_MAX_BYTES;
+  if (cleanSize > limit) {
+    const error = new Error('Ảnh tối đa 5 MB, PDF tối đa 10 MB.');
+    error.statusCode = 400;
+    throw error;
+  }
+  return {
+    fileName: sanitizeAttachmentFileName(fileName),
+    mimeType: cleanMimeType,
+    size: cleanSize,
+  };
+};
+
+const requireAuthenticatedUser = async (request) => {
+  const token = String(request.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!token) {
+    const error = new Error('Thiếu phiên đăng nhập.');
+    error.statusCode = 401;
+    throw error;
+  }
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user?.id) {
+    const authError = new Error('Phiên đăng nhập không hợp lệ.');
+    authError.statusCode = 401;
+    throw authError;
+  }
+  return data.user;
+};
+
+const isSupportStaffUser = async (userId) => {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('id,user_id,role')
+    .or(`id.eq.${userId},user_id.eq.${userId}`)
+    .in('role', ['admin', 'auditor', 'support'])
+    .limit(1);
+  if (error) throw error;
+  return Boolean(data?.length);
+};
+
+const isClosedSupportTicketStatus = (status) => ['resolved', 'closed'].includes(status);
+
+const requireSupportTicketAccess = async ({ ticketId, userId, requireOpen = false }) => {
+  if (!ticketId) {
+    const error = new Error('Thiếu ticket_id.');
+    error.statusCode = 400;
+    throw error;
+  }
+  const { data: ticket, error } = await supabase
+    .from('support_tickets')
+    .select('id,user_id,status')
+    .eq('id', ticketId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!ticket?.id) {
+    const notFound = new Error('Ticket không tồn tại.');
+    notFound.statusCode = 404;
+    throw notFound;
+  }
+  const isStaff = await isSupportStaffUser(userId);
+  if (!isStaff && ticket.user_id !== userId) {
+    const forbidden = new Error('Bạn không có quyền truy cập ticket này.');
+    forbidden.statusCode = 403;
+    throw forbidden;
+  }
+  if (requireOpen && isClosedSupportTicketStatus(ticket.status)) {
+    const closed = new Error('Ticket đã đóng, không thể gửi thêm phản hồi.');
+    closed.statusCode = 409;
+    throw closed;
+  }
+  return { ticket, isStaff };
+};
+
+const buildR2PresignedUrl = ({ method, key, expiresInSeconds }) => {
+  const { bucket, accessKeyId, secretAccessKey } = getPrivateR2Config();
+  const encodedKey = encodeR2Path(key);
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+  const dateStamp = amzDate.slice(0, 8);
+  const region = 'auto';
+  const service = 's3';
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const host = `${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  const canonicalUri = `/${bucket}/${encodedKey}`;
+  const signedHeaders = 'host';
+  const params = new URLSearchParams({
+    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+    'X-Amz-Credential': `${accessKeyId}/${credentialScope}`,
+    'X-Amz-Date': amzDate,
+    'X-Amz-Expires': String(expiresInSeconds),
+    'X-Amz-SignedHeaders': signedHeaders,
+  });
+  const canonicalQueryString = Array.from(params.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, value]) => `${encodeURIComponent(name)}=${encodeURIComponent(value)}`)
+    .join('&');
+  const canonicalRequest = [
+    method,
+    canonicalUri,
+    canonicalQueryString,
+    `host:${host}\n`,
+    signedHeaders,
+    'UNSIGNED-PAYLOAD',
+  ].join('\n');
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    amzDate,
+    credentialScope,
+    createHash('sha256').update(canonicalRequest).digest('hex'),
+  ].join('\n');
+  const signature = hmac(getSignatureKey(secretAccessKey, dateStamp, region, service), stringToSign, 'hex');
+  params.set('X-Amz-Signature', signature);
+  return `${R2_ENDPOINT}${canonicalUri}?${params.toString()}`;
+};
+
+const headR2SupportObject = async (fileKey) => {
+  const url = buildR2PresignedUrl({
+    method: 'HEAD',
+    key: fileKey,
+    expiresInSeconds: 60,
+  });
+  const result = await fetch(url, { method: 'HEAD' });
+  if (!result.ok) {
+    const error = new Error('Không tìm thấy file đã upload trên R2.');
+    error.statusCode = 400;
+    throw error;
+  }
+  return {
+    size: Number(result.headers.get('content-length') || 0),
+    mimeType: String(result.headers.get('content-type') || '').split(';')[0].toLowerCase(),
+  };
+};
+
+const deleteR2SupportObject = async (fileKey) => {
+  const runDelete = async () => {
+    const url = buildR2PresignedUrl({
+      method: 'DELETE',
+      key: fileKey,
+      expiresInSeconds: 60,
+    });
+    return await fetch(url, { method: 'DELETE' });
+  };
+
+  let result = await runDelete();
+  if (!result.ok && result.status !== 404) result = await runDelete();
+  if (!result.ok && result.status !== 404) {
+    const detail = await result.text().catch(() => '');
+    const error = new Error(`Không thể xóa file đính kèm trên R2 (${result.status}). ${detail}`.trim());
+    error.statusCode = 502;
+    throw error;
+  }
+};
+
+const createSupportAttachmentUploadUrl = async (request, response) => {
+  const user = await requireAuthenticatedUser(request);
+  const { ticket_id: ticketId, file_name: fileName, mime_type: mimeType, size } = request.body || {};
+  const file = assertSupportAttachmentFile({ fileName, mimeType, size });
+  await requireSupportTicketAccess({ ticketId, userId: user.id, requireOpen: true });
+
+  const fileKey = `support-tickets/${ticketId}/${randomUUID()}.${supportAttachmentExt(file.mimeType)}`;
+  const uploadUrl = buildR2PresignedUrl({
+    method: 'PUT',
+    key: fileKey,
+    expiresInSeconds: SUPPORT_UPLOAD_EXPIRES_SECONDS,
+  });
+  const expiresAt = new Date(Date.now() + SUPPORT_UPLOAD_EXPIRES_SECONDS * 1000).toISOString();
+
+  return response.status(200).json({
+    upload_url: uploadUrl,
+    file_key: fileKey,
+    expires_at: expiresAt,
+  });
+};
+
+const completeSupportAttachmentUpload = async (request, response) => {
+  const user = await requireAuthenticatedUser(request);
+  const { ticket_id: ticketId, file_key: fileKey, file_name: fileName, mime_type: mimeType, size } = request.body || {};
+  const file = assertSupportAttachmentFile({ fileName, mimeType, size });
+  await requireSupportTicketAccess({ ticketId, userId: user.id, requireOpen: true });
+
+  if (!String(fileKey || '').startsWith(`support-tickets/${ticketId}/`)) {
+    const error = new Error('File key không hợp lệ.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const object = await headR2SupportObject(fileKey);
+  if (object.size && object.size !== file.size) {
+    const error = new Error('Kích thước file upload không khớp.');
+    error.statusCode = 400;
+    throw error;
+  }
+  if (object.mimeType && SUPPORT_ATTACHMENT_MIME.has(object.mimeType) && object.mimeType !== file.mimeType) {
+    const error = new Error('Định dạng file upload không khớp.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const { data, error } = await supabase
+    .from('support_ticket_attachments')
+    .insert({
+      ticket_id: ticketId,
+      uploaded_by: user.id,
+      file_key: fileKey,
+      file_name: file.fileName,
+      mime_type: file.mimeType,
+      size_bytes: file.size,
+      status: 'uploaded',
+    })
+    .select('id,ticket_id,message_id,uploaded_by,file_name,mime_type,size_bytes,storage_provider,status,created_at')
+    .single();
+  if (error) throw error;
+
+  return response.status(200).json({ attachment: data });
+};
+
+const createSupportAttachmentDownloadUrl = async (request, response) => {
+  const user = await requireAuthenticatedUser(request);
+  const { attachment_id: attachmentId } = request.body || {};
+  if (!attachmentId) return response.status(400).json({ error: 'Thiếu attachment_id.' });
+
+  const { data: attachment, error } = await supabase
+    .from('support_ticket_attachments')
+    .select('id,ticket_id,message_id,file_key,file_name,mime_type,status')
+    .eq('id', attachmentId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!attachment?.id || attachment.status === 'deleted') {
+    return response.status(404).json({ error: 'Không tìm thấy file đính kèm.' });
+  }
+  const { isStaff } = await requireSupportTicketAccess({ ticketId: attachment.ticket_id, userId: user.id });
+  if (!isStaff && attachment.message_id) {
+    const { data: message, error: messageError } = await supabase
+      .from('support_ticket_messages')
+      .select('id,is_internal_note')
+      .eq('id', attachment.message_id)
+      .maybeSingle();
+    if (messageError) throw messageError;
+    if (message?.is_internal_note) {
+      return response.status(403).json({ error: 'Bạn không có quyền xem file này.' });
+    }
+  }
+
+  const downloadUrl = buildR2PresignedUrl({
+    method: 'GET',
+    key: attachment.file_key,
+    expiresInSeconds: SUPPORT_DOWNLOAD_EXPIRES_SECONDS,
+  });
+  return response.status(200).json({
+    download_url: downloadUrl,
+    expires_at: new Date(Date.now() + SUPPORT_DOWNLOAD_EXPIRES_SECONDS * 1000).toISOString(),
+  });
+};
+
+const linkSupportMessageAttachments = async (request, response) => {
+  const user = await requireAuthenticatedUser(request);
+  const { ticket_id: ticketId, message_id: messageId, attachment_ids: attachmentIds } = request.body || {};
+  const ids = Array.isArray(attachmentIds) ? attachmentIds.filter(Boolean).slice(0, 3) : [];
+  if (!messageId || ids.length === 0) return response.status(400).json({ error: 'Thiếu message_id hoặc attachment_ids.' });
+  const { isStaff } = await requireSupportTicketAccess({ ticketId, userId: user.id, requireOpen: true });
+
+  const { data: message, error: messageError } = await supabase
+    .from('support_ticket_messages')
+    .select('id,ticket_id,sender_id,is_internal_note')
+    .eq('id', messageId)
+    .eq('ticket_id', ticketId)
+    .maybeSingle();
+  if (messageError) throw messageError;
+  if (!message?.id) return response.status(404).json({ error: 'Không tìm thấy tin nhắn.' });
+  if (!isStaff && message.sender_id !== user.id) {
+    return response.status(403).json({ error: 'Bạn không có quyền gắn file vào tin nhắn này.' });
+  }
+  if (message.is_internal_note) {
+    return response.status(400).json({ error: 'Tạm thời chưa hỗ trợ đính kèm trong ghi chú nội bộ.' });
+  }
+
+  const { data, error } = await supabase
+    .from('support_ticket_attachments')
+    .update({ message_id: messageId, status: 'linked' })
+    .in('id', ids)
+    .eq('ticket_id', ticketId)
+    .eq('uploaded_by', user.id)
+    .is('message_id', null)
+    .select('id,ticket_id,message_id,uploaded_by,file_name,mime_type,size_bytes,storage_provider,status,created_at');
+  if (error) throw error;
+  if ((data || []).length !== ids.length) {
+    return response.status(400).json({ error: 'Không thể gắn một hoặc nhiều file vào tin nhắn.' });
+  }
+
+  return response.status(200).json({ attachments: data || [] });
+};
+
+const resolveSupportTicket = async (request, response) => {
+  const user = await requireAuthenticatedUser(request);
+  const { ticket_id: ticketId } = request.body || {};
+  const { isStaff } = await requireSupportTicketAccess({ ticketId, userId: user.id });
+  const resolvedRole = isStaff ? 'admin' : 'user';
+
+  const { data, error } = await supabase
+    .from('support_tickets')
+    .update({
+      status: 'resolved',
+      resolved_at: new Date().toISOString(),
+      resolved_by: user.id,
+      resolved_by_role: resolvedRole,
+    })
+    .eq('id', ticketId)
+    .select('id,user_id,assigned_to,subject,status,resolved_at,resolved_by,resolved_by_role')
+    .single();
+  if (error) throw error;
+
+  const receiverIds = isStaff
+    ? [data.user_id].filter((id) => id && id !== user.id)
+    : await getSupportStaffRecipientIds({ ticketId, actorId: user.id });
+  await sendSupportPush({
+    receiverIds,
+    title: 'Ticket đã được xử lý xong',
+    body: isStaff
+      ? `HUB Planner đã đánh dấu ticket đã xử lý xong: ${data.subject || 'Hỗ trợ'}`
+      : `User đã đánh dấu ticket đã xử lý xong: ${data.subject || 'Hỗ trợ'}`,
+    url: isStaff ? `/support/${ticketId}` : `/admin/support/${ticketId}`,
+  }).catch((pushError) => console.error('Support resolved push failed:', pushError?.message || pushError));
+
+  return response.status(200).json({ ticket: data });
+};
+
+const deleteSupportTicketHard = async (request, response) => {
+  const user = await requireAuthenticatedUser(request);
+  const { ticket_id: ticketId } = request.body || {};
+  if (!ticketId) return response.status(400).json({ error: 'Thiếu ticket_id.' });
+
+  const { data: ticket, error: ticketError } = await supabase
+    .from('support_tickets')
+    .select('id,user_id')
+    .eq('id', ticketId)
+    .maybeSingle();
+  if (ticketError) throw ticketError;
+  if (!ticket?.id) return response.status(404).json({ error: 'Ticket không tồn tại.' });
+  if (ticket.user_id !== user.id) {
+    return response.status(403).json({ error: 'Bạn không có quyền xóa ticket này.' });
+  }
+
+  const { data: attachments, error: attachmentError } = await supabase
+    .from('support_ticket_attachments')
+    .select('id,file_key')
+    .eq('ticket_id', ticketId);
+  if (attachmentError) throw attachmentError;
+
+  for (const attachment of attachments || []) {
+    await deleteR2SupportObject(attachment.file_key);
+  }
+
+  const { error: deleteError } = await supabase
+    .from('support_tickets')
+    .delete()
+    .eq('id', ticketId)
+    .eq('user_id', user.id);
+  if (deleteError) throw deleteError;
+
+  return response.status(200).json({ deleted: true });
+};
+
+const supportTicketsHandler = async (request, response) => {
+  const action = request.body?.action;
+  if (action === 'resolve-ticket') return await resolveSupportTicket(request, response);
+  if (action === 'delete-ticket') return await deleteSupportTicketHard(request, response);
+  if (action === 'message-created') return await processSupportMessageCreated(request, response);
+  return response.status(400).json({ error: 'Thao tác ticket hỗ trợ không hợp lệ.' });
+};
+
+const supportAttachmentsHandler = async (request, response) => {
+  const action = request.body?.action;
+  if (action === 'create-upload-url') return await createSupportAttachmentUploadUrl(request, response);
+  if (action === 'complete-upload') return await completeSupportAttachmentUpload(request, response);
+  if (action === 'create-download-url') return await createSupportAttachmentDownloadUrl(request, response);
+  if (action === 'link-message-attachments') return await linkSupportMessageAttachments(request, response);
+  return response.status(400).json({ error: 'Thao tác file hỗ trợ không hợp lệ.' });
+};
+
+const escapeHtml = (value = '') => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
+const SUPPORT_CATEGORY_LABELS = {
+  login: 'Đăng nhập',
+  grades: 'Lỗi bảng điểm',
+  events: 'Lỗi sự kiện',
+  schedule: 'Lỗi TKB',
+  lost_found: 'Lỗi tìm đồ thất lạc',
+  feedback: 'Góp ý',
+  other: 'Khác',
+};
+
+const SUPPORT_STATUS_LABELS = {
+  open: 'Mới',
+  pending: 'Đang xử lý',
+  resolved: 'Đã giải quyết',
+  closed: 'Đã đóng',
+};
+
+const getAppUrl = () => String(
+  process.env.APP_URL
+  || process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  || process.env.VITE_APP_URL
+  || 'https://hotrosinhvienhub.id.vn'
+).replace(/\/$/, '');
+
+const getSupportStaffRecipientIds = async ({ ticketId, actorId }) => {
+  const { data, error } = await supabase.rpc('support_staff_recipient_ids', {
+    ticket_id: ticketId,
+    actor_id: actorId || null,
+  });
+  if (error) {
+    const { data: rows, error: fallbackError } = await supabase
+      .from('user_roles')
+      .select('id,user_id,role')
+      .in('role', ['admin', 'auditor', 'support']);
+    if (fallbackError) throw fallbackError;
+    return [...new Set((rows || [])
+      .map((row) => row.user_id || row.id)
+      .filter((id) => id && id !== actorId))];
+  }
+  return [...new Set((data || []).map((row) => row.receiver_id || row).filter(Boolean))];
+};
+
+const sendSupportPush = async ({ receiverIds, title, body, url }) => {
+  if (!hasSupportPushConfig || !receiverIds?.length) return { sent: 0, failed: 0 };
+  const { data: subscriptions, error } = await supabase
+    .from('push_subscriptions')
+    .select('id,user_id,subscription')
+    .in('user_id', receiverIds);
+  if (error) throw error;
+
+  const payload = JSON.stringify({ title, body, url });
+  const results = await Promise.all((subscriptions || []).map(async (sub) => {
+    try {
+      await webpush.sendNotification(sub.subscription, payload);
+      return true;
+    } catch (error) {
+      if (error?.statusCode === 404 || error?.statusCode === 410) {
+        await supabase.from('push_subscriptions').delete().eq('id', sub.id);
+      }
+      console.error('Support ticket push failed:', error?.message || error);
+      return false;
+    }
+  }));
+  const sent = results.filter(Boolean).length;
+  return { sent, failed: results.length - sent };
+};
+
+const sendSupportFirstReplyEmail = async ({ ticket, userProfile }) => {
+  const apiKey = process.env.RESEND_API_KEY || process.env.RESEND_API_KEY_2;
+  if (!apiKey) {
+    console.warn('Skip support first reply email: missing RESEND_API_KEY/RESEND_API_KEY_2');
+    return { sent: false, skipped: 'missing_resend_api_key' };
+  }
+
+  const email = String(userProfile?.email || '').trim();
+  if (!email || !email.includes('@')) return { sent: false, skipped: 'missing_user_email' };
+
+  const appUrl = getAppUrl();
+  const ticketUrl = `${appUrl}/support/${ticket.id}`;
+  const from = process.env.SUPPORT_EMAIL_FROM || process.env.RESEND_FROM_EMAIL || 'HUB Planner <onboarding@resend.dev>';
+  const userName = escapeHtml(userProfile?.full_name || userProfile?.student_code || email);
+  const subject = `Phản hồi ticket: ${ticket.subject || 'Hỗ trợ'}`.slice(0, 180);
+  const categoryLabel = SUPPORT_CATEGORY_LABELS[ticket.category] || ticket.category || 'Khác';
+  const statusLabel = SUPPORT_STATUS_LABELS[ticket.status] || ticket.status || 'Đang xử lý';
+
+  const html = `
+    <div style="margin:0;padding:0;background:#f9f9f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
+      <div style="max-width:600px;margin:0 auto;padding:48px 16px;">
+        <div style="background:#ffffff;border-radius:12px;padding:36px 32px;border:1px solid #eef2f7;">
+          <p style="margin:0 0 18px;font-size:15px;line-height:1.6;">Xin chào <strong>${userName}</strong>,</p>
+          <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">Ticket hỗ trợ của bạn đã có phản hồi đầu tiên từ đội ngũ HUB Planner.</p>
+          <div style="margin:20px 0;padding:16px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;">
+            <p style="margin:0 0 8px;font-size:14px;"><strong>Tiêu đề:</strong> ${escapeHtml(ticket.subject || 'Hỗ trợ')}</p>
+            <p style="margin:0 0 8px;font-size:14px;"><strong>Loại vấn đề:</strong> ${escapeHtml(categoryLabel)}</p>
+            <p style="margin:0;font-size:14px;"><strong>Trạng thái:</strong> ${escapeHtml(statusLabel)}</p>
+          </div>
+          <p style="margin:0 0 24px;font-size:15px;line-height:1.7;">Vui lòng bấm nút bên dưới để xem chi tiết và tiếp tục trao đổi nếu cần.</p>
+          <a href="${ticketUrl}" style="display:inline-block;background:#003375;color:#ffffff;text-decoration:none;font-weight:800;border-radius:10px;padding:13px 22px;font-size:14px;">Xem phản hồi</a>
+          <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#64748b;">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.</p>
+          <p style="margin:28px 0 0;font-size:14px;line-height:1.6;">Trân trọng,<br><strong>Đội ngũ HUB Planner</strong></p>
+          <div style="margin-top:28px;padding-top:18px;border-top:1px solid #e5e7eb;">
+            <div style="font-weight:900;color:#003375;font-size:18px;letter-spacing:.3px;">HUB PLANNER</div>
+            <div style="margin-top:8px;color:#64748b;font-size:13px;">Hệ thống quản lý lộ trình học tập & hỗ trợ sinh viên</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const response = await fetch(RESEND_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from,
+      to: email,
+      subject,
+      html,
+      text: `Xin chào ${userProfile?.full_name || userProfile?.student_code || email},\n\nTicket hỗ trợ của bạn đã có phản hồi đầu tiên từ đội ngũ HUB Planner.\n\nTiêu đề: ${ticket.subject}\nLoại vấn đề: ${categoryLabel}\nTrạng thái: ${statusLabel}\n\nXem phản hồi: ${ticketUrl}\n\nTrân trọng,\nĐội ngũ HUB Planner`,
+    }),
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.message || 'Không thể gửi email phản hồi ticket.');
+  }
+
+  return { sent: true };
+};
+
+const processSupportFirstReplyEmail = async ({ ticket, message }) => {
+  if (!['admin', 'support'].includes(message.sender_role) || message.is_internal_note) {
+    return { sent: false, skipped: 'not_public_staff_reply' };
+  }
+
+  let claim;
+  try {
+    const { data, error } = await supabase
+      .from('support_tickets')
+      .update({
+        first_admin_reply_email_sent_at: new Date().toISOString(),
+        first_admin_reply_email_message_id: message.id,
+      })
+      .eq('id', ticket.id)
+      .is('first_admin_reply_email_sent_at', null)
+      .select('id,subject,category,status,user_id')
+      .maybeSingle();
+    if (error) throw error;
+    claim = data;
+  } catch (error) {
+    console.error('Support first reply email claim failed:', error?.message || error);
+    return { sent: false, skipped: 'claim_failed' };
+  }
+
+  if (!claim?.id) return { sent: false, skipped: 'already_sent' };
+
+  const { data: userProfile, error: profileError } = await supabase
+    .from('profiles')
+    .select('id,email,full_name,student_code')
+    .eq('id', ticket.user_id)
+    .maybeSingle();
+  if (profileError) {
+    console.error('Support first reply profile lookup failed:', profileError.message);
+    return { sent: false, skipped: 'profile_lookup_failed' };
+  }
+
+  try {
+    return await sendSupportFirstReplyEmail({ ticket: claim, userProfile });
+  } catch (error) {
+    console.error('Support first reply email send failed:', error?.message || error);
+    return { sent: false, skipped: 'send_failed' };
+  }
+};
+
+const processSupportMessageCreated = async (request, response) => {
+  const user = await requireAuthenticatedUser(request);
+  const { message_id: messageId } = request.body || {};
+  if (!messageId) return response.status(400).json({ error: 'Thiếu message_id.' });
+
+  const { data: message, error: messageError } = await supabase
+    .from('support_ticket_messages')
+    .select('id,ticket_id,sender_id,sender_role,is_internal_note,created_at')
+    .eq('id', messageId)
+    .maybeSingle();
+  if (messageError) throw messageError;
+  if (!message?.id) return response.status(404).json({ error: 'Không tìm thấy tin nhắn.' });
+  if (message.sender_id !== user.id) {
+    const isStaff = await isSupportStaffUser(user.id);
+    if (!isStaff) return response.status(403).json({ error: 'Bạn không có quyền xử lý tin nhắn này.' });
+  }
+
+  const { data: ticket, error: ticketError } = await supabase
+    .from('support_tickets')
+    .select('id,user_id,assigned_to,subject,category,status')
+    .eq('id', message.ticket_id)
+    .maybeSingle();
+  if (ticketError) throw ticketError;
+  if (!ticket?.id) return response.status(404).json({ error: 'Ticket không tồn tại.' });
+
+  if (message.is_internal_note || isClosedSupportTicketStatus(ticket.status)) {
+    return response.status(200).json({ ok: true, push: { sent: 0, failed: 0 }, email: { skipped: 'no_public_notification' } });
+  }
+
+  let receiverIds = [];
+  let title = 'HUB Planner';
+  let body = '';
+  let url = '/support';
+  let email = { sent: false, skipped: 'not_applicable' };
+
+  if (message.sender_role === 'user') {
+    receiverIds = await getSupportStaffRecipientIds({ ticketId: ticket.id, actorId: message.sender_id });
+    const { count } = await supabase
+      .from('support_ticket_messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('ticket_id', ticket.id)
+      .eq('is_internal_note', false);
+    title = count <= 1 ? 'Ticket mới' : 'User phản hồi ticket';
+    body = count <= 1
+      ? `User vừa tạo ticket: ${ticket.subject || 'Hỗ trợ'}`
+      : `User vừa phản hồi ticket: ${ticket.subject || 'Hỗ trợ'}`;
+    url = `/admin/support/${ticket.id}`;
+  } else if (['admin', 'support'].includes(message.sender_role) && ticket.user_id !== message.sender_id) {
+    receiverIds = [ticket.user_id];
+    title = 'Ticket của bạn đã có phản hồi';
+    body = `HUB Planner vừa phản hồi ticket: ${ticket.subject || 'Hỗ trợ'}`;
+    url = `/support/${ticket.id}`;
+    email = await processSupportFirstReplyEmail({ ticket, message });
+  }
+
+  const push = await sendSupportPush({ receiverIds, title, body, url }).catch((error) => {
+    console.error('Support message push processing failed:', error?.message || error);
+    return { sent: 0, failed: 0 };
+  });
+
+  return response.status(200).json({ ok: true, push, email });
+};
+
 const putR2Object = async ({ key, body, contentType }) => {
   const { bucket, accessKeyId, secretAccessKey } = getR2Config();
   const encodedKey = encodeR2Path(key);
@@ -180,7 +861,7 @@ const getOtpEmailCopy = (purpose) => {
 };
 
 const hashOtp = (email, purpose, otp) => {
-  const secret = process.env.OTP_SECRET || process.env.RESEND_API_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const secret = process.env.OTP_SECRET || process.env.RESEND_API_KEY || process.env.RESEND_API_KEY_2 || process.env.SUPABASE_SERVICE_ROLE_KEY;
   return createHash('sha256').update(`${email}:${purpose}:${otp}:${secret}`).digest('hex');
 };
 
@@ -348,7 +1029,7 @@ const recordPolicyConsent = async (request, response) => {
 };
 
 const sendEmail = async ({ email, otp, purpose }) => {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = process.env.RESEND_API_KEY || process.env.RESEND_API_KEY_2;
   if (!apiKey) {
     const expireTime = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
     const time = formatVietnamTime(expireTime);
@@ -357,7 +1038,7 @@ const sendEmail = async ({ email, otp, purpose }) => {
     });
 
     if (error || data?.error) {
-      throw new Error(data?.error || error?.message || 'Chưa cấu hình RESEND_API_KEY hoặc Edge Function gửi OTP.');
+      throw new Error(data?.error || error?.message || 'Chưa cấu hình RESEND_API_KEY/RESEND_API_KEY_2 hoặc Edge Function gửi OTP.');
     }
     return;
   }
@@ -958,6 +1639,8 @@ async function handler(request, response) {
   try {
     const resource = request.query?.resource || new URL(request.url || '/', 'http://localhost').searchParams.get('resource');
     if (resource === 'protected-submit') return await protectedSubmitHandler(request, response);
+    if (resource === 'support-attachments') return await supportAttachmentsHandler(request, response);
+    if (resource === 'support-tickets') return await supportTicketsHandler(request, response);
 
     const action = request.body?.action;
     if (action === 'resolve-identifier') return await resolveIdentifier(request, response);
