@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, Tag } from 'lucide-react';
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, Tag, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
@@ -145,6 +145,22 @@ type PlanSchedules = Record<PlanScheduleKey, Course[]>;
 const PLAN_KEYS: PlanScheduleKey[] = ['A', 'B', 'C'];
 
 const createEmptyPlanSchedules = (): PlanSchedules => ({ A: [], B: [], C: [] });
+
+const parseGroupTokens = (value?: string | null) => {
+    const raw = String(value || '').trim();
+    if (!raw) return [];
+
+    const parts = raw.split(',').map(part => part.trim()).filter(Boolean);
+    if (parts.length === 0) return [];
+
+    const firstPrefix = parts[0].match(/^(.+_N)(\d+)$/i)?.[1];
+    return [...new Set(parts.map((part, index) => {
+        if (index > 0 && firstPrefix && /^\d+$/.test(part)) {
+            return `${firstPrefix}${part}`;
+        }
+        return part;
+    }).filter(Boolean))];
+};
 
 const SYNCABLE_COURSE_FIELDS: { key: keyof Course; label: string }[] = [
     { key: 'course_code', label: 'Mã học phần' },
@@ -499,10 +515,17 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [mySchedule, setMySchedule] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   const [adminScheduleError, setAdminScheduleError] = useState('');
   
   const [selectedSemester, setSelectedSemester] = useState<string>(DEFAULT_SCHEDULE_SEMESTER);
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
+  const [selectedMajor, setSelectedMajor] = useState<string>('all');
+  const [selectedGroupName, setSelectedGroupName] = useState<string>('all');
+  const [selectedAcademicProgram, setSelectedAcademicProgram] = useState<string>('all');
+  const [majorOptions, setMajorOptions] = useState<string[]>([]);
+  const [groupNameOptions, setGroupNameOptions] = useState<string[]>([]);
+  const [academicProgramOptions, setAcademicProgramOptions] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [scheduleViewMode, setScheduleViewMode] = useState<ScheduleViewMode>('official');
   const [activePlanKey, setActivePlanKey] = useState<PlanScheduleKey>('A');
@@ -537,6 +560,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const displayedSchedule = isPlanMode ? currentPlanSchedule : currentSemesterSchedule;
   const displayedScheduleTitle = isPlanMode ? `Kế hoạch ${activePlanKey}` : 'Lịch cá nhân';
   const displayedScheduleCount = displayedSchedule.length;
+  const hasActiveCourseFilters = Boolean(searchTerm.trim()) || selectedMajor !== 'all' || selectedGroupName !== 'all' || selectedAcademicProgram !== 'all';
 
   useEffect(() => {
     setHasLoadedPlanSchedules(false);
@@ -730,9 +754,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     try {
         const params = new URLSearchParams({
             semester: selectedSemester,
-            limit: String(isAdminView ? 1000 : 100),
+            limit: String(isAdminView || selectedGroupName !== 'all' ? 1000 : 100),
         });
         if (selectedPhase !== 'all') params.set('phase', selectedPhase);
+        if (selectedMajor !== 'all') params.set('major', selectedMajor);
+        if (selectedAcademicProgram !== 'all') params.set('academicProgram', selectedAcademicProgram);
         const term = searchTerm.trim();
         if (term) params.set('search', term);
 
@@ -741,10 +767,41 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error || 'Không tải được danh sách môn.');
-        setAvailableCourses(payload.data || []);
+        const rows = Array.isArray(payload.data) ? payload.data : [];
+        setAvailableCourses(selectedGroupName === 'all'
+            ? rows
+            : rows.filter((course: Course) => parseGroupTokens(course.group_name).includes(selectedGroupName))
+        );
     } catch (error) { 
         console.error("Lỗi tải danh sách môn:", error); 
     } finally { setIsLoading(false); }
+  };
+
+  const fetchCourseFilterOptions = async () => {
+    if (!isAuthenticated) return;
+    try {
+        const params = new URLSearchParams({
+            resource: 'filter-options',
+            semester: selectedSemester,
+        });
+        if (selectedPhase !== 'all') params.set('phase', selectedPhase);
+        if (selectedMajor !== 'all') params.set('major', selectedMajor);
+        if (selectedAcademicProgram !== 'all') params.set('academicProgram', selectedAcademicProgram);
+
+        const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
+            headers: apiHeaders(),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error || 'Không tải được bộ lọc môn.');
+        setMajorOptions(Array.isArray(payload.majorOptions) ? payload.majorOptions : []);
+        setGroupNameOptions(Array.isArray(payload.groupNameOptions) ? payload.groupNameOptions : []);
+        setAcademicProgramOptions(Array.isArray(payload.academicProgramOptions) ? payload.academicProgramOptions : []);
+    } catch (error) {
+        console.error('Lỗi tải bộ lọc chuyên ngành/nhóm:', error);
+        setMajorOptions([]);
+        setGroupNameOptions([]);
+        setAcademicProgramOptions([]);
+    }
   };
 
   const fetchAdminUserSchedules = async (mode: 'changed' | 'summaries' | 'courses', extraParams: Record<string, string> = {}) => {
@@ -1012,7 +1069,26 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       fetchCourses();
     }, 400);
     return () => window.clearTimeout(timeoutId);
-  }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated, isAdminView, adminTab]);
+  }, [searchTerm, selectedSemester, selectedPhase, selectedMajor, selectedGroupName, selectedAcademicProgram, isAuthenticated, isAdminView, adminTab]);
+  useEffect(() => {
+    if (!isAuthenticated || (isAdminView && adminTab !== 'system' && adminTab !== 'user')) return;
+    fetchCourseFilterOptions();
+  }, [selectedSemester, selectedPhase, selectedMajor, selectedAcademicProgram, isAuthenticated, isAdminView, adminTab]);
+  useEffect(() => {
+    if (selectedMajor !== 'all' && !majorOptions.includes(selectedMajor)) {
+        setSelectedMajor('all');
+    }
+  }, [selectedMajor, majorOptions]);
+  useEffect(() => {
+    if (selectedGroupName !== 'all' && !groupNameOptions.includes(selectedGroupName)) {
+        setSelectedGroupName('all');
+    }
+  }, [selectedGroupName, groupNameOptions]);
+  useEffect(() => {
+    if (selectedAcademicProgram !== 'all' && !academicProgramOptions.includes(selectedAcademicProgram)) {
+        setSelectedAcademicProgram('all');
+    }
+  }, [selectedAcademicProgram, academicProgramOptions]);
   useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'requested') fetchCourseRequests(); }, [searchTerm, selectedSemester, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'user_changed') fetchChangedUserScheduleCourses(); }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'student_schedules') fetchStudentScheduleSummaries(); }, [selectedSemester, isAuthenticated, isAdminView, adminTab]);
@@ -2122,31 +2198,41 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 </div>
             </div>
         ) : (
-            <div className="flex flex-col lg:flex-row gap-3 sm:gap-6 lg:h-[calc(100vh-150px)] items-start">
+            <div className={`flex flex-col lg:flex-row lg:h-[calc(100vh-150px)] items-start transition-[gap] duration-300 ease-out ${isFilterExpanded ? 'gap-0' : 'gap-3 sm:gap-6'}`}>
             
                 {/* CỘT TRÁI: SIDEBAR FILTER */}
-                <div className={`w-full lg:w-[300px] bg-white rounded-xl border border-gray-300 flex flex-col shrink-0 overflow-hidden transition-all ${searchTerm.trim() ? 'h-[450px]' : 'h-auto'} lg:h-full`}>
-                    <div className="p-3 sm:p-4 border-b border-gray-200 flex justify-between items-center bg-[#f8fafc]">
+                <div className={`w-full bg-white rounded-xl border border-gray-300 flex flex-col overflow-visible transition-all duration-300 ease-out ${isFilterExpanded ? 'lg:flex-1 lg:max-w-none h-[calc(100vh-180px)] lg:h-full' : `lg:w-[300px] lg:shrink-0 ${hasActiveCourseFilters ? 'h-[450px]' : 'h-auto'} lg:h-full`}`}>
+                    <div className={`border-b border-gray-200 flex justify-between items-center bg-[#f8fafc] ${isFilterExpanded ? 'p-3 sm:p-4' : 'px-3 py-2.5'}`}>
                         <h2 className="text-sm sm:text-base font-bold text-[#003375] flex items-center gap-2"><Search size={16} className="text-[#003375]" /> Bộ lọc</h2>
-                        {isSyncing ? ( <Loader2 size={16} className="text-blue-500 animate-spin" /> ) : ( <button onClick={fetchCourses} className="text-gray-400 hover:text-[#003375] transition-colors" title="Làm mới"><RefreshCw size={14}/></button> )}
+                        <div className="flex items-center gap-1.5">
+                            {isFilterExpanded && (
+                                <button onClick={() => setIsMyScheduleModalOpen(true)} className="flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-bold text-[#003375] shadow-sm hover:bg-gray-50 active:scale-95 transition-transform">
+                                    <List size={14}/> {isPlanMode ? `KH ${activePlanKey}` : 'Đã lưu'} ({displayedScheduleCount})
+                                </button>
+                            )}
+                            {isSyncing ? ( <Loader2 size={16} className="text-blue-500 animate-spin" /> ) : ( <button onClick={fetchCourses} className="rounded-md p-1.5 text-gray-400 hover:bg-blue-50 hover:text-[#003375] transition-colors" title="Làm mới"><RefreshCw size={14}/></button> )}
+                            <button onClick={() => setIsFilterExpanded(prev => !prev)} className="rounded-md p-1.5 text-gray-500 hover:bg-blue-50 hover:text-[#003375] transition-colors" title={isFilterExpanded ? 'Thu gọn bộ lọc' : 'Mở rộng bộ lọc'}>
+                                {isFilterExpanded ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+                            </button>
+                        </div>
                     </div>
                     
-                    <div className="p-3 sm:p-4 space-y-2.5 sm:space-y-3 border-b border-gray-200">
+                    <div className={`border-b border-gray-200 ${isFilterExpanded ? 'grid grid-cols-1 gap-2 overflow-visible p-3 sm:grid-cols-2 lg:grid-cols-[minmax(240px,1.6fr)_minmax(150px,0.9fr)_minmax(110px,0.6fr)_minmax(170px,1fr)_minmax(120px,0.7fr)_minmax(180px,1fr)]' : 'space-y-2 px-3 py-2.5'}`}>
                         <div className="relative">
-                            <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-12 w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 text-sm outline-none transition-all hover:border-gray-400 focus:border-[#003375] focus:ring-1 focus:ring-[#003375] disabled:bg-gray-50 disabled:cursor-not-allowed"/>
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                            <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full rounded-lg border border-gray-300 bg-white pr-3 outline-none transition-all hover:border-gray-400 focus:border-[#003375] focus:ring-1 focus:ring-[#003375] disabled:bg-gray-50 disabled:cursor-not-allowed ${isFilterExpanded ? 'h-10 pl-10 text-sm' : 'h-9 pl-9 text-xs'}`}/>
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={isFilterExpanded ? 16 : 14} />
                         </div>
 
-                        <div className="grid grid-cols-[1fr_0.72fr] gap-2">
+                        <div className={isFilterExpanded ? 'contents' : 'grid grid-cols-[1fr_0.72fr] gap-1.5'}>
                             <div className="flex-1">
-                                <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm font-bold text-[#003375] outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
+                                <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-[#003375] outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}>
                                     {SEMESTER_OPTIONS.map(option => (
                                         <option key={option.value} value={option.value}>{option.label}</option>
                                     ))}
                                 </select>
                             </div>
                             <div className="min-w-0">
-                                <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
+                                <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}>
                                     <option value="all">Mọi đợt</option>
                                     <option value="1">Đợt 1</option>
                                     <option value="2">Đợt 2</option>
@@ -2154,19 +2240,57 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             </div>
                         </div>
 
-                        <div className="flex gap-2">
-                            <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }} className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg text-[11px] sm:text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><AlertTriangle size={14} /> Báo lỗi môn</button>
-                            <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg text-[11px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"><BookPlus size={14} /> Yêu cầu thêm</button>
+                        <div className={isFilterExpanded ? 'contents' : 'grid grid-cols-2 gap-1.5'}>
+                            <div className="min-w-0">
+                                <select
+                                    disabled={!isAuthenticated}
+                                    value={selectedMajor}
+                                    onChange={(e) => setSelectedMajor(e.target.value)}
+                                    className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}
+                                    title={selectedMajor === 'all' ? 'Tất cả chuyên ngành' : selectedMajor}
+                                >
+                                    <option value="all">Tất cả chuyên ngành</option>
+                                    {majorOptions.map(option => (
+                                        <option key={option} value={option}>{option}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="min-w-0">
+                                <select
+                                    disabled={!isAuthenticated}
+                                    value={selectedGroupName}
+                                    onChange={(e) => setSelectedGroupName(e.target.value)}
+                                    className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}
+                                    title={selectedGroupName === 'all' ? 'Tất cả nhóm' : selectedGroupName}
+                                >
+                                    <option value="all">Tất cả nhóm</option>
+                                    {groupNameOptions.map(option => (
+                                        <option key={option} value={option}>{option}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
-                        <button disabled={!isAuthenticated || isProcessingPdf} onClick={() => setIsPdfGuideOpen(true)} className="w-full flex h-11 items-center justify-center gap-2 rounded-lg bg-[#003375] text-white hover:bg-[#002855] font-bold text-sm transition-all active:scale-95 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed">
-                            {isProcessingPdf ? <Loader2 className="animate-spin" size={16} /> : <FileUp size={16} />} {isProcessingPdf ? 'Đang phân tích PDF...' : 'Nhập TKB từ PDF'}
-                        </button>
+                        <div className="min-w-0">
+                            <select
+                                disabled={!isAuthenticated}
+                                value={selectedAcademicProgram}
+                                onChange={(e) => setSelectedAcademicProgram(e.target.value)}
+                                className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}
+                                title={selectedAcademicProgram === 'all' ? 'Tất cả chương trình' : selectedAcademicProgram}
+                            >
+                                <option value="all">Tất cả chương trình</option>
+                                {academicProgramOptions.map(option => (
+                                    <option key={option} value={option}>{option}</option>
+                                ))}
+                            </select>
+                        </div>
+
                         <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload} />
                     </div>
 
                     {/* Danh sách môn học gợi ý */}
-                    <div className={`flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-gray-50/50 custom-scrollbar relative ${searchTerm.trim() ? 'block' : 'hidden lg:block'}`}>
+                    <div className={`flex-1 overflow-y-auto p-3 sm:p-4 bg-gray-50/50 custom-scrollbar relative ${isFilterExpanded || hasActiveCourseFilters ? 'block' : 'hidden lg:block'}`}>
                         {!isAuthenticated ? (
                             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6 bg-white/80 animate-fadeIn">
                                 <div className="w-14 h-14 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mb-3 border border-blue-200"><Lock size={24} /></div>
@@ -2175,31 +2299,76 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         ) : isLoading ? (
                             <p className="text-center text-xs text-gray-400 mt-10 animate-pulse font-medium">Đang tải dữ liệu...</p>
                         ) : availableCourses.length === 0 ? (
-                            <div className="text-center mt-8"><p className="text-gray-500 text-xs mb-3 font-medium">Không tìm thấy môn học.</p></div>
+                            <div className="text-center mt-8 px-3">
+                                <p className="text-gray-500 text-xs mb-2 font-medium">Không tìm thấy môn học.</p>
+                                <p className="text-[11px] leading-relaxed text-gray-400">Thử bỏ bớt từ khóa, chọn lại học kỳ/đợt, hoặc kiểm tra chuyên ngành/nhóm.</p>
+                            </div>
                         ) : (
-                            availableCourses.map((course) => {
-                                const color = getColorForCourse(course.id);
-                                return (
-                                    <div key={course.id} className={`bg-white border border-gray-200 border-l-4 ${color.border} rounded-lg p-3 relative group hover:border-gray-300 transition-all cursor-pointer`} onClick={() => setSelectedCourseInfo({ course })}>
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <h3 className={`font-bold text-xs leading-tight pr-6 line-clamp-2 ${color.text}`}>{course.subject_name}</h3>
-                                                <p className="text-[10px] text-gray-500 font-medium mt-0.5">{course.course_code} • Đợt {course.phase || '1'}</p>
-                                            </div>
-                                            <button onClick={(e) => { e.stopPropagation(); addToActiveSchedule(course); }} disabled={isSyncing} className="text-gray-400 hover:text-[#003375] p-1 bg-gray-50 hover:bg-blue-50 rounded-md transition-colors shrink-0" title={isPlanMode ? `Thêm vào Kế hoạch ${activePlanKey}` : 'Thêm vào Lịch cá nhân'}><Plus size={14}/></button>
-                                        </div>
-                                        <div className="text-[10px] text-gray-500 mt-2 flex items-center gap-1 font-medium"><Clock size={10} className="text-gray-400"/> Thứ {course.day_of_week} ({getShiftDisplay(course.shift)})</div>
-                                        <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1 font-medium"><MapPin size={10} className="text-gray-400"/> P. {course.room}</div>
-                                        <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1 font-medium"><User size={10} className="text-gray-400"/> {course.instructor || 'Chưa cập nhật'}</div>
+                            <div className="space-y-3">
+                                {isFilterExpanded && (
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-sm font-black text-[#003375]">Tìm thấy {availableCourses.length} môn học</p>
+                                        <p className="text-xs font-semibold text-gray-500">Bấm vào card để xem chi tiết</p>
                                     </div>
-                                );
-                            })
+                                )}
+                                <div className={isFilterExpanded ? 'grid grid-cols-1 gap-3 xl:grid-cols-2' : 'space-y-3'}>
+                                    {availableCourses.map((course) => {
+                                        const color = getColorForCourse(course.id);
+                                        if (isFilterExpanded) {
+                                            return (
+                                                <div key={course.id} className={`bg-white border border-gray-200 border-l-4 ${color.border} rounded-xl p-3 relative group hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer`} onClick={() => setSelectedCourseInfo({ course })}>
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="min-w-0">
+                                                            <h3 className={`line-clamp-2 text-sm font-black leading-snug ${color.text}`}>{course.subject_name}</h3>
+                                                            <p className="mt-1 text-xs font-bold text-gray-500">{course.course_code} • Đợt {course.phase || '1'} • {course.credits || 0} TC</p>
+                                                        </div>
+                                                        <button onClick={(e) => { e.stopPropagation(); addToActiveSchedule(course); }} disabled={isSyncing} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#003375] hover:bg-blue-100 transition-colors disabled:opacity-50" title={isPlanMode ? `Thêm vào Kế hoạch ${activePlanKey}` : 'Thêm vào Lịch cá nhân'}><Plus size={16}/></button>
+                                                    </div>
+
+                                                    <div className="mt-3 grid grid-cols-1 gap-1.5 text-xs font-semibold text-gray-600 sm:grid-cols-2 xl:grid-cols-3">
+                                                        <div className="flex min-w-0 items-center gap-1.5">
+                                                            <Clock size={12} className="shrink-0 text-gray-400" />
+                                                            <span className="truncate">Thứ {course.day_of_week || '?'} • {getShiftDisplay(course.shift)}</span>
+                                                        </div>
+                                                        <div className="flex min-w-0 items-center gap-1.5">
+                                                            <MapPin size={12} className="shrink-0 text-gray-400" />
+                                                            <span className="truncate">P. {course.room || 'Chưa cập nhật'}{course.campus ? ` • ${course.campus}` : ''}</span>
+                                                        </div>
+                                                        <div className="flex min-w-0 items-center gap-1.5">
+                                                            <User size={12} className="shrink-0 text-gray-400" />
+                                                            <span className="truncate">{course.instructor || 'Chưa cập nhật'}</span>
+                                                        </div>
+                                                        <div className="min-w-0 truncate text-gray-500">Tuần: {course.weeks || 'Chưa cập nhật'}</div>
+                                                        <div className="min-w-0 truncate text-gray-500">Nhóm: {course.group_name || 'Tất cả'}</div>
+                                                        <div className="min-w-0 truncate text-gray-500">CT: {course.academic_program || 'Chưa cập nhật'}</div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+
+                                        return (
+                                            <div key={course.id} className={`bg-white border border-gray-200 border-l-4 ${color.border} rounded-lg p-3 relative group hover:border-gray-300 transition-all cursor-pointer`} onClick={() => setSelectedCourseInfo({ course })}>
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h3 className={`font-bold text-xs leading-tight pr-6 line-clamp-2 ${color.text}`}>{course.subject_name}</h3>
+                                                        <p className="text-[10px] text-gray-500 font-medium mt-0.5">{course.course_code} • Đợt {course.phase || '1'}</p>
+                                                    </div>
+                                                    <button onClick={(e) => { e.stopPropagation(); addToActiveSchedule(course); }} disabled={isSyncing} className="text-gray-400 hover:text-[#003375] p-1 bg-gray-50 hover:bg-blue-50 rounded-md transition-colors shrink-0" title={isPlanMode ? `Thêm vào Kế hoạch ${activePlanKey}` : 'Thêm vào Lịch cá nhân'}><Plus size={14}/></button>
+                                                </div>
+                                                <div className="text-[10px] text-gray-500 mt-2 flex items-center gap-1 font-medium"><Clock size={10} className="text-gray-400"/> Thứ {course.day_of_week} ({getShiftDisplay(course.shift)})</div>
+                                                <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1 font-medium"><MapPin size={10} className="text-gray-400"/> P. {course.room}</div>
+                                                <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1 font-medium"><User size={10} className="text-gray-400"/> {course.instructor || 'Chưa cập nhật'}</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>
 
                 {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
-                <div className="flex-1 bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden min-h-[600px] lg:min-h-0 lg:h-full w-full relative">
+                <div className={`bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden min-h-[600px] lg:min-h-0 lg:h-full w-full relative transition-all duration-300 ease-out ${isFilterExpanded ? 'w-0 flex-[0_0_0%] min-w-0 max-h-0 opacity-0 pointer-events-none border-transparent lg:max-h-none' : 'flex-1 opacity-100'}`}>
                     <div className="schedule-toolbar border-b border-gray-200 bg-white shrink-0">
                         <div className="no-scrollbar flex min-h-[54px] items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap px-3 pt-3 sm:px-4">
                             <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
@@ -2260,6 +2429,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     <span className="truncate">✨ Mới: Gắn nhãn, tùy chỉnh lịch học cá nhân!</span>
                                 </div>
                             )}
+
+                            <div className="flex shrink-0 items-center gap-1.5">
+                                <button disabled={!isAuthenticated} onClick={() => { setReportData({ course_code: '', subject_name: '', description: '', suggested_correction: '' }); setIsReportModalOpen(true); }} className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 text-[11px] font-bold text-red-600 transition-colors hover:bg-red-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"><AlertTriangle size={13} /> Báo lỗi môn</button>
+                                <button disabled={!isAuthenticated} onClick={() => setIsCreateCourseModalOpen(true)} className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-[11px] font-bold text-emerald-700 transition-colors hover:bg-emerald-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"><BookPlus size={13} /> Yêu cầu thêm</button>
+                                <button disabled={!isAuthenticated || isProcessingPdf} onClick={() => setIsPdfGuideOpen(true)} className="flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#003375] px-2.5 text-[11px] font-bold text-white transition-colors hover:bg-[#002855] active:scale-95 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400">
+                                    {isProcessingPdf ? <Loader2 className="animate-spin" size={13} /> : <FileUp size={13} />} {isProcessingPdf ? 'Đang phân tích...' : 'Nhập PDF'}
+                                </button>
+                            </div>
 
                             {selectedWeek !== 0 && viewMode === 'week' && (
                                 <span className="flex shrink-0 items-center gap-1.5 rounded-md border border-gray-200 bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-500">

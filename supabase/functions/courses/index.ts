@@ -91,6 +91,67 @@ const normalizeComparable = (value: unknown) => {
   return String(value).trim()
 }
 
+const normalizeOptionValue = (value: unknown) => String(value || '').trim()
+
+const uniqueSortedOptions = (values: unknown[]) => [...new Set(values.map(normalizeOptionValue).filter(Boolean))]
+  .sort((a, b) => a.localeCompare(b, 'vi', { numeric: true, sensitivity: 'base' }))
+
+const parseGroupTokens = (value: unknown) => {
+  const raw = normalizeOptionValue(value)
+  if (!raw) return []
+
+  const parts = raw.split(',').map((part) => part.trim()).filter(Boolean)
+  if (parts.length === 0) return []
+
+  const firstPrefix = parts[0].match(/^(.+_N)(\d+)$/i)?.[1]
+  return [...new Set(parts.map((part, index) => {
+    if (index > 0 && firstPrefix && /^\d+$/.test(part)) {
+      return `${firstPrefix}${part}`
+    }
+    return part
+  }).filter(Boolean))]
+}
+
+const uniqueSortedGroupOptions = (values: unknown[]) => uniqueSortedOptions(values.flatMap(parseGroupTokens))
+
+const fetchCourseFilterOptionRows = async ({
+  semester,
+  phase,
+  isUserAdded,
+}: {
+  semester: string | null
+  phase: string | null
+  isUserAdded: string
+}) => {
+  const rows: any[] = []
+  const batchSize = 1000
+
+  for (let offset = 0; offset < 10000; offset += batchSize) {
+    let query = supabase
+      .from('course_schedules')
+      .select('major, group_name, academic_program')
+      .range(offset, offset + batchSize - 1)
+
+    if (semester) query = query.eq('semester', semester)
+    if (phase && phase !== 'all') query = query.eq('phase', phase)
+
+    if (isUserAdded === 'true') {
+      query = query.eq('is_user_added', true)
+    } else if (isUserAdded === 'false') {
+      query = query.or('is_user_added.is.false,is_user_added.is.null')
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+
+    const batchRows = data || []
+    rows.push(...batchRows)
+    if (batchRows.length < batchSize) break
+  }
+
+  return rows
+}
+
 const parseCustomData = (value: unknown) => {
   if (!value) return {}
   if (typeof value === 'string') {
@@ -688,6 +749,24 @@ const handleCourseRequests = async (request: Request, params: URLSearchParams) =
   return json({ error: 'Method not allowed' }, 405)
 }
 
+const handleCourseFilterOptions = async (params: URLSearchParams) => {
+  const semester = params.get('semester')
+  const phase = params.get('phase')
+  const major = params.get('major')
+  const academicProgram = params.get('academicProgram')
+  const isUserAdded = params.get('isUserAdded') || 'all'
+  const rows = await fetchCourseFilterOptionRows({ semester, phase, isUserAdded })
+  const matchesMajor = (row: any) => !major || normalizeOptionValue(row.major) === normalizeOptionValue(major)
+  const matchesAcademicProgram = (row: any) => !academicProgram || normalizeOptionValue(row.academic_program) === normalizeOptionValue(academicProgram)
+
+  return json({
+    success: true,
+    majorOptions: uniqueSortedOptions(rows.filter(matchesAcademicProgram).map((row: any) => row.major)),
+    groupNameOptions: uniqueSortedGroupOptions(rows.filter((row: any) => matchesMajor(row) && matchesAcademicProgram(row)).map((row: any) => row.group_name)),
+    academicProgramOptions: uniqueSortedOptions(rows.filter(matchesMajor).map((row: any) => row.academic_program)),
+  })
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders, status: 204 })
@@ -704,15 +783,20 @@ Deno.serve(async (req) => {
     if (req.method !== 'GET') return json({ error: 'Chỉ hỗ trợ phương thức GET' }, 405)
     if (resource === 'user-schedules') return await handleUserSchedules(req, params)
     if (resource === 'my-schedule') return await handleMySchedule(req, params)
+    if (resource === 'filter-options') return await handleCourseFilterOptions(params)
 
     const semester = params.get('semester')
     const phase = params.get('phase')
     const search = params.get('search')
+    const major = params.get('major')
+    const academicProgram = params.get('academicProgram')
     const limit = Number(params.get('limit') || 50)
 
     let query = supabase.from('course_schedules').select(COURSE_SCHEDULE_COLUMNS).limit(limit)
     if (semester) query = query.eq('semester', semester)
     if (phase && phase !== 'all') query = query.eq('phase', phase)
+    if (major) query = query.eq('major', major)
+    if (academicProgram) query = query.eq('academic_program', academicProgram)
     if (search) query = query.or(`subject_name.ilike.%${search}%,course_code.ilike.%${search}%,instructor.ilike.%${search}%`)
 
     const { data, error } = await query

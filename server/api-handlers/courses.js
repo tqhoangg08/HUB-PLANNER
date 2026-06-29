@@ -100,10 +100,65 @@ const getPublicCoursesCacheKey = (query) => {
   const semester = String(query.semester || '');
   const phase = String(query.phase || 'all');
   const search = String(query.search || '').trim().toLowerCase();
+  const major = String(query.major || '').trim().toLowerCase();
+  const academicProgram = String(query.academicProgram || '').trim().toLowerCase();
   const limit = String(query.limit || '50');
   const offset = String(query.offset || '0');
   const isUserAdded = String(query.isUserAdded || 'all');
-  return JSON.stringify({ semester, phase, search, limit, offset, isUserAdded });
+  return JSON.stringify({ semester, phase, search, major, academicProgram, limit, offset, isUserAdded });
+};
+
+const normalizeOptionValue = (value) => String(value || '').trim();
+
+const uniqueSortedOptions = (values) => [...new Set(values.map(normalizeOptionValue).filter(Boolean))]
+  .sort((a, b) => a.localeCompare(b, 'vi', { numeric: true, sensitivity: 'base' }));
+
+const parseGroupTokens = (value) => {
+  const raw = normalizeOptionValue(value);
+  if (!raw) return [];
+
+  const parts = raw.split(',').map((part) => part.trim()).filter(Boolean);
+  if (parts.length === 0) return [];
+
+  const firstPrefix = parts[0].match(/^(.+_N)(\d+)$/i)?.[1];
+  return [...new Set(parts.map((part, index) => {
+    if (index > 0 && firstPrefix && /^\d+$/.test(part)) {
+      return `${firstPrefix}${part}`;
+    }
+    return part;
+  }).filter(Boolean))];
+};
+
+const uniqueSortedGroupOptions = (values) => uniqueSortedOptions(values.flatMap(parseGroupTokens));
+
+const fetchCourseFilterOptionRows = async ({ semester, phase, isUserAdded }) => {
+  const rows = [];
+  const batchSize = 1000;
+
+  for (let offset = 0; offset < 10000; offset += batchSize) {
+    let query = supabase
+      .from('course_schedules')
+      .select('major, group_name, academic_program')
+      .range(offset, offset + batchSize - 1);
+
+    if (semester) query = query.eq('semester', semester);
+    if (phase && phase !== 'all') query = query.eq('phase', phase);
+
+    if (isUserAdded === 'true') {
+      query = query.eq('is_user_added', true);
+    } else if (isUserAdded === 'false') {
+      query = query.or('is_user_added.is.false,is_user_added.is.null');
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const batchRows = data || [];
+    rows.push(...batchRows);
+    if (batchRows.length < batchSize) break;
+  }
+
+  return rows;
 };
 
 const normalizeComparable = (value) => {
@@ -718,6 +773,20 @@ const handleCourseRequests = async (request, response) => {
   return response.status(405).json({ error: 'Method not allowed' });
 };
 
+const handleCourseFilterOptions = async (request, response) => {
+  const { semester, phase, major, academicProgram, isUserAdded = 'all' } = request.query;
+  const rows = await fetchCourseFilterOptionRows({ semester, phase, isUserAdded });
+  const matchesMajor = (row) => !major || normalizeOptionValue(row.major) === normalizeOptionValue(major);
+  const matchesAcademicProgram = (row) => !academicProgram || normalizeOptionValue(row.academic_program) === normalizeOptionValue(academicProgram);
+
+  return response.status(200).json({
+    success: true,
+    majorOptions: uniqueSortedOptions(rows.filter(matchesAcademicProgram).map((row) => row.major)),
+    groupNameOptions: uniqueSortedGroupOptions(rows.filter((row) => matchesMajor(row) && matchesAcademicProgram(row)).map((row) => row.group_name)),
+    academicProgramOptions: uniqueSortedOptions(rows.filter(matchesMajor).map((row) => row.academic_program)),
+  });
+};
+
 async function handler(request, response) {
   const { resource } = request.query;
 
@@ -755,7 +824,7 @@ async function handler(request, response) {
 
   try {
     // Nhận các tham số lọc từ đường link URL do Frontend gửi lên
-    const { semester, phase, search, limit = 50, offset = 0, isUserAdded = 'all' } = request.query;
+    const { semester, phase, search, major, academicProgram, limit = 50, offset = 0, isUserAdded = 'all' } = request.query;
     const pageLimit = Math.max(1, Math.min(Number(limit) || 50, 100));
     const pageOffset = Math.max(0, Number(offset) || 0);
 
@@ -765,6 +834,10 @@ async function handler(request, response) {
 
     if (resource === 'my-schedule') {
       return handleMySchedule(request, response);
+    }
+
+    if (resource === 'filter-options') {
+      return handleCourseFilterOptions(request, response);
     }
 
     const cacheKey = getPublicCoursesCacheKey(request.query);
@@ -785,6 +858,14 @@ async function handler(request, response) {
     
     if (phase && phase !== 'all') {
       query = query.eq('phase', phase);
+    }
+
+    if (major) {
+      query = query.eq('major', major);
+    }
+
+    if (academicProgram) {
+      query = query.eq('academic_program', academicProgram);
     }
 
     if (isUserAdded === 'true') {
