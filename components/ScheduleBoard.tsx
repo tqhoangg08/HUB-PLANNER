@@ -162,6 +162,14 @@ const parseGroupTokens = (value?: string | null) => {
     }).filter(Boolean))];
 };
 
+const getSemesterContainingDate = (date: Date, fallbackSemester: string) => {
+    const matchedSemester = SEMESTER_OPTIONS.find(option => {
+        const weekNumber = getWeekNumberForDate(date, option.value);
+        return weekNumber >= 1 && weekNumber <= getSemesterMaxWeek(option.value);
+    });
+    return matchedSemester?.value || fallbackSemester;
+};
+
 const SYNCABLE_COURSE_FIELDS: { key: keyof Course; label: string }[] = [
     { key: 'course_code', label: 'Mã học phần' },
     { key: 'subject_name', label: 'Tên môn học' },
@@ -1752,13 +1760,16 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const goToToday = () => {
     playClick();
     const now = new Date();
-    let weekNum = getWeekNumberForDate(now, selectedSemester);
+    const targetSemester = getSemesterContainingDate(now, selectedSemester);
+    const targetSemesterMaxWeek = getSemesterMaxWeek(targetSemester);
+    let weekNum = getWeekNumberForDate(now, targetSemester);
     
     if (weekNum < 1) weekNum = 1;
-    if (weekNum > selectedSemesterMaxWeek) weekNum = selectedSemesterMaxWeek;
+    if (weekNum > targetSemesterMaxWeek) weekNum = targetSemesterMaxWeek;
     
+    setSelectedSemester(targetSemester);
     setSelectedWeek(weekNum);
-    setSelectedMonthIndex(getInitialSemesterMonthIndex(selectedSemester, now));
+    setSelectedMonthIndex(getInitialSemesterMonthIndex(targetSemester, now));
   };
   
   let filteredAdminCourses: Course[] = [];
