@@ -14,6 +14,18 @@ import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
+import {
+  DEFAULT_SCHEDULE_SEMESTER,
+  SEMESTER_OPTIONS,
+  getInitialSemesterMonthIndex,
+  getSemesterMaxWeek,
+  getSemesterMonth,
+  getSemesterMonthLabel,
+  getSemesterMonths,
+  getWeekDatesForSemester,
+  getWeekNumberForDate,
+  isSemesterHolidayWeek,
+} from '../utils/academicCalendar';
 
 interface UserProfile {
   id?: string;
@@ -82,18 +94,28 @@ interface Course {
   id: string;
   course_code: string;
   subject_name: string;
+  prerequisite?: string | null;
   credits: number;
+  knowledge_block?: string | null;
   shift: string;
   day_of_week: string;
   weeks: string;
   room: string;
   campus: string;
+  managing_faculty?: string | null;
   exam_date: string;
   exam_shift: string;
+  exam_campus?: string | null;
   exam_room?: string;
   cohort: string;
   major: string;
+  group_name?: string | null;
+  orientation?: string | null;
+  orientation_note_3?: string | null;
+  registration_type?: string | null;
+  general_note?: string | null;
   academic_program: string;
+  student_count?: number | null;
   phase: string;      
   semester: string;   
   instructor?: string; 
@@ -107,28 +129,50 @@ interface Course {
   custom_data?: Record<string, any>;
 }
 
-const HK_START_DATE = new Date('2026-02-02T00:00:00');
-const HOLIDAY_WEEKS = [2, 3, 4]; 
 const SCHEDULE_UPDATE_NOTICE_STORAGE_KEY = 'hub_schedule_board_update_notice_hidden_v1';
+const STUDENT_EDIT_LOCKED_SEMESTERS = new Set(['HK1_2026_2027']);
+const PLAN_SCHEDULE_STORAGE_PREFIX = 'hub_schedule_plans_v1';
 let hasShownScheduleUpdateNoticeThisLoad = false;
+
+const isStudentCourseEditLocked = (course?: Pick<Course, 'semester'> | null) => (
+    !!course?.semester && STUDENT_EDIT_LOCKED_SEMESTERS.has(course.semester)
+);
+
+type ScheduleViewMode = 'official' | 'plan';
+type PlanScheduleKey = 'A' | 'B' | 'C';
+type PlanSchedules = Record<PlanScheduleKey, Course[]>;
+
+const PLAN_KEYS: PlanScheduleKey[] = ['A', 'B', 'C'];
+
+const createEmptyPlanSchedules = (): PlanSchedules => ({ A: [], B: [], C: [] });
 
 const SYNCABLE_COURSE_FIELDS: { key: keyof Course; label: string }[] = [
     { key: 'course_code', label: 'Mã học phần' },
     { key: 'subject_name', label: 'Tên môn học' },
+    { key: 'prerequisite', label: 'Tiền đề' },
     { key: 'credits', label: 'Tín chỉ' },
+    { key: 'knowledge_block', label: 'Khối kiến thức' },
     { key: 'instructor', label: 'Giảng viên' },
     { key: 'day_of_week', label: 'Thứ' },
     { key: 'shift', label: 'Ca / Tiết' },
     { key: 'room', label: 'Phòng' },
     { key: 'weeks', label: 'Tuần học' },
     { key: 'phase', label: 'Đợt' },
+    { key: 'managing_faculty', label: 'Khoa quản lý' },
     { key: 'exam_date', label: 'Ngày thi' },
     { key: 'exam_shift', label: 'Ca thi' },
+    { key: 'exam_campus', label: 'Cơ sở thi' },
     { key: 'exam_room', label: 'Phòng thi' },
     { key: 'campus', label: 'Cơ sở' },
     { key: 'cohort', label: 'Khóa' },
     { key: 'major', label: 'Ngành' },
+    { key: 'group_name', label: 'Nhóm' },
+    { key: 'orientation', label: 'Định hướng' },
+    { key: 'orientation_note_3', label: 'Ghi chú 3 định hướng' },
+    { key: 'registration_type', label: 'Hình thức đăng ký' },
+    { key: 'general_note', label: 'Ghi chú chung' },
     { key: 'academic_program', label: 'Chương trình' },
+    { key: 'student_count', label: 'Sĩ số sinh viên' },
     { key: 'semester', label: 'Học kỳ' },
 ];
 
@@ -136,18 +180,28 @@ const COURSE_SCHEDULE_COLUMNS = [
     'id',
     'course_code',
     'subject_name',
+    'prerequisite',
     'credits',
+    'knowledge_block',
     'shift',
     'day_of_week',
     'weeks',
     'room',
     'campus',
+    'managing_faculty',
     'exam_date',
     'exam_shift',
+    'exam_campus',
     'exam_room',
     'cohort',
     'major',
+    'group_name',
+    'orientation',
+    'orientation_note_3',
+    'registration_type',
+    'general_note',
     'academic_program',
+    'student_count',
     'phase',
     'semester',
     'instructor',
@@ -248,14 +302,7 @@ const formatDateStr = (date: Date) => {
 
 const getWeekDatesFull = (weekNum: number, sem: string) => {
     if (weekNum === 0) return ['', '', '', '', '', '', '']; 
-    const dates = [];
-    const startDate = sem === 'HK1_2025_2026' ? new Date('2025-08-11T00:00:00') : new Date('2026-02-02T00:00:00');
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(startDate);
-        d.setDate(d.getDate() + (weekNum - 1) * 7 + i);
-        dates.push(formatDateStr(d));
-    }
-    return dates;
+    return getWeekDatesForSemester(weekNum, sem).map(formatDateStr);
 };
 
 const getMainShiftType = (shiftStr?: string) => {
@@ -338,7 +385,7 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
     if (targetWeek === 0) {
         isWeekMatch = true; 
     } else {
-        const parsedWks = parseWeeks(cWeekStr);
+        const parsedWks = parseWeeks(cWeekStr, course.semester);
         if (parsedWks.includes(targetWeek)) isWeekMatch = true;
     }
     if (!isWeekMatch) continue;
@@ -454,14 +501,20 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [adminScheduleError, setAdminScheduleError] = useState('');
   
-  const [selectedSemester, setSelectedSemester] = useState<string>('HK2_2025_2026');
+  const [selectedSemester, setSelectedSemester] = useState<string>(DEFAULT_SCHEDULE_SEMESTER);
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
+  const [scheduleViewMode, setScheduleViewMode] = useState<ScheduleViewMode>('official');
+  const [activePlanKey, setActivePlanKey] = useState<PlanScheduleKey>('A');
+  const [planSchedules, setPlanSchedules] = useState<PlanSchedules>(() => createEmptyPlanSchedules());
+  const [hasLoadedPlanSchedules, setHasLoadedPlanSchedules] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<number>(0); 
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(new Date().getMonth()); 
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(() => getInitialSemesterMonthIndex(DEFAULT_SCHEDULE_SEMESTER)); 
   
   const [isWeekDropdownOpen, setIsWeekDropdownOpen] = useState(false);
   const [isMonthDropdownOpen, setIsMonthDropdownOpen] = useState(false); 
+  const weekDropdownButtonRef = useRef<HTMLButtonElement>(null);
+  const monthDropdownButtonRef = useRef<HTMLButtonElement>(null);
   
   const [selectedCourseInfo, setSelectedCourseInfo] = useState<{
     course: Course;
@@ -478,6 +531,57 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
   const [newCourseData, setNewCourseData] = useState({ subject_name: '', course_code: '', instructor: '' });
   const currentSemesterSchedule = mySchedule.filter(c => c.semester === selectedSemester);
+  const planStorageKey = `${PLAN_SCHEDULE_STORAGE_PREFIX}:${session?.user?.id || 'guest'}`;
+  const currentPlanSchedule = planSchedules[activePlanKey].filter(c => c.semester === selectedSemester);
+  const isPlanMode = scheduleViewMode === 'plan';
+  const displayedSchedule = isPlanMode ? currentPlanSchedule : currentSemesterSchedule;
+  const displayedScheduleTitle = isPlanMode ? `Kế hoạch ${activePlanKey}` : 'Lịch cá nhân';
+  const displayedScheduleCount = displayedSchedule.length;
+
+  useEffect(() => {
+    setHasLoadedPlanSchedules(false);
+    if (!isAuthenticated) {
+        setPlanSchedules(createEmptyPlanSchedules());
+        setHasLoadedPlanSchedules(true);
+        return;
+    }
+
+    try {
+        const raw = localStorage.getItem(planStorageKey);
+        if (!raw) {
+            setPlanSchedules(createEmptyPlanSchedules());
+            setHasLoadedPlanSchedules(true);
+            return;
+        }
+
+        const parsed = JSON.parse(raw);
+        setPlanSchedules({
+            A: Array.isArray(parsed?.A) ? parsed.A : [],
+            B: Array.isArray(parsed?.B) ? parsed.B : [],
+            C: Array.isArray(parsed?.C) ? parsed.C : [],
+        });
+        setHasLoadedPlanSchedules(true);
+    } catch (error) {
+        console.error('Không thể đọc lịch học kế hoạch:', error);
+        setPlanSchedules(createEmptyPlanSchedules());
+        setHasLoadedPlanSchedules(true);
+    }
+  }, [isAuthenticated, planStorageKey]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !hasLoadedPlanSchedules) return;
+    try {
+        localStorage.setItem(planStorageKey, JSON.stringify(planSchedules));
+    } catch (error) {
+        console.error('Không thể lưu lịch học kế hoạch:', error);
+    }
+  }, [isAuthenticated, hasLoadedPlanSchedules, planStorageKey, planSchedules]);
+
+  useEffect(() => {
+    const maxWeek = getSemesterMaxWeek(selectedSemester);
+    setSelectedWeek(prev => Math.min(prev, maxWeek));
+    setSelectedMonthIndex(getInitialSemesterMonthIndex(selectedSemester));
+  }, [selectedSemester]);
 
   const [isPdfGuideOpen, setIsPdfGuideOpen] = useState(false);
   const [scheduleImportTurnstileToken, setScheduleImportTurnstileToken] = useState('');
@@ -600,6 +704,26 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   }, []);
 
   const todayStr = formatDateStr(new Date());
+  const getToolbarDropdownStyle = (
+    triggerRef: React.RefObject<HTMLButtonElement | null>,
+    widthPx: number
+  ): React.CSSProperties => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return { top: 0, left: 0, width: widthPx };
+
+    const viewportPadding = 12;
+    const left = Math.min(
+        Math.max(viewportPadding, rect.right - widthPx),
+        window.innerWidth - widthPx - viewportPadding
+    );
+
+    return {
+        position: 'fixed',
+        top: rect.bottom + 8,
+        left,
+        width: widthPx,
+    };
+  };
 
   const fetchCourses = async () => {
     setIsLoading(true);
@@ -949,17 +1073,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     return afternoonShifts.includes(normalized);
   };
 
-  const addToSchedule = async (course: Course) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { alert("⚠️ Vui lòng đăng nhập!"); return; }
-    if (mySchedule.some(c => c.id === course.id)) { alert("Môn học đã có sẵn!"); return; }
-
-    for (const existingCourse of currentSemesterSchedule) {
+  const getScheduleConflictMessage = (course: Course, existingCourses: Course[]) => {
+    for (const existingCourse of existingCourses) {
       let isConflict = false;
-      let conflictDay = null;
+      let conflictDay: number | null = null;
       let conflictShiftStr = "";
 
-      for (let w = 1; w <= 24; w++) {
+      for (let w = 1; w <= getSemesterMaxWeek(selectedSemester); w++) {
         for (let d = 2; d <= 8; d++) {
           ['S', 'C'].forEach(testShift => {
              const slot1 = getCourseDetailsForSlot(course, d, w, testShift);
@@ -975,21 +1095,78 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       }
 
       if (isConflict) {
-        alert(`⛔ CẢNH BÁO TRÙNG LỊCH HỌC!\n\nMôn [${course.subject_name}] bị trùng giờ học với môn [${existingCourse.subject_name}].\n(Bị trùng lặp vào Thứ ${conflictDay} - ${getShiftDisplay(conflictShiftStr)}).\n\nHệ thống đã chặn thao tác này. Vui lòng chọn Lớp học phần khác!`);
-        return; 
+        return `⛔ CẢNH BÁO TRÙNG LỊCH HỌC!\n\nMôn [${course.subject_name}] bị trùng giờ học với môn [${existingCourse.subject_name}].\n(Bị trùng lặp vào Thứ ${conflictDay} - ${getShiftDisplay(conflictShiftStr)}).\n\nVui lòng chọn Lớp học phần khác!`;
       }
 
-      if (course.exam_date && existingCourse.exam_date && course.exam_date.trim() === existingCourse.exam_date.trim()) { 
+      if (course.exam_date && existingCourse.exam_date && course.exam_date.trim() === existingCourse.exam_date.trim()) {
         const newIsMorning = isExamInShift(course.exam_shift, 'S');
         const existIsMorning = isExamInShift(existingCourse.exam_shift, 'S');
         const newIsAfternoon = isExamInShift(course.exam_shift, 'C');
         const existIsAfternoon = isExamInShift(existingCourse.exam_shift, 'C');
 
-        if ((newIsMorning && existIsMorning) || (newIsAfternoon && existIsAfternoon)) { 
-          alert(`⛔ CẢNH BÁO TRÙNG LỊCH THI!\n\nMôn [${course.subject_name}] bị trùng buổi thi với môn [${existingCourse.subject_name}].\n(Cùng thi ngày ${course.exam_date} - ${newIsMorning ? 'Buổi Sáng' : 'Buổi Chiều'}).\n\nHệ thống đã chặn thao tác này để tránh việc bạn phải bỏ thi!`);
-          return; 
+        if ((newIsMorning && existIsMorning) || (newIsAfternoon && existIsAfternoon)) {
+          return `⛔ CẢNH BÁO TRÙNG LỊCH THI!\n\nMôn [${course.subject_name}] bị trùng buổi thi với môn [${existingCourse.subject_name}].\n(Cùng thi ngày ${course.exam_date} - ${newIsMorning ? 'Buổi Sáng' : 'Buổi Chiều'}).\n\nHệ thống đã chặn thao tác này để tránh việc bạn phải bỏ thi!`;
         }
       }
+    }
+
+    return '';
+  };
+
+  const addToPlanSchedule = (course: Course) => {
+    if (!isAuthenticated) { alert("⚠️ Vui lòng đăng nhập!"); return; }
+    if (currentPlanSchedule.some(c => c.id === course.id)) {
+      alert(`Môn học đã có trong Kế hoạch ${activePlanKey}!`);
+      return;
+    }
+
+    const conflictMessage = getScheduleConflictMessage(course, currentPlanSchedule);
+    if (conflictMessage) {
+      alert(conflictMessage);
+      return;
+    }
+
+    const planCourse = { ...course, semester: course.semester || selectedSemester };
+    setPlanSchedules(prev => ({
+      ...prev,
+      [activePlanKey]: [...prev[activePlanKey], planCourse],
+    }));
+  };
+
+  const removeFromPlanSchedule = (courseId: string) => {
+    setPlanSchedules(prev => ({
+      ...prev,
+      [activePlanKey]: prev[activePlanKey].filter(c => c.id !== courseId),
+    }));
+  };
+
+  const addToActiveSchedule = (course: Course) => {
+    if (isPlanMode) {
+      addToPlanSchedule(course);
+      return;
+    }
+
+    addToSchedule(course);
+  };
+
+  const removeFromActiveSchedule = (courseId: string) => {
+    if (isPlanMode) {
+      removeFromPlanSchedule(courseId);
+      return;
+    }
+
+    removeFromSchedule(courseId);
+  };
+
+  const addToSchedule = async (course: Course) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { alert("⚠️ Vui lòng đăng nhập!"); return; }
+    if (mySchedule.some(c => c.id === course.id)) { alert("Môn học đã có sẵn!"); return; }
+
+    const conflictMessage = getScheduleConflictMessage(course, currentSemesterSchedule);
+    if (conflictMessage) {
+      alert(conflictMessage);
+      return;
     }
 
     setMySchedule([...mySchedule, course]);
@@ -1173,6 +1350,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
   const handleStudentSaveCourse = async (e: React.FormEvent) => {
       e.preventDefault();
+      if (isStudentCourseEditLocked(studentEditData)) {
+          alert("Tạm thời chưa cho phép sinh viên chỉnh sửa thông tin môn học của học kỳ 1 năm học 2026-2027.");
+          setIsStudentEditModalOpen(false);
+          return;
+      }
       if (!studentEditData.subject_name || !studentEditData.course_code) {
           alert("Vui lòng nhập Tên môn và Mã môn!");
           return;
@@ -1375,17 +1557,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     const targetDateStr = formatDateStr(targetDate);
 
     return schedule.map(course => {
-      let startDate = new Date('2026-02-02T00:00:00'); 
-      if (course.semester === 'HK1_2025_2026') startDate = new Date('2025-08-11T00:00:00'); 
+      const weekNum = getWeekNumberForDate(targetDate, course.semester);
 
-      const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-      const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-      
-      const diffTime = target.getTime() - start.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      const weekNum = Math.floor(diffDays / 7) + 1;
-
-      if (weekNum < 1 || weekNum > 24) return [];
+      if (weekNum < 1 || weekNum > getSemesterMaxWeek(course.semester)) return [];
 
       const sDetails = getCourseDetailsForSlot(course, dayOfWeek, weekNum, 'S');
       const cDetails = getCourseDetailsForSlot(course, dayOfWeek, weekNum, 'C');
@@ -1427,14 +1601,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   };
 
   const renderMonthDays = () => {
-    const year = 2026;
-    const firstDay = new Date(year, selectedMonthIndex, 1);
+    const selectedMonth = getSemesterMonth(selectedSemester, selectedMonthIndex);
+    const firstDay = new Date(selectedMonth.year, selectedMonth.month, 1);
     const startingDayOfWeek = firstDay.getDay() === 0 ? 7 : firstDay.getDay(); 
-    const daysInMonth = new Date(year, selectedMonthIndex + 1, 0).getDate();
+    const daysInMonth = new Date(selectedMonth.year, selectedMonth.month + 1, 0).getDate();
     
     const days: (Date | null)[] = [];
     for(let i = 1; i < startingDayOfWeek; i++) days.push(null); 
-    for(let i = 1; i <= daysInMonth; i++) days.push(new Date(year, selectedMonthIndex, i));
+    for(let i = 1; i <= daysInMonth; i++) days.push(new Date(selectedMonth.year, selectedMonth.month, i));
     
     return days;
   };
@@ -1492,26 +1666,23 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const currentWeekDates = getWeekDatesFull(selectedWeek, selectedSemester);
   const weekStartStr = currentWeekDates[0]?.substring(0, 5);
   const weekEndStr = currentWeekDates[6]?.substring(0, 5);
+  const selectedSemesterMaxWeek = getSemesterMaxWeek(selectedSemester);
+  const selectedSemesterMonths = getSemesterMonths(selectedSemester);
 
   const prevWeek = () => setSelectedWeek(prev => prev > 0 ? prev - 1 : 0);
-  const nextWeek = () => setSelectedWeek(prev => prev < 24 ? prev + 1 : 24);
+  const nextWeek = () => setSelectedWeek(prev => prev < selectedSemesterMaxWeek ? prev + 1 : selectedSemesterMaxWeek);
   const prevMonth = () => setSelectedMonthIndex(prev => prev > 0 ? prev - 1 : 0);
-  const nextMonth = () => setSelectedMonthIndex(prev => prev < 11 ? prev + 1 : 11);
+  const nextMonth = () => setSelectedMonthIndex(prev => prev < selectedSemesterMonths.length - 1 ? prev + 1 : selectedSemesterMonths.length - 1);
   const goToToday = () => {
     playClick();
     const now = new Date();
-    let startDate = new Date('2026-02-02T00:00:00'); 
-    if (selectedSemester === 'HK1_2025_2026') startDate = new Date('2025-08-11T00:00:00'); 
-    
-    const diffTime = now.getTime() - startDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    let weekNum = Math.floor(diffDays / 7) + 1;
+    let weekNum = getWeekNumberForDate(now, selectedSemester);
     
     if (weekNum < 1) weekNum = 1;
-    if (weekNum > 24) weekNum = 24;
+    if (weekNum > selectedSemesterMaxWeek) weekNum = selectedSemesterMaxWeek;
     
     setSelectedWeek(weekNum);
-    setSelectedMonthIndex(now.getMonth());
+    setSelectedMonthIndex(getInitialSemesterMonthIndex(selectedSemester, now));
   };
   
   let filteredAdminCourses: Course[] = [];
@@ -1632,8 +1803,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 <div className="p-4 border-b border-gray-200 bg-[#f8fafc] flex flex-wrap gap-4 items-center justify-between">
                     <div className="flex items-center gap-3">
                         <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-300 outline-none text-sm font-bold text-[#003375] bg-white hover:border-gray-400 transition-colors cursor-pointer">
-                            <option value="HK2_2025_2026">HK2 (2025-2026)</option>
-                            <option value="HK1_2025_2026">HK1 (2025-2026)</option>
+                            {SEMESTER_OPTIONS.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
                         </select>
                         <select value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-300 outline-none text-sm font-bold text-gray-700 bg-white hover:border-gray-400 transition-colors cursor-pointer">
                             <option value="all">Mọi đợt</option>
@@ -1968,8 +2140,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         <div className="grid grid-cols-[1fr_0.72fr] gap-2">
                             <div className="flex-1">
                                 <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm font-bold text-[#003375] outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed">
-                                    <option value="HK2_2025_2026">HK2 (2025-2026)</option>
-                                    <option value="HK1_2025_2026">HK1 (2025-2026)</option>
+                                    {SEMESTER_OPTIONS.map(option => (
+                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div className="min-w-0">
@@ -2013,7 +2186,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                 <h3 className={`font-bold text-xs leading-tight pr-6 line-clamp-2 ${color.text}`}>{course.subject_name}</h3>
                                                 <p className="text-[10px] text-gray-500 font-medium mt-0.5">{course.course_code} • Đợt {course.phase || '1'}</p>
                                             </div>
-                                            <button onClick={(e) => { e.stopPropagation(); addToSchedule(course); }} disabled={isSyncing} className="text-gray-400 hover:text-[#003375] p-1 bg-gray-50 hover:bg-blue-50 rounded-md transition-colors shrink-0"><Plus size={14}/></button>
+                                            <button onClick={(e) => { e.stopPropagation(); addToActiveSchedule(course); }} disabled={isSyncing} className="text-gray-400 hover:text-[#003375] p-1 bg-gray-50 hover:bg-blue-50 rounded-md transition-colors shrink-0" title={isPlanMode ? `Thêm vào Kế hoạch ${activePlanKey}` : 'Thêm vào Lịch cá nhân'}><Plus size={14}/></button>
                                         </div>
                                         <div className="text-[10px] text-gray-500 mt-2 flex items-center gap-1 font-medium"><Clock size={10} className="text-gray-400"/> Thứ {course.day_of_week} ({getShiftDisplay(course.shift)})</div>
                                         <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1 font-medium"><MapPin size={10} className="text-gray-400"/> P. {course.room}</div>
@@ -2027,82 +2200,104 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
                 {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
                 <div className="flex-1 bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden min-h-[600px] lg:min-h-0 lg:h-full w-full relative">
-                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-3 sm:p-4 border-b border-gray-200 gap-3 bg-white shrink-0">
-                        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                            <h2 className="text-lg font-extrabold text-[#003375] flex items-center gap-2"><Calendar size={20} className="text-[#990000]" /> Lịch cá nhân</h2>
-                            <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-50/80 border border-blue-200 text-[#003375] rounded-full text-[10px] sm:text-xs font-bold cursor-help hover:bg-blue-100 transition-colors" title="Click vào môn học trên lịch hoặc dùng Nút Tag để dán nhãn (Label) cho ngày đó!">
-                                <Zap size={14} className="fill-yellow-500 text-yellow-500 animate-pulse shrink-0" />
-                                <span className="hidden md:inline">✨ Mới: Gắn nhãn, tùy chỉnh lịch học cá nhân!</span>
-                                <span className="hidden sm:inline md:hidden">✨ Mới: Nhãn dán ngày!</span>
-                                <span className="sm:hidden">✨ Gắn nhãn!</span>
+                    <div className="schedule-toolbar border-b border-gray-200 bg-white shrink-0">
+                        <div className="no-scrollbar flex min-h-[54px] items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap px-3 pt-3 sm:px-4">
+                            <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
+                                <h2 className="flex shrink-0 items-center gap-2 text-lg font-extrabold text-[#003375]"><Calendar size={20} className="shrink-0 text-[#990000]" /> {displayedScheduleTitle}</h2>
+                                <div className="relative grid w-[168px] shrink-0 grid-cols-2 items-center rounded-lg border border-gray-300 bg-gray-50 p-1">
+                                    <span className={`absolute left-1 top-1 bottom-1 w-[calc(50%-0.25rem)] rounded-md border border-gray-200 bg-white shadow-sm transition-transform duration-300 ease-out ${isPlanMode ? 'translate-x-full' : 'translate-x-0'}`} />
+                                    <button onClick={() => setScheduleViewMode('official')} className={`relative z-10 px-2.5 py-1 text-xs font-bold transition-all active:scale-[0.98] ${!isPlanMode ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Lịch cá nhân</button>
+                                    <button onClick={() => setScheduleViewMode('plan')} className={`relative z-10 px-2.5 py-1 text-xs font-bold transition-all active:scale-[0.98] ${isPlanMode ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Kế hoạch</button>
+                                </div>
                             </div>
+
+                            {isPlanMode && (
+                                <div className="flex shrink-0 items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 p-1">
+                                    {PLAN_KEYS.map(planKey => (
+                                        <button key={planKey} onClick={() => setActivePlanKey(planKey)} className={`px-2.5 py-1 text-[11px] font-black rounded-md transition-all active:scale-[0.98] ${activePlanKey === planKey ? 'bg-white text-amber-700 border border-amber-200 shadow-sm' : 'text-amber-600 hover:bg-white/70'}`}>
+                                            KH {planKey}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="ml-auto flex shrink-0 items-center gap-2">
+                                <div className="flex shrink-0 items-center bg-gray-50 border border-gray-300 rounded-lg p-1">
+                                    <button onClick={() => setViewMode('week')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-[#003375] border border-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>Tuần</button>
+                                    <button onClick={() => setViewMode('month')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-[#003375] border border-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>Tháng</button>
+                                </div>
+
+                                <button onClick={goToToday} className="shrink-0 px-3 py-1.5 text-xs font-bold bg-blue-50 text-[#003375] rounded-lg hover:bg-blue-100 transition-colors border border-blue-200 active:scale-95 whitespace-nowrap">Hôm nay</button>
+                                
+                                {viewMode === 'week' ? (
+                                    <div className="flex shrink-0 items-center gap-1.5">
+                                        <div className="flex shrink-0 items-center bg-white border border-gray-300 rounded-lg overflow-hidden">
+                                            <button onClick={prevWeek} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-300"><ChevronLeft size={16}/></button>
+                                            <button onClick={nextWeek} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
+                                        </div>
+                                        <button ref={weekDropdownButtonRef} onClick={(e) => { e.stopPropagation(); setIsWeekDropdownOpen(!isWeekDropdownOpen); setIsMonthDropdownOpen(false); }} className="flex shrink-0 items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50">
+                                            {selectedWeek === 0 ? 'Tổng quát' : `Tuần ${selectedWeek}`} <ChevronDown size={14} className="text-gray-400"/>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex shrink-0 items-center gap-1.5">
+                                        <div className="flex shrink-0 items-center bg-white border border-gray-300 rounded-lg overflow-hidden">
+                                            <button onClick={prevMonth} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-300"><ChevronLeft size={16}/></button>
+                                            <button onClick={nextMonth} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
+                                        </div>
+                                        <button ref={monthDropdownButtonRef} onClick={(e) => { e.stopPropagation(); setIsMonthDropdownOpen(!isMonthDropdownOpen); setIsWeekDropdownOpen(false); }} className="flex shrink-0 items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50">
+                                            {getSemesterMonthLabel(selectedSemester, selectedMonthIndex)} <ChevronDown size={14} className="text-gray-400"/>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="no-scrollbar flex min-h-[34px] items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap px-3 pb-3 pt-1 sm:px-4">
+                            {!isPlanMode && (
+                                <div className="flex max-w-[300px] shrink-0 items-center gap-1.5 overflow-hidden rounded-full border border-blue-200 bg-blue-50/80 px-3 py-1 text-[10px] font-bold text-[#003375] transition-colors hover:bg-blue-100 sm:text-xs" title="Click vào môn học trên lịch hoặc dùng Nút Tag để dán nhãn (Label) cho ngày đó!">
+                                    <Zap size={14} className="fill-yellow-500 text-yellow-500 animate-pulse shrink-0" />
+                                    <span className="truncate">✨ Mới: Gắn nhãn, tùy chỉnh lịch học cá nhân!</span>
+                                </div>
+                            )}
+
                             {selectedWeek !== 0 && viewMode === 'week' && (
-                                <span className="hidden md:flex text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded-md items-center gap-1.5 border border-gray-200">
+                                <span className="flex shrink-0 items-center gap-1.5 rounded-md border border-gray-200 bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-500">
                                     <CalendarDays size={12}/> {weekStartStr} - {weekEndStr}
                                 </span>
                             )}
                         </div>
-                        
-                        <div className="flex items-center gap-2">
-                            <div className="flex items-center bg-gray-50 border border-gray-300 rounded-lg p-1">
-                                <button onClick={() => setViewMode('week')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-[#003375] border border-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>Tuần</button>
-                                <button onClick={() => setViewMode('month')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-[#003375] border border-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>Tháng</button>
-                            </div>
-                            <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold bg-blue-50 text-[#003375] rounded-lg hover:bg-blue-100 transition-colors border border-blue-200 active:scale-95 whitespace-nowrap">Hôm nay</button>
-                            
-                            {viewMode === 'week' ? (
-                                <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden">
-                                        <button onClick={prevWeek} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-300"><ChevronLeft size={16}/></button>
-                                        <button onClick={nextWeek} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
-                                    </div>
-                                    <div className="relative">
-                                        <button onClick={(e) => { e.stopPropagation(); setIsWeekDropdownOpen(!isWeekDropdownOpen); setIsMonthDropdownOpen(false); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50">
-                                            {selectedWeek === 0 ? 'Tổng quát' : `Tuần ${selectedWeek}`} <ChevronDown size={14} className="text-gray-400"/>
+
+                        {isWeekDropdownOpen && createPortal(
+                            <div onClick={(e) => e.stopPropagation()} style={getToolbarDropdownStyle(weekDropdownButtonRef, 192)} className="z-[100000] rounded-xl border border-gray-200 bg-white py-1 shadow-2xl max-h-[320px] overflow-y-auto custom-scrollbar">
+                                <button onClick={() => { setSelectedWeek(0); setIsWeekDropdownOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 font-bold text-gray-700 border-b border-gray-100">Hiển thị Tổng quát</button>
+                                {Array.from({length: selectedSemesterMaxWeek}, (_, i) => i + 1).map(w => {
+                                    const wDates = getWeekDatesFull(w, selectedSemester);
+                                    return (
+                                        <button key={w} onClick={() => { setSelectedWeek(w); setIsWeekDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedWeek === w ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
+                                            Tuần {w} <span className="text-xs text-gray-400 ml-1 font-normal">({wDates[0].substring(0,5)} - {wDates[6].substring(0,5)})</span>
                                         </button>
-                                        {isWeekDropdownOpen && (
-                                            <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-xl max-h-[300px] overflow-y-auto z-50 py-1">
-                                                <button onClick={() => { setSelectedWeek(0); setIsWeekDropdownOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 font-bold text-gray-700 border-b border-gray-100">Hiển thị Tổng quát</button>
-                                                {Array.from({length: 24}, (_, i) => i + 1).map(w => {
-                                                    const wDates = getWeekDatesFull(w, selectedSemester);
-                                                    return (
-                                                        <button key={w} onClick={() => { setSelectedWeek(w); setIsWeekDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedWeek === w ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
-                                                            Tuần {w} <span className="text-xs text-gray-400 ml-1 font-normal">({wDates[0].substring(0,5)} - {wDates[6].substring(0,5)})</span>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center bg-white border border-gray-300 rounded-lg overflow-hidden">
-                                        <button onClick={prevMonth} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors border-r border-gray-300"><ChevronLeft size={16}/></button>
-                                        <button onClick={nextMonth} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={16}/></button>
-                                    </div>
-                                    <div className="relative">
-                                        <button onClick={(e) => { e.stopPropagation(); setIsMonthDropdownOpen(!isMonthDropdownOpen); setIsWeekDropdownOpen(false); }} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-[#003375] hover:bg-gray-50">
-                                            Tháng {selectedMonthIndex + 1} <ChevronDown size={14} className="text-gray-400"/>
-                                        </button>
-                                        {isMonthDropdownOpen && (
-                                            <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-xl max-h-[300px] overflow-y-auto z-50 py-1">
-                                                {Array.from({length: 12}, (_, i) => i).map(m => (
-                                                    <button key={m} onClick={() => { setSelectedMonthIndex(m); setIsMonthDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedMonthIndex === m ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
-                                                        Tháng {m + 1}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                                    );
+                                })}
+                            </div>,
+                            document.body
+                        )}
+
+                        {isMonthDropdownOpen && createPortal(
+                            <div onClick={(e) => e.stopPropagation()} style={getToolbarDropdownStyle(monthDropdownButtonRef, 128)} className="z-[100000] rounded-xl border border-gray-200 bg-white py-1 shadow-2xl max-h-[320px] overflow-y-auto custom-scrollbar">
+                                {selectedSemesterMonths.map((_, m) => (
+                                    <button key={m} onClick={() => { setSelectedMonthIndex(m); setIsMonthDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedMonthIndex === m ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
+                                        {getSemesterMonthLabel(selectedSemester, m)}
+                                    </button>
+                                ))}
+                            </div>,
+                            document.body
+                        )}
                     </div>
 
                     {/* LƯỚI LỊCH (GRID) */}
                     <div className="flex-1 overflow-auto custom-scrollbar relative bg-white">
-                        {HOLIDAY_WEEKS.includes(selectedWeek) && viewMode === 'week' && (
+                        {isSemesterHolidayWeek(selectedSemester, selectedWeek) && viewMode === 'week' && (
                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
                                 <div className="bg-red-50 text-red-600 px-6 py-3 rounded-full font-bold text-sm border border-red-200 flex items-center gap-2 animate-bounce">
                                     <Zap size={18} className="fill-current"/> Tuần nghỉ Lễ/Tết, không có lịch học!
@@ -2144,11 +2339,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                 const isTodayCol = selectedWeek !== 0 && currentWeekDates[index] === todayStr;
                                                 const cellDateStr = currentWeekDates[index]; 
 
-                                                const slotCourses = currentSemesterSchedule.map(c => {
+                                                const slotCourses = displayedSchedule.map(c => {
                                                     const details = getCourseDetailsForSlot(c, day, selectedWeek, shift);
                                                     return details ? { course: c, slotDetails: details } : null;
                                                 }).filter(Boolean);
-                                                const makeupSlotCourses = currentSemesterSchedule.flatMap(c => (c.makeup_schedules || [])
+                                                const makeupSlotCourses = displayedSchedule.flatMap(c => (c.makeup_schedules || [])
                                                     .filter(item => item.date === cellDateStr && (getMainShiftType(item.shift) || 'S') === shift)
                                                     .map(item => ({
                                                         course: c,
@@ -2165,7 +2360,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                 );
                                                 const displaySlotCourses = [...slotCourses, ...makeupSlotCourses];
 
-                                                const slotExams = currentSemesterSchedule.filter(c => {
+                                                const slotExams = displayedSchedule.filter(c => {
                                                     if (!c.exam_date || !c.exam_shift || selectedWeek === 0) return false; 
                                                     const examDM = getExamDayMonth(c.exam_date);
                                                     return examDM === cellDateStr.substring(0, 5) && isExamInShift(c.exam_shift, shift);
@@ -2187,7 +2382,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                                                 <Tag size={12}/>
                                                                             </button>
                                                                         )}
-                                                                        <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="bg-white/80 hover:bg-white text-red-500 hover:text-red-700 rounded p-1 shadow-sm border border-red-100" title="Xóa môn">
+                                                                        <button onClick={(e) => { e.stopPropagation(); removeFromActiveSchedule(course.id); }} className="bg-white/80 hover:bg-white text-red-500 hover:text-red-700 rounded p-1 shadow-sm border border-red-100" title={isPlanMode ? 'Xóa khỏi kế hoạch' : 'Xóa môn'}>
                                                                             <X size={12}/>
                                                                         </button>
                                                                     </div>
@@ -2245,8 +2440,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                             if (!date) return <div key={`empty-${idx}`} className="bg-gray-50/30 min-h-[90px]" />;
                                             
                                             const cellDateStr = formatDateStr(date);
-                                            const dayCourses = getCoursesForDate(date, mySchedule);
-                                            const dayExams = getExamsForDate(date, mySchedule);
+                                            const dayCourses = getCoursesForDate(date, displayedSchedule);
+                                            const dayExams = getExamsForDate(date, displayedSchedule);
                                             const isToday = todayStr === cellDateStr;
                                             
                                             return (
@@ -2289,7 +2484,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     {/* NÚT DANH SÁCH MÔN (FAB Nằm trong khung lịch) */}
                     <div className="absolute bottom-4 right-4 flex gap-2">
                         <button onClick={() => setIsMyScheduleModalOpen(true)} className="bg-white border border-gray-300 text-[#003375] hover:bg-gray-50 px-4 py-2.5 rounded-full font-bold text-sm shadow-md flex items-center gap-2 active:scale-95 transition-transform">
-                            <List size={16}/> Đã lưu ({currentSemesterSchedule.length})
+                            <List size={16}/> {isPlanMode ? `KH ${activePlanKey}` : 'Đã lưu'} ({displayedScheduleCount})
                         </button>
                     </div>
                 </div>
@@ -2298,9 +2493,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
         {/* MODAL CHI TIẾT MÔN HỌC (TÍCH HỢP QUẢN LÝ LABEL TRỰC TIẾP) */}
         {selectedCourseInfo && (() => {
-            const displayCourse = currentSemesterSchedule.find(c => c.id === selectedCourseInfo.course.id) || selectedCourseInfo.course;
+            const displayCourse = displayedSchedule.find(c => c.id === selectedCourseInfo.course.id) || selectedCourseInfo.course;
             const details = selectedCourseInfo.details;
             const isSaved = !!displayCourse.user_schedule_id;
+            const isInCurrentPlan = currentPlanSchedule.some(c => c.id === displayCourse.id);
+            const isStudentEditLocked = isStudentCourseEditLocked(displayCourse);
             const targetDateStr = selectedCourseInfo.dateStr;
 
             const modalLabels = targetDateStr 
@@ -2328,17 +2525,68 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             }
             const modalRoom = details ? details.room : displayCourse.room?.replace(/\n/g, ' / ');
             const modalWeeks = details ? details.weeks : displayCourse.weeks?.replace(/\n/g, ' / ');
+            const dayValues = details ? [`Thứ ${details.day}`] : splitData(displayCourse.day_of_week).map(day => `Thứ ${day}`);
+            const shiftValues = details ? [details.shift] : splitData(displayCourse.shift);
+            const modalDayValue = dayValues.filter(Boolean).join(' / ');
+            const modalShiftValue = shiftValues
+                .filter(Boolean)
+                .map(shift => {
+                    const display = getShiftDisplay(shift);
+                    return display ? `${shift} (${display})` : shift;
+                })
+                .join(' / ');
+            const modalStudyTimeValue = shiftValues.map(shift => getCourseTimeLabel(shift)).filter(Boolean).join(' / ');
+            const makeupNote = details?.isMakeup && details.originalDate ? `Học bù cho ngày ${details.originalDate}` : '';
+            const examTimeValue = displayCourse.exam_shift ? getExamTime(displayCourse.exam_shift) : '';
+            const formatPhaseValue = (phase?: string | null) => {
+                const value = String(phase || '').trim();
+                if (!value) return '';
+                return value.toLocaleLowerCase('vi').startsWith('đợt') ? value : `Đợt ${value}`;
+            };
+            const hasDetailValue = (value: React.ReactNode) => {
+                if (value === undefined || value === null || value === false) return false;
+                if (typeof value === 'string') return value.trim().length > 0;
+                return true;
+            };
+            const renderDetailRow = (label: string, value: React.ReactNode, fallback?: React.ReactNode) => {
+                const displayValue = hasDetailValue(value) ? value : fallback;
+                if (!hasDetailValue(displayValue)) return null;
+                return (
+                    <div className="min-w-0 rounded-lg border border-gray-100 bg-white px-3 py-2">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{label}</p>
+                        <p className="mt-0.5 break-words whitespace-pre-line text-sm font-semibold leading-snug text-gray-900">{displayValue}</p>
+                    </div>
+                );
+            };
+            const renderDetailSection = (
+                title: string,
+                icon: React.ReactNode,
+                toneClass: string,
+                children: React.ReactNode
+            ) => {
+                const rows = React.Children.toArray(children).filter(Boolean);
+                if (!rows.length) return null;
+                return (
+                    <section className="rounded-xl border border-gray-100 bg-gray-50/70 p-3">
+                        <div className="mb-2 flex items-center gap-2">
+                            <div className={`rounded-lg p-1.5 ${toneClass}`}>{icon}</div>
+                            <h3 className="text-xs font-extrabold uppercase tracking-wide text-gray-600">{title}</h3>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{rows}</div>
+                    </section>
+                );
+            };
 
-            return (
-                <div className="fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4" onClick={() => setSelectedCourseInfo(null)}>
-                    <div className="bg-white rounded-2xl w-full max-w-sm border border-gray-200 shadow-2xl flex flex-col overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
-                        <div className="p-4 border-b border-gray-100 relative bg-gray-50">
+            return createPortal(
+                <div className="fixed inset-0 bg-black/55 z-[100000] flex items-center justify-center p-4" onClick={() => setSelectedCourseInfo(null)}>
+                    <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] border border-gray-200 shadow-2xl flex flex-col overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b border-gray-100 relative bg-gray-50 shrink-0">
                             <button onClick={() => setSelectedCourseInfo(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-200"><X size={16}/></button>
                             <h2 className="text-lg font-bold text-[#003375] pr-8 leading-tight">{displayCourse.subject_name}</h2>
                             <p className="text-gray-500 mt-1 text-sm font-medium">{displayCourse.course_code}</p>
                             
                             <div className="flex gap-1.5 flex-wrap mt-2 items-center">
-                                {displayCourse.phase && <span className="text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 shrink-0">Đợt {displayCourse.phase}</span>}
+                                {displayCourse.phase && <span className="text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-blue-700 shrink-0">{formatPhaseValue(displayCourse.phase)}</span>}
                                 
                                 {/* HIỂN THỊ LABELS */}
                                 {modalLabels && modalLabels.map((l: any) => (
@@ -2427,67 +2675,107 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 </div>
                             )}
                         </div>
-                        <div className="p-5 space-y-4">
-                            <div className="flex items-start gap-3">
-                                <div className="bg-blue-50 p-2 rounded-lg text-blue-600 shrink-0"><Clock size={16} /></div>
-                                <div>
-                                    <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug">{timeDisplayValue}</p>
-                                    <p className="text-xs text-gray-500 mt-1 font-medium">Tuần: {modalWeeks}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <div className="bg-orange-50 p-2 rounded-lg text-orange-600 shrink-0"><MapPin size={16} /></div>
-                                <div>
-                                    <p className="text-sm font-bold text-gray-900">Phòng {modalRoom}</p>
-                                    <p className="text-xs text-gray-500 mt-1 font-medium">{displayCourse.campus || 'Cơ sở: Đang cập nhật'}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <div className="bg-emerald-50 p-2 rounded-lg text-emerald-600 shrink-0"><User size={16} /></div>
-                                <div>
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide mb-0.5">Giảng viên</p>
-                                    <p className="text-sm font-bold text-gray-900">{displayCourse.instructor || 'Đang cập nhật...'}</p>
-                                </div>
-                            </div>
-
-                            {(displayCourse.exam_date || displayCourse.exam_shift) && (
-                                <div className="flex items-start gap-3">
-                                    <div className="bg-purple-50 p-2 rounded-lg text-purple-600 shrink-0"><CalendarDays size={16} /></div>
-                                    <div>
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide mb-0.5">Lịch thi dự kiến</p>
-                                        <p className="text-sm font-bold text-gray-900">{displayCourse.exam_date || 'Đang cập nhật...'}</p>
-                                        {displayCourse.exam_shift && (
-                                            <p className="text-xs text-gray-500 mt-1 font-medium">Ca thi: {displayCourse.exam_shift} {getExamTime(displayCourse.exam_shift) ? `(${getExamTime(displayCourse.exam_shift)})` : ''}</p>
-                                        )}
-                                        {displayCourse.exam_room && (
-                                            <p className="text-xs text-gray-500 mt-1 font-medium">Phòng thi: {displayCourse.exam_room}</p>
-                                        )}
-                                    </div>
-                                </div>
+                        <div className="p-4 space-y-3 overflow-y-auto custom-scrollbar flex-1 min-h-0">
+                            {renderDetailSection(
+                                'Thông tin học phần',
+                                <Info size={14} />,
+                                'bg-blue-50 text-blue-600',
+                                <>
+                                    {renderDetailRow('Tên học phần', displayCourse.subject_name, 'Đang cập nhật')}
+                                    {renderDetailRow('Lớp học phần', displayCourse.course_code, 'Đang cập nhật')}
+                                    {renderDetailRow('Tín chỉ', displayCourse.credits)}
+                                    {renderDetailRow('Tiền đề', displayCourse.prerequisite)}
+                                    {renderDetailRow('Khối kiến thức', displayCourse.knowledge_block)}
+                                    {renderDetailRow('Khoa quản lý', displayCourse.managing_faculty)}
+                                </>
                             )}
 
+                            {renderDetailSection(
+                                'Lịch học',
+                                <Clock size={14} />,
+                                'bg-emerald-50 text-emerald-600',
+                                <>
+                                    {renderDetailRow('Đợt thi/học', formatPhaseValue(displayCourse.phase))}
+                                    {renderDetailRow('Thứ', modalDayValue)}
+                                    {renderDetailRow('Ca tiết', modalShiftValue)}
+                                    {renderDetailRow('Giờ học', modalStudyTimeValue || timeDisplayValue)}
+                                    {renderDetailRow('Tuần', modalWeeks)}
+                                    {renderDetailRow('Phòng học', modalRoom ? `Phòng ${modalRoom}` : '', 'Phòng học: Đang cập nhật')}
+                                    {renderDetailRow('Cơ sở học', displayCourse.campus, 'Cơ sở: Đang cập nhật')}
+                                    {renderDetailRow('Giảng viên', displayCourse.instructor, 'Đang cập nhật')}
+                                    {renderDetailRow('Ghi chú lịch học', makeupNote)}
+                                </>
+                            )}
+
+                            {renderDetailSection(
+                                'Lịch thi dự kiến',
+                                <CalendarDays size={14} />,
+                                'bg-purple-50 text-purple-600',
+                                <>
+                                    {renderDetailRow('Ngày thi dự kiến', displayCourse.exam_date)}
+                                    {renderDetailRow('Ca thi dự kiến', displayCourse.exam_shift)}
+                                    {renderDetailRow('Giờ thi', examTimeValue)}
+                                    {renderDetailRow('Cơ sở thi', displayCourse.exam_campus)}
+                                    {renderDetailRow('Phòng thi', displayCourse.exam_room)}
+                                </>
+                            )}
+
+                            {renderDetailSection(
+                                'Đối tượng đăng ký',
+                                <User size={14} />,
+                                'bg-orange-50 text-orange-600',
+                                <>
+                                    {renderDetailRow('Học kỳ', displayCourse.semester)}
+                                    {renderDetailRow('Khóa', displayCourse.cohort)}
+                                    {renderDetailRow('Ngành / chuyên ngành', displayCourse.major)}
+                                    {renderDetailRow('Nhóm', displayCourse.group_name)}
+                                    {renderDetailRow('Định hướng', displayCourse.orientation)}
+                                    {renderDetailRow('Ghi chú 3 định hướng', displayCourse.orientation_note_3)}
+                                    {renderDetailRow('Hình thức đăng ký', displayCourse.registration_type)}
+                                    {renderDetailRow('Sĩ số sinh viên', displayCourse.student_count !== undefined && displayCourse.student_count !== null ? `${displayCourse.student_count} sinh viên` : '')}
+                                    {renderDetailRow('Chương trình học', displayCourse.academic_program)}
+                                </>
+                            )}
+
+                            {renderDetailSection(
+                                'Ghi chú',
+                                <List size={14} />,
+                                'bg-gray-100 text-gray-600',
+                                <>
+                                    {renderDetailRow('Ghi chú chung', displayCourse.general_note)}
+                                </>
+                            )}
                         </div>
-                        <div className="p-4 bg-white border-t border-gray-100 flex gap-2">
+                        <div className="p-4 bg-white border-t border-gray-100 flex gap-2 shrink-0">
                             <button onClick={() => { setReportData({ course_code: displayCourse.course_code, subject_name: displayCourse.subject_name, description: '', suggested_correction: '' }); setIsReportModalOpen(true); setSelectedCourseInfo(null); }} className="px-3 py-2.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors" title="Báo lỗi thông tin">
                                 <AlertTriangle size={18} />
                             </button>
-                            {!isSaved ? (
+                            {isPlanMode ? (
+                                isInCurrentPlan ? (
+                                    <button onClick={() => { removeFromPlanSchedule(displayCourse.id); setSelectedCourseInfo(null); }} className="flex-1 py-2.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-sm font-bold hover:bg-amber-100 transition-all">Xóa khỏi Kế hoạch {activePlanKey}</button>
+                                ) : (
+                                    <button onClick={() => { addToPlanSchedule(displayCourse); setSelectedCourseInfo(null); }} className="flex-1 py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-all">Thêm vào Kế hoạch {activePlanKey}</button>
+                                )
+                            ) : !isSaved ? (
                                 <button onClick={() => { addToSchedule(displayCourse); setSelectedCourseInfo(null); }} className="flex-1 py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-all ">Thêm vào Lịch</button>
                             ) : (
                                 <>
-                                    <button onClick={() => {
-                                        setStudentEditData(displayCourse);
-                                        setIsStudentEditModalOpen(true);
-                                        setSelectedCourseInfo(null);
-                                    }} className="px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors" title="Sửa thông tin cá nhân">
-                                        <Edit size={18} />
-                                    </button>
+                                    {!isStudentEditLocked && (
+                                        <button onClick={() => {
+                                            setStudentEditData(displayCourse);
+                                            setIsStudentEditModalOpen(true);
+                                            setSelectedCourseInfo(null);
+                                        }} className="px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors" title="Sửa thông tin cá nhân">
+                                            <Edit size={18} />
+                                        </button>
+                                    )}
                                     <button onClick={() => { removeFromSchedule(displayCourse.id); setSelectedCourseInfo(null); }} className="flex-1 py-2.5 rounded-lg bg-red-50 text-red-600 border border-red-200 text-sm font-bold hover:bg-red-100 transition-all">Xóa khỏi Lịch</button>
                                 </>
                             )}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             );
         })()}
 
@@ -2496,25 +2784,27 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             <div className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setIsMyScheduleModalOpen(false)}>
                 <div className="bg-white rounded-2xl w-full max-w-md border border-gray-200 shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="bg-gray-50 border-b border-gray-100 p-4 flex items-center justify-between shrink-0">
-                        <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><List size={18}/> Môn học đã lưu ({currentSemesterSchedule.length})</h2>
+                        <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><List size={18}/> {isPlanMode ? `Kế hoạch ${activePlanKey}` : 'Môn học đã lưu'} ({displayedScheduleCount})</h2>
                         <button onClick={() => setIsMyScheduleModalOpen(false)} className="text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-200"><X size={16}/></button>
                     </div>
                     <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-2 bg-white">
-                        {currentSemesterSchedule.length === 0 ? (
+                        {displayedSchedule.length === 0 ? (
                             <div className="text-center py-10 text-gray-500">
                                 <Search size={40} className="mx-auto text-gray-200 mb-3"/>
-                                <p className="font-medium text-sm">Chưa có môn học nào trong lịch.</p>
+                                <p className="font-medium text-sm">{isPlanMode ? `Kế hoạch ${activePlanKey} chưa có môn học nào.` : 'Chưa có môn học nào trong lịch.'}</p>
                             </div>
                         ) : (
-                            currentSemesterSchedule.map(course => (
+                            displayedSchedule.map(course => (
                                 <div key={course.id} className="bg-white p-3 rounded-xl border border-gray-200 flex items-center justify-between gap-3 hover:border-blue-300 transition-colors cursor-pointer" onClick={() => { setIsMyScheduleModalOpen(false); setSelectedCourseInfo({ course }); }}>
                                     <div className="flex-1 min-w-0">
                                         <h4 className="font-bold text-gray-800 text-sm truncate">{course.subject_name}</h4>
                                         <p className="text-[10px] text-gray-500 mt-0.5 font-medium">{course.course_code} <span className="mx-1">•</span> Đợt {course.phase || '1'}</p>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
-                                        <button onClick={(e) => { e.stopPropagation(); setStudentEditData(course); setIsStudentEditModalOpen(true); setIsMyScheduleModalOpen(false); }} className="text-gray-400 hover:text-blue-600 p-2 rounded-lg hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-100" title="Sửa lịch cá nhân"><Edit size={16}/></button>
-                                        <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors border border-transparent hover:border-red-100" title="Xóa môn khỏi lịch"><Trash2 size={16}/></button>
+                                        {!isPlanMode && !isStudentCourseEditLocked(course) && (
+                                            <button onClick={(e) => { e.stopPropagation(); setStudentEditData(course); setIsStudentEditModalOpen(true); setIsMyScheduleModalOpen(false); }} className="text-gray-400 hover:text-blue-600 p-2 rounded-lg hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-100" title="Sửa lịch cá nhân"><Edit size={16}/></button>
+                                        )}
+                                        <button onClick={(e) => { e.stopPropagation(); removeFromActiveSchedule(course.id); }} className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors border border-transparent hover:border-red-100" title={isPlanMode ? 'Xóa khỏi kế hoạch' : 'Xóa môn khỏi lịch'}><Trash2 size={16}/></button>
                                     </div>
                                 </div>
                             ))

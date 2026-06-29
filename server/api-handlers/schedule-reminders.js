@@ -60,7 +60,19 @@ const splitData = (value) => {
   if (text.includes("\n")) return text.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
   return text.split(/\s+/).filter(Boolean);
 };
-const parseWeeks = (weeks) => {
+const SEMESTER_START_UTC = {
+  HK1_2026_2027: Date.UTC(2026, 7, 31),
+  HK2_2026_2027: Date.UTC(2027, 1, 15),
+  HKHE_2026_2027: Date.UTC(2027, 6, 19),
+  HK2_2025_2026: Date.UTC(2026, 1, 2),
+  HK1_2025_2026: Date.UTC(2025, 7, 11)
+};
+const SEMESTER_HOLIDAY_WEEKS = {
+  HK2_2025_2026: [2, 3, 4]
+};
+const getSemesterStartUtc = (semester) => SEMESTER_START_UTC[semester || ""] || SEMESTER_START_UTC.HK1_2026_2027;
+const getSemesterHolidayWeeks = (semester) => SEMESTER_HOLIDAY_WEEKS[semester || ""] || [];
+const parseWeeks = (weeks, semester) => {
   if (!weeks) return [];
   const result = /* @__PURE__ */ new Set();
   weeks.toString().replace(/[,;]/g, " ").split(/\s+/).map((part) => part.trim()).filter(Boolean).forEach((part) => {
@@ -76,7 +88,8 @@ const parseWeeks = (weeks) => {
     const week = Number(part);
     if (Number.isFinite(week)) result.add(week);
   });
-  return [...result];
+  const holidayWeeks = getSemesterHolidayWeeks(semester);
+  return [...result].filter((week) => !holidayWeeks.includes(week));
 };
 const getMainShiftType = (shift) => {
   const normalized = (shift || "").trim().toUpperCase();
@@ -149,7 +162,7 @@ const addDays = (parts, days) => {
 const dateInfo = (parts, semester) => {
   const date = makeVnDate(parts.year, parts.month, parts.day);
   const dayOfWeek = date.getUTCDay() === 0 ? 8 : date.getUTCDay() + 1;
-  const start = semester === "HK1_2025_2026" ? Date.UTC(2025, 7, 11) : Date.UTC(2026, 1, 2);
+  const start = getSemesterStartUtc(semester);
   return {
     iso: `${parts.year}-${pad(parts.month)}-${pad(parts.day)}`,
     display: `${pad(parts.day)}/${pad(parts.month)}/${parts.year}`,
@@ -163,7 +176,7 @@ const matchesDate = (value, target) => {
   const text = value.trim();
   return text === target.display || text === target.dayMonth;
 };
-const getCourseDetailsForSlot = (course, targetDay, targetWeek, targetShiftType) => {
+const getCourseDetailsForSlot = (course, targetDay, targetWeek, targetShiftType, semester) => {
   const weekArr = splitData(course.weeks);
   const dayArr = splitData(course.day_of_week);
   const roomArr = splitData(course.room);
@@ -174,7 +187,7 @@ const getCourseDetailsForSlot = (course, targetDay, targetWeek, targetShiftType)
     const shiftText = shiftArr[index] !== void 0 ? shiftArr[index] : shiftArr[0] || "";
     const roomText = roomArr[index] !== void 0 ? roomArr[index] : roomArr[0] || "";
     const weekText = weekArr[index] !== void 0 ? weekArr[index] : weekArr[0] || "";
-    if (!parseWeeks(weekText).includes(targetWeek)) continue;
+    if (!parseWeeks(weekText, semester).includes(targetWeek)) continue;
     const days = dayText.replace(/,/g, " ").trim().split(/\s+/).map(Number);
     if (!days.includes(targetDay)) continue;
     if (getMainShiftType(shiftText) !== targetShiftType) continue;
@@ -216,7 +229,7 @@ const buildEventsForDate = (row, target, kind) => {
     }, kind, title, body));
   };
   const slots = ["S", "C"].map((slot) => {
-    const details = getCourseDetailsForSlot(course, target.dayOfWeek, target.week, slot);
+    const details = getCourseDetailsForSlot(course, target.dayOfWeek, target.week, slot, row.semester);
     if (!details) return null;
     const start = getCourseStart(details.shift);
     return { details, start };

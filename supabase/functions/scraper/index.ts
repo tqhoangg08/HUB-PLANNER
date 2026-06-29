@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
     const { data: courses, error } = await supabase
       .from('course_schedules')
       .select('id, course_code')
-      .eq('semester', 'HK2_2025_2026')
+      .eq('semester', 'HK1_2026_2027')
       .or('instructor.eq.,instructor.is.null')
       .limit(10)
 

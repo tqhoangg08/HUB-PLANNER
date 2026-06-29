@@ -12,6 +12,18 @@ import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
+import {
+  DEFAULT_SCHEDULE_SEMESTER,
+  SEMESTER_OPTIONS,
+  getInitialSemesterMonthIndex,
+  getSemesterMaxWeek,
+  getSemesterMonth,
+  getSemesterMonthLabel,
+  getSemesterMonths,
+  getWeekDatesForSemester,
+  getWeekNumberForDate,
+  isSemesterHolidayWeek,
+} from '../utils/academicCalendar';
 
 // --- Types ---
 interface UserProfile {
@@ -61,18 +73,28 @@ interface Course {
   id: string;
   course_code: string;
   subject_name: string;
+  prerequisite?: string | null;
   credits: number;
+  knowledge_block?: string | null;
   shift: string;
   day_of_week: string;
   weeks: string;
   room: string;
   campus: string;
+  managing_faculty?: string | null;
   exam_date: string;
   exam_shift: string;
+  exam_campus?: string | null;
   exam_room?: string;
   cohort: string;
   major: string;
+  group_name?: string | null;
+  orientation?: string | null;
+  orientation_note_3?: string | null;
+  registration_type?: string | null;
+  general_note?: string | null;
   academic_program: string;
+  student_count?: number | null;
   phase: string;
   semester: string;
   instructor?: string;
@@ -91,22 +113,38 @@ interface MobileScheduleProps {
     managementOnly?: boolean;
 }
 
+const STUDENT_EDIT_LOCKED_SEMESTERS = new Set(['HK1_2026_2027']);
+
+const isStudentCourseEditLocked = (course?: Pick<Course, 'semester'> | null) => (
+  !!course?.semester && STUDENT_EDIT_LOCKED_SEMESTERS.has(course.semester)
+);
+
 const COURSE_SCHEDULE_COLUMNS = [
   'id',
   'course_code',
   'subject_name',
+  'prerequisite',
   'credits',
+  'knowledge_block',
   'shift',
   'day_of_week',
   'weeks',
   'room',
   'campus',
+  'managing_faculty',
   'exam_date',
   'exam_shift',
+  'exam_campus',
   'exam_room',
   'cohort',
   'major',
+  'group_name',
+  'orientation',
+  'orientation_note_3',
+  'registration_type',
+  'general_note',
   'academic_program',
+  'student_count',
   'phase',
   'semester',
   'instructor',
@@ -118,20 +156,30 @@ const ADMIN_LIST_PAGE_SIZE = 10;
 const SYNCABLE_COURSE_FIELDS: { key: keyof Course; label: string }[] = [
   { key: 'course_code', label: 'Mã học phần' },
   { key: 'subject_name', label: 'Tên môn học' },
+  { key: 'prerequisite', label: 'Tiền đề' },
   { key: 'credits', label: 'Tín chỉ' },
+  { key: 'knowledge_block', label: 'Khối kiến thức' },
   { key: 'instructor', label: 'Giảng viên' },
   { key: 'day_of_week', label: 'Thứ' },
   { key: 'shift', label: 'Ca / Tiết' },
   { key: 'room', label: 'Phòng' },
   { key: 'weeks', label: 'Tuần học' },
   { key: 'phase', label: 'Đợt' },
+  { key: 'managing_faculty', label: 'Khoa quản lý' },
   { key: 'exam_date', label: 'Ngày thi' },
   { key: 'exam_shift', label: 'Ca thi' },
+  { key: 'exam_campus', label: 'Cơ sở thi' },
   { key: 'exam_room', label: 'Phòng thi' },
   { key: 'campus', label: 'Cơ sở' },
   { key: 'cohort', label: 'Khóa' },
   { key: 'major', label: 'Ngành' },
+  { key: 'group_name', label: 'Nhóm' },
+  { key: 'orientation', label: 'Định hướng' },
+  { key: 'orientation_note_3', label: 'Ghi chú 3 định hướng' },
+  { key: 'registration_type', label: 'Hình thức đăng ký' },
+  { key: 'general_note', label: 'Ghi chú chung' },
   { key: 'academic_program', label: 'Chương trình' },
+  { key: 'student_count', label: 'Sĩ số sinh viên' },
   { key: 'semester', label: 'Học kỳ' },
 ];
 
@@ -156,9 +204,6 @@ const getCourseRequestStudentCode = (request: CourseRequest) => {
   if (email) return email.split('@')[0];
   return request.user_id || '-';
 };
-
-const HK_START_DATE = new Date('2026-02-02T00:00:00');
-const HOLIDAY_WEEKS = [2, 3, 4];
 
 const LABEL_TYPES = ['Nghỉ', 'Thi giữa kỳ', 'Thi cuối kỳ', 'Thuyết trình', 'Học online', 'Khác'];
 const LABEL_COLORS = [
@@ -216,14 +261,7 @@ const formatDateStr = (date: Date) => {
 
 const getWeekDatesFull = (weekNum: number, sem: string) => {
     if (weekNum === 0) return ['', '', '', '', '', '', ''];
-    const dates = [];
-    const startDate = sem === 'HK1_2025_2026' ? new Date('2025-08-11T00:00:00') : new Date('2026-02-02T00:00:00');
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(startDate);
-        d.setDate(d.getDate() + (weekNum - 1) * 7 + i);
-        dates.push(formatDateStr(d));
-    }
-    return dates;
+    return getWeekDatesForSemester(weekNum, sem).map(formatDateStr);
 };
 
 const getDayMonth = (dateStr?: string) => {
@@ -308,7 +346,7 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
     if (targetWeek === 0) {
         isWeekMatch = true;
     } else {
-        const parsedWks = parseWeeks(cWeekStr);
+        const parsedWks = parseWeeks(cWeekStr, course.semester);
         if (parsedWks.includes(targetWeek)) isWeekMatch = true;
     }
     if (!isWeekMatch) continue;
@@ -434,12 +472,12 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const [selectedSemester, setSelectedSemester] = useState<string>('HK2_2025_2026');
+  const [selectedSemester, setSelectedSemester] = useState<string>(DEFAULT_SCHEDULE_SEMESTER);
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [selectedWeek, setSelectedWeek] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(new Date().getMonth());
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(() => getInitialSemesterMonthIndex(DEFAULT_SCHEDULE_SEMESTER));
 
   const [isWeekDropdownOpen, setIsWeekDropdownOpen] = useState(false);
   const [isMonthDropdownOpen, setIsMonthDropdownOpen] = useState(false);
@@ -460,6 +498,12 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   const [isSubmittingCourse, setIsSubmittingCourse] = useState(false);
   const [newCourseData, setNewCourseData] = useState({ subject_name: '', course_code: '', instructor: '' });
   const currentSemesterSchedule = mySchedule.filter(c => c.semester === selectedSemester);
+
+  useEffect(() => {
+    const maxWeek = getSemesterMaxWeek(selectedSemester);
+    setSelectedWeek(prev => Math.min(prev, maxWeek));
+    setSelectedMonthIndex(getInitialSemesterMonthIndex(selectedSemester));
+  }, [selectedSemester]);
 
   const [isPdfGuideOpen, setIsPdfGuideOpen] = useState(false);
   const [scheduleImportTurnstileToken, setScheduleImportTurnstileToken] = useState('');
@@ -896,6 +940,10 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
   const openStudentEditModal = (course: Course) => {
       if (!course.user_schedule_id) return;
+      if (isStudentCourseEditLocked(course)) {
+          alert('Tạm thời chưa cho phép sinh viên chỉnh sửa thông tin môn học của học kỳ 1 năm học 2026-2027.');
+          return;
+      }
       playClick();
       setStudentEditData(course);
       setSelectedCourseInfo(null);
@@ -906,6 +954,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   const handleStudentSaveCourse = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!studentEditData.user_schedule_id) return;
+      if (isStudentCourseEditLocked(studentEditData)) {
+          alert('Tạm thời chưa cho phép sinh viên chỉnh sửa thông tin môn học của học kỳ 1 năm học 2026-2027.');
+          setIsStudentEditModalOpen(false);
+          return;
+      }
       if (!studentEditData.subject_name || !studentEditData.course_code) {
           alert('Vui lòng nhập tên môn học và mã học phần.');
           return;
@@ -999,14 +1052,9 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
   const getWeekDates = (weekNum: number) => {
     if (weekNum === 0) return ['', '', '', '', '', '', ''];
-    const dates = [];
-    const startDate = selectedSemester === 'HK1_2025_2026' ? new Date('2025-08-11T00:00:00') : HK_START_DATE;
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(startDate);
-      d.setDate(d.getDate() + (weekNum - 1) * 7 + i);
-      dates.push(`${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`);
-    }
-    return dates;
+    return getWeekDatesForSemester(weekNum, selectedSemester).map(date =>
+      `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`
+    );
   };
 
   const getExamDayMonth = (dateStr: string) => {
@@ -1116,16 +1164,9 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     const dayOfWeek = targetDate.getDay() === 0 ? 8 : targetDate.getDay() + 1;
     const targetDateStr = formatDateStr(targetDate);
     return schedule.map(course => {
-      let startDate = new Date('2026-02-02T00:00:00');
-      if (course.semester === 'HK1_2025_2026') startDate = new Date('2025-08-11T00:00:00');
+      const weekNum = getWeekNumberForDate(targetDate, course.semester);
 
-      const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-      const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-      const diffTime = target.getTime() - start.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      const weekNum = Math.floor(diffDays / 7) + 1;
-
-      if (weekNum < 1 || weekNum > 24) return [];
+      if (weekNum < 1 || weekNum > getSemesterMaxWeek(course.semester)) return [];
 
       const sDetails = getCourseDetailsForSlot(course, dayOfWeek, weekNum, 'S');
       const cDetails = getCourseDetailsForSlot(course, dayOfWeek, weekNum, 'C');
@@ -1166,14 +1207,14 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   };
 
   const renderMonthDays = () => {
-    const year = 2026;
-    const firstDay = new Date(year, selectedMonthIndex, 1);
+    const selectedMonth = getSemesterMonth(selectedSemester, selectedMonthIndex);
+    const firstDay = new Date(selectedMonth.year, selectedMonth.month, 1);
     const startingDayOfWeek = firstDay.getDay() === 0 ? 7 : firstDay.getDay();
-    const daysInMonth = new Date(year, selectedMonthIndex + 1, 0).getDate();
+    const daysInMonth = new Date(selectedMonth.year, selectedMonth.month + 1, 0).getDate();
 
     const days: (Date | null)[] = [];
     for(let i = 1; i < startingDayOfWeek; i++) days.push(null);
-    for(let i = 1; i <= daysInMonth; i++) days.push(new Date(year, selectedMonthIndex, i));
+    for(let i = 1; i <= daysInMonth; i++) days.push(new Date(selectedMonth.year, selectedMonth.month, i));
     return days;
   };
 
@@ -1233,26 +1274,23 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   const currentWeekDatesFull = getWeekDatesFull(selectedWeek, selectedSemester);
   const weekStartStr = currentWeekDates[0];
   const weekEndStr = currentWeekDates[6];
+  const selectedSemesterMaxWeek = getSemesterMaxWeek(selectedSemester);
+  const selectedSemesterMonths = getSemesterMonths(selectedSemester);
 
   const prevWeek = () => setSelectedWeek(prev => prev > 0 ? prev - 1 : 0);
-  const nextWeek = () => setSelectedWeek(prev => prev < 24 ? prev + 1 : 24);
+  const nextWeek = () => setSelectedWeek(prev => prev < selectedSemesterMaxWeek ? prev + 1 : selectedSemesterMaxWeek);
   const prevMonth = () => setSelectedMonthIndex(prev => prev > 0 ? prev - 1 : 0);
-  const nextMonth = () => setSelectedMonthIndex(prev => prev < 11 ? prev + 1 : 11);
+  const nextMonth = () => setSelectedMonthIndex(prev => prev < selectedSemesterMonths.length - 1 ? prev + 1 : selectedSemesterMonths.length - 1);
   const goToToday = () => {
     playClick();
     const now = new Date();
-    let startDate = new Date('2026-02-02T00:00:00');
-    if (selectedSemester === 'HK1_2025_2026') startDate = new Date('2025-08-11T00:00:00');
-
-    const diffTime = now.getTime() - startDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    let weekNum = Math.floor(diffDays / 7) + 1;
+    let weekNum = getWeekNumberForDate(now, selectedSemester);
 
     if (weekNum < 1) weekNum = 1;
-    if (weekNum > 24) weekNum = 24;
+    if (weekNum > selectedSemesterMaxWeek) weekNum = selectedSemesterMaxWeek;
 
     setSelectedWeek(weekNum);
-    setSelectedMonthIndex(now.getMonth());
+    setSelectedMonthIndex(getInitialSemesterMonthIndex(selectedSemester, now));
     setSelectedDayIndex(Math.max(0, Math.min(6, now.getDay() === 0 ? 6 : now.getDay() - 1)));
   };
 
@@ -1268,7 +1306,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     if (!value) return null;
     const [day, month, year] = value.split('/').map(Number);
     if (!day || !month) return null;
-    return new Date(year || 2026, month - 1, day);
+    return new Date(year || getSemesterMonth(selectedSemester, selectedMonthIndex).year, month - 1, day);
   };
 
   const weekDayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
@@ -1457,8 +1495,9 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             </div>
             <div className="mb-2 grid grid-cols-[1fr_0.7fr] gap-2">
                 <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="h-[38px] rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-xs font-bold text-[#0D1B3E] outline-none disabled:cursor-not-allowed">
-                    <option value="HK2_2025_2026">HK2 (2025-2026)</option>
-                    <option value="HK1_2025_2026">HK1 (2025-2026)</option>
+                    {SEMESTER_OPTIONS.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
                 </select>
                 <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="h-[38px] rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-xs font-bold text-[#0D1B3E] outline-none disabled:cursor-not-allowed">
                     <option value="all">Mọi đợt</option>
@@ -1736,7 +1775,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                 ))}
                             </div>
                             <div className="space-y-2 px-3.5 pb-3.5">
-                                {HOLIDAY_WEEKS.includes(selectedWeek) ? (
+                                {isSemesterHolidayWeek(selectedSemester, selectedWeek) ? (
                                     <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-center text-xs font-black text-red-600"><Zap className="mx-auto mb-2 fill-current" size={22} />Tuần nghỉ Lễ/Tết, không có lịch học.</div>
                                 ) : selectedWeek === 0 ? (
                                     <div className="rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F6F8FC] p-5 text-center text-xs font-bold text-[#7B8AB0]">Chọn một tuần học để xem lịch theo ngày.</div>
@@ -1864,8 +1903,9 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 <div className="flex gap-2">
                     <div className="flex-1">
                         <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 outline-none text-[13px] font-bold text-[#003375] bg-gray-50 disabled:cursor-not-allowed appearance-none">
-                            <option value="HK2_2025_2026">HK2 (2025-2026)</option>
-                            <option value="HK1_2025_2026">HK1 (2025-2026)</option>
+                            {SEMESTER_OPTIONS.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
                         </select>
                     </div>
                     <div className="w-[35%]">
@@ -1964,7 +2004,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                         {isWeekDropdownOpen && (
                                             <div className="absolute top-full left-0 mt-1 w-40 bg-white border border-gray-200 shadow-xl rounded-lg max-h-[200px] overflow-y-auto z-50 py-1 text-left">
                                                 <div onClick={() => { setSelectedWeek(0); setIsWeekDropdownOpen(false); }} className="px-3 py-2 text-xs active:bg-gray-50 font-bold text-gray-700 border-b border-gray-100">Tổng quát</div>
-                                                {Array.from({length: 24}, (_, i) => i + 1).map(w => (
+                                                {Array.from({length: selectedSemesterMaxWeek}, (_, i) => i + 1).map(w => (
                                                     <div key={w} onClick={() => { setSelectedWeek(w); setIsWeekDropdownOpen(false); }} className={`px-3 py-2 text-xs active:bg-gray-50 ${selectedWeek === w ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
                                                         Tuần {w} <span className="text-[9px] text-gray-400 ml-1 font-normal block">({getWeekDates(w)[0]} - {getWeekDates(w)[6]})</span>
                                                     </div>
@@ -1980,13 +2020,13 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                         <button onClick={nextMonth} className="p-1.5 active:bg-gray-50 text-gray-600"><ChevronRight size={14}/></button>
                                     </div>
                                     <button onClick={(e) => { e.stopPropagation(); setIsMonthDropdownOpen(!isMonthDropdownOpen); setIsWeekDropdownOpen(false); }} className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-[11px] font-bold text-[#003375] shadow-sm relative">
-                                        Tháng {selectedMonthIndex + 1}
+                                        {getSemesterMonthLabel(selectedSemester, selectedMonthIndex)}
                                         <ChevronDown size={12} className="text-gray-400"/>
                                         {isMonthDropdownOpen && (
                                             <div className="absolute top-full left-0 mt-1 w-28 bg-white border border-gray-200 shadow-xl rounded-lg max-h-[200px] overflow-y-auto z-50 py-1 text-left">
-                                                {Array.from({length: 12}, (_, i) => i).map(m => (
+                                                {selectedSemesterMonths.map((_, m) => (
                                                     <div key={m} onClick={() => { setSelectedMonthIndex(m); setIsMonthDropdownOpen(false); }} className={`px-3 py-2 text-xs active:bg-gray-50 ${selectedMonthIndex === m ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
-                                                        Tháng {m + 1}
+                                                        {getSemesterMonthLabel(selectedSemester, m)}
                                                     </div>
                                                 ))}
                                             </div>
@@ -2001,7 +2041,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                     </div>
 
                     <div className="flex-1 overflow-x-auto custom-scrollbar bg-white relative">
-                        {HOLIDAY_WEEKS.includes(selectedWeek) && viewMode === 'week' && (
+                        {isSemesterHolidayWeek(selectedSemester, selectedWeek) && viewMode === 'week' && (
                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 px-4 text-center">
                                 <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl font-bold text-xs border border-red-200 shadow-sm flex flex-col items-center gap-2">
                                     <Zap size={24} className="fill-current"/> Tuần nghỉ Lễ/Tết, không có lịch học!
@@ -2281,6 +2321,57 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             }
             const modalRoom = details ? details.room : course.room?.replace(/\n/g, ' / ');
             const modalWeeks = details ? details.weeks : course.weeks?.replace(/\n/g, ' / ');
+            const dayValues = details ? [`Thứ ${details.day}`] : splitData(course.day_of_week).map(day => `Thứ ${day}`);
+            const shiftValues = details ? [details.shift] : splitData(course.shift);
+            const modalDayValue = dayValues.filter(Boolean).join(' / ');
+            const modalShiftValue = shiftValues
+                .filter(Boolean)
+                .map(shift => {
+                    const display = getShiftDisplay(shift);
+                    return display ? `${shift} (${display})` : shift;
+                })
+                .join(' / ');
+            const modalStudyTimeValue = shiftValues.map(shift => getCourseTimeLabel(shift)).filter(Boolean).join(' / ');
+            const makeupNote = details?.isMakeup && details.originalDate ? `Học bù cho ngày ${details.originalDate}` : '';
+            const examTimeValue = course.exam_shift ? getExamTime(course.exam_shift) : '';
+            const formatPhaseValue = (phase?: string | null) => {
+                const value = String(phase || '').trim();
+                if (!value) return '';
+                return value.toLocaleLowerCase('vi').startsWith('đợt') ? value : `Đợt ${value}`;
+            };
+            const hasDetailValue = (value: React.ReactNode) => {
+                if (value === undefined || value === null || value === false) return false;
+                if (typeof value === 'string') return value.trim().length > 0;
+                return true;
+            };
+            const renderDetailRow = (label: string, value: React.ReactNode, fallback?: React.ReactNode) => {
+                const displayValue = hasDetailValue(value) ? value : fallback;
+                if (!hasDetailValue(displayValue)) return null;
+                return (
+                    <div className="rounded-xl border border-gray-100 bg-white px-3 py-2">
+                        <p className="text-[9px] font-black uppercase tracking-wide text-gray-400">{label}</p>
+                        <p className="mt-0.5 break-words whitespace-pre-line text-[12px] font-bold leading-snug text-gray-900">{displayValue}</p>
+                    </div>
+                );
+            };
+            const renderDetailSection = (
+                title: string,
+                icon: React.ReactNode,
+                toneClass: string,
+                children: React.ReactNode
+            ) => {
+                const rows = React.Children.toArray(children).filter(Boolean);
+                if (!rows.length) return null;
+                return (
+                    <section className="rounded-2xl border border-gray-100 bg-gray-50/80 p-3">
+                        <div className="mb-2 flex items-center gap-2">
+                            <div className={`rounded-xl p-1.5 ${toneClass}`}>{icon}</div>
+                            <h3 className="text-[10px] font-black uppercase tracking-wide text-gray-600">{title}</h3>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2">{rows}</div>
+                    </section>
+                );
+            };
 
             return createPortal(
                 <div className="fixed inset-0 bg-black/60 z-[99999] flex items-end justify-center animate-fadeIn" onClick={() => setSelectedCourseInfo(null)}>
@@ -2289,7 +2380,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         <div className="p-4 border-b border-gray-100 flex justify-between items-start shrink-0">
                             <div className="pr-4">
                                 <h2 className="text-lg font-bold text-[#003375] leading-tight mb-1">{course.subject_name}</h2>
-                                <p className="text-gray-500 text-xs font-medium">{course.course_code} {course.phase && `• Đợt ${course.phase}`}</p>
+                                <p className="text-gray-500 text-xs font-medium">{course.course_code} {course.phase && `• ${formatPhaseValue(course.phase)}`}</p>
                                 {modalLabels.length > 0 && (
                                     <div className="flex flex-wrap gap-1 mt-2">
                                         {modalLabels.map(label => (
@@ -2303,38 +2394,75 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                             <button onClick={() => setSelectedCourseInfo(null)} className="bg-gray-100 p-2 rounded-full text-gray-500 active:scale-95 shrink-0"><X size={16}/></button>
                         </div>
 
-                        <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-4 pb-safe">
-                            <div className="flex items-start gap-3">
-                                <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0"><Clock size={18} /></div>
-                                <div>
-                                    <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-relaxed">{timeDisplayValue}</p>
-                                    <p className="text-[11px] text-gray-500 mt-1 font-medium">Tuần học: {modalWeeks}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <div className="w-10 h-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center shrink-0"><MapPin size={18} /></div>
-                                <div>
-                                    <p className="text-sm font-bold text-gray-900">Phòng {modalRoom}</p>
-                                    <p className="text-[11px] text-gray-500 mt-1 font-medium">{course.campus || 'Cơ sở đang cập nhật'}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-3">
-                                <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0"><User size={18} /></div>
-                                <div>
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide mb-0.5">Giảng viên</p>
-                                    <p className="text-sm font-bold text-gray-900">{course.instructor || 'Đang cập nhật...'}</p>
-                                </div>
-                            </div>
-                            {(course.exam_date || course.exam_shift) && (
-                                <div className="flex items-start gap-3 mt-2 bg-purple-50/50 p-3 rounded-xl border border-purple-100">
-                                    <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center shrink-0"><CalendarDays size={18} /></div>
-                                    <div>
-                                        <p className="text-[10px] text-purple-500 font-bold uppercase tracking-wide mb-0.5">Lịch thi dự kiến</p>
-                                        <p className="text-sm font-bold text-purple-900">{course.exam_date || 'Đang cập nhật...'}</p>
-                                        {course.exam_shift && <p className="text-[11px] text-purple-700 mt-1 font-medium">Ca thi: {course.exam_shift} {getExamTime(course.exam_shift) ? `(${getExamTime(course.exam_shift)})` : ''}</p>}
-                                        {course.exam_room && <p className="text-[11px] text-purple-700 mt-1 font-medium">Phòng thi: {course.exam_room}</p>}
-                                    </div>
-                                </div>
+                        <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-3 pb-safe">
+                            {renderDetailSection(
+                                'Thông tin học phần',
+                                <Info size={14} />,
+                                'bg-blue-50 text-blue-600',
+                                <>
+                                    {renderDetailRow('Tên học phần', course.subject_name, 'Đang cập nhật')}
+                                    {renderDetailRow('Lớp học phần', course.course_code, 'Đang cập nhật')}
+                                    {renderDetailRow('Tín chỉ', course.credits)}
+                                    {renderDetailRow('Tiền đề', course.prerequisite)}
+                                    {renderDetailRow('Khối kiến thức', course.knowledge_block)}
+                                    {renderDetailRow('Khoa quản lý', course.managing_faculty)}
+                                </>
+                            )}
+
+                            {renderDetailSection(
+                                'Lịch học',
+                                <Clock size={14} />,
+                                'bg-emerald-50 text-emerald-600',
+                                <>
+                                    {renderDetailRow('Đợt thi/học', formatPhaseValue(course.phase))}
+                                    {renderDetailRow('Thứ', modalDayValue)}
+                                    {renderDetailRow('Ca tiết', modalShiftValue)}
+                                    {renderDetailRow('Giờ học', modalStudyTimeValue || timeDisplayValue)}
+                                    {renderDetailRow('Tuần', modalWeeks)}
+                                    {renderDetailRow('Phòng học', modalRoom ? `Phòng ${modalRoom}` : '', 'Phòng học: Đang cập nhật')}
+                                    {renderDetailRow('Cơ sở học', course.campus, 'Cơ sở: Đang cập nhật')}
+                                    {renderDetailRow('Giảng viên', course.instructor, 'Đang cập nhật')}
+                                    {renderDetailRow('Ghi chú lịch học', makeupNote)}
+                                </>
+                            )}
+
+                            {renderDetailSection(
+                                'Lịch thi dự kiến',
+                                <CalendarDays size={14} />,
+                                'bg-purple-50 text-purple-600',
+                                <>
+                                    {renderDetailRow('Ngày thi dự kiến', course.exam_date)}
+                                    {renderDetailRow('Ca thi dự kiến', course.exam_shift)}
+                                    {renderDetailRow('Giờ thi', examTimeValue)}
+                                    {renderDetailRow('Cơ sở thi', course.exam_campus)}
+                                    {renderDetailRow('Phòng thi', course.exam_room)}
+                                </>
+                            )}
+
+                            {renderDetailSection(
+                                'Đối tượng đăng ký',
+                                <User size={14} />,
+                                'bg-orange-50 text-orange-600',
+                                <>
+                                    {renderDetailRow('Học kỳ', course.semester)}
+                                    {renderDetailRow('Khóa', course.cohort)}
+                                    {renderDetailRow('Ngành / chuyên ngành', course.major)}
+                                    {renderDetailRow('Nhóm', course.group_name)}
+                                    {renderDetailRow('Định hướng', course.orientation)}
+                                    {renderDetailRow('Ghi chú 3 định hướng', course.orientation_note_3)}
+                                    {renderDetailRow('Hình thức đăng ký', course.registration_type)}
+                                    {renderDetailRow('Sĩ số sinh viên', course.student_count !== undefined && course.student_count !== null ? `${course.student_count} sinh viên` : '')}
+                                    {renderDetailRow('Chương trình học', course.academic_program)}
+                                </>
+                            )}
+
+                            {renderDetailSection(
+                                'Ghi chú',
+                                <List size={14} />,
+                                'bg-gray-100 text-gray-600',
+                                <>
+                                    {renderDetailRow('Ghi chú chung', course.general_note)}
+                                </>
                             )}
 
                             {!forceManagementView && (
@@ -2347,7 +2475,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                         <Tag size={18} />
                                     </button>
                                 )}
-                                {course.user_schedule_id && (
+                                {course.user_schedule_id && !isStudentCourseEditLocked(course) && (
                                     <button onClick={() => openStudentEditModal(course)} className="p-3.5 rounded-xl border border-blue-100 bg-blue-50 text-blue-600 active:bg-blue-100 shrink-0" title="Chỉnh sửa">
                                         <Edit size={18} />
                                     </button>
@@ -2460,7 +2588,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                         <h4 className="font-bold text-gray-800 text-[13px] leading-tight mb-1">{course.subject_name}</h4>
                                         <p className="text-[10px] text-gray-500 font-medium">{course.course_code} <span className="mx-1">•</span> Đợt {course.phase || '1'}</p>
                                     </div>
-                                    {course.user_schedule_id && (
+                                    {course.user_schedule_id && !isStudentCourseEditLocked(course) && (
                                         <button onClick={(e) => { e.stopPropagation(); openStudentEditModal(course); }} className="text-blue-600 bg-blue-50 p-2 rounded-lg active:bg-blue-100 shrink-0" title="Chỉnh sửa"><Edit size={16}/></button>
                                     )}
                                     <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="text-red-500 bg-red-50 p-2 rounded-lg active:bg-red-100 shrink-0"><Trash2 size={16}/></button>

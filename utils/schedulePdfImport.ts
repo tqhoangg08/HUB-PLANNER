@@ -66,7 +66,7 @@ Nhiệm vụ: Trích xuất danh sách môn học và trả về JSON hợp lệ
 
 CẤU TRÚC JSON BẮT BUỘC:
 {
-  "semester": "HK2_2025_2026", // Suy luận từ văn bản (VD: HK02/2025-2026 -> HK2_2025_2026)
+  "semester": "HK1_2026_2027", // Suy luận từ văn bản (VD: HK01/2026-2027 -> HK1_2026_2027)
   "courses": [
     {
       "course_code": "string (Mã học phần, VD: MAG318_252_1_D02)",
