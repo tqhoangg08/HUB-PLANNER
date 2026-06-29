@@ -377,6 +377,21 @@ const getExamTime = (shiftStr?: string) => {
     default: return '';
   }
 };
+
+const getExamStartMinutes = (shiftStr?: string) => {
+  const time = getExamTime(shiftStr);
+  const match = time.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+};
+
+const getExamTimeGapMinutes = (firstShift?: string, secondShift?: string) => {
+  const firstMinutes = getExamStartMinutes(firstShift);
+  const secondMinutes = getExamStartMinutes(secondShift);
+  if (firstMinutes === null || secondMinutes === null) return null;
+  return Math.abs(firstMinutes - secondMinutes);
+};
+
 const getExamDayMonth = (dateStr: string) => {
   if (!dateStr) return "";
   const parts = dateStr.split('/');
@@ -1183,13 +1198,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       }
 
       if (course.exam_date && existingCourse.exam_date && course.exam_date.trim() === existingCourse.exam_date.trim()) {
-        const newIsMorning = isExamInShift(course.exam_shift, 'S');
-        const existIsMorning = isExamInShift(existingCourse.exam_shift, 'S');
-        const newIsAfternoon = isExamInShift(course.exam_shift, 'C');
-        const existIsAfternoon = isExamInShift(existingCourse.exam_shift, 'C');
+        const examGapMinutes = getExamTimeGapMinutes(course.exam_shift, existingCourse.exam_shift);
 
-        if ((newIsMorning && existIsMorning) || (newIsAfternoon && existIsAfternoon)) {
-          return `⛔ CẢNH BÁO TRÙNG LỊCH THI!\n\nMôn [${course.subject_name}] bị trùng buổi thi với môn [${existingCourse.subject_name}].\n(Cùng thi ngày ${course.exam_date} - ${newIsMorning ? 'Buổi Sáng' : 'Buổi Chiều'}).\n\nHệ thống đã chặn thao tác này để tránh việc bạn phải bỏ thi!`;
+        if (examGapMinutes !== null && examGapMinutes < 120) {
+          const newExamTime = getExamTime(course.exam_shift);
+          const existingExamTime = getExamTime(existingCourse.exam_shift);
+          return `⛔ CẢNH BÁO TRÙNG LỊCH THI!\n\nMôn [${course.subject_name}] có lịch thi quá sát với môn [${existingCourse.subject_name}].\n(Cùng thi ngày ${course.exam_date}: ca ${course.exam_shift || '-'}${newExamTime ? ` lúc ${newExamTime}` : ''} và ca ${existingCourse.exam_shift || '-'}${existingExamTime ? ` lúc ${existingExamTime}` : ''}, cách nhau ${examGapMinutes} phút).\n\nHệ thống chỉ chặn khi 2 ca thi cùng ngày cách nhau dưới 2 tiếng.`;
         }
       }
     }
