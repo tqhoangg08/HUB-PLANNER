@@ -88,6 +88,24 @@ const COURSE_SCHEDULE_COLUMNS = [
   'instructor',
   'is_user_added',
 ].join(', ');
+const COURSE_SCHEDULE_SUMMARY_COLUMNS = [
+  'id',
+  'semester',
+  'course_code',
+  'subject_name',
+  'credits',
+  'phase',
+  'day_of_week',
+  'shift',
+  'weeks',
+  'room',
+  'campus',
+  'instructor',
+  'group_name',
+  'major',
+  'academic_program',
+  'is_user_added',
+].join(', ');
 const USER_COURSE_REQUEST_COLUMNS = 'id, user_id, subject_name, course_code, instructor, status, created_at';
 const PUBLIC_COURSES_CACHE_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_ADMIN_SCHEDULE_LIMIT = 200;
@@ -102,10 +120,13 @@ const getPublicCoursesCacheKey = (query) => {
   const search = String(query.search || '').trim().toLowerCase();
   const major = String(query.major || '').trim().toLowerCase();
   const academicProgram = String(query.academicProgram || '').trim().toLowerCase();
+  const groupName = String(query.groupName || '').trim().toLowerCase();
+  const subjectName = String(query.subjectName || '').trim().toLowerCase();
+  const view = String(query.view || 'summary');
   const limit = String(query.limit || '50');
   const offset = String(query.offset || '0');
   const isUserAdded = String(query.isUserAdded || 'all');
-  return JSON.stringify({ semester, phase, search, major, academicProgram, limit, offset, isUserAdded });
+  return JSON.stringify({ semester, phase, search, major, academicProgram, groupName, subjectName, view, limit, offset, isUserAdded });
 };
 
 const normalizeOptionValue = (value) => String(value || '').trim();
@@ -138,7 +159,7 @@ const fetchCourseFilterOptionRows = async ({ semester, phase, isUserAdded }) => 
   for (let offset = 0; offset < 10000; offset += batchSize) {
     let query = supabase
       .from('course_schedules')
-      .select('major, group_name, academic_program')
+      .select('subject_name, major, group_name, academic_program')
       .range(offset, offset + batchSize - 1);
 
     if (semester) query = query.eq('semester', semester);
@@ -778,13 +799,69 @@ const handleCourseFilterOptions = async (request, response) => {
   const rows = await fetchCourseFilterOptionRows({ semester, phase, isUserAdded });
   const matchesMajor = (row) => !major || normalizeOptionValue(row.major) === normalizeOptionValue(major);
   const matchesAcademicProgram = (row) => !academicProgram || normalizeOptionValue(row.academic_program) === normalizeOptionValue(academicProgram);
+  const optionRows = rows.filter((row) => matchesMajor(row) && matchesAcademicProgram(row));
 
   return response.status(200).json({
     success: true,
     majorOptions: uniqueSortedOptions(rows.filter(matchesAcademicProgram).map((row) => row.major)),
-    groupNameOptions: uniqueSortedGroupOptions(rows.filter((row) => matchesMajor(row) && matchesAcademicProgram(row)).map((row) => row.group_name)),
+    subjectNameOptions: uniqueSortedOptions(optionRows.map((row) => row.subject_name)),
+    groupNameOptions: uniqueSortedGroupOptions(optionRows.map((row) => row.group_name)),
     academicProgramOptions: uniqueSortedOptions(rows.filter(matchesMajor).map((row) => row.academic_program)),
   });
+};
+
+const applyCourseListFilters = (query, { semester, phase, major, academicProgram, subjectName, isUserAdded, search }) => {
+  let nextQuery = query;
+  if (semester) nextQuery = nextQuery.eq('semester', semester);
+  if (phase && phase !== 'all') nextQuery = nextQuery.eq('phase', phase);
+  if (major) nextQuery = nextQuery.eq('major', major);
+  if (academicProgram) nextQuery = nextQuery.eq('academic_program', academicProgram);
+  if (subjectName) nextQuery = nextQuery.eq('subject_name', subjectName);
+  if (isUserAdded === 'true') {
+    nextQuery = nextQuery.eq('is_user_added', true);
+  } else if (isUserAdded === 'false') {
+    nextQuery = nextQuery.or('is_user_added.is.false,is_user_added.is.null');
+  }
+  if (search) {
+    nextQuery = nextQuery.or(`subject_name.ilike.%${search}%,course_code.ilike.%${search}%,instructor.ilike.%${search}%`);
+  }
+  return nextQuery;
+};
+
+const fetchGroupedCoursePage = async ({ semester, phase, search, major, academicProgram, subjectName, groupName, isUserAdded, pageLimit, pageOffset }) => {
+  const rows = [];
+  const batchSize = 500;
+  let matchedCount = 0;
+  let hasMore = false;
+  const normalizedGroupName = normalizeOptionValue(groupName);
+
+  for (let offset = 0; offset < 10000; offset += batchSize) {
+    let query = supabase
+      .from('course_schedules')
+      .select(COURSE_SCHEDULE_SUMMARY_COLUMNS)
+      .range(offset, offset + batchSize - 1);
+
+    query = applyCourseListFilters(query, { semester, phase, major, academicProgram, subjectName, isUserAdded, search });
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const batchRows = data || [];
+    for (const row of batchRows) {
+      if (!parseGroupTokens(row.group_name).includes(normalizedGroupName)) continue;
+      if (matchedCount >= pageOffset && rows.length < pageLimit) rows.push(row);
+      matchedCount += 1;
+      if (matchedCount > pageOffset + pageLimit) hasMore = true;
+    }
+
+    if (batchRows.length < batchSize) break;
+  }
+
+  return {
+    rows,
+    total: matchedCount,
+    hasMore,
+  };
 };
 
 async function handler(request, response) {
@@ -824,7 +901,7 @@ async function handler(request, response) {
 
   try {
     // Nhận các tham số lọc từ đường link URL do Frontend gửi lên
-    const { semester, phase, search, major, academicProgram, limit = 50, offset = 0, isUserAdded = 'all' } = request.query;
+    const { semester, phase, search, major, academicProgram, groupName, subjectName, view = 'summary', id, limit = 50, offset = 0, isUserAdded = 'all' } = request.query;
     const pageLimit = Math.max(1, Math.min(Number(limit) || 50, 100));
     const pageOffset = Math.max(0, Number(offset) || 0);
 
@@ -840,6 +917,19 @@ async function handler(request, response) {
       return handleCourseFilterOptions(request, response);
     }
 
+    if (resource === 'course-detail') {
+      if (!id) return response.status(400).json({ error: 'Missing course id' });
+      const { data, error } = await supabase
+        .from('course_schedules')
+        .select(COURSE_SCHEDULE_COLUMNS)
+        .eq('id', id)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return response.status(404).json({ error: 'Course not found' });
+      response.setHeader('Cache-Control', 'public, max-age=600, s-maxage=600, stale-while-revalidate=1800');
+      return response.status(200).json({ success: true, data });
+    }
+
     const cacheKey = getPublicCoursesCacheKey(request.query);
     const cached = publicCoursesCache.get(cacheKey);
     response.setHeader('Cache-Control', 'public, max-age=600, s-maxage=600, stale-while-revalidate=1800');
@@ -848,46 +938,37 @@ async function handler(request, response) {
       return response.status(200).json(cached.payload);
     }
 
-    let query = supabase.from('course_schedules')
-      .select(COURSE_SCHEDULE_COLUMNS, { count: 'exact' })
-      .range(pageOffset, pageOffset + pageLimit - 1);
+    let rows = [];
+    let total = 0;
+    let hasMore = false;
+    const selectedColumns = view === 'detail' ? COURSE_SCHEDULE_COLUMNS : COURSE_SCHEDULE_SUMMARY_COLUMNS;
 
-    if (semester) {
-      query = query.eq('semester', semester);
-    }
-    
-    if (phase && phase !== 'all') {
-      query = query.eq('phase', phase);
-    }
+    if (groupName) {
+      const groupedPage = await fetchGroupedCoursePage({ semester, phase, search, major, academicProgram, subjectName, groupName, isUserAdded, pageLimit, pageOffset });
+      rows = groupedPage.rows;
+      total = groupedPage.total;
+      hasMore = groupedPage.hasMore;
+    } else {
+      let query = supabase.from('course_schedules')
+        .select(selectedColumns, { count: 'exact' })
+        .range(pageOffset, pageOffset + pageLimit - 1);
 
-    if (major) {
-      query = query.eq('major', major);
-    }
+      query = applyCourseListFilters(query, { semester, phase, major, academicProgram, subjectName, isUserAdded, search });
 
-    if (academicProgram) {
-      query = query.eq('academic_program', academicProgram);
-    }
-
-    if (isUserAdded === 'true') {
-      query = query.eq('is_user_added', true);
-    } else if (isUserAdded === 'false') {
-      query = query.or('is_user_added.is.false,is_user_added.is.null');
+      const { data, error, count } = await query;
+      if (error) throw error;
+      rows = data || [];
+      total = count || 0;
+      hasMore = total > pageOffset + rows.length;
     }
 
-    if (search) {
-      query = query.or(`subject_name.ilike.%${search}%,course_code.ilike.%${search}%,instructor.ilike.%${search}%`);
-    }
-
-    const { data, error, count } = await query;
-
-    if (error) throw error;
-
-    const rows = data || [];
     const payload = {
       success: true,
       data: rows,
-      hasMore: (count || 0) > pageOffset + rows.length,
-      total: count || 0,
+      hasMore,
+      total,
+      limit: pageLimit,
+      offset: pageOffset,
     };
     publicCoursesCache.set(cacheKey, {
       expiresAt: Date.now() + PUBLIC_COURSES_CACHE_TTL_MS,

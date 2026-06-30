@@ -80,6 +80,24 @@ const COURSE_SCHEDULE_COLUMNS = [
   'instructor',
   'is_user_added',
 ].join(', ')
+const COURSE_SCHEDULE_SUMMARY_COLUMNS = [
+  'id',
+  'semester',
+  'course_code',
+  'subject_name',
+  'credits',
+  'phase',
+  'day_of_week',
+  'shift',
+  'weeks',
+  'room',
+  'campus',
+  'instructor',
+  'group_name',
+  'major',
+  'academic_program',
+  'is_user_added',
+].join(', ')
 const USER_COURSE_REQUEST_COLUMNS = 'id, user_id, subject_name, course_code, instructor, status, created_at'
 const DEFAULT_ADMIN_SCHEDULE_LIMIT = 200
 const MAX_ADMIN_SCHEDULE_LIMIT = 500
@@ -129,7 +147,7 @@ const fetchCourseFilterOptionRows = async ({
   for (let offset = 0; offset < 10000; offset += batchSize) {
     let query = supabase
       .from('course_schedules')
-      .select('major, group_name, academic_program')
+      .select('subject_name, major, group_name, academic_program')
       .range(offset, offset + batchSize - 1)
 
     if (semester) query = query.eq('semester', semester)
@@ -758,13 +776,63 @@ const handleCourseFilterOptions = async (params: URLSearchParams) => {
   const rows = await fetchCourseFilterOptionRows({ semester, phase, isUserAdded })
   const matchesMajor = (row: any) => !major || normalizeOptionValue(row.major) === normalizeOptionValue(major)
   const matchesAcademicProgram = (row: any) => !academicProgram || normalizeOptionValue(row.academic_program) === normalizeOptionValue(academicProgram)
+  const optionRows = rows.filter((row: any) => matchesMajor(row) && matchesAcademicProgram(row))
 
   return json({
     success: true,
     majorOptions: uniqueSortedOptions(rows.filter(matchesAcademicProgram).map((row: any) => row.major)),
-    groupNameOptions: uniqueSortedGroupOptions(rows.filter((row: any) => matchesMajor(row) && matchesAcademicProgram(row)).map((row: any) => row.group_name)),
+    subjectNameOptions: uniqueSortedOptions(optionRows.map((row: any) => row.subject_name)),
+    groupNameOptions: uniqueSortedGroupOptions(optionRows.map((row: any) => row.group_name)),
     academicProgramOptions: uniqueSortedOptions(rows.filter(matchesMajor).map((row: any) => row.academic_program)),
   })
+}
+
+const applyCourseListFilters = (query: any, { semester, phase, major, academicProgram, subjectName, isUserAdded, search }: any) => {
+  let nextQuery = query
+  if (semester) nextQuery = nextQuery.eq('semester', semester)
+  if (phase && phase !== 'all') nextQuery = nextQuery.eq('phase', phase)
+  if (major) nextQuery = nextQuery.eq('major', major)
+  if (academicProgram) nextQuery = nextQuery.eq('academic_program', academicProgram)
+  if (subjectName) nextQuery = nextQuery.eq('subject_name', subjectName)
+  if (isUserAdded === 'true') {
+    nextQuery = nextQuery.eq('is_user_added', true)
+  } else if (isUserAdded === 'false') {
+    nextQuery = nextQuery.or('is_user_added.is.false,is_user_added.is.null')
+  }
+  if (search) nextQuery = nextQuery.or(`subject_name.ilike.%${search}%,course_code.ilike.%${search}%,instructor.ilike.%${search}%`)
+  return nextQuery
+}
+
+const fetchGroupedCoursePage = async ({ semester, phase, search, major, academicProgram, subjectName, groupName, isUserAdded, pageLimit, pageOffset }: any) => {
+  const rows: any[] = []
+  const batchSize = 500
+  let matchedCount = 0
+  let hasMore = false
+  const normalizedGroupName = normalizeOptionValue(groupName)
+
+  for (let offset = 0; offset < 10000; offset += batchSize) {
+    let query = supabase
+      .from('course_schedules')
+      .select(COURSE_SCHEDULE_SUMMARY_COLUMNS)
+      .range(offset, offset + batchSize - 1)
+
+    query = applyCourseListFilters(query, { semester, phase, major, academicProgram, subjectName, isUserAdded, search })
+
+    const { data, error } = await query
+    if (error) throw error
+
+    const batchRows = data || []
+    for (const row of batchRows) {
+      if (!parseGroupTokens(row.group_name).includes(normalizedGroupName)) continue
+      if (matchedCount >= pageOffset && rows.length < pageLimit) rows.push(row)
+      matchedCount += 1
+      if (matchedCount > pageOffset + pageLimit) hasMore = true
+    }
+
+    if (batchRows.length < batchSize) break
+  }
+
+  return { rows, total: matchedCount, hasMore }
 }
 
 Deno.serve(async (req) => {
@@ -784,24 +852,57 @@ Deno.serve(async (req) => {
     if (resource === 'user-schedules') return await handleUserSchedules(req, params)
     if (resource === 'my-schedule') return await handleMySchedule(req, params)
     if (resource === 'filter-options') return await handleCourseFilterOptions(params)
+    if (resource === 'course-detail') {
+      const id = params.get('id')
+      if (!id) return json({ error: 'Missing course id' }, 400)
+      const { data, error } = await supabase
+        .from('course_schedules')
+        .select(COURSE_SCHEDULE_COLUMNS)
+        .eq('id', id)
+        .maybeSingle()
+      if (error) throw error
+      if (!data) return json({ error: 'Course not found' }, 404)
+      return json({ success: true, data })
+    }
 
     const semester = params.get('semester')
     const phase = params.get('phase')
     const search = params.get('search')
     const major = params.get('major')
     const academicProgram = params.get('academicProgram')
-    const limit = Number(params.get('limit') || 50)
+    const groupName = params.get('groupName')
+    const subjectName = params.get('subjectName')
+    const view = params.get('view') || 'summary'
+    const isUserAdded = params.get('isUserAdded') || 'all'
+    const pageLimit = Math.max(1, Math.min(Number(params.get('limit')) || 50, 100))
+    const pageOffset = Math.max(0, Number(params.get('offset')) || 0)
 
-    let query = supabase.from('course_schedules').select(COURSE_SCHEDULE_COLUMNS).limit(limit)
-    if (semester) query = query.eq('semester', semester)
-    if (phase && phase !== 'all') query = query.eq('phase', phase)
-    if (major) query = query.eq('major', major)
-    if (academicProgram) query = query.eq('academic_program', academicProgram)
-    if (search) query = query.or(`subject_name.ilike.%${search}%,course_code.ilike.%${search}%,instructor.ilike.%${search}%`)
+    let rows: any[] = []
+    let total = 0
+    let hasMore = false
+    const selectedColumns = view === 'detail' ? COURSE_SCHEDULE_COLUMNS : COURSE_SCHEDULE_SUMMARY_COLUMNS
 
-    const { data, error } = await query
-    if (error) throw error
-    return json({ success: true, data })
+    if (groupName) {
+      const groupedPage = await fetchGroupedCoursePage({ semester, phase, search, major, academicProgram, subjectName, groupName, isUserAdded, pageLimit, pageOffset })
+      rows = groupedPage.rows
+      total = groupedPage.total
+      hasMore = groupedPage.hasMore
+    } else {
+      let query = supabase
+        .from('course_schedules')
+        .select(selectedColumns, { count: 'exact' })
+        .range(pageOffset, pageOffset + pageLimit - 1)
+
+      query = applyCourseListFilters(query, { semester, phase, major, academicProgram, subjectName, isUserAdded, search })
+
+      const { data, error, count } = await query
+      if (error) throw error
+      rows = data || []
+      total = count || 0
+      hasMore = total > pageOffset + rows.length
+    }
+
+    return json({ success: true, data: rows, total, hasMore, limit: pageLimit, offset: pageOffset })
   } catch (error) {
     return json({ error: errorMessage(error) }, 500)
   }

@@ -132,6 +132,8 @@ interface Course {
 const SCHEDULE_UPDATE_NOTICE_STORAGE_KEY = 'hub_schedule_board_update_notice_hidden_v1';
 const STUDENT_EDIT_LOCKED_SEMESTERS = new Set(['HK1_2026_2027']);
 const PLAN_SCHEDULE_STORAGE_PREFIX = 'hub_schedule_plans_v1';
+const COURSE_PAGE_SIZE_COMPACT = 30;
+const COURSE_PAGE_SIZE_EXPANDED = 40;
 let hasShownScheduleUpdateNoticeThisLoad = false;
 
 const isStudentCourseEditLocked = (course?: Pick<Course, 'semester'> | null) => (
@@ -535,17 +537,23 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
+  const [coursePage, setCoursePage] = useState(0);
+  const [courseTotal, setCourseTotal] = useState(0);
+  const [courseHasMore, setCourseHasMore] = useState(false);
   const [mySchedule, setMySchedule] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCourseDetailLoading, setIsCourseDetailLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   const [adminScheduleError, setAdminScheduleError] = useState('');
   
   const [selectedSemester, setSelectedSemester] = useState<string>(DEFAULT_SCHEDULE_SEMESTER);
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
+  const [selectedSubjectName, setSelectedSubjectName] = useState<string>('all');
   const [selectedMajor, setSelectedMajor] = useState<string>('all');
   const [selectedGroupName, setSelectedGroupName] = useState<string>('all');
   const [selectedAcademicProgram, setSelectedAcademicProgram] = useState<string>('all');
+  const [subjectNameOptions, setSubjectNameOptions] = useState<string[]>([]);
   const [majorOptions, setMajorOptions] = useState<string[]>([]);
   const [groupNameOptions, setGroupNameOptions] = useState<string[]>([]);
   const [academicProgramOptions, setAcademicProgramOptions] = useState<string[]>([]);
@@ -583,7 +591,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const displayedSchedule = isPlanMode ? currentPlanSchedule : currentSemesterSchedule;
   const displayedScheduleTitle = isPlanMode ? `Kế hoạch ${activePlanKey}` : 'Lịch cá nhân';
   const displayedScheduleCount = displayedSchedule.length;
-  const hasActiveCourseFilters = Boolean(searchTerm.trim()) || selectedMajor !== 'all' || selectedGroupName !== 'all' || selectedAcademicProgram !== 'all';
+  const hasActiveCourseFilters = Boolean(searchTerm.trim()) || selectedSubjectName !== 'all' || selectedMajor !== 'all' || selectedGroupName !== 'all' || selectedAcademicProgram !== 'all';
+  const coursePageSize = isFilterExpanded ? COURSE_PAGE_SIZE_EXPANDED : COURSE_PAGE_SIZE_COMPACT;
+  const courseTotalPages = Math.max(1, Math.ceil(courseTotal / coursePageSize));
+  const coursePageCacheRef = useRef(new Map<string, { data: Course[]; total: number; hasMore: boolean }>());
+  const courseDetailCacheRef = useRef(new Map<string, Course>());
+  const courseFilterOptionsCacheRef = useRef(new Map<string, { subjectNameOptions: string[]; majorOptions: string[]; groupNameOptions: string[]; academicProgramOptions: string[] }>());
+  const courseFilterKeyRef = useRef('');
 
   useEffect(() => {
     setHasLoadedPlanSchedules(false);
@@ -775,26 +789,70 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const fetchCourses = async () => {
     setIsLoading(true);
     try {
-        const params = new URLSearchParams({
+        const filterKey = JSON.stringify({
             semester: selectedSemester,
-            limit: String(isAdminView || selectedGroupName !== 'all' ? 1000 : 100),
+            phase: selectedPhase,
+            search: searchTerm.trim(),
+            subjectName: selectedSubjectName,
+            major: selectedMajor,
+            groupName: selectedGroupName,
+            academicProgram: selectedAcademicProgram,
+            isAdminView,
+            adminTab,
+            pageSize: coursePageSize,
         });
-        if (selectedPhase !== 'all') params.set('phase', selectedPhase);
-        if (selectedMajor !== 'all') params.set('major', selectedMajor);
-        if (selectedAcademicProgram !== 'all') params.set('academicProgram', selectedAcademicProgram);
-        const term = searchTerm.trim();
-        if (term) params.set('search', term);
 
-        const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
+        if (courseFilterKeyRef.current !== filterKey) {
+            courseFilterKeyRef.current = filterKey;
+            coursePageCacheRef.current.clear();
+            setAvailableCourses([]);
+            setCourseTotal(0);
+            setCourseHasMore(false);
+            if (coursePage !== 0) {
+                setCoursePage(0);
+                return;
+            }
+        }
+
+        const pageCacheKey = `${filterKey}:page:${coursePage}`;
+        const cachedPage = coursePageCacheRef.current.get(pageCacheKey);
+        if (cachedPage) {
+            setAvailableCourses(cachedPage.data);
+            setCourseTotal(cachedPage.total);
+            setCourseHasMore(cachedPage.hasMore);
+            return;
+        }
+
+        const baseParams = new URLSearchParams({
+            semester: selectedSemester,
+            view: isAdminView ? 'detail' : 'summary',
+            limit: String(coursePageSize),
+            offset: String(coursePage * coursePageSize),
+        });
+        if (selectedPhase !== 'all') baseParams.set('phase', selectedPhase);
+        if (selectedSubjectName !== 'all') baseParams.set('subjectName', selectedSubjectName);
+        if (selectedMajor !== 'all') baseParams.set('major', selectedMajor);
+        if (selectedGroupName !== 'all') baseParams.set('groupName', selectedGroupName);
+        if (selectedAcademicProgram !== 'all') baseParams.set('academicProgram', selectedAcademicProgram);
+        const term = searchTerm.trim();
+        if (term) baseParams.set('search', term);
+
+        const response = await fetch(apiUrl(`/courses?${baseParams.toString()}`), {
             headers: apiHeaders(),
         });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error || 'Không tải được danh sách môn.');
+
         const rows = Array.isArray(payload.data) ? payload.data : [];
-        setAvailableCourses(selectedGroupName === 'all'
-            ? rows
-            : rows.filter((course: Course) => parseGroupTokens(course.group_name).includes(selectedGroupName))
-        );
+        const pagePayload = {
+            data: rows,
+            total: Number(payload.total || rows.length),
+            hasMore: Boolean(payload.hasMore),
+        };
+        coursePageCacheRef.current.set(pageCacheKey, pagePayload);
+        setAvailableCourses(pagePayload.data);
+        setCourseTotal(pagePayload.total);
+        setCourseHasMore(pagePayload.hasMore);
     } catch (error) { 
         console.error("Lỗi tải danh sách môn:", error); 
     } finally { setIsLoading(false); }
@@ -803,6 +861,21 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const fetchCourseFilterOptions = async () => {
     if (!isAuthenticated) return;
     try {
+        const optionsCacheKey = JSON.stringify({
+            semester: selectedSemester,
+            phase: selectedPhase,
+            major: selectedMajor,
+            academicProgram: selectedAcademicProgram,
+        });
+        const cachedOptions = courseFilterOptionsCacheRef.current.get(optionsCacheKey);
+        if (cachedOptions) {
+            setSubjectNameOptions(cachedOptions.subjectNameOptions);
+            setMajorOptions(cachedOptions.majorOptions);
+            setGroupNameOptions(cachedOptions.groupNameOptions);
+            setAcademicProgramOptions(cachedOptions.academicProgramOptions);
+            return;
+        }
+
         const params = new URLSearchParams({
             resource: 'filter-options',
             semester: selectedSemester,
@@ -816,16 +889,75 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error || 'Không tải được bộ lọc môn.');
-        setMajorOptions(Array.isArray(payload.majorOptions) ? payload.majorOptions : []);
-        setGroupNameOptions(Array.isArray(payload.groupNameOptions) ? payload.groupNameOptions : []);
-        setAcademicProgramOptions(Array.isArray(payload.academicProgramOptions) ? payload.academicProgramOptions : []);
+        const nextOptions = {
+            subjectNameOptions: Array.isArray(payload.subjectNameOptions) ? payload.subjectNameOptions : [],
+            majorOptions: Array.isArray(payload.majorOptions) ? payload.majorOptions : [],
+            groupNameOptions: Array.isArray(payload.groupNameOptions) ? payload.groupNameOptions : [],
+            academicProgramOptions: Array.isArray(payload.academicProgramOptions) ? payload.academicProgramOptions : [],
+        };
+        courseFilterOptionsCacheRef.current.set(optionsCacheKey, nextOptions);
+        setSubjectNameOptions(nextOptions.subjectNameOptions);
+        setMajorOptions(nextOptions.majorOptions);
+        setGroupNameOptions(nextOptions.groupNameOptions);
+        setAcademicProgramOptions(nextOptions.academicProgramOptions);
     } catch (error) {
         console.error('Lỗi tải bộ lọc chuyên ngành/nhóm:', error);
+        setSubjectNameOptions([]);
         setMajorOptions([]);
         setGroupNameOptions([]);
         setAcademicProgramOptions([]);
     }
   };
+
+  useEffect(() => {
+    if (!selectedCourseInfo?.course?.id || selectedCourseInfo.course.user_schedule_id) {
+        setIsCourseDetailLoading(false);
+        return;
+    }
+
+    const courseId = selectedCourseInfo.course.id;
+    if ((selectedCourseInfo.course as any).__detailLoaded) {
+        setIsCourseDetailLoading(false);
+        return;
+    }
+
+    const cachedDetail = courseDetailCacheRef.current.get(courseId);
+    if (cachedDetail) {
+        setSelectedCourseInfo(prev => prev?.course.id === courseId
+            ? { ...prev, course: { ...prev.course, ...cachedDetail, __detailLoaded: true } as Course }
+            : prev
+        );
+        setIsCourseDetailLoading(false);
+        return;
+    }
+
+    let cancelled = false;
+    setIsCourseDetailLoading(true);
+    const loadCourseDetail = async () => {
+        try {
+            const params = new URLSearchParams({ resource: 'course-detail', id: courseId });
+            const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
+                headers: apiHeaders(),
+            });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload?.error || 'Không tải được chi tiết môn.');
+            if (cancelled || !payload?.data) return;
+            courseDetailCacheRef.current.set(courseId, payload.data);
+            setSelectedCourseInfo(prev => prev?.course.id === courseId
+                ? { ...prev, course: { ...prev.course, ...payload.data, __detailLoaded: true } as Course }
+                : prev
+            );
+        } catch (error) {
+            console.error('Lỗi tải chi tiết môn:', error);
+        } finally {
+            if (!cancelled) setIsCourseDetailLoading(false);
+        }
+    };
+    loadCourseDetail();
+    return () => {
+        cancelled = true;
+    };
+  }, [selectedCourseInfo?.course?.id, selectedCourseInfo?.course?.user_schedule_id, (selectedCourseInfo?.course as any)?.__detailLoaded]);
 
   const fetchAdminUserSchedules = async (mode: 'changed' | 'summaries' | 'courses', extraParams: Record<string, string> = {}) => {
     const token = session?.access_token;
@@ -1092,11 +1224,16 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       fetchCourses();
     }, 400);
     return () => window.clearTimeout(timeoutId);
-  }, [searchTerm, selectedSemester, selectedPhase, selectedMajor, selectedGroupName, selectedAcademicProgram, isAuthenticated, isAdminView, adminTab]);
+  }, [searchTerm, selectedSemester, selectedPhase, selectedSubjectName, selectedMajor, selectedGroupName, selectedAcademicProgram, coursePage, coursePageSize, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => {
     if (!isAuthenticated || (isAdminView && adminTab !== 'system' && adminTab !== 'user')) return;
     fetchCourseFilterOptions();
   }, [selectedSemester, selectedPhase, selectedMajor, selectedAcademicProgram, isAuthenticated, isAdminView, adminTab]);
+  useEffect(() => {
+    if (selectedSubjectName !== 'all' && !subjectNameOptions.includes(selectedSubjectName)) {
+        setSelectedSubjectName('all');
+    }
+  }, [selectedSubjectName, subjectNameOptions]);
   useEffect(() => {
     if (selectedMajor !== 'all' && !majorOptions.includes(selectedMajor)) {
         setSelectedMajor('all');
@@ -1211,20 +1348,42 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     return '';
   };
 
-  const addToPlanSchedule = (course: Course) => {
+  const ensureCourseDetail = async (course: Course) => {
+    if (course.user_schedule_id || (course as any).__detailLoaded) return course;
+    const cachedDetail = courseDetailCacheRef.current.get(course.id);
+    if (cachedDetail) return { ...course, ...cachedDetail, __detailLoaded: true } as Course;
+
+    const params = new URLSearchParams({ resource: 'course-detail', id: course.id });
+    const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
+      headers: apiHeaders(),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload?.error || 'Không tải được chi tiết môn.');
+    courseDetailCacheRef.current.set(course.id, payload.data);
+    return { ...course, ...payload.data, __detailLoaded: true } as Course;
+  };
+
+  const addToPlanSchedule = async (course: Course) => {
     if (!isAuthenticated) { alert("⚠️ Vui lòng đăng nhập!"); return; }
     if (currentPlanSchedule.some(c => c.id === course.id)) {
       alert(`Môn học đã có trong Kế hoạch ${activePlanKey}!`);
       return;
     }
 
-    const conflictMessage = getScheduleConflictMessage(course, currentPlanSchedule);
+    let fullCourse = course;
+    try {
+      fullCourse = await ensureCourseDetail(course);
+    } catch (error) {
+      console.error('Không tải được chi tiết môn trước khi thêm kế hoạch:', error);
+    }
+
+    const conflictMessage = getScheduleConflictMessage(fullCourse, currentPlanSchedule);
     if (conflictMessage) {
       alert(conflictMessage);
       return;
     }
 
-    const planCourse = { ...course, semester: course.semester || selectedSemester };
+    const planCourse = { ...fullCourse, semester: fullCourse.semester || selectedSemester };
     setPlanSchedules(prev => ({
       ...prev,
       [activePlanKey]: [...prev[activePlanKey], planCourse],
@@ -1238,13 +1397,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     }));
   };
 
-  const addToActiveSchedule = (course: Course) => {
+  const addToActiveSchedule = async (course: Course) => {
     if (isPlanMode) {
-      addToPlanSchedule(course);
+      await addToPlanSchedule(course);
       return;
     }
 
-    addToSchedule(course);
+    await addToSchedule(course);
   };
 
   const removeFromActiveSchedule = (courseId: string) => {
@@ -1261,20 +1420,27 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     if (!user) { alert("⚠️ Vui lòng đăng nhập!"); return; }
     if (mySchedule.some(c => c.id === course.id)) { alert("Môn học đã có sẵn!"); return; }
 
-    const conflictMessage = getScheduleConflictMessage(course, currentSemesterSchedule);
+    let fullCourse = course;
+    try {
+      fullCourse = await ensureCourseDetail(course);
+    } catch (error) {
+      console.error('Không tải được chi tiết môn trước khi thêm lịch:', error);
+    }
+
+    const conflictMessage = getScheduleConflictMessage(fullCourse, currentSemesterSchedule);
     if (conflictMessage) {
       alert(conflictMessage);
       return;
     }
 
-    setMySchedule([...mySchedule, course]);
+    setMySchedule([...mySchedule, fullCourse]);
     setIsSyncing(true);
     try {
-      const { error } = await supabase.from('user_schedules').insert({ user_id: user.id, course_id: course.id, semester: selectedSemester });
+      const { error } = await supabase.from('user_schedules').insert({ user_id: user.id, course_id: fullCourse.id, semester: selectedSemester });
       if (error) throw error;
       fetchMySchedule();
     } catch (err) {
-        setMySchedule(mySchedule.filter(c => c.id !== course.id));
+        setMySchedule(mySchedule.filter(c => c.id !== fullCourse.id));
     } finally { setIsSyncing(false); }
   };
 
@@ -2242,10 +2408,42 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </div>
                     </div>
                     
-                    <div className={`border-b border-gray-200 ${isFilterExpanded ? 'grid grid-cols-1 gap-2 overflow-visible p-3 sm:grid-cols-2 lg:grid-cols-[minmax(240px,1.6fr)_minmax(150px,0.9fr)_minmax(110px,0.6fr)_minmax(170px,1fr)_minmax(120px,0.7fr)_minmax(180px,1fr)]' : 'space-y-2 px-3 py-2.5'}`}>
+                    <div className={`border-b border-gray-200 ${isFilterExpanded ? 'grid grid-cols-1 gap-2 overflow-visible p-3 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.4fr)_minmax(190px,1.15fr)_minmax(145px,0.8fr)_minmax(105px,0.58fr)_minmax(160px,0.95fr)_minmax(115px,0.65fr)_minmax(175px,1fr)]' : 'space-y-2 px-3 py-2.5'}`}>
                         <div className="relative">
                             <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full rounded-lg border border-gray-300 bg-white pr-3 outline-none transition-all hover:border-gray-400 focus:border-[#003375] focus:ring-1 focus:ring-[#003375] disabled:bg-gray-50 disabled:cursor-not-allowed ${isFilterExpanded ? 'h-10 pl-10 text-sm' : 'h-9 pl-9 text-xs'}`}/>
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={isFilterExpanded ? 16 : 14} />
+                        </div>
+
+                        <div className={isFilterExpanded ? 'contents' : 'grid grid-cols-[1fr_0.9fr] gap-1.5'}>
+                            <div className="min-w-0">
+                                <select
+                                    disabled={!isAuthenticated}
+                                    value={selectedSubjectName}
+                                    onChange={(e) => setSelectedSubjectName(e.target.value)}
+                                    className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}
+                                    title={selectedSubjectName === 'all' ? 'Tất cả môn học' : selectedSubjectName}
+                                >
+                                    <option value="all">Tất cả môn học</option>
+                                    {subjectNameOptions.map(option => (
+                                        <option key={option} value={option}>{option}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="min-w-0">
+                                <select
+                                    disabled={!isAuthenticated}
+                                    value={selectedAcademicProgram}
+                                    onChange={(e) => setSelectedAcademicProgram(e.target.value)}
+                                    className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}
+                                    title={selectedAcademicProgram === 'all' ? 'Tất cả chương trình' : selectedAcademicProgram}
+                                >
+                                    <option value="all">Tất cả chương trình</option>
+                                    {academicProgramOptions.map(option => (
+                                        <option key={option} value={option}>{option}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
                         <div className={isFilterExpanded ? 'contents' : 'grid grid-cols-[1fr_0.72fr] gap-1.5'}>
@@ -2296,21 +2494,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             </div>
                         </div>
 
-                        <div className="min-w-0">
-                            <select
-                                disabled={!isAuthenticated}
-                                value={selectedAcademicProgram}
-                                onChange={(e) => setSelectedAcademicProgram(e.target.value)}
-                                className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}
-                                title={selectedAcademicProgram === 'all' ? 'Tất cả chương trình' : selectedAcademicProgram}
-                            >
-                                <option value="all">Tất cả chương trình</option>
-                                {academicProgramOptions.map(option => (
-                                    <option key={option} value={option}>{option}</option>
-                                ))}
-                            </select>
-                        </div>
-
                         <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload} />
                     </div>
 
@@ -2331,11 +2514,45 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         ) : (
                             <div className="space-y-3">
                                 {isFilterExpanded && (
-                                    <div className="flex items-center justify-between gap-3">
-                                        <p className="text-sm font-black text-[#003375]">Tìm thấy {availableCourses.length} môn học</p>
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <p className="text-sm font-black text-[#003375]">Tìm thấy {courseTotal} môn học</p>
                                         <p className="text-xs font-semibold text-gray-500">Bấm vào card để xem chi tiết</p>
                                     </div>
                                 )}
+                                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
+                                    <p className="text-xs font-bold text-gray-500">
+                                        Trang {coursePage + 1}/{courseTotalPages} • {availableCourses.length} môn đang hiển thị
+                                    </p>
+                                    <div className="flex items-center gap-1.5">
+                                        <button
+                                            disabled={coursePage === 0 || isLoading}
+                                            onClick={() => setCoursePage(prev => Math.max(0, prev - 1))}
+                                            className="rounded-md border border-gray-200 px-2 py-1 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                            Trước
+                                        </button>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={courseTotalPages}
+                                            value={coursePage + 1}
+                                            onChange={(event) => {
+                                                const nextPage = Number(event.target.value);
+                                                if (!Number.isFinite(nextPage)) return;
+                                                setCoursePage(Math.min(Math.max(nextPage - 1, 0), courseTotalPages - 1));
+                                            }}
+                                            className="h-7 w-14 rounded-md border border-gray-200 text-center text-xs font-bold text-[#003375] outline-none focus:border-[#003375]"
+                                            aria-label="Nhập số trang môn học"
+                                        />
+                                        <button
+                                            disabled={!courseHasMore || isLoading}
+                                            onClick={() => setCoursePage(prev => prev + 1)}
+                                            className="rounded-md border border-gray-200 px-2 py-1 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                        >
+                                            Sau
+                                        </button>
+                                    </div>
+                                </div>
                                 <div className={isFilterExpanded ? 'grid grid-cols-1 gap-3 xl:grid-cols-2' : 'space-y-3'}>
                                     {availableCourses.map((course) => {
                                         const color = getColorForCourse(course.id);
@@ -2387,6 +2604,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         );
                                     })}
                                 </div>
+                                {!courseHasMore && (
+                                    <p className="text-center text-[11px] font-semibold text-gray-400">Đã hiển thị tất cả môn phù hợp.</p>
+                                )}
                             </div>
                         )}
                     </div>
@@ -2878,6 +3098,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             )}
                         </div>
                         <div className="p-4 space-y-3 overflow-y-auto custom-scrollbar flex-1 min-h-0">
+                            {isCourseDetailLoading && (
+                                <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-[#003375]">
+                                    <Loader2 size={14} className="animate-spin" />
+                                    Đang tải thêm chi tiết môn học...
+                                </div>
+                            )}
                             {renderDetailSection(
                                 'Thông tin học phần',
                                 <Info size={14} />,
