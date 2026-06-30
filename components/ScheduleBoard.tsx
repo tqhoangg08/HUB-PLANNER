@@ -134,6 +134,7 @@ const STUDENT_EDIT_LOCKED_SEMESTERS = new Set(['HK1_2026_2027']);
 const PLAN_SCHEDULE_STORAGE_PREFIX = 'hub_schedule_plans_v1';
 const COURSE_PAGE_SIZE_COMPACT = 30;
 const COURSE_PAGE_SIZE_EXPANDED = 40;
+const DEFAULT_ACADEMIC_PROGRAM_OPTIONS = ['Chính quy chuẩn'];
 let hasShownScheduleUpdateNoticeThisLoad = false;
 
 const isStudentCourseEditLocked = (course?: Pick<Course, 'semester'> | null) => (
@@ -162,6 +163,18 @@ const parseGroupTokens = (value?: string | null) => {
         }
         return part;
     }).filter(Boolean))];
+};
+
+const normalizeAcademicProgramOptions = (values: string[]) => {
+    const options = [...DEFAULT_ACADEMIC_PROGRAM_OPTIONS, ...values]
+        .map(value => String(value || '').trim())
+        .filter(Boolean);
+
+    return [...new Set(options)].sort((a, b) => {
+        if (DEFAULT_ACADEMIC_PROGRAM_OPTIONS.includes(a)) return -1;
+        if (DEFAULT_ACADEMIC_PROGRAM_OPTIONS.includes(b)) return 1;
+        return a.localeCompare(b, 'vi', { numeric: true, sensitivity: 'base' });
+    });
 };
 
 const getSemesterContainingDate = (date: Date, fallbackSemester: string) => {
@@ -872,7 +885,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             setSubjectNameOptions(cachedOptions.subjectNameOptions);
             setMajorOptions(cachedOptions.majorOptions);
             setGroupNameOptions(cachedOptions.groupNameOptions);
-            setAcademicProgramOptions(cachedOptions.academicProgramOptions);
+            setAcademicProgramOptions(normalizeAcademicProgramOptions(cachedOptions.academicProgramOptions));
             return;
         }
 
@@ -893,7 +906,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             subjectNameOptions: Array.isArray(payload.subjectNameOptions) ? payload.subjectNameOptions : [],
             majorOptions: Array.isArray(payload.majorOptions) ? payload.majorOptions : [],
             groupNameOptions: Array.isArray(payload.groupNameOptions) ? payload.groupNameOptions : [],
-            academicProgramOptions: Array.isArray(payload.academicProgramOptions) ? payload.academicProgramOptions : [],
+            academicProgramOptions: normalizeAcademicProgramOptions(Array.isArray(payload.academicProgramOptions) ? payload.academicProgramOptions : []),
         };
         courseFilterOptionsCacheRef.current.set(optionsCacheKey, nextOptions);
         setSubjectNameOptions(nextOptions.subjectNameOptions);
@@ -905,7 +918,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         setSubjectNameOptions([]);
         setMajorOptions([]);
         setGroupNameOptions([]);
-        setAcademicProgramOptions([]);
+        setAcademicProgramOptions(DEFAULT_ACADEMIC_PROGRAM_OPTIONS);
+    }
+  };
+
+  const refreshCourseListAndFilters = () => {
+    coursePageCacheRef.current.clear();
+    courseFilterOptionsCacheRef.current.clear();
+    courseFilterKeyRef.current = '';
+    fetchCourseFilterOptions();
+    if (coursePage !== 0) {
+        setCoursePage(0);
+    } else {
+        fetchCourses();
     }
   };
 
@@ -2401,7 +2426,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     <List size={14}/> {isPlanMode ? `KH ${activePlanKey}` : 'Đã lưu'} ({displayedScheduleCount})
                                 </button>
                             )}
-                            {isSyncing ? ( <Loader2 size={16} className="text-blue-500 animate-spin" /> ) : ( <button onClick={fetchCourses} className="rounded-md p-1.5 text-gray-400 hover:bg-blue-50 hover:text-[#003375] transition-colors" title="Làm mới"><RefreshCw size={14}/></button> )}
+                            {isSyncing ? ( <Loader2 size={16} className="text-blue-500 animate-spin" /> ) : ( <button onClick={refreshCourseListAndFilters} className="rounded-md p-1.5 text-gray-400 hover:bg-blue-50 hover:text-[#003375] transition-colors" title="Làm mới"><RefreshCw size={14}/></button> )}
                             <button onClick={() => setIsFilterExpanded(prev => !prev)} className="rounded-md p-1.5 text-gray-500 hover:bg-blue-50 hover:text-[#003375] transition-colors" title={isFilterExpanded ? 'Thu gọn bộ lọc' : 'Mở rộng bộ lọc'}>
                                 {isFilterExpanded ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
                             </button>
