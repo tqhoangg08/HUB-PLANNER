@@ -65,6 +65,7 @@ export interface SupportTicketMessage {
   sender_role: SupportSenderRole;
   body: string;
   attachment_urls?: string[];
+  metadata?: Record<string, unknown>;
   is_internal_note: boolean;
   created_at: string;
   sender?: {
@@ -86,6 +87,7 @@ export interface SupportTicketAttachment {
   size_bytes: number;
   storage_provider?: 'cloudflare_r2';
   status?: 'pending' | 'uploaded' | 'linked' | 'deleted';
+  metadata?: Record<string, unknown>;
   created_at?: string;
 }
 
@@ -129,11 +131,12 @@ const ticketDetailSelect = `
 
 const messageSelect = `
   id,ticket_id,sender_id,sender_role,body,is_internal_note,created_at,
-  attachments:support_ticket_attachments(id,file_name,mime_type,size_bytes)
+  metadata,
+  attachments:support_ticket_attachments(id,file_name,mime_type,size_bytes,metadata)
 `;
 
 const messageInsertSelect = `
-  id,ticket_id,sender_id,sender_role,body,is_internal_note,created_at
+  id,ticket_id,sender_id,sender_role,body,is_internal_note,created_at,metadata
 `;
 
 export const normalizeTicketText = (value: string, maxLength: number) => value.replace(/\s+/g, ' ').trim().slice(0, maxLength);
@@ -240,6 +243,7 @@ export const createSupportTicket = async (input: {
   category: SupportTicketCategory;
   priority: SupportTicketPriority;
   message: string;
+  metadata?: Record<string, unknown>;
 }) => {
   const userId = await getCurrentUserId();
   const { subject, message } = validateTicketInput(input.subject, input.message);
@@ -267,6 +271,7 @@ export const createSupportTicket = async (input: {
       sender_role: 'user',
       body: message,
       is_internal_note: false,
+      metadata: input.metadata || {},
     })
     .select('id')
     .single();
@@ -274,7 +279,7 @@ export const createSupportTicket = async (input: {
   if (messageError) throw messageError;
   if (messageRow?.id) await finalizeSupportMessageCreated(messageRow.id);
 
-  return ticket as SupportTicket;
+  return { ...(ticket as SupportTicket), initial_message_id: messageRow?.id };
 };
 
 export const sendTicketMessage = async (input: {
@@ -283,6 +288,7 @@ export const sendTicketMessage = async (input: {
   senderRole: SupportSenderRole;
   isInternalNote?: boolean;
   allowEmptyBody?: boolean;
+  metadata?: Record<string, unknown>;
 }) => {
   const userId = await getCurrentUserId();
   const body = input.body.trim().slice(0, 4000);
@@ -296,6 +302,7 @@ export const sendTicketMessage = async (input: {
       sender_role: input.senderRole,
       body,
       is_internal_note: Boolean(input.isInternalNote),
+      metadata: input.metadata || {},
     })
     .select(messageInsertSelect)
     .single();

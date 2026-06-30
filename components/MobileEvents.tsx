@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../utils/supabase';
@@ -20,6 +20,7 @@ import { notifyModerators } from '../utils/moderatorNotifications';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { apiHeaders, apiUrl } from '../utils/api';
+import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 
 // --- Types ---
 interface HubEvent {
@@ -550,8 +551,17 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
             onShowToast("Vui lòng nhập chi tiết lỗi sai!", "error");
             return;
         }
-        setSubmitting(true);
-        playClick();
+        openSupportTicketDraft(buildManualSupportTicketDraft({
+            category: 'events',
+            subject: `Bao loi su kien: ${event.name}`,
+            intro: 'Minh muon bao loi hoac sai sot thong tin su kien DRL tren HUB Planner.',
+            fields: [
+                ['Ten su kien', event.name],
+                ['Ban to chuc', event.organizer],
+                ['Chi tiet sai sot', issue],
+            ],
+        }));
+        return;
 
         try {
             const payload = {
@@ -602,11 +612,9 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
                             ></textarea>
                         </div>
 
-                        <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />
-
-                        <button type="submit" disabled={submitting || !turnstileToken} className="w-full py-3.5 bg-red-600 active:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md">
-                            {submitting ? <Loader2 className="animate-spin" size={18}/> : <Send size={18}/>} 
-                            Gửi báo cáo
+                        <button type="submit" className="w-full py-3.5 bg-red-600 active:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md">
+                            <Send size={18}/>
+                            Tao ticket ho tro
                         </button>
                     </form>
                 </div>

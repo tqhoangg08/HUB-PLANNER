@@ -13,6 +13,8 @@ import { apiHeaders, apiUrl } from '../utils/api';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
 import { logWebError } from '../utils/logWebError';
+import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
+import { promptSendParserDebugFile } from '../utils/parserDebugTicket';
 import {
   DEFAULT_SCHEDULE_SEMESTER,
   SEMESTER_OPTIONS,
@@ -1224,7 +1226,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         setScheduleImportTurnstileToken('');
         const aiData = await parseSchedulePdf(file);
         if (!aiData || !aiData.courses || aiData.courses.length === 0) {
-            await logWebError({
+            const errorLogId = await logWebError({
                 source: 'parser',
                 action: 'save_schedule',
                 error: aiData?.error || 'Schedule parser returned zero courses',
@@ -1239,6 +1241,16 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 level: 'warn',
             });
             alert(aiData?.error ? `Không nhập được TKB.\n\n${aiData.error}\n\nDebug đã lưu ở localStorage: hub_last_schedule_import_debug` : "Không thể đọc được dữ liệu. Vui lòng đảm bảo file PDF gốc.");
+            await promptSendParserDebugFile({
+                kind: 'schedule',
+                file,
+                errorLogId,
+                parserMessage: aiData?.error || 'Schedule parser returned zero courses',
+                metadata: {
+                    semester: selectedSemester,
+                    surface: 'mobile',
+                },
+            });
             setIsProcessingPdf(false); if (fileInputRef.current) fileInputRef.current.value = '';
             return;
         }
@@ -1351,7 +1363,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             alert(`Các môn học trong file đã có sẵn trong Thời khóa biểu của bạn rồi!`);
         }
     } catch (err) {
-        await logWebError({
+        const errorLogId = await logWebError({
             source: 'parser',
             action: 'save_schedule',
             error: err,
@@ -1366,6 +1378,16 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         });
         const message = err instanceof Error ? err.message : '';
         alert(message ? `Không nhập được TKB.\n\n${message}` : "Lỗi khi đọc PDF.");
+        await promptSendParserDebugFile({
+            kind: 'schedule',
+            file,
+            errorLogId,
+            parserMessage: message || 'Lỗi khi đọc PDF.',
+            metadata: {
+                semester: selectedSemester,
+                surface: 'mobile',
+            },
+        });
     }
     finally { setIsProcessingPdf(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
@@ -1432,6 +1454,19 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     e.preventDefault();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { alert("Bạn cần đăng nhập để gửi báo cáo!"); return; }
+
+    openSupportTicketDraft(buildManualSupportTicketDraft({
+      category: 'schedule',
+      subject: `Báo lỗi môn học: ${reportData.course_code || reportData.subject_name || 'Cần kiểm tra'}`,
+      intro: 'Mình muốn báo lỗi thông tin môn học/lịch học trên HUB Planner.',
+      fields: [
+        ['Mã học phần', reportData.course_code],
+        ['Tên môn học', reportData.subject_name],
+        ['Chi tiết lỗi', reportData.description],
+        ['Thông tin đúng đề xuất', reportData.suggested_correction],
+      ],
+    }));
+    return;
 
     setIsSubmittingReport(true);
     try {
@@ -2861,8 +2896,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         <input required placeholder="Tên môn học" value={reportData.subject_name} onChange={e => setReportData({...reportData, subject_name: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 bg-gray-50"/>
                         <textarea required rows={4} placeholder="Mô tả lỗi chi tiết..." value={reportData.description} onChange={e => setReportData({...reportData, description: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 resize-none bg-gray-50"></textarea>
                         <textarea rows={3} placeholder="Sửa lại như nào cho đúng? (VD: Phòng đúng là B2.904, giờ đúng là 13:00...)" value={reportData.suggested_correction} onChange={e => setReportData({...reportData, suggested_correction: e.target.value})} className="w-full px-3 py-2.5 border border-gray-200 rounded-xl outline-none text-[13px] focus:border-red-500 resize-none bg-gray-50"></textarea>
-                        <TurnstileBox token={reportTurnstileToken} onTokenChange={setReportTurnstileToken} />
-                        <button type="submit" disabled={isSubmittingReport || !reportTurnstileToken} className="w-full py-3 rounded-xl bg-red-600 text-white text-[13px] font-bold active:bg-red-700 transition-colors shadow-md mt-2 flex items-center justify-center gap-2">{isSubmittingReport ? <Loader2 size={16} className="animate-spin"/> : <Send size={16}/>} Gửi báo cáo</button>
+                        <button type="submit" className="w-full py-3 rounded-xl bg-red-600 text-white text-[13px] font-bold active:bg-red-700 transition-colors shadow-md mt-2 flex items-center justify-center gap-2"><Send size={16}/> Tạo ticket hỗ trợ</button>
                     </form>
                 </div>
             </div>, document.body

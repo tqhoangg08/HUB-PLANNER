@@ -195,24 +195,55 @@ const shouldSkipDuplicate = (key: string) => {
   return false;
 };
 
+const isIgnorableFrontendNoise = (input: {
+  source: WebErrorSource;
+  action?: string;
+  error: ReturnType<typeof normalizeError>;
+  metadata?: Record<string, any>;
+}) => {
+  if (input.source !== 'frontend') return false;
+
+  const message = String(input.error.message || '');
+  const stack = String(input.error.stack || '');
+  const filename = String(input.metadata?.filename || '');
+  const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+
+  if (
+    message.includes('window.webkit.messageHandlers') &&
+    stack.includes('setupIosCallbackHandler') &&
+    /FBAN|FBIOS|FB_IAB|Instagram|Line\//i.test(userAgent)
+  ) {
+    return true;
+  }
+
+  return input.action === 'window_error' &&
+    message === 'Script error.' &&
+    (!filename || filename === '/' || filename === window.location.origin || filename === window.location.href);
+};
+
 export const logWebError = async ({
   source,
   action,
   error,
   metadata = {},
   level = 'error',
-}: LogWebErrorInput) => {
+}: LogWebErrorInput): Promise<string | null> => {
   try {
     const normalizedError = normalizeError(error);
+    if (isIgnorableFrontendNoise({ source, action, error: normalizedError, metadata })) return null;
     const pagePath = getPagePath();
     const duplicateKey = [source, action || '', normalizedError.message, pagePath].join('|');
-    if (shouldSkipDuplicate(duplicateKey)) return;
+    if (shouldSkipDuplicate(duplicateKey)) return null;
 
     const { data: userData, error: userError } = await supabase.auth.getUser();
     const user = userData?.user;
-    if (userError || !user) return;
+    if (userError || !user) return null;
+    const logId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, '0').slice(-12)}`;
 
     const row = {
+      id: logId,
       user_id: user.id,
       session_id: getWebErrorSessionId(),
       level,
@@ -229,8 +260,10 @@ export const logWebError = async ({
     };
 
     await supabase.from('web_error_logs').insert(row);
+    return logId;
   } catch {
     // Logging must never become a new user-facing failure.
+    return null;
   }
 };
 

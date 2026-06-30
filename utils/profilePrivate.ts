@@ -124,7 +124,17 @@ const fetchJson = async (path: string, init: RequestInit = {}) => {
   return response.json();
 };
 
-const shouldFallbackToSupabase = (error: any) => [404, 501].includes(error?.status);
+const isNetworkFetchFailure = (error: any) => {
+  const message = String(error?.message || error || '').toLowerCase();
+  return error?.name === 'TypeError' && (
+    message.includes('load failed') ||
+    message.includes('failed to fetch') ||
+    message.includes('networkerror') ||
+    message.includes('network request failed')
+  );
+};
+
+const shouldFallbackToSupabase = (error: any) => [404, 501].includes(error?.status) || isNetworkFetchFailure(error);
 
 const hasMeaningfulProfileData = (value: any) => {
   if (!value || typeof value !== 'object') return false;

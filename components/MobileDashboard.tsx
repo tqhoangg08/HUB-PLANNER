@@ -28,6 +28,7 @@ import { PROFILE_PRIVATE_TABLE, fetchProfilePrivate, updateProfilePrivate } from
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
+import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 
 const formatGpaWithoutRounding = (value: number) => {
     return (Math.floor((value + Number.EPSILON) * 100) / 100).toFixed(2);
@@ -94,6 +95,17 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
             setStatusMsg({text: 'Vui lòng điền đầy đủ thông tin.', type: 'error'});
             return;
         }
+        playClick();
+        openSupportTicketDraft(buildManualSupportTicketDraft({
+            category: 'other',
+            subject: `Báo lỗi/Góp ý: ${location.trim()}`,
+            intro: 'Mình muốn báo lỗi hoặc góp ý trong quá trình sử dụng HUB Planner.',
+            fields: [
+                ['Khu vực/tính năng', location],
+                ['Mô tả chi tiết', description],
+            ],
+        }));
+        return;
         setSubmitting(true);
         playClick();
         try {
@@ -160,13 +172,10 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
                             ></textarea>
                         </div>
                         <div className="space-y-3 pt-2">
-                            <div className="flex justify-center">
-                                <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />
-                            </div>
                             <div className="flex gap-3">
                                 <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all">Hủy</button>
-                                <button type="submit" disabled={submitting || !turnstileToken} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
-                                    {submitting ? <Loader2 className="animate-spin" size={18}/> : null} Gửi báo cáo
+                                <button type="submit" className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md">
+                                    Tạo ticket hỗ trợ
                                 </button>
                             </div>
                         </div>

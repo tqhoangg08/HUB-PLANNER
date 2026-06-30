@@ -1,4 +1,9 @@
 import Swal, { SweetAlertIcon } from 'sweetalert2';
+import {
+  buildErrorSupportTicketDraft,
+  saveSupportTicketDraft,
+  SUPPORT_TICKET_DRAFT_ROUTE,
+} from './supportTicketDraft';
 
 type NotifyVariant = 'success' | 'error' | 'warning' | 'info' | 'question';
 
@@ -82,17 +87,32 @@ export const showAlert = async (input: string | NotifyOptions) => {
   const parsed = splitTitleAndMessage(rawMessage, variant);
   const title = typeof input === 'string' ? parsed.title : (input.title || parsed.title);
   const message = typeof input === 'string' ? parsed.message : (input.message || parsed.message);
+  const canCreateSupportTicket = variant === 'error';
 
-  await Swal.fire({
+  const result = await Swal.fire({
     title,
     text: message,
     icon: ICON_BY_VARIANT[variant],
-    confirmButtonText: typeof input === 'string' ? 'Đã hiểu' : (input.confirmText || 'Đã hiểu'),
+    showCancelButton: canCreateSupportTicket,
+    confirmButtonText: canCreateSupportTicket
+      ? 'Tạo ticket hỗ trợ'
+      : typeof input === 'string' ? 'Đã hiểu' : (input.confirmText || 'Đã hiểu'),
+    cancelButtonText: 'Đã hiểu',
+    reverseButtons: canCreateSupportTicket,
+    focusCancel: canCreateSupportTicket,
     buttonsStyling: false,
     customClass: baseClass,
     showClass: { popup: 'hub-alert-enter' },
     hideClass: { popup: 'hub-alert-leave' },
   });
+
+  if (!canCreateSupportTicket || !result.isConfirmed) return;
+
+  saveSupportTicketDraft(buildErrorSupportTicketDraft({
+    title,
+    message: [title, message].filter(Boolean).join('\n\n'),
+  }));
+  window.location.assign(SUPPORT_TICKET_DRAFT_ROUTE);
 };
 
 export const showConfirm = async (input: string | NotifyOptions): Promise<boolean> => {

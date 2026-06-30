@@ -121,6 +121,22 @@ export const completeSupportUpload = (ticketId: string, file: File, fileKey: str
   size: file.size,
 });
 
+export const completeSupportUploadWithMetadata = (
+  ticketId: string,
+  file: File,
+  fileKey: string,
+  metadata: Record<string, unknown>,
+) => postSupportAttachmentAction<{
+  attachment: SupportTicketAttachment;
+}>('complete-upload', {
+  ticket_id: ticketId,
+  file_key: fileKey,
+  file_name: sanitizeDisplayFileName(file.name),
+  mime_type: file.type,
+  size: file.size,
+  metadata,
+});
+
 export const linkSupportMessageAttachments = (
   ticketId: string,
   messageId: string,
@@ -166,13 +182,16 @@ export const uploadSupportAttachments = async (
   ticketId: string,
   pendingFiles: PendingSupportAttachment[],
   onProgress?: (id: string, progress: number) => void,
+  metadata?: Record<string, unknown>,
 ) => {
   const attachments: SupportTicketAttachment[] = [];
   for (const item of pendingFiles) {
     onProgress?.(item.id, 5);
     const upload = await createSupportUploadUrl(ticketId, item.file);
     await uploadFileToSignedUrl(upload.upload_url, item.file, (progress) => onProgress?.(item.id, progress));
-    const completed = await completeSupportUpload(ticketId, item.file, upload.file_key);
+    const completed = metadata
+      ? await completeSupportUploadWithMetadata(ticketId, item.file, upload.file_key, metadata)
+      : await completeSupportUpload(ticketId, item.file, upload.file_key);
     onProgress?.(item.id, 100);
     attachments.push(completed.attachment);
   }

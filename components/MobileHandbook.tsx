@@ -13,6 +13,7 @@ import { PrivacyPolicy } from './PrivacyPolicy';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { HANDBOOK_FAQS } from '../utils/handbookFaqs';
+import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 
 type TabType = 'contacts' | 'clubs' | 'scholarships' | 'regulations' | 'faqs' | 'plagiarism' | 'canva' | 'about' | 'feedback' | 'donate' | 'terms' | 'privacy';
 
@@ -130,6 +131,19 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
     const handleSubmitFeedback = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!feedbackContent.trim()) return;
+
+        openSupportTicketDraft(buildManualSupportTicketDraft({
+            category: feedbackType === 'bug' ? 'other' : 'feedback',
+            subject: feedbackType === 'bug' ? 'Bao loi ky thuat' : 'Gop y tinh nang',
+            intro: feedbackType === 'bug'
+                ? 'Minh muon bao loi ky thuat khi su dung HUB Planner.'
+                : 'Minh muon gop y cai tien HUB Planner.',
+            fields: [
+                ['Noi dung', feedbackContent],
+                ['Thong tin lien he', contactInfo],
+            ],
+        }));
+        return;
 
         setIsSubmitting(true);
         try {
@@ -772,11 +786,9 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
                                         </div>
                                     )}
 
-                                    <TurnstileBox token={feedbackTurnstileToken} onTokenChange={setFeedbackTurnstileToken} />
-
                                     <button
                                         type="submit"
-                                        disabled={isSubmitting || !feedbackContent.trim() || !feedbackTurnstileToken}
+                                        disabled={isSubmitting || !feedbackContent.trim()}
                                         className="w-full bg-[#003375] hover:bg-[#002855] text-white font-bold py-3 rounded-lg transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         {isSubmitting ? (

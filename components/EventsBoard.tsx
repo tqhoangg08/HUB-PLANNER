@@ -20,6 +20,7 @@ import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
+import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 
 // --- Types ---
 interface HubEvent {
@@ -1115,8 +1116,17 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
             onShowToast("Vui lòng nhập chi tiết lỗi sai!", "error");
             return;
         }
-        setSubmitting(true);
-        playClick();
+        openSupportTicketDraft(buildManualSupportTicketDraft({
+            category: 'events',
+            subject: `Bao loi su kien: ${event.name}`,
+            intro: 'Minh muon bao loi hoac sai sot thong tin su kien DRL tren HUB Planner.',
+            fields: [
+                ['Ten su kien', event.name],
+                ['Ban to chuc', event.organizer],
+                ['Chi tiet sai sot', issue],
+            ],
+        }));
+        return;
 
         try {
             const payload = {
@@ -1198,15 +1208,12 @@ const ReportEventModal = ({ isOpen, onClose, event, onShowToast }: { isOpen: boo
                             >
                                 Hủy bỏ
                             </button>
-                        <TurnstileBox token={turnstileToken} onTokenChange={setTurnstileToken} />
-
-                        <button 
-                            type="submit" 
-                            disabled={submitting || !turnstileToken} 
+                            <button
+                                type="submit"
                                 className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95"
                             >
-                                {submitting ? <Loader2 className="animate-spin" size={18}/> : <Send size={18}/>} 
-                                {submitting ? 'Đang gửi...' : 'Gửi báo cáo'}
+                                <Send size={18}/>
+                                Tao ticket ho tro
                             </button>
                         </div>
                     </form>

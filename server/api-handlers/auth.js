@@ -331,7 +331,7 @@ const createSupportAttachmentUploadUrl = async (request, response) => {
 
 const completeSupportAttachmentUpload = async (request, response) => {
   const user = await requireAuthenticatedUser(request);
-  const { ticket_id: ticketId, file_key: fileKey, file_name: fileName, mime_type: mimeType, size } = request.body || {};
+  const { ticket_id: ticketId, file_key: fileKey, file_name: fileName, mime_type: mimeType, size, metadata } = request.body || {};
   const file = assertSupportAttachmentFile({ fileName, mimeType, size });
   await requireSupportTicketAccess({ ticketId, userId: user.id, requireOpen: true });
 
@@ -363,8 +363,9 @@ const completeSupportAttachmentUpload = async (request, response) => {
       mime_type: file.mimeType,
       size_bytes: file.size,
       status: 'uploaded',
+      metadata: metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {},
     })
-    .select('id,ticket_id,message_id,uploaded_by,file_name,mime_type,size_bytes,storage_provider,status,created_at')
+    .select('id,ticket_id,message_id,uploaded_by,file_name,mime_type,size_bytes,storage_provider,status,metadata,created_at')
     .single();
   if (error) throw error;
 
@@ -438,7 +439,7 @@ const linkSupportMessageAttachments = async (request, response) => {
     .eq('ticket_id', ticketId)
     .eq('uploaded_by', user.id)
     .is('message_id', null)
-    .select('id,ticket_id,message_id,uploaded_by,file_name,mime_type,size_bytes,storage_provider,status,created_at');
+    .select('id,ticket_id,message_id,uploaded_by,file_name,mime_type,size_bytes,storage_provider,status,metadata,created_at');
   if (error) throw error;
   if ((data || []).length !== ids.length) {
     return response.status(400).json({ error: 'Không thể gắn một hoặc nhiều file vào tin nhắn.' });

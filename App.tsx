@@ -60,6 +60,7 @@ import { recordPolicyConsent } from './utils/policyConsent';
 import { TurnstileBox } from './components/TurnstileBox';
 import { verifyTurnstileOnly } from './utils/protectedSubmit';
 import { logWebError } from './utils/logWebError';
+import { promptSendParserDebugFile } from './utils/parserDebugTicket';
 
 let globalDeferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -2038,7 +2039,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 } catch {
                     // ignore storage errors
                 }
-                await logWebError({
+                const errorLogId = await logWebError({
                     source: 'parser',
                     action: 'import_transcript',
                     error: result.error || 'Transcript parser returned zero subjects',
@@ -2053,9 +2054,29 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 });
                 if (result.error) {
                     alert(`Không nhập được bảng điểm.\n\n${result.error}\n\nDebug đã lưu ở localStorage: hub_last_transcript_import_debug`);
+                    await promptSendParserDebugFile({
+                        kind: 'transcript',
+                        file,
+                        errorLogId,
+                        parserMessage: result.error,
+                        metadata: {
+                            semesterCount: result.semesters.length,
+                            yearRangeCount: result.yearRanges.length,
+                        },
+                    });
                     return;
                 }
                 alert('Không nhập được bảng điểm.\n\nParser trả về 0 môn nhưng không có lỗi chi tiết. Debug đã lưu ở localStorage: hub_last_transcript_import_debug');
+                await promptSendParserDebugFile({
+                    kind: 'transcript',
+                    file,
+                    errorLogId,
+                    parserMessage: 'Transcript parser returned zero subjects',
+                    metadata: {
+                        semesterCount: result.semesters.length,
+                        yearRangeCount: result.yearRanges.length,
+                    },
+                });
                 return;
             }
 
@@ -2098,7 +2119,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             alert(`Đã nhập thành công ${importedSubjectCount} môn và sắp xếp lại lộ trình học tập từ năm ${firstYear}`);
         } catch (error) {
             console.error(error);
-            await logWebError({
+            const errorLogId = await logWebError({
                 source: 'parser',
                 action: 'import_transcript',
                 error,
@@ -2110,6 +2131,12 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             });
             const message = error instanceof Error ? error.message : '';
             alert(message ? `Không nhập được bảng điểm.\n\n${message}` : "Lỗi khi đọc file PDF.");
+            await promptSendParserDebugFile({
+                kind: 'transcript',
+                file,
+                errorLogId,
+                parserMessage: message || 'Lỗi khi đọc file PDF.',
+            });
         } finally {
             setIsImporting(false);
             setShowImportLoadingToast(false);

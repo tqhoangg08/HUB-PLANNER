@@ -25,6 +25,7 @@ import {
   PendingSupportAttachment,
   uploadSupportAttachments,
 } from '../utils/supportAttachmentsApi';
+import { consumeSupportTicketDraft } from '../utils/supportTicketDraft';
 
 const categories = Object.keys(SUPPORT_CATEGORY_LABELS) as SupportTicketCategory[];
 const priorities = Object.keys(SUPPORT_PRIORITY_LABELS) as SupportTicketPriority[];
@@ -271,6 +272,15 @@ const CreateTicketView = () => {
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const draft = consumeSupportTicketDraft();
+    if (!draft) return;
+    setSubject(draft.subject);
+    setCategory(draft.category);
+    setPriority(draft.priority || 'normal');
+    setMessage(draft.message);
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
