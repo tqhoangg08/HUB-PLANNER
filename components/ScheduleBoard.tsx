@@ -564,10 +564,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
   const [selectedSubjectName, setSelectedSubjectName] = useState<string>('all');
   const [selectedMajor, setSelectedMajor] = useState<string>('all');
+  const [selectedCohort, setSelectedCohort] = useState<string>('all');
   const [selectedGroupName, setSelectedGroupName] = useState<string>('all');
   const [selectedAcademicProgram, setSelectedAcademicProgram] = useState<string>('all');
   const [subjectNameOptions, setSubjectNameOptions] = useState<string[]>([]);
   const [majorOptions, setMajorOptions] = useState<string[]>([]);
+  const [cohortOptions, setCohortOptions] = useState<string[]>([]);
   const [groupNameOptions, setGroupNameOptions] = useState<string[]>([]);
   const [academicProgramOptions, setAcademicProgramOptions] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
@@ -604,12 +606,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const displayedSchedule = isPlanMode ? currentPlanSchedule : currentSemesterSchedule;
   const displayedScheduleTitle = isPlanMode ? `Kế hoạch ${activePlanKey}` : 'Lịch cá nhân';
   const displayedScheduleCount = displayedSchedule.length;
-  const hasActiveCourseFilters = Boolean(searchTerm.trim()) || selectedSubjectName !== 'all' || selectedMajor !== 'all' || selectedGroupName !== 'all' || selectedAcademicProgram !== 'all';
+  const hasActiveCourseFilters = Boolean(searchTerm.trim()) || selectedSubjectName !== 'all' || selectedMajor !== 'all' || selectedCohort !== 'all' || selectedGroupName !== 'all' || selectedAcademicProgram !== 'all';
   const coursePageSize = isFilterExpanded ? COURSE_PAGE_SIZE_EXPANDED : COURSE_PAGE_SIZE_COMPACT;
   const courseTotalPages = Math.max(1, Math.ceil(courseTotal / coursePageSize));
   const coursePageCacheRef = useRef(new Map<string, { data: Course[]; total: number; hasMore: boolean }>());
   const courseDetailCacheRef = useRef(new Map<string, Course>());
-  const courseFilterOptionsCacheRef = useRef(new Map<string, { subjectNameOptions: string[]; majorOptions: string[]; groupNameOptions: string[]; academicProgramOptions: string[] }>());
+  const courseFilterOptionsCacheRef = useRef(new Map<string, { subjectNameOptions: string[]; majorOptions: string[]; cohortOptions: string[]; groupNameOptions: string[]; academicProgramOptions: string[] }>());
   const courseFilterKeyRef = useRef('');
 
   useEffect(() => {
@@ -808,6 +810,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             search: searchTerm.trim(),
             subjectName: selectedSubjectName,
             major: selectedMajor,
+            cohort: selectedCohort,
             groupName: selectedGroupName,
             academicProgram: selectedAcademicProgram,
             isAdminView,
@@ -845,6 +848,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         if (selectedPhase !== 'all') baseParams.set('phase', selectedPhase);
         if (selectedSubjectName !== 'all') baseParams.set('subjectName', selectedSubjectName);
         if (selectedMajor !== 'all') baseParams.set('major', selectedMajor);
+        if (selectedCohort !== 'all') baseParams.set('cohort', selectedCohort);
         if (selectedGroupName !== 'all') baseParams.set('groupName', selectedGroupName);
         if (selectedAcademicProgram !== 'all') baseParams.set('academicProgram', selectedAcademicProgram);
         const term = searchTerm.trim();
@@ -878,12 +882,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             semester: selectedSemester,
             phase: selectedPhase,
             major: selectedMajor,
+            cohort: selectedCohort,
             academicProgram: selectedAcademicProgram,
         });
         const cachedOptions = courseFilterOptionsCacheRef.current.get(optionsCacheKey);
         if (cachedOptions) {
             setSubjectNameOptions(cachedOptions.subjectNameOptions);
             setMajorOptions(cachedOptions.majorOptions);
+            setCohortOptions(cachedOptions.cohortOptions);
             setGroupNameOptions(cachedOptions.groupNameOptions);
             setAcademicProgramOptions(normalizeAcademicProgramOptions(cachedOptions.academicProgramOptions));
             return;
@@ -895,6 +901,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         });
         if (selectedPhase !== 'all') params.set('phase', selectedPhase);
         if (selectedMajor !== 'all') params.set('major', selectedMajor);
+        if (selectedCohort !== 'all') params.set('cohort', selectedCohort);
         if (selectedAcademicProgram !== 'all') params.set('academicProgram', selectedAcademicProgram);
 
         const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
@@ -905,18 +912,21 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         const nextOptions = {
             subjectNameOptions: Array.isArray(payload.subjectNameOptions) ? payload.subjectNameOptions : [],
             majorOptions: Array.isArray(payload.majorOptions) ? payload.majorOptions : [],
+            cohortOptions: Array.isArray(payload.cohortOptions) ? payload.cohortOptions : [],
             groupNameOptions: Array.isArray(payload.groupNameOptions) ? payload.groupNameOptions : [],
             academicProgramOptions: normalizeAcademicProgramOptions(Array.isArray(payload.academicProgramOptions) ? payload.academicProgramOptions : []),
         };
         courseFilterOptionsCacheRef.current.set(optionsCacheKey, nextOptions);
         setSubjectNameOptions(nextOptions.subjectNameOptions);
         setMajorOptions(nextOptions.majorOptions);
+        setCohortOptions(nextOptions.cohortOptions);
         setGroupNameOptions(nextOptions.groupNameOptions);
         setAcademicProgramOptions(nextOptions.academicProgramOptions);
     } catch (error) {
         console.error('Lỗi tải bộ lọc chuyên ngành/nhóm:', error);
         setSubjectNameOptions([]);
         setMajorOptions([]);
+        setCohortOptions([]);
         setGroupNameOptions([]);
         setAcademicProgramOptions(DEFAULT_ACADEMIC_PROGRAM_OPTIONS);
     }
@@ -1249,11 +1259,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       fetchCourses();
     }, 400);
     return () => window.clearTimeout(timeoutId);
-  }, [searchTerm, selectedSemester, selectedPhase, selectedSubjectName, selectedMajor, selectedGroupName, selectedAcademicProgram, coursePage, coursePageSize, isAuthenticated, isAdminView, adminTab]);
+  }, [searchTerm, selectedSemester, selectedPhase, selectedSubjectName, selectedMajor, selectedCohort, selectedGroupName, selectedAcademicProgram, coursePage, coursePageSize, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => {
     if (!isAuthenticated || (isAdminView && adminTab !== 'system' && adminTab !== 'user')) return;
     fetchCourseFilterOptions();
-  }, [selectedSemester, selectedPhase, selectedMajor, selectedAcademicProgram, isAuthenticated, isAdminView, adminTab]);
+  }, [selectedSemester, selectedPhase, selectedMajor, selectedCohort, selectedAcademicProgram, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => {
     if (selectedSubjectName !== 'all' && !subjectNameOptions.includes(selectedSubjectName)) {
         setSelectedSubjectName('all');
@@ -1264,6 +1274,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         setSelectedMajor('all');
     }
   }, [selectedMajor, majorOptions]);
+  useEffect(() => {
+    if (selectedCohort !== 'all' && !cohortOptions.includes(selectedCohort)) {
+        setSelectedCohort('all');
+    }
+  }, [selectedCohort, cohortOptions]);
   useEffect(() => {
     if (selectedGroupName !== 'all' && !groupNameOptions.includes(selectedGroupName)) {
         setSelectedGroupName('all');
@@ -2433,7 +2448,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </div>
                     </div>
                     
-                    <div className={`border-b border-gray-200 ${isFilterExpanded ? 'grid grid-cols-1 gap-2 overflow-visible p-3 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.4fr)_minmax(190px,1.15fr)_minmax(145px,0.8fr)_minmax(105px,0.58fr)_minmax(160px,0.95fr)_minmax(115px,0.65fr)_minmax(175px,1fr)]' : 'space-y-2 px-3 py-2.5'}`}>
+                    <div className={`border-b border-gray-200 ${isFilterExpanded ? 'grid grid-cols-1 gap-2 overflow-visible p-3 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.35fr)_minmax(180px,1.05fr)_minmax(140px,0.75fr)_minmax(100px,0.52fr)_minmax(150px,0.85fr)_minmax(100px,0.52fr)_minmax(110px,0.58fr)_minmax(165px,0.9fr)]' : 'space-y-2 px-3 py-2.5'}`}>
                         <div className="relative">
                             <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full rounded-lg border border-gray-300 bg-white pr-3 outline-none transition-all hover:border-gray-400 focus:border-[#003375] focus:ring-1 focus:ring-[#003375] disabled:bg-gray-50 disabled:cursor-not-allowed ${isFilterExpanded ? 'h-10 pl-10 text-sm' : 'h-9 pl-9 text-xs'}`}/>
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={isFilterExpanded ? 16 : 14} />
@@ -2488,7 +2503,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             </div>
                         </div>
 
-                        <div className={isFilterExpanded ? 'contents' : 'grid grid-cols-2 gap-1.5'}>
+                        <div className={isFilterExpanded ? 'contents' : 'grid grid-cols-[1fr_0.7fr_0.78fr] gap-1.5'}>
                             <div className="min-w-0">
                                 <select
                                     disabled={!isAuthenticated}
@@ -2499,6 +2514,20 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 >
                                     <option value="all">Tất cả chuyên ngành</option>
                                     {majorOptions.map(option => (
+                                        <option key={option} value={option}>{option}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="min-w-0">
+                                <select
+                                    disabled={!isAuthenticated}
+                                    value={selectedCohort}
+                                    onChange={(e) => setSelectedCohort(e.target.value)}
+                                    className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}
+                                    title={selectedCohort === 'all' ? 'Tất cả khóa' : selectedCohort}
+                                >
+                                    <option value="all">Tất cả khóa</option>
+                                    {cohortOptions.map(option => (
                                         <option key={option} value={option}>{option}</option>
                                     ))}
                                 </select>

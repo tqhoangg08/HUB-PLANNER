@@ -94,6 +94,7 @@ const COURSE_SCHEDULE_SUMMARY_COLUMNS = [
   'campus',
   'instructor',
   'group_name',
+  'cohort',
   'major',
   'academic_program',
   'is_user_added',
@@ -147,7 +148,7 @@ const fetchCourseFilterOptionRows = async ({
   for (let offset = 0; offset < 10000; offset += batchSize) {
     let query = supabase
       .from('course_schedules')
-      .select('subject_name, major, group_name, academic_program')
+      .select('subject_name, major, cohort, group_name, academic_program')
       .range(offset, offset + batchSize - 1)
 
     if (semester) query = query.eq('semester', semester)
@@ -771,27 +772,31 @@ const handleCourseFilterOptions = async (params: URLSearchParams) => {
   const semester = params.get('semester')
   const phase = params.get('phase')
   const major = params.get('major')
+  const cohort = params.get('cohort')
   const academicProgram = params.get('academicProgram')
   const isUserAdded = params.get('isUserAdded') || 'all'
   const rows = await fetchCourseFilterOptionRows({ semester, phase, isUserAdded })
   const matchesMajor = (row: any) => !major || normalizeOptionValue(row.major) === normalizeOptionValue(major)
+  const matchesCohort = (row: any) => !cohort || normalizeOptionValue(row.cohort) === normalizeOptionValue(cohort)
   const matchesAcademicProgram = (row: any) => !academicProgram || normalizeOptionValue(row.academic_program) === normalizeOptionValue(academicProgram)
-  const optionRows = rows.filter((row: any) => matchesMajor(row) && matchesAcademicProgram(row))
+  const optionRows = rows.filter((row: any) => matchesMajor(row) && matchesCohort(row) && matchesAcademicProgram(row))
 
   return json({
     success: true,
-    majorOptions: uniqueSortedOptions(rows.filter(matchesAcademicProgram).map((row: any) => row.major)),
+    majorOptions: uniqueSortedOptions(rows.filter((row: any) => matchesCohort(row) && matchesAcademicProgram(row)).map((row: any) => row.major)),
+    cohortOptions: uniqueSortedOptions(rows.filter((row: any) => matchesMajor(row) && matchesAcademicProgram(row)).map((row: any) => row.cohort)),
     subjectNameOptions: uniqueSortedOptions(optionRows.map((row: any) => row.subject_name)),
     groupNameOptions: uniqueSortedGroupOptions(optionRows.map((row: any) => row.group_name)),
-    academicProgramOptions: uniqueSortedOptions(rows.filter(matchesMajor).map((row: any) => row.academic_program)),
+    academicProgramOptions: uniqueSortedOptions(rows.filter((row: any) => matchesMajor(row) && matchesCohort(row)).map((row: any) => row.academic_program)),
   })
 }
 
-const applyCourseListFilters = (query: any, { semester, phase, major, academicProgram, subjectName, isUserAdded, search }: any) => {
+const applyCourseListFilters = (query: any, { semester, phase, major, cohort, academicProgram, subjectName, isUserAdded, search }: any) => {
   let nextQuery = query
   if (semester) nextQuery = nextQuery.eq('semester', semester)
   if (phase && phase !== 'all') nextQuery = nextQuery.eq('phase', phase)
   if (major) nextQuery = nextQuery.eq('major', major)
+  if (cohort) nextQuery = nextQuery.eq('cohort', cohort)
   if (academicProgram) nextQuery = nextQuery.eq('academic_program', academicProgram)
   if (subjectName) nextQuery = nextQuery.eq('subject_name', subjectName)
   if (isUserAdded === 'true') {
@@ -803,7 +808,7 @@ const applyCourseListFilters = (query: any, { semester, phase, major, academicPr
   return nextQuery
 }
 
-const fetchGroupedCoursePage = async ({ semester, phase, search, major, academicProgram, subjectName, groupName, isUserAdded, pageLimit, pageOffset }: any) => {
+const fetchGroupedCoursePage = async ({ semester, phase, search, major, cohort, academicProgram, subjectName, groupName, isUserAdded, pageLimit, pageOffset }: any) => {
   const rows: any[] = []
   const batchSize = 500
   let matchedCount = 0
@@ -816,7 +821,7 @@ const fetchGroupedCoursePage = async ({ semester, phase, search, major, academic
       .select(COURSE_SCHEDULE_SUMMARY_COLUMNS)
       .range(offset, offset + batchSize - 1)
 
-    query = applyCourseListFilters(query, { semester, phase, major, academicProgram, subjectName, isUserAdded, search })
+    query = applyCourseListFilters(query, { semester, phase, major, cohort, academicProgram, subjectName, isUserAdded, search })
 
     const { data, error } = await query
     if (error) throw error
@@ -869,6 +874,7 @@ Deno.serve(async (req) => {
     const phase = params.get('phase')
     const search = params.get('search')
     const major = params.get('major')
+    const cohort = params.get('cohort')
     const academicProgram = params.get('academicProgram')
     const groupName = params.get('groupName')
     const subjectName = params.get('subjectName')
@@ -883,7 +889,7 @@ Deno.serve(async (req) => {
     const selectedColumns = view === 'detail' ? COURSE_SCHEDULE_COLUMNS : COURSE_SCHEDULE_SUMMARY_COLUMNS
 
     if (groupName) {
-      const groupedPage = await fetchGroupedCoursePage({ semester, phase, search, major, academicProgram, subjectName, groupName, isUserAdded, pageLimit, pageOffset })
+      const groupedPage = await fetchGroupedCoursePage({ semester, phase, search, major, cohort, academicProgram, subjectName, groupName, isUserAdded, pageLimit, pageOffset })
       rows = groupedPage.rows
       total = groupedPage.total
       hasMore = groupedPage.hasMore
@@ -893,7 +899,7 @@ Deno.serve(async (req) => {
         .select(selectedColumns, { count: 'exact' })
         .range(pageOffset, pageOffset + pageLimit - 1)
 
-      query = applyCourseListFilters(query, { semester, phase, major, academicProgram, subjectName, isUserAdded, search })
+      query = applyCourseListFilters(query, { semester, phase, major, cohort, academicProgram, subjectName, isUserAdded, search })
 
       const { data, error, count } = await query
       if (error) throw error

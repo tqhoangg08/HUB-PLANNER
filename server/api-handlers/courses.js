@@ -102,6 +102,7 @@ const COURSE_SCHEDULE_SUMMARY_COLUMNS = [
   'campus',
   'instructor',
   'group_name',
+  'cohort',
   'major',
   'academic_program',
   'is_user_added',
@@ -119,6 +120,7 @@ const getPublicCoursesCacheKey = (query) => {
   const phase = String(query.phase || 'all');
   const search = String(query.search || '').trim().toLowerCase();
   const major = String(query.major || '').trim().toLowerCase();
+  const cohort = String(query.cohort || '').trim().toLowerCase();
   const academicProgram = String(query.academicProgram || '').trim().toLowerCase();
   const groupName = String(query.groupName || '').trim().toLowerCase();
   const subjectName = String(query.subjectName || '').trim().toLowerCase();
@@ -126,7 +128,7 @@ const getPublicCoursesCacheKey = (query) => {
   const limit = String(query.limit || '50');
   const offset = String(query.offset || '0');
   const isUserAdded = String(query.isUserAdded || 'all');
-  return JSON.stringify({ semester, phase, search, major, academicProgram, groupName, subjectName, view, limit, offset, isUserAdded });
+  return JSON.stringify({ semester, phase, search, major, cohort, academicProgram, groupName, subjectName, view, limit, offset, isUserAdded });
 };
 
 const normalizeOptionValue = (value) => String(value || '').trim();
@@ -159,7 +161,7 @@ const fetchCourseFilterOptionRows = async ({ semester, phase, isUserAdded }) => 
   for (let offset = 0; offset < 10000; offset += batchSize) {
     let query = supabase
       .from('course_schedules')
-      .select('subject_name, major, group_name, academic_program')
+      .select('subject_name, major, cohort, group_name, academic_program')
       .range(offset, offset + batchSize - 1);
 
     if (semester) query = query.eq('semester', semester);
@@ -795,26 +797,29 @@ const handleCourseRequests = async (request, response) => {
 };
 
 const handleCourseFilterOptions = async (request, response) => {
-  const { semester, phase, major, academicProgram, isUserAdded = 'all' } = request.query;
+  const { semester, phase, major, cohort, academicProgram, isUserAdded = 'all' } = request.query;
   const rows = await fetchCourseFilterOptionRows({ semester, phase, isUserAdded });
   const matchesMajor = (row) => !major || normalizeOptionValue(row.major) === normalizeOptionValue(major);
+  const matchesCohort = (row) => !cohort || normalizeOptionValue(row.cohort) === normalizeOptionValue(cohort);
   const matchesAcademicProgram = (row) => !academicProgram || normalizeOptionValue(row.academic_program) === normalizeOptionValue(academicProgram);
-  const optionRows = rows.filter((row) => matchesMajor(row) && matchesAcademicProgram(row));
+  const optionRows = rows.filter((row) => matchesMajor(row) && matchesCohort(row) && matchesAcademicProgram(row));
 
   return response.status(200).json({
     success: true,
-    majorOptions: uniqueSortedOptions(rows.filter(matchesAcademicProgram).map((row) => row.major)),
+    majorOptions: uniqueSortedOptions(rows.filter((row) => matchesCohort(row) && matchesAcademicProgram(row)).map((row) => row.major)),
+    cohortOptions: uniqueSortedOptions(rows.filter((row) => matchesMajor(row) && matchesAcademicProgram(row)).map((row) => row.cohort)),
     subjectNameOptions: uniqueSortedOptions(optionRows.map((row) => row.subject_name)),
     groupNameOptions: uniqueSortedGroupOptions(optionRows.map((row) => row.group_name)),
-    academicProgramOptions: uniqueSortedOptions(rows.filter(matchesMajor).map((row) => row.academic_program)),
+    academicProgramOptions: uniqueSortedOptions(rows.filter((row) => matchesMajor(row) && matchesCohort(row)).map((row) => row.academic_program)),
   });
 };
 
-const applyCourseListFilters = (query, { semester, phase, major, academicProgram, subjectName, isUserAdded, search }) => {
+const applyCourseListFilters = (query, { semester, phase, major, cohort, academicProgram, subjectName, isUserAdded, search }) => {
   let nextQuery = query;
   if (semester) nextQuery = nextQuery.eq('semester', semester);
   if (phase && phase !== 'all') nextQuery = nextQuery.eq('phase', phase);
   if (major) nextQuery = nextQuery.eq('major', major);
+  if (cohort) nextQuery = nextQuery.eq('cohort', cohort);
   if (academicProgram) nextQuery = nextQuery.eq('academic_program', academicProgram);
   if (subjectName) nextQuery = nextQuery.eq('subject_name', subjectName);
   if (isUserAdded === 'true') {
@@ -828,7 +833,7 @@ const applyCourseListFilters = (query, { semester, phase, major, academicProgram
   return nextQuery;
 };
 
-const fetchGroupedCoursePage = async ({ semester, phase, search, major, academicProgram, subjectName, groupName, isUserAdded, pageLimit, pageOffset }) => {
+const fetchGroupedCoursePage = async ({ semester, phase, search, major, cohort, academicProgram, subjectName, groupName, isUserAdded, pageLimit, pageOffset }) => {
   const rows = [];
   const batchSize = 500;
   let matchedCount = 0;
@@ -841,7 +846,7 @@ const fetchGroupedCoursePage = async ({ semester, phase, search, major, academic
       .select(COURSE_SCHEDULE_SUMMARY_COLUMNS)
       .range(offset, offset + batchSize - 1);
 
-    query = applyCourseListFilters(query, { semester, phase, major, academicProgram, subjectName, isUserAdded, search });
+    query = applyCourseListFilters(query, { semester, phase, major, cohort, academicProgram, subjectName, isUserAdded, search });
 
     const { data, error } = await query;
     if (error) throw error;
@@ -901,7 +906,7 @@ async function handler(request, response) {
 
   try {
     // Nhận các tham số lọc từ đường link URL do Frontend gửi lên
-    const { semester, phase, search, major, academicProgram, groupName, subjectName, view = 'summary', id, limit = 50, offset = 0, isUserAdded = 'all' } = request.query;
+    const { semester, phase, search, major, cohort, academicProgram, groupName, subjectName, view = 'summary', id, limit = 50, offset = 0, isUserAdded = 'all' } = request.query;
     const pageLimit = Math.max(1, Math.min(Number(limit) || 50, 100));
     const pageOffset = Math.max(0, Number(offset) || 0);
 
@@ -944,7 +949,7 @@ async function handler(request, response) {
     const selectedColumns = view === 'detail' ? COURSE_SCHEDULE_COLUMNS : COURSE_SCHEDULE_SUMMARY_COLUMNS;
 
     if (groupName) {
-      const groupedPage = await fetchGroupedCoursePage({ semester, phase, search, major, academicProgram, subjectName, groupName, isUserAdded, pageLimit, pageOffset });
+      const groupedPage = await fetchGroupedCoursePage({ semester, phase, search, major, cohort, academicProgram, subjectName, groupName, isUserAdded, pageLimit, pageOffset });
       rows = groupedPage.rows;
       total = groupedPage.total;
       hasMore = groupedPage.hasMore;
@@ -953,7 +958,7 @@ async function handler(request, response) {
         .select(selectedColumns, { count: 'exact' })
         .range(pageOffset, pageOffset + pageLimit - 1);
 
-      query = applyCourseListFilters(query, { semester, phase, major, academicProgram, subjectName, isUserAdded, search });
+      query = applyCourseListFilters(query, { semester, phase, major, cohort, academicProgram, subjectName, isUserAdded, search });
 
       const { data, error, count } = await query;
       if (error) throw error;
