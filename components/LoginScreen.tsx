@@ -17,7 +17,7 @@ import {
     UserRound,
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
-import { apiUrl } from '../utils/api';
+import { apiHeaders, apiUrl } from '../utils/api';
 import { CONSENT_POLICIES, POLICY_VERSION } from '../utils/policyConsent';
 import { Turnstile } from '@marsidev/react-turnstile';
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
@@ -193,7 +193,7 @@ export const LoginScreen: React.FC = () => {
 
         const response = await fetch(apiUrl('/auth'), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: apiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ action: 'resolve-identifier', identifier: value }),
         });
         const payload = await response.json().catch(() => ({}));
@@ -217,7 +217,7 @@ export const LoginScreen: React.FC = () => {
 
         const response = await fetch(apiUrl('/auth'), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: apiHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({ action: 'send-otp', purpose, email, turnstileToken: captchaToken }),
         });
         const payload = await response.json().catch(() => ({}));
@@ -364,7 +364,7 @@ export const LoginScreen: React.FC = () => {
 
             const response = await fetch(apiUrl('/auth'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: apiHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     action: 'verify-otp',
                     purpose: otpState.purpose,

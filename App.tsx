@@ -52,7 +52,7 @@ import {
     unbindDeviceNotificationsForCurrentUser,
 } from './utils/pushNotifications';
 import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from './utils/profilePrivate';
-import { apiUrl } from './utils/api';
+import { apiHeaders, apiUrl } from './utils/api';
 import { calculateCumulativeStats } from './utils/calculations';
 import { logActivity, logActivityQuietly } from './utils/activityLogger';
 import { AVATAR_COLOR_OPTIONS, getAvatarColorClass, getSafeAvatarColor, isAvatarImageUrl } from './utils/avatarColors';
@@ -777,6 +777,7 @@ const App: React.FC = () => {
     const [profileSaving, setProfileSaving] = useState(false);
     const [profileError, setProfileError] = useState<string | null>(null);
     const [showPasswordChange, setShowPasswordChange] = useState(false);
+    const [showAccountPasswordOtpModal, setShowAccountPasswordOtpModal] = useState(false);
     const [currentPassword, setCurrentPassword] = useState('');
     const [accountPasswordOtp, setAccountPasswordOtp] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -1750,7 +1751,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             if (isAccountPasswordOtpMode) {
                 const response = await fetch(apiUrl('/auth'), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: apiHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({
                         action: 'verify-otp',
                         purpose: 'forgot_password',
@@ -1784,6 +1785,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             setPasswordSetAt(new Date().toISOString());
             localStorage.removeItem(otpCooldownKey(session.user.email, 'forgot_password'));
             setAccountPasswordOtpCooldownRemaining(0);
+            setShowAccountPasswordOtpModal(false);
             setCurrentPassword('');
             setAccountPasswordOtp('');
             setNewPassword('');
@@ -1805,7 +1807,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         const storedCooldown = getStoredOtpCooldown(email, 'forgot_password');
 
         if (storedCooldown > 0) {
-            setShowPasswordChange(true);
+            setShowAccountPasswordOtpModal(true);
             setIsAccountPasswordOtpMode(true);
             setAccountPasswordOtpCooldownRemaining(storedCooldown);
             setPasswordChangeError(null);
@@ -1827,7 +1829,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         try {
             const response = await fetch(apiUrl('/auth'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: apiHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     action: 'send-otp',
                     purpose: 'forgot_password',
@@ -1841,7 +1843,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                     const retryAfterSeconds = Number(payload.retryAfterSeconds);
                     storeOtpCooldown(email, 'forgot_password', retryAfterSeconds);
                     setAccountPasswordOtpCooldownRemaining(retryAfterSeconds);
-                    setShowPasswordChange(true);
+                    setShowAccountPasswordOtpModal(true);
                     setIsAccountPasswordOtpMode(true);
                     setPasswordChangeNotice(`M\u00e3 OTP \u0111\u00e3 \u0111\u01b0\u1ee3c g\u1eedi \u0111\u1ebfn ${email}. B\u1ea1n c\u00f3 th\u1ec3 g\u1eedi l\u1ea1i sau ${formatOtpCooldown(retryAfterSeconds)}.`);
                     return;
@@ -1852,7 +1854,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             const cooldownSeconds = Number(payload.retryAfterSeconds || payload.expiresInSeconds || OTP_RESEND_COOLDOWN_SECONDS);
             storeOtpCooldown(email, 'forgot_password', cooldownSeconds);
             setAccountPasswordOtpCooldownRemaining(cooldownSeconds);
-            setShowPasswordChange(true);
+            setShowAccountPasswordOtpModal(true);
             setIsAccountPasswordOtpMode(true);
             setCurrentPassword('');
             setAccountPasswordOtp('');
@@ -2563,7 +2565,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                                         <button
                                             type="button"
                                             onClick={handleForgotAccountPassword}
-                                            disabled={passwordChangeLoading || accountPasswordOtpCooldownRemaining > 0}
+                                            disabled={passwordChangeLoading}
                                             className="text-xs font-black text-[#003375] hover:underline disabled:cursor-not-allowed disabled:text-gray-400"
                                         >
                                             {accountPasswordOtpCooldownRemaining > 0
@@ -2810,6 +2812,125 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 )}
 
                 {/* ✨ BẢNG HƯỚNG DẪN CÀI ĐẶT TRÊN MÁY APPLE (IOS/MAC) */}
+                {showAccountSettings && showAccountPasswordOtpModal && (
+                    <div className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={() => setShowAccountPasswordOtpModal(false)}>
+                        <div className="w-full max-w-md rounded-t-3xl bg-white shadow-2xl sm:rounded-2xl" onClick={event => event.stopPropagation()}>
+                            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+                                <div>
+                                    <h3 className="text-lg font-black text-slate-900">Đặt lại mật khẩu</h3>
+                                    <p className="mt-0.5 text-xs font-semibold text-gray-500">
+                                        Nhập mã OTP đã gửi đến {session?.user?.email || 'email HUB'}.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAccountPasswordOtpModal(false)}
+                                    className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                                    aria-label="Đóng"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleChangeAccountPassword} className="space-y-4 px-5 py-5">
+                                {passwordChangeError && (
+                                    <div className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm font-semibold text-red-600">
+                                        {passwordChangeError}
+                                    </div>
+                                )}
+                                {passwordChangeNotice && (
+                                    <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm font-semibold text-[#003375]">
+                                        {passwordChangeNotice}
+                                    </div>
+                                )}
+
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <label className="text-xs font-bold text-gray-500">Mã OTP</label>
+                                        <button
+                                            type="button"
+                                            onClick={handleForgotAccountPassword}
+                                            disabled={passwordChangeLoading || accountPasswordOtpCooldownRemaining > 0}
+                                            className="text-xs font-black text-[#003375] hover:underline disabled:cursor-not-allowed disabled:text-gray-400"
+                                        >
+                                            {accountPasswordOtpCooldownRemaining > 0
+                                                ? `Gửi lại sau ${formatOtpCooldown(accountPasswordOtpCooldownRemaining)}`
+                                                : 'Gửi lại mã OTP'}
+                                        </button>
+                                    </div>
+                                    <div className="relative">
+                                        <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                        <input
+                                            type="text"
+                                            value={accountPasswordOtp}
+                                            onChange={event => setAccountPasswordOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                                            className="w-full rounded-lg border border-gray-300 bg-white px-9 py-2.5 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
+                                            placeholder="Nhập 6 chữ số"
+                                            autoComplete="one-time-code"
+                                            inputMode="numeric"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-gray-500">Mật khẩu mới</label>
+                                    <div className="relative">
+                                        <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                        <input
+                                            type={showNewPassword ? 'text' : 'password'}
+                                            value={newPassword}
+                                            onChange={event => setNewPassword(event.target.value)}
+                                            className="w-full rounded-lg border border-gray-300 bg-white px-9 py-2.5 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
+                                            placeholder="Ít nhất 8 ký tự"
+                                            autoComplete="new-password"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowNewPassword(prev => !prev)}
+                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:text-[#003375]"
+                                            aria-label={showNewPassword ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
+                                        >
+                                            {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-bold text-gray-500">Nhập lại mật khẩu mới</label>
+                                    <div className="relative">
+                                        <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                        <input
+                                            type={showNewPassword ? 'text' : 'password'}
+                                            value={confirmNewPassword}
+                                            onChange={event => setConfirmNewPassword(event.target.value)}
+                                            className="w-full rounded-lg border border-gray-300 bg-white px-9 py-2.5 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
+                                            placeholder="Nhập lại mật khẩu mới"
+                                            autoComplete="new-password"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2 pt-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAccountPasswordOtpModal(false)}
+                                        className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100"
+                                    >
+                                        Hủy
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={passwordChangeLoading}
+                                        className="flex-[1.4] rounded-lg bg-[#003375] px-3 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#002855] disabled:cursor-not-allowed disabled:bg-gray-300"
+                                    >
+                                        {passwordChangeLoading ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
                 {showIOSInstructions && (
                     <div className="fixed inset-0 z-[99999] bg-black/60 flex items-end justify-center sm:items-center p-4 animate-fadeIn" onClick={() => setShowIOSInstructions(false)}>
                         <div className="bg-white w-full max-w-sm rounded-3xl p-6 relative animate-slideUp sm:animate-scaleIn shadow-2xl" onClick={e => e.stopPropagation()}>
