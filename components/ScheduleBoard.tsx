@@ -74,6 +74,11 @@ const getCourseRequestStudentCode = (request: CourseRequest) => {
   return request.user_id || '-';
 };
 
+const PDF_SCHEDULE_FILE_MESSAGE = 'Vui lòng tải lên file PDF lịch học, hệ thống chưa hỗ trợ ảnh PNG/JPG.';
+const isPdfScheduleFile = (file: File) => (
+  file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+);
+
 interface CourseLabel {
   id: string;
   type: string;
@@ -558,6 +563,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isCourseDetailLoading, setIsCourseDetailLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const addScheduleInFlightRef = useRef(false);
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   const [adminScheduleError, setAdminScheduleError] = useState('');
   
@@ -1518,9 +1524,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   };
 
   const addToSchedule = async (course: Course) => {
+    if (isSyncing || addScheduleInFlightRef.current) return;
+    addScheduleInFlightRef.current = true;
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { alert("⚠️ Vui lòng đăng nhập!"); return; }
-    if (mySchedule.some(c => c.id === course.id)) { alert("Môn học đã có sẵn!"); return; }
+    if (!user) {
+      addScheduleInFlightRef.current = false;
+      alert("⚠️ Vui lòng đăng nhập!");
+      return;
+    }
+    if (mySchedule.some(c => c.id === course.id)) {
+      addScheduleInFlightRef.current = false;
+      alert("Môn này đã có trong lịch");
+      return;
+    }
 
     let fullCourse = course;
     try {
@@ -1541,6 +1557,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
     const conflictMessage = getScheduleConflictMessage(fullCourse, currentSemesterSchedule);
     if (conflictMessage) {
+      addScheduleInFlightRef.current = false;
       alert(conflictMessage);
       return;
     }
@@ -1548,7 +1565,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     setMySchedule([...mySchedule, fullCourse]);
     setIsSyncing(true);
     try {
-      const { error } = await supabase.from('user_schedules').insert({ user_id: user.id, course_id: fullCourse.id, semester: selectedSemester });
+      const { error } = await supabase
+        .from('user_schedules')
+        .upsert(
+          { user_id: user.id, course_id: fullCourse.id, semester: selectedSemester },
+          { onConflict: 'user_id,course_id', ignoreDuplicates: true }
+        );
       if (error) throw error;
       fetchMySchedule();
     } catch (err) {
@@ -1564,7 +1586,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           },
         });
         setMySchedule(mySchedule.filter(c => c.id !== fullCourse.id));
-    } finally { setIsSyncing(false); }
+    } finally {
+      addScheduleInFlightRef.current = false;
+      setIsSyncing(false);
+    }
   };
 
   const removeFromSchedule = async (courseId: string) => {
@@ -1850,6 +1875,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!isPdfScheduleFile(file)) {
+      alert(PDF_SCHEDULE_FILE_MESSAGE);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { alert("⚠️ Vui lòng đăng nhập!"); return; }
 
@@ -1965,7 +1995,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     .from('user_schedules').select('id').eq('user_id', user.id).eq('course_id', targetCourseId).single();
 
                 if (!checkLink) {
-                    const { error: linkError } = await supabase.from('user_schedules').insert({ user_id: user.id, course_id: targetCourseId, semester: currentSem });
+                    const { error: linkError } = await supabase
+                        .from('user_schedules')
+                        .upsert(
+                            { user_id: user.id, course_id: targetCourseId, semester: currentSem },
+                            { onConflict: 'user_id,course_id', ignoreDuplicates: true }
+                        );
                     if (linkError) {
                         await logWebError({
                             source: 'supabase',
@@ -3394,10 +3429,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 isInCurrentPlan ? (
                                     <button onClick={() => { removeFromPlanSchedule(displayCourse.id); setSelectedCourseInfo(null); }} className="flex-1 py-2.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-sm font-bold hover:bg-amber-100 transition-all">Xóa khỏi Kế hoạch {activePlanKey}</button>
                                 ) : (
-                                    <button onClick={() => { addToPlanSchedule(displayCourse); setSelectedCourseInfo(null); }} className="flex-1 py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-all">Thêm vào Kế hoạch {activePlanKey}</button>
+                                    <button onClick={() => { addToPlanSchedule(displayCourse); setSelectedCourseInfo(null); }} disabled={isSyncing} className="flex-1 py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-all disabled:opacity-50">Thêm vào Kế hoạch {activePlanKey}</button>
                                 )
                             ) : !isSaved ? (
-                                <button onClick={() => { addToSchedule(displayCourse); setSelectedCourseInfo(null); }} className="flex-1 py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-all ">Thêm vào Lịch</button>
+                                <button onClick={() => { addToSchedule(displayCourse); setSelectedCourseInfo(null); }} disabled={isSyncing} className="flex-1 py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-all disabled:opacity-50">Thêm vào Lịch</button>
                             ) : (
                                 <>
                                     {!isStudentEditLocked && (

@@ -32,6 +32,24 @@ const SENSITIVE_KEYS = new Set([
   'apikey',
   'email_otp',
 ]);
+const SENSITIVE_URL_PARAMS = new Set([
+  'access_token',
+  'refresh_token',
+  'provider_token',
+  'token',
+  'id_token',
+  'authorization',
+  'code',
+]);
+const TRACKING_URL_PARAMS = new Set([
+  'fbclid',
+  'gclid',
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+]);
 
 const recentLogs = new Map<string, number>();
 let memorySessionId = '';
@@ -43,7 +61,7 @@ const truncate = (value: unknown, maxLength: number) => {
 
 const getPagePath = () => {
   if (typeof window === 'undefined') return '';
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  return sanitizeUrlLikeValue(`${window.location.pathname}${window.location.search}${window.location.hash}`);
 };
 
 export const getWebErrorSessionId = () => {
@@ -77,6 +95,26 @@ export const getWebErrorSessionId = () => {
 };
 
 const isSensitiveKey = (key: string) => SENSITIVE_KEYS.has(key.trim().toLowerCase());
+const shouldSanitizeUrlValue = (key: string) => ['page_path', 'filename', 'url', 'href'].includes(key.trim().toLowerCase());
+
+const sanitizeUrlLikeValue = (value: string) => {
+  try {
+    const base = typeof window === 'undefined' ? 'https://hotrosinhvienhub.id.vn' : window.location.origin;
+    const url = new URL(value, base);
+    url.hash = '';
+    [...url.searchParams.keys()].forEach((key) => {
+      const normalizedKey = key.toLowerCase();
+      if (SENSITIVE_URL_PARAMS.has(normalizedKey) || TRACKING_URL_PARAMS.has(normalizedKey)) {
+        url.searchParams.delete(key);
+      }
+    });
+
+    const path = `${url.pathname}${url.search}`;
+    return value.startsWith('http://') || value.startsWith('https://') ? `${url.origin}${path}` : path;
+  } catch {
+    return value.split('#')[0];
+  }
+};
 
 export const sanitizeWebErrorMetadata = (value: unknown, depth = 0, seen = new WeakSet<object>()): unknown => {
   if (depth > MAX_METADATA_DEPTH) return '[Truncated]';
@@ -101,7 +139,13 @@ export const sanitizeWebErrorMetadata = (value: unknown, depth = 0, seen = new W
     if (seen.has(value)) return '[Circular]';
     seen.add(value);
     return Object.entries(value as Record<string, unknown>).reduce<Record<string, unknown>>((acc, [key, entry]) => {
-      acc[key] = isSensitiveKey(key) ? REDACTED : sanitizeWebErrorMetadata(entry, depth + 1, seen);
+      if (isSensitiveKey(key)) {
+        acc[key] = REDACTED;
+      } else if (shouldSanitizeUrlValue(key) && typeof entry === 'string') {
+        acc[key] = truncate(sanitizeUrlLikeValue(entry), MAX_METADATA_STRING_LENGTH);
+      } else {
+        acc[key] = sanitizeWebErrorMetadata(entry, depth + 1, seen);
+      }
       return acc;
     }, {});
   }

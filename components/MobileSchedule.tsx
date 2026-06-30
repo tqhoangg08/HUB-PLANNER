@@ -206,6 +206,11 @@ const getCourseRequestStudentCode = (request: CourseRequest) => {
   return request.user_id || '-';
 };
 
+const PDF_SCHEDULE_FILE_MESSAGE = 'Vui lòng tải lên file PDF lịch học, hệ thống chưa hỗ trợ ảnh PNG/JPG.';
+const isPdfScheduleFile = (file: File) => (
+  file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+);
+
 const LABEL_TYPES = ['Nghỉ', 'Thi giữa kỳ', 'Thi cuối kỳ', 'Thuyết trình', 'Học online', 'Khác'];
 const LABEL_COLORS = [
     { name: 'Đỏ', value: 'red' },
@@ -472,6 +477,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   const [mySchedule, setMySchedule] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const addScheduleInFlightRef = useRef(false);
 
   const [selectedSemester, setSelectedSemester] = useState<string>(DEFAULT_SCHEDULE_SEMESTER);
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
@@ -918,9 +924,19 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   };
 
   const addToSchedule = async (course: Course) => {
+    if (isSyncing || addScheduleInFlightRef.current) return;
+    addScheduleInFlightRef.current = true;
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { alert("Vui lòng đăng nhập!"); return; }
-    if (mySchedule.some(c => c.id === course.id)) { alert("Môn học đã có sẵn!"); return; }
+    if (!user) {
+      addScheduleInFlightRef.current = false;
+      alert("Vui lòng đăng nhập!");
+      return;
+    }
+    if (mySchedule.some(c => c.id === course.id)) {
+      addScheduleInFlightRef.current = false;
+      alert("Môn này đã có trong lịch");
+      return;
+    }
 
     for (const existingCourse of currentSemesterSchedule) {
       let isConflict = false; let conflictDay = null; let conflictShiftStr = "";
@@ -935,6 +951,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         if (isConflict) break;
       }
       if (isConflict) {
+        addScheduleInFlightRef.current = false;
         alert(`CẢNH BÁO TRÙNG LỊCH HỌC!\n\nMôn [${course.subject_name}] bị trùng giờ với [${existingCourse.subject_name}].\n(Thứ ${conflictDay} - ${getShiftDisplay(conflictShiftStr)}).`);
         return;
       }
@@ -942,6 +959,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         const newIsMorning = isExamInShift(course.exam_shift, 'S'); const existIsMorning = isExamInShift(existingCourse.exam_shift, 'S');
         const newIsAfternoon = isExamInShift(course.exam_shift, 'C'); const existIsAfternoon = isExamInShift(existingCourse.exam_shift, 'C');
         if ((newIsMorning && existIsMorning) || (newIsAfternoon && existIsAfternoon)) {
+          addScheduleInFlightRef.current = false;
           alert(`CẢNH BÁO TRÙNG LỊCH THI!\n\nCùng thi ngày ${course.exam_date} - ${newIsMorning ? 'Buổi Sáng' : 'Buổi Chiều'}.`);
           return;
         }
@@ -951,7 +969,12 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     setMySchedule([...mySchedule, course]);
     setIsSyncing(true);
     try {
-      const { error } = await supabase.from('user_schedules').insert({ user_id: user.id, course_id: course.id, semester: selectedSemester });
+      const { error } = await supabase
+        .from('user_schedules')
+        .upsert(
+          { user_id: user.id, course_id: course.id, semester: selectedSemester },
+          { onConflict: 'user_id,course_id', ignoreDuplicates: true }
+        );
       if (error) {
         await logWebError({
           source: 'supabase',
@@ -979,7 +1002,10 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         },
       });
       setMySchedule(mySchedule.filter(c => c.id !== course.id));
-    } finally { setIsSyncing(false); }
+    } finally {
+      addScheduleInFlightRef.current = false;
+      setIsSyncing(false);
+    }
   };
 
   const removeFromSchedule = async (courseId: string) => {
@@ -1184,6 +1210,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!isPdfScheduleFile(file)) {
+      alert(PDF_SCHEDULE_FILE_MESSAGE);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { alert("Vui lòng đăng nhập!"); return; }
 
@@ -1287,7 +1318,12 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 const { data: checkLink } = await supabase.from('user_schedules').select('id')
                     .eq('user_id', user.id).eq('course_id', targetCourseId).single();
                 if (!checkLink) {
-                    const { error: linkError } = await supabase.from('user_schedules').insert({ user_id: user.id, course_id: targetCourseId, semester: currentSem });
+                    const { error: linkError } = await supabase
+                        .from('user_schedules')
+                        .upsert(
+                            { user_id: user.id, course_id: targetCourseId, semester: currentSem },
+                            { onConflict: 'user_id,course_id', ignoreDuplicates: true }
+                        );
                     if (linkError) {
                         await logWebError({
                             source: 'supabase',
@@ -2126,7 +2162,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                         <h3 className={`font-bold text-[13px] leading-tight line-clamp-2 ${color.text}`}>{course.subject_name}</h3>
                                         <p className="text-[10px] text-gray-500 font-medium mt-1">{course.course_code} • Đợt {course.phase || '1'}</p>
                                     </div>
-                                    <button onClick={(e) => { e.stopPropagation(); addToSchedule(course); }} disabled={isSyncing} className="absolute top-2 right-2 text-white bg-[#003375] p-1.5 rounded active:scale-95"><Plus size={14}/></button>
+                                    <button onClick={(e) => { e.stopPropagation(); addToSchedule(course); }} disabled={isSyncing} className="absolute top-2 right-2 text-white bg-[#003375] p-1.5 rounded active:scale-95 disabled:opacity-50"><Plus size={14}/></button>
                                 </div>
                                 <div className="flex flex-wrap gap-1.5 mt-2">
                                     <div className="text-[9px] font-medium text-gray-600 bg-white px-1.5 py-0.5 rounded border border-gray-200 flex items-center gap-1"><Clock size={10}/> T{course.day_of_week} ({course.shift})</div>
@@ -2655,7 +2691,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                     </button>
                                 )}
                                 {forceManagementView ? null : !currentSemesterSchedule.some(c => c.id === course.id) ? (
-                                    <button onClick={() => { addToSchedule(course); setSelectedCourseInfo(null); }} className="flex-1 py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] transition-colors shadow-md flex items-center justify-center gap-2"><Plus size={16}/> Thêm vào Lịch</button>
+                                    <button onClick={() => { addToSchedule(course); setSelectedCourseInfo(null); }} disabled={isSyncing} className="flex-1 py-3 rounded-xl bg-[#003375] text-white text-sm font-bold active:bg-[#002855] transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50"><Plus size={16}/> Thêm vào Lịch</button>
                                 ) : (
                                     <button onClick={() => { removeFromSchedule(course.id); setSelectedCourseInfo(null); }} className="flex-1 py-3 rounded-xl bg-red-50 text-red-600 border border-red-200 text-sm font-bold active:bg-red-100 transition-colors flex items-center justify-center gap-2"><Trash2 size={16}/> Xóa khỏi Lịch</button>
                                 )}
