@@ -59,6 +59,7 @@ import { AVATAR_COLOR_OPTIONS, getAvatarColorClass, getSafeAvatarColor, isAvatar
 import { recordPolicyConsent } from './utils/policyConsent';
 import { TurnstileBox } from './components/TurnstileBox';
 import { verifyTurnstileOnly } from './utils/protectedSubmit';
+import { logWebError } from './utils/logWebError';
 
 let globalDeferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -1412,6 +1413,12 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             await verifyTurnstileOnly(deleteTurnstileToken);
             await sendOtpEmail();
         } catch (error: any) {
+            await logWebError({
+                source: 'otp',
+                action: 'otp_request',
+                error,
+                metadata: { purpose: 'delete_data' },
+            });
             setOtpError(error.message || 'Xac minh bao mat khong thanh cong. Vui long thu lai.');
             setDeleteTurnstileToken('');
             setIsSendingOtp(false);
@@ -1454,6 +1461,15 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         } catch (error) {
             console.error('Lỗi gửi mail:', error);
             setOtpError('Hệ thống mail đang bận. Vui lòng thử lại sau.');
+            await logWebError({
+                source: 'otp',
+                action: 'otp_request',
+                error,
+                metadata: {
+                    purpose: 'delete_data',
+                    email: session?.user?.email,
+                },
+            });
             setDeleteTurnstileToken('');
         } finally {
             setIsSendingOtp(false);
@@ -1490,6 +1506,11 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
 
         } catch (error) {
             console.error("Lỗi khi reset:", error);
+            await logWebError({
+                source: 'auth',
+                action: 'delete_data',
+                error,
+            });
         } finally {
             try {
                 setActivePushNotificationUser(null);
@@ -1795,6 +1816,15 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             setPasswordChangeNotice('Đã cập nhật mật khẩu thành công.');
         } catch (error: any) {
             setPasswordChangeError(error.message || 'Không thể cập nhật mật khẩu lúc này.');
+            await logWebError({
+                source: 'auth',
+                action: 'reset_password',
+                error,
+                metadata: {
+                    mode: isAccountPasswordOtpMode ? 'otp' : 'current_password',
+                    email: session.user.email,
+                },
+            });
             if (!isAccountPasswordOtpMode) setAccountPasswordTurnstileToken('');
         } finally {
             setPasswordChangeLoading(false);
@@ -1863,6 +1893,15 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             setPasswordChangeNotice(`\u0110\u00e3 g\u1eedi m\u00e3 OTP \u0111\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u \u0111\u1ebfn ${email}.`);
         } catch (error: any) {
             setPasswordChangeError(error.message || 'Kh\u00f4ng th\u1ec3 g\u1eedi m\u00e3 OTP \u0111\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u.');
+            await logWebError({
+                source: 'otp',
+                action: 'otp_request',
+                error,
+                metadata: {
+                    purpose: 'forgot_password',
+                    email,
+                },
+            });
             setAccountPasswordTurnstileToken('');
         } finally {
             setPasswordChangeLoading(false);
@@ -1999,6 +2038,19 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 } catch {
                     // ignore storage errors
                 }
+                await logWebError({
+                    source: 'parser',
+                    action: 'import_transcript',
+                    error: result.error || 'Transcript parser returned zero subjects',
+                    metadata: {
+                        fileName: file.name,
+                        fileSize: file.size,
+                        fileType: file.type,
+                        semesterCount: result.semesters.length,
+                        yearRangeCount: result.yearRanges.length,
+                    },
+                    level: 'warn',
+                });
                 if (result.error) {
                     alert(`Không nhập được bảng điểm.\n\n${result.error}\n\nDebug đã lưu ở localStorage: hub_last_transcript_import_debug`);
                     return;
@@ -2046,6 +2098,16 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             alert(`Đã nhập thành công ${importedSubjectCount} môn và sắp xếp lại lộ trình học tập từ năm ${firstYear}`);
         } catch (error) {
             console.error(error);
+            await logWebError({
+                source: 'parser',
+                action: 'import_transcript',
+                error,
+                metadata: {
+                    fileName: file.name,
+                    fileSize: file.size,
+                    fileType: file.type,
+                },
+            });
             const message = error instanceof Error ? error.message : '';
             alert(message ? `Không nhập được bảng điểm.\n\n${message}` : "Lỗi khi đọc file PDF.");
         } finally {

@@ -17,9 +17,11 @@ import './index.css';
 import App from './App';
 import { installAppNotificationBridge } from './utils/appNotifications';
 import { bootstrapBrowser } from './utils/browserBootstrap';
+import { installGlobalWebErrorHandlers } from './utils/logWebError';
 
 bootstrapBrowser();
 installAppNotificationBridge();
+installGlobalWebErrorHandlers();
 
 if ('serviceWorker' in navigator) {
   let isRefreshing = false;

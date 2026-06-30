@@ -19,6 +19,7 @@ import {
 import { playClick } from '../utils/audio';
 import { apiHeaders, apiUrl } from '../utils/api';
 import { CONSENT_POLICIES, POLICY_VERSION } from '../utils/policyConsent';
+import { logWebError } from '../utils/logWebError';
 import { Turnstile } from '@marsidev/react-turnstile';
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const OTP_RESEND_COOLDOWN_SECONDS = 10 * 60;
@@ -178,6 +179,15 @@ export const LoginScreen: React.FC = () => {
 
         if (error) {
             setError(error.message || `Vui lòng dùng email sinh viên có đuôi @${SCHOOL_DOMAIN}.`);
+            await logWebError({
+                source: 'auth',
+                action: flow === 'register' ? 'register' : 'login',
+                error,
+                metadata: {
+                    provider: 'google',
+                    flow,
+                },
+            });
             setGoogleLoading(false);
         }
     };
@@ -198,6 +208,17 @@ export const LoginScreen: React.FC = () => {
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok || !payload.email) {
+            if (response.status >= 500) {
+                await logWebError({
+                    source: 'auth',
+                    action: 'login',
+                    error: payload.error || `Resolve identifier failed (${response.status})`,
+                    metadata: {
+                        status: response.status,
+                        hasIdentifier: Boolean(value),
+                    },
+                });
+            }
             throw new Error(payload.error || 'Không tìm thấy MSSV này. Hãy đăng nhập Google HUB một lần hoặc dùng Gmail HUB.');
         }
         return payload.email as string;
@@ -223,6 +244,18 @@ export const LoginScreen: React.FC = () => {
         const payload = await response.json().catch(() => ({}));
 
         if (!response.ok) {
+            if (!(response.status === 429 && payload.retryAfterSeconds)) {
+                await logWebError({
+                    source: 'otp',
+                    action: 'otp_request',
+                    error: payload.error || `OTP request failed (${response.status})`,
+                    metadata: {
+                        purpose,
+                        email,
+                        status: response.status,
+                    },
+                });
+            }
             if (response.status === 429 && payload.retryAfterSeconds) {
                 const retryAfterSeconds = Number(payload.retryAfterSeconds);
                 storeOtpCooldown(email, purpose, retryAfterSeconds);

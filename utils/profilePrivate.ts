@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { apiUrl } from './api';
+import { logWebError } from './logWebError';
 
 export const PROFILE_PRIVATE_TABLE = 'profile_private_data';
 
@@ -170,7 +171,18 @@ export const fetchProfilePrivate = async (userId: string) => {
       const payload = await fetchJson(`${PROFILE_PRIVATE_API_PATH}&userId=${encodeURIComponent(userId)}`);
       return payload.data as ProfilePrivateRow | null;
     } catch (error: any) {
-      if (!shouldFallbackToSupabase(error)) throw error;
+      if (!shouldFallbackToSupabase(error)) {
+        await logWebError({
+          source: 'supabase',
+          action: 'load_profile_private',
+          error,
+          metadata: {
+            stage: 'api_fetch_single',
+            userId,
+          },
+        });
+        throw error;
+      }
       console.warn('Profile private API unavailable, falling back to Supabase:', error);
     }
   }
@@ -181,7 +193,18 @@ export const fetchProfilePrivate = async (userId: string) => {
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    await logWebError({
+      source: 'supabase',
+      action: 'load_profile_private',
+      error,
+      metadata: {
+        stage: 'supabase_fetch_single',
+        userId,
+      },
+    });
+    throw error;
+  }
   return data as ProfilePrivateRow | null;
 };
 
@@ -208,7 +231,19 @@ export const fetchProfilePrivateMap = async (userIds: string[], options: FetchPr
         ...rowsToMap(fetchedRows),
       };
     } catch (error: any) {
-      if (!shouldFallbackToSupabase(error)) throw error;
+      if (!shouldFallbackToSupabase(error)) {
+        await logWebError({
+          source: 'supabase',
+          action: 'load_profile_private',
+          error,
+          metadata: {
+            stage: 'api_fetch_map',
+            userCount: idsToFetch.length,
+            mode,
+          },
+        });
+        throw error;
+      }
       console.warn('Profile private API unavailable, falling back to Supabase:', error);
     }
   }
@@ -218,7 +253,19 @@ export const fetchProfilePrivateMap = async (userIds: string[], options: FetchPr
     .select('user_id, email, data, password_set_at, updated_at')
     .in('user_id', idsToFetch);
 
-  if (error) throw error;
+  if (error) {
+    await logWebError({
+      source: 'supabase',
+      action: 'load_profile_private',
+      error,
+      metadata: {
+        stage: 'supabase_fetch_map',
+        userCount: idsToFetch.length,
+        mode,
+      },
+    });
+    throw error;
+  }
 
   const fetchedRows = data as ProfilePrivateRow[];
   if (mode === 'summary') cacheSummaryRows(fetchedRows);
@@ -233,6 +280,7 @@ export const upsertProfilePrivate = async (row: ProfilePrivateRow) => {
   if (Object.prototype.hasOwnProperty.call(nextRow, 'data')) {
     nextRow.data = await preserveExistingTranscriptData(nextRow.user_id, nextRow.data);
   }
+  const hasData = Object.prototype.hasOwnProperty.call(nextRow, 'data');
 
   if (shouldUseVercelProfileApi()) {
     try {
@@ -242,13 +290,24 @@ export const upsertProfilePrivate = async (row: ProfilePrivateRow) => {
       });
       return;
     } catch (error: any) {
-      if (!shouldFallbackToSupabase(error)) throw error;
+      if (!shouldFallbackToSupabase(error)) {
+        await logWebError({
+          source: 'supabase',
+          action: 'save_profile_private',
+          error,
+          metadata: {
+            stage: 'api_upsert',
+            userId: nextRow.user_id,
+            hasData,
+          },
+        });
+        throw error;
+      }
       console.warn('Profile private API unavailable, falling back to Supabase:', error);
     }
   }
 
   const now = new Date().toISOString();
-  const hasData = Object.prototype.hasOwnProperty.call(nextRow, 'data');
   const shouldWriteData = hasData && hasMeaningfulProfileData(nextRow.data);
 
   if (!shouldWriteData) {
@@ -263,7 +322,19 @@ export const upsertProfilePrivate = async (row: ProfilePrivateRow) => {
       .select('user_id')
       .maybeSingle();
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      await logWebError({
+        source: 'supabase',
+        action: 'save_profile_private',
+        error: updateError,
+        metadata: {
+          stage: 'supabase_update_metadata',
+          userId: nextRow.user_id,
+          hasData,
+        },
+      });
+      throw updateError;
+    }
     if (updated?.user_id) return;
   }
 
@@ -277,7 +348,19 @@ export const upsertProfilePrivate = async (row: ProfilePrivateRow) => {
       updated_at: nextRow.updated_at || now,
     }, { onConflict: 'user_id' });
 
-  if (error) throw error;
+  if (error) {
+    await logWebError({
+      source: 'supabase',
+      action: 'save_profile_private',
+      error,
+      metadata: {
+        stage: 'supabase_upsert',
+        userId: nextRow.user_id,
+        hasData,
+      },
+    });
+    throw error;
+  }
 };
 
 export const updateProfilePrivate = async (userId: string, patch: Partial<Omit<ProfilePrivateRow, 'user_id'>>) => {
@@ -297,7 +380,19 @@ export const updateProfilePrivate = async (userId: string, patch: Partial<Omit<P
       });
       return;
     } catch (error: any) {
-      if (!shouldFallbackToSupabase(error)) throw error;
+      if (!shouldFallbackToSupabase(error)) {
+        await logWebError({
+          source: 'supabase',
+          action: 'save_profile_private',
+          error,
+          metadata: {
+            stage: 'api_update',
+            userId,
+            patchKeys: Object.keys(nextPatch),
+          },
+        });
+        throw error;
+      }
       console.warn('Profile private API unavailable, falling back to Supabase:', error);
     }
   }
@@ -310,5 +405,17 @@ export const updateProfilePrivate = async (userId: string, patch: Partial<Omit<P
     })
     .eq('user_id', userId);
 
-  if (error) throw error;
+  if (error) {
+    await logWebError({
+      source: 'supabase',
+      action: 'save_profile_private',
+      error,
+      metadata: {
+        stage: 'supabase_update',
+        userId,
+        patchKeys: Object.keys(nextPatch),
+      },
+    });
+    throw error;
+  }
 };

@@ -12,6 +12,7 @@ import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
+import { logWebError } from '../utils/logWebError';
 import {
   DEFAULT_SCHEDULE_SEMESTER,
   SEMESTER_OPTIONS,
@@ -589,6 +590,18 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         }
     } catch (error) {
         console.error("Lỗi tải danh sách môn:", error);
+        await logWebError({
+            source: 'supabase',
+            action: searchTerm.trim() ? 'search_subjects' : 'load_subjects',
+            error,
+            metadata: {
+              semester: selectedSemester,
+              phase: selectedPhase,
+              adminTab,
+              page,
+              hasSearchTerm: Boolean(searchTerm.trim()),
+            },
+        });
     } finally {
         setIsLoading(false);
     }
@@ -625,6 +638,18 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       setChangedCoursesPage(page);
     } catch (error: any) {
       console.error(error);
+      await logWebError({
+        source: 'supabase',
+        action: 'load_schedule',
+        error,
+        metadata: {
+          mode: 'changed',
+          semester: selectedSemester,
+          phase: selectedPhase,
+          page,
+          hasSearchTerm: Boolean(searchTerm.trim()),
+        },
+      });
       setAdminScheduleError(error?.message || 'Không tải được môn sinh viên đã chỉnh.');
       setChangedUserScheduleCourses([]);
     } finally {
@@ -649,6 +674,16 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       setStudentSchedulesPage(page);
     } catch (error: any) {
       console.error(error);
+      await logWebError({
+        source: 'supabase',
+        action: 'load_schedule',
+        error,
+        metadata: {
+          mode: 'summaries',
+          semester: selectedSemester,
+          page,
+        },
+      });
       setAdminScheduleError(error?.message || 'Không tải được danh sách TKB sinh viên.');
       setStudentScheduleSummaries([]);
     } finally {
@@ -674,6 +709,17 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       setSelectedStudentCoursesPage(page);
     } catch (error: any) {
       console.error(error);
+      await logWebError({
+        source: 'supabase',
+        action: 'load_schedule',
+        error,
+        metadata: {
+          mode: 'courses',
+          targetUserId: student.user_id,
+          semester: selectedSemester,
+          page,
+        },
+      });
       setAdminScheduleError(error?.message || 'Không tải được TKB sinh viên.');
       setSelectedStudentCourses([]);
     } finally {
@@ -708,6 +754,17 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       setCourseRequestsPage(page);
     } catch (error: any) {
       console.error(error);
+      await logWebError({
+        source: 'supabase',
+        action: 'load_subjects',
+        error,
+        metadata: {
+          resource: 'course-requests',
+          semester: selectedSemester,
+          page,
+          hasSearchTerm: Boolean(searchTerm.trim()),
+        },
+      });
       setAdminScheduleError(error?.message || 'Không tải được yêu cầu thêm môn.');
       setCourseRequests([]);
     } finally {
@@ -835,7 +892,19 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error || 'Không tải được TKB cá nhân.');
       setMySchedule(payload.data || []);
-    } catch (error) { console.error("Lỗi kéo TKB:", error); }
+    } catch (error) {
+      console.error("Lỗi kéo TKB:", error);
+      await logWebError({
+        source: 'supabase',
+        action: 'load_schedule',
+        error,
+        metadata: {
+          targetId,
+          selectedSemester,
+          isViewingOtherUser: targetId !== user.id,
+        },
+      });
+    }
   };
   useEffect(() => { if (isAuthenticated) fetchMySchedule(); }, [isAuthenticated, viewUserId]);
 
@@ -883,8 +952,34 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     setIsSyncing(true);
     try {
       const { error } = await supabase.from('user_schedules').insert({ user_id: user.id, course_id: course.id, semester: selectedSemester });
-      if (error) setMySchedule(mySchedule.filter(c => c.id !== course.id));
-    } catch (err) {} finally { setIsSyncing(false); }
+      if (error) {
+        await logWebError({
+          source: 'supabase',
+          action: 'save_schedule',
+          error,
+          metadata: {
+            operation: 'add_subject_to_plan',
+            courseId: course.id,
+            courseCode: course.course_code,
+            semester: selectedSemester,
+          },
+        });
+        setMySchedule(mySchedule.filter(c => c.id !== course.id));
+      }
+    } catch (err) {
+      await logWebError({
+        source: 'supabase',
+        action: 'save_schedule',
+        error: err,
+        metadata: {
+          operation: 'add_subject_to_plan',
+          courseId: course.id,
+          courseCode: course.course_code,
+          semester: selectedSemester,
+        },
+      });
+      setMySchedule(mySchedule.filter(c => c.id !== course.id));
+    } finally { setIsSyncing(false); }
   };
 
   const removeFromSchedule = async (courseId: string) => {
@@ -894,8 +989,30 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     setMySchedule(mySchedule.filter(c => c.id !== courseId));
     try {
       const { error } = await supabase.from('user_schedules').delete().eq('user_id', user.id).eq('course_id', courseId);
-      if (error) setMySchedule(backup);
-    } catch (err) { setMySchedule(backup); }
+      if (error) {
+        await logWebError({
+          source: 'supabase',
+          action: 'remove_subject_from_plan',
+          error,
+          metadata: {
+            courseId,
+            semester: selectedSemester,
+          },
+        });
+        setMySchedule(backup);
+      }
+    } catch (err) {
+      await logWebError({
+        source: 'supabase',
+        action: 'remove_subject_from_plan',
+        error: err,
+        metadata: {
+          courseId,
+          semester: selectedSemester,
+        },
+      });
+      setMySchedule(backup);
+    }
   };
 
   const handleQuickSaveLabel = async () => {
@@ -1076,6 +1193,20 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         setScheduleImportTurnstileToken('');
         const aiData = await parseSchedulePdf(file);
         if (!aiData || !aiData.courses || aiData.courses.length === 0) {
+            await logWebError({
+                source: 'parser',
+                action: 'save_schedule',
+                error: aiData?.error || 'Schedule parser returned zero courses',
+                metadata: {
+                    importType: 'schedule',
+                    fileName: file.name,
+                    fileSize: file.size,
+                    fileType: file.type,
+                    semester: selectedSemester,
+                    surface: 'mobile',
+                },
+                level: 'warn',
+            });
             alert(aiData?.error ? `Không nhập được TKB.\n\n${aiData.error}\n\nDebug đã lưu ở localStorage: hub_last_schedule_import_debug` : "Không thể đọc được dữ liệu. Vui lòng đảm bảo file PDF gốc.");
             setIsProcessingPdf(false); if (fileInputRef.current) fileInputRef.current.value = '';
             return;
@@ -1134,6 +1265,21 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         room: course.room, campus: course.campus || 'TD', weeks: finalWeeks, semester: currentSem,
                         phase: phaseStr, is_user_added: true
                     }).select('id').single();
+                if (insertErr) {
+                    await logWebError({
+                        source: 'supabase',
+                        action: 'save_schedule',
+                        error: insertErr,
+                        metadata: {
+                            importType: 'schedule',
+                            stage: 'insert_course_schedule',
+                            courseCode: cleanCode,
+                            subjectName: course.subject_name,
+                            semester: currentSem,
+                            surface: 'mobile',
+                        },
+                    });
+                }
                 if (!insertErr && newCourse) targetCourseId = newCourse.id;
             }
 
@@ -1141,8 +1287,23 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 const { data: checkLink } = await supabase.from('user_schedules').select('id')
                     .eq('user_id', user.id).eq('course_id', targetCourseId).single();
                 if (!checkLink) {
-                    await supabase.from('user_schedules').insert({ user_id: user.id, course_id: targetCourseId, semester: currentSem });
-                    addedCount++;
+                    const { error: linkError } = await supabase.from('user_schedules').insert({ user_id: user.id, course_id: targetCourseId, semester: currentSem });
+                    if (linkError) {
+                        await logWebError({
+                            source: 'supabase',
+                            action: 'save_schedule',
+                            error: linkError,
+                            metadata: {
+                                importType: 'schedule',
+                                stage: 'insert_user_schedule',
+                                courseId: targetCourseId,
+                                semester: currentSem,
+                                surface: 'mobile',
+                            },
+                        });
+                    } else {
+                        addedCount++;
+                    }
                 }
             }
         }
@@ -1154,6 +1315,19 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             alert(`Các môn học trong file đã có sẵn trong Thời khóa biểu của bạn rồi!`);
         }
     } catch (err) {
+        await logWebError({
+            source: 'parser',
+            action: 'save_schedule',
+            error: err,
+            metadata: {
+                importType: 'schedule',
+                fileName: file.name,
+                fileSize: file.size,
+                fileType: file.type,
+                semester: selectedSemester,
+                surface: 'mobile',
+            },
+        });
         const message = err instanceof Error ? err.message : '';
         alert(message ? `Không nhập được TKB.\n\n${message}` : "Lỗi khi đọc PDF.");
     }

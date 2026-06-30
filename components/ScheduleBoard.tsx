@@ -14,6 +14,7 @@ import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
+import { logWebError } from '../utils/logWebError';
 import {
   DEFAULT_SCHEDULE_SEMESTER,
   SEMESTER_OPTIONS,
@@ -872,6 +873,23 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         setCourseHasMore(pagePayload.hasMore);
     } catch (error) { 
         console.error("Lỗi tải danh sách môn:", error); 
+        await logWebError({
+            source: 'supabase',
+            action: searchTerm.trim() ? 'search_subjects' : 'load_subjects',
+            error,
+            metadata: {
+                semester: selectedSemester,
+                phase: selectedPhase,
+                subjectName: selectedSubjectName,
+                major: selectedMajor,
+                cohort: selectedCohort,
+                groupName: selectedGroupName,
+                academicProgram: selectedAcademicProgram,
+                page: coursePage,
+                pageSize: coursePageSize,
+                hasSearchTerm: Boolean(searchTerm.trim()),
+            },
+        });
     } finally { setIsLoading(false); }
   };
 
@@ -924,6 +942,18 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         setAcademicProgramOptions(nextOptions.academicProgramOptions);
     } catch (error) {
         console.error('Lỗi tải bộ lọc chuyên ngành/nhóm:', error);
+        await logWebError({
+            source: 'supabase',
+            action: 'filter_subjects',
+            error,
+            metadata: {
+                semester: selectedSemester,
+                phase: selectedPhase,
+                major: selectedMajor,
+                cohort: selectedCohort,
+                academicProgram: selectedAcademicProgram,
+            },
+        });
         setSubjectNameOptions([]);
         setMajorOptions([]);
         setCohortOptions([]);
@@ -984,6 +1014,15 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             );
         } catch (error) {
             console.error('Lỗi tải chi tiết môn:', error);
+            await logWebError({
+                source: 'supabase',
+                action: 'view_subject_detail',
+                error,
+                metadata: {
+                    courseId,
+                    semester: selectedSemester,
+                },
+            });
         } finally {
             if (!cancelled) setIsCourseDetailLoading(false);
         }
@@ -1336,7 +1375,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error || 'Không tải được TKB cá nhân.');
       setMySchedule(payload.data || []);
-    } catch (error) { console.error("Lỗi kéo TKB:", error); }
+    } catch (error) {
+      console.error("Lỗi kéo TKB:", error);
+      await logWebError({
+        source: 'supabase',
+        action: 'load_schedule',
+        error,
+        metadata: {
+          targetId,
+          selectedSemester,
+          isViewingOtherUser: targetId !== user.id,
+        },
+      });
+    }
   };
   useEffect(() => { if (isAuthenticated) fetchMySchedule(); }, [isAuthenticated, viewUserId]);
 
@@ -1415,6 +1466,17 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       fullCourse = await ensureCourseDetail(course);
     } catch (error) {
       console.error('Không tải được chi tiết môn trước khi thêm kế hoạch:', error);
+      await logWebError({
+        source: 'supabase',
+        action: 'add_subject_to_plan',
+        error,
+        metadata: {
+          courseId: course.id,
+          courseCode: course.course_code,
+          semester: selectedSemester,
+          planKey: activePlanKey,
+        },
+      });
     }
 
     const conflictMessage = getScheduleConflictMessage(fullCourse, currentPlanSchedule);
@@ -1465,6 +1527,16 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       fullCourse = await ensureCourseDetail(course);
     } catch (error) {
       console.error('Không tải được chi tiết môn trước khi thêm lịch:', error);
+      await logWebError({
+        source: 'supabase',
+        action: 'add_subject_to_plan',
+        error,
+        metadata: {
+          courseId: course.id,
+          courseCode: course.course_code,
+          semester: selectedSemester,
+        },
+      });
     }
 
     const conflictMessage = getScheduleConflictMessage(fullCourse, currentSemesterSchedule);
@@ -1480,6 +1552,17 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       if (error) throw error;
       fetchMySchedule();
     } catch (err) {
+        await logWebError({
+          source: 'supabase',
+          action: 'save_schedule',
+          error: err,
+          metadata: {
+            operation: 'add_subject_to_plan',
+            courseId: fullCourse.id,
+            courseCode: fullCourse.course_code,
+            semester: selectedSemester,
+          },
+        });
         setMySchedule(mySchedule.filter(c => c.id !== fullCourse.id));
     } finally { setIsSyncing(false); }
   };
@@ -1491,8 +1574,30 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     setMySchedule(mySchedule.filter(c => c.id !== courseId));
     try {
       const { error } = await supabase.from('user_schedules').delete().eq('user_id', user.id).eq('course_id', courseId);
-      if (error) setMySchedule(backup);
-    } catch (err) { setMySchedule(backup); }
+      if (error) {
+        await logWebError({
+          source: 'supabase',
+          action: 'remove_subject_from_plan',
+          error,
+          metadata: {
+            courseId,
+            semester: selectedSemester,
+          },
+        });
+        setMySchedule(backup);
+      }
+    } catch (err) {
+      await logWebError({
+        source: 'supabase',
+        action: 'remove_subject_from_plan',
+        error: err,
+        metadata: {
+          courseId,
+          semester: selectedSemester,
+        },
+      });
+      setMySchedule(backup);
+    }
   };
 
   // ==========================================
@@ -1754,6 +1859,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         setScheduleImportTurnstileToken('');
         const aiData = await parseSchedulePdf(file);
         if (!aiData || !aiData.courses || aiData.courses.length === 0) {
+            await logWebError({
+                source: 'parser',
+                action: 'save_schedule',
+                error: aiData?.error || 'Schedule parser returned zero courses',
+                metadata: {
+                    importType: 'schedule',
+                    fileName: file.name,
+                    fileSize: file.size,
+                    fileType: file.type,
+                    semester: selectedSemester,
+                },
+                level: 'warn',
+            });
             alert(aiData?.error ? `Không nhập được TKB.\n\n${aiData.error}\n\nDebug đã lưu ở localStorage: hub_last_schedule_import_debug` : "❌ Không thể đọc được dữ liệu. Vui lòng đảm bảo file PDF là file gốc xuất từ trang trường.");
             setIsProcessingPdf(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -1825,6 +1943,20 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     })
                     .select('id')
                     .single();
+                if (insertErr) {
+                    await logWebError({
+                        source: 'supabase',
+                        action: 'save_schedule',
+                        error: insertErr,
+                        metadata: {
+                            importType: 'schedule',
+                            stage: 'insert_course_schedule',
+                            courseCode: cleanCode,
+                            subjectName: course.subject_name,
+                            semester: currentSem,
+                        },
+                    });
+                }
                 if (!insertErr && newCourse) targetCourseId = newCourse.id;
             }
 
@@ -1833,8 +1965,22 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     .from('user_schedules').select('id').eq('user_id', user.id).eq('course_id', targetCourseId).single();
 
                 if (!checkLink) {
-                    await supabase.from('user_schedules').insert({ user_id: user.id, course_id: targetCourseId, semester: currentSem });
-                    addedCount++;
+                    const { error: linkError } = await supabase.from('user_schedules').insert({ user_id: user.id, course_id: targetCourseId, semester: currentSem });
+                    if (linkError) {
+                        await logWebError({
+                            source: 'supabase',
+                            action: 'save_schedule',
+                            error: linkError,
+                            metadata: {
+                                importType: 'schedule',
+                                stage: 'insert_user_schedule',
+                                courseId: targetCourseId,
+                                semester: currentSem,
+                            },
+                        });
+                    } else {
+                        addedCount++;
+                    }
                 }
             }
         }
@@ -1847,6 +1993,18 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         }
 
     } catch (err) {
+        await logWebError({
+            source: 'parser',
+            action: 'save_schedule',
+            error: err,
+            metadata: {
+                importType: 'schedule',
+                fileName: file.name,
+                fileSize: file.size,
+                fileType: file.type,
+                semester: selectedSemester,
+            },
+        });
         const message = err instanceof Error ? err.message : '';
         alert(message ? `Không nhập được TKB.\n\n${message}` : "Lỗi khi đọc PDF.");
     } 
