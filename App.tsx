@@ -2184,7 +2184,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             )
         }
 
-        if (session && (!data.hasOnboarded || requiresRequiredProfileSetup)) {
+        if (session && requiresRequiredProfileSetup) {
             return <Navigate to="/onboarding" replace />;
         }
 
