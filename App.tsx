@@ -311,7 +311,6 @@ const App: React.FC = () => {
     const isExamStudyRoute = false;
 
     const isGuest = !session;
-    const [forceGuestOnboarding, setForceGuestOnboarding] = useState(false);
     const [passwordSetAt, setPasswordSetAt] = useState<string | null | undefined>(undefined);
     const [passwordSetupSchemaMissing, setPasswordSetupSchemaMissing] = useState(false);
 
@@ -2185,11 +2184,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             )
         }
 
-        if ((session && (!data.hasOnboarded || requiresRequiredProfileSetup)) || forceGuestOnboarding) {
-            return <Onboarding initialData={data} onComplete={(onboardingData) => {
-                void handleOnboardingComplete(onboardingData);
-                setForceGuestOnboarding(false);
-            }} />;
+        if (session && (!data.hasOnboarded || requiresRequiredProfileSetup)) {
+            return <Navigate to="/onboarding" replace />;
         }
 
         // ✨ FIX LỖI TS 2: Ép kiểu component MobileProfile để tránh bị TS soi lỗi thiếu props
@@ -2206,7 +2202,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                             onSaveSemesters={saveSemestersNow}
                             isGuest={isGuest}
                             currentUserId={session?.user?.id || null}
-                            onRequireOnboarding={() => setForceGuestOnboarding(true)}
+                            onRequireOnboarding={() => navigate('/onboarding')}
                             onTargetChange={(newTarget) => commitDataUpdate(prev => ({ ...prev, targetGPA: newTarget }))}
                             showSecurityNotice={!session}
                             onUpdateSemester={updateSemester}
@@ -2246,8 +2242,8 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         const mobileRoutes = (
             <Routes>
                 <Route path="/" element={<Navigate to="/mobile-home" replace />} />
-                <Route path="/mobile-home" element={<MobileHome data={data} displayName={displayName} avatarUrl={profileAvatarUrl} avatarSeed={avatarSeed} isGuest={isGuest} showSecurityNotice={!session} onRequireOnboarding={() => setForceGuestOnboarding(true)} />} />
-                <Route path="/learning" element={<MobileLearning data={data} onSetSemesters={(sems) => commitDataUpdate(prev => ({ ...prev, semesters: sems }))} onSaveSemesters={saveSemestersNow} isGuest={isGuest} onRequireOnboarding={() => setForceGuestOnboarding(true)} onTargetChange={(newTarget) => commitDataUpdate(prev => ({ ...prev, targetGPA: newTarget }))} showSecurityNotice={!session} onUpdateSemester={updateSemester} onRemoveSemester={removeSemester} onAddSemester={addSemester} onExportPDF={handleExportPDF} onImportPDF={() => { playClick(); setShowImportGuide(true); }} isImporting={isImporting} fileInputRef={fileInputRef} onFileUpload={handleFileUpload} viewUserId={viewingUser?.id} isManagementUser={isAdmin || isAuditor} />} />
+                <Route path="/mobile-home" element={<MobileHome data={data} displayName={displayName} avatarUrl={profileAvatarUrl} avatarSeed={avatarSeed} isGuest={isGuest} showSecurityNotice={!session} onRequireOnboarding={() => navigate('/onboarding')} />} />
+                <Route path="/learning" element={<MobileLearning data={data} onSetSemesters={(sems) => commitDataUpdate(prev => ({ ...prev, semesters: sems }))} onSaveSemesters={saveSemestersNow} isGuest={isGuest} onRequireOnboarding={() => navigate('/onboarding')} onTargetChange={(newTarget) => commitDataUpdate(prev => ({ ...prev, targetGPA: newTarget }))} showSecurityNotice={!session} onUpdateSemester={updateSemester} onRemoveSemester={removeSemester} onAddSemester={addSemester} onExportPDF={handleExportPDF} onImportPDF={() => { playClick(); setShowImportGuide(true); }} isImporting={isImporting} fileInputRef={fileInputRef} onFileUpload={handleFileUpload} viewUserId={viewingUser?.id} isManagementUser={isAdmin || isAuditor} />} />
                 <Route path="/events" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/events/edit/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/events/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
@@ -3144,6 +3140,18 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route path="/privacy" element={(useMobileLayout || isMobileScreen) ? <MobileHandbook forcedTab="privacy" /> : <PrivacyPolicy />} />
                 <Route path="/terms" element={(useMobileLayout || isMobileScreen) ? <MobileHandbook forcedTab="terms" /> : <TermsOfUse />} />
                 <Route path="/login" element={<LoginScreen />} />
+                <Route
+                    path="/onboarding"
+                    element={isLoaded ? (
+                        <Onboarding
+                            initialData={data}
+                            onComplete={(onboardingData) => {
+                                void handleOnboardingComplete(onboardingData);
+                                navigate(useMobileLayout ? '/mobile-home' : '/dashboard', { replace: true });
+                            }}
+                        />
+                    ) : null}
+                />
 
                 <Route path="/" element={<Navigate to={useMobileLayout ? "/mobile-home" : "/dashboard"} replace />} />
                 <Route path="/*" element={renderProtectedApp()} />
