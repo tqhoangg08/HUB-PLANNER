@@ -289,7 +289,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   // ==============================================================================================
   if (isAdmin || isAuditor) {
       return (
-          <div className="flex h-[100dvh] w-full bg-[#F8FAFC] overflow-hidden font-sans text-gray-800">
+          <div className="admin-shell-compact flex h-[100dvh] w-full bg-[#F8FAFC] overflow-hidden font-sans text-gray-800">
               
               {/* Nền đen cho Mobile */}
               <div 
@@ -300,7 +300,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               />
 
               {/* SIDEBAR BÊN TRÁI */}
-              <aside className={`fixed md:relative top-0 left-0 h-full w-[260px] bg-white border-r border-gray-200 flex flex-col shrink-0 z-[101] shadow-2xl md:shadow-none transition-transform duration-300 ease-in-out md:translate-x-0 ${
+              <aside className={`admin-sidebar fixed md:relative top-0 left-0 h-full w-[260px] bg-white border-r border-gray-200 flex flex-col shrink-0 z-[101] shadow-2xl md:shadow-none transition-transform duration-300 ease-in-out md:translate-x-0 ${
                   isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
               }`}>
                   
@@ -336,7 +336,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   </div>
 
                   {/* HEADER LOGO CHO DESKTOP */}
-                  <div className="hidden md:flex h-16 items-center justify-between px-6 border-b border-gray-100 shrink-0">
+                  <div className="admin-sidebar-logo hidden md:flex h-16 items-center justify-between px-6 border-b border-gray-100 shrink-0">
                       <Link to="/dashboard" className="hub-brand flex items-center gap-3 transition-transform hover:scale-105" onClick={() => { playClick(); setIsMobileMenuOpen(false); }}>
                           <img src="/logo.png" alt="HUB Logo" className="h-8 w-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="h-8 w-8 bg-[#0052cc] rounded flex items-center justify-center text-white font-bold text-xs">HUB</div>'; }} />
                           <div className="leading-tight">
@@ -347,7 +347,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   </div>
 
                   {/* DANH SÁCH CHỨC NĂNG */}
-                  <div className="mobile-menu-scroll flex-1 overflow-y-auto py-6 flex flex-col gap-1.5 px-4 custom-scrollbar">
+                  <div className="admin-sidebar-nav mobile-menu-scroll flex-1 overflow-y-auto py-6 flex flex-col gap-1.5 px-4 custom-scrollbar">
                       <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider">CHỨC NĂNG</div>
                       
                       <NavLink to="/dashboard" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
@@ -389,7 +389,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   </div>
 
                   {/* NÚT TRỢ GIÚP / ĐĂNG XUẤT MOBILE */}
-                  <div className="p-4 border-t border-gray-100 flex flex-col gap-1.5 bg-gray-50/50">
+                  <div className="admin-sidebar-footer p-4 border-t border-gray-100 flex flex-col gap-1.5 bg-gray-50/50">
                       <button onClick={() => { setIsMobileMenuOpen(false); setShowGuide(true); }} className="flex items-center gap-3 px-3 py-2.5 text-[13px] font-semibold text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors">
                           <HelpCircle size={16} /> Trợ giúp
                       </button>
@@ -399,7 +399,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   </div>
 
                   {/* AVATAR CHO DESKTOP (VẪN Ở DƯỚI) - ẨN TRÊN MOBILE */}
-                  <div className="hidden md:flex mt-4 items-center gap-3 px-2 pt-3 border-t border-gray-200 relative group cursor-pointer" onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}>
+                  <div className="admin-sidebar-user hidden md:flex mt-4 items-center gap-3 px-2 pt-3 border-t border-gray-200 relative group cursor-pointer" onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}>
                       <div className="h-10 w-10 rounded-full bg-[#0052cc] text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0 overflow-hidden">
                           {isImageAvatar ? (
                               <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
@@ -423,7 +423,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               </aside>
 
               <div className="flex-1 flex flex-col min-w-0 relative">
-                  <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 shrink-0 relative z-40">
+                  <header className="admin-topbar h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 shrink-0 relative z-40">
                       
                       {/* BÊN TRÁI HEADER: LOGO HOẶC BREADCRUMB */}
                       <div className="flex items-center gap-2">
@@ -530,8 +530,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       </div>
                   </header>
 
-                  <main className="flex-1 overflow-y-auto custom-scrollbar">
-                      <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 lg:pt-4 pb-8 min-h-full flex flex-col">
+                  <main className="admin-content-scroll flex-1 overflow-y-auto custom-scrollbar">
+                      <div className="admin-density-canvas w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 lg:pt-4 pb-8 min-h-full flex flex-col">
                           <div className="flex-1">
                               {children}
                           </div>

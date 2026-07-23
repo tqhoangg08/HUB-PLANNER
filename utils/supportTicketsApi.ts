@@ -6,6 +6,10 @@ export type SupportTicketPriority = 'low' | 'normal' | 'high' | 'urgent';
 export type SupportTicketCategory = 'login' | 'grades' | 'events' | 'schedule' | 'lost_found' | 'feedback' | 'other';
 export type SupportSenderRole = 'user' | 'admin' | 'support';
 
+export const MAX_ACTIVE_SUPPORT_TICKETS_PER_USER = 3;
+const ACTIVE_SUPPORT_TICKET_STATUSES: SupportTicketStatus[] = ['open', 'pending'];
+const ACTIVE_SUPPORT_TICKET_LIMIT_MESSAGE = 'Bạn đang có 3 phiếu hỗ trợ chưa xử lý. Vui lòng tiếp tục trao đổi trong các phiếu hiện tại hoặc chờ một phiếu được giải quyết trước khi tạo phiếu mới.';
+
 export const SUPPORT_STATUS_LABELS: Record<SupportTicketStatus, string> = {
   open: 'Mới',
   pending: 'Đang xử lý',
@@ -248,6 +252,17 @@ export const createSupportTicket = async (input: {
   const userId = await getCurrentUserId();
   const { subject, message } = validateTicketInput(input.subject, input.message);
 
+  const { count: activeTicketCount, error: activeTicketCountError } = await supabase
+    .from('support_tickets')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .in('status', ACTIVE_SUPPORT_TICKET_STATUSES);
+
+  if (activeTicketCountError) throw activeTicketCountError;
+  if ((activeTicketCount || 0) >= MAX_ACTIVE_SUPPORT_TICKETS_PER_USER) {
+    throw new Error(ACTIVE_SUPPORT_TICKET_LIMIT_MESSAGE);
+  }
+
   const { data: ticket, error: ticketError } = await supabase
     .from('support_tickets')
     .insert({
@@ -261,7 +276,13 @@ export const createSupportTicket = async (input: {
     .select(ticketDetailSelect)
     .single();
 
-  if (ticketError) throw ticketError;
+  if (ticketError) {
+    const errorMessage = String(ticketError.message || '');
+    if (errorMessage.includes('support_ticket_active_limit') || errorMessage.includes('3 phiếu hỗ trợ')) {
+      throw new Error(ACTIVE_SUPPORT_TICKET_LIMIT_MESSAGE);
+    }
+    throw ticketError;
+  }
 
   const { data: messageRow, error: messageError } = await supabase
     .from('support_ticket_messages')

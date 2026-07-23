@@ -13,7 +13,7 @@ import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
 import { TurnstileBox } from './TurnstileBox';
-import { protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
+import { ProtectedSubmitError, protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
 import { logWebError } from '../utils/logWebError';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { promptSendParserDebugFile } from '../utils/parserDebugTicket';
@@ -57,6 +57,17 @@ interface CourseRequest {
   user?: UserProfile | null;
 }
 
+interface CourseRequestPageCache {
+  data: CourseRequest[];
+  total: number;
+  hasMore: boolean;
+  cachedAt: number;
+}
+
+const COURSE_REQUEST_PAGE_SIZE = 10;
+const COURSE_REQUEST_CACHE_TTL_MS = 5 * 60 * 1000;
+const COURSE_REQUEST_CACHE_PREFIX = 'hub_admin_course_requests_v1';
+
 const getCourseRequestTime = (request: CourseRequest) => {
   const time = request.created_at ? new Date(request.created_at).getTime() : 0;
   return Number.isFinite(time) ? time : 0;
@@ -74,6 +85,14 @@ const getCourseRequestStudentCode = (request: CourseRequest) => {
   if (email) return email.split('@')[0];
 
   return request.user_id || '-';
+};
+
+const getPaginationPages = (currentPage: number, totalPages: number) => {
+  const pages = new Set([1, totalPages]);
+  for (let page = currentPage - 2; page <= currentPage + 2; page += 1) {
+    if (page >= 1 && page <= totalPages) pages.add(page);
+  }
+  return [...pages].sort((a, b) => a - b);
 };
 
 const PDF_SCHEDULE_FILE_MESSAGE = 'Vui lòng tải lên file PDF lịch học, hệ thống chưa hỗ trợ ảnh PNG/JPG.';
@@ -679,6 +698,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [adminEditData, setAdminEditData] = useState<Partial<Course>>({});
   const [isSavingAdminCourse, setIsSavingAdminCourse] = useState(false);
   const [courseRequests, setCourseRequests] = useState<CourseRequest[]>([]);
+  const [courseRequestPage, setCourseRequestPage] = useState(1);
+  const [courseRequestTotal, setCourseRequestTotal] = useState(0);
+  const courseRequestPageCacheRef = useRef(new Map<string, CourseRequestPageCache>());
+  const courseRequestPrefetchRef = useRef(new Set<string>());
+  const courseRequestFetchIdRef = useRef(0);
   const [activeCourseRequest, setActiveCourseRequest] = useState<CourseRequest | null>(null);
   const [studentScheduleSummaries, setStudentScheduleSummaries] = useState<StudentScheduleSummary[]>([]);
   const [selectedStudentSchedule, setSelectedStudentSchedule] = useState<StudentScheduleSummary | null>(null);
@@ -1228,18 +1252,108 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     }
   };
 
-  const fetchCourseRequests = async () => {
+  const getCourseRequestCacheScope = () => (
+      `${COURSE_REQUEST_CACHE_PREFIX}:${session?.user?.id || 'anonymous'}`
+  );
+
+  const getCourseRequestCacheKey = (page: number, search: string) => (
+      `${getCourseRequestCacheScope()}:${encodeURIComponent(search.trim().toLowerCase())}:${page}`
+  );
+
+  const readCourseRequestCache = (page: number, search: string) => {
+      const key = getCourseRequestCacheKey(page, search);
+      const memoryEntry = courseRequestPageCacheRef.current.get(key);
+      if (memoryEntry && Date.now() - memoryEntry.cachedAt < COURSE_REQUEST_CACHE_TTL_MS) {
+          return memoryEntry;
+      }
+
+      try {
+          const raw = window.localStorage.getItem(key);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw) as CourseRequestPageCache;
+          const isValid = Array.isArray(parsed?.data)
+              && Number.isFinite(parsed?.total)
+              && typeof parsed?.hasMore === 'boolean'
+              && Number.isFinite(parsed?.cachedAt);
+          if (!isValid || Date.now() - parsed.cachedAt >= COURSE_REQUEST_CACHE_TTL_MS) {
+              window.localStorage.removeItem(key);
+              return null;
+          }
+          courseRequestPageCacheRef.current.set(key, parsed);
+          return parsed;
+      } catch (error) {
+          console.warn('Không thể đọc cache yêu cầu thêm môn:', error);
+          return null;
+      }
+  };
+
+  const writeCourseRequestCache = (page: number, search: string, entry: CourseRequestPageCache) => {
+      const key = getCourseRequestCacheKey(page, search);
+      courseRequestPageCacheRef.current.set(key, entry);
+      try {
+          window.localStorage.setItem(key, JSON.stringify(entry));
+      } catch (error) {
+          console.warn('Không thể lưu cache yêu cầu thêm môn:', error);
+      }
+  };
+
+  const clearCourseRequestCache = () => {
+      const scope = `${getCourseRequestCacheScope()}:`;
+      courseRequestFetchIdRef.current += 1;
+      courseRequestPageCacheRef.current.clear();
+      courseRequestPrefetchRef.current.clear();
+      try {
+          Object.keys(window.localStorage).forEach((key) => {
+              if (key.startsWith(scope)) window.localStorage.removeItem(key);
+          });
+      } catch (error) {
+          console.warn('Không thể xóa cache yêu cầu thêm môn:', error);
+      }
+  };
+
+  const fetchCourseRequests = async (
+      requestedPage = courseRequestPage,
+      options: { force?: boolean; prefetch?: boolean } = {},
+  ) => {
     if (!isAdmin && !isAuditor) return;
     const token = session?.access_token;
     if (!token) return;
 
-    setIsLoading(true);
-    setAdminScheduleError('');
+    const page = Math.max(1, requestedPage);
+    const normalizedSearch = searchTerm.trim();
+    const cacheKey = getCourseRequestCacheKey(page, normalizedSearch);
+    const isPrefetch = options.prefetch === true;
+    const fetchId = isPrefetch
+        ? courseRequestFetchIdRef.current
+        : ++courseRequestFetchIdRef.current;
+    const cached = options.force ? null : readCourseRequestCache(page, normalizedSearch);
+
+    if (cached) {
+        if (!isPrefetch) {
+            setCourseRequests(cached.data);
+            setCourseRequestTotal(cached.total);
+            setAdminScheduleError('');
+            setIsLoading(false);
+            if (cached.hasMore) void fetchCourseRequests(page + 1, { prefetch: true });
+        }
+        return;
+    }
+
+    if (isPrefetch && courseRequestPrefetchRef.current.has(cacheKey)) return;
+    if (isPrefetch) {
+        courseRequestPrefetchRef.current.add(cacheKey);
+    } else {
+        setIsLoading(true);
+        setAdminScheduleError('');
+    }
+
     try {
         const params = new URLSearchParams({
             resource: 'course-requests',
-            status: 'all',
-            search: searchTerm.trim(),
+            status: 'pending',
+            search: normalizedSearch,
+            limit: String(COURSE_REQUEST_PAGE_SIZE),
+            offset: String((page - 1) * COURSE_REQUEST_PAGE_SIZE),
         });
 
         const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
@@ -1250,13 +1364,45 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         const pendingRequests = (payload.data || []).filter((request: CourseRequest) =>
             String(request.status || 'pending').trim().toLowerCase() === 'pending'
         );
-        setCourseRequests(sortCourseRequestsNewestFirst(pendingRequests));
+        const rows = sortCourseRequestsNewestFirst(pendingRequests);
+        const total = Number.isFinite(Number(payload.total))
+            ? Number(payload.total)
+            : (page - 1) * COURSE_REQUEST_PAGE_SIZE + rows.length + (payload.hasMore ? 1 : 0);
+        const hasMore = typeof payload.hasMore === 'boolean'
+            ? payload.hasMore
+            : total > page * COURSE_REQUEST_PAGE_SIZE;
+        const entry: CourseRequestPageCache = {
+            data: rows,
+            total,
+            hasMore,
+            cachedAt: Date.now(),
+        };
+
+        if (fetchId !== courseRequestFetchIdRef.current) return;
+        writeCourseRequestCache(page, normalizedSearch, entry);
+        if (!isPrefetch) {
+            const resolvedTotalPages = Math.max(1, Math.ceil(total / COURSE_REQUEST_PAGE_SIZE));
+            if (page > resolvedTotalPages) {
+                setCourseRequestPage(resolvedTotalPages);
+                return;
+            }
+            setCourseRequests(rows);
+            setCourseRequestTotal(total);
+            if (hasMore) void fetchCourseRequests(page + 1, { prefetch: true });
+        }
     } catch (err) {
-        console.error("Lỗi tải yêu cầu thêm môn:", err);
-        setAdminScheduleError((err as Error)?.message || 'Không tải được yêu cầu thêm môn.');
-        setCourseRequests([]);
+        if (!isPrefetch && fetchId === courseRequestFetchIdRef.current) {
+            console.error("Lỗi tải yêu cầu thêm môn:", err);
+            setAdminScheduleError((err as Error)?.message || 'Không tải được yêu cầu thêm môn.');
+            setCourseRequests([]);
+            setCourseRequestTotal(0);
+        }
     } finally {
-        setIsLoading(false);
+        if (isPrefetch) {
+            courseRequestPrefetchRef.current.delete(cacheKey);
+        } else if (fetchId === courseRequestFetchIdRef.current) {
+            setIsLoading(false);
+        }
     }
   };
 
@@ -1293,7 +1439,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           });
           const payload = await response.json();
           if (!response.ok) throw new Error(payload?.error || 'Không thể từ chối yêu cầu.');
-          setCourseRequests(prev => prev.filter(item => item.id !== request.id));
+          clearCourseRequestCache();
+          if (courseRequests.length === 1 && courseRequestPage > 1) {
+              setCourseRequestPage(page => page - 1);
+          } else {
+              void fetchCourseRequests(courseRequestPage, { force: true });
+          }
       } catch (err) {
           console.error(err);
           alert((err as Error)?.message || 'Có lỗi xảy ra khi từ chối yêu cầu.');
@@ -1336,7 +1487,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         setSelectedAcademicProgram('all');
     }
   }, [selectedAcademicProgram, academicProgramOptions]);
-  useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'requested') fetchCourseRequests(); }, [searchTerm, selectedSemester, isAuthenticated, isAdminView, adminTab]);
+  useEffect(() => {
+    if (!isAuthenticated || !isAdminView || adminTab !== 'requested') return;
+    const timeoutId = window.setTimeout(() => {
+      fetchCourseRequests(courseRequestPage);
+    }, 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchTerm, courseRequestPage, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'user_changed') fetchChangedUserScheduleCourses(); }, [searchTerm, selectedSemester, selectedPhase, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => { if (isAuthenticated && isAdminView && adminTab === 'student_schedules') fetchStudentScheduleSummaries(); }, [selectedSemester, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => {
@@ -1847,7 +2004,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             if (!response.ok) throw new Error(result?.error || 'Không thể thêm môn chính thức.');
             alert("Đã thêm môn thành môn chính thức!");
             setActiveCourseRequest(null);
-            setCourseRequests(prev => prev.filter(item => item.id !== activeCourseRequest.id));
+            clearCourseRequestCache();
             setAdminTab('system');
             fetchCourses();
         } else if (payload.id) {
@@ -1878,7 +2035,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!isPdfScheduleFile(file)) {
-      alert(PDF_SCHEDULE_FILE_MESSAGE);
+      await promptSendParserDebugFile({
+        kind: 'schedule',
+        file,
+        parserMessage: PDF_SCHEDULE_FILE_MESSAGE,
+      });
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -1904,7 +2065,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 },
                 level: 'warn',
             });
-            alert(aiData?.error ? `Không nhập được TKB.\n\n${aiData.error}\n\nDebug đã lưu ở localStorage: hub_last_schedule_import_debug` : "❌ Không thể đọc được dữ liệu. Vui lòng đảm bảo file PDF là file gốc xuất từ trang trường.");
             await promptSendParserDebugFile({
                 kind: 'schedule',
                 file,
@@ -2039,6 +2199,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         }
 
     } catch (err) {
+        if (err instanceof ProtectedSubmitError) {
+            alert(err.message);
+            return;
+        }
         const errorLogId = await logWebError({
             source: 'parser',
             action: 'save_schedule',
@@ -2052,7 +2216,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             },
         });
         const message = err instanceof Error ? err.message : '';
-        alert(message ? `Không nhập được TKB.\n\n${message}` : "Lỗi khi đọc PDF.");
         await promptSendParserDebugFile({
             kind: 'schedule',
             file,
@@ -2236,6 +2399,15 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           (student.email || '').toLowerCase().includes(term)
       );
   });
+  const courseRequestTotalPages = Math.max(1, Math.ceil(courseRequestTotal / COURSE_REQUEST_PAGE_SIZE));
+  const courseRequestPaginationPages = getPaginationPages(courseRequestPage, courseRequestTotalPages);
+  const courseRequestRangeStart = courseRequestTotal === 0
+      ? 0
+      : (courseRequestPage - 1) * COURSE_REQUEST_PAGE_SIZE + 1;
+  const courseRequestRangeEnd = Math.min(
+      courseRequestPage * COURSE_REQUEST_PAGE_SIZE,
+      courseRequestTotal,
+  );
   const selectedChangedCourseDiffs = getChangedCourseDiffs(selectedChangedCourse);
   const changedCourseCodeCounts = changedUserScheduleCourses.reduce((map, course) => {
       const key = (course.course_code || '').trim();
@@ -2349,10 +2521,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     
                     <div className="flex flex-1 max-w-md items-center gap-2">
                         <div className="relative flex-1">
-                            <input type="text" placeholder={adminTab === 'student_schedules' ? 'Tìm tên sinh viên, MSSV, email...' : 'Tìm môn học, mã HP, GV...'} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-300 outline-none text-sm transition-all hover:border-gray-400 focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"/>
+                            <input type="text" placeholder={adminTab === 'student_schedules' ? 'Tìm tên sinh viên, MSSV, email...' : 'Tìm môn học, mã HP, GV...'} value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); if (adminTab === 'requested') setCourseRequestPage(1); }} className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-300 outline-none text-sm transition-all hover:border-gray-400 focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"/>
                             <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
                         </div>
-                        <button onClick={() => adminTab === 'student_schedules' ? fetchStudentScheduleSummaries() : adminTab === 'user_changed' ? fetchChangedUserScheduleCourses() : adminTab === 'requested' ? fetchCourseRequests() : fetchCourses()} className="p-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"><RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /></button>
+                        <button onClick={() => adminTab === 'student_schedules' ? fetchStudentScheduleSummaries() : adminTab === 'user_changed' ? fetchChangedUserScheduleCourses() : adminTab === 'requested' ? (clearCourseRequestCache(), fetchCourseRequests(courseRequestPage, { force: true })) : fetchCourses()} className="p-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"><RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /></button>
                         {adminTab !== 'user_changed' && adminTab !== 'student_schedules' && adminTab !== 'requested' && (
                             <button onClick={() => { setActiveCourseRequest(null); setAdminEditData({ is_user_added: adminTab === 'user' }); setIsAdminEditModalOpen(true); }} className="flex items-center gap-1.5 px-4 py-2 bg-[#003375] text-white font-bold rounded-lg hover:bg-[#002855] transition-colors text-sm whitespace-nowrap"><Plus size={16}/> Thêm môn</button>
                         )}
@@ -2362,7 +2534,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 <div className="px-4 pt-4 border-b border-gray-200 flex gap-6 bg-white shrink-0 overflow-x-auto custom-scrollbar">
                     <button onClick={() => setAdminTab('system')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'system' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn hệ thống gốc</button>
                     <button onClick={() => setAdminTab('user')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'user' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên thêm</button>
-                    <button onClick={() => setAdminTab('requested')} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'requested' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên yêu cầu thêm</button>
+                    <button onClick={() => { setAdminTab('requested'); setCourseRequestPage(1); }} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'requested' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên yêu cầu thêm</button>
                     <button onClick={() => setAdminTab('user_changed')} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'user_changed' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên thay đổi</button>
                     <button onClick={() => { setAdminTab('student_schedules'); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); if (selectedRouteStudentCode) navigate('/schedule'); }} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'student_schedules' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Quản lý TKB sinh viên</button>
                 </div>
@@ -2486,7 +2658,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         ) : courseRequests.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-gray-500"><Search size={40} className="mb-3 text-gray-300"/><p>Không có yêu cầu thêm môn đang chờ.</p></div>
                         ) : (
-                            <table className="w-full table-fixed text-left border-collapse text-sm min-w-[980px]">
+                            <div className="min-w-[980px]">
+                            <table className="w-full table-fixed text-left border-collapse text-sm">
                                 <colgroup>
                                     <col className="w-14" />
                                     <col className="w-[170px]" />
@@ -2510,7 +2683,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 <tbody>
                                     {courseRequests.map((request, index) => (
                                         <tr key={request.id} onClick={() => openCourseRequestEditor(request)} className={`border-b border-gray-100 transition-colors ${isAuditor ? '' : 'cursor-pointer hover:bg-emerald-50/40'}`}>
-                                            <td className="p-3 text-center font-bold text-gray-500">{index + 1}</td>
+                                            <td className="p-3 text-center font-bold text-gray-500">{(courseRequestPage - 1) * COURSE_REQUEST_PAGE_SIZE + index + 1}</td>
                                             <td className="p-3 font-semibold text-[#003375] whitespace-nowrap overflow-hidden text-ellipsis">{request.course_code}</td>
                                             <td className="p-3 font-bold text-gray-800 break-words leading-snug">{request.subject_name}</td>
                                             <td className="p-3 text-gray-600 font-medium break-words leading-snug">{request.instructor || '-'}</td>
@@ -2528,6 +2701,51 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     ))}
                                 </tbody>
                             </table>
+                            <div className="sticky bottom-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.04)]">
+                                <p className="text-xs font-medium text-gray-500">
+                                    Hiển thị <span className="font-bold text-gray-700">{courseRequestRangeStart}-{courseRequestRangeEnd}</span> trong <span className="font-bold text-gray-700">{courseRequestTotal}</span> yêu cầu
+                                </p>
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setCourseRequestPage(page => Math.max(1, page - 1))}
+                                        disabled={courseRequestPage <= 1}
+                                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:border-[#0052cc] hover:text-[#0052cc] disabled:cursor-not-allowed disabled:opacity-40"
+                                        aria-label="Trang trước"
+                                    >
+                                        <ChevronLeft size={16} />
+                                    </button>
+                                    {courseRequestPaginationPages.map((page, index) => {
+                                        const previousPage = courseRequestPaginationPages[index - 1];
+                                        return (
+                                            <React.Fragment key={page}>
+                                                {previousPage && page - previousPage > 1 && (
+                                                    <span className="px-1 text-xs text-gray-400">…</span>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setCourseRequestPage(page)}
+                                                    className={`h-8 min-w-8 rounded-lg px-2 text-xs font-bold transition-colors ${courseRequestPage === page ? 'bg-[#0052cc] text-white' : 'border border-gray-200 text-gray-600 hover:border-[#0052cc] hover:text-[#0052cc]'}`}
+                                                    aria-current={courseRequestPage === page ? 'page' : undefined}
+                                                >
+                                                    {page}
+                                                </button>
+                                            </React.Fragment>
+                                        );
+                                    })}
+                                    <button
+                                        type="button"
+                                        onClick={() => setCourseRequestPage(page => Math.min(courseRequestTotalPages, page + 1))}
+                                        disabled={courseRequestPage >= courseRequestTotalPages}
+                                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:border-[#0052cc] hover:text-[#0052cc] disabled:cursor-not-allowed disabled:opacity-40"
+                                        aria-label="Trang sau"
+                                    >
+                                        <ChevronRight size={16} />
+                                    </button>
+                                </div>
+                                <div aria-hidden="true" />
+                            </div>
+                            </div>
                         )
                     ) : adminScheduleError ? (
                         <div className="flex flex-col items-center justify-center h-full text-red-600">

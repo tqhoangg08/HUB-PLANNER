@@ -1,10 +1,4 @@
-import { showAlert, showConfirm } from './appNotifications';
-import {
-  createPendingSupportAttachments,
-  linkSupportMessageAttachments,
-  uploadSupportAttachments,
-} from './supportAttachmentsApi';
-import { createSupportTicket, SupportTicketCategory } from './supportTicketsApi';
+import Swal from 'sweetalert2';
 
 type ParserDebugKind = 'transcript' | 'schedule';
 
@@ -16,76 +10,62 @@ type ParserDebugTicketInput = {
   metadata?: Record<string, unknown>;
 };
 
-const DEBUG_COPY: Record<ParserDebugKind, {
-  category: SupportTicketCategory;
-  subject: string;
-  body: string;
-}> = {
-  transcript: {
-    category: 'grades',
-    subject: 'Lỗi import bảng điểm',
-    body: 'Em gặp lỗi khi import bảng điểm. Nhờ admin kiểm tra giúp.',
-  },
-  schedule: {
-    category: 'schedule',
-    subject: 'Lỗi import lịch học',
-    body: 'Em gặp lỗi khi import lịch học. Nhờ admin kiểm tra giúp.',
-  },
+const alertClass = {
+  container: 'hub-alert-container',
+  popup: 'hub-alert-popup hub-pdf-guide-popup',
+  icon: 'hub-alert-icon',
+  title: 'hub-alert-title',
+  htmlContainer: 'hub-alert-content hub-pdf-guide-content',
+  actions: 'hub-alert-actions',
+  confirmButton: 'hub-alert-confirm',
+  closeButton: 'hub-alert-close',
 };
 
-const buildDebugMetadata = (input: ParserDebugTicketInput) => ({
-  source: 'parser_debug_file',
-  parser_kind: input.kind,
-  related_error_log_id: input.errorLogId || null,
-  parser_message: input.parserMessage || null,
-  file_name: input.file.name,
-  file_size: input.file.size,
-  file_type: input.file.type,
-  ...(input.metadata || {}),
-});
-
 export const promptSendParserDebugFile = async (input: ParserDebugTicketInput) => {
-  const confirmed = await showConfirm({
-    variant: 'question',
-    title: 'Không đọc được file PDF này',
-    message: [
-      'Có thể file là ảnh scan hoặc định dạng khác.',
-      '',
-      'Bạn có muốn gửi file này cho admin kiểm tra không?',
-    ].join('\n'),
-    confirmText: 'Gửi file cho admin',
-    cancelText: 'Không gửi',
+  const documentName = input.kind === 'transcript' ? 'bảng điểm' : 'thời khóa biểu';
+
+  await Swal.fire({
+    title: `Không đọc được file PDF ${documentName}`,
+    icon: 'warning',
+    html: `
+      <div class="hub-pdf-guide">
+        <p class="hub-pdf-guide-intro">
+          File có thể được tạo bằng sai loại máy in PDF nên hệ thống không nhận diện được phần chữ.
+          Vui lòng xuất lại từ HUB Portal theo đúng các bước sau:
+        </p>
+        <ol class="hub-pdf-guide-steps">
+          <li>
+            <span class="hub-pdf-guide-number">1</span>
+            <span>Truy cập <a href="https://online.hub.edu.vn/" target="_blank" rel="noopener noreferrer">HUB Portal</a> → Đăng nhập → Vào mục <strong>"Xem điểm"</strong>.</span>
+          </li>
+          <li>
+            <span class="hub-pdf-guide-number">2</span>
+            <span>Bấm tổ hợp phím <strong>Ctrl + P</strong> hoặc nhấp chuột phải rồi chọn <strong>In</strong>.</span>
+          </li>
+          <li>
+            <span class="hub-pdf-guide-number">3</span>
+            <span>Tại hộp thoại in, ở mục Máy in hãy chọn <strong class="hub-pdf-guide-emphasis">Lưu dưới dạng PDF (Save as PDF)</strong>.</span>
+          </li>
+          <li>
+            <span class="hub-pdf-guide-number">4</span>
+            <span>Bấm <strong>Lưu</strong>.</span>
+          </li>
+          <li>
+            <span class="hub-pdf-guide-number">5</span>
+            <span>Lưu file vào vị trí bạn muốn, sau đó quay lại HUB Planner để tải lên lại.</span>
+          </li>
+        </ol>
+        <div class="hub-pdf-guide-warning">
+          <strong>Lưu ý quan trọng:</strong> Phải chọn <strong>Lưu dưới dạng PDF (Save as PDF)</strong>.
+          Không chọn <strong>Microsoft Print to PDF</strong> vì loại file này có thể khiến hệ thống không nhận diện được nội dung chữ.
+        </div>
+      </div>
+    `,
+    confirmButtonText: 'Đã hiểu, tôi sẽ xuất lại',
+    showCloseButton: true,
+    buttonsStyling: false,
+    customClass: alertClass,
+    showClass: { popup: 'hub-alert-enter' },
+    hideClass: { popup: 'hub-alert-leave' },
   });
-
-  if (!confirmed) return;
-
-  const copy = DEBUG_COPY[input.kind];
-  const metadata = buildDebugMetadata(input);
-
-  try {
-    const ticket = await createSupportTicket({
-      subject: copy.subject,
-      category: copy.category,
-      priority: 'normal',
-      message: copy.body,
-      metadata,
-    }) as Awaited<ReturnType<typeof createSupportTicket>> & { initial_message_id?: string };
-
-    if (!ticket.initial_message_id) throw new Error('Không tìm thấy tin nhắn đầu tiên của ticket.');
-
-    const pending = createPendingSupportAttachments([input.file]);
-    const uploaded = await uploadSupportAttachments(ticket.id, pending, undefined, metadata);
-    await linkSupportMessageAttachments(ticket.id, ticket.initial_message_id, uploaded.map((item) => item.id));
-    pending.forEach((item) => {
-      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
-    });
-
-    window.location.assign(`/support/${ticket.id}`);
-  } catch (error: any) {
-    await showAlert({
-      variant: 'error',
-      title: 'Không gửi được file',
-      message: error?.message || 'Không thể tạo ticket hỗ trợ lúc này. Vui lòng thử lại sau.',
-    });
-  }
 };

@@ -18,6 +18,7 @@ import { SemesterLookbackModal } from './SemesterLookbackModal';
 import { useSemesterLookback } from '../hooks/useSemesterLookback';
 import { playClick } from '../utils/audio';
 import { FEATURE_FORECAST_TOOLS } from '../utils/featureFlags';
+import { showConfirm } from '../utils/appNotifications';
 
 interface MobileLearningProps {
     data: UserData;
@@ -34,7 +35,10 @@ interface MobileLearningProps {
     onImportPDF: () => void;
     isImporting: boolean;
     fileInputRef: React.RefObject<HTMLInputElement>;
-    onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onFileUpload: (
+        e: React.ChangeEvent<HTMLInputElement>,
+        onImportedSemesters?: (semesters: Semester[]) => void,
+    ) => void;
     viewUserId?: string;
     isManagementUser?: boolean;
 }
@@ -188,6 +192,31 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
         setIsTranscriptEditing(true);
     };
 
+    const handleImportTranscriptPdf = async () => {
+        if (isTranscriptEditing) {
+            props.onImportPDF();
+            return;
+        }
+
+        const shouldEnableEditing = await showConfirm({
+            title: 'Cần bật chế độ sửa bảng điểm',
+            message: 'Nhập điểm từ PDF sẽ thay thế nội dung trong bản nháp. Bạn có muốn bật chế độ "Sửa điểm" và tiếp tục nhập PDF không?',
+            confirmText: 'Bật sửa và nhập PDF',
+            cancelText: 'Chưa nhập',
+            variant: 'question',
+        });
+        if (!shouldEnableEditing) return;
+
+        handleStartTranscriptEdit();
+        props.onImportPDF();
+    };
+
+    const handleImportedTranscriptSemesters = (semesters: Semester[]) => {
+        setTranscriptSaveError(null);
+        setDraftSemesters(cloneSemesters(semesters));
+        setIsTranscriptEditing(true);
+    };
+
     const handleCancelTranscriptEdit = () => {
         playClick();
         setDraftSemesters(null);
@@ -265,7 +294,7 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                 accept=".pdf"
                 ref={props.fileInputRef}
                 className="hidden"
-                onChange={props.onFileUpload}
+                onChange={(event) => props.onFileUpload(event, handleImportedTranscriptSemesters)}
             />
             {transcriptSaveError && (
                 <div className="fixed left-4 right-4 top-4 z-[100001] rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 shadow-xl">
@@ -306,7 +335,7 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                     setShowFailedModal(true);
                 }}
                 onExportPDF={props.onExportPDF}
-                onImportPDF={props.onImportPDF}
+                onImportPDF={handleImportTranscriptPdf}
                 onAddSemester={handleAddDraftSemester}
                 onUpdateSemester={handleUpdateDraftSemester}
                 onRemoveSemester={handleRemoveDraftSemester}

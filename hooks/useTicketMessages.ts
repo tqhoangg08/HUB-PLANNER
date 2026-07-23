@@ -87,11 +87,6 @@ export const useTicketMessages = (ticketId?: string) => {
         { event: '*', schema: 'public', table: 'support_tickets', filter: `id=eq.${ticketId}` },
         () => scheduleReload(500)
       )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'support_ticket_messages', filter: `ticket_id=eq.${ticketId}` },
-        () => scheduleReload(1200)
-      )
       .subscribe();
 
     return () => {

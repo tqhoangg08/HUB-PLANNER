@@ -637,13 +637,14 @@ const handleCourseRequests = async (request: Request, params: URLSearchParams) =
   if (request.method === 'GET') {
     const status = params.get('status') || 'pending'
     const search = params.get('search') || ''
-    const limit = Number(params.get('limit') || 200)
+    const pageLimit = Math.max(1, Math.min(Number(params.get('limit')) || 10, 100))
+    const pageOffset = Math.max(0, Number(params.get('offset')) || 0)
 
     let query = supabase
       .from('user_course_requests')
-      .select(USER_COURSE_REQUEST_COLUMNS)
+      .select(USER_COURSE_REQUEST_COLUMNS, { count: 'exact' })
       .order('created_at', { ascending: false })
-      .limit(limit)
+      .range(pageOffset, pageOffset + pageLimit - 1)
 
     if (status && status !== 'all') query = query.eq('status', status)
 
@@ -652,7 +653,7 @@ const handleCourseRequests = async (request: Request, params: URLSearchParams) =
       query = query.or(`subject_name.ilike.%${term}%,course_code.ilike.%${term}%,instructor.ilike.%${term}%`)
     }
 
-    const { data, error } = await query
+    const { data, error, count } = await query
     if (error) throw error
 
     const profilesMap: Record<string, any> = await fetchProfilesMap((data || []).map((item: any) => item.user_id))
@@ -661,7 +662,12 @@ const handleCourseRequests = async (request: Request, params: URLSearchParams) =
       user: profilesMap[item.user_id] || null,
     }))
 
-    return json({ success: true, data: rows })
+    return json({
+      success: true,
+      data: rows,
+      hasMore: (count || 0) > pageOffset + rows.length,
+      total: count || 0,
+    })
   }
 
   if (request.method === 'PATCH') {

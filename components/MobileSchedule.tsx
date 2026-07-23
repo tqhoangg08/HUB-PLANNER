@@ -11,7 +11,7 @@ import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
 import { TurnstileBox } from './TurnstileBox';
-import { protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
+import { ProtectedSubmitError, protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
 import { logWebError } from '../utils/logWebError';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { promptSendParserDebugFile } from '../utils/parserDebugTicket';
@@ -1213,7 +1213,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     const file = e.target.files?.[0];
     if (!file) return;
     if (!isPdfScheduleFile(file)) {
-      alert(PDF_SCHEDULE_FILE_MESSAGE);
+      await promptSendParserDebugFile({
+        kind: 'schedule',
+        file,
+        parserMessage: PDF_SCHEDULE_FILE_MESSAGE,
+      });
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -1240,7 +1244,6 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 },
                 level: 'warn',
             });
-            alert(aiData?.error ? `Không nhập được TKB.\n\n${aiData.error}\n\nDebug đã lưu ở localStorage: hub_last_schedule_import_debug` : "Không thể đọc được dữ liệu. Vui lòng đảm bảo file PDF gốc.");
             await promptSendParserDebugFile({
                 kind: 'schedule',
                 file,
@@ -1363,6 +1366,10 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             alert(`Các môn học trong file đã có sẵn trong Thời khóa biểu của bạn rồi!`);
         }
     } catch (err) {
+        if (err instanceof ProtectedSubmitError) {
+            alert(err.message);
+            return;
+        }
         const errorLogId = await logWebError({
             source: 'parser',
             action: 'save_schedule',
@@ -1377,7 +1384,6 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             },
         });
         const message = err instanceof Error ? err.message : '';
-        alert(message ? `Không nhập được TKB.\n\n${message}` : "Lỗi khi đọc PDF.");
         await promptSendParserDebugFile({
             kind: 'schedule',
             file,

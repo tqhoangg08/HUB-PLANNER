@@ -58,7 +58,7 @@ import { logActivity, logActivityQuietly } from './utils/activityLogger';
 import { AVATAR_COLOR_OPTIONS, getAvatarColorClass, getSafeAvatarColor, isAvatarImageUrl } from './utils/avatarColors';
 import { recordPolicyConsent } from './utils/policyConsent';
 import { TurnstileBox } from './components/TurnstileBox';
-import { verifyTurnstileOnly } from './utils/protectedSubmit';
+import { ProtectedSubmitError, verifyTurnstileOnly } from './utils/protectedSubmit';
 import { logWebError } from './utils/logWebError';
 import { promptSendParserDebugFile } from './utils/parserDebugTicket';
 
@@ -2012,7 +2012,10 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         exportTranscriptToPdf(data);
     };
 
-    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (
+        event: React.ChangeEvent<HTMLInputElement>,
+        onImportedSemesters?: (semesters: Semester[]) => void,
+    ) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
@@ -2052,7 +2055,6 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                     level: 'warn',
                 });
                 if (result.error) {
-                    alert(`Không nhập được bảng điểm.\n\n${result.error}\n\nDebug đã lưu ở localStorage: hub_last_transcript_import_debug`);
                     await promptSendParserDebugFile({
                         kind: 'transcript',
                         file,
@@ -2065,7 +2067,6 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                     });
                     return;
                 }
-                alert('Không nhập được bảng điểm.\n\nParser trả về 0 môn nhưng không có lỗi chi tiết. Debug đã lưu ở localStorage: hub_last_transcript_import_debug');
                 await promptSendParserDebugFile({
                     kind: 'transcript',
                     file,
@@ -2079,45 +2080,54 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 return;
             }
 
-            commitDataUpdate(prev => {
-                const newData = { ...prev, ...result.studentInfo };
+            const startYear = result.yearRanges.length > 0
+                ? Math.min(...result.yearRanges.map(y => y.start))
+                : new Date().getFullYear();
+            const reconstructSemesters: Semester[] = [];
+            const importedSemesters = result.semesters;
 
-                let startYear = result.yearRanges.length > 0
-                    ? Math.min(...result.yearRanges.map(y => y.start))
-                    : new Date().getFullYear();
+            for (let i = 0; i < 4; i++) {
+                const curStart = startYear + i;
+                const curEnd = curStart + 1;
+                const yearLabel = `Năm học ${curStart}-${curEnd}`;
 
-                const reconstructSemesters: Semester[] = [];
-                const importedSemesters = result.semesters;
+                const sem1Id = `imported_${curStart}_${curEnd}_hk1`;
+                const importedSem1 = importedSemesters.find(s => s.id === sem1Id);
+                if (importedSem1) reconstructSemesters.push(importedSem1);
+                else reconstructSemesters.push({ id: `generated_${curStart}_hk1`, name: `Học kỳ 1 ${yearLabel}`, subjects: [], trainingScore: null });
 
-                for (let i = 0; i < 4; i++) {
-                    const curStart = startYear + i;
-                    const curEnd = curStart + 1;
-                    const yearLabel = `Năm học ${curStart}-${curEnd}`;
+                const sem2Id = `imported_${curStart}_${curEnd}_hk2`;
+                const importedSem2 = importedSemesters.find(s => s.id === sem2Id);
+                if (importedSem2) reconstructSemesters.push(importedSem2);
+                else reconstructSemesters.push({ id: `generated_${curStart}_hk2`, name: `Học kỳ 2 ${yearLabel}`, subjects: [], trainingScore: null });
 
-                    const sem1Id = `imported_${curStart}_${curEnd}_hk1`;
-                    const importedSem1 = importedSemesters.find(s => s.id === sem1Id);
-                    if (importedSem1) reconstructSemesters.push(importedSem1);
-                    else reconstructSemesters.push({ id: `generated_${curStart}_hk1`, name: `Học kỳ 1 ${yearLabel}`, subjects: [], trainingScore: null });
+                const otherSems = importedSemesters.filter(s => s.id.startsWith(`imported_${curStart}_${curEnd}`) && !s.id.endsWith('hk1') && !s.id.endsWith('hk2'));
+                if (otherSems.length > 0) reconstructSemesters.push(...otherSems);
+            }
 
-                    const sem2Id = `imported_${curStart}_${curEnd}_hk2`;
-                    const importedSem2 = importedSemesters.find(s => s.id === sem2Id);
-                    if (importedSem2) reconstructSemesters.push(importedSem2);
-                    else reconstructSemesters.push({ id: `generated_${curStart}_hk2`, name: `Học kỳ 2 ${yearLabel}`, subjects: [], trainingScore: null });
+            const standardIds = reconstructSemesters.map(s => s.id);
+            const leftOvers = importedSemesters.filter(s => !standardIds.includes(s.id));
+            reconstructSemesters.push(...leftOvers);
 
-                    const otherSems = importedSemesters.filter(s => s.id.startsWith(`imported_${curStart}_${curEnd}`) && !s.id.endsWith('hk1') && !s.id.endsWith('hk2'));
-                    if (otherSems.length > 0) reconstructSemesters.push(...otherSems);
-                }
-
-                const standardIds = reconstructSemesters.map(s => s.id);
-                const leftOvers = importedSemesters.filter(s => !standardIds.includes(s.id));
-                reconstructSemesters.push(...leftOvers);
-
-                return { ...newData, semesters: reconstructSemesters };
-            });
+            if (onImportedSemesters) {
+                onImportedSemesters(reconstructSemesters);
+            } else {
+                commitDataUpdate(prev => ({
+                    ...prev,
+                    ...result.studentInfo,
+                    semesters: reconstructSemesters,
+                }));
+            }
             const firstYear = result.yearRanges.length > 0 ? Math.min(...result.yearRanges.map(y => y.start)) : '...';
-            alert(`Đã nhập thành công ${importedSubjectCount} môn và sắp xếp lại lộ trình học tập từ năm ${firstYear}`);
+            alert(onImportedSemesters
+                ? `Đã nhập ${importedSubjectCount} môn vào bản nháp từ năm ${firstYear}. Vui lòng kiểm tra lại và bấm "Lưu bảng điểm" để lưu thay đổi.`
+                : `Đã nhập thành công ${importedSubjectCount} môn và sắp xếp lại lộ trình học tập từ năm ${firstYear}`);
         } catch (error) {
             console.error(error);
+            if (error instanceof ProtectedSubmitError) {
+                alert(error.message);
+                return;
+            }
             const errorLogId = await logWebError({
                 source: 'parser',
                 action: 'import_transcript',
@@ -2129,7 +2139,6 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 },
             });
             const message = error instanceof Error ? error.message : '';
-            alert(message ? `Không nhập được bảng điểm.\n\n${message}` : "Lỗi khi đọc file PDF.");
             await promptSendParserDebugFile({
                 kind: 'transcript',
                 file,

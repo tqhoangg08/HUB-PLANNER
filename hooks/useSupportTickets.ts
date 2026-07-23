@@ -46,9 +46,6 @@ export const useSupportTickets = (filters: TicketFilters = {}) => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => {
         scheduleReload();
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_ticket_messages' }, () => {
-        scheduleReload();
-      })
       .subscribe();
 
     return () => {

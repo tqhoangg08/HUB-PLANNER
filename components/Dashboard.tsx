@@ -30,7 +30,7 @@ import { exportTranscriptToExcel } from '../utils/excelExport';
 import { PROFILE_PRIVATE_TABLE, fetchProfilePrivate, updateProfilePrivate } from '../utils/profilePrivate';
 import PushNotificationPrompt from '../components/PushNotificationPrompt'; // Đường dẫn tùy sếp lưu ở đâu
 import { notifyModerators } from '../utils/moderatorNotifications';
-import { showAlert } from '../utils/appNotifications';
+import { showAlert, showConfirm } from '../utils/appNotifications';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
@@ -1378,7 +1378,10 @@ interface DashboardProps {
     onImportPDF: () => void;
     isImporting: boolean;
     fileInputRef: React.RefObject<HTMLInputElement>;
-    onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onFileUpload: (
+        e: React.ChangeEvent<HTMLInputElement>,
+        onImportedSemesters?: (semesters: Semester[]) => void,
+    ) => void;
     isGuest?: boolean;
     onRequireOnboarding?: () => void;
     currentUserId?: string | null;
@@ -1751,6 +1754,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
         playClick();
         setTranscriptSaveError(null);
         setDraftSemesters(cloneSemesters(baseActiveData.semesters));
+        setIsTranscriptEditing(true);
+    };
+
+    const handleImportTranscriptPdf = async () => {
+        if (isTranscriptEditing) {
+            onImportPDF();
+            return;
+        }
+
+        const shouldEnableEditing = await showConfirm({
+            title: 'Cần bật chế độ sửa bảng điểm',
+            message: 'Nhập điểm từ PDF sẽ thay thế nội dung trong bản nháp. Bạn có muốn bật chế độ "Sửa bảng điểm" và tiếp tục nhập PDF không?',
+            confirmText: 'Bật sửa và nhập PDF',
+            cancelText: 'Chưa nhập',
+            variant: 'question',
+        });
+        if (!shouldEnableEditing) return;
+
+        handleStartTranscriptEdit();
+        onImportPDF();
+    };
+
+    const handleImportedTranscriptSemesters = (semesters: Semester[]) => {
+        setTranscriptSaveError(null);
+        setDraftSemesters(cloneSemesters(semesters));
         setIsTranscriptEditing(true);
     };
 
@@ -2750,10 +2778,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <div>
                                 <input
                                     type="file" accept=".pdf" ref={fileInputRef} className="hidden"
-                                    onChange={onFileUpload}
+                                    onChange={(event) => onFileUpload(event, handleImportedTranscriptSemesters)}
                                 />
                                 <button
-                                    onClick={onImportPDF}
+                                    onClick={handleImportTranscriptPdf}
                                     disabled={isImporting}
                                     className="bg-white text-[#003375] border border-gray-300 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold hover:border-[#003375] hover:bg-blue-50 transition-colors flex items-center gap-1 sm:gap-2 disabled:opacity-70 active:scale-95"
                                 >
