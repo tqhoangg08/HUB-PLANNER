@@ -63,13 +63,13 @@ export const calculateSemesterStats = (subjects: Subject[]) => {
   // 1. Calculate RAW (Exact) values for internal calculations (Prediction)
   // Tính chính xác không làm tròn để dùng cho hàm dự báo
 const rawGPA4 = totalCredits > 0 ? totalScore4 / totalCredits : 0;
+const rawGPA10 = totalCredits > 0 ? totalScore10 / totalCredits : 0;
 
   // Thêm Number.EPSILON vào các dòng làm tròn
 let gpa10 = 0;
   let gpa4 = 0;
   if (totalCredits > 0) {
-      const raw10 = totalScore10 / totalCredits;
-      const step1_10 = Math.round((raw10 + 0.000001) * 100) / 100;
+      const step1_10 = Math.round((rawGPA10 + 0.000001) * 100) / 100;
       gpa10 = Math.round((step1_10 + 0.000001) * 10) / 10;
 
       const step1_4 = Math.round((rawGPA4 + 0.000001) * 100) / 100;
@@ -79,7 +79,8 @@ let gpa10 = 0;
   return {
     gpa10,
     gpa4,      
-    rawGPA4,   
+    rawGPA4,
+    rawGPA10,
     totalCredits,
     passedCredits,
     hasData: totalCredits > 0

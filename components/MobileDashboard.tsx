@@ -248,11 +248,16 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
                             const yearClass = year.hasData ? getDegreeClassification(year.gpa4) : '-';
                             return (
                                 <div key={year.yearId} className="bg-white border border-gray-300 rounded-lg p-3 hover:border-[#003375]/30 transition-colors">
-                                    <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-300">
+                                    <div className="flex justify-between gap-3 items-center mb-2 pb-2 border-b border-gray-300">
                                         <span className="font-bold text-gray-800 text-sm">{year.label}</span>
-                                        <span className={`font-bold text-base ${year.hasData ? 'text-[#003375]' : 'text-gray-400'}`}>
-                                            GPA: {year.hasData ? formatGpaWithoutRounding(year.rawGPA4) : '-'}
-                                        </span>
+                                        <div className="flex flex-col items-end text-xs font-bold">
+                                            <span className={year.hasData ? 'text-[#003375]' : 'text-gray-400'}>
+                                                GPA(4): {year.hasData ? formatGpaWithoutRounding(year.rawGPA4) : '-'}
+                                            </span>
+                                            <span className={year.hasData ? 'text-[#990000]' : 'text-gray-400'}>
+                                                GPA(10): {year.hasData ? formatGpaWithoutRounding(year.rawGPA10) : '-'}
+                                            </span>
+                                        </div>
                                     </div>
                                     <div className="flex justify-between items-center text-xs text-gray-600">
                                         <div className="flex gap-2">
@@ -3367,16 +3372,18 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         </div>
                                     </Link>
                                 )}
-                                <div className="grid grid-cols-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
+                                <div className="grid grid-cols-5 text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase tracking-wide border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
                                     <span className="col-span-2">Năm</span>
                                     <span className="text-center">TC</span>
-                                    <span className="text-right">GPA</span>
+                                    <span className="text-right">GPA(4)</span>
+                                    <span className="text-right">GPA(10)</span>
                                 </div>
                                 {yearlyStats.slice(0, 4).map((year) => (
-                                    <div key={year.yearId} className="grid grid-cols-4 text-[10px] sm:text-xs items-center py-1 hover:bg-gray-50 rounded px-0.5 sm:px-1 transition-colors">
+                                    <div key={year.yearId} className="grid grid-cols-5 gap-0.5 text-[9px] sm:text-[11px] items-center py-1 hover:bg-gray-50 rounded px-0.5 sm:px-1 transition-colors">
                                         <span className="col-span-2 font-medium text-gray-700 truncate pr-1" title={year.label}>{year.label.replace('Năm học ', 'NH ')}</span>
                                         <span className="text-center text-gray-500">{year.hasData ? year.totalCredits : '-'}</span>
                                         <span className="text-right font-extrabold text-[#003375]">{year.hasData ? formatGpaWithoutRounding(year.rawGPA4) : '-'}</span>
+                                        <span className="text-right font-extrabold text-[#990000]">{year.hasData ? formatGpaWithoutRounding(year.rawGPA10) : '-'}</span>
                                     </div>
                                 ))}
                             </div>
