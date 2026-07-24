@@ -117,7 +117,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
   const getStudentContext = () => {
       const stats = calculateCumulativeStats(data.semesters);
-      const degree = getDegreeClassification(stats.gpa4);
+      const degree = getDegreeClassification(stats.rawGPA4);
       const failedSubjects = data.semesters.flatMap(sem => sem.subjects)
         .filter(s => {
             const avg = calculateSubjectAverage(s);

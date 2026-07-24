@@ -102,6 +102,43 @@ const extractAcademicYearFromSemester = (sem: Semester): string | null => {
     return null;
 };
 
+const CLASSIFICATION_LABELS = ["Kém", "Yếu", "Trung bình", "Khá", "Giỏi", "Xuất sắc"] as const;
+
+const getDegreeClassificationRank = (gpa4: number): number => {
+  if (gpa4 >= 3.6) return 5;
+  if (gpa4 >= 3.2) return 4;
+  if (gpa4 >= 2.5) return 3;
+  if (gpa4 >= 2.0) return 2;
+  if (gpa4 >= 1.0) return 1;
+  return 0;
+};
+
+const getTrainingClassificationRank = (trainingScore: number): number => {
+  if (trainingScore >= 90) return 5;
+  if (trainingScore >= 80) return 4;
+  if (trainingScore >= 65) return 3;
+  if (trainingScore >= 50) return 2;
+  if (trainingScore >= 35) return 1;
+  return 0;
+};
+
+export const getDegreeClassification = (gpa4: number) => {
+  return CLASSIFICATION_LABELS[getDegreeClassificationRank(gpa4)];
+};
+
+export const getTrainingClassification = (trainingScore: number) => {
+  const trainingLabels = ["Kém", "Yếu", "Trung bình", "Khá", "Tốt", "Xuất sắc"] as const;
+  return trainingLabels[getTrainingClassificationRank(trainingScore)];
+};
+
+export const getCombinedYearClassification = (gpa4: number, trainingScore: number) => {
+  const combinedRank = Math.min(
+    getDegreeClassificationRank(gpa4),
+    getTrainingClassificationRank(trainingScore)
+  );
+  return CLASSIFICATION_LABELS[combinedRank];
+};
+
 export const calculateYearlyStats = (semesters: Semester[]) => {
     const years: Record<string, Semester[]> = {};
     
@@ -121,6 +158,17 @@ export const calculateYearlyStats = (semesters: Semester[]) => {
 
     return Object.entries(years).map(([yearId, sems]) => {
         const stats = calculateCumulativeStats(sems.map(s => ({ subjects: s.subjects })));
+        const trainingScores = sems
+          .map(semester => semester.trainingScore)
+          .filter((score): score is number => (
+            typeof score === 'number' &&
+            Number.isFinite(score) &&
+            score >= 0 &&
+            score <= 100
+          ));
+        const averageTrainingScore = trainingScores.length > 0
+          ? trainingScores.reduce((total, score) => total + score, 0) / trainingScores.length
+          : null;
         
         let label = yearId;
         if (yearId.startsWith('y')) label = `Năm ${yearId.replace('y', '')}`;
@@ -128,21 +176,17 @@ export const calculateYearlyStats = (semesters: Semester[]) => {
 
         return {
             yearId,
-            label, 
+            label,
+            averageTrainingScore,
+            trainingClassification: averageTrainingScore === null
+              ? null
+              : getTrainingClassification(averageTrainingScore),
+            combinedClassification: stats.hasData && averageTrainingScore !== null
+              ? getCombinedYearClassification(stats.rawGPA4, averageTrainingScore)
+              : null,
             ...stats
         };
     }).sort((a, b) => a.yearId.localeCompare(b.yearId));
-};
-
-export const getDegreeClassification = (gpa4: number) => {
-  const roundedGPA = Math.round(gpa4 * 10) / 10;
-
-  if (roundedGPA >= 3.6) return "Xuất sắc";
-  if (roundedGPA >= 3.2) return "Giỏi"; 
-  if (roundedGPA >= 2.5) return "Khá"; 
-  if (roundedGPA >= 2.0) return "Trung bình"; 
-  if (roundedGPA >= 1.0) return "Yếu"; 
-  return "Kém"; 
 };
 
 export const analyzeTrend = (semesters: Semester[]) => {

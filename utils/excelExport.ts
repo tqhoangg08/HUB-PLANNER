@@ -217,7 +217,7 @@ const classificationFormula = (gpaRef: string) =>
     `IF(${gpaRef}="","-",IF(${gpaRef}>=3.6,"Xuất sắc",IF(${gpaRef}>=3.2,"Giỏi",IF(${gpaRef}>=2.5,"Khá",IF(${gpaRef}>=2,"Trung bình",IF(${gpaRef}>=1,"Yếu","Kém"))))))`;
 
 const weightedAverageFormula = (valueColumn: string, creditColumn: string, includeColumn: string, startRow: number, endRow: number, totalCreditRef: string) =>
-    `IF(${totalCreditRef}=0,"",ROUND(SUMPRODUCT(${valueColumn}${startRow}:${valueColumn}${endRow},${creditColumn}${startRow}:${creditColumn}${endRow},${includeColumn}${startRow}:${includeColumn}${endRow})/${totalCreditRef},1))`;
+    `IF(${totalCreditRef}=0,"",ROUND(SUMPRODUCT(${valueColumn}${startRow}:${valueColumn}${endRow},${creditColumn}${startRow}:${creditColumn}${endRow},${includeColumn}${startRow}:${includeColumn}${endRow})/${totalCreditRef},2))`;
 
 const buildRows = (data: UserData, semesters: Semester[], academicYearLabel?: string) => {
     const rows: SheetCell[][] = [];
@@ -309,7 +309,7 @@ const buildRows = (data: UserData, semesters: Semester[], academicYearLabel?: st
             formulaCell(totalCreditsFormula, semStats.totalCredits, 5),
             formulaCell(semesterGpa10Formula, semStats.hasData ? semStats.gpa10 : '', 5),
             formulaCell(semesterGpa4Formula, semStats.hasData ? semStats.gpa4 : '', 5),
-            formulaCell(classificationFormula(`F${summaryRow}`), semStats.hasData ? getDegreeClassification(semStats.gpa4) : '-', 5, 'string'),
+            formulaCell(classificationFormula(`F${summaryRow}`), semStats.hasData ? getDegreeClassification(semStats.rawGPA4) : '-', 5, 'string'),
             centerCell(`ĐRL: ${semester.trainingScore ?? '-'}`, 5),
             ...Array.from({ length: 5 }, () => centerCell('', 5))
         ]);
@@ -347,7 +347,7 @@ const buildRows = (data: UserData, semesters: Semester[], academicYearLabel?: st
             stats.hasData ? stats.gpa4 : '',
             11
         ),
-        formulaCell(classificationFormula(`F${cumulativeRow}`), stats.hasData ? getDegreeClassification(stats.gpa4) : '-', 11, 'string'),
+        formulaCell(classificationFormula(`F${cumulativeRow}`), stats.hasData ? getDegreeClassification(stats.rawGPA4) : '-', 11, 'string'),
         formulaCell(`"Đạt: "&${cumulativePassedCreditsFormula}`, `Đạt: ${stats.passedCredits}`, 11, 'string'),
         ...Array.from({ length: 5 }, () => centerCell('', 11))
     ]);

@@ -129,7 +129,7 @@ export const exportTranscriptToPdf = async (data: UserData, options: TranscriptE
     const specName = data.specializationName || '................................';
 
     const stats = calculateCumulativeStats(validDataSemesters);
-    const classification = getDegreeClassification(stats.gpa4);
+    const classification = getDegreeClassification(stats.rawGPA4);
     const titleText = 'GIẤY CHỨNG NHẬN KẾT QUẢ HỌC TẬP';
     const subtitleText = isYearExport
     ? selectedAcademicYear

@@ -6,14 +6,14 @@ import { SubjectRankingModal } from './SubjectRankingModal';
 import { UserData, GradeStatus, Subject, Semester } from '../types';
 import {
     calculateCumulativeStats,
-    getDegreeClassification,
     calculateSubjectAverage,
     getSubjectStatus,
     calculateYearlyStats,
     calculateSemesterStats,
     analyzeTrend,
     calculateRequiredGPA,
-    getGradeDetails
+    getGradeDetails,
+    getCombinedYearClassification
 } from '../utils/calculations';
 import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CalendarDays, Check, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter, Sparkles, Bell, Edit3, Home, Lock, ShieldCheck, ClipboardList, Activity } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -33,6 +33,11 @@ import { TargetGpaTipInput } from './TargetGpaTipInput';
 
 const formatGpaWithoutRounding = (value: number) => {
     return (Math.floor((value + Number.EPSILON) * 100) / 100).toFixed(2);
+};
+
+const formatTrainingScore = (value: number | null) => {
+    if (value === null || !Number.isFinite(value)) return '-';
+    return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
 };
 
 const getScholarshipRankAssessment = (rank?: number | null) => {
@@ -245,7 +250,7 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
                 <div className="p-4 overflow-y-auto max-h-[60vh] custom-scrollbar">
                     <div className="space-y-3">
                         {stats.map((year) => {
-                            const yearClass = year.hasData ? getDegreeClassification(year.gpa4) : '-';
+                            const yearClass = year.combinedClassification || 'Chưa đủ dữ liệu';
                             return (
                                 <div key={year.yearId} className="bg-white border border-gray-300 rounded-lg p-3 hover:border-[#003375]/30 transition-colors">
                                     <div className="flex justify-between gap-3 items-center mb-2 pb-2 border-b border-gray-300">
@@ -259,12 +264,22 @@ const YearlyStatsModal = ({ stats, onClose }: { stats: any[], onClose: () => voi
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="flex justify-between items-center text-xs text-gray-600">
-                                        <div className="flex gap-2">
+                                    <div className="flex flex-wrap justify-between items-center gap-2 text-xs text-gray-600">
+                                        <div className="flex flex-wrap gap-2">
                                             <span className="bg-gray-100 px-2 py-1 rounded font-medium">TC: {year.totalCredits}</span>
                                             <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded border border-emerald-100 font-medium">Đạt: {year.passedCredits}</span>
+                                            <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded border border-amber-100 font-medium">
+                                                ĐRL năm: {formatTrainingScore(year.averageTrainingScore)}
+                                                {year.trainingClassification ? ` · ${year.trainingClassification}` : ''}
+                                            </span>
                                         </div>
-                                        <span className="font-bold text-[#003375] bg-blue-50 px-2 py-1 rounded">{yearClass}</span>
+                                        <span className={`font-bold px-2 py-1 rounded border ${
+                                            year.combinedClassification
+                                                ? 'text-[#003375] bg-blue-50 border-blue-100'
+                                                : 'text-gray-500 bg-gray-50 border-gray-200'
+                                        }`}>
+                                            Xếp loại: {yearClass}
+                                        </span>
                                     </div>
                                 </div>
                             );
@@ -462,9 +477,10 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
 
   let semGPA4 = 0;
   let semGPA10 = 0;
+  let rawSemGPA4 = 0;
   if (semTotalCredits > 0) {
-      const raw4 = semWeightedScore4 / semTotalCredits;
-      const step1_4 = Math.round((raw4 + Number.EPSILON) * 100) / 100;
+      rawSemGPA4 = semWeightedScore4 / semTotalCredits;
+      const step1_4 = Math.round((rawSemGPA4 + Number.EPSILON) * 100) / 100;
       semGPA4 = Math.round((step1_4 + Number.EPSILON) * 10) / 10;
 
       const raw10 = semWeightedScore10 / semTotalCredits;
@@ -472,7 +488,11 @@ const SemesterTable: React.FC<SemesterTableProps> = ({ semester, index, onUpdate
       semGPA10 = Math.round((step1_10 + Number.EPSILON) * 10) / 10;
   }
 
-  const classification = hasData ? getDegreeClassification(semGPA4) : '---';
+  const classification = hasData
+    ? semester.trainingScore === null || semester.trainingScore === undefined
+      ? 'Chưa đủ ĐRL'
+      : getCombinedYearClassification(rawSemGPA4, semester.trainingScore)
+    : '---';
   const scholarshipStatus = (() => {
     const drl = semester.trainingScore ?? 0;
     const credits = totalRegisteredCredits;
@@ -3372,18 +3392,27 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                         </div>
                                     </Link>
                                 )}
-                                <div className="grid grid-cols-5 text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase tracking-wide border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
+                                <div className="grid grid-cols-6 text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase tracking-wide border-b border-gray-300 pb-1 sm:pb-1.5 mb-1 sm:mb-1.5">
                                     <span className="col-span-2">Năm</span>
                                     <span className="text-center">TC</span>
                                     <span className="text-right">GPA(4)</span>
                                     <span className="text-right">GPA(10)</span>
+                                    <span className="text-right">ĐRL</span>
                                 </div>
                                 {yearlyStats.slice(0, 4).map((year) => (
-                                    <div key={year.yearId} className="grid grid-cols-5 gap-0.5 text-[9px] sm:text-[11px] items-center py-1 hover:bg-gray-50 rounded px-0.5 sm:px-1 transition-colors">
-                                        <span className="col-span-2 font-medium text-gray-700 truncate pr-1" title={year.label}>{year.label.replace('Năm học ', 'NH ')}</span>
+                                    <div key={year.yearId} className="grid grid-cols-6 gap-0.5 text-[9px] sm:text-[11px] items-center py-0.5 hover:bg-gray-50 rounded px-0.5 sm:px-1 transition-colors">
+                                        <span className="col-span-2 min-w-0 pr-1" title={year.label}>
+                                            <span className="block truncate font-medium text-gray-700">{year.label.replace('Năm học ', 'NH ')}</span>
+                                            <span className={`block truncate text-[8px] sm:text-[9px] font-bold ${
+                                                year.combinedClassification ? 'text-emerald-700' : 'text-gray-400'
+                                            }`}>
+                                                {year.combinedClassification || 'Chưa đủ ĐRL'}
+                                            </span>
+                                        </span>
                                         <span className="text-center text-gray-500">{year.hasData ? year.totalCredits : '-'}</span>
                                         <span className="text-right font-extrabold text-[#003375]">{year.hasData ? formatGpaWithoutRounding(year.rawGPA4) : '-'}</span>
                                         <span className="text-right font-extrabold text-[#990000]">{year.hasData ? formatGpaWithoutRounding(year.rawGPA10) : '-'}</span>
+                                        <span className="text-right font-extrabold text-amber-700">{formatTrainingScore(year.averageTrainingScore)}</span>
                                     </div>
                                 ))}
                             </div>
