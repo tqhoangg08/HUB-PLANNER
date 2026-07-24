@@ -17,6 +17,7 @@ import { useUserRole } from './hooks/useUserRole';
 import { supabase } from './utils/supabase';
 import { Link, Navigate, Route, Routes, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { ImportGuideModal } from './components/ImportGuideModal';
+import { TranscriptImportPreviewModal } from './components/TranscriptImportPreviewModal';
 import { UserGuideModal } from './components/UserGuideModal';
 import ProfilePage from './pages/ProfilePage';
 import ProfileSearchPage from './pages/ProfileSearchPage';
@@ -756,6 +757,13 @@ const App: React.FC = () => {
     const [showImportGuide, setShowImportGuide] = useState(false);
     const [showImportLoadingToast, setShowImportLoadingToast] = useState(false);
     const [gradeImportTurnstileToken, setGradeImportTurnstileToken] = useState('');
+    const [pendingTranscriptImport, setPendingTranscriptImport] = useState<{
+        semesters: Semester[];
+        studentInfo: Partial<UserData>;
+        importedSubjectCount: number;
+        onImportedSemesters?: (semesters: Semester[]) => void;
+    } | null>(null);
+    const [isConfirmingTranscriptImport, setIsConfirmingTranscriptImport] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
     const [showActivityLog, setShowActivityLog] = useState(false);
     const [showAccountSettings, setShowAccountSettings] = useState(false);
@@ -2109,19 +2117,12 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             const leftOvers = importedSemesters.filter(s => !standardIds.includes(s.id));
             reconstructSemesters.push(...leftOvers);
 
-            if (onImportedSemesters) {
-                onImportedSemesters(reconstructSemesters);
-            } else {
-                commitDataUpdate(prev => ({
-                    ...prev,
-                    ...result.studentInfo,
-                    semesters: reconstructSemesters,
-                }));
-            }
-            const firstYear = result.yearRanges.length > 0 ? Math.min(...result.yearRanges.map(y => y.start)) : '...';
-            alert(onImportedSemesters
-                ? `Đã nhập ${importedSubjectCount} môn vào bản nháp từ năm ${firstYear}. Vui lòng kiểm tra lại và bấm "Lưu bảng điểm" để lưu thay đổi.`
-                : `Đã nhập thành công ${importedSubjectCount} môn và sắp xếp lại lộ trình học tập từ năm ${firstYear}`);
+            setPendingTranscriptImport({
+                semesters: reconstructSemesters,
+                studentInfo: result.studentInfo,
+                importedSubjectCount,
+                onImportedSemesters,
+            });
         } catch (error) {
             console.error(error);
             if (error instanceof ProtectedSubmitError) {
@@ -2149,6 +2150,39 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             setIsImporting(false);
             setShowImportLoadingToast(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handleConfirmTranscriptImport = async () => {
+        if (!pendingTranscriptImport) return;
+        const subjectCount = pendingTranscriptImport.semesters.reduce(
+            (total, semester) => total + semester.subjects.length,
+            0,
+        );
+        if (subjectCount === 0) {
+            await showAlert('Danh sách xem trước đang trống. Vui lòng giữ lại ít nhất một môn học.');
+            return;
+        }
+
+        setIsConfirmingTranscriptImport(true);
+        try {
+            if (pendingTranscriptImport.onImportedSemesters) {
+                pendingTranscriptImport.onImportedSemesters(pendingTranscriptImport.semesters);
+            } else {
+                commitDataUpdate(prev => ({
+                    ...prev,
+                    ...pendingTranscriptImport.studentInfo,
+                    semesters: pendingTranscriptImport.semesters,
+                }));
+            }
+            setPendingTranscriptImport(null);
+            await showAlert(
+                `Đã đưa ${subjectCount} môn vào bảng điểm. Dữ liệu cũ đã được thay thế.\n\n`
+                + 'Khuyến khích bạn rà soát lại các học kỳ, tên môn, số tín chỉ và điểm số. '
+                + 'Nếu đang ở chế độ chỉnh sửa, chỉ bấm "Lưu bảng điểm" khi mọi thông tin đã chính xác.',
+            );
+        } finally {
+            setIsConfirmingTranscriptImport(false);
         }
     };
 
@@ -2313,6 +2347,18 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                             Đang xử lý PDF của bạn, vui lòng đợi giây lát...
                         </p>
                     </div>
+                )}
+
+                {pendingTranscriptImport && (
+                    <TranscriptImportPreviewModal
+                        semesters={pendingTranscriptImport.semesters}
+                        isSaving={isConfirmingTranscriptImport}
+                        onChange={semesters => setPendingTranscriptImport(current => (
+                            current ? { ...current, semesters } : current
+                        ))}
+                        onCancel={() => setPendingTranscriptImport(null)}
+                        onConfirm={handleConfirmTranscriptImport}
+                    />
                 )}
 
                 {showImportGuide && (

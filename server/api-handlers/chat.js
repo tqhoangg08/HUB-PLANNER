@@ -108,20 +108,29 @@ export default async function handler(req, res) {
                         content: message 
                     }
                 ],
-                model: "llama-3.3-70b-versatile",
+                model: process.env.GROQ_MODEL || "openai/gpt-oss-20b",
                 response_format: { type: "json_object" },
+                reasoning_effort: "low",
+                reasoning_format: "hidden",
+                max_completion_tokens: 4096,
                 temperature: 0.1, 
             });
 
-            reply = completion.choices[0]?.message?.content || "";
+            const choice = completion.choices[0];
+            if (choice?.finish_reason === "length") {
+                const truncationError = new Error("Groq đã dừng vì hết giới hạn output trước khi trích xuất xong toàn bộ dữ liệu.");
+                truncationError.status = 422;
+                throw truncationError;
+            }
+
+            reply = choice?.message?.content || "";
             success = true;
             break; 
 
         } catch (error) {
             console.error(`Lần thử ${attempt + 1} thất bại:`, error.message);
             lastError = error;
-            
-
+            if (error?.status === 422) break;
         }
     }
 
@@ -129,6 +138,12 @@ export default async function handler(req, res) {
         // Nếu thử 3 lần (3 key) mà vẫn lỗi thì đầu hàng
         if (lastError?.status === 429) {
              return res.status(429).json({ error: "System Busy", message: "Hệ thống đang quá tải, vui lòng thử lại sau vài phút." });
+        }
+        if (lastError?.status === 422) {
+             return res.status(422).json({
+               error: "Incomplete AI response",
+               message: "Dữ liệu PDF quá dài nên hệ thống chưa đọc hết. Vui lòng thử lại hoặc chia PDF thành các phần nhỏ hơn."
+             });
         }
         throw lastError || new Error("Không thể kết nối đến AI Server.");
     }

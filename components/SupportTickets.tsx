@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, FileText, Filter, HelpCircle, Image as ImageIcon, Loader2, MessageSquarePlus, MoreVertical, Paperclip, Plus, Send, Slash, StickyNote, Trash2, X } from 'lucide-react';
 import { playClick } from '../utils/audio';
+import { supabase } from '../utils/supabase';
 import { useSupportTickets } from '../hooks/useSupportTickets';
 import { useTicketMessages } from '../hooks/useTicketMessages';
 import {
@@ -380,6 +381,7 @@ export const TicketDetailView = ({ ticketId, isStaff = false }: { ticketId: stri
   const [dropActive, setDropActive] = useState(false);
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
   const [fileAccept, setFileAccept] = useState('image/jpeg,image/png,image/webp,application/pdf');
+  const [resolvedByName, setResolvedByName] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingFilesRef = useRef<PendingSupportAttachment[]>([]);
@@ -392,6 +394,42 @@ export const TicketDetailView = ({ ticketId, isStaff = false }: { ticketId: stri
   useEffect(() => {
     pendingFilesRef.current = pendingFiles;
   }, [pendingFiles]);
+
+  useEffect(() => {
+    if (!isStaff || !ticket?.resolved_at) {
+      setResolvedByName('');
+      return;
+    }
+
+    if (!ticket.resolved_by) {
+      setResolvedByName('Hệ thống');
+      return;
+    }
+
+    const fallbackName = ticket.resolved_by_role === 'user'
+      ? 'Người dùng'
+      : ticket.resolved_by_role === 'auditor'
+        ? 'Auditor'
+        : 'Nhân viên hỗ trợ';
+    setResolvedByName(fallbackName);
+
+    let cancelled = false;
+    const loadResolverName = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name,email')
+        .eq('id', ticket.resolved_by)
+        .maybeSingle();
+      if (cancelled) return;
+
+      setResolvedByName(data?.full_name || data?.email || fallbackName);
+    };
+
+    void loadResolverName();
+    return () => {
+      cancelled = true;
+    };
+  }, [isStaff, ticket?.resolved_at, ticket?.resolved_by, ticket?.resolved_by_role]);
 
   useEffect(() => () => {
     pendingFilesRef.current.forEach((item) => {
@@ -578,8 +616,8 @@ export const TicketDetailView = ({ ticketId, isStaff = false }: { ticketId: stri
         </div>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-[#F8FAFC] px-3 py-3">
-        <div className="mx-auto flex max-w-4xl flex-col gap-2">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-[#F8FAFC] px-2 py-3">
+        <div className="flex w-full flex-col gap-2">
           {hasOlder && (
             <button
               type="button"
@@ -608,6 +646,17 @@ export const TicketDetailView = ({ ticketId, isStaff = false }: { ticketId: stri
               </div>
             );
           })}
+          {isStaff && isClosed && ticket.resolved_at && (
+            <div className="my-2 flex w-full items-center gap-3 px-1">
+              <span className="h-px flex-1 bg-emerald-200" />
+              <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-black text-emerald-700">
+                <CheckCircle2 size={14} />
+                <span>{resolvedByName} đã đánh dấu đã xử lý</span>
+                <span className="font-bold text-emerald-600/70">· {formatDateTime(ticket.resolved_at)}</span>
+              </div>
+              <span className="h-px flex-1 bg-emerald-200" />
+            </div>
+          )}
         </div>
       </div>
 

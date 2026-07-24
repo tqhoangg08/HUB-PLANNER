@@ -47,8 +47,11 @@ const callGroq = async (apiKey: string, message: string) => {
         },
         { role: 'user', content: message },
       ],
-      model: Deno.env.get('GROQ_MODEL') || 'llama-3.3-70b-versatile',
+      model: Deno.env.get('GROQ_MODEL') || 'openai/gpt-oss-20b',
       response_format: { type: 'json_object' },
+      reasoning_effort: 'low',
+      reasoning_format: 'hidden',
+      max_completion_tokens: 4096,
       temperature: 0.1,
     }),
   })
@@ -60,7 +63,13 @@ const callGroq = async (apiKey: string, message: string) => {
     throw error
   }
   const payload = JSON.parse(responseText)
-  return payload.choices?.[0]?.message?.content || ''
+  const choice = payload.choices?.[0]
+  if (choice?.finish_reason === 'length') {
+    const error: any = new Error('Groq đã dừng vì hết giới hạn output trước khi trích xuất xong toàn bộ dữ liệu.')
+    error.status = 422
+    throw error
+  }
+  return choice?.message?.content || ''
 }
 
 Deno.serve(async (req) => {
@@ -117,11 +126,18 @@ Deno.serve(async (req) => {
       } catch (error) {
         lastError = error
         console.error(`Chat attempt ${attempt + 1} failed:`, error)
+        if ((error as any)?.status === 422) break
       }
     }
 
     if (lastError?.status === 429) {
       return json({ error: 'System Busy', message: 'Hệ thống đang quá tải, vui lòng thử lại sau vài phút.' }, 429, rateHeaders)
+    }
+    if (lastError?.status === 422) {
+      return json({
+        error: 'Incomplete AI response',
+        message: 'Dữ liệu PDF quá dài nên hệ thống chưa đọc hết. Vui lòng thử lại hoặc chia PDF thành các phần nhỏ hơn.',
+      }, 422, rateHeaders)
     }
     throw lastError || new Error('Không thể kết nối AI Server.')
   } catch (error) {

@@ -30,6 +30,71 @@ const saveImportDebug = (payload: Record<string, any>) => {
     }
 };
 
+interface PositionedPdfItem {
+    text: string;
+    x: number;
+    y: number;
+    width: number;
+}
+
+interface PositionedPdfRow {
+    pageNumber: number;
+    y: number;
+    items: PositionedPdfItem[];
+    text: string;
+}
+
+const extractPageRows = (items: any[], pageNumber: number): PositionedPdfRow[] => {
+    const positionedItems = items
+        .filter((item: any) => typeof item?.str === 'string' && item.str.trim())
+        .map((item: any) => ({
+            text: item.str.trim(),
+            x: Number(item.transform?.[4] ?? 0),
+            y: Number(item.transform?.[5] ?? 0),
+            width: Number(item.width ?? 0),
+        }));
+
+    const rows: Array<{
+        y: number;
+        items: PositionedPdfItem[];
+    }> = [];
+
+    for (const item of positionedItems.sort((a: any, b: any) => b.y - a.y || a.x - b.x)) {
+        let row = rows.find(candidate => Math.abs(candidate.y - item.y) <= 2.5);
+        if (!row) {
+            row = { y: item.y, items: [] };
+            rows.push(row);
+        }
+        row.items.push(item);
+    }
+
+    return rows
+        .sort((a, b) => b.y - a.y)
+        .map(row => {
+            const sortedItems = row.items.sort((a, b) => a.x - b.x);
+            let previousEnd: number | null = null;
+
+            const text = sortedItems.map(item => {
+                const gap = previousEnd === null ? 0 : item.x - previousEnd;
+                const separator = previousEnd === null ? '' : gap > 8 ? ' | ' : ' ';
+                previousEnd = Math.max(previousEnd ?? item.x, item.x + item.width);
+                return `${separator}${item.text}`;
+            }).join('').trim();
+
+            return {
+                pageNumber,
+                y: row.y,
+                items: sortedItems,
+                text,
+            };
+        })
+        .filter(row => row.text);
+};
+
+const renderPageRows = (rows: PositionedPdfRow[]): string => {
+    return rows.map(row => row.text).join('\n');
+};
+
 const extractJsonObject = (raw: string): any | null => {
     const cleanText = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
 
@@ -111,6 +176,241 @@ const getFirstArray = (source: any, keys: string[]) => {
     return null;
 };
 
+const NON_GPA_KEYWORDS = [
+    'gdtc',
+    'thể chất',
+    'the chat',
+    'quốc phòng',
+    'quoc phong',
+    'an ninh',
+    'đầu vào',
+    'dau vao',
+    'quân sự',
+    'quan su',
+    'chiến đấu',
+    'chien dau',
+];
+
+interface DirectHubSemester extends Semester {
+    expectedCredits: number | null;
+}
+
+interface DirectHubParseResult {
+    studentInfo: Partial<UserData>;
+    semesters: Semester[];
+    yearRanges: { start: number; end: number }[];
+    detectedSemesterCount: number;
+    subjectCount: number;
+    creditChecks: Array<{
+        semesterId: string;
+        expected: number | null;
+        actual: number;
+        valid: boolean;
+    }>;
+    reliable: boolean;
+}
+
+const findItemInXRange = (
+    row: PositionedPdfRow,
+    minX: number,
+    maxX: number,
+    predicate?: (text: string) => boolean,
+) => row.items.find(item =>
+    item.x >= minX
+    && item.x < maxX
+    && (!predicate || predicate(item.text))
+);
+
+const parseHubTranscriptRows = (rows: PositionedPdfRow[]): DirectHubParseResult => {
+    const studentInfo: Partial<UserData> = {};
+    const parsedSemesters: DirectHubSemester[] = [];
+    const yearRanges: { start: number; end: number }[] = [];
+    let currentSemester: DirectHubSemester | null = null;
+    let detectedSemesterCount = 0;
+    let lastCourse: { subject: Subject; pageNumber: number; y: number } | null = null;
+    let pendingNameLine: { text: string; pageNumber: number; y: number } | null = null;
+
+    for (const row of rows) {
+        const studentMatch = row.text.match(/(.+?)\s*\[\s*Mã\s*số\s*:\s*([^\]]+)\]/i);
+        if (studentMatch) {
+            (studentInfo as any).studentName = studentMatch[1].trim();
+            (studentInfo as any).studentCode = studentMatch[2].trim();
+        }
+
+        const programMatch = row.text.match(/Chương trình đào tạo\s*:\s*(.+?)(?:\s*\|\s*Kết quả\s*:|$)/i);
+        if (programMatch) {
+            (studentInfo as any).majorName = programMatch[1].replace(/\s*\|\s*/g, ' ').trim();
+        }
+
+        const semesterMatch = row.text.match(/Học\s*kỳ\s*(1|2|3|Hè)\s*\/\s*(20\d{2})\s*-\s*(20\d{2})/i);
+        if (semesterMatch) {
+            const rawSemester = semesterMatch[1].toLowerCase();
+            const semesterNo: 1 | 2 | 'Hè' = rawSemester === '1'
+                ? 1
+                : rawSemester === '2'
+                    ? 2
+                    : 'Hè';
+            const startYear = Number(semesterMatch[2]);
+            const endYear = Number(semesterMatch[3]);
+            const semesterId = `imported_${startYear}_${endYear}_hk${semesterNo}`;
+
+            currentSemester = {
+                id: semesterId,
+                name: `Học kỳ ${semesterNo} Năm học ${startYear}-${endYear}`,
+                subjects: [],
+                trainingScore: null,
+                expectedCredits: null,
+            };
+            parsedSemesters.push(currentSemester);
+            detectedSemesterCount += 1;
+            lastCourse = null;
+            pendingNameLine = null;
+
+            if (!yearRanges.some(range => range.start === startYear && range.end === endYear)) {
+                yearRanges.push({ start: startYear, end: endYear });
+            }
+            continue;
+        }
+
+        if (!currentSemester) continue;
+
+        if (/Điểm\s*rèn\s*luyện/i.test(row.text)) {
+            const trainingItem = findItemInXRange(row, 530, 570, text => /^\d{1,3}$/.test(text.trim()));
+            const trainingScore = trainingItem ? Number(trainingItem.text) : Number.NaN;
+            if (Number.isFinite(trainingScore)) currentSemester.trainingScore = trainingScore;
+            lastCourse = null;
+            pendingNameLine = null;
+            continue;
+        }
+
+        if (/STC\s*Đậu/i.test(row.text)) {
+            const creditTotalItem = findItemInXRange(row, 530, 570, text => /^\d+(?:[.,]\d+)?$/.test(text.trim()));
+            const expectedCredits = creditTotalItem
+                ? Number.parseFloat(creditTotalItem.text.replace(',', '.'))
+                : Number.NaN;
+            if (Number.isFinite(expectedCredits)) currentSemester.expectedCredits = expectedCredits;
+            lastCourse = null;
+            pendingNameLine = null;
+            continue;
+        }
+
+        const sequenceItem = findItemInXRange(row, 190, 220, text => /^\d+$/.test(text.trim()));
+        const codeItem = findItemInXRange(row, 220, 304, text => /^[A-Z0-9][A-Z0-9_.-]*$/i.test(text.trim()));
+        const creditItem = findItemInXRange(row, 528, 570, text => /^\d+(?:[.,]\d+)?$/.test(text.trim()));
+
+        if (sequenceItem && codeItem && creditItem) {
+            const inlineName = row.items
+                .filter(item => item.x >= 300 && item.x < 528)
+                .map(item => item.text)
+                .join(' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            const prefixedName = pendingNameLine
+                && pendingNameLine.pageNumber === row.pageNumber
+                && pendingNameLine.y - row.y > 0
+                && pendingNameLine.y - row.y <= 8
+                ? pendingNameLine.text
+                : '';
+            const name = [prefixedName, inlineName].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+            pendingNameLine = null;
+            const rawCredits = Number.parseFloat(creditItem.text.replace(',', '.'));
+            const scoreItem = findItemInXRange(
+                row,
+                630,
+                692,
+                text => /^-?\d+(?:[.,]\d+)?$|^(?:M|Đạt)$/i.test(text.trim()),
+            );
+            const { score, isNonGPA: nonNumericScore } = normalizeScore(scoreItem?.text);
+            const normalizedName = name || codeItem.text.trim();
+            const nameLower = normalizedName.toLowerCase();
+            const isNonGPA = nonNumericScore
+                || rawCredits === 0
+                || NON_GPA_KEYWORDS.some(keyword => nameLower.includes(keyword));
+            const subjectIndex = currentSemester.subjects.length;
+            const subject: Subject = {
+                id: `hub_pdf_${currentSemester.id}_${subjectIndex}`,
+                name: normalizedName,
+                credits: Number.isFinite(rawCredits) ? rawCredits : 0,
+                scoreCC: score,
+                scoreProcess: score,
+                scoreMid: score,
+                scoreFinal: score,
+                isNonGPA,
+            };
+
+            currentSemester.subjects.push(subject);
+            lastCourse = {
+                subject,
+                pageNumber: row.pageNumber,
+                y: row.y,
+            };
+            continue;
+        }
+
+        if (
+            lastCourse
+            && lastCourse.pageNumber === row.pageNumber
+            && lastCourse.y - row.y > 0
+            && lastCourse.y - row.y <= 8
+        ) {
+            const continuation = row.items
+                .filter(item => item.x >= 300 && item.x < 528)
+                .map(item => item.text)
+                .join(' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            if (continuation) {
+                lastCourse.subject.name = `${lastCourse.subject.name} ${continuation}`.replace(/\s+/g, ' ').trim();
+                continue;
+            }
+        }
+
+        const potentialNameLine = row.items
+            .filter(item => item.x >= 300 && item.x < 528)
+            .map(item => item.text)
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (
+            potentialNameLine
+            && !/Tên\s*học\s*phần|Điểm\s*Trung\s*Bình|STC|Điểm\s*rèn\s*luyện/i.test(potentialNameLine)
+        ) {
+            pendingNameLine = {
+                text: potentialNameLine,
+                pageNumber: row.pageNumber,
+                y: row.y,
+            };
+        }
+    }
+
+    const creditChecks = parsedSemesters.map(semester => {
+        const actual = semester.subjects.reduce((total, subject) => total + subject.credits, 0);
+        return {
+            semesterId: semester.id,
+            expected: semester.expectedCredits,
+            actual,
+            valid: semester.expectedCredits === null || Math.abs(actual - semester.expectedCredits) < 0.001,
+        };
+    });
+    const semesters = parsedSemesters.map(({ expectedCredits: _expectedCredits, ...semester }) => semester);
+    const subjectCount = semesters.reduce((total, semester) => total + semester.subjects.length, 0);
+    const reliable = detectedSemesterCount > 0
+        && semesters.length === detectedSemesterCount
+        && semesters.every(semester => semester.subjects.length > 0)
+        && creditChecks.every(check => check.valid);
+
+    return {
+        studentInfo,
+        semesters,
+        yearRanges,
+        detectedSemesterCount,
+        subjectCount,
+        creditChecks,
+        reliable,
+    };
+};
+
 // ==========================================
 // 🛡️ PHẦN 1: BỘ LỌC CHỐNG SPAM
 // ==========================================
@@ -179,11 +479,15 @@ CẤU TRÚC JSON YÊU CẦU (Bắt buộc tuân thủ):
 }
 
 QUY TẮC QUAN TRỌNG:
-1. Tìm tất cả các học kỳ.
+1. Tìm và trả về TẤT CẢ các học kỳ xuất hiện trong toàn bộ văn bản, không chỉ học kỳ đầu tiên. Trước khi trả kết quả, phải tự đếm số tiêu đề học kỳ trong đầu vào và bảo đảm mảng "hoc_ky" có đủ số học kỳ tương ứng.
 2. Tự động sửa lỗi dính chữ.
 3. Nếu là học kỳ Hè/Học kỳ phụ, ở trường "hoc_ky_so" bắt buộc ghi là "Hè" hoặc 3.
 4. Nếu điểm là "M", "Đạt" hoặc môn thể chất/quốc phòng -> ghi vào "diem_so".
-5. Chỉ trả về JSON thuần.
+5. Văn bản đầu vào được giữ theo từng dòng của PDF. Dấu "|" biểu thị khoảng cách giữa các cụm/cột trên cùng một dòng.
+6. "tin_chi" chỉ được lấy đúng từ cột có tiêu đề "Số tín chỉ", "Tín chỉ" hoặc "TC" trên cùng dòng của môn học. Tuyệt đối không lấy STT, lần học, hệ số, điểm hệ 4, điểm hệ 10 hay số thứ tự học kỳ làm tín chỉ.
+7. Không tự suy đoán tín chỉ. Nếu không xác định rõ giá trị trong đúng cột tín chỉ thì trả về 0 để sinh viên kiểm tra, không được tự điền 1.
+8. Giữ nguyên tên môn và đối chiếu lại từng dòng trước khi trả kết quả.
+9. Chỉ trả về JSON thuần, viết gọn, không thêm giải thích và không bỏ bớt học kỳ để rút ngắn câu trả lời.
 `;
 
 // ==========================================
@@ -238,17 +542,47 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     result.debug = { ...result.debug, stage: 'pdf-loaded', pages: pdf.numPages };
     let fullText = '';
+    const positionedRows: PositionedPdfRow[] = [];
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        fullText += textContent.items.map((item: any) => item.str).join(' ') + '\n';
+        const pageRows = extractPageRows(textContent.items as any[], i);
+        positionedRows.push(...pageRows);
+        fullText += `\n=== TRANG ${i} ===\n${renderPageRows(pageRows)}\n`;
     }
-    fullText = fullText.replace(/\s+/g, ' ');
+    fullText = fullText
+        .split('\n')
+        .map(line => line.replace(/[ \t]+/g, ' ').trim())
+        .filter(Boolean)
+        .join('\n');
     result.debug = { ...result.debug, stage: 'pdf-text-extracted', textLength: fullText.length };
 
     if (fullText.length < 80) {
         result.error = 'PDF không trích xuất được đủ văn bản. Hãy dùng file PDF gốc dạng text, không phải ảnh scan.';
         saveImportDebug(result.debug || {});
+        return result;
+    }
+
+    const directResult = parseHubTranscriptRows(positionedRows);
+    result.debug = {
+        ...result.debug,
+        stage: 'hub-layout-parser-completed',
+        directDetectedSemesterCount: directResult.detectedSemesterCount,
+        directSubjectCount: directResult.subjectCount,
+        directCreditChecks: directResult.creditChecks,
+        directReliable: directResult.reliable,
+    };
+
+    if (directResult.reliable) {
+        result.studentInfo = directResult.studentInfo;
+        result.semesters = directResult.semesters;
+        result.yearRanges = directResult.yearRanges;
+        result.debug = {
+            ...result.debug,
+            stage: 'hub-layout-parser-success',
+            mappedSemesterCount: result.semesters.length,
+        };
+        saveImportDebug(result.debug);
         return result;
     }
 

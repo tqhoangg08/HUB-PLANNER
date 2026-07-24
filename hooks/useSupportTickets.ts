@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../utils/supabase';
 import {
+  fetchSupportTicketPage,
   fetchSupportTickets,
   SupportTicket,
   TicketFilters,
@@ -10,6 +11,7 @@ export const useSupportTickets = (filters: TicketFilters = {}) => {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
   const reloadTimerRef = useRef<number | null>(null);
 
   const filterKey = useMemo(() => JSON.stringify(filters), [filters]);
@@ -18,8 +20,15 @@ export const useSupportTickets = (filters: TicketFilters = {}) => {
     setLoading(true);
     setError(null);
     try {
-      const nextTickets = await fetchSupportTickets(filters);
-      setTickets(nextTickets);
+      if (filters.pageSize) {
+        const result = await fetchSupportTicketPage(filters);
+        setTickets(result.tickets);
+        setTotal(result.total);
+      } else {
+        const nextTickets = await fetchSupportTickets(filters);
+        setTickets(nextTickets);
+        setTotal(nextTickets.length);
+      }
     } catch (err: any) {
       setError(err?.message || 'Không thể tải danh sách ticket.');
     } finally {
@@ -57,5 +66,5 @@ export const useSupportTickets = (filters: TicketFilters = {}) => {
     };
   }, [filterKey, reload]);
 
-  return { tickets, loading, error, reload, setTickets };
+  return { tickets, total, loading, error, reload, setTickets };
 };

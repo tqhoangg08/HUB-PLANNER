@@ -482,6 +482,29 @@ const resolveSupportTicket = async (request, response) => {
   return response.status(200).json({ ticket: data });
 };
 
+const resolveAllOpenSupportTickets = async (request, response) => {
+  const user = await requireAuthenticatedUser(request);
+  const isStaff = await isSupportStaffUser(user.id);
+  if (!isStaff) {
+    return response.status(403).json({ error: 'Chỉ nhân sự hỗ trợ mới có thể xử lý tất cả ticket.' });
+  }
+
+  const resolvedAt = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('support_tickets')
+    .update({
+      status: 'resolved',
+      resolved_at: resolvedAt,
+      resolved_by: user.id,
+      resolved_by_role: 'admin',
+    })
+    .in('status', ['open', 'pending'])
+    .select('id');
+  if (error) throw error;
+
+  return response.status(200).json({ resolved_count: data?.length || 0 });
+};
+
 const deleteSupportTicketHard = async (request, response) => {
   const user = await requireAuthenticatedUser(request);
   const { ticket_id: ticketId } = request.body || {};
@@ -521,6 +544,7 @@ const deleteSupportTicketHard = async (request, response) => {
 const supportTicketsHandler = async (request, response) => {
   const action = request.body?.action;
   if (action === 'resolve-ticket') return await resolveSupportTicket(request, response);
+  if (action === 'resolve-all-open-tickets') return await resolveAllOpenSupportTickets(request, response);
   if (action === 'delete-ticket') return await deleteSupportTicketHard(request, response);
   if (action === 'message-created') return await processSupportMessageCreated(request, response);
   return response.status(400).json({ error: 'Thao tác ticket hỗ trợ không hợp lệ.' });

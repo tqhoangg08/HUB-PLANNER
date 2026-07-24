@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Filter, Loader2, Search, ShieldCheck } from 'lucide-react';
+import { CheckCheck, ChevronLeft, ChevronRight, Filter, Loader2, Search, ShieldCheck } from 'lucide-react';
 import { useSupportTickets } from '../hooks/useSupportTickets';
 import { useTicketMessages } from '../hooks/useTicketMessages';
+import { showAlert, showConfirm } from '../utils/appNotifications';
 import {
   fetchSupportStaff,
   SUPPORT_CATEGORY_LABELS,
@@ -13,6 +14,7 @@ import {
   SupportTicketPriority,
   SupportTicketStatus,
   isSupportTicketClosed,
+  resolveAllOpenSupportTickets,
   resolveSupportTicket,
   updateSupportTicket,
 } from '../utils/supportTicketsApi';
@@ -21,6 +23,7 @@ import { TicketDetailView } from './SupportTickets';
 const categories = Object.keys(SUPPORT_CATEGORY_LABELS) as SupportTicketCategory[];
 const priorities = Object.keys(SUPPORT_PRIORITY_LABELS) as SupportTicketPriority[];
 const statuses = Object.keys(SUPPORT_STATUS_LABELS) as SupportTicketStatus[];
+const SUPPORT_TICKET_PAGE_SIZE = 10;
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return '';
@@ -54,12 +57,67 @@ const AdminTicketList = () => {
   const [priority, setPriority] = useState<SupportTicketPriority | 'all'>('all');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const { tickets, loading, error } = useSupportTickets({ isStaff: true, status, category, priority, search: debouncedSearch });
+  const [resolvingAll, setResolvingAll] = useState(false);
+  const [page, setPage] = useState(1);
+  const { tickets, total, loading, error, reload } = useSupportTickets({
+    isStaff: true,
+    status,
+    category,
+    priority,
+    search: debouncedSearch,
+    page,
+    pageSize: SUPPORT_TICKET_PAGE_SIZE,
+  });
+  const totalPages = Math.max(1, Math.ceil(total / SUPPORT_TICKET_PAGE_SIZE));
+  const firstVisibleTicket = total === 0 ? 0 : (page - 1) * SUPPORT_TICKET_PAGE_SIZE + 1;
+  const lastVisibleTicket = Math.min(page * SUPPORT_TICKET_PAGE_SIZE, total);
+  const pageNumbers = Array.from(new Set([1, page - 1, page, page + 1, totalPages]))
+    .filter((pageNumber) => pageNumber >= 1 && pageNumber <= totalPages)
+    .sort((left, right) => left - right);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(search), 400);
+    const timer = window.setTimeout(() => {
+      setPage(1);
+      setDebouncedSearch(search);
+    }, 400);
     return () => window.clearTimeout(timer);
   }, [search]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const handleResolveAll = async () => {
+    const confirmed = await showConfirm({
+      title: 'Đánh dấu đã xử lý tất cả ticket?',
+      message: 'Toàn bộ ticket đang ở trạng thái Mới hoặc Đang xử lý sẽ được chuyển sang Đã giải quyết và đóng chat. Người dùng sẽ không thể gửi thêm tin nhắn trong các ticket này.',
+      confirmText: 'Đã xử lý tất cả',
+      cancelText: 'Hủy',
+      variant: 'warning',
+    });
+    if (!confirmed) return;
+
+    setResolvingAll(true);
+    try {
+      const result = await resolveAllOpenSupportTickets();
+      await reload();
+      await showAlert({
+        title: 'Đã xử lý tất cả ticket',
+        message: result.resolved_count > 0
+          ? `Đã đóng ${result.resolved_count} ticket chưa xử lý.`
+          : 'Hiện không còn ticket nào cần xử lý.',
+        variant: 'success',
+      });
+    } catch (resolveError: any) {
+      await showAlert({
+        title: 'Không thể xử lý tất cả ticket',
+        message: resolveError?.message || 'Vui lòng thử lại.',
+        variant: 'warning',
+      });
+    } finally {
+      setResolvingAll(false);
+    }
+  };
 
   return (
     <section className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-2 py-2 sm:py-0">
@@ -70,8 +128,19 @@ const AdminTicketList = () => {
                 </h2>
           <p className="mt-1 text-sm text-slate-500">Quản lý ticket hỗ trợ 1-1 giữa user và admin/auditor.</p>
         </div>
-        <div className="inline-flex h-9 items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 text-sm font-black text-emerald-700">
-          <ShieldCheck size={16} /> Staff mode
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleResolveAll}
+            disabled={resolvingAll || loading}
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+          >
+            {resolvingAll ? <Loader2 size={16} className="animate-spin" /> : <CheckCheck size={16} />}
+            Đã xử lý tất cả
+          </button>
+          <div className="inline-flex h-9 items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 text-sm font-black text-emerald-700">
+            <ShieldCheck size={16} /> Staff mode
+          </div>
         </div>
       </div>
 
@@ -80,9 +149,9 @@ const AdminTicketList = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
           <input value={search} onChange={(event) => setSearch(event.target.value)} className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-[#003375] focus:ring-4 focus:ring-blue-50" placeholder="Tìm theo tiêu đề, email, MSSV" />
         </label>
-        <SelectFilter value={status} onChange={(value) => setStatus(value as SupportTicketStatus | 'all')} items={statuses} labels={SUPPORT_STATUS_LABELS} allLabel="Tất cả trạng thái" />
-        <SelectFilter value={category} onChange={(value) => setCategory(value as SupportTicketCategory | 'all')} items={categories} labels={SUPPORT_CATEGORY_LABELS} allLabel="Tất cả loại vấn đề" />
-        <SelectFilter value={priority} onChange={(value) => setPriority(value as SupportTicketPriority | 'all')} items={priorities} labels={SUPPORT_PRIORITY_LABELS} allLabel="Tất cả ưu tiên" />
+        <SelectFilter value={status} onChange={(value) => { setPage(1); setStatus(value as SupportTicketStatus | 'all'); }} items={statuses} labels={SUPPORT_STATUS_LABELS} allLabel="Tất cả trạng thái" />
+        <SelectFilter value={category} onChange={(value) => { setPage(1); setCategory(value as SupportTicketCategory | 'all'); }} items={categories} labels={SUPPORT_CATEGORY_LABELS} allLabel="Tất cả loại vấn đề" />
+        <SelectFilter value={priority} onChange={(value) => { setPage(1); setPriority(value as SupportTicketPriority | 'all'); }} items={priorities} labels={SUPPORT_PRIORITY_LABELS} allLabel="Tất cả ưu tiên" />
       </div>
 
       {loading ? (
@@ -95,28 +164,77 @@ const AdminTicketList = () => {
         <div className="rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-500">Không có ticket phù hợp bộ lọc.</div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-100 bg-white">
-          <div className="hidden grid-cols-[1.5fr_1fr_0.8fr_0.8fr_1fr] gap-3 border-b border-slate-100 bg-slate-50 px-3 py-2.5 text-[11px] font-black uppercase tracking-wide text-slate-500 md:grid">
-            <span>Ticket</span>
-            <span>User</span>
-            <span>Trạng thái</span>
-            <span>Ưu tiên</span>
-            <span>Cập nhật</span>
+          <div>
+            <div className="hidden grid-cols-[1.5fr_1fr_0.8fr_0.8fr_1fr] gap-3 border-b border-slate-100 bg-slate-50 px-3 py-2.5 text-[11px] font-black uppercase tracking-wide text-slate-500 md:grid">
+              <span>Ticket</span>
+              <span>User</span>
+              <span>Trạng thái</span>
+              <span>Ưu tiên</span>
+              <span>Cập nhật</span>
+            </div>
+            {tickets.map((ticket) => (
+              <Link key={ticket.id} to={`/admin/support/${ticket.id}`} className="grid gap-2 border-b border-slate-100 px-3 py-3 transition hover:bg-blue-50/40 md:grid-cols-[1.5fr_1fr_0.8fr_0.8fr_1fr] md:items-center">
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-black text-slate-950">{ticket.subject}</h2>
+                  <p className="mt-1 text-[11px] font-bold text-slate-500">{SUPPORT_CATEGORY_LABELS[ticket.category]}</p>
+                </div>
+                <div className="min-w-0 text-xs font-bold text-slate-600">
+                  <p className="truncate">{ticket.user?.full_name || ticket.user?.email || 'User'}</p>
+                  <p className="truncate text-slate-400">{ticket.user?.student_code || ticket.user?.email || ticket.user_id}</p>
+                </div>
+                <span className="w-fit rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[11px] font-black text-blue-700">{SUPPORT_STATUS_LABELS[ticket.status]}</span>
+                <span className="text-xs font-black text-slate-600">{SUPPORT_PRIORITY_LABELS[ticket.priority]}</span>
+                <span className="text-xs font-bold text-slate-500">{formatDateTime(ticket.last_message_at || ticket.updated_at)}</span>
+              </Link>
+            ))}
           </div>
-          {tickets.map((ticket) => (
-            <Link key={ticket.id} to={`/admin/support/${ticket.id}`} className="grid gap-2 border-b border-slate-100 px-3 py-3 transition last:border-b-0 hover:bg-blue-50/40 md:grid-cols-[1.5fr_1fr_0.8fr_0.8fr_1fr] md:items-center">
-              <div className="min-w-0">
-                <h2 className="truncate text-sm font-black text-slate-950">{ticket.subject}</h2>
-                <p className="mt-1 text-[11px] font-bold text-slate-500">{SUPPORT_CATEGORY_LABELS[ticket.category]}</p>
-              </div>
-              <div className="min-w-0 text-xs font-bold text-slate-600">
-                <p className="truncate">{ticket.user?.full_name || ticket.user?.email || 'User'}</p>
-                <p className="truncate text-slate-400">{ticket.user?.student_code || ticket.user?.email || ticket.user_id}</p>
-              </div>
-              <span className="w-fit rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[11px] font-black text-blue-700">{SUPPORT_STATUS_LABELS[ticket.status]}</span>
-              <span className="text-xs font-black text-slate-600">{SUPPORT_PRIORITY_LABELS[ticket.priority]}</span>
-              <span className="text-xs font-bold text-slate-500">{formatDateTime(ticket.last_message_at || ticket.updated_at)}</span>
-            </Link>
-          ))}
+          <div className="flex flex-col gap-2 border-t border-slate-100 bg-slate-50/70 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-xs font-bold text-slate-500">
+              Hiển thị {firstVisibleTicket}-{lastVisibleTicket} trong {total} ticket
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={page === 1 || loading}
+                className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:text-[#003375] disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Trang trước"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              {pageNumbers.map((pageNumber, index) => {
+                const previousPageNumber = pageNumbers[index - 1];
+                return (
+                  <React.Fragment key={pageNumber}>
+                    {previousPageNumber && pageNumber - previousPageNumber > 1 && (
+                      <span className="px-1 text-xs font-black text-slate-400">…</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setPage(pageNumber)}
+                      disabled={loading}
+                      className={`h-8 min-w-8 rounded-lg px-2 text-xs font-black transition ${
+                        pageNumber === page
+                          ? 'bg-[#003375] text-white'
+                          : 'border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-[#003375]'
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                disabled={page === totalPages || loading}
+                className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:text-[#003375] disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="Trang sau"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </section>

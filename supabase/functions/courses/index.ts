@@ -100,6 +100,97 @@ const COURSE_SCHEDULE_SUMMARY_COLUMNS = [
   'is_user_added',
 ].join(', ')
 const USER_COURSE_REQUEST_COLUMNS = 'id, user_id, subject_name, course_code, instructor, status, created_at'
+const normalizeCourseCode = (value: unknown = '') => {
+  const tokens = String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .split('_')
+    .filter(Boolean)
+
+  let semesterIndex = -1
+  for (let index = tokens.length - 1; index >= 0; index -= 1) {
+    if (/^\d{2}[123](?:1)?$/.test(tokens[index])) {
+      semesterIndex = index
+      break
+    }
+  }
+
+  if (semesterIndex < 0) return tokens.join('_')
+
+  tokens[semesterIndex] = tokens[semesterIndex].slice(0, 3)
+  if (tokens[semesterIndex + 1] === '1') tokens.splice(semesterIndex + 1, 1)
+  return tokens.join('_')
+}
+
+const buildEquivalentCourseCodes = (value: unknown = '') => {
+  const canonical = normalizeCourseCode(value)
+  const tokens = canonical.split('_').filter(Boolean)
+  let semesterIndex = -1
+  for (let index = tokens.length - 1; index >= 0; index -= 1) {
+    if (/^\d{2}[123]$/.test(tokens[index])) {
+      semesterIndex = index
+      break
+    }
+  }
+
+  if (semesterIndex < 0) return canonical ? [canonical] : []
+
+  const withStandalonePhase = [...tokens]
+  withStandalonePhase.splice(semesterIndex + 1, 0, '1')
+  const withCompactSemester = [...tokens]
+  withCompactSemester[semesterIndex] = `${withCompactSemester[semesterIndex]}1`
+  const withCompactSemesterAndPhase = [...withCompactSemester]
+  withCompactSemesterAndPhase.splice(semesterIndex + 1, 0, '1')
+
+  return [...new Set([
+    canonical,
+    withStandalonePhase.join('_'),
+    withCompactSemester.join('_'),
+    withCompactSemesterAndPhase.join('_'),
+  ])]
+}
+
+const fetchMatchingSystemCourses = async (
+  courseCodes: unknown[],
+  columns = COURSE_SCHEDULE_COLUMNS,
+) => {
+  const canonicalCodes = [...new Set(courseCodes.map(normalizeCourseCode).filter(Boolean))]
+  if (canonicalCodes.length === 0) return new Map<string, any[]>()
+
+  const equivalentCodes = [...new Set(courseCodes.flatMap(buildEquivalentCourseCodes))]
+  const filters = equivalentCodes.map((courseCode) => `course_code.ilike.${courseCode}`).join(',')
+  const { data, error } = await supabase
+    .from('course_schedules')
+    .select(columns)
+    .or(filters)
+    .limit(1000)
+
+  if (error) throw error
+
+  const targetCodes = new Set(canonicalCodes)
+  return (data || []).reduce((matches: Map<string, any[]>, course: any) => {
+    const canonical = normalizeCourseCode(course.course_code)
+    if (!targetCodes.has(canonical)) return matches
+    const existing = matches.get(canonical) || []
+    existing.push(course)
+    matches.set(canonical, existing)
+    return matches
+  }, new Map<string, any[]>())
+}
+
+const chooseMatchingSystemCourse = (matches: any[] = [], preferredSemester = '') => {
+  return [...matches].sort((left, right) => {
+    const leftSemester = left.semester === preferredSemester ? 1 : 0
+    const rightSemester = right.semester === preferredSemester ? 1 : 0
+    if (leftSemester !== rightSemester) return rightSemester - leftSemester
+
+    const leftOfficial = left.is_user_added ? 0 : 1
+    const rightOfficial = right.is_user_added ? 0 : 1
+    return rightOfficial - leftOfficial
+  })[0] || null
+}
 const DEFAULT_ADMIN_SCHEDULE_LIMIT = 200
 const MAX_ADMIN_SCHEDULE_LIMIT = 500
 const ADMIN_SCHEDULE_SCAN_BATCH_SIZE = 500
@@ -630,6 +721,52 @@ const notifyCourseRequestApproved = async (userId: string | null, course: any) =
   return { notification, push: { sent, failed: results.length - sent } }
 }
 
+const handleManualCourseRequest = async (request: Request) => {
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
+
+  const user = await getRequestUser(request)
+  if (!user?.id) return json({ error: 'Unauthorized' }, 401)
+
+  const body = await request.json().catch(() => ({}))
+  const subjectName = String(body.subject_name || '').trim().slice(0, 200)
+  const courseCode = String(body.course_code || '').trim().slice(0, 120)
+  const instructor = String(body.instructor || 'Chưa rõ').trim().slice(0, 160) || 'Chưa rõ'
+  const semester = String(body.semester || '').trim().slice(0, 60)
+
+  if (!subjectName || !courseCode) {
+    return json({ error: 'Vui lòng nhập tên môn học và mã học phần.' }, 400)
+  }
+
+  const canonicalCode = normalizeCourseCode(courseCode)
+  if (!canonicalCode) return json({ error: 'Mã học phần không hợp lệ.' }, 400)
+
+  const matches = await fetchMatchingSystemCourses([courseCode])
+  const duplicateCourse = chooseMatchingSystemCourse(matches.get(canonicalCode) || [], semester)
+  if (duplicateCourse) {
+    return json({
+      error: 'Môn học này đã có trong hệ thống.',
+      code: 'COURSE_ALREADY_EXISTS',
+      normalized_course_code: canonicalCode,
+      data: duplicateCourse,
+    }, 409)
+  }
+
+  const { data, error } = await supabase
+    .from('user_course_requests')
+    .insert({
+      subject_name: subjectName,
+      course_code: courseCode,
+      instructor,
+      user_id: user.id,
+      status: 'pending',
+    })
+    .select(USER_COURSE_REQUEST_COLUMNS)
+    .single()
+
+  if (error) throw error
+  return json({ success: true, data }, 201)
+}
+
 const handleCourseRequests = async (request: Request, params: URLSearchParams) => {
   const role = await getActorRole(request)
   if (!['admin', 'auditor'].includes(role || '')) return json({ error: 'Forbidden' }, 403)
@@ -657,9 +794,16 @@ const handleCourseRequests = async (request: Request, params: URLSearchParams) =
     if (error) throw error
 
     const profilesMap: Record<string, any> = await fetchProfilesMap((data || []).map((item: any) => item.user_id))
+    const duplicateMatches = await fetchMatchingSystemCourses(
+      (data || []).map((item: any) => item.course_code),
+      COURSE_SCHEDULE_SUMMARY_COLUMNS,
+    )
     const rows = (data || []).map((item: any) => ({
       ...item,
       user: profilesMap[item.user_id] || null,
+      duplicate_course: chooseMatchingSystemCourse(
+        duplicateMatches.get(normalizeCourseCode(item.course_code)) || [],
+      ),
     }))
 
     return json({
@@ -859,6 +1003,7 @@ Deno.serve(async (req) => {
     if (resource === 'user-schedules' && req.method === 'PATCH') return await handleSyncUserSchedule(req)
     if (resource === 'profile-private-map' && req.method === 'POST') return await handleProfilePrivateMap(req)
     if (resource === 'course-requests') return await handleCourseRequests(req, params)
+    if (resource === 'manual-course-request') return await handleManualCourseRequest(req)
     if (req.method !== 'GET') return json({ error: 'Chỉ hỗ trợ phương thức GET' }, 405)
     if (resource === 'user-schedules') return await handleUserSchedules(req, params)
     if (resource === 'my-schedule') return await handleMySchedule(req, params)
@@ -886,32 +1031,35 @@ Deno.serve(async (req) => {
     const subjectName = params.get('subjectName')
     const view = params.get('view') || 'summary'
     const isUserAdded = params.get('isUserAdded') || 'all'
-    const pageLimit = Math.max(1, Math.min(Number(params.get('limit')) || 50, 100))
-    const pageOffset = Math.max(0, Number(params.get('offset')) || 0)
+    const isSuggestionRequest = params.get('suggestions') === 'true'
+    const pageLimit = isSuggestionRequest
+      ? Math.max(1, Math.min(Number(params.get('limit')) || 10, 10))
+      : Math.max(1, Math.min(Number(params.get('limit')) || 50, 100))
+    const pageOffset = isSuggestionRequest ? 0 : Math.max(0, Number(params.get('offset')) || 0)
 
     let rows: any[] = []
     let total = 0
     let hasMore = false
     const selectedColumns = view === 'detail' ? COURSE_SCHEDULE_COLUMNS : COURSE_SCHEDULE_SUMMARY_COLUMNS
 
-    if (groupName) {
+    if (groupName && !isSuggestionRequest) {
       const groupedPage = await fetchGroupedCoursePage({ semester, phase, search, major, cohort, academicProgram, subjectName, groupName, isUserAdded, pageLimit, pageOffset })
       rows = groupedPage.rows
       total = groupedPage.total
       hasMore = groupedPage.hasMore
     } else {
-      let query = supabase
-        .from('course_schedules')
-        .select(selectedColumns, { count: 'exact' })
-        .range(pageOffset, pageOffset + pageLimit - 1)
+      let query = isSuggestionRequest
+        ? supabase.from('course_schedules').select(selectedColumns)
+        : supabase.from('course_schedules').select(selectedColumns, { count: 'exact' })
+      query = query.range(pageOffset, pageOffset + pageLimit - 1)
 
       query = applyCourseListFilters(query, { semester, phase, major, cohort, academicProgram, subjectName, isUserAdded, search })
 
       const { data, error, count } = await query
       if (error) throw error
       rows = data || []
-      total = count || 0
-      hasMore = total > pageOffset + rows.length
+      total = isSuggestionRequest ? rows.length : (count || 0)
+      hasMore = isSuggestionRequest ? false : total > pageOffset + rows.length
     }
 
     return json({ success: true, data: rows, total, hasMore, limit: pageLimit, offset: pageOffset })

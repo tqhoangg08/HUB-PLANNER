@@ -102,6 +102,8 @@ export interface TicketFilters {
   search?: string;
   isStaff?: boolean;
   limit?: number;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface SupportStaffMember {
@@ -211,6 +213,33 @@ export const fetchSupportTickets = async (filters: TicketFilters = {}) => {
   logSupportPayload(filters.isStaff ? 'ticket_list_staff' : 'ticket_list_user', data);
 
   return (data || []) as SupportTicket[];
+};
+
+export const fetchSupportTicketPage = async (filters: TicketFilters = {}) => {
+  const pageSize = Math.max(1, Math.min(filters.pageSize || 10, filters.isStaff ? 100 : 50));
+  const page = Math.max(1, Math.floor(filters.page || 1));
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  const keyword = normalizeTicketText(filters.search || '', 80);
+  let query = supabase
+    .from('support_tickets')
+    .select(filters.isStaff ? staffTicketListSelect : ticketListSelect, { count: 'exact' })
+    .order('last_message_at', { ascending: false })
+    .range(from, to);
+
+  if (filters.status && filters.status !== 'all') query = query.eq('status', filters.status);
+  if (filters.category && filters.category !== 'all') query = query.eq('category', filters.category);
+  if (filters.priority && filters.priority !== 'all') query = query.eq('priority', filters.priority);
+  if (keyword) query = query.ilike('subject', `%${keyword.replace(/[%_]/g, '\\$&')}%`);
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+  logSupportPayload(filters.isStaff ? 'ticket_page_staff' : 'ticket_page_user', data);
+
+  return {
+    tickets: (data || []) as unknown as SupportTicket[],
+    total: count || 0,
+  };
 };
 
 export const fetchSupportTicket = async (ticketId: string) => {
@@ -355,6 +384,10 @@ export const resolveSupportTicket = async (ticketId: string) => {
   await postSupportTicketAction<{ ticket: Pick<SupportTicket, 'id' | 'status' | 'resolved_at' | 'resolved_by' | 'resolved_by_role'> }>('resolve-ticket', {
     ticket_id: ticketId,
   });
+};
+
+export const resolveAllOpenSupportTickets = async () => {
+  return postSupportTicketAction<{ resolved_count: number }>('resolve-all-open-tickets', {});
 };
 
 export const deleteSupportTicketHard = async (ticketId: string) => {

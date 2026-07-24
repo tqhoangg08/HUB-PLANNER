@@ -4,6 +4,7 @@ import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User,
 import { supabase } from '../utils/supabase';
 import { parseWeeks } from '../utils/scheduleLogic';
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
+import { ScheduleImportPreviewModal } from './ScheduleImportPreviewModal';
 import { parseSchedulePdf } from '../utils/schedulePdfImport';
 import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
@@ -15,6 +16,19 @@ import { ProtectedSubmitError, protectedSubmit, verifyTurnstileOnly } from '../u
 import { logWebError } from '../utils/logWebError';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { promptSendParserDebugFile } from '../utils/parserDebugTicket';
+import { showAlert, showConfirm } from '../utils/appNotifications';
+import { submitManualCourseRequest } from '../utils/manualCourseRequest';
+import { normalizeImportedSemester } from '../utils/scheduleImportUtils';
+import {
+  readScheduleCoursePageCache,
+  removeScheduleCoursePageCache,
+  writeScheduleCoursePageCache,
+} from '../utils/scheduleCoursePageCache';
+import {
+  buildScheduleImportPreview,
+  replaceUserScheduleFromPreview,
+  type ScheduleImportPreviewRow,
+} from '../utils/scheduleImportPreview';
 import {
   DEFAULT_SCHEDULE_SEMESTER,
   SEMESTER_OPTIONS,
@@ -53,6 +67,7 @@ interface CourseRequest {
   created_at?: string;
   user_id?: string;
   user?: UserProfile | null;
+  duplicate_course?: Course | null;
 }
 
 interface CourseLabel {
@@ -279,9 +294,25 @@ const getDayMonth = (dateStr?: string) => {
   return dateStr;
 };
 
+const getExactShiftRange = (shiftStr?: string) => {
+  const matches = String(shiftStr || '')
+    .split(';')
+    .map(value => value.trim().match(/^(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})$/))
+    .filter(Boolean) as RegExpMatchArray[];
+  if (!matches.length) return null;
+  return {
+    startHour: Number(matches[0][1]),
+    label: matches
+      .map(match => `${match[1].padStart(2, '0')}:${match[2]} - ${match[3].padStart(2, '0')}:${match[4]}`)
+      .join(' / '),
+  };
+};
+
 const getMainShiftType = (shiftStr?: string) => {
   if (!shiftStr) return '';
   const s = shiftStr.trim().toUpperCase();
+  const exactRange = getExactShiftRange(s);
+  if (exactRange) return exactRange.startHour < 12 ? 'S' : 'C';
   if (s === 'S') return 'S';
   if (s === 'C') return 'C';
   if (/\b(6|7|8|9|10)\b/.test(s)) return 'C';
@@ -292,6 +323,8 @@ const getMainShiftType = (shiftStr?: string) => {
 const getShiftDisplay = (shiftStr?: string) => {
   if (!shiftStr) return '';
   const s = shiftStr.trim().toUpperCase();
+  const exactRange = getExactShiftRange(s);
+  if (exactRange) return exactRange.startHour < 12 ? 'Ca Sáng' : 'Ca Chiều';
   if (s === 'S') return 'Ca Sáng';
   if (s === 'C') return 'Ca Chiều';
   return `Tiết ${s}`;
@@ -300,6 +333,8 @@ const getShiftDisplay = (shiftStr?: string) => {
 const getCourseTimeLabel = (shiftStr?: string) => {
   if (!shiftStr) return '';
   const s = shiftStr.trim().toUpperCase();
+  const exactRange = getExactShiftRange(s);
+  if (exactRange) return exactRange.label;
   if (s === 'S') return '07:00 - 11:05';
   if (s === 'C') return '13:00 - 17:05';
   if (s.includes('1-3')) return '07:00 - 09:15';
@@ -344,7 +379,8 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
   if (weekArr.length === 0) return null;
   const maxLen = Math.max(weekArr.length, dayArr.length, shiftArr.length);
 
-  for (let i = maxLen - 1; i >= 0; i--) {
+  const matches: { day: number; shift: string; room: string; weeks: string }[] = [];
+  for (let i = 0; i < maxLen; i++) {
     const cDayStr = dayArr[i] !== undefined ? dayArr[i] : (dayArr[dayArr.length - 1] || "");
     const cShiftStr = shiftArr[i] !== undefined ? shiftArr[i] : (shiftArr[0] || "");
     const cRoomStr = roomArr[i] !== undefined ? roomArr[i] : (roomArr[0] || "");
@@ -365,9 +401,15 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
     const shiftType = getMainShiftType(cShiftStr);
     if (shiftType !== targetShiftType) continue;
 
-    return { day: targetDay, shift: cShiftStr, room: cRoomStr, weeks: cWeekStr };
+    matches.push({ day: targetDay, shift: cShiftStr, room: cRoomStr, weeks: cWeekStr });
   }
-  return null;
+  if (!matches.length) return null;
+  return {
+    day: targetDay,
+    shift: [...new Set(matches.map(item => item.shift).filter(Boolean))].join(';'),
+    room: [...new Set(matches.map(item => item.room).filter(Boolean))].join(' / '),
+    weeks: [...new Set(matches.map(item => item.weeks).filter(Boolean))].join(' / '),
+  };
 };
 
 const createInitialTagData = () => ({ type: 'Nghỉ', text: '', color: 'red', makeupDate: '', makeupShift: 'S', makeupRoom: '' });
@@ -517,6 +559,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   const [isPdfGuideOpen, setIsPdfGuideOpen] = useState(false);
   const [scheduleImportTurnstileToken, setScheduleImportTurnstileToken] = useState('');
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  const [pendingScheduleImport, setPendingScheduleImport] = useState<{
+    semester: string;
+    rows: ScheduleImportPreviewRow[];
+  } | null>(null);
+  const [isConfirmingScheduleImport, setIsConfirmingScheduleImport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // States Admin View
@@ -569,20 +616,46 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     return () => document.removeEventListener('click', closeDropdowns);
   }, []);
 
-  const fetchCourses = async (options: { page?: number } = {}) => {
-    const page = options.page ?? 0;
+  const fetchCourses = async (options: { page?: number; force?: boolean } = {}) => {
+    const term = searchTerm.trim();
+    const isSystemCatalog = !effectiveAdminView || adminTab === 'system';
+    const isSuggestionMode = isSystemCatalog && !term;
+    const page = isSuggestionMode ? 0 : (options.page ?? 0);
+    const pageSize = ADMIN_LIST_PAGE_SIZE;
+    const cacheScope = JSON.stringify({
+      surface: 'mobile',
+      semester: selectedSemester,
+      phase: selectedPhase,
+      search: term,
+      effectiveAdminView,
+      adminTab,
+      pageSize,
+    });
+
     setIsLoading(true);
     try {
+        if (options.force) removeScheduleCoursePageCache(cacheScope, page);
+        const cachedPage = options.force
+          ? null
+          : readScheduleCoursePageCache<Course>(cacheScope, page);
+        if (cachedPage) {
+          setAvailableCourses(cachedPage.data);
+          setHasMoreAdminCourses(cachedPage.hasMore);
+          setAdminCoursesTotal(cachedPage.total);
+          setAdminCoursesPage(page);
+          return;
+        }
+
         const params = new URLSearchParams({
             semester: selectedSemester,
-            limit: String(effectiveAdminView ? ADMIN_LIST_PAGE_SIZE : 100),
-            offset: String(effectiveAdminView ? page * ADMIN_LIST_PAGE_SIZE : 0),
+            limit: String(pageSize),
+            offset: String(page * pageSize),
         });
         if (selectedPhase !== 'all') params.set('phase', selectedPhase);
         if (effectiveAdminView && (adminTab === 'system' || adminTab === 'user')) {
           params.set('isUserAdded', adminTab === 'user' ? 'true' : 'false');
         }
-        const term = searchTerm.trim();
+        if (isSuggestionMode) params.set('suggestions', 'true');
         if (term) params.set('search', term);
 
         const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
@@ -590,12 +663,17 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error || 'Không tải được danh sách môn.');
-        setAvailableCourses(payload.data || []);
-        if (effectiveAdminView) {
-          setHasMoreAdminCourses(Boolean(payload.hasMore));
-          setAdminCoursesTotal(Number(payload.total || 0));
-          setAdminCoursesPage(page);
-        }
+        const rows = Array.isArray(payload.data) ? payload.data : [];
+        const pagePayload = {
+          data: rows,
+          hasMore: isSuggestionMode ? false : Boolean(payload.hasMore),
+          total: isSuggestionMode ? rows.length : Number(payload.total || rows.length),
+        };
+        writeScheduleCoursePageCache(cacheScope, page, pagePayload);
+        setAvailableCourses(pagePayload.data);
+        setHasMoreAdminCourses(pagePayload.hasMore);
+        setAdminCoursesTotal(pagePayload.total);
+        setAdminCoursesPage(page);
     } catch (error) {
         console.error("Lỗi tải danh sách môn:", error);
         await logWebError({
@@ -1258,113 +1336,9 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             return;
         }
 
-        let addedCount = 0;
-        let currentSem = aiData.semester || selectedSemester;
-        if (currentSem.includes('HK02')) currentSem = currentSem.replace('HK02', 'HK2').replace('-', '_');
-        if (currentSem.includes('HK01')) currentSem = currentSem.replace('HK01', 'HK1').replace('-', '_');
-        currentSem = currentSem.replace(/\//g, '_');
-
-        let earliestMonth = 12;
-        aiData.courses.forEach((c: any) => {
-            if (c.start_date) {
-                const parts = c.start_date.split('/');
-                if (parts.length >= 2) {
-                    const month = parseInt(parts[1], 10);
-                    if (!isNaN(month) && month < earliestMonth) earliestMonth = month;
-                }
-            }
-        });
-
-        for (const course of aiData.courses) {
-            const cleanCode = course.course_code.replace(/\s+/g, '_');
-            let phaseStr = "1";
-            if (course.start_date) {
-                const parts = course.start_date.split('/');
-                if (parts.length >= 2) {
-                    const month = parseInt(parts[1], 10);
-                    if (!isNaN(month) && month > earliestMonth) phaseStr = "2";
-                }
-            }
-
-            let finalWeeks = course.weeks || '1-15';
-            if (finalWeeks.includes('1-15') || finalWeeks.trim() === '') {
-                const creditNum = Number(course.credits);
-                if (creditNum === 2) finalWeeks = phaseStr === "1" ? "1, 5-9" : "15-20";
-                else finalWeeks = phaseStr === "1" ? "1, 5-12" : "15-23";
-            }
-
-            const codeParts = cleanCode.split('_');
-            const baseCode = codeParts[0];
-            const tailCode = codeParts[codeParts.length - 1];
-
-            const { data: existingCourses } = await supabase.from('course_schedules')
-                .select('id, course_code').ilike('course_code', `${baseCode}%`).ilike('course_code', `%${tailCode}`);
-
-            let targetCourseId = null;
-            if (existingCourses && existingCourses.length > 0) targetCourseId = existingCourses[0].id;
-
-            if (!targetCourseId) {
-                const { data: newCourse, error: insertErr } = await supabase.from('course_schedules')
-                    .insert({
-                        course_code: cleanCode, subject_name: course.subject_name, credits: course.credits,
-                        instructor: course.instructor, day_of_week: course.day_of_week, shift: course.shift,
-                        room: course.room, campus: course.campus || 'TD', weeks: finalWeeks, semester: currentSem,
-                        phase: phaseStr, is_user_added: true
-                    }).select('id').single();
-                if (insertErr) {
-                    await logWebError({
-                        source: 'supabase',
-                        action: 'save_schedule',
-                        error: insertErr,
-                        metadata: {
-                            importType: 'schedule',
-                            stage: 'insert_course_schedule',
-                            courseCode: cleanCode,
-                            subjectName: course.subject_name,
-                            semester: currentSem,
-                            surface: 'mobile',
-                        },
-                    });
-                }
-                if (!insertErr && newCourse) targetCourseId = newCourse.id;
-            }
-
-            if (targetCourseId) {
-                const { data: checkLink } = await supabase.from('user_schedules').select('id')
-                    .eq('user_id', user.id).eq('course_id', targetCourseId).single();
-                if (!checkLink) {
-                    const { error: linkError } = await supabase
-                        .from('user_schedules')
-                        .upsert(
-                            { user_id: user.id, course_id: targetCourseId, semester: currentSem },
-                            { onConflict: 'user_id,course_id', ignoreDuplicates: true }
-                        );
-                    if (linkError) {
-                        await logWebError({
-                            source: 'supabase',
-                            action: 'save_schedule',
-                            error: linkError,
-                            metadata: {
-                                importType: 'schedule',
-                                stage: 'insert_user_schedule',
-                                courseId: targetCourseId,
-                                semester: currentSem,
-                                surface: 'mobile',
-                            },
-                        });
-                    } else {
-                        addedCount++;
-                    }
-                }
-            }
-        }
-
-        if (addedCount > 0) {
-            alert(`Đã đồng bộ thành công ${addedCount} môn học vào Thời khóa biểu!`);
-            fetchMySchedule(); setSelectedSemester(currentSem);
-        } else {
-            alert(`Các môn học trong file đã có sẵn trong Thời khóa biểu của bạn rồi!`);
-        }
+        const currentSem = normalizeImportedSemester(aiData.semester, selectedSemester);
+        const previewRows = await buildScheduleImportPreview(aiData.courses, currentSem);
+        setPendingScheduleImport({ semester: currentSem, rows: previewRows });
     } catch (err) {
         if (err instanceof ProtectedSubmitError) {
             alert(err.message);
@@ -1396,6 +1370,44 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         });
     }
     finally { setIsProcessingPdf(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
+  };
+
+  const handleConfirmScheduleImport = async () => {
+    if (!pendingScheduleImport || pendingScheduleImport.rows.length === 0) return;
+    setIsConfirmingScheduleImport(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Vui lòng đăng nhập lại để nhập thời khóa biểu.');
+
+      const importedCount = await replaceUserScheduleFromPreview(
+        user.id,
+        pendingScheduleImport.semester,
+        pendingScheduleImport.rows,
+      );
+      const importedSemester = pendingScheduleImport.semester;
+      setPendingScheduleImport(null);
+      setSelectedSemester(importedSemester);
+      await fetchMySchedule();
+      await showAlert(
+        `Đã nhập ${importedCount} môn và thay thế thời khóa biểu cũ của ${importedSemester.replaceAll('_', ' ')}.`,
+      );
+    } catch (error) {
+      console.error('Không thể xác nhận nhập thời khóa biểu:', error);
+      await logWebError({
+        source: 'supabase',
+        action: 'save_schedule',
+        error,
+        metadata: {
+          importType: 'schedule',
+          stage: 'confirm_preview',
+          semester: pendingScheduleImport.semester,
+          surface: 'mobile',
+        },
+      });
+      await showAlert(error instanceof Error ? error.message : 'Không thể lưu thời khóa biểu.');
+    } finally {
+      setIsConfirmingScheduleImport(false);
+    }
   };
 
   const getCoursesForDate = (targetDate: Date, schedule: Course[]) => {
@@ -1499,25 +1511,39 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     e.preventDefault();
     if (!newCourseData.subject_name.trim() || !newCourseData.course_code.trim()) { alert("Vui lòng điền tối thiểu Tên môn học và Mã học phần!"); return; }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { alert("Bạn cần đăng nhập để gửi yêu cầu!"); return; }
+    const accessToken = session?.access_token;
+    if (!accessToken) { alert("Bạn cần đăng nhập để gửi yêu cầu!"); return; }
 
     setIsSubmittingCourse(true);
     try {
-      const requestId = crypto.randomUUID();
-      const { error } = await supabase.from('user_course_requests').insert({
-        id: requestId,
-        subject_name: newCourseData.subject_name,
-        course_code: newCourseData.course_code,
-        instructor: newCourseData.instructor || 'Chưa rõ',
-        user_id: user.id,
+      const result = await submitManualCourseRequest({
+        accessToken,
+        subjectName: newCourseData.subject_name,
+        courseCode: newCourseData.course_code,
+        instructor: newCourseData.instructor,
+        semester: selectedSemester,
       });
-      if (error) throw error;
-      void notifyModerators('user_course_request', requestId);
+
+      if (result.duplicateCourse) {
+        const shouldAdd = await showConfirm({
+          title: 'Môn học này đã có trong hệ thống',
+          message: `Mã ${newCourseData.course_code.trim()} trùng với ${result.duplicateCourse.course_code} – ${result.duplicateCourse.subject_name}. Bạn có muốn thêm môn có sẵn này vào lịch không?`,
+          confirmText: 'Thêm môn này',
+          cancelText: 'Kiểm tra lại',
+          variant: 'warning',
+        });
+        if (shouldAdd) {
+          setIsCreateCourseModalOpen(false);
+          await addToSchedule(result.duplicateCourse as unknown as Course);
+        }
+        return;
+      }
+
+      if (result.requestId) void notifyModerators('user_course_request', result.requestId);
       alert("Gửi yêu cầu thành công!");
       setIsCreateCourseModalOpen(false);
       setNewCourseData({ subject_name: '', course_code: '', instructor: '' });
-    } catch (error) { alert("Đã xảy ra lỗi khi gửi yêu cầu."); }
+    } catch (error) { alert((error as Error)?.message || "Đã xảy ra lỗi khi gửi yêu cầu."); }
     finally { setIsSubmittingCourse(false); }
   };
 
@@ -1740,7 +1766,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 <h2 className="flex items-center gap-1.5 text-[13.5px] font-black text-[#0D1B3E]">
                     <Search size={16} className="text-[#1A56FF]" /> Tìm kiếm & Lọc
                 </h2>
-                <button onClick={fetchCourses} className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] bg-[#EEF2FF] text-[#1A56FF]">
+                <button onClick={() => fetchCourses({ force: true })} className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] bg-[#EEF2FF] text-[#1A56FF]">
                     <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
                 </button>
             </div>
@@ -1758,7 +1784,18 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             </div>
             <div className="relative mb-2.5">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8B2C8]" />
-                <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-[38px] w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] pl-8 pr-3 text-xs font-semibold text-[#5B6478] outline-none disabled:cursor-not-allowed" />
+                <input
+                    disabled={!isAuthenticated}
+                    type="text"
+                    placeholder="Tên môn + mã (VD: Toán cao cấp D01)..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                        const nextSearchTerm = e.target.value;
+                        setSearchTerm(nextSearchTerm);
+                        setAdminCoursesPage(0);
+                    }}
+                    className="h-[38px] w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] pl-8 pr-3 text-xs font-semibold text-[#5B6478] outline-none disabled:cursor-not-allowed"
+                />
             </div>
             {!forceManagementView && (
             <div className="grid grid-cols-3 gap-2">
@@ -1793,6 +1830,12 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                             setAdminTab(tab.id);
                             setSelectedStudentSchedule(null);
                             setSelectedStudentCourses([]);
+                            if (tab.id === 'system') {
+                                setAvailableCourses([]);
+                                setHasMoreAdminCourses(false);
+                                setAdminCoursesTotal(0);
+                                setAdminCoursesPage(0);
+                            }
                         }}
                         className={`shrink-0 rounded-full px-3.5 py-2 text-[10.5px] font-black ${adminTab === tab.id ? 'bg-[#1A56FF] text-white shadow-[0_6px_14px_rgba(26,86,255,0.25)]' : 'bg-white text-[#7B8AB0] shadow-[0_2px_10px_rgba(0,0,0,0.05)]'}`}
                     >
@@ -1822,9 +1865,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             </button>
         )}
 
-        {isAuthenticated && (searchTerm || effectiveAdminView) && availableCourses.length > 0 && (!effectiveAdminView || adminTab === 'system' || adminTab === 'user') && (
+        {isAuthenticated && availableCourses.length > 0 && (!effectiveAdminView || adminTab === 'system' || adminTab === 'user') && (
             <div className="mb-0 space-y-2 overflow-visible rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
-                <p className="px-1 text-[11px] font-bold text-[#7B8AB0]">{effectiveAdminView ? 'Danh sách môn học' : 'Kết quả'} ({effectiveAdminView ? adminCoursesTotal : availableCourses.length})</p>
+                <p className="px-1 text-[11px] font-bold text-[#7B8AB0]">
+                    {searchTerm.trim() ? 'Kết quả tìm kiếm' : '10 môn gợi ý'} ({searchTerm.trim() ? adminCoursesTotal : availableCourses.length})
+                </p>
                 {availableCourses
                     .filter(course => !effectiveAdminView || (adminTab === 'system' ? !course.is_user_added : course.is_user_added))
                     .map((course) => {
@@ -1869,7 +1914,8 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                         </div>
                     );
                 })}
-                {effectiveAdminView && renderAdminPager(adminCoursesPage, adminCoursesTotal, page => fetchCourses({ page }))}
+                {(!(adminTab === 'system' || !effectiveAdminView) || Boolean(searchTerm.trim()))
+                  && renderAdminPager(adminCoursesPage, adminCoursesTotal, page => fetchCourses({ page }))}
             </div>
         )}
 
@@ -1888,6 +1934,22 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                             <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">SV {getCourseRequestStudentCode(request)}</span>
                             {request.instructor && <span className="rounded-full bg-white px-2 py-1 text-[9.5px] font-bold text-[#56627B]">{request.instructor}</span>}
                         </div>
+                        {request.duplicate_course && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    void showAlert({
+                                        title: 'Sinh viên yêu cầu trùng môn',
+                                        message: `${request.course_code} được xác định trùng với môn đã có: ${request.duplicate_course?.course_code} – ${request.duplicate_course?.subject_name}.`,
+                                        variant: 'warning',
+                                    });
+                                }}
+                                className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-2.5 text-[10px] font-black text-amber-700"
+                            >
+                                <AlertTriangle size={13} />
+                                Trùng môn hệ thống: {request.duplicate_course.course_code}
+                            </button>
+                        )}
                         {!isAuditor && (
                             <div className="mt-3 grid grid-cols-2 gap-2">
                                 <button type="button" onClick={() => openCourseRequestEditor(request)} className="h-9 rounded-xl bg-[#1A56FF] text-[11px] font-black text-white">Sửa & thêm</button>
@@ -1984,7 +2046,9 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         {isAuthenticated && effectiveAdminView && !isLoading && availableCourses.length === 0 && (adminTab === 'system' || adminTab === 'user') && (
             <div className="mb-0 flex items-start justify-center rounded-[20px] bg-white p-3 shadow-[0_2px_14px_rgba(0,0,0,0.05)]">
                 <div className="w-full rounded-2xl border border-dashed border-[#DDE3F0] bg-[#F8FAFD] p-5 text-center text-xs font-bold text-[#7B8AB0]">
-                    Không có học phần phù hợp với bộ lọc hiện tại.
+                    {adminTab === 'system' && !searchTerm.trim()
+                        ? 'Nhập mã học phần hoặc tên môn để xem tối đa 10 gợi ý.'
+                        : 'Không có học phần phù hợp với bộ lọc hiện tại.'}
                 </div>
             </div>
         )}
@@ -2145,7 +2209,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                     <h2 className="text-sm font-bold text-[#003375] flex items-center gap-1.5">
                         <Search size={16} className="text-[#990000]" /> Tìm kiếm & Lọc
                     </h2>
-                    <button onClick={fetchCourses} className="p-1.5 bg-gray-50 text-[#003375] rounded-lg active:bg-gray-100 border border-gray-200 shadow-sm" title="Làm mới">
+                    <button onClick={() => fetchCourses({ force: true })} className="p-1.5 bg-gray-50 text-[#003375] rounded-lg active:bg-gray-100 border border-gray-200 shadow-sm" title="Làm mới">
                         <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
                     </button>
                 </div>
@@ -2170,7 +2234,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
                 {/* Dòng 2: Ô nhập tìm kiếm gọn gàng */}
                 <div className="relative">
-                    <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-8 pr-3 py-2 rounded-lg border border-gray-200 outline-none text-[13px] bg-gray-50 focus:ring-1 focus:ring-[#003375] disabled:cursor-not-allowed"/>
+                    <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setAdminCoursesPage(0); }} className="w-full pl-8 pr-3 py-2 rounded-lg border border-gray-200 outline-none text-[13px] bg-gray-50 focus:ring-1 focus:ring-[#003375] disabled:cursor-not-allowed"/>
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                 </div>
 
@@ -2191,9 +2255,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
             </div>
 
             {/* DANH SÁCH MÔN HỌC TÌM KIẾM ĐƯỢC */}
-            {isAuthenticated && (searchTerm || isAdminView) && availableCourses.length > 0 && (
+            {isAuthenticated && availableCourses.length > 0 && (
                 <div className="mt-3 flex flex-col gap-2.5 max-h-[300px] overflow-y-auto custom-scrollbar bg-white p-2.5 rounded-xl border border-gray-200 shadow-sm">
-                    <p className="text-[11px] text-gray-500 font-bold px-1">{isAdminView ? 'Danh sách môn học' : 'Kết quả'} ({availableCourses.length})</p>
+                    <p className="text-[11px] text-gray-500 font-bold px-1">
+                        {searchTerm.trim() ? 'Kết quả tìm kiếm' : '10 môn gợi ý'} ({searchTerm.trim() ? adminCoursesTotal : availableCourses.length})
+                    </p>
                     {availableCourses.map((course) => {
                         const color = getColorForCourse(course.id);
                         return (
@@ -2212,6 +2278,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                             </div>
                         );
                     })}
+                    {Boolean(searchTerm.trim()) && renderAdminPager(adminCoursesPage, adminCoursesTotal, page => fetchCourses({ page }))}
                 </div>
             )}
         </div>
@@ -2934,6 +3001,19 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                 securitySlot={<TurnstileBox token={scheduleImportTurnstileToken} onTokenChange={setScheduleImportTurnstileToken} />}
                 canSelectFile={Boolean(scheduleImportTurnstileToken)}
                 onFileClick={() => fileInputRef.current?.click()}
+            />
+        )}
+
+        {pendingScheduleImport && (
+            <ScheduleImportPreviewModal
+                rows={pendingScheduleImport.rows}
+                semester={pendingScheduleImport.semester}
+                isSaving={isConfirmingScheduleImport}
+                onChange={rows => setPendingScheduleImport(current => (
+                    current ? { ...current, rows } : current
+                ))}
+                onCancel={() => setPendingScheduleImport(null)}
+                onConfirm={handleConfirmScheduleImport}
             />
         )}
     </div>

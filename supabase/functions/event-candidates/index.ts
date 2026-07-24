@@ -124,7 +124,7 @@ const analyzeEventCandidate = async (candidate: any) => {
       Authorization: `Bearer ${keys[Math.floor(Math.random() * keys.length)]}`,
     },
     body: JSON.stringify({
-      model: Deno.env.get('GROQ_EVENT_CANDIDATE_MODEL') || Deno.env.get('GROQ_MODEL') || 'llama-3.3-70b-versatile',
+      model: Deno.env.get('GROQ_EVENT_CANDIDATE_MODEL') || Deno.env.get('GROQ_MODEL') || 'openai/gpt-oss-20b',
       temperature: 0.1,
       messages: [
         { role: 'system', content: 'You are an event extraction engine. Always return valid JSON only.' },

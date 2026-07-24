@@ -7,7 +7,7 @@ const GROQ_KEYS = [
   process.env.GROQ_CHAT_KEY,
 ].filter(Boolean);
 
-const GROQ_MODEL = process.env.GROQ_EVENT_CANDIDATE_MODEL || process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+const GROQ_MODEL = process.env.GROQ_EVENT_CANDIDATE_MODEL || process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
 
 const EVENT_CATEGORIES = [
   'Hoạt động phong trào',

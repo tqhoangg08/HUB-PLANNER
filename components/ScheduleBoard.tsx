@@ -5,10 +5,11 @@ import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User,
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
+import { ScheduleImportPreviewModal } from './ScheduleImportPreviewModal';
 import { parseSchedulePdf } from '../utils/schedulePdfImport';
 import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
-import { showConfirm } from '../utils/appNotifications';
+import { showAlert, showConfirm } from '../utils/appNotifications';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
@@ -17,6 +18,18 @@ import { ProtectedSubmitError, protectedSubmit, verifyTurnstileOnly } from '../u
 import { logWebError } from '../utils/logWebError';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { promptSendParserDebugFile } from '../utils/parserDebugTicket';
+import { submitManualCourseRequest } from '../utils/manualCourseRequest';
+import { normalizeImportedSemester } from '../utils/scheduleImportUtils';
+import {
+  readScheduleCoursePageCache,
+  removeScheduleCoursePageCache,
+  writeScheduleCoursePageCache,
+} from '../utils/scheduleCoursePageCache';
+import {
+  buildScheduleImportPreview,
+  replaceUserScheduleFromPreview,
+  type ScheduleImportPreviewRow,
+} from '../utils/scheduleImportPreview';
 import {
   DEFAULT_SCHEDULE_SEMESTER,
   SEMESTER_OPTIONS,
@@ -55,6 +68,7 @@ interface CourseRequest {
   created_at?: string;
   user_id?: string;
   user?: UserProfile | null;
+  duplicate_course?: Course | null;
 }
 
 interface CourseRequestPageCache {
@@ -66,7 +80,7 @@ interface CourseRequestPageCache {
 
 const COURSE_REQUEST_PAGE_SIZE = 10;
 const COURSE_REQUEST_CACHE_TTL_MS = 5 * 60 * 1000;
-const COURSE_REQUEST_CACHE_PREFIX = 'hub_admin_course_requests_v1';
+const COURSE_REQUEST_CACHE_PREFIX = 'hub_admin_course_requests_v2';
 
 const getCourseRequestTime = (request: CourseRequest) => {
   const time = request.created_at ? new Date(request.created_at).getTime() : 0;
@@ -161,6 +175,7 @@ const STUDENT_EDIT_LOCKED_SEMESTERS = new Set(['HK1_2026_2027']);
 const PLAN_SCHEDULE_STORAGE_PREFIX = 'hub_schedule_plans_v1';
 const COURSE_PAGE_SIZE_COMPACT = 30;
 const COURSE_PAGE_SIZE_EXPANDED = 40;
+const SYSTEM_COURSE_SUGGESTION_LIMIT = 10;
 const DEFAULT_ACADEMIC_PROGRAM_OPTIONS = ['Chính quy chuẩn'];
 let hasShownScheduleUpdateNoticeThisLoad = false;
 
@@ -371,9 +386,25 @@ const getWeekDatesFull = (weekNum: number, sem: string) => {
     return getWeekDatesForSemester(weekNum, sem).map(formatDateStr);
 };
 
+const getExactShiftRange = (shiftStr?: string) => {
+  const matches = String(shiftStr || '')
+    .split(';')
+    .map(value => value.trim().match(/^(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})$/))
+    .filter(Boolean) as RegExpMatchArray[];
+  if (!matches.length) return null;
+  return {
+    startHour: Number(matches[0][1]),
+    label: matches
+      .map(match => `${match[1].padStart(2, '0')}:${match[2]} - ${match[3].padStart(2, '0')}:${match[4]}`)
+      .join(' / '),
+  };
+};
+
 const getMainShiftType = (shiftStr?: string) => {
   if (!shiftStr) return '';
   const s = shiftStr.trim().toUpperCase();
+  const exactRange = getExactShiftRange(s);
+  if (exactRange) return exactRange.startHour < 12 ? 'S' : 'C';
   if (s === 'S') return 'S';
   if (s === 'C') return 'C';
   if (/\b(6|7|8|9|10)\b/.test(s)) return 'C'; 
@@ -384,6 +415,8 @@ const getMainShiftType = (shiftStr?: string) => {
 const getShiftDisplay = (shiftStr?: string) => {
   if (!shiftStr) return '';
   const s = shiftStr.trim().toUpperCase();
+  const exactRange = getExactShiftRange(s);
+  if (exactRange) return exactRange.startHour < 12 ? 'Ca Sáng' : 'Ca Chiều';
   if (s === 'S') return 'Ca Sáng';
   if (s === 'C') return 'Ca Chiều';
   return `Tiết ${s}`; 
@@ -392,6 +425,8 @@ const getShiftDisplay = (shiftStr?: string) => {
 const getCourseTimeLabel = (shiftStr?: string) => {
   if (!shiftStr) return '';
   const s = shiftStr.trim().toUpperCase();
+  const exactRange = getExactShiftRange(s);
+  if (exactRange) return exactRange.label;
   if (s === 'S') return '07:00 - 11:05';
   if (s === 'C') return '13:00 - 17:05';
   if (s.includes('1-3')) return '07:00 - 09:15';
@@ -456,7 +491,8 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
   if (weekArr.length === 0) return null;
   const maxLen = Math.max(weekArr.length, dayArr.length, shiftArr.length);
 
-  for (let i = maxLen - 1; i >= 0; i--) {
+  const matches: { day: number; shift: string; room: string; weeks: string }[] = [];
+  for (let i = 0; i < maxLen; i++) {
     const cDayStr = dayArr[i] !== undefined ? dayArr[i] : (dayArr[dayArr.length - 1] || "");
     const cShiftStr = shiftArr[i] !== undefined ? shiftArr[i] : (shiftArr[0] || "");
     const cRoomStr = roomArr[i] !== undefined ? roomArr[i] : (roomArr[0] || "");
@@ -477,9 +513,15 @@ const getCourseDetailsForSlot = (course: Course, targetDay: number, targetWeek: 
     const shiftType = getMainShiftType(cShiftStr);
     if (shiftType !== targetShiftType) continue;
 
-    return { day: targetDay, shift: cShiftStr, room: cRoomStr, weeks: cWeekStr };
+    matches.push({ day: targetDay, shift: cShiftStr, room: cRoomStr, weeks: cWeekStr });
   }
-  return null;
+  if (!matches.length) return null;
+  return {
+    day: targetDay,
+    shift: [...new Set(matches.map(item => item.shift).filter(Boolean))].join(';'),
+    room: [...new Set(matches.map(item => item.room).filter(Boolean))].join(' / '),
+    weeks: [...new Set(matches.map(item => item.weeks).filter(Boolean))].join(' / '),
+  };
 };
 
 const createInitialTagData = () => ({ type: 'Nghỉ', text: '', color: 'red', makeupDate: '', makeupShift: 'S', makeupRoom: '' });
@@ -635,8 +677,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const displayedScheduleTitle = isPlanMode ? `Kế hoạch ${activePlanKey}` : 'Lịch cá nhân';
   const displayedScheduleCount = displayedSchedule.length;
   const hasActiveCourseFilters = Boolean(searchTerm.trim()) || selectedSubjectName !== 'all' || selectedMajor !== 'all' || selectedCohort !== 'all' || selectedGroupName !== 'all' || selectedAcademicProgram !== 'all';
-  const coursePageSize = isFilterExpanded ? COURSE_PAGE_SIZE_EXPANDED : COURSE_PAGE_SIZE_COMPACT;
-  const courseTotalPages = Math.max(1, Math.ceil(courseTotal / coursePageSize));
   const coursePageCacheRef = useRef(new Map<string, { data: Course[]; total: number; hasMore: boolean }>());
   const courseDetailCacheRef = useRef(new Map<string, Course>());
   const courseFilterOptionsCacheRef = useRef(new Map<string, { subjectNameOptions: string[]; majorOptions: string[]; cohortOptions: string[]; groupNameOptions: string[]; academicProgramOptions: string[] }>());
@@ -690,10 +730,21 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isPdfGuideOpen, setIsPdfGuideOpen] = useState(false);
   const [scheduleImportTurnstileToken, setScheduleImportTurnstileToken] = useState('');
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  const [pendingScheduleImport, setPendingScheduleImport] = useState<{
+    semester: string;
+    rows: ScheduleImportPreviewRow[];
+  } | null>(null);
+  const [isConfirmingScheduleImport, setIsConfirmingScheduleImport] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isAdminView, setIsAdminView] = useState(isAdmin);
   const [adminTab, setAdminTab] = useState<'system' | 'user' | 'requested' | 'user_changed' | 'student_schedules'>('system');
+  const isSystemCourseCatalog = !isAdminView || adminTab === 'system';
+  const isCourseSuggestionMode = isSystemCourseCatalog && !searchTerm.trim();
+  const coursePageSize = isSystemCourseCatalog
+    ? SYSTEM_COURSE_SUGGESTION_LIMIT
+    : (isFilterExpanded ? COURSE_PAGE_SIZE_EXPANDED : COURSE_PAGE_SIZE_COMPACT);
+  const courseTotalPages = Math.max(1, Math.ceil(courseTotal / coursePageSize));
   const [isAdminEditModalOpen, setIsAdminEditModalOpen] = useState(false);
   const [adminEditData, setAdminEditData] = useState<Partial<Course>>({});
   const [isSavingAdminCourse, setIsSavingAdminCourse] = useState(false);
@@ -834,21 +885,26 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     };
   };
 
-  const fetchCourses = async () => {
+  const fetchCourses = async (options: { force?: boolean } = {}) => {
+    const term = searchTerm.trim();
+    const isSystemCatalog = !isAdminView || adminTab === 'system';
+    const isSuggestionMode = isSystemCatalog && !term;
+    const requestPageSize = isSystemCatalog ? SYSTEM_COURSE_SUGGESTION_LIMIT : coursePageSize;
+    const requestPage = isSuggestionMode ? 0 : coursePage;
     setIsLoading(true);
     try {
         const filterKey = JSON.stringify({
             semester: selectedSemester,
             phase: selectedPhase,
-            search: searchTerm.trim(),
-            subjectName: selectedSubjectName,
-            major: selectedMajor,
-            cohort: selectedCohort,
-            groupName: selectedGroupName,
-            academicProgram: selectedAcademicProgram,
+            search: term,
+            subjectName: isAdminView ? 'all' : selectedSubjectName,
+            major: isAdminView ? 'all' : selectedMajor,
+            cohort: isAdminView ? 'all' : selectedCohort,
+            groupName: isAdminView ? 'all' : selectedGroupName,
+            academicProgram: isAdminView ? 'all' : selectedAcademicProgram,
             isAdminView,
             adminTab,
-            pageSize: coursePageSize,
+            pageSize: requestPageSize,
         });
 
         if (courseFilterKeyRef.current !== filterKey) {
@@ -863,9 +919,17 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             }
         }
 
-        const pageCacheKey = `${filterKey}:page:${coursePage}`;
-        const cachedPage = coursePageCacheRef.current.get(pageCacheKey);
+        const pageCacheKey = `${filterKey}:page:${requestPage}`;
+        if (options.force) {
+            coursePageCacheRef.current.delete(pageCacheKey);
+            removeScheduleCoursePageCache(filterKey, requestPage);
+        }
+        const cachedPage = options.force
+            ? null
+            : coursePageCacheRef.current.get(pageCacheKey)
+                || readScheduleCoursePageCache<Course>(filterKey, requestPage);
         if (cachedPage) {
+            coursePageCacheRef.current.set(pageCacheKey, cachedPage);
             setAvailableCourses(cachedPage.data);
             setCourseTotal(cachedPage.total);
             setCourseHasMore(cachedPage.hasMore);
@@ -875,16 +939,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         const baseParams = new URLSearchParams({
             semester: selectedSemester,
             view: isAdminView ? 'detail' : 'summary',
-            limit: String(coursePageSize),
-            offset: String(coursePage * coursePageSize),
+            limit: String(requestPageSize),
+            offset: String(requestPage * requestPageSize),
         });
         if (selectedPhase !== 'all') baseParams.set('phase', selectedPhase);
-        if (selectedSubjectName !== 'all') baseParams.set('subjectName', selectedSubjectName);
-        if (selectedMajor !== 'all') baseParams.set('major', selectedMajor);
-        if (selectedCohort !== 'all') baseParams.set('cohort', selectedCohort);
-        if (selectedGroupName !== 'all') baseParams.set('groupName', selectedGroupName);
-        if (selectedAcademicProgram !== 'all') baseParams.set('academicProgram', selectedAcademicProgram);
-        const term = searchTerm.trim();
+        if (!isAdminView && selectedSubjectName !== 'all') baseParams.set('subjectName', selectedSubjectName);
+        if (!isAdminView && selectedMajor !== 'all') baseParams.set('major', selectedMajor);
+        if (!isAdminView && selectedCohort !== 'all') baseParams.set('cohort', selectedCohort);
+        if (!isAdminView && selectedGroupName !== 'all') baseParams.set('groupName', selectedGroupName);
+        if (!isAdminView && selectedAcademicProgram !== 'all') baseParams.set('academicProgram', selectedAcademicProgram);
+        if (isAdminView && (adminTab === 'system' || adminTab === 'user')) {
+            baseParams.set('isUserAdded', adminTab === 'user' ? 'true' : 'false');
+        }
+        if (isSuggestionMode) baseParams.set('suggestions', 'true');
         if (term) baseParams.set('search', term);
 
         const response = await fetch(apiUrl(`/courses?${baseParams.toString()}`), {
@@ -896,10 +963,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         const rows = Array.isArray(payload.data) ? payload.data : [];
         const pagePayload = {
             data: rows,
-            total: Number(payload.total || rows.length),
-            hasMore: Boolean(payload.hasMore),
+            total: isSuggestionMode ? rows.length : Number(payload.total || rows.length),
+            hasMore: isSuggestionMode ? false : Boolean(payload.hasMore),
         };
         coursePageCacheRef.current.set(pageCacheKey, pagePayload);
+        writeScheduleCoursePageCache(filterKey, requestPage, pagePayload);
         setAvailableCourses(pagePayload.data);
         setCourseTotal(pagePayload.total);
         setCourseHasMore(pagePayload.hasMore);
@@ -917,8 +985,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 cohort: selectedCohort,
                 groupName: selectedGroupName,
                 academicProgram: selectedAcademicProgram,
-                page: coursePage,
-                pageSize: coursePageSize,
+                page: requestPage,
+                pageSize: requestPageSize,
                 hasSearchTerm: Boolean(searchTerm.trim()),
             },
         });
@@ -1459,7 +1527,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     return () => window.clearTimeout(timeoutId);
   }, [searchTerm, selectedSemester, selectedPhase, selectedSubjectName, selectedMajor, selectedCohort, selectedGroupName, selectedAcademicProgram, coursePage, coursePageSize, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => {
-    if (!isAuthenticated || (isAdminView && adminTab !== 'system' && adminTab !== 'user')) return;
+    if (!isAuthenticated || isAdminView) return;
     fetchCourseFilterOptions();
   }, [selectedSemester, selectedPhase, selectedMajor, selectedCohort, selectedAcademicProgram, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => {
@@ -2079,124 +2147,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             return;
         }
 
-        let addedCount = 0;
-        let currentSem = aiData.semester || selectedSemester;
-
-        if (currentSem.includes('HK02')) currentSem = currentSem.replace('HK02', 'HK2').replace('-', '_');
-        if (currentSem.includes('HK01')) currentSem = currentSem.replace('HK01', 'HK1').replace('-', '_');
-        currentSem = currentSem.replace(/\//g, '_');
-
-        let earliestMonth = 12;
-        aiData.courses.forEach((c: any) => {
-            if (c.start_date) {
-                const parts = c.start_date.split('/');
-                if (parts.length >= 2) {
-                    const month = parseInt(parts[1], 10);
-                    if (!isNaN(month) && month < earliestMonth) earliestMonth = month;
-                }
-            }
-        });
-
-        for (const course of aiData.courses) {
-            const cleanCode = course.course_code.replace(/\s+/g, '_');
-            let phaseStr = "1";
-            if (course.start_date) {
-                const parts = course.start_date.split('/');
-                if (parts.length >= 2) {
-                    const month = parseInt(parts[1], 10);
-                    if (!isNaN(month) && month > earliestMonth) phaseStr = "2";
-                }
-            }
-
-            let finalWeeks = course.weeks || '1-15';
-            if (finalWeeks.includes('1-15') || finalWeeks.trim() === '') {
-                const creditNum = Number(course.credits);
-                if (creditNum === 2) {
-                    finalWeeks = phaseStr === "1" ? "1, 5-9" : "15-20";
-                } else {
-                    finalWeeks = phaseStr === "1" ? "1, 5-12" : "15-23";
-                }
-            }
-
-            const codeParts = cleanCode.split('_');
-            const baseCode = codeParts[0]; 
-            const tailCode = codeParts[codeParts.length - 1]; 
-
-            const { data: existingCourses } = await supabase
-                .from('course_schedules')
-                .select('id, course_code')
-                .ilike('course_code', `${baseCode}%`)
-                .ilike('course_code', `%${tailCode}`);
-
-            let targetCourseId = null;
-
-            if (existingCourses && existingCourses.length > 0) targetCourseId = existingCourses[0].id;
-
-            if (!targetCourseId) {
-                const { data: newCourse, error: insertErr } = await supabase
-                    .from('course_schedules')
-                    .insert({
-                        course_code: cleanCode, subject_name: course.subject_name,
-                        credits: course.credits, instructor: course.instructor,
-                        day_of_week: course.day_of_week, shift: course.shift,
-                        room: course.room, campus: course.campus || 'TD', 
-                        weeks: finalWeeks, semester: currentSem, phase: phaseStr, is_user_added: true 
-                    })
-                    .select('id')
-                    .single();
-                if (insertErr) {
-                    await logWebError({
-                        source: 'supabase',
-                        action: 'save_schedule',
-                        error: insertErr,
-                        metadata: {
-                            importType: 'schedule',
-                            stage: 'insert_course_schedule',
-                            courseCode: cleanCode,
-                            subjectName: course.subject_name,
-                            semester: currentSem,
-                        },
-                    });
-                }
-                if (!insertErr && newCourse) targetCourseId = newCourse.id;
-            }
-
-            if (targetCourseId) {
-                const { data: checkLink } = await supabase
-                    .from('user_schedules').select('id').eq('user_id', user.id).eq('course_id', targetCourseId).single();
-
-                if (!checkLink) {
-                    const { error: linkError } = await supabase
-                        .from('user_schedules')
-                        .upsert(
-                            { user_id: user.id, course_id: targetCourseId, semester: currentSem },
-                            { onConflict: 'user_id,course_id', ignoreDuplicates: true }
-                        );
-                    if (linkError) {
-                        await logWebError({
-                            source: 'supabase',
-                            action: 'save_schedule',
-                            error: linkError,
-                            metadata: {
-                                importType: 'schedule',
-                                stage: 'insert_user_schedule',
-                                courseId: targetCourseId,
-                                semester: currentSem,
-                            },
-                        });
-                    } else {
-                        addedCount++;
-                    }
-                }
-            }
-        }
-        
-        if (addedCount > 0) {
-            alert(`✅ Đã đồng bộ thành công ${addedCount} môn học vào Thời khóa biểu!`);
-            fetchMySchedule(); setSelectedSemester(currentSem); 
-        } else {
-            alert(`Các môn học trong file đã có sẵn trong Thời khóa biểu của bạn rồi!`);
-        }
+        const currentSem = normalizeImportedSemester(aiData.semester, selectedSemester);
+        const previewRows = await buildScheduleImportPreview(aiData.courses, currentSem);
+        setPendingScheduleImport({ semester: currentSem, rows: previewRows });
 
     } catch (err) {
         if (err instanceof ProtectedSubmitError) {
@@ -2229,6 +2182,43 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     finally {
         setIsProcessingPdf(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleConfirmScheduleImport = async () => {
+    if (!pendingScheduleImport || pendingScheduleImport.rows.length === 0) return;
+    setIsConfirmingScheduleImport(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Vui lòng đăng nhập lại để nhập thời khóa biểu.');
+
+      const importedCount = await replaceUserScheduleFromPreview(
+        user.id,
+        pendingScheduleImport.semester,
+        pendingScheduleImport.rows,
+      );
+      const importedSemester = pendingScheduleImport.semester;
+      setPendingScheduleImport(null);
+      setSelectedSemester(importedSemester);
+      await fetchMySchedule();
+      await showAlert(
+        `Đã nhập ${importedCount} môn và thay thế thời khóa biểu cũ của ${importedSemester.replaceAll('_', ' ')}.`,
+      );
+    } catch (error) {
+      console.error('Không thể xác nhận nhập thời khóa biểu:', error);
+      await logWebError({
+        source: 'supabase',
+        action: 'save_schedule',
+        error,
+        metadata: {
+          importType: 'schedule',
+          stage: 'confirm_preview',
+          semester: pendingScheduleImport.semester,
+        },
+      });
+      await showAlert(error instanceof Error ? error.message : 'Không thể lưu thời khóa biểu.');
+    } finally {
+      setIsConfirmingScheduleImport(false);
     }
   };
 
@@ -2334,25 +2324,39 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const handleCreateCourseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCourseData.subject_name.trim() || !newCourseData.course_code.trim()) { alert("Vui lòng điền tối thiểu Tên môn học và Mã học phần!"); return; }
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { alert("⚠️ Bạn cần đăng nhập để gửi yêu cầu!"); return; }
+
+    const accessToken = session?.access_token;
+    if (!accessToken) { alert("⚠️ Bạn cần đăng nhập để gửi yêu cầu!"); return; }
 
     setIsSubmittingCourse(true);
     try {
-      const requestId = crypto.randomUUID();
-      const { error } = await supabase.from('user_course_requests').insert({
-        id: requestId,
-        subject_name: newCourseData.subject_name,
-        course_code: newCourseData.course_code,
-        instructor: newCourseData.instructor || 'Chưa rõ',
-        user_id: user.id,
+      const result = await submitManualCourseRequest({
+        accessToken,
+        subjectName: newCourseData.subject_name,
+        courseCode: newCourseData.course_code,
+        instructor: newCourseData.instructor,
+        semester: selectedSemester,
       });
-      if (error) throw error;
-      void notifyModerators('user_course_request', requestId);
+
+      if (result.duplicateCourse) {
+        const shouldAdd = await showConfirm({
+          title: 'Môn học này đã có trong hệ thống',
+          message: `Mã ${newCourseData.course_code.trim()} trùng với ${result.duplicateCourse.course_code} – ${result.duplicateCourse.subject_name}. Bạn có muốn thêm môn có sẵn này vào lịch không?`,
+          confirmText: 'Thêm môn này',
+          cancelText: 'Kiểm tra lại',
+          variant: 'warning',
+        });
+        if (shouldAdd) {
+          setIsCreateCourseModalOpen(false);
+          await addToSchedule(result.duplicateCourse as unknown as Course);
+        }
+        return;
+      }
+
+      if (result.requestId) void notifyModerators('user_course_request', result.requestId);
       alert("✅ Gửi yêu cầu thành công! Admin sẽ kiểm tra và cập nhật môn này.");
       setIsCreateCourseModalOpen(false); setNewCourseData({ subject_name: '', course_code: '', instructor: '' });
-    } catch (error) { alert("Đã xảy ra lỗi khi gửi yêu cầu."); } 
+    } catch (error) { alert((error as Error)?.message || "Đã xảy ra lỗi khi gửi yêu cầu."); }
     finally { setIsSubmittingCourse(false); }
   };
 
@@ -2521,10 +2525,29 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     
                     <div className="flex flex-1 max-w-md items-center gap-2">
                         <div className="relative flex-1">
-                            <input type="text" placeholder={adminTab === 'student_schedules' ? 'Tìm tên sinh viên, MSSV, email...' : 'Tìm môn học, mã HP, GV...'} value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); if (adminTab === 'requested') setCourseRequestPage(1); }} className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-300 outline-none text-sm transition-all hover:border-gray-400 focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"/>
+                            <input
+                                type="text"
+                                placeholder={adminTab === 'student_schedules'
+                                    ? 'Tìm tên sinh viên, MSSV, email...'
+                                    : adminTab === 'system'
+                                        ? 'Nhập mã hoặc tên môn để tìm tối đa 10 gợi ý...'
+                                        : 'Tìm môn học, mã HP, GV...'}
+                                value={searchTerm}
+                                onChange={(e) => {
+                                    const nextSearchTerm = e.target.value;
+                                    setSearchTerm(nextSearchTerm);
+                                    if (adminTab === 'requested') setCourseRequestPage(1);
+                                    if (adminTab === 'system' && !nextSearchTerm.trim()) {
+                                        setAvailableCourses([]);
+                                        setCourseTotal(0);
+                                        setCourseHasMore(false);
+                                    }
+                                }}
+                                className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-300 outline-none text-sm transition-all hover:border-gray-400 focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
+                            />
                             <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
                         </div>
-                        <button onClick={() => adminTab === 'student_schedules' ? fetchStudentScheduleSummaries() : adminTab === 'user_changed' ? fetchChangedUserScheduleCourses() : adminTab === 'requested' ? (clearCourseRequestCache(), fetchCourseRequests(courseRequestPage, { force: true })) : fetchCourses()} className="p-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"><RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /></button>
+                        <button onClick={() => adminTab === 'student_schedules' ? fetchStudentScheduleSummaries() : adminTab === 'user_changed' ? fetchChangedUserScheduleCourses() : adminTab === 'requested' ? (clearCourseRequestCache(), fetchCourseRequests(courseRequestPage, { force: true })) : fetchCourses({ force: true })} className="p-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"><RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /></button>
                         {adminTab !== 'user_changed' && adminTab !== 'student_schedules' && adminTab !== 'requested' && (
                             <button onClick={() => { setActiveCourseRequest(null); setAdminEditData({ is_user_added: adminTab === 'user' }); setIsAdminEditModalOpen(true); }} className="flex items-center gap-1.5 px-4 py-2 bg-[#003375] text-white font-bold rounded-lg hover:bg-[#002855] transition-colors text-sm whitespace-nowrap"><Plus size={16}/> Thêm môn</button>
                         )}
@@ -2532,7 +2555,18 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 </div>
 
                 <div className="px-4 pt-4 border-b border-gray-200 flex gap-6 bg-white shrink-0 overflow-x-auto custom-scrollbar">
-                    <button onClick={() => setAdminTab('system')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'system' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn hệ thống gốc</button>
+                    <button
+                        onClick={() => {
+                            setAdminTab('system');
+                            setAvailableCourses([]);
+                            setCourseTotal(0);
+                            setCourseHasMore(false);
+                            setCoursePage(0);
+                        }}
+                        className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'system' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}
+                    >
+                        Môn hệ thống gốc
+                    </button>
                     <button onClick={() => setAdminTab('user')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'user' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên thêm</button>
                     <button onClick={() => { setAdminTab('requested'); setCourseRequestPage(1); }} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'requested' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên yêu cầu thêm</button>
                     <button onClick={() => setAdminTab('user_changed')} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'user_changed' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên thay đổi</button>
@@ -2658,7 +2692,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         ) : courseRequests.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-gray-500"><Search size={40} className="mb-3 text-gray-300"/><p>Không có yêu cầu thêm môn đang chờ.</p></div>
                         ) : (
-                            <div className="min-w-[980px]">
+                            <div className="min-w-[1080px]">
                             <table className="w-full table-fixed text-left border-collapse text-sm">
                                 <colgroup>
                                     <col className="w-14" />
@@ -2667,7 +2701,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     <col className="w-[180px]" />
                                     <col className="w-[190px]" />
                                     <col className="w-[130px]" />
-                                    <col className="w-[150px]" />
+                                    <col className="w-[250px]" />
                                 </colgroup>
                                 <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
                                     <tr>
@@ -2684,13 +2718,38 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     {courseRequests.map((request, index) => (
                                         <tr key={request.id} onClick={() => openCourseRequestEditor(request)} className={`border-b border-gray-100 transition-colors ${isAuditor ? '' : 'cursor-pointer hover:bg-emerald-50/40'}`}>
                                             <td className="p-3 text-center font-bold text-gray-500">{(courseRequestPage - 1) * COURSE_REQUEST_PAGE_SIZE + index + 1}</td>
-                                            <td className="p-3 font-semibold text-[#003375] whitespace-nowrap overflow-hidden text-ellipsis">{request.course_code}</td>
+                                            <td className="p-3 font-semibold text-[#003375]">
+                                                <div className="truncate">{request.course_code}</div>
+                                                {request.duplicate_course && (
+                                                    <div className="mt-1 truncate text-[10px] font-bold text-amber-700">
+                                                        Trùng {request.duplicate_course.course_code}
+                                                    </div>
+                                                )}
+                                            </td>
                                             <td className="p-3 font-bold text-gray-800 break-words leading-snug">{request.subject_name}</td>
                                             <td className="p-3 text-gray-600 font-medium break-words leading-snug">{request.instructor || '-'}</td>
                                             <td className="p-3 font-mono font-bold text-emerald-700 whitespace-nowrap overflow-hidden text-ellipsis">{getCourseRequestStudentCode(request)}</td>
                                             <td className="p-3 text-xs text-gray-500 whitespace-nowrap">{request.created_at ? new Date(request.created_at).toLocaleDateString('vi-VN') : '-'}</td>
                                             <td className="p-3">
                                                 <div className="flex items-center justify-center gap-2">
+                                                    {request.duplicate_course && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                void showAlert({
+                                                                    title: 'Sinh viên yêu cầu trùng môn',
+                                                                    message: `${request.course_code} được xác định trùng với môn đã có: ${request.duplicate_course?.course_code} – ${request.duplicate_course?.subject_name}.`,
+                                                                    variant: 'warning',
+                                                                });
+                                                            }}
+                                                            className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-bold text-amber-700 hover:bg-amber-100"
+                                                            title="Mã học phần này trùng với một môn đã có trong hệ thống"
+                                                        >
+                                                            <AlertTriangle size={14} />
+                                                            Trùng môn
+                                                        </button>
+                                                    )}
                                                     <button disabled={isAuditor} onClick={(e) => { e.stopPropagation(); openCourseRequestEditor(request); }} className="px-3 py-1.5 rounded-lg bg-[#003375] text-white text-xs font-bold hover:bg-[#002855] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                                                         Sửa & thêm
                                                     </button>
@@ -2754,7 +2813,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             <p className="mt-1 text-sm text-red-500">{adminScheduleError}</p>
                         </div>
                     ) : filteredAdminCourses.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-gray-500"><Search size={40} className="mb-3 text-gray-300"/><p>Không có dữ liệu trong mục này.</p></div>
+                        <div className="flex flex-col items-center justify-center h-full px-6 text-center text-gray-500">
+                            <Search size={40} className="mb-3 text-gray-300"/>
+                            <p>
+                                {adminTab === 'system' && !searchTerm.trim()
+                                    ? 'Nhập mã học phần hoặc tên môn để xem tối đa 10 gợi ý.'
+                                    : 'Không có dữ liệu phù hợp trong mục này.'}
+                            </p>
+                        </div>
                     ) : adminTab === 'user_changed' ? (
                         <table className="w-full table-fixed text-left border-collapse text-sm min-w-[1080px]">
                             <colgroup>
@@ -3013,15 +3079,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             <div className="space-y-3">
                                 {isFilterExpanded && (
                                     <div className="flex flex-wrap items-center justify-between gap-3">
-                                        <p className="text-sm font-black text-[#003375]">Tìm thấy {courseTotal} môn học</p>
+                                        <p className="text-sm font-black text-[#003375]">
+                                            {isCourseSuggestionMode ? `${availableCourses.length} môn gợi ý` : `Tìm thấy ${courseTotal} môn học`}
+                                        </p>
                                         <p className="text-xs font-semibold text-gray-500">Bấm vào card để xem chi tiết</p>
                                     </div>
                                 )}
                                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
                                     <p className="text-xs font-bold text-gray-500">
-                                        Trang {coursePage + 1}/{courseTotalPages} • {availableCourses.length} môn đang hiển thị
+                                        {isCourseSuggestionMode
+                                            ? `${availableCourses.length} môn học được gợi ý`
+                                            : `Trang ${coursePage + 1}/${courseTotalPages} • ${availableCourses.length} môn đang hiển thị`}
                                     </p>
-                                    <div className="flex items-center gap-1.5">
+                                    {!isCourseSuggestionMode && <div className="flex items-center gap-1.5">
                                         <button
                                             disabled={coursePage === 0 || isLoading}
                                             onClick={() => setCoursePage(prev => Math.max(0, prev - 1))}
@@ -3049,7 +3119,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         >
                                             Sau
                                         </button>
-                                    </div>
+                                    </div>}
                                 </div>
                                 <div className={isFilterExpanded ? 'grid grid-cols-1 gap-3 xl:grid-cols-2' : 'space-y-3'}>
                                     {availableCourses.map((course) => {
@@ -4107,6 +4177,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 securitySlot={<TurnstileBox token={scheduleImportTurnstileToken} onTokenChange={setScheduleImportTurnstileToken} />}
                 canSelectFile={Boolean(scheduleImportTurnstileToken)}
                 onFileClick={() => fileInputRef.current?.click()} 
+            />
+        )}
+
+        {pendingScheduleImport && (
+            <ScheduleImportPreviewModal
+                rows={pendingScheduleImport.rows}
+                semester={pendingScheduleImport.semester}
+                isSaving={isConfirmingScheduleImport}
+                onChange={rows => setPendingScheduleImport(current => (
+                    current ? { ...current, rows } : current
+                ))}
+                onCancel={() => setPendingScheduleImport(null)}
+                onConfirm={handleConfirmScheduleImport}
             />
         )}
     </div>

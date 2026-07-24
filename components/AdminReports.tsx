@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { fetchProfilePrivateMap } from '../utils/profilePrivate';
 import { Link } from 'react-router-dom';
-import { Loader2, CheckCircle2, AlertTriangle, Bug, BookOpen, UserPlus, CalendarDays, MessageSquare, Trash2, Calendar, Edit2, ExternalLink, Crown } from 'lucide-react';
+import { Loader2, CheckCircle2, CheckCheck, AlertTriangle, Bug, BookOpen, UserPlus, CalendarDays, MessageSquare, Trash2, Calendar, Edit2, ExternalLink, Crown } from 'lucide-react';
 import { playClick } from '../utils/audio';
-import { showConfirm } from '../utils/appNotifications';
+import { showAlert, showConfirm } from '../utils/appNotifications';
 
 type TabType = 'course_reports' | 'bug_reports' | 'ctv_requests' | 'event_reports' | 'feedback' | 'canva_pro_requests';
 
@@ -17,6 +17,9 @@ const REPORT_SELECT_COLUMNS: Record<TabType, string> = {
     canva_pro_requests: 'id,user_id,status,created_at,email,full_name,student_batch,major,note,reviewed_at'
 };
 const REPORT_PAGE_SIZE = 30;
+const REPORT_BULK_FETCH_SIZE = 1000;
+const REPORT_BULK_UPDATE_SIZE = 200;
+const RESOLVED_REPORT_STATUSES = ['ok', 'resolved', 'contacted', 'approved', 'rejected'];
 
 const getLostFoundItemUrl = (content?: string | null) => {
     if (!content) return null;
@@ -48,6 +51,7 @@ export const AdminReports: React.FC = () => {
     const [reports, setReports] = useState<ReportData[]>([]);
     const [loading, setLoading] = useState(false);
     const [updatingId, setUpdatingId] = useState<any>(null);
+    const [updatingAll, setUpdatingAll] = useState(false);
     const [page, setPage] = useState(0);
     const [totalReports, setTotalReports] = useState(0);
 
@@ -143,6 +147,72 @@ export const AdminReports: React.FC = () => {
             alert("Cập nhật thất bại!");
         } finally {
             setUpdatingId(null);
+        }
+    };
+
+    const handleResolveAllInActiveTab = async () => {
+        if (!supabase) return;
+        const activeLabel = tabs.find(tab => tab.id === activeTab)?.label || 'mục này';
+        const confirmed = await showConfirm({
+            title: `Đánh dấu đã xử lý tất cả ${activeLabel}?`,
+            message: `Chỉ các báo cáo chưa xử lý trong mục "${activeLabel}" được cập nhật. Những mục khác sẽ không bị ảnh hưởng.`,
+            confirmText: 'Đã xử lý tất cả',
+            cancelText: 'Hủy',
+            variant: 'warning',
+        });
+        if (!confirmed) return;
+
+        playClick();
+        setUpdatingAll(true);
+        try {
+            const resolvedStatus = activeTab === 'canva_pro_requests' ? 'contacted' : 'ok';
+            const unresolvedIds: any[] = [];
+            let offset = 0;
+
+            while (true) {
+                const { data, error } = await (supabase.from(activeTab) as any)
+                    .select('id,status')
+                    .order('id', { ascending: true })
+                    .range(offset, offset + REPORT_BULK_FETCH_SIZE - 1);
+
+                if (error) throw error;
+                const rows = (data || []) as Array<{ id: any; status?: string | null }>;
+                unresolvedIds.push(
+                    ...rows
+                        .filter(row => !RESOLVED_REPORT_STATUSES.includes(String(row.status || '').trim().toLowerCase()))
+                        .map(row => row.id)
+                );
+
+                if (rows.length < REPORT_BULK_FETCH_SIZE) break;
+                offset += rows.length;
+            }
+
+            for (let index = 0; index < unresolvedIds.length; index += REPORT_BULK_UPDATE_SIZE) {
+                const idChunk = unresolvedIds.slice(index, index + REPORT_BULK_UPDATE_SIZE);
+                const { error } = await (supabase.from(activeTab) as any)
+                    .update({ status: resolvedStatus })
+                    .in('id', idChunk);
+                if (error) throw error;
+            }
+
+            await fetchReports();
+            await showAlert({
+                title: `Đã xử lý ${activeLabel}`,
+                message: unresolvedIds.length > 0
+                    ? `Đã đánh dấu ${unresolvedIds.length} báo cáo trong mục này là đã xử lý.`
+                    : 'Mục này không còn báo cáo nào cần xử lý.',
+                variant: 'success',
+            });
+        } catch (error: any) {
+            console.error('Lỗi xử lý tất cả báo cáo:', error);
+            await fetchReports();
+            await showAlert({
+                title: 'Không thể xử lý tất cả báo cáo',
+                message: error?.message || 'Vui lòng thử lại.',
+                variant: 'warning',
+            });
+        } finally {
+            setUpdatingAll(false);
         }
     };
 
@@ -337,12 +407,23 @@ export const AdminReports: React.FC = () => {
 
             {/* Bảng dữ liệu / Danh sách Cards */}
             <div className="rounded-xl bg-gray-50/50 p-1">
-                <div className="mb-4 flex items-center justify-between gap-3 px-2">
+                <div className="mb-4 flex flex-col items-start justify-between gap-3 px-2 sm:flex-row sm:items-center">
                     <h3 className="flex min-w-0 items-center gap-2 truncate text-lg font-black text-gray-800">
                         {tabs.find(t => t.id === activeTab)?.label}
                     </h3>
-                    <div className="shrink-0 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-black text-gray-500 shadow-sm">
-                        Tổng cộng: {totalReports}
+                    <div className="flex shrink-0 items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleResolveAllInActiveTab}
+                            disabled={updatingAll || loading}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-[11px] font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
+                        >
+                            {updatingAll ? <Loader2 size={14} className="animate-spin" /> : <CheckCheck size={14} />}
+                            Đã xử lý tất cả
+                        </button>
+                        <div className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-black text-gray-500 shadow-sm">
+                            Tổng cộng: {totalReports}
+                        </div>
                     </div>
                 </div>
 
