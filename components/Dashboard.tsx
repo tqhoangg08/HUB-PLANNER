@@ -33,6 +33,7 @@ import { notifyModerators } from '../utils/moderatorNotifications';
 import { showAlert, showConfirm } from '../utils/appNotifications';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
+import { TargetGpaTipInput } from './TargetGpaTipInput';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 
 // ============================================================================
@@ -2217,14 +2218,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
         stats.rawGPA4, 
         stats.passedCredits,
         totalCreditsRequired,
-        activeData.targetGPA
+        activeData.targetGPA,
+        stats.totalCredits
     );
 
     let difficultyColor = "text-[#003375] bg-blue-50 border-blue-200";
     let difficultyText = "Tốt";
     let scoreClass = "text-[#003375]";
 
-    if (requiredAnalysis && requiredAnalysis.isPossible) {
+    if (requiredAnalysis?.isTargetAchieved) {
+        difficultyColor = "text-emerald-700 bg-emerald-50 border-emerald-200";
+        difficultyText = "Đã đạt mục tiêu";
+        scoreClass = "text-emerald-600";
+    } else if (requiredAnalysis && requiredAnalysis.isPossible) {
         const req = requiredAnalysis.requiredGPA;
         if (req > 3.6) {
             difficultyColor = "text-[#990000] bg-red-50 border-red-200";
@@ -2542,7 +2548,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
 
                     {FEATURE_FORECAST_TOOLS && (
-                    <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-hidden">
+                    <div className="z-20 bg-white p-3 sm:p-4 rounded-xl border border-gray-300 flex flex-col relative overflow-visible">
                         <div className="flex justify-between items-start mb-1">
                             <span className="text-[11px] sm:text-xs font-bold text-gray-600 truncate">Dự báo mục tiêu</span>
                             <Target size={16} className="text-[#003375] shrink-0 w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -2560,14 +2566,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <div className="flex flex-col gap-1 sm:gap-1 text-[9px] sm:text-[11px] text-gray-600 mt-1">
                                 <div className="flex justify-between items-center">
                                     <span className="truncate">Mục tiêu:</span>
-                                    <div className="flex items-center group relative cursor-pointer border-b border-dashed border-gray-400 hover:border-[#003375]">
-                                        <input
-                                            type="number" min="0" max="4" step="0.1"
-                                            value={activeData.targetGPA}
-                                            onChange={(e) => handleLocalTargetChange(parseFloat(e.target.value) || 0)}
-                                            className="w-6 sm:w-12 font-bold text-[#003375] bg-transparent text-right focus:outline-none z-10 p-0 m-0"
-                                        />
-                                    </div>
+                                    <TargetGpaTipInput
+                                        value={activeData.targetGPA}
+                                        onChange={handleLocalTargetChange}
+                                    />
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="truncate">Hiện tại:</span>
@@ -2575,7 +2577,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="truncate">Trung bình một tín:</span>
-                                    {requiredAnalysis && requiredAnalysis.isPossible ? (
+                                    {requiredAnalysis?.isTargetAchieved ? (
+                                        <span className="font-bold text-emerald-600">Đã đạt</span>
+                                    ) : requiredAnalysis && requiredAnalysis.isPossible ? (
                                         <span className={`font-bold border-b border-transparent ${scoreClass}`}>{Math.max(0, requiredAnalysis.requiredGPA).toFixed(2)}</span>
                                     ) : (
                                         <span className="font-bold text-[#990000]">Không thể</span>

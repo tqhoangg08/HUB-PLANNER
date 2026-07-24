@@ -149,8 +149,9 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
         stats.rawGPA4,
         stats.passedCredits,
         totalCreditsRequired,
-        targetGPA
-    ), [stats.rawGPA4, stats.passedCredits, totalCreditsRequired, targetGPA]);
+        targetGPA,
+        stats.totalCredits
+    ), [stats.rawGPA4, stats.passedCredits, stats.totalCredits, totalCreditsRequired, targetGPA]);
 
     const validSubjects = useMemo(() => validDataSemesters.flatMap(s => s.subjects)
         .filter(s => !s.isNonGPA)
@@ -415,7 +416,11 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                             <div className="rounded-2xl bg-[#EDFAF3] p-4">
                                 <div className="text-[10px] font-black uppercase text-[#7B8AB0]">Cần mỗi TC</div>
                                 <div className="mt-2 text-xl font-black text-[#00A56F]">
-                                    {requiredAnalysis?.isPossible ? Math.max(0, requiredAnalysis.requiredGPA).toFixed(2) : 'Không thể'}
+                                    {requiredAnalysis?.isTargetAchieved
+                                        ? 'Đã đạt'
+                                        : requiredAnalysis?.isPossible
+                                            ? requiredAnalysis.requiredGPA.toFixed(2)
+                                            : 'Không thể'}
                                 </div>
                             </div>
                         </div>
@@ -441,9 +446,11 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                                 className="h-11 w-28 rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-sm font-black text-[#0D1B3E] outline-none"
                             />
                             <p className="text-xs font-semibold leading-relaxed text-[#7B8AB0]">
-                                {requiredAnalysis?.isPossible
-                                    ? 'Dự báo dựa trên GPA hiện tại, tín chỉ đã tích lũy và tổng tín chỉ mục tiêu.'
-                                    : 'Mục tiêu này không khả thi với dữ liệu hiện tại.'}
+                                {requiredAnalysis?.isTargetAchieved
+                                    ? 'Bạn đã đạt GPA mục tiêu với dữ liệu hiện tại.'
+                                    : requiredAnalysis?.isPossible
+                                        ? 'Dự báo dựa trên GPA hiện tại, tín chỉ đã tích lũy và tổng tín chỉ mục tiêu.'
+                                        : 'Mục tiêu này không khả thi với dữ liệu hiện tại.'}
                             </p>
                         </div>
                     </div>

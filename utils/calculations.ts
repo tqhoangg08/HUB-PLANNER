@@ -187,27 +187,45 @@ export const calculateRequiredGPA = (
     currentRawGPA4: number, // CHÚ Ý: Truyền rawGPA4 vào đây thay vì gpa4
     passedCredits: number,
     totalCreditsRequired: number,
-    targetGPA: number
+    targetGPA: number,
+    currentGpaCredits: number = passedCredits
   ) => {
     const remainingCredits = Math.max(0, totalCreditsRequired - passedCredits);
-    
-    if (remainingCredits === 0) return null; 
-  
-    // Tổng điểm mục tiêu (Chính xác tuyệt đối)
-    const targetTotalScore = targetGPA * totalCreditsRequired;
+
+    // Khi đã hoàn thành đủ/vượt số tín chỉ chương trình, kết quả phụ thuộc
+    // trực tiếp vào GPA hiện tại thay vì luôn bị xem là "Không thể".
+    if (remainingCredits === 0) {
+      const isTargetAchieved = currentRawGPA4 >= targetGPA;
+      return {
+        requiredGPA: isTargetAchieved ? 0 : Number.POSITIVE_INFINITY,
+        remainingCredits,
+        isPossible: isTargetAchieved,
+        isTargetAchieved
+      };
+    }
+
+    // GPA hiện tại có thể bao gồm cả tín chỉ của môn chưa đạt, trong khi
+    // passedCredits chỉ là số tín chỉ đã tích lũy để tốt nghiệp.
+    const safeCurrentGpaCredits = Math.max(0, currentGpaCredits);
+
+    // Tổng điểm cần có sau khi hoàn thành các tín chỉ còn lại.
+    const finalGpaCredits = safeCurrentGpaCredits + remainingCredits;
+    const targetTotalScore = targetGPA * finalGpaCredits;
     
     // Tổng điểm hiện tại (Dùng GPA thô để chính xác)
-    const currentTotalScore = currentRawGPA4 * passedCredits;
+    const currentTotalScore = currentRawGPA4 * safeCurrentGpaCredits;
   
     // Tổng điểm cần đạt cho các tín chỉ còn lại
     const requiredTotalScore = targetTotalScore - currentTotalScore;
   
     // GPA trung bình cần đạt cho quãng đường còn lại
-    const requiredGPA = requiredTotalScore / remainingCredits;
+    const rawRequiredGPA = requiredTotalScore / remainingCredits;
+    const isTargetAchieved = rawRequiredGPA <= 0;
   
     return {
-        requiredGPA,
+        requiredGPA: Math.max(0, rawRequiredGPA),
         remainingCredits,
-        isPossible: requiredGPA <= 4.0 && requiredGPA >= 0
+        isPossible: rawRequiredGPA <= 4.0,
+        isTargetAchieved
     };
   };
