@@ -3198,13 +3198,22 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
                 <Route
                     path="/onboarding"
                     element={isLoaded ? (
-                        <Onboarding
-                            initialData={data}
-                            onComplete={(onboardingData) => {
-                                void handleOnboardingComplete(onboardingData);
-                                navigate(useMobileLayout ? '/mobile-home' : '/dashboard', { replace: true });
-                            }}
-                        />
+                        session?.user && (
+                            isAdmin
+                            || isAuditor
+                            || isCTV
+                            || hasCompleteRequiredStudyProfile(data)
+                        ) ? (
+                            <Navigate to={useMobileLayout ? '/mobile-home' : '/dashboard'} replace />
+                        ) : (
+                            <Onboarding
+                                initialData={data}
+                                onComplete={(onboardingData) => {
+                                    void handleOnboardingComplete(onboardingData);
+                                    navigate(useMobileLayout ? '/mobile-home' : '/dashboard', { replace: true });
+                                }}
+                            />
+                        )
                     ) : null}
                 />
 
