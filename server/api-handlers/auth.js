@@ -9,6 +9,7 @@ const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const OTP_TTL_MINUTES = 10;
 const OTP_COOLDOWN_SECONDS = 10 * 60;
 const MAX_ATTEMPTS = 5;
+const ADMIN_EXPORT_OTP_EMAIL = 'tqhoangg2@gmail.com';
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 const R2_ENDPOINT = process.env.R2_ACCOUNT_ID
   ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
@@ -193,6 +194,23 @@ const isSupportStaffUser = async (userId) => {
     .limit(1);
   if (error) throw error;
   return Boolean(data?.length);
+};
+
+const requireAdminExportUser = async (request) => {
+  const user = await requireAuthenticatedUser(request);
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('id,user_id,role')
+    .or(`id.eq.${user.id},user_id.eq.${user.id}`)
+    .in('role', ['admin', 'auditor'])
+    .limit(1);
+  if (error) throw error;
+  if (!data?.length) {
+    const forbidden = new Error('Chỉ admin hoặc auditor mới được xuất danh sách sinh viên.');
+    forbidden.statusCode = 403;
+    throw forbidden;
+  }
+  return user;
 };
 
 const isClosedSupportTicketStatus = (status) => ['resolved', 'closed'].includes(status);
@@ -877,6 +895,11 @@ const OTP_EMAIL_COPY = {
     subjectAction: 'cài đặt lại mật khẩu',
     actionText: 'cài đặt lại mật khẩu',
   },
+  admin_export: {
+    title: 'Xác nhận xuất danh sách sinh viên HUB Planner',
+    subjectAction: 'xuất danh sách sinh viên',
+    actionText: 'xuất danh sách sinh viên ra Excel',
+  },
 };
 
 const getOtpEmailCopy = (purpose) => {
@@ -1178,6 +1201,54 @@ const sendOtp = async (request, response) => {
   });
 };
 
+const sendAdminExportOtp = async (request, response) => {
+  await requireAdminExportUser(request);
+  const purpose = 'admin_export';
+  const email = ADMIN_EXPORT_OTP_EMAIL;
+  const { data: latestOtp, error: latestOtpError } = await supabase
+    .from('auth_otp_codes')
+    .select('created_at, used_at')
+    .eq('email', email)
+    .eq('purpose', purpose)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (latestOtpError) throw latestOtpError;
+
+  if (latestOtp && !latestOtp.used_at) {
+    const elapsedSeconds = Math.floor((Date.now() - new Date(latestOtp.created_at).getTime()) / 1000);
+    const retryAfterSeconds = OTP_COOLDOWN_SECONDS - elapsedSeconds;
+    if (retryAfterSeconds > 0) {
+      return response.status(429).json({
+        email,
+        error: 'Mã OTP đã được gửi trước đó và vẫn còn hiệu lực. Vui lòng kiểm tra email.',
+        retryAfterSeconds,
+      });
+    }
+  }
+
+  const otp = randomInt(100000, 1000000).toString();
+  const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000).toISOString();
+  await supabase
+    .from('auth_otp_codes')
+    .update({ used_at: new Date().toISOString() })
+    .eq('email', email)
+    .eq('purpose', purpose)
+    .is('used_at', null);
+  const { error: insertError } = await supabase.from('auth_otp_codes').insert({
+    email,
+    purpose,
+    otp_hash: hashOtp(email, purpose, otp),
+    expires_at: expiresAt,
+  });
+  if (insertError) throw insertError;
+  await sendEmail({ email, otp, purpose });
+  return response.status(200).json({
+    email,
+    expiresInSeconds: OTP_TTL_MINUTES * 60,
+  });
+};
+
 const verifyOtpRecord = async ({ email, purpose, otp }) => {
   const { data, error } = await supabase
     .from('auth_otp_codes')
@@ -1332,6 +1403,20 @@ const verifyOtp = async (request, response) => {
     .eq('id', profile.id);
 
   return response.status(200).json({ email, passwordUpdated: true });
+};
+
+const verifyAdminExportOtp = async (request, response) => {
+  await requireAdminExportUser(request);
+  const otp = String(request.body?.otp || '').replace(/\D/g, '').slice(0, 6);
+  if (otp.length !== 6) {
+    return response.status(400).json({ error: 'Mã OTP cần đủ 6 chữ số.' });
+  }
+  await verifyOtpRecord({
+    email: ADMIN_EXPORT_OTP_EMAIL,
+    purpose: 'admin_export',
+    otp,
+  });
+  return response.status(200).json({ verified: true });
 };
 
 const deleteAccount = async (request, response) => {
@@ -1671,6 +1756,8 @@ async function handler(request, response) {
     if (action === 'resolve-identifier') return await resolveIdentifier(request, response);
     if (action === 'send-otp') return await sendOtp(request, response);
     if (action === 'verify-otp') return await verifyOtp(request, response);
+    if (action === 'send-admin-export-otp') return await sendAdminExportOtp(request, response);
+    if (action === 'verify-admin-export-otp') return await verifyAdminExportOtp(request, response);
     if (action === 'record-policy-consent') return await recordPolicyConsent(request, response);
     if (action === 'delete-account') return await deleteAccount(request, response);
     if (action === 'create-avatar-upload') return await createAvatarUpload(request, response);

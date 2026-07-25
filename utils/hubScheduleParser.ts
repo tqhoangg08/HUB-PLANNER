@@ -88,6 +88,40 @@ const groupIntoLines = (items: SchedulePdfTextItem[], tolerance = 2.2) => {
     return lines.sort((a, b) => b.y - a.y);
 };
 
+const mergeAdjacentLineItems = (items: SchedulePdfTextItem[]) => {
+    const sorted = [...items].sort((a, b) => a.x - b.x);
+    const merged: SchedulePdfTextItem[] = [];
+
+    sorted.forEach(item => {
+        const text = normalizeText(item.text);
+        if (!text) return;
+
+        const previous = merged[merged.length - 1];
+        if (!previous) {
+            merged.push({ ...item, text });
+            return;
+        }
+
+        const previousEnd = previous.x + previous.width;
+        const gap = item.x - previousEnd;
+        if (gap <= 1.6) {
+            const itemEnd = item.x + item.width;
+            previous.text += text;
+            previous.width = Math.max(previousEnd, itemEnd) - previous.x;
+            previous.height = Math.max(previous.height, item.height);
+            return;
+        }
+
+        merged.push({ ...item, text });
+    });
+
+    return merged;
+};
+
+const getLogicalItems = (items: SchedulePdfTextItem[]) => (
+    groupIntoLines(items).flatMap(line => mergeAdjacentLineItems(line.items))
+);
+
 const joinLine = (items: SchedulePdfTextItem[]) => {
     const sorted = [...items].sort((a, b) => a.x - b.x);
     let output = '';
@@ -116,7 +150,7 @@ const joinBlock = (items: SchedulePdfTextItem[]) => normalizeText(
 );
 
 const findHeader = (items: SchedulePdfTextItem[], pattern: RegExp) => (
-    items.find(item => pattern.test(normalizeText(item.text)))
+    getLogicalItems(items).find(item => pattern.test(normalizeText(item.text)))
 );
 
 const normalizeDate = (value: string) => {
@@ -245,7 +279,9 @@ const parsePageCourses = (page: SchedulePdfLayoutPage): ImportedScheduleCourse[]
             .sort((a, b) => Math.abs(a.y - codeItem.y) - Math.abs(b.y - codeItem.y))[0];
 
         const subjectName = joinBlock(
-            block.filter(item => item.x >= nameHeader.x - 5 && item.x < creditX - 4),
+            // HUB Portal can place the first glyph 6-7pt to the left of the
+            // visible "Tên học phần" header (especially with accented text).
+            block.filter(item => item.x >= nameHeader.x - 12 && item.x < creditX - 4),
         ).replace(/\s*\(\s*\)\s*$/g, '').trim();
         const instructor = joinBlock(
             block.filter(item => item.x >= instructorHeader.x - 18 && item.x < startDateX - 5),

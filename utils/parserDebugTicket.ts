@@ -23,6 +23,12 @@ const alertClass = {
 
 export const promptSendParserDebugFile = async (input: ParserDebugTicketInput) => {
   const documentName = input.kind === 'transcript' ? 'bảng điểm' : 'thời khóa biểu';
+  const portalSection = input.kind === 'transcript'
+    ? '<strong>"Xem điểm"</strong>'
+    : '<strong>"Thời khóa biểu - Lịch thi"</strong>, chọn năm học và học kỳ rồi bấm <strong>"In thời khóa biểu"</strong>';
+  const printInstruction = input.kind === 'transcript'
+    ? 'Bấm tổ hợp phím <strong>Ctrl + P</strong> hoặc nhấp chuột phải rồi chọn <strong>In</strong>.'
+    : 'Mở bản thời khóa biểu cần nhập và dùng nút <strong>"In thời khóa biểu"</strong> của HUB Portal.';
 
   await Swal.fire({
     title: `Không đọc được file PDF ${documentName}`,
@@ -36,11 +42,11 @@ export const promptSendParserDebugFile = async (input: ParserDebugTicketInput) =
         <ol class="hub-pdf-guide-steps">
           <li>
             <span class="hub-pdf-guide-number">1</span>
-            <span>Truy cập <a href="https://online.hub.edu.vn/" target="_blank" rel="noopener noreferrer">HUB Portal</a> → Đăng nhập → Vào mục <strong>"Xem điểm"</strong>.</span>
+            <span>Truy cập <a href="https://online.hub.edu.vn/" target="_blank" rel="noopener noreferrer">HUB Portal</a> → Đăng nhập → Vào mục ${portalSection}.</span>
           </li>
           <li>
             <span class="hub-pdf-guide-number">2</span>
-            <span>Bấm tổ hợp phím <strong>Ctrl + P</strong> hoặc nhấp chuột phải rồi chọn <strong>In</strong>.</span>
+            <span>${printInstruction}</span>
           </li>
           <li>
             <span class="hub-pdf-guide-number">3</span>

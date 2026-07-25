@@ -30,6 +30,26 @@ interface AnalysisSheetBuild {
     worksheetXml: string;
 }
 
+export interface AdminStudentExcelRow {
+    studentCode: string;
+    fullName: string;
+    className: string;
+    majorName: string;
+    gpa4: number | null;
+    gpa10: number | null;
+    credits: number;
+    trainingScore: number | null;
+    cohort: string;
+}
+
+export interface AdminStudentExcelExportOptions {
+    rows: AdminStudentExcelRow[];
+    academicYearLabel: string;
+    semesterLabel: string;
+    cohortLabel: string;
+    majorLabel: string;
+}
+
 const VALID_SEMESTER_NAME_REGEX = /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/;
 const HUB_PLANNER_URL = 'https://hotrosinhvienhub.id.vn';
 const HUB_PLANNER_LOGO_PATH = '/logo192.png';
@@ -525,6 +545,14 @@ const writeUint32 = (target: number[], value: number) => {
     target.push(value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff);
 };
 
+const appendBytes = (target: number[], bytes: ArrayLike<number>) => {
+    // Do not spread large worksheet XML buffers into Array.push().
+    // A workbook with many students can exceed the JavaScript argument stack.
+    for (let index = 0; index < bytes.length; index += 1) {
+        target.push(bytes[index]);
+    }
+};
+
 const createZip = (files: Record<string, ZipEntry>) => {
     const encoder = new TextEncoder();
     const output: number[] = [];
@@ -547,7 +575,8 @@ const createZip = (files: Record<string, ZipEntry>) => {
         writeUint32(output, dataBytes.length);
         writeUint16(output, nameBytes.length);
         writeUint16(output, 0);
-        output.push(...nameBytes, ...dataBytes);
+        appendBytes(output, nameBytes);
+        appendBytes(output, dataBytes);
 
         writeUint32(centralDirectory, 0x02014b50);
         writeUint16(centralDirectory, 20);
@@ -566,11 +595,11 @@ const createZip = (files: Record<string, ZipEntry>) => {
         writeUint16(centralDirectory, 0);
         writeUint32(centralDirectory, 0);
         writeUint32(centralDirectory, localHeaderOffset);
-        centralDirectory.push(...nameBytes);
+        appendBytes(centralDirectory, nameBytes);
     });
 
     const centralDirectoryOffset = output.length;
-    output.push(...centralDirectory);
+    appendBytes(output, centralDirectory);
     writeUint32(output, 0x06054b50);
     writeUint16(output, 0);
     writeUint16(output, 0);
@@ -592,6 +621,101 @@ const downloadBlob = (blob: Blob, fileName: string) => {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+};
+
+const buildAdminStudentWorksheetXml = (options: AdminStudentExcelExportOptions) => {
+    const title = 'DANH SÁCH KẾT QUẢ HỌC TẬP SINH VIÊN';
+    const filterSummary = [
+        `Năm học: ${options.academicYearLabel}`,
+        `Học kỳ: ${options.semesterLabel}`,
+        `Khóa: ${options.cohortLabel}`,
+        `Ngành: ${options.majorLabel}`
+    ].join('  |  ');
+    const headers = [
+        'STT',
+        'MSSV',
+        'Họ và tên',
+        'Lớp',
+        'Ngành học',
+        'Điểm TBCHT (thang 4)',
+        'Điểm TBCHT (thang 10)',
+        'Số TC',
+        'Điểm RL',
+        'Khóa'
+    ];
+    const rows: SheetCell[][] = [
+        [{ value: title, style: 1 }, ...Array.from({ length: 9 }, blankCell)],
+        [{ value: filterSummary, style: 7 }, ...Array.from({ length: 9 }, blankCell)],
+        headers.map(header => ({ value: header, style: 2 })),
+        ...options.rows.map((student, index) => [
+            centerCell(index + 1),
+            centerCell(student.studentCode || '-'),
+            textCell(student.fullName || '-'),
+            centerCell(student.className || '-'),
+            textCell(student.majorName || '-'),
+            numberCell(student.gpa4, 4),
+            numberCell(student.gpa10, 4),
+            centerCell(student.credits),
+            numberCell(student.trainingScore, 4),
+            centerCell(student.cohort || '-')
+        ])
+    ];
+    const rowXml = rows.map((row, rowIndex) => {
+        const rowNumber = rowIndex + 1;
+        const height = rowNumber === 1 ? 30 : rowNumber === 2 ? 24 : rowNumber === 3 ? 38 : 22;
+        const cells = row.map((cell, columnIndex) => cellXml(cell, rowNumber, columnIndex + 1)).join('');
+        return `<row r="${rowNumber}" ht="${height}" customHeight="1">${cells}</row>`;
+    }).join('');
+    const lastRow = Math.max(3, rows.length);
+
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<sheetPr><tabColor rgb="FF003375"/></sheetPr>
+<sheetViews><sheetView workbookViewId="0"><pane ySplit="3" topLeftCell="A4" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A4" sqref="A4"/></sheetView></sheetViews>
+<sheetFormatPr defaultRowHeight="22"/>
+<cols>
+<col min="1" max="1" width="7" customWidth="1"/>
+<col min="2" max="2" width="17" customWidth="1"/>
+<col min="3" max="3" width="30" customWidth="1"/>
+<col min="4" max="4" width="18" customWidth="1"/>
+<col min="5" max="5" width="30" customWidth="1"/>
+<col min="6" max="7" width="20" customWidth="1"/>
+<col min="8" max="8" width="11" customWidth="1"/>
+<col min="9" max="9" width="13" customWidth="1"/>
+<col min="10" max="10" width="12" customWidth="1"/>
+</cols>
+<sheetData>${rowXml}</sheetData>
+<autoFilter ref="A3:J${lastRow}"/>
+<mergeCells count="2"><mergeCell ref="A1:J1"/><mergeCell ref="A2:J2"/></mergeCells>
+<printOptions horizontalCentered="1"/>
+<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>
+<pageSetup orientation="landscape" paperSize="9" fitToWidth="1" fitToHeight="0"/>
+</worksheet>`;
+};
+
+export const exportAdminStudentListToExcel = (options: AdminStudentExcelExportOptions) => {
+    const now = new Date().toISOString();
+    const files: Record<string, ZipEntry> = {
+        '[Content_Types].xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>',
+        '_rels/.rels': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>',
+        'docProps/app.xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>HUB Planner</Application></Properties>',
+        'docProps/core.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:creator>HUB Planner</dc:creator><cp:lastModifiedBy>HUB Planner</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`,
+        'xl/workbook.xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Danh sách sinh viên" sheetId="1" r:id="rId1"/></sheets></workbook>',
+        'xl/_rels/workbook.xml.rels': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>',
+        'xl/styles.xml': buildStylesXml(),
+        'xl/worksheets/sheet1.xml': buildAdminStudentWorksheetXml(options)
+    };
+    const zipBytes = createZip(files);
+    const blob = new Blob([zipBytes], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    const scopeName = sanitizeFilePart([
+        options.academicYearLabel,
+        options.semesterLabel,
+        options.cohortLabel,
+        options.majorLabel
+    ].filter(label => label && !label.toLowerCase().startsWith('tất cả')).join('_'));
+    downloadBlob(blob, `Danh_Sach_Sinh_Vien${scopeName ? `_${scopeName}` : ''}.xlsx`);
 };
 
 const loadLogoBytes = async () => {

@@ -759,7 +759,6 @@ const App: React.FC = () => {
     const [gradeImportTurnstileToken, setGradeImportTurnstileToken] = useState('');
     const [pendingTranscriptImport, setPendingTranscriptImport] = useState<{
         semesters: Semester[];
-        studentInfo: Partial<UserData>;
         importedSubjectCount: number;
         onImportedSemesters?: (semesters: Semester[]) => void;
     } | null>(null);
@@ -2119,7 +2118,6 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
 
             setPendingTranscriptImport({
                 semesters: reconstructSemesters,
-                studentInfo: result.studentInfo,
                 importedSubjectCount,
                 onImportedSemesters,
             });
@@ -2171,7 +2169,6 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
             } else {
                 commitDataUpdate(prev => ({
                     ...prev,
-                    ...pendingTranscriptImport.studentInfo,
                     semesters: pendingTranscriptImport.semesters,
                 }));
             }

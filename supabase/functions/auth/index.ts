@@ -6,6 +6,7 @@ const SCHOOL_DOMAIN = 'st.buh.edu.vn'
 const OTP_TTL_MINUTES = 10
 const OTP_COOLDOWN_SECONDS = 10 * 60
 const MAX_ATTEMPTS = 5
+const ADMIN_EXPORT_OTP_EMAIL = 'tqhoangg2@gmail.com'
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
 
@@ -130,6 +131,11 @@ const OTP_EMAIL_COPY: Record<string, { title: string; subjectAction: string; act
     title: 'Đặt lại mật khẩu HUB Planner',
     subjectAction: 'cài đặt lại mật khẩu',
     actionText: 'cài đặt lại mật khẩu',
+  },
+  admin_export: {
+    title: 'Xác nhận xuất danh sách sinh viên HUB Planner',
+    subjectAction: 'xuất danh sách sinh viên',
+    actionText: 'xuất danh sách sinh viên ra Excel',
   },
 }
 
@@ -611,6 +617,47 @@ const sendOtp = async (body: any) => {
   })
 }
 
+const sendAdminExportOtp = async (req: Request) => {
+  await requireAdminExportUser(req)
+  const purpose = 'admin_export'
+  const email = ADMIN_EXPORT_OTP_EMAIL
+  const { data: latestOtp, error: latestOtpError } = await supabase
+    .from('auth_otp_codes')
+    .select('created_at, used_at')
+    .eq('email', email)
+    .eq('purpose', purpose)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (latestOtpError) throw latestOtpError
+
+  if (latestOtp && !latestOtp.used_at) {
+    const elapsedSeconds = Math.floor((Date.now() - new Date(latestOtp.created_at).getTime()) / 1000)
+    const retryAfterSeconds = OTP_COOLDOWN_SECONDS - elapsedSeconds
+    if (retryAfterSeconds > 0) {
+      return json({
+        email,
+        error: 'Mã OTP đã được gửi trước đó và vẫn còn hiệu lực. Vui lòng kiểm tra email.',
+        retryAfterSeconds,
+      }, 429)
+    }
+  }
+
+  const otp = randomOtp()
+  const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000).toISOString()
+  await supabase.from('auth_otp_codes').update({ used_at: new Date().toISOString() })
+    .eq('email', email).eq('purpose', purpose).is('used_at', null)
+  const { error: insertError } = await supabase.from('auth_otp_codes').insert({
+    email,
+    purpose,
+    otp_hash: await hashOtp(email, purpose, otp),
+    expires_at: expiresAt,
+  })
+  if (insertError) throw insertError
+  await sendEmail({ email, otp, purpose })
+  return json({ email, expiresInSeconds: OTP_TTL_MINUTES * 60 })
+}
+
 const verifyOtpRecord = async ({ email, purpose, otp }: { email: string; purpose: string; otp: string }) => {
   const { data, error } = await supabase
     .from('auth_otp_codes')
@@ -726,6 +773,36 @@ const getRequestUser = async (req: Request) => {
   const { data, error } = await supabase.auth.getUser(token)
   if (error || !data?.user?.id) return null
   return { token, user: data.user }
+}
+
+const requireAdminExportUser = async (req: Request) => {
+  const auth = await getRequestUser(req)
+  if (!auth) {
+    const error: any = new Error('Phiên đăng nhập không hợp lệ.')
+    error.statusCode = 401
+    throw error
+  }
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('id,user_id,role')
+    .or(`id.eq.${auth.user.id},user_id.eq.${auth.user.id}`)
+    .in('role', ['admin', 'auditor'])
+    .limit(1)
+  if (error) throw error
+  if (!data?.length) {
+    const forbidden: any = new Error('Chỉ admin hoặc auditor mới được xuất danh sách sinh viên.')
+    forbidden.statusCode = 403
+    throw forbidden
+  }
+  return auth.user
+}
+
+const verifyAdminExportOtp = async (req: Request, body: any) => {
+  await requireAdminExportUser(req)
+  const otp = String(body?.otp || '').replace(/\D/g, '').slice(0, 6)
+  if (otp.length !== 6) return json({ error: 'Mã OTP cần đủ 6 chữ số.' }, 400)
+  await verifyOtpRecord({ email: ADMIN_EXPORT_OTP_EMAIL, purpose: 'admin_export', otp })
+  return json({ verified: true })
 }
 
 const deleteAccount = async (req: Request) => {
@@ -872,6 +949,8 @@ Deno.serve(async (req) => {
     if (action === 'resolve-identifier') return json({ email: await resolveEmail(body?.identifier) })
     if (action === 'send-otp') return await sendOtp(body)
     if (action === 'verify-otp') return await verifyOtp(req, body)
+    if (action === 'send-admin-export-otp') return await sendAdminExportOtp(req)
+    if (action === 'verify-admin-export-otp') return await verifyAdminExportOtp(req, body)
     if (action === 'record-policy-consent') return await recordPolicyConsent(req, body)
     if (action === 'delete-account') return await deleteAccount(req)
     if (action === 'create-avatar-upload') return await createAvatarUpload(req, body)

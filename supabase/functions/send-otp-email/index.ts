@@ -5,6 +5,7 @@ import { getCorsHeaders, isAllowedCorsOrigin } from "../_shared/cors.ts";
 
 const redisUrl = Deno.env.get("UPSTASH_REDIS_REST_URL");
 const redisToken = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
+const ADMIN_EXPORT_OTP_EMAIL = "tqhoangg2@gmail.com";
 
 const ratelimit = redisUrl && redisToken
   ? new Ratelimit({
@@ -14,7 +15,7 @@ const ratelimit = redisUrl && redisToken
     })
   : null;
 
-type OtpPurpose = "delete_data" | "reset_data" | "forgot_password" | "reset_password" | "register";
+type OtpPurpose = "delete_data" | "reset_data" | "forgot_password" | "reset_password" | "register" | "admin_export";
 
 const purposeCopy: Record<OtpPurpose, { title: string; subjectAction: string; message: string; safety: string }> = {
   delete_data: {
@@ -47,6 +48,12 @@ const purposeCopy: Record<OtpPurpose, { title: string; subjectAction: string; me
     message: "Dưới đây là mã xác nhận để tiến hành tạo mới tài khoản của bạn trên hệ thống:",
     safety: "Nếu bạn không yêu cầu tạo mới tài khoản, vui lòng bỏ qua email này.",
   },
+  admin_export: {
+    title: "Xác nhận xuất danh sách sinh viên HUB Planner",
+    subjectAction: "xuất danh sách sinh viên",
+    message: "Dưới đây là mã xác nhận để admin/auditor xuất danh sách sinh viên ra Excel:",
+    safety: "Nếu bạn không yêu cầu thao tác này, vui lòng bỏ qua email và kiểm tra lại quyền truy cập quản trị.",
+  },
 };
 
 const normalizePurpose = (value: unknown): OtpPurpose => {
@@ -55,7 +62,8 @@ const normalizePurpose = (value: unknown): OtpPurpose => {
     value === "reset_data" ||
     value === "forgot_password" ||
     value === "reset_password" ||
-    value === "register"
+    value === "register" ||
+    value === "admin_export"
   ) {
     return value;
   }
@@ -111,7 +119,9 @@ serve(async (req) => {
       }
     }
 
-    const { email, passcode, time, expiresAt, purpose: rawPurpose } = await req.json();
+    const { email: requestedEmail, passcode, time, expiresAt, purpose: rawPurpose } = await req.json();
+    const purpose = normalizePurpose(rawPurpose);
+    const email = purpose === "admin_export" ? ADMIN_EXPORT_OTP_EMAIL : requestedEmail;
     if (!email || !passcode) {
       return new Response(JSON.stringify({ error: "Missing email or passcode" }), {
         status: 400,
@@ -127,7 +137,6 @@ serve(async (req) => {
       });
     }
 
-    const purpose = normalizePurpose(rawPurpose);
     const copy = purposeCopy[purpose];
     const studentId = String(email).split("@")[0];
     const currentYear = new Date().getFullYear();

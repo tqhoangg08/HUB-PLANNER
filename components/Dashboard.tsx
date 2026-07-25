@@ -35,6 +35,7 @@ import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { TargetGpaTipInput } from './TargetGpaTipInput';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
+import { AdminStudentExcelExportModal } from './AdminStudentExcelExportModal';
 
 // ============================================================================
 // HELPERS CHO GIAO DIỆN ADMIN
@@ -1494,6 +1495,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [showYearlyModal, setShowYearlyModal] = useState(false);
     const [showPdfExportModal, setShowPdfExportModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
+    const [showAdminExcelModal, setShowAdminExcelModal] = useState(false);
     const [isExportingPdf, setIsExportingPdf] = useState(false);
 
     const showAdminPanel = (isAdmin || isAuditor) && adminMode === 'list';
@@ -2293,6 +2295,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
             loading={semesterLookback.loading}
             onClose={semesterLookback.close}
         />
+        <AdminStudentExcelExportModal
+            isOpen={showAdminExcelModal}
+            onClose={() => setShowAdminExcelModal(false)}
+        />
 
         {showAdminPanel ? (
             <div className="w-full space-y-3 sm:space-y-4 animate-fadeIn">
@@ -2306,7 +2312,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                     
                     <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
-                        <button className="shrink-0 px-3 py-1.5 bg-white text-gray-600 text-xs font-semibold border border-gray-300 hover:bg-gray-50 rounded-lg flex items-center gap-1.5 transition-colors">
+                        <button onClick={() => { playClick(); setShowAdminExcelModal(true); }} className="shrink-0 px-3 py-1.5 bg-white text-gray-600 text-xs font-semibold border border-gray-300 hover:bg-gray-50 rounded-lg flex items-center gap-1.5 transition-colors">
                             <Download size={14} /> <span className="hidden sm:inline">In danh sách</span><span className="sm:hidden">In</span>
                         </button>
                         <button onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('detail'); window.history.pushState(null, '', '/dashboard'); }} className="shrink-0 px-3 py-1.5 bg-[#0052cc] border border-transparent text-white text-xs font-bold rounded-lg hover:bg-[#003d99] flex items-center gap-1.5 transition-colors">

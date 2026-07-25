@@ -30,6 +30,7 @@ import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { TargetGpaTipInput } from './TargetGpaTipInput';
+import { AdminStudentExcelExportModal } from './AdminStudentExcelExportModal';
 
 const formatGpaWithoutRounding = (value: number) => {
     return (Math.floor((value + Number.EPSILON) * 100) / 100).toFixed(2);
@@ -2427,6 +2428,7 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     const [showFailedModal, setShowFailedModal] = useState(false);
     const [showYearlyModal, setShowYearlyModal] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
+    const [showAdminExcelModal, setShowAdminExcelModal] = useState(false);
 
     const showAdminPanel = (isAdmin || isAuditor) && adminMode === 'list';
 
@@ -2938,6 +2940,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
             loading={semesterLookback.loading}
             onClose={semesterLookback.close}
         />
+        <AdminStudentExcelExportModal
+            isOpen={showAdminExcelModal}
+            onClose={() => setShowAdminExcelModal(false)}
+        />
 
         {showAdminPanel ? (
             <div className="w-full space-y-4 pt-1 animate-fadeIn">
@@ -2974,6 +2980,14 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
                                             {activeAdminFilterCount}
                                         </span>
                                     )}
+                                </button>
+
+                                <button
+                                    onClick={() => { playClick(); setShowAdminExcelModal(true); }}
+                                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-300 bg-white text-[#003375] shadow-sm transition-colors hover:bg-blue-50"
+                                    title="Xuất danh sách Excel"
+                                >
+                                    <Download size={18} />
                                 </button>
 
                                 <button
