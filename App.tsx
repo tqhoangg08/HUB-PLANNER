@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { UserData, Semester } from './types';
 import { ActivityLogModal } from './components/ActivityLogModal';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, HeartCrack, ArrowLeft, RefreshCw, ClipboardList, Share, PlusSquare, Lock, Eye, EyeOff } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, HeartCrack, ArrowLeft, RefreshCw, ClipboardList, Share, PlusSquare } from 'lucide-react';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { useAppMode } from './hooks/useAppMode';
@@ -22,6 +22,8 @@ import { ACADEMIC_PROGRAMS, Program, Major, Specialization, getMajors } from './
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileAppLayout } from './layouts/MobileAppLayout';
 import { PasswordSetupModal } from './components/PasswordSetupModal';
+import { AccountPasswordOtpModal } from './components/account/AccountPasswordOtpModal';
+import { AccountPasswordPanel } from './components/account/AccountPasswordPanel';
 import { showAlert, showConfirm } from './utils/appNotifications';
 import { clearLocalStoragePreservingDevicePreferences } from './utils/devicePreferences';
 import {
@@ -2086,153 +2088,49 @@ const App: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div>
-                                    <div className="mb-3 flex items-center justify-between gap-3 border-b border-gray-100 pb-1">
-                                        <h4 className="text-xs font-black text-[#003375] uppercase tracking-wider">2. Bảo mật tài khoản</h4>
-                                        <button
-                                            type="button"
-                                            onClick={handleForgotAccountPassword}
-                                            disabled={passwordChangeLoading}
-                                            className="text-xs font-black text-[#003375] hover:underline disabled:cursor-not-allowed disabled:text-gray-400"
-                                        >
-                                            {accountPasswordOtpCooldownRemaining > 0
-                                                ? `Gửi lại sau ${formatOtpCooldown(accountPasswordOtpCooldownRemaining)}`
-                                                : isAccountPasswordOtpMode ? 'Gửi lại mã OTP' : 'Quên mật khẩu?'}
-                                        </button>
-                                    </div>
-
-                                    {passwordChangeError && (
-                                        <div className="mb-3 rounded-lg border border-red-100 bg-red-50 p-3 text-sm font-semibold text-red-600">
-                                            {passwordChangeError}
-                                        </div>
-                                    )}
-                                    {passwordChangeNotice && (
-                                        <div className="mb-3 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm font-semibold text-[#003375]">
-                                            {passwordChangeNotice}
-                                        </div>
-                                    )}
-
-                                    <div className="mb-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
-                                        <p className="mb-2 text-xs font-bold text-gray-500">Xác minh bạn không phải robot</p>
-                                        <TurnstileBox token={accountPasswordTurnstileToken} onTokenChange={setAccountPasswordTurnstileToken} />
-                                    </div>
-
-                                    {!showPasswordChange ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                playClick();
-                                                setShowPasswordChange(true);
-                                                setIsAccountPasswordOtpMode(false);
-                                                setAccountPasswordOtp('');
-                                                setPasswordChangeError(null);
-                                                setPasswordChangeNotice(null);
-                                            }}
-                                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-bold text-gray-700 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-[#003375]"
-                                        >
-                                            <Lock size={16} />
-                                            Cài lại mật khẩu
-                                        </button>
-                                    ) : (
-                                        <form onSubmit={handleChangeAccountPassword} className="space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-gray-500">{isAccountPasswordOtpMode ? 'M\u00e3 OTP' : 'M\u1eadt kh\u1ea9u c\u0169'}</label>
-                                                <div className="relative">
-                                                    <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                                    <input
-                                                        type={isAccountPasswordOtpMode ? 'text' : showCurrentPassword ? 'text' : 'password'}
-                                                        value={isAccountPasswordOtpMode ? accountPasswordOtp : currentPassword}
-                                                        onChange={(event) => {
-                                                            if (isAccountPasswordOtpMode) {
-                                                                setAccountPasswordOtp(event.target.value.replace(/\D/g, '').slice(0, 6));
-                                                            } else {
-                                                                setCurrentPassword(event.target.value);
-                                                            }
-                                                        }}
-                                                        className="w-full rounded-lg border border-gray-300 bg-white px-9 py-2 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
-                                                        placeholder={isAccountPasswordOtpMode ? 'Nh\u1eadp 6 ch\u1eef s\u1ed1' : 'Nh\u1eadp m\u1eadt kh\u1ea9u hi\u1ec7n t\u1ea1i'}
-                                                        autoComplete={isAccountPasswordOtpMode ? 'one-time-code' : 'current-password'}
-                                                    />
-                                                    {!isAccountPasswordOtpMode && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setShowCurrentPassword(prev => !prev)}
-                                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:text-[#003375]"
-                                                            aria-label={showCurrentPassword ? '\u1ea8n m\u1eadt kh\u1ea9u c\u0169' : 'Hi\u1ec7n m\u1eadt kh\u1ea9u c\u0169'}
-                                                        >
-                                                            {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-gray-500">Mật khẩu mới</label>
-                                                <div className="relative">
-                                                    <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                                    <input
-                                                        type={showNewPassword ? 'text' : 'password'}
-                                                        value={newPassword}
-                                                        onChange={(event) => setNewPassword(event.target.value)}
-                                                        className="w-full rounded-lg border border-gray-300 bg-white px-9 py-2 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
-                                                        placeholder="Ít nhất 8 ký tự"
-                                                        autoComplete="new-password"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setShowNewPassword(prev => !prev)}
-                                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:text-[#003375]"
-                                                        aria-label={showNewPassword ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
-                                                    >
-                                                        {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-bold text-gray-500">Nhập lại mật khẩu mới</label>
-                                                <div className="relative">
-                                                    <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                                    <input
-                                                        type={showNewPassword ? 'text' : 'password'}
-                                                        value={confirmNewPassword}
-                                                        onChange={(event) => setConfirmNewPassword(event.target.value)}
-                                                        className="w-full rounded-lg border border-gray-300 bg-white px-9 py-2 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
-                                                        placeholder="Nhập lại mật khẩu mới"
-                                                        autoComplete="new-password"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div className="flex gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setShowPasswordChange(false);
-                                                        setCurrentPassword('');
-                                                        setAccountPasswordOtp('');
-                                                        setNewPassword('');
-                                                        setConfirmNewPassword('');
-                                                        setIsAccountPasswordOtpMode(false);
-                                                        setAccountPasswordTurnstileToken('');
-                                                        setPasswordChangeError(null);
-                                                        setPasswordChangeNotice(null);
-                                                    }}
-                                                    className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100"
-                                                >
-                                                    Hủy
-                                                </button>
-                                                <button
-                                                    type="submit"
-                                                    disabled={passwordChangeLoading}
-                                                    className="flex-[1.4] rounded-lg bg-[#003375] px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-[#002855] disabled:cursor-not-allowed disabled:bg-gray-300"
-                                                >
-                                                    {passwordChangeLoading ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
-                                                </button>
-                                            </div>
-                                        </form>
-                                    )}
-                                </div>
+                                <AccountPasswordPanel
+                                    error={passwordChangeError}
+                                    notice={passwordChangeNotice}
+                                    turnstileToken={accountPasswordTurnstileToken}
+                                    showPasswordChange={showPasswordChange}
+                                    otpMode={isAccountPasswordOtpMode}
+                                    cooldownRemaining={accountPasswordOtpCooldownRemaining}
+                                    loading={passwordChangeLoading}
+                                    currentPassword={currentPassword}
+                                    otp={accountPasswordOtp}
+                                    newPassword={newPassword}
+                                    confirmNewPassword={confirmNewPassword}
+                                    showCurrentPassword={showCurrentPassword}
+                                    showNewPassword={showNewPassword}
+                                    onTurnstileTokenChange={setAccountPasswordTurnstileToken}
+                                    onForgotPassword={handleForgotAccountPassword}
+                                    onStartPasswordChange={() => {
+                                        playClick();
+                                        setShowPasswordChange(true);
+                                        setIsAccountPasswordOtpMode(false);
+                                        setAccountPasswordOtp('');
+                                        setPasswordChangeError(null);
+                                        setPasswordChangeNotice(null);
+                                    }}
+                                    onCurrentPasswordChange={setCurrentPassword}
+                                    onOtpChange={setAccountPasswordOtp}
+                                    onNewPasswordChange={setNewPassword}
+                                    onConfirmNewPasswordChange={setConfirmNewPassword}
+                                    onToggleCurrentPasswordVisibility={() => setShowCurrentPassword(previous => !previous)}
+                                    onToggleNewPasswordVisibility={() => setShowNewPassword(previous => !previous)}
+                                    onCancelPasswordChange={() => {
+                                        setShowPasswordChange(false);
+                                        setCurrentPassword('');
+                                        setAccountPasswordOtp('');
+                                        setNewPassword('');
+                                        setConfirmNewPassword('');
+                                        setIsAccountPasswordOtpMode(false);
+                                        setAccountPasswordTurnstileToken('');
+                                        setPasswordChangeError(null);
+                                        setPasswordChangeNotice(null);
+                                    }}
+                                    onSubmit={handleChangeAccountPassword}
+                                />
 
                                 <div>
                                     <h4 className="text-xs font-black text-[#003375] uppercase tracking-wider mb-3 border-b border-gray-100 pb-1">3. Thông tin lộ trình</h4>
@@ -2338,125 +2236,25 @@ const App: React.FC = () => {
                     </div>
                 )}
 
-                {/* ✨ BẢNG HƯỚNG DẪN CÀI ĐẶT TRÊN MÁY APPLE (IOS/MAC) */}
-                {showAccountSettings && showAccountPasswordOtpModal && (
-                    <div className="fixed inset-0 z-[100000] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={() => setShowAccountPasswordOtpModal(false)}>
-                        <div className="w-full max-w-md rounded-t-3xl bg-white shadow-2xl sm:rounded-2xl" onClick={event => event.stopPropagation()}>
-                            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-                                <div>
-                                    <h3 className="text-lg font-black text-slate-900">Đặt lại mật khẩu</h3>
-                                    <p className="mt-0.5 text-xs font-semibold text-gray-500">
-                                        Nhập mã OTP đã gửi đến {session?.user?.email || 'email HUB'}.
-                                    </p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAccountPasswordOtpModal(false)}
-                                    className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                                    aria-label="Đóng"
-                                >
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleChangeAccountPassword} className="space-y-4 px-5 py-5">
-                                {passwordChangeError && (
-                                    <div className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm font-semibold text-red-600">
-                                        {passwordChangeError}
-                                    </div>
-                                )}
-                                {passwordChangeNotice && (
-                                    <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm font-semibold text-[#003375]">
-                                        {passwordChangeNotice}
-                                    </div>
-                                )}
-
-                                <div className="space-y-1.5">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <label className="text-xs font-bold text-gray-500">Mã OTP</label>
-                                        <button
-                                            type="button"
-                                            onClick={handleForgotAccountPassword}
-                                            disabled={passwordChangeLoading || accountPasswordOtpCooldownRemaining > 0}
-                                            className="text-xs font-black text-[#003375] hover:underline disabled:cursor-not-allowed disabled:text-gray-400"
-                                        >
-                                            {accountPasswordOtpCooldownRemaining > 0
-                                                ? `Gửi lại sau ${formatOtpCooldown(accountPasswordOtpCooldownRemaining)}`
-                                                : 'Gửi lại mã OTP'}
-                                        </button>
-                                    </div>
-                                    <div className="relative">
-                                        <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                        <input
-                                            type="text"
-                                            value={accountPasswordOtp}
-                                            onChange={event => setAccountPasswordOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                                            className="w-full rounded-lg border border-gray-300 bg-white px-9 py-2.5 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
-                                            placeholder="Nhập 6 chữ số"
-                                            autoComplete="one-time-code"
-                                            inputMode="numeric"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-gray-500">Mật khẩu mới</label>
-                                    <div className="relative">
-                                        <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                        <input
-                                            type={showNewPassword ? 'text' : 'password'}
-                                            value={newPassword}
-                                            onChange={event => setNewPassword(event.target.value)}
-                                            className="w-full rounded-lg border border-gray-300 bg-white px-9 py-2.5 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
-                                            placeholder="Ít nhất 8 ký tự"
-                                            autoComplete="new-password"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowNewPassword(prev => !prev)}
-                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:text-[#003375]"
-                                            aria-label={showNewPassword ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
-                                        >
-                                            {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-gray-500">Nhập lại mật khẩu mới</label>
-                                    <div className="relative">
-                                        <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                        <input
-                                            type={showNewPassword ? 'text' : 'password'}
-                                            value={confirmNewPassword}
-                                            onChange={event => setConfirmNewPassword(event.target.value)}
-                                            className="w-full rounded-lg border border-gray-300 bg-white px-9 py-2.5 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
-                                            placeholder="Nhập lại mật khẩu mới"
-                                            autoComplete="new-password"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-2 pt-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowAccountPasswordOtpModal(false)}
-                                        className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-100"
-                                    >
-                                        Hủy
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={passwordChangeLoading}
-                                        className="flex-[1.4] rounded-lg bg-[#003375] px-3 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#002855] disabled:cursor-not-allowed disabled:bg-gray-300"
-                                    >
-                                        {passwordChangeLoading ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
+                <AccountPasswordOtpModal
+                    open={showAccountSettings && showAccountPasswordOtpModal}
+                    email={session?.user?.email}
+                    error={passwordChangeError}
+                    notice={passwordChangeNotice}
+                    otp={accountPasswordOtp}
+                    newPassword={newPassword}
+                    confirmNewPassword={confirmNewPassword}
+                    showNewPassword={showNewPassword}
+                    cooldownRemaining={accountPasswordOtpCooldownRemaining}
+                    loading={passwordChangeLoading}
+                    onClose={() => setShowAccountPasswordOtpModal(false)}
+                    onResendOtp={handleForgotAccountPassword}
+                    onOtpChange={setAccountPasswordOtp}
+                    onNewPasswordChange={setNewPassword}
+                    onConfirmNewPasswordChange={setConfirmNewPassword}
+                    onToggleNewPasswordVisibility={() => setShowNewPassword(previous => !previous)}
+                    onSubmit={handleChangeAccountPassword}
+                />
 
                 {showIOSInstructions && (
                     <div className="fixed inset-0 z-[99999] bg-black/60 flex items-end justify-center sm:items-center p-4 animate-fadeIn" onClick={() => setShowIOSInstructions(false)}>
