@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { UserData, Semester } from './types';
 import { ActivityLogModal } from './components/ActivityLogModal';
 import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, RefreshCw, ClipboardList } from 'lucide-react';
@@ -12,6 +12,7 @@ import { useTranscriptTransfer } from './hooks/useTranscriptTransfer';
 import { useDeleteAccount } from './hooks/useDeleteAccount';
 import { useSessionLifecycle } from './hooks/useSessionLifecycle';
 import { usePwaInstall } from './hooks/usePwaInstall';
+import { useAiHintBubble } from './hooks/useAiHintBubble';
 import { supabase } from './utils/supabase';
 import { Link, Navigate, Route, Routes, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { ImportGuideModal } from './components/ImportGuideModal';
@@ -115,66 +116,7 @@ const App: React.FC = () => {
         search: location.search,
     });
 
-    // ==========================================
-    // LOGIC BONG BÓNG CHAT
-    // ==========================================
-    const [showBubble, setShowBubble] = useState(false);
-
-    useEffect(() => {
-        const initialTimeout = setTimeout(() => setShowBubble(true), 2000);
-        const interval = setInterval(() => {
-            setShowBubble(true);
-            setTimeout(() => {
-                setShowBubble(false);
-            }, 5000);
-        }, 10000);
-
-        return () => {
-            clearTimeout(initialTimeout);
-            clearInterval(interval);
-        };
-    }, []);
-
-    const [isHandbookMenuOpen, setIsHandbookMenuOpen] = useState(false);
-    const handbookMenuRef = useRef<HTMLDivElement>(null);
-    const navRefs = useRef<(HTMLAnchorElement | HTMLDivElement | null)[]>([]);
-    const [navIndicator, setNavIndicator] = useState({ left: 0, width: 0, opacity: 0 });
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (handbookMenuRef.current && !handbookMenuRef.current.contains(event.target as Node)) {
-                setIsHandbookMenuOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    useEffect(() => {
-        const updateNavIndicator = () => {
-            let activeIndex = -1;
-            if (location.pathname.includes('/dashboard')) activeIndex = 0;
-            else if (location.pathname.includes('/schedule')) activeIndex = 1;
-            else if (location.pathname.includes('/events')) activeIndex = 2;
-            else if (location.pathname.includes('/lost-found')) activeIndex = 3;
-            else if (location.pathname.includes('/handbook') || isHandbookMenuOpen || location.pathname.includes('/admin-reports')) activeIndex = 4;
-
-            if (activeIndex !== -1 && navRefs.current[activeIndex]) {
-                const el = navRefs.current[activeIndex];
-                if (el) {
-                    setNavIndicator({ left: el.offsetLeft, width: el.offsetWidth, opacity: 1 });
-                }
-            } else {
-                setNavIndicator(prev => ({ ...prev, opacity: 0 }));
-            }
-        };
-
-        updateNavIndicator();
-        window.addEventListener('resize', updateNavIndicator);
-        setTimeout(updateNavIndicator, 100);
-
-        return () => window.removeEventListener('resize', updateNavIndicator);
-    }, [location.pathname, isHandbookMenuOpen]);
+    const showBubble = useAiHintBubble();
 
     const [adminSearchMssv, setAdminSearchMssv] = useState('');
     const [viewingUser, setViewingUser] = useState<{ id: string, mssv: string, name: string } | null>(null);
