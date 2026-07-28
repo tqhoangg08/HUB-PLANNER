@@ -7,6 +7,7 @@ import { useUserRole } from './hooks/useUserRole';
 import { useAppMode } from './hooks/useAppMode';
 import { useStudyData } from './hooks/useStudyData';
 import { useAccountProfileDraft } from './hooks/useAccountProfileDraft';
+import { useAccountPassword } from './hooks/useAccountPassword';
 import { supabase } from './utils/supabase';
 import { Link, Navigate, Route, Routes, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { ImportGuideModal } from './components/ImportGuideModal';
@@ -37,7 +38,7 @@ import {
     unbindDeviceNotificationsForCurrentUser,
 } from './utils/pushNotifications';
 import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from './utils/profilePrivate';
-import { apiHeaders, apiUrl } from './utils/api';
+import { apiUrl } from './utils/api';
 import { logActivity, logActivityQuietly } from './utils/activityLogger';
 import { recordPolicyConsent } from './utils/policyConsent';
 import { TurnstileBox } from './components/TurnstileBox';
@@ -79,25 +80,12 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
-const OTP_RESEND_COOLDOWN_SECONDS = 10 * 60;
 const PUSH_DEVICE_SYNC_MIN_INTERVAL_MS = 10 * 60 * 1000;
 
 const isMissingLegacyProfileColumn = (error: any, columnName: string) => {
     const message = `${error?.message || ''} ${error?.details || ''}`;
     return message.includes(columnName) || error?.code === '42703' || error?.code === 'PGRST204';
 };
-
-const normalizeOtpEmail = (email: string) => email.trim().toLowerCase();
-const otpCooldownKey = (email: string, purpose: 'register' | 'forgot_password') =>
-    `hubplanner:otp-cooldown:${purpose}:${normalizeOtpEmail(email)}`;
-const getStoredOtpCooldown = (email: string, purpose: 'register' | 'forgot_password') => {
-    const until = Number(localStorage.getItem(otpCooldownKey(email, purpose)) || 0);
-    return Math.max(0, Math.ceil((until - Date.now()) / 1000));
-};
-const storeOtpCooldown = (email: string, purpose: 'register' | 'forgot_password', seconds = OTP_RESEND_COOLDOWN_SECONDS) => {
-    localStorage.setItem(otpCooldownKey(email, purpose), String(Date.now() + seconds * 1000));
-};
-const formatOtpCooldown = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
 const COHORT_OPTIONS: Record<string, string[]> = {
     'standard': ['K38', 'K39', 'K40', 'K41'],
@@ -505,20 +493,38 @@ const App: React.FC = () => {
         setProfileAvatarUrl,
         onSaved: () => setShowAccountSettings(false),
     });
-    const [showPasswordChange, setShowPasswordChange] = useState(false);
-    const [showAccountPasswordOtpModal, setShowAccountPasswordOtpModal] = useState(false);
-    const [currentPassword, setCurrentPassword] = useState('');
-    const [accountPasswordOtp, setAccountPasswordOtp] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmNewPassword, setConfirmNewPassword] = useState('');
-    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-    const [showNewPassword, setShowNewPassword] = useState(false);
-    const [isAccountPasswordOtpMode, setIsAccountPasswordOtpMode] = useState(false);
-    const [accountPasswordOtpCooldownRemaining, setAccountPasswordOtpCooldownRemaining] = useState(0);
-    const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
-    const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null);
-    const [passwordChangeNotice, setPasswordChangeNotice] = useState<string | null>(null);
-    const [accountPasswordTurnstileToken, setAccountPasswordTurnstileToken] = useState('');
+    const {
+        showPasswordChange,
+        showAccountPasswordOtpModal,
+        setShowAccountPasswordOtpModal,
+        currentPassword,
+        setCurrentPassword,
+        accountPasswordOtp,
+        setAccountPasswordOtp,
+        newPassword,
+        setNewPassword,
+        confirmNewPassword,
+        setConfirmNewPassword,
+        showCurrentPassword,
+        setShowCurrentPassword,
+        showNewPassword,
+        setShowNewPassword,
+        isAccountPasswordOtpMode,
+        accountPasswordOtpCooldownRemaining,
+        passwordChangeLoading,
+        passwordChangeError,
+        passwordChangeNotice,
+        accountPasswordTurnstileToken,
+        setAccountPasswordTurnstileToken,
+        startPasswordChange,
+        cancelPasswordChange,
+        changeAccountPassword: handleChangeAccountPassword,
+        forgotAccountPassword: handleForgotAccountPassword,
+    } = useAccountPassword({
+        settingsOpen: showAccountSettings,
+        session,
+        setPasswordSetAt,
+    });
 
     const handleAdminSearchUser = async (event?: React.FormEvent) => {
         event?.preventDefault();
@@ -655,38 +661,6 @@ const App: React.FC = () => {
         },
         detectRetina: true,
     }), []);
-
-    useEffect(() => {
-        if (showAccountSettings) {
-            setShowPasswordChange(false);
-            setCurrentPassword('');
-            setAccountPasswordOtp('');
-            setNewPassword('');
-            setConfirmNewPassword('');
-            setShowCurrentPassword(false);
-            setShowNewPassword(false);
-            setIsAccountPasswordOtpMode(false);
-            setPasswordChangeError(null);
-            setPasswordChangeNotice(null);
-            setAccountPasswordTurnstileToken('');
-        }
-    }, [showAccountSettings]);
-
-    useEffect(() => {
-        const email = session?.user?.email;
-        if (!email) {
-            setAccountPasswordOtpCooldownRemaining(0);
-            return;
-        }
-
-        const syncCooldown = () => {
-            setAccountPasswordOtpCooldownRemaining(getStoredOtpCooldown(email, 'forgot_password'));
-        };
-
-        syncCooldown();
-        const timer = window.setInterval(syncCooldown, 1000);
-        return () => window.clearInterval(timer);
-    }, [session?.user?.email]);
 
     useEffect(() => {
         const ensureSchoolDomain = async () => {
@@ -906,179 +880,6 @@ const App: React.FC = () => {
             sessionStorage.clear();
 
             navigate('/login', { replace: true });
-        }
-    };
-
-    const validateAccountPasswordChange = () => {
-        if (isAccountPasswordOtpMode && accountPasswordOtp.length !== 6) return 'Nhập mã OTP gồm 6 chữ số.';
-        if (!isAccountPasswordOtpMode && !currentPassword) return 'Nhập mật khẩu cũ để xác nhận.';
-        if (!isAccountPasswordOtpMode && !accountPasswordTurnstileToken) return 'Vui lòng xác minh bạn không phải robot.';
-        if (newPassword.length < 8) return 'Mật khẩu mới cần ít nhất 8 ký tự.';
-        if (newPassword !== confirmNewPassword) return 'Mật khẩu mới và nhập lại mật khẩu mới chưa trùng khớp.';
-        if (!isAccountPasswordOtpMode && currentPassword === newPassword) return 'Mật khẩu mới cần khác mật khẩu cũ.';
-        return null;
-    };
-
-    const handleChangeAccountPassword = async (event: React.FormEvent) => {
-        event.preventDefault();
-        if (!session?.user?.email || !supabase) return;
-
-        const invalid = validateAccountPasswordChange();
-        if (invalid) {
-            setPasswordChangeError(invalid);
-            setPasswordChangeNotice(null);
-            return;
-        }
-
-        if (!isAccountPasswordOtpMode && !accountPasswordTurnstileToken) {
-            setPasswordChangeError('Vui lòng xác minh bạn không phải robot.');
-            setPasswordChangeNotice(null);
-            return;
-        }
-
-        setPasswordChangeLoading(true);
-        setPasswordChangeError(null);
-        setPasswordChangeNotice(null);
-        playClick();
-
-        try {
-            const email = session.user.email;
-            if (isAccountPasswordOtpMode) {
-                const response = await fetch(apiUrl('/auth'), {
-                    method: 'POST',
-                    headers: apiHeaders({ 'Content-Type': 'application/json' }),
-                    body: JSON.stringify({
-                        action: 'verify-otp',
-                        purpose: 'forgot_password',
-                        email,
-                        otp: accountPasswordOtp,
-                        password: newPassword,
-                        confirmPassword: confirmNewPassword,
-                    }),
-                });
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(payload.error || 'Mã OTP không chính xác hoặc đã hết hạn.');
-            } else {
-                await verifyTurnstileOnly(accountPasswordTurnstileToken);
-                const { error: verifyError } = await supabase.auth.signInWithPassword({
-                    email,
-                    password: currentPassword,
-                });
-                if (verifyError) throw new Error('Mật khẩu cũ không chính xác.');
-
-                const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-                if (updateError) throw updateError;
-            }
-
-            try {
-                await supabase.rpc('mark_password_set');
-            } catch {
-                await updateProfilePrivate(session.user.id, { password_set_at: new Date().toISOString() });
-            }
-            await updateProfilePrivate(session.user.id, { password_set_at: new Date().toISOString() });
-
-            setPasswordSetAt(new Date().toISOString());
-            localStorage.removeItem(otpCooldownKey(session.user.email, 'forgot_password'));
-            setAccountPasswordOtpCooldownRemaining(0);
-            setShowAccountPasswordOtpModal(false);
-            setCurrentPassword('');
-            setAccountPasswordOtp('');
-            setNewPassword('');
-            setConfirmNewPassword('');
-            setIsAccountPasswordOtpMode(false);
-            setAccountPasswordTurnstileToken('');
-            setPasswordChangeNotice('Đã cập nhật mật khẩu thành công.');
-        } catch (error: any) {
-            setPasswordChangeError(error.message || 'Không thể cập nhật mật khẩu lúc này.');
-            await logWebError({
-                source: 'auth',
-                action: 'reset_password',
-                error,
-                metadata: {
-                    mode: isAccountPasswordOtpMode ? 'otp' : 'current_password',
-                    email: session.user.email,
-                },
-            });
-            if (!isAccountPasswordOtpMode) setAccountPasswordTurnstileToken('');
-        } finally {
-            setPasswordChangeLoading(false);
-        }
-    };
-
-    const handleForgotAccountPassword = async () => {
-        if (!session?.user?.email || !supabase) return;
-        const email = session.user.email;
-        const storedCooldown = getStoredOtpCooldown(email, 'forgot_password');
-
-        if (storedCooldown > 0) {
-            setShowAccountPasswordOtpModal(true);
-            setIsAccountPasswordOtpMode(true);
-            setAccountPasswordOtpCooldownRemaining(storedCooldown);
-            setPasswordChangeError(null);
-            setPasswordChangeNotice(`M\u00e3 OTP \u0111\u00e3 \u0111\u01b0\u1ee3c g\u1eedi \u0111\u1ebfn ${email}. B\u1ea1n c\u00f3 th\u1ec3 g\u1eedi l\u1ea1i sau ${formatOtpCooldown(storedCooldown)}.`);
-            return;
-        }
-
-        if (!accountPasswordTurnstileToken) {
-            setPasswordChangeError('Vui lòng xác minh bạn không phải robot.');
-            setPasswordChangeNotice(null);
-            return;
-        }
-
-        setPasswordChangeLoading(true);
-        setPasswordChangeError(null);
-        setPasswordChangeNotice(null);
-        playClick();
-
-        try {
-            const response = await fetch(apiUrl('/auth'), {
-                method: 'POST',
-                headers: apiHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({
-                    action: 'send-otp',
-                    purpose: 'forgot_password',
-                    email,
-                    turnstileToken: accountPasswordTurnstileToken,
-                }),
-            });
-            const payload = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                if (response.status === 429 && payload.retryAfterSeconds) {
-                    const retryAfterSeconds = Number(payload.retryAfterSeconds);
-                    storeOtpCooldown(email, 'forgot_password', retryAfterSeconds);
-                    setAccountPasswordOtpCooldownRemaining(retryAfterSeconds);
-                    setShowAccountPasswordOtpModal(true);
-                    setIsAccountPasswordOtpMode(true);
-                    setPasswordChangeNotice(`M\u00e3 OTP \u0111\u00e3 \u0111\u01b0\u1ee3c g\u1eedi \u0111\u1ebfn ${email}. B\u1ea1n c\u00f3 th\u1ec3 g\u1eedi l\u1ea1i sau ${formatOtpCooldown(retryAfterSeconds)}.`);
-                    return;
-                }
-                throw new Error(payload.error || 'Kh\u00f4ng th\u1ec3 g\u1eedi m\u00e3 OTP \u0111\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u.');
-            }
-
-            const cooldownSeconds = Number(payload.retryAfterSeconds || payload.expiresInSeconds || OTP_RESEND_COOLDOWN_SECONDS);
-            storeOtpCooldown(email, 'forgot_password', cooldownSeconds);
-            setAccountPasswordOtpCooldownRemaining(cooldownSeconds);
-            setShowAccountPasswordOtpModal(true);
-            setIsAccountPasswordOtpMode(true);
-            setCurrentPassword('');
-            setAccountPasswordOtp('');
-            setNewPassword('');
-            setConfirmNewPassword('');
-            setPasswordChangeNotice(`\u0110\u00e3 g\u1eedi m\u00e3 OTP \u0111\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u \u0111\u1ebfn ${email}.`);
-        } catch (error: any) {
-            setPasswordChangeError(error.message || 'Kh\u00f4ng th\u1ec3 g\u1eedi m\u00e3 OTP \u0111\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u.');
-            await logWebError({
-                source: 'otp',
-                action: 'otp_request',
-                error,
-                metadata: {
-                    purpose: 'forgot_password',
-                    email,
-                },
-            });
-            setAccountPasswordTurnstileToken('');
-        } finally {
-            setPasswordChangeLoading(false);
         }
     };
 
@@ -1735,31 +1536,14 @@ const App: React.FC = () => {
                                     showNewPassword={showNewPassword}
                                     onTurnstileTokenChange={setAccountPasswordTurnstileToken}
                                     onForgotPassword={handleForgotAccountPassword}
-                                    onStartPasswordChange={() => {
-                                        playClick();
-                                        setShowPasswordChange(true);
-                                        setIsAccountPasswordOtpMode(false);
-                                        setAccountPasswordOtp('');
-                                        setPasswordChangeError(null);
-                                        setPasswordChangeNotice(null);
-                                    }}
+                                    onStartPasswordChange={startPasswordChange}
                                     onCurrentPasswordChange={setCurrentPassword}
                                     onOtpChange={setAccountPasswordOtp}
                                     onNewPasswordChange={setNewPassword}
                                     onConfirmNewPasswordChange={setConfirmNewPassword}
                                     onToggleCurrentPasswordVisibility={() => setShowCurrentPassword(previous => !previous)}
                                     onToggleNewPasswordVisibility={() => setShowNewPassword(previous => !previous)}
-                                    onCancelPasswordChange={() => {
-                                        setShowPasswordChange(false);
-                                        setCurrentPassword('');
-                                        setAccountPasswordOtp('');
-                                        setNewPassword('');
-                                        setConfirmNewPassword('');
-                                        setIsAccountPasswordOtpMode(false);
-                                        setAccountPasswordTurnstileToken('');
-                                        setPasswordChangeError(null);
-                                        setPasswordChangeNotice(null);
-                                    }}
+                                    onCancelPasswordChange={cancelPasswordChange}
                                     onSubmit={handleChangeAccountPassword}
                                 />
 
