@@ -24,6 +24,7 @@ import { MobileAppLayout } from './layouts/MobileAppLayout';
 import { PasswordSetupModal } from './components/PasswordSetupModal';
 import { AccountPasswordOtpModal } from './components/account/AccountPasswordOtpModal';
 import { AccountPasswordPanel } from './components/account/AccountPasswordPanel';
+import { AccountAcademicProfileFields } from './components/account/AccountAcademicProfileFields';
 import { showAlert, showConfirm } from './utils/appNotifications';
 import { clearLocalStoragePreservingDevicePreferences } from './utils/devicePreferences';
 import {
@@ -2132,94 +2133,48 @@ const App: React.FC = () => {
                                     onSubmit={handleChangeAccountPassword}
                                 />
 
-                                <div>
-                                    <h4 className="text-xs font-black text-[#003375] uppercase tracking-wider mb-3 border-b border-gray-100 pb-1">3. Thông tin lộ trình</h4>
-                                    <div className="space-y-4">
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-bold text-gray-500">Tên sinh viên (Tùy chọn)</label>
-                                            <input type="text" value={draftStudentName} onChange={(e) => setDraftStudentName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="Ví dụ: Nguyễn Văn A..." />
-                                        </div>
-
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-bold text-gray-500">Chương trình đào tạo <span className="text-red-500">*</span></label>
-                                            <select
-                                                value={draftProgram?.id || ''}
-                                                onChange={(e) => {
-                                                    const prog = ACADEMIC_PROGRAMS.find(p => p.id === e.target.value) || null;
-                                                    setDraftProgram(prog);
-                                                    setDraftCohort('');
-                                                    setDraftMajor(null);
-                                                    setDraftSpecialization(null);
-                                                }}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-sm bg-white"
-                                            >
-                                                <option value="" disabled>Chọn chương trình</option>
-                                                {ACADEMIC_PROGRAMS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                            </select>
-                                        </div>
-
-                                        <div className="flex gap-3">
-                                            <div className="space-y-1.5 flex-1">
-                                                <label className="text-xs font-bold text-gray-500">Khóa <span className="text-red-500">*</span></label>
-                                                <select
-                                                    value={draftCohort}
-                                                    onChange={(e) => {
-                                                        setDraftCohort(e.target.value);
-                                                        setDraftMajor(null);
-                                                        setDraftSpecialization(null);
-                                                    }}
-                                                    disabled={!draftProgram}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400"
-                                                >
-                                                    <option value="" disabled>Chọn khóa</option>
-                                                    {draftProgram && (COHORT_OPTIONS[draftProgram.id] || []).map(c => <option key={c} value={c}>{c}</option>)}
-                                                </select>
-                                            </div>
-                                            <div className="space-y-1.5 flex-[2]">
-                                                <label className="text-xs font-bold text-gray-500">Ngành học <span className="text-red-500">*</span></label>
-                                                <select
-                                                    value={draftMajor?.code || ''}
-                                                    onChange={(e) => {
-                                                        const majors = draftProgram && draftCohort ? getMajors(draftProgram.id, draftCohort) : [];
-                                                        const maj = majors.find(m => m.code === e.target.value) || null;
-                                                        setDraftMajor(maj);
-                                                        if (maj && maj.specializations.length === 1) {
-                                                            setDraftSpecialization(maj.specializations[0]);
-                                                        } else {
-                                                            setDraftSpecialization(null);
-                                                        }
-                                                    }}
-                                                    disabled={!draftCohort}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400"
-                                                >
-                                                    <option value="" disabled>Chọn ngành</option>
-                                                    {draftProgram && draftCohort && getMajors(draftProgram.id, draftCohort).map(m => (
-                                                        <option key={m.code} value={m.code}>{m.name}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        {draftMajor && draftMajor.specializations.length > 1 && (
-                                            <div className="space-y-1.5 animate-fadeIn">
-                                                <label className="text-xs font-bold text-gray-500">Chuyên ngành <span className="text-red-500">*</span></label>
-                                                <select
-                                                    value={draftSpecialization?.name || ''}
-                                                    onChange={(e) => {
-                                                        const spec = draftMajor.specializations.find(s => s.name === e.target.value) || null;
-                                                        setDraftSpecialization(spec);
-                                                    }}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] outline-none text-sm bg-white border-blue-200 ring-2 ring-blue-50"
-                                                >
-                                                    <option value="" disabled>Chọn chuyên ngành</option>
-                                                    {draftMajor.specializations.map(s => (
-                                                        <option key={s.name} value={s.name}>{s.name} ({s.credits} TC)</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+                                <AccountAcademicProfileFields
+                                    studentName={draftStudentName}
+                                    selectedProgram={draftProgram}
+                                    selectedCohort={draftCohort}
+                                    selectedMajor={draftMajor}
+                                    selectedSpecialization={draftSpecialization}
+                                    programs={ACADEMIC_PROGRAMS}
+                                    cohortOptions={draftProgram ? COHORT_OPTIONS[draftProgram.id] || [] : []}
+                                    majorOptions={draftProgram && draftCohort ? getMajors(draftProgram.id, draftCohort) : []}
+                                    onStudentNameChange={setDraftStudentName}
+                                    onProgramChange={(programId) => {
+                                        const program = ACADEMIC_PROGRAMS.find(item => item.id === programId) || null;
+                                        setDraftProgram(program);
+                                        setDraftCohort('');
+                                        setDraftMajor(null);
+                                        setDraftSpecialization(null);
+                                    }}
+                                    onCohortChange={(cohort) => {
+                                        setDraftCohort(cohort);
+                                        setDraftMajor(null);
+                                        setDraftSpecialization(null);
+                                    }}
+                                    onMajorChange={(majorCode) => {
+                                        const majors = draftProgram && draftCohort
+                                            ? getMajors(draftProgram.id, draftCohort)
+                                            : [];
+                                        const major = majors.find(item => item.code === majorCode) || null;
+                                        setDraftMajor(major);
+                                        setDraftSpecialization(
+                                            major?.specializations.length === 1
+                                                ? major.specializations[0]
+                                                : null,
+                                        );
+                                    }}
+                                    onSpecializationChange={(specializationName) => {
+                                        setDraftSpecialization(
+                                            draftMajor?.specializations.find(
+                                                item => item.name === specializationName,
+                                            ) || null,
+                                        );
+                                    }}
+                                />
                             </div>
 
                             <div className={`account-settings-footer ${useMobileLayout || isMobileScreen ? 'px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] bg-white' : 'p-4 bg-gray-50'} border-t border-gray-100 flex gap-2 shrink-0`}>
