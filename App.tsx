@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { UserData, Semester } from './types';
 import { ActivityLogModal } from './components/ActivityLogModal';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, HeartCrack, ArrowLeft, RefreshCw, ClipboardList, Share, PlusSquare } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, RefreshCw, ClipboardList, Share, PlusSquare } from 'lucide-react';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { useAppMode } from './hooks/useAppMode';
@@ -9,6 +9,7 @@ import { useStudyData } from './hooks/useStudyData';
 import { useAccountProfileDraft } from './hooks/useAccountProfileDraft';
 import { useAccountPassword } from './hooks/useAccountPassword';
 import { useTranscriptTransfer } from './hooks/useTranscriptTransfer';
+import { useDeleteAccount } from './hooks/useDeleteAccount';
 import { supabase } from './utils/supabase';
 import { Link, Navigate, Route, Routes, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { ImportGuideModal } from './components/ImportGuideModal';
@@ -30,6 +31,7 @@ import { AccountPasswordPanel } from './components/account/AccountPasswordPanel'
 import { AccountAcademicProfileFields } from './components/account/AccountAcademicProfileFields';
 import { AccountPublicProfileFields } from './components/account/AccountPublicProfileFields';
 import { AccountSettingsModal } from './components/account/AccountSettingsModal';
+import { DeleteAccountModal } from './components/account/DeleteAccountModal';
 import { showAlert, showConfirm } from './utils/appNotifications';
 import { clearLocalStoragePreservingDevicePreferences } from './utils/devicePreferences';
 import {
@@ -39,12 +41,9 @@ import {
     unbindDeviceNotificationsForCurrentUser,
 } from './utils/pushNotifications';
 import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from './utils/profilePrivate';
-import { apiUrl } from './utils/api';
 import { logActivity, logActivityQuietly } from './utils/activityLogger';
 import { recordPolicyConsent } from './utils/policyConsent';
 import { TurnstileBox } from './components/TurnstileBox';
-import { verifyTurnstileOnly } from './utils/protectedSubmit';
-import { logWebError } from './utils/logWebError';
 import {
     AdminEventCandidates,
     AdminReports,
@@ -536,6 +535,33 @@ const App: React.FC = () => {
         session,
         setPasswordSetAt,
     });
+    const navigateToLogin = useCallback(() => {
+        navigate('/login', { replace: true });
+    }, [navigate]);
+    const {
+        showResetModal,
+        resetStep,
+        otpInput,
+        isSendingOtp,
+        otpError,
+        resendCountdown,
+        deleteTurnstileToken,
+        setDeleteTurnstileToken,
+        closeDeleteAccountModal,
+        resetDeleteAccountModal,
+        requestDeleteAccount: handleRequestReset,
+        continueDeleteAccount,
+        backToDeleteIntro,
+        backToDeleteVerification,
+        sendOtpEmail,
+        updateOtpInput,
+        verifyTurnstileAndSendOtp: handleVerifyTurnstileAndSendOtp,
+        verifyOtpAndReset,
+    } = useDeleteAccount({
+        session,
+        onCloseUserMenu: () => setIsUserMenuOpen(false),
+        onNavigateToLogin: navigateToLogin,
+    });
 
     const handleAdminSearchUser = async (event?: React.FormEvent) => {
         event?.preventDefault();
@@ -570,86 +596,6 @@ const App: React.FC = () => {
             setIsSearchingUser(false);
         }
     };
-
-    const [showResetModal, setShowResetModal] = useState(false);
-    const [resetStep, setResetStep] = useState<1 | 2 | 3 | 4>(1);
-    const [generatedOtp, setGeneratedOtp] = useState('');
-    const [otpInput, setOtpInput] = useState('');
-    const [isSendingOtp, setIsSendingOtp] = useState(false);
-    const [otpError, setOtpError] = useState('');
-    const [resendCountdown, setResendCountdown] = useState(0);
-    const [deleteTurnstileToken, setDeleteTurnstileToken] = useState('');
-
-    const resetDeleteAccountModal = useCallback(() => {
-        setShowResetModal(false);
-        setResetStep(1);
-        setGeneratedOtp('');
-        setOtpInput('');
-        setOtpError('');
-        setResendCountdown(0);
-        setDeleteTurnstileToken('');
-    }, []);
-
-    useEffect(() => {
-        if (!session?.user?.id && showResetModal) {
-            resetDeleteAccountModal();
-        }
-    }, [session?.user?.id, showResetModal, resetDeleteAccountModal]);
-
-    // ==========================================
-    // ✨ THUẬT TOÁN CAPTCHA NÂNG CAO ✨
-    // ==========================================
-    const [captchaQuestion, setCaptchaQuestion] = useState('');
-    const [captchaAnswer, setCaptchaAnswer] = useState<number | null>(null);
-    const [userCaptchaInput, setUserCaptchaInput] = useState('');
-
-    const generateCaptcha = useCallback(() => {
-        const patterns = [
-            () => {
-                const n1 = Math.floor(Math.random() * 50) + 10;
-                const n2 = Math.floor(Math.random() * 50) + 1;
-                return { q: `${n1} + ${n2}`, a: n1 + n2 };
-            },
-            () => {
-                const n1 = Math.floor(Math.random() * 50) + 30;
-                const n2 = Math.floor(Math.random() * 20) + 1;
-                return { q: `${n1} - ${n2}`, a: n1 - n2 };
-            },
-            () => {
-                const n1 = Math.floor(Math.random() * 9) + 2;
-                const n2 = Math.floor(Math.random() * 9) + 2;
-                return { q: `${n1} × ${n2}`, a: n1 * n2 };
-            },
-            () => {
-                const n1 = Math.floor(Math.random() * 20) + 1;
-                const n2 = Math.floor(Math.random() * 20) + 1;
-                const n3 = Math.floor(Math.random() * 10) + 1;
-                return { q: `${n1} + ${n2} + ${n3}`, a: n1 + n2 + n3 };
-            },
-            () => {
-                const n1 = Math.floor(Math.random() * 30) + 20;
-                const n2 = Math.floor(Math.random() * 15) + 1;
-                const n3 = Math.floor(Math.random() * 20) + 1;
-                return { q: `${n1} - ${n2} + ${n3}`, a: n1 - n2 + n3 };
-            }
-        ];
-
-        const selectedPattern = patterns[Math.floor(Math.random() * patterns.length)];
-        const { q, a } = selectedPattern();
-
-        setCaptchaQuestion(q);
-        setCaptchaAnswer(a);
-        setUserCaptchaInput('');
-        setOtpError('');
-    }, []);
-
-    useEffect(() => {
-        let timer: ReturnType<typeof setTimeout>;
-        if (resendCountdown > 0) {
-            timer = setTimeout(() => setResendCountdown(prev => prev - 1), 1000);
-        }
-        return () => clearTimeout(timer);
-    }, [resendCountdown]);
 
     const particlesInit = useCallback(async (engine: Engine) => {
         await loadSlim(engine);
@@ -735,160 +681,6 @@ const App: React.FC = () => {
     const handleMenuLogout = async () => {
         setIsUserMenuOpen(false);
         await handleLogout();
-    };
-
-    const handleRequestReset = () => {
-        playClick();
-        if (isGuest) {
-            if (window.confirm("Xóa toàn bộ dữ liệu dùng thử?")) {
-                executeResetData();
-            }
-        } else {
-            setShowResetModal(true);
-            setResetStep(1);
-            setOtpInput('');
-            setOtpError('');
-            setDeleteTurnstileToken('');
-            setIsUserMenuOpen(false);
-        }
-    };
-
-    const handleVerifyCaptchaAndSendOtp = () => {
-        playClick();
-        if (parseInt(userCaptchaInput) !== captchaAnswer) {
-            setOtpError('Kết quả phép tính không đúng! Hệ thống đã đổi câu hỏi bảo mật mới.');
-            setDeleteTurnstileToken('');
-            return;
-        }
-        setOtpError('');
-        sendOtpEmail();
-    };
-
-    const handleVerifyTurnstileAndSendOtp = async () => {
-        playClick();
-        if (!deleteTurnstileToken) {
-            setOtpError('Vui long xac minh ban khong phai robot.');
-            return;
-        }
-        setOtpError('');
-        setIsSendingOtp(true);
-        try {
-            await verifyTurnstileOnly(deleteTurnstileToken);
-            await sendOtpEmail();
-        } catch (error: any) {
-            await logWebError({
-                source: 'otp',
-                action: 'otp_request',
-                error,
-                metadata: { purpose: 'delete_data' },
-            });
-            setOtpError(error.message || 'Xac minh bao mat khong thanh cong. Vui long thu lai.');
-            setDeleteTurnstileToken('');
-            setIsSendingOtp(false);
-        }
-    };
-
-    const sendOtpEmail = async () => {
-        setIsSendingOtp(true);
-        setOtpError('');
-        try {
-            const otp = Math.floor(100000 + Math.random() * 900000).toString();
-            setGeneratedOtp(otp);
-
-            const expireTime = new Date(Date.now() + 15 * 60 * 1000);
-            const timeString = expireTime.toLocaleTimeString('vi-VN', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false,
-                timeZone: 'Asia/Ho_Chi_Minh',
-            });
-
-            const { data, error } = await supabase.functions.invoke('send-otp-email', {
-                body: {
-                    email: session?.user?.email,
-                    passcode: otp,
-                    time: timeString,
-                    expiresAt: expireTime.toISOString(),
-                    purpose: 'delete_data'
-                }
-            });
-
-            if (error || !data || data.error) {
-                throw new Error("Lỗi từ máy chủ Backend");
-            }
-
-            setResetStep(3);
-            setOtpInput('');
-            setResendCountdown(300);
-
-        } catch (error) {
-            console.error('Lỗi gửi mail:', error);
-            setOtpError('Hệ thống mail đang bận. Vui lòng thử lại sau.');
-            await logWebError({
-                source: 'otp',
-                action: 'otp_request',
-                error,
-                metadata: {
-                    purpose: 'delete_data',
-                    email: session?.user?.email,
-                },
-            });
-            setDeleteTurnstileToken('');
-        } finally {
-            setIsSendingOtp(false);
-        }
-    };
-
-    const verifyOtpAndReset = () => {
-        playClick();
-        if (otpInput === generatedOtp) {
-            setOtpError('');
-            setResetStep(4);
-            executeResetData();
-        } else {
-            setOtpError('Mã xác nhận không chính xác!');
-        }
-    };
-
-    const executeResetData = async () => {
-        try {
-            if (!isGuest && session?.user?.id && supabase) {
-                const response = await fetch(apiUrl('/auth'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${session.access_token}`,
-                    },
-                    body: JSON.stringify({ action: 'delete-account' }),
-                });
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(payload.error || 'Không thể xóa tài khoản.');
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 3000));
-
-        } catch (error) {
-            console.error("Lỗi khi reset:", error);
-            await logWebError({
-                source: 'auth',
-                action: 'delete_data',
-                error,
-            });
-        } finally {
-            try {
-                setActivePushNotificationUser(null);
-                await unbindDeviceNotificationsForCurrentUser(session?.user?.id);
-            } catch(e) {}
-
-            try {
-                if (supabase) await supabase.auth.signOut();
-            } catch(e) {}
-
-            clearLocalStoragePreservingDevicePreferences();
-            sessionStorage.clear();
-
-            navigate('/login', { replace: true });
-        }
     };
 
     const displayName = useMemo(() => {
@@ -1121,181 +913,25 @@ const App: React.FC = () => {
                 {showGuide && <UserGuideModal onClose={() => setShowGuide(false)} />}
                 {showActivityLog && <ActivityLogModal onClose={() => setShowActivityLog(false)} />}
 
-                {/* MODAL XÁC NHẬN OTP ĐỂ XÓA TÀI KHOẢN */}
-                {showResetModal && (
-                    <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 animate-fadeIn">
-                        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn border border-gray-200">
-
-                            {resetStep === 1 ? (
-                                <div className="p-8 sm:p-10 animate-fadeIn text-center relative">
-                                    <button onClick={() => setShowResetModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-full p-1.5 transition-colors"><X size={18} /></button>
-                                    <div className="w-20 h-20 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-6">
-                                        <HeartCrack size={40} />
-                                    </div>
-                                    <h3 className="text-2xl font-black text-gray-900 mb-3">Khoan đã... 🥺</h3>
-                                    <p className="text-gray-600 text-sm leading-relaxed mb-8 px-2">
-                                        Bạn đã dành rất nhiều thời gian để xây dựng lộ trình học tập trên HUB Planner. Nếu xóa tài khoản, <strong className="text-red-600">toàn bộ dữ liệu, bảng điểm và sự kiện</strong> sẽ biến mất vĩnh viễn.
-                                        <br/><br/>
-                                        Thay vì xóa, bạn có muốn tạm thời <strong>Đăng xuất</strong> để nghỉ ngơi không?
-                                    </p>
-                                    <div className="flex flex-col gap-3">
-                                        <button onClick={() => setShowResetModal(false)} className="w-full py-3.5 bg-[#003375] text-white font-bold rounded-xl hover:bg-[#002855] transition-all shadow-md active:scale-95 flex items-center justify-center gap-2">
-                                            Thôi, mình ở lại! 💙
-                                        </button>
-                                        <button onClick={() => { playClick(); setResetStep(2); setDeleteTurnstileToken(''); }} className="w-full py-3 bg-transparent text-gray-500 font-bold rounded-xl hover:bg-gray-50 hover:text-red-600 transition-all text-sm">
-                                            Mình đã quyết định, tiếp tục xóa
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : resetStep === 2 ? (
-                                <div className="animate-slideInRight">
-                                    <div className="bg-red-50 p-6 flex flex-col items-center text-center border-b border-red-100 relative">
-                                        <button onClick={() => setShowResetModal(false)} className="absolute top-4 right-4 text-red-400 hover:text-red-600 bg-white rounded-full p-1 transition-colors"><X size={18} /></button>
-                                        <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-sm mb-3 text-red-600 border border-red-100">
-                                            <ShieldAlert size={28} />
-                                        </div>
-                                        <h3 className="text-xl font-bold text-red-700">Cảnh báo xóa tài khoản</h3>
-                                        <p className="text-sm text-red-600/80 font-medium mt-1">Tài khoản và toàn bộ dữ liệu sẽ bị xóa vĩnh viễn.</p>
-                                    </div>
-
-                                    <div className="p-6">
-                                        <div className="space-y-4">
-                                            <p className="text-sm text-gray-600 text-center leading-relaxed">
-                                                Để đảm bảo an toàn, chúng tôi sẽ gửi một mã xác nhận đến email:
-                                            </p>
-                                            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 text-center font-bold text-[#003375]">
-                                                {session?.user.email}
-                                            </div>
-
-                                            <div className="mt-4 flex flex-col gap-2">
-                                                <label className="text-sm font-bold text-gray-700 text-center">
-                                                    Xac minh bao mat
-                                                </label>
-                                                <TurnstileBox token={deleteTurnstileToken} onTokenChange={setDeleteTurnstileToken} />
-                                            </div>
-
-                                            {otpError && <p className="text-xs text-red-500 text-center font-bold">{otpError}</p>}
-
-                                            <div className="flex flex-col gap-2 mt-4">
-                                                <button onClick={handleVerifyTurnstileAndSendOtp} disabled={isSendingOtp || !deleteTurnstileToken} className="w-full bg-red-600 text-white font-bold py-3.5 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 shadow-md">
-                                                    {isSendingOtp ? <Loader2 className="animate-spin" size={18} /> : <Mail size={18} />}
-                                                    {isSendingOtp ? 'Đang gửi mã...' : 'Xác nhận gửi mã'}
-                                                </button>
-                                                <button onClick={() => setResetStep(1)} className="w-full py-3 text-sm text-gray-500 font-bold hover:text-gray-900 transition-colors">
-                                                    Quay lại
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : resetStep === 3 ? (
-                                <div className="relative p-6 sm:p-8 animate-slideInRight">
-                                    <button onClick={() => setShowResetModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-50 rounded-full p-1.5 transition-colors"><X size={18} /></button>
-                                    <div className="flex flex-col items-center">
-                                        <div className="flex flex-col items-center justify-center mb-6">
-                                            <div className="h-14 w-14 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center mb-4">
-                                                <img src="/logo.png" alt="HUB Logo" className="h-10 w-10 object-contain" />
-                                            </div>
-                                            <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Nhập mã xác nhận</h2>
-                                            <p className="text-sm text-gray-500 text-center leading-relaxed px-2">
-                                                Mã xác minh gồm 6 chữ số đã được gửi đến email <br />
-                                                <strong className="text-[#003375] font-bold">{session?.user.email}</strong>
-                                            </p>
-                                        </div>
-
-                                        <div className="flex justify-center gap-2 sm:gap-3 mb-2 w-full px-1">
-                                            {[...Array(6)].map((_, index) => (
-                                                <input
-                                                    key={index}
-                                                    id={`otp-input-${index}`}
-                                                    type="text"
-                                                    maxLength={1}
-                                                    value={otpInput[index] || ''}
-                                                    onChange={(e) => {
-                                                        const value = e.target.value.replace(/[^0-9]/g, '');
-                                                        let newOtp = otpInput.split('');
-                                                        newOtp[index] = value;
-                                                        setOtpInput(newOtp.join(''));
-                                                        setOtpError('');
-
-                                                        if (value && index < 5) {
-                                                            document.getElementById(`otp-input-${index + 1}`)?.focus();
-                                                        }
-                                                    }}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Backspace' && !otpInput[index] && index > 0) {
-                                                            document.getElementById(`otp-input-${index - 1}`)?.focus();
-                                                        }
-                                                    }}
-                                                    className="w-11 h-12 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-black text-[#003375] bg-white border-2 border-gray-200 rounded-xl focus:bg-blue-50/50 focus:ring-0 focus:border-[#003375] outline-none transition-all shadow-sm"
-                                                    autoFocus={index === 0}
-                                                />
-                                            ))}
-                                        </div>
-
-                                        <div className="h-6 mt-1 mb-4 w-full">
-                                            {otpError && <p className="text-xs text-red-600 font-bold animate-shake text-center">{otpError}</p>}
-                                        </div>
-
-                                        <button
-                                            onClick={verifyOtpAndReset}
-                                            disabled={otpInput.length !== 6}
-                                            className="w-full py-3.5 bg-[#003375] text-white font-bold rounded-xl hover:bg-[#002855] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-md hover:shadow-lg mb-6 flex items-center justify-center gap-2 active:scale-[0.98]"
-                                        >
-                                            Xác nhận xóa tài khoản
-                                        </button>
-
-                                        <div className="flex flex-col items-center gap-5 w-full border-t border-gray-100 pt-5">
-                                            <p className="text-sm text-gray-500">
-                                                Bạn chưa nhận được mã?{' '}
-                                                <button
-                                                    onClick={sendOtpEmail}
-                                                    disabled={isSendingOtp || resendCountdown > 0}
-                                                    className="text-[#003375] font-bold hover:underline transition-all disabled:opacity-50 disabled:no-underline disabled:text-gray-400"
-                                                >
-                                                    {isSendingOtp
-                                                        ? 'Đang gửi lại...'
-                                                        : resendCountdown > 0
-                                                            ? `Gửi lại mã sau ${Math.floor(resendCountdown / 60)}:${String(resendCountdown % 60).padStart(2, '0')}`
-                                                            : 'Gửi lại mã'
-                                                    }
-                                                </button>
-                                            </p>
-
-                                            <button
-                                                onClick={() => {
-                                                    setResetStep(2);
-                                                    setOtpInput('');
-                                                    setOtpError('');
-                                                    setDeleteTurnstileToken('');
-                                                }}
-                                                className="text-sm text-gray-500 font-semibold hover:text-gray-900 transition-colors flex items-center gap-1.5"
-                                            >
-                                                <ArrowLeft size={16} /> Quay lại
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="p-8 sm:p-12 animate-scaleIn flex flex-col items-center justify-center text-center">
-                                    <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mb-6 animate-bounce">
-                                        <span className="text-5xl">👋</span>
-                                    </div>
-                                    <h3 className="text-2xl font-black text-[#003375] mb-4">Tạm biệt bạn nhé!</h3>
-                                    <p className="text-gray-600 text-sm leading-relaxed mb-8 px-2">
-                                        Dữ liệu của bạn trên hệ thống đã được xóa sạch hoàn toàn. <br/><br/>
-                                        Cảm ơn bạn đã tin tưởng và đồng hành cùng <strong>HUB Planner</strong>. Chúc bạn luôn thành công và rạng rỡ trên con đường học tập tại giảng đường đại học!
-                                    </p>
-                                    <div className="flex items-center justify-center gap-2 text-xs font-bold text-gray-400 bg-gray-50 px-4 py-2 rounded-full">
-                                        <Loader2 className="animate-spin text-[#003375]" size={14} />
-                                        Đang đưa bạn về trang chủ...
-                                    </div>
-                                </div>
-                            )}
-
-                        </div>
-                    </div>
-                )}
+                <DeleteAccountModal
+                    open={showResetModal}
+                    step={resetStep}
+                    email={session?.user.email || ''}
+                    otpInput={otpInput}
+                    error={otpError}
+                    sendingOtp={isSendingOtp}
+                    resendCountdown={resendCountdown}
+                    turnstileToken={deleteTurnstileToken}
+                    onTurnstileTokenChange={setDeleteTurnstileToken}
+                    onClose={closeDeleteAccountModal}
+                    onContinue={continueDeleteAccount}
+                    onBackToIntro={backToDeleteIntro}
+                    onBackToVerification={backToDeleteVerification}
+                    onSendOtp={sendOtpEmail}
+                    onOtpInputChange={updateOtpInput}
+                    onVerifyTurnstileAndSendOtp={handleVerifyTurnstileAndSendOtp}
+                    onConfirm={verifyOtpAndReset}
+                />
 
                 <AccountSettingsModal
                     open={showAccountSettings}
