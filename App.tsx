@@ -8,6 +8,7 @@ import { useAppMode } from './hooks/useAppMode';
 import { useStudyData } from './hooks/useStudyData';
 import { useAccountProfileDraft } from './hooks/useAccountProfileDraft';
 import { useAccountPassword } from './hooks/useAccountPassword';
+import { useTranscriptTransfer } from './hooks/useTranscriptTransfer';
 import { supabase } from './utils/supabase';
 import { Link, Navigate, Route, Routes, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { ImportGuideModal } from './components/ImportGuideModal';
@@ -42,9 +43,8 @@ import { apiUrl } from './utils/api';
 import { logActivity, logActivityQuietly } from './utils/activityLogger';
 import { recordPolicyConsent } from './utils/policyConsent';
 import { TurnstileBox } from './components/TurnstileBox';
-import { ProtectedSubmitError, verifyTurnstileOnly } from './utils/protectedSubmit';
+import { verifyTurnstileOnly } from './utils/protectedSubmit';
 import { logWebError } from './utils/logWebError';
-import { promptSendParserDebugFile } from './utils/parserDebugTicket';
 import {
     AdminEventCandidates,
     AdminReports,
@@ -412,16 +412,6 @@ const App: React.FC = () => {
     const [adminSearchMssv, setAdminSearchMssv] = useState('');
     const [viewingUser, setViewingUser] = useState<{ id: string, mssv: string, name: string } | null>(null);
     const [isSearchingUser, setIsSearchingUser] = useState(false);
-    const [isImporting, setIsImporting] = useState(false);
-    const [showImportGuide, setShowImportGuide] = useState(false);
-    const [showImportLoadingToast, setShowImportLoadingToast] = useState(false);
-    const [gradeImportTurnstileToken, setGradeImportTurnstileToken] = useState('');
-    const [pendingTranscriptImport, setPendingTranscriptImport] = useState<{
-        semesters: Semester[];
-        importedSubjectCount: number;
-        onImportedSemesters?: (semesters: Semester[]) => void;
-    } | null>(null);
-    const [isConfirmingTranscriptImport, setIsConfirmingTranscriptImport] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
     const [showActivityLog, setShowActivityLog] = useState(false);
     const [showAccountSettings, setShowAccountSettings] = useState(false);
@@ -447,6 +437,27 @@ const App: React.FC = () => {
         profileAvatarUrl,
         setProfileFullName,
         setProfileAvatarUrl,
+    });
+    const {
+        fileInputRef,
+        isImporting,
+        showImportGuide,
+        showImportLoadingToast,
+        gradeImportTurnstileToken,
+        setGradeImportTurnstileToken,
+        pendingTranscriptImport,
+        isConfirmingTranscriptImport,
+        openImportGuide,
+        closeImportGuide,
+        exportTranscriptPdf: handleExportPDF,
+        handleFileUpload,
+        handleDroppedFile,
+        updatePendingSemesters,
+        cancelPendingImport,
+        confirmTranscriptImport: handleConfirmTranscriptImport,
+    } = useTranscriptTransfer({
+        data,
+        commitDataUpdate,
     });
     const {
         draftFullName,
@@ -639,9 +650,6 @@ const App: React.FC = () => {
         }
         return () => clearTimeout(timer);
     }, [resendCountdown]);
-
-    // ✨ FIX LỖI TS 1: Ép kiểu any cho fileInputRef để tương thích với tất cả interface con
-    const fileInputRef = useRef<any>(null);
 
     const particlesInit = useCallback(async (engine: Engine) => {
         await loadSlim(engine);
@@ -927,177 +935,6 @@ const App: React.FC = () => {
         }
     };
 
-    const handleExportPDF = async () => {
-        playClick();
-        const { exportTranscriptToPdf } = await import('./utils/pdfExport');
-        await exportTranscriptToPdf(data);
-    };
-
-    const handleFileUpload = async (
-        event: React.ChangeEvent<HTMLInputElement>,
-        onImportedSemesters?: (semesters: Semester[]) => void,
-    ) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        setShowImportGuide(false);
-        setIsImporting(true);
-        setShowImportLoadingToast(true);
-
-        try {
-            await verifyTurnstileOnly(gradeImportTurnstileToken);
-            setGradeImportTurnstileToken('');
-            const { parseHubPdf } = await import('./utils/pdfImport');
-            const result = await parseHubPdf(file);
-            const importedSubjectCount = result.semesters.reduce((total, semester) => total + semester.subjects.length, 0);
-            if (importedSubjectCount === 0) {
-                try {
-                    localStorage.setItem('hub_last_transcript_import_debug', JSON.stringify({
-                        at: new Date().toISOString(),
-                        stage: 'app-zero-subjects',
-                        error: result.error || null,
-                        semesterCount: result.semesters.length,
-                        yearRangeCount: result.yearRanges.length,
-                        debug: result.debug || null
-                    }));
-                } catch {
-                    // ignore storage errors
-                }
-                const errorLogId = await logWebError({
-                    source: 'parser',
-                    action: 'import_transcript',
-                    error: result.error || 'Transcript parser returned zero subjects',
-                    metadata: {
-                        fileName: file.name,
-                        fileSize: file.size,
-                        fileType: file.type,
-                        semesterCount: result.semesters.length,
-                        yearRangeCount: result.yearRanges.length,
-                    },
-                    level: 'warn',
-                });
-                if (result.error) {
-                    await promptSendParserDebugFile({
-                        kind: 'transcript',
-                        file,
-                        errorLogId,
-                        parserMessage: result.error,
-                        metadata: {
-                            semesterCount: result.semesters.length,
-                            yearRangeCount: result.yearRanges.length,
-                        },
-                    });
-                    return;
-                }
-                await promptSendParserDebugFile({
-                    kind: 'transcript',
-                    file,
-                    errorLogId,
-                    parserMessage: 'Transcript parser returned zero subjects',
-                    metadata: {
-                        semesterCount: result.semesters.length,
-                        yearRangeCount: result.yearRanges.length,
-                    },
-                });
-                return;
-            }
-
-            const startYear = result.yearRanges.length > 0
-                ? Math.min(...result.yearRanges.map(y => y.start))
-                : new Date().getFullYear();
-            const reconstructSemesters: Semester[] = [];
-            const importedSemesters = result.semesters;
-
-            for (let i = 0; i < 4; i++) {
-                const curStart = startYear + i;
-                const curEnd = curStart + 1;
-                const yearLabel = `Năm học ${curStart}-${curEnd}`;
-
-                const sem1Id = `imported_${curStart}_${curEnd}_hk1`;
-                const importedSem1 = importedSemesters.find(s => s.id === sem1Id);
-                if (importedSem1) reconstructSemesters.push(importedSem1);
-                else reconstructSemesters.push({ id: `generated_${curStart}_hk1`, name: `Học kỳ 1 ${yearLabel}`, subjects: [], trainingScore: null });
-
-                const sem2Id = `imported_${curStart}_${curEnd}_hk2`;
-                const importedSem2 = importedSemesters.find(s => s.id === sem2Id);
-                if (importedSem2) reconstructSemesters.push(importedSem2);
-                else reconstructSemesters.push({ id: `generated_${curStart}_hk2`, name: `Học kỳ 2 ${yearLabel}`, subjects: [], trainingScore: null });
-
-                const otherSems = importedSemesters.filter(s => s.id.startsWith(`imported_${curStart}_${curEnd}`) && !s.id.endsWith('hk1') && !s.id.endsWith('hk2'));
-                if (otherSems.length > 0) reconstructSemesters.push(...otherSems);
-            }
-
-            const standardIds = reconstructSemesters.map(s => s.id);
-            const leftOvers = importedSemesters.filter(s => !standardIds.includes(s.id));
-            reconstructSemesters.push(...leftOvers);
-
-            setPendingTranscriptImport({
-                semesters: reconstructSemesters,
-                importedSubjectCount,
-                onImportedSemesters,
-            });
-        } catch (error) {
-            console.error(error);
-            if (error instanceof ProtectedSubmitError) {
-                alert(error.message);
-                return;
-            }
-            const errorLogId = await logWebError({
-                source: 'parser',
-                action: 'import_transcript',
-                error,
-                metadata: {
-                    fileName: file.name,
-                    fileSize: file.size,
-                    fileType: file.type,
-                },
-            });
-            const message = error instanceof Error ? error.message : '';
-            await promptSendParserDebugFile({
-                kind: 'transcript',
-                file,
-                errorLogId,
-                parserMessage: message || 'Lỗi khi đọc file PDF.',
-            });
-        } finally {
-            setIsImporting(false);
-            setShowImportLoadingToast(false);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-    };
-
-    const handleConfirmTranscriptImport = async () => {
-        if (!pendingTranscriptImport) return;
-        const subjectCount = pendingTranscriptImport.semesters.reduce(
-            (total, semester) => total + semester.subjects.length,
-            0,
-        );
-        if (subjectCount === 0) {
-            await showAlert('Danh sách xem trước đang trống. Vui lòng giữ lại ít nhất một môn học.');
-            return;
-        }
-
-        setIsConfirmingTranscriptImport(true);
-        try {
-            if (pendingTranscriptImport.onImportedSemesters) {
-                pendingTranscriptImport.onImportedSemesters(pendingTranscriptImport.semesters);
-            } else {
-                commitDataUpdate(prev => ({
-                    ...prev,
-                    semesters: pendingTranscriptImport.semesters,
-                }));
-            }
-            setPendingTranscriptImport(null);
-            await showAlert(
-                `Đã đưa ${subjectCount} môn vào bảng điểm. Dữ liệu cũ đã được thay thế.\n\n`
-                + 'Khuyến khích bạn rà soát lại các học kỳ, tên môn, số tín chỉ và điểm số. '
-                + 'Nếu đang ở chế độ chỉnh sửa, chỉ bấm "Lưu bảng điểm" khi mọi thông tin đã chính xác.',
-            );
-        } finally {
-            setIsConfirmingTranscriptImport(false);
-        }
-    };
-
     const renderProtectedApp = () => {
         const isPrivilegedUser = isAdmin || isAuditor || isCTV;
         const requiresPasswordSetup = Boolean(session?.user && !isPrivilegedUser && passwordSetAt === null);
@@ -1164,7 +1001,7 @@ const App: React.FC = () => {
                             onRemoveSemester={removeSemester}
                             onAddSemester={addSemester}
                             onExportPDF={handleExportPDF}
-                            onImportPDF={() => { playClick(); setShowImportGuide(true); }}
+                            onImportPDF={openImportGuide}
                             isImporting={isImporting}
                             fileInputRef={fileInputRef}
                             onFileUpload={handleFileUpload}
@@ -1198,7 +1035,7 @@ const App: React.FC = () => {
             <Routes>
                 <Route path="/" element={<Navigate to="/mobile-home" replace />} />
                 <Route path="/mobile-home" element={<MobileHome data={data} displayName={displayName} avatarUrl={profileAvatarUrl} avatarSeed={avatarSeed} isGuest={isGuest} showSecurityNotice={!session} onRequireOnboarding={() => navigate('/onboarding')} />} />
-                <Route path="/learning" element={<MobileLearning data={data} onSetSemesters={(sems) => commitDataUpdate(prev => ({ ...prev, semesters: sems }))} onSaveSemesters={saveSemestersNow} isGuest={isGuest} onRequireOnboarding={() => navigate('/onboarding')} onTargetChange={(newTarget) => commitDataUpdate(prev => ({ ...prev, targetGPA: newTarget }))} showSecurityNotice={!session} onUpdateSemester={updateSemester} onRemoveSemester={removeSemester} onAddSemester={addSemester} onExportPDF={handleExportPDF} onImportPDF={() => { playClick(); setShowImportGuide(true); }} isImporting={isImporting} fileInputRef={fileInputRef} onFileUpload={handleFileUpload} viewUserId={viewingUser?.id} isManagementUser={isAdmin || isAuditor} />} />
+                <Route path="/learning" element={<MobileLearning data={data} onSetSemesters={(sems) => commitDataUpdate(prev => ({ ...prev, semesters: sems }))} onSaveSemesters={saveSemestersNow} isGuest={isGuest} onRequireOnboarding={() => navigate('/onboarding')} onTargetChange={(newTarget) => commitDataUpdate(prev => ({ ...prev, targetGPA: newTarget }))} showSecurityNotice={!session} onUpdateSemester={updateSemester} onRemoveSemester={removeSemester} onAddSemester={addSemester} onExportPDF={handleExportPDF} onImportPDF={openImportGuide} isImporting={isImporting} fileInputRef={fileInputRef} onFileUpload={handleFileUpload} viewUserId={viewingUser?.id} isManagementUser={isAdmin || isAuditor} />} />
                 <Route path="/events" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/events/edit/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/events/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
@@ -1265,31 +1102,19 @@ const App: React.FC = () => {
                     <TranscriptImportPreviewModal
                         semesters={pendingTranscriptImport.semesters}
                         isSaving={isConfirmingTranscriptImport}
-                        onChange={semesters => setPendingTranscriptImport(current => (
-                            current ? { ...current, semesters } : current
-                        ))}
-                        onCancel={() => setPendingTranscriptImport(null)}
+                        onChange={updatePendingSemesters}
+                        onCancel={cancelPendingImport}
                         onConfirm={handleConfirmTranscriptImport}
                     />
                 )}
 
                 {showImportGuide && (
                     <ImportGuideModal
-                        onClose={() => setShowImportGuide(false)}
+                        onClose={closeImportGuide}
                         securitySlot={<TurnstileBox token={gradeImportTurnstileToken} onTokenChange={setGradeImportTurnstileToken} />}
                         canSelectFile={Boolean(gradeImportTurnstileToken)}
                         onFileClick={() => fileInputRef.current?.click()}
-                        onFileDrop={(file) => {
-                            setShowImportGuide(false);
-                            if (fileInputRef.current) {
-                                const dataTransfer = new DataTransfer();
-                                dataTransfer.items.add(file);
-                                fileInputRef.current.files = dataTransfer.files;
-
-                                const event = new Event('change', { bubbles: true });
-                                fileInputRef.current.dispatchEvent(event);
-                            }
-                        }}
+                        onFileDrop={handleDroppedFile}
                     />
                 )}
 
