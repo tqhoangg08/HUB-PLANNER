@@ -26,6 +26,7 @@ import { AccountPasswordOtpModal } from './components/account/AccountPasswordOtp
 import { AccountPasswordPanel } from './components/account/AccountPasswordPanel';
 import { AccountAcademicProfileFields } from './components/account/AccountAcademicProfileFields';
 import { AccountPublicProfileFields } from './components/account/AccountPublicProfileFields';
+import { AccountSettingsModal } from './components/account/AccountSettingsModal';
 import { showAlert, showConfirm } from './utils/appNotifications';
 import { clearLocalStoragePreservingDevicePreferences } from './utils/devicePreferences';
 import {
@@ -1950,41 +1951,15 @@ const App: React.FC = () => {
                     </div>
                 )}
 
-                {/* MODAL ACCOUNT SETTINGS (Giữ nguyên) */}
-                {showAccountSettings && (
-                    <div
-                        className={`fixed inset-0 bg-black/60 z-[100000] flex animate-fadeIn ${
-                            useMobileLayout || isMobileScreen
-                                ? 'items-end justify-center p-0'
-                                : 'items-center justify-center p-4'
-                        }`}
-                        onClick={() => setShowAccountSettings(false)}
-                    >
-                        <div
-                            className={`account-settings-sheet bg-white shadow-2xl w-full overflow-hidden border border-gray-200 ${
-                                useMobileLayout || isMobileScreen
-                                    ? 'max-h-[80vh] max-w-[430px] rounded-t-3xl animate-slideUp flex flex-col'
-                                    : 'max-w-md rounded-xl animate-scaleIn'
-                            }`}
-                            onClick={(event) => event.stopPropagation()}
-                        >
-                            {(useMobileLayout || isMobileScreen) && (
-                                <div className="mx-auto mt-3 h-1.5 w-16 rounded-full bg-gray-200 shrink-0" />
-                            )}
-                            <div className={`account-settings-header ${useMobileLayout || isMobileScreen ? 'px-4 pt-3 pb-3 bg-white' : 'p-4 bg-gray-50'} border-b border-gray-100 flex justify-between items-center shrink-0`}>
-                                <h3 className={`${useMobileLayout || isMobileScreen ? 'flex items-center gap-2 text-base font-black text-[#0D1B3E]' : 'font-bold text-gray-900 text-base'}`}>
-                                    {(useMobileLayout || isMobileScreen) && <User size={18} className="text-[#003375]" />}
-                                    Cài đặt thông tin
-                                </h3>
-                                <button onClick={() => setShowAccountSettings(false)} className={`${useMobileLayout || isMobileScreen ? 'bg-gray-100 p-2 rounded-full active:scale-95' : 'p-1.5 hover:bg-gray-200 rounded-lg'} text-gray-500 transition-colors`}><X size={useMobileLayout || isMobileScreen ? 16 : 18} /></button>
-                            </div>
-                            <div className={`account-settings-body ${useMobileLayout || isMobileScreen ? 'flex-1 min-h-0 p-4 space-y-5' : 'p-5 space-y-6 max-h-[70vh]'} overflow-y-auto custom-scrollbar`}>
-                                {profileError && (
-                                    <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100">
-                                        {profileError}
-                                    </div>
-                                )}
-
+                <AccountSettingsModal
+                    open={showAccountSettings}
+                    mobile={useMobileLayout || isMobileScreen}
+                    error={profileError}
+                    saving={profileSaving}
+                    canSave={Boolean(draftProgram && draftCohort && draftMajor && draftSpecialization)}
+                    onClose={() => setShowAccountSettings(false)}
+                    onSave={handleSaveProfile}
+                >
                                 <AccountPublicProfileFields
                                     fullName={draftFullName}
                                     bio={draftBio}
@@ -2110,21 +2085,7 @@ const App: React.FC = () => {
                                         );
                                     }}
                                 />
-                            </div>
-
-                            <div className={`account-settings-footer ${useMobileLayout || isMobileScreen ? 'px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] bg-white' : 'p-4 bg-gray-50'} border-t border-gray-100 flex gap-2 shrink-0`}>
-                                <button onClick={() => setShowAccountSettings(false)} className={`${useMobileLayout || isMobileScreen ? 'py-3 rounded-xl' : 'py-2 rounded-lg'} flex-1 border border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-100 transition-colors`}>Hủy</button>
-                                <button
-                                    onClick={handleSaveProfile}
-                                    disabled={profileSaving || !draftProgram || !draftCohort || !draftMajor || !draftSpecialization}
-                                    className={`${useMobileLayout || isMobileScreen ? 'py-3 rounded-xl shadow-md' : 'py-2 rounded-lg'} flex-[2] bg-[#003375] text-white font-bold text-sm hover:bg-[#002855] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
-                                >
-                                    {profileSaving ? <Loader2 className="animate-spin" size={14} /> : null} Lưu thông tin
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                </AccountSettingsModal>
 
                 <AccountPasswordOtpModal
                     open={showAccountSettings && showAccountPasswordOtpModal}
