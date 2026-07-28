@@ -10,6 +10,7 @@ import { useAccountProfileDraft } from './hooks/useAccountProfileDraft';
 import { useAccountPassword } from './hooks/useAccountPassword';
 import { useTranscriptTransfer } from './hooks/useTranscriptTransfer';
 import { useDeleteAccount } from './hooks/useDeleteAccount';
+import { useSessionLifecycle } from './hooks/useSessionLifecycle';
 import { supabase } from './utils/supabase';
 import { Link, Navigate, Route, Routes, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { ImportGuideModal } from './components/ImportGuideModal';
@@ -35,14 +36,10 @@ import { DeleteAccountModal } from './components/account/DeleteAccountModal';
 import { showAlert, showConfirm } from './utils/appNotifications';
 import { clearLocalStoragePreservingDevicePreferences } from './utils/devicePreferences';
 import {
-    isPushSupported,
     setActivePushNotificationUser,
-    subscribeToDeviceNotifications,
     unbindDeviceNotificationsForCurrentUser,
 } from './utils/pushNotifications';
-import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from './utils/profilePrivate';
-import { logActivity, logActivityQuietly } from './utils/activityLogger';
-import { recordPolicyConsent } from './utils/policyConsent';
+import { logActivity } from './utils/activityLogger';
 import { TurnstileBox } from './components/TurnstileBox';
 import {
     AdminEventCandidates,
@@ -79,12 +76,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
-const PUSH_DEVICE_SYNC_MIN_INTERVAL_MS = 10 * 60 * 1000;
-
-const isMissingLegacyProfileColumn = (error: any, columnName: string) => {
-    const message = `${error?.message || ''} ${error?.details || ''}`;
-    return message.includes(columnName) || error?.code === '42703' || error?.code === 'PGRST204';
-};
 
 const COHORT_OPTIONS: Record<string, string[]> = {
     'standard': ['K38', 'K39', 'K40', 'K41'],
@@ -94,14 +85,11 @@ const COHORT_OPTIONS: Record<string, string[]> = {
 
 const App: React.FC = () => {
     const { isAdmin, isAuditor, isCTV, session, loading: loadingRole } = useUserRole();
-    console.log("Kiểm tra quyền hiện tại:", { isAdmin, isAuditor, isCTV });
     const navigate = useNavigate();
     const location = useLocation();
     const isExamStudyRoute = false;
 
     const isGuest = !session;
-    const [passwordSetAt, setPasswordSetAt] = useState<string | null | undefined>(undefined);
-    const [passwordSetupSchemaMissing, setPasswordSetupSchemaMissing] = useState(false);
 
     const {
         isAppMode,
@@ -109,183 +97,17 @@ const App: React.FC = () => {
         useMobileLayout,
         isMobileBrowser,
     } = useAppMode(location.search);
-    const lastLoggedUserIdRef = useRef<string | null>(null);
-    const lastPushDeviceSyncRef = useRef<{ userId: string | null; syncedAt: number }>({ userId: null, syncedAt: 0 });
-
-    useEffect(() => {
-        if (!session?.user?.id) return;
-        const pendingRaw = localStorage.getItem('hubplanner:pending-registration-consent');
-        if (!pendingRaw) return;
-
-        let pending: any = null;
-        try {
-            pending = JSON.parse(pendingRaw);
-        } catch {
-            localStorage.removeItem('hubplanner:pending-registration-consent');
-            return;
-        }
-
-        const policies = Array.isArray(pending?.policies) ? pending.policies : [];
-        if (!policies.length) {
-            localStorage.removeItem('hubplanner:pending-registration-consent');
-            return;
-        }
-
-        Promise.all(policies.map((policyType: string) => (
-            recordPolicyConsent(policyType, pending?.context || 'oauth_registration')
-        ))).finally(() => {
-            localStorage.removeItem('hubplanner:pending-registration-consent');
-        });
-    }, [session?.user?.id]);
-
-    useEffect(() => {
-        if (!session?.user?.id) {
-            lastLoggedUserIdRef.current = null;
-            return;
-        }
-
-        const currentSession = session;
-        const currentUserId = currentSession.user.id;
-        if (!currentUserId) {
-            lastLoggedUserIdRef.current = null;
-            return;
-        }
-
-        if (lastLoggedUserIdRef.current === currentUserId || loadingRole || !(isAdmin || isAuditor)) return;
-
-        lastLoggedUserIdRef.current = currentUserId;
-        logActivityQuietly({
-            action: 'login',
-            session: currentSession,
-            userRole: isAdmin ? 'admin' : 'auditor',
-            pagePath: location.pathname,
-            metadata: {
-                authProvider: currentSession.user.app_metadata?.provider || 'unknown',
-            },
-        });
-    }, [session?.user?.id, loadingRole, isAdmin, isAuditor, location.pathname]);
-
-    useEffect(() => {
-        setActivePushNotificationUser(session?.user?.id || null);
-
-        return () => {
-            setActivePushNotificationUser(null);
-        };
-    }, [session?.user?.id]);
-
-    useEffect(() => {
-        if (!session?.user?.id || !isPushSupported() || Notification.permission !== 'granted') return;
-
-        const syncPushDevice = (force = false) => {
-            const now = Date.now();
-            const lastSync = lastPushDeviceSyncRef.current;
-            if (!force && lastSync.userId === session.user.id && now - lastSync.syncedAt < PUSH_DEVICE_SYNC_MIN_INTERVAL_MS) {
-                return;
-            }
-
-            lastPushDeviceSyncRef.current = { userId: session.user.id, syncedAt: now };
-            subscribeToDeviceNotifications(session.user.id).catch((error) => {
-                console.error('Không thể đồng bộ thiết bị nhận thông báo:', error);
-            });
-        };
-
-        syncPushDevice(true);
-
-        const handleVisibilityChange = () => {
-            if (!document.hidden) syncPushDevice();
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [session?.user?.id]);
-
-    useEffect(() => {
-        let isMounted = true;
-
-        const loadPasswordStatus = async () => {
-            setPasswordSetupSchemaMissing(false);
-            if (!session?.user?.id || !supabase) {
-                if (isMounted) setPasswordSetAt(undefined);
-                return;
-            }
-
-            let profilePasswordSetAt: string | null | undefined;
-            let privateProfileMissing = false;
-
-            try {
-                const privateProfile = await fetchProfilePrivate(session.user.id);
-                profilePasswordSetAt = privateProfile?.password_set_at;
-                privateProfileMissing = !privateProfile;
-            } catch (error: any) {
-                console.warn('Không thể kiểm tra trạng thái mật khẩu private:', error);
-                privateProfileMissing = true;
-            }
-
-            if (!isMounted) return;
-
-            if (false as boolean) {
-                const error = { message: '', details: '', code: '' } as any;
-                const message = `${error.message || ''} ${error.details || ''}`;
-                const missingPasswordStatusColumn =
-                    message.includes('password_set_at') ||
-                    (error as any).code === '42703' ||
-                    (error as any).code === 'PGRST204';
-                console.warn('Không thể kiểm tra trạng thái mật khẩu:', error);
-                setPasswordSetupSchemaMissing(missingPasswordStatusColumn);
-                setPasswordSetAt(undefined);
-                return;
-            }
-
-            const authProvider = String((session.user.app_metadata as any)?.provider || '').toLowerCase();
-            const identityProviders = Array.isArray((session.user as any)?.identities)
-                ? (session.user as any).identities.map((identity: any) => String(identity?.provider || '').toLowerCase())
-                : [];
-            const isGoogleAuthSession = authProvider === 'google' || identityProviders.includes('google');
-
-            if (!profilePasswordSetAt && !isGoogleAuthSession) {
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('password_set_at')
-                    .eq('id', session.user.id)
-                    .maybeSingle();
-
-                if (!isMounted) return;
-
-                if (error) {
-                    if (!isMissingLegacyProfileColumn(error, 'password_set_at')) {
-                        console.warn('Không thể kiểm tra trạng thái mật khẩu legacy:', error);
-                    }
-                } else {
-                    profilePasswordSetAt = (data as any)?.password_set_at;
-                }
-            }
-
-            const metadataPasswordSet = !isGoogleAuthSession && Boolean((session.user.user_metadata as any)?.password_set_at);
-            if (!profilePasswordSetAt && metadataPasswordSet) {
-                const markedAt = new Date().toISOString();
-                setPasswordSetAt(markedAt);
-                const syncPrivate = privateProfileMissing
-                    ? upsertProfilePrivate({ user_id: session.user.id, email: session.user.email, password_set_at: markedAt, updated_at: markedAt })
-                    : updateProfilePrivate(session.user.id, { password_set_at: markedAt, updated_at: markedAt });
-                syncPrivate
-                    .catch((updateError) => {
-                        if (updateError) console.warn('Không thể đồng bộ trạng thái mật khẩu:', updateError);
-                    });
-                return;
-            }
-
-            setPasswordSetAt(profilePasswordSetAt ?? null);
-        };
-
-        loadPasswordStatus();
-
-        return () => {
-            isMounted = false;
-        };
-    }, [session?.user?.id]);
+    const {
+        passwordSetAt,
+        setPasswordSetAt,
+        passwordSetupSchemaMissing,
+    } = useSessionLifecycle({
+        session,
+        isAdmin,
+        isAuditor,
+        loadingRole,
+        pathname: location.pathname,
+    });
 
     // ==========================================
     // ✨ LÕI XỬ LÝ CÀI ĐẶT APP (PWA INSTALL)
