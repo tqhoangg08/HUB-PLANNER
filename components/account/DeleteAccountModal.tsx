@@ -7,9 +7,10 @@ interface DeleteAccountModalProps {
     open: boolean;
     step: DeleteAccountStep;
     email: string;
-    otpInput: string;
+    otpDigits: readonly string[];
     error: string;
     sendingOtp: boolean;
+    deletingAccount: boolean;
     resendCountdown: number;
     turnstileToken: string;
     onTurnstileTokenChange: (token: string) => void;
@@ -18,7 +19,8 @@ interface DeleteAccountModalProps {
     onBackToIntro: () => void;
     onBackToVerification: () => void;
     onSendOtp: () => void;
-    onOtpInputChange: (value: string) => void;
+    onOtpDigitChange: (index: number, value: string) => void;
+    onOtpPaste: (value: string) => void;
     onVerifyTurnstileAndSendOtp: () => void;
     onConfirm: () => void;
 }
@@ -27,9 +29,10 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
     open,
     step,
     email,
-    otpInput,
+    otpDigits,
     error,
     sendingOtp,
+    deletingAccount,
     resendCountdown,
     turnstileToken,
     onTurnstileTokenChange,
@@ -38,7 +41,8 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
     onBackToIntro,
     onBackToVerification,
     onSendOtp,
-    onOtpInputChange,
+    onOtpDigitChange,
+    onOtpPaste,
     onVerifyTurnstileAndSendOtp,
     onConfirm,
 }) => {
@@ -132,18 +136,24 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
                                         type="text"
                                         inputMode="numeric"
                                         maxLength={1}
-                                        value={otpInput[index] || ''}
+                                        value={otpDigits[index] || ''}
                                         onChange={(event) => {
                                             const value = event.target.value.replace(/[^0-9]/g, '');
-                                            const nextOtp = otpInput.split('');
-                                            nextOtp[index] = value;
-                                            onOtpInputChange(nextOtp.join(''));
+                                            onOtpDigitChange(index, value);
                                             if (value && index < 5) {
                                                 document.getElementById(`otp-input-${index + 1}`)?.focus();
                                             }
                                         }}
+                                        onPaste={(event) => {
+                                            const pastedValue = event.clipboardData.getData('text');
+                                            const digits = pastedValue.replace(/\D/g, '').slice(0, 6);
+                                            if (!digits) return;
+                                            event.preventDefault();
+                                            onOtpPaste(digits);
+                                            document.getElementById(`otp-input-${Math.min(digits.length, 6) - 1}`)?.focus();
+                                        }}
                                         onKeyDown={(event) => {
-                                            if (event.key === 'Backspace' && !otpInput[index] && index > 0) {
+                                            if (event.key === 'Backspace' && !otpDigits[index] && index > 0) {
                                                 document.getElementById(`otp-input-${index - 1}`)?.focus();
                                             }
                                         }}
@@ -159,18 +169,25 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
 
                             <button
                                 onClick={onConfirm}
-                                disabled={otpInput.length !== 6}
+                                disabled={otpDigits.some(digit => !digit) || deletingAccount}
                                 className="w-full py-3.5 bg-[#003375] text-white font-bold rounded-xl hover:bg-[#002855] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-md hover:shadow-lg mb-6 flex items-center justify-center gap-2 active:scale-[0.98]"
                             >
-                                Xác nhận xóa tài khoản
+                                {deletingAccount && <Loader2 className="animate-spin" size={18} />}
+                                {deletingAccount ? 'Đang xác minh và xóa...' : 'Xác nhận xóa tài khoản'}
                             </button>
 
                             <div className="flex flex-col items-center gap-5 w-full border-t border-gray-100 pt-5">
+                                {resendCountdown <= 0 && (
+                                    <div className="w-full flex flex-col gap-2">
+                                        <span className="text-xs font-bold text-gray-600 text-center">Xác minh để gửi lại mã</span>
+                                        <TurnstileBox token={turnstileToken} onTokenChange={onTurnstileTokenChange} />
+                                    </div>
+                                )}
                                 <p className="text-sm text-gray-500">
                                     Bạn chưa nhận được mã?{' '}
                                     <button
                                         onClick={onSendOtp}
-                                        disabled={sendingOtp || resendCountdown > 0}
+                                        disabled={sendingOtp || resendCountdown > 0 || !turnstileToken}
                                         className="text-[#003375] font-bold hover:underline transition-all disabled:opacity-50 disabled:no-underline disabled:text-gray-400"
                                     >
                                         {sendingOtp

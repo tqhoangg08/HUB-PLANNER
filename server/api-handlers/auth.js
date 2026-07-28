@@ -895,6 +895,11 @@ const OTP_EMAIL_COPY = {
     subjectAction: 'cài đặt lại mật khẩu',
     actionText: 'cài đặt lại mật khẩu',
   },
+  delete_data: {
+    title: 'Xác nhận xóa tài khoản HUB Planner',
+    subjectAction: 'xóa tài khoản',
+    actionText: 'xóa vĩnh viễn tài khoản và dữ liệu',
+  },
   admin_export: {
     title: 'Xác nhận xuất danh sách sinh viên HUB Planner',
     subjectAction: 'xuất danh sách sinh viên',
@@ -1131,12 +1136,20 @@ const resolveIdentifier = async (request, response) => {
 
 const sendOtp = async (request, response) => {
   const purpose = request.body?.purpose;
-  if (!['register', 'forgot_password'].includes(purpose)) {
+  if (!['register', 'forgot_password', 'delete_data'].includes(purpose)) {
     return response.status(400).json({ error: 'Loại OTP không hợp lệ.' });
   }
+  const authenticatedUser = purpose === 'delete_data'
+    ? await requireAuthenticatedUser(request)
+    : null;
   await verifyTurnstile(request, request.body?.turnstileToken || request.body?.captchaToken);
 
-  const email = await resolveEmail(request.body?.email || request.body?.identifier);
+  const email = purpose === 'delete_data'
+    ? normalizeEmail(authenticatedUser?.email || '')
+    : await resolveEmail(request.body?.email || request.body?.identifier);
+  if (!email) {
+    return response.status(400).json({ error: 'Tài khoản chưa có email để nhận mã OTP.' });
+  }
 
   const existingProfile = await getPrivateProfileByEmail(email);
 
@@ -1249,6 +1262,12 @@ const sendAdminExportOtp = async (request, response) => {
   });
 };
 
+const otpValidationError = (message) => {
+  const error = new Error(message);
+  error.statusCode = 400;
+  return error;
+};
+
 const verifyOtpRecord = async ({ email, purpose, otp }) => {
   const { data, error } = await supabase
     .from('auth_otp_codes')
@@ -1261,9 +1280,9 @@ const verifyOtpRecord = async ({ email, purpose, otp }) => {
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) throw new Error('Mã OTP không tồn tại hoặc đã được sử dụng.');
-  if (new Date(data.expires_at).getTime() < Date.now()) throw new Error('Mã OTP đã hết hạn.');
-  if (data.attempts >= MAX_ATTEMPTS) throw new Error('Bạn đã nhập sai quá nhiều lần. Hãy gửi lại mã mới.');
+  if (!data) throw otpValidationError('Mã OTP không tồn tại hoặc đã được sử dụng.');
+  if (new Date(data.expires_at).getTime() < Date.now()) throw otpValidationError('Mã OTP đã hết hạn.');
+  if (data.attempts >= MAX_ATTEMPTS) throw otpValidationError('Bạn đã nhập sai quá nhiều lần. Hãy gửi lại mã mới.');
 
   const expectedHash = hashOtp(email, purpose, otp);
   if (data.otp_hash !== expectedHash) {
@@ -1271,7 +1290,7 @@ const verifyOtpRecord = async ({ email, purpose, otp }) => {
       .from('auth_otp_codes')
       .update({ attempts: data.attempts + 1 })
       .eq('id', data.id);
-    throw new Error('Mã OTP không chính xác.');
+    throw otpValidationError('Mã OTP không chính xác.');
   }
 
   await supabase
@@ -1430,6 +1449,10 @@ const deleteAccount = async (request, response) => {
 
   const userId = userData.user.id;
   const email = normalizeEmail(userData.user.email || '');
+  const otp = String(request.body?.otp || '').replace(/\D/g, '').slice(0, 6);
+  if (!email) return response.status(400).json({ error: 'Tài khoản chưa có email để xác minh.' });
+  if (otp.length !== 6) return response.status(400).json({ error: 'Mã OTP cần đủ 6 chữ số.' });
+  await verifyOtpRecord({ email, purpose: 'delete_data', otp });
   const userIdHash = anonymizedUserHash(userId);
 
   try {

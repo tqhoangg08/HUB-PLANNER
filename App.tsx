@@ -541,8 +541,9 @@ const App: React.FC = () => {
     const {
         showResetModal,
         resetStep,
-        otpInput,
+        otpDigits,
         isSendingOtp,
+        isDeletingAccount,
         otpError,
         resendCountdown,
         deleteTurnstileToken,
@@ -554,7 +555,8 @@ const App: React.FC = () => {
         backToDeleteIntro,
         backToDeleteVerification,
         sendOtpEmail,
-        updateOtpInput,
+        updateOtpDigit,
+        pasteOtp,
         verifyTurnstileAndSendOtp: handleVerifyTurnstileAndSendOtp,
         verifyOtpAndReset,
     } = useDeleteAccount({
@@ -917,9 +919,10 @@ const App: React.FC = () => {
                     open={showResetModal}
                     step={resetStep}
                     email={session?.user.email || ''}
-                    otpInput={otpInput}
+                    otpDigits={otpDigits}
                     error={otpError}
                     sendingOtp={isSendingOtp}
+                    deletingAccount={isDeletingAccount}
                     resendCountdown={resendCountdown}
                     turnstileToken={deleteTurnstileToken}
                     onTurnstileTokenChange={setDeleteTurnstileToken}
@@ -928,7 +931,8 @@ const App: React.FC = () => {
                     onBackToIntro={backToDeleteIntro}
                     onBackToVerification={backToDeleteVerification}
                     onSendOtp={sendOtpEmail}
-                    onOtpInputChange={updateOtpInput}
+                    onOtpDigitChange={updateOtpDigit}
+                    onOtpPaste={pasteOtp}
                     onVerifyTurnstileAndSendOtp={handleVerifyTurnstileAndSendOtp}
                     onConfirm={verifyOtpAndReset}
                 />

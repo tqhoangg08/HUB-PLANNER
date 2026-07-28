@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { apiUrl } from '../utils/api';
+import {
+    createEmptyDeleteAccountOtp,
+    parseDeleteAccountOtp,
+    updateDeleteAccountOtpDigit,
+} from '../features/account/deleteAccountOtp';
+import { apiHeaders, apiUrl } from '../utils/api';
 import { playClick } from '../utils/audio';
 import { clearLocalStoragePreservingDevicePreferences } from '../utils/devicePreferences';
 import { logWebError } from '../utils/logWebError';
@@ -8,7 +13,6 @@ import {
     setActivePushNotificationUser,
     unbindDeviceNotificationsForCurrentUser,
 } from '../utils/pushNotifications';
-import { verifyTurnstileOnly } from '../utils/protectedSubmit';
 import { supabase } from '../utils/supabase';
 
 export type DeleteAccountStep = 1 | 2 | 3 | 4;
@@ -30,9 +34,10 @@ export const useDeleteAccount = ({
     const isGuest = !sessionUserId;
     const [showResetModal, setShowResetModal] = useState(false);
     const [resetStep, setResetStep] = useState<DeleteAccountStep>(1);
-    const [generatedOtp, setGeneratedOtp] = useState('');
-    const [otpInput, setOtpInput] = useState('');
+    const [otpDigits, setOtpDigits] = useState<string[]>(createEmptyDeleteAccountOtp);
+    const otpInput = otpDigits.join('');
     const [isSendingOtp, setIsSendingOtp] = useState(false);
+    const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const [otpError, setOtpError] = useState('');
     const [resendCountdown, setResendCountdown] = useState(0);
     const [deleteTurnstileToken, setDeleteTurnstileToken] = useState('');
@@ -40,11 +45,11 @@ export const useDeleteAccount = ({
     const resetDeleteAccountModal = useCallback(() => {
         setShowResetModal(false);
         setResetStep(1);
-        setGeneratedOtp('');
-        setOtpInput('');
+        setOtpDigits(createEmptyDeleteAccountOtp());
         setOtpError('');
         setResendCountdown(0);
         setDeleteTurnstileToken('');
+        setIsDeletingAccount(false);
     }, []);
 
     const closeDeleteAccountModal = useCallback(() => {
@@ -65,50 +70,64 @@ export const useDeleteAccount = ({
         return () => window.clearTimeout(timer);
     }, [resendCountdown]);
 
-    const executeResetData = useCallback(async () => {
+    const finishLocalDeletion = useCallback(async () => {
         try {
-            if (!isGuest && sessionUserId) {
-                const response = await fetch(apiUrl('/auth'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${sessionAccessToken}`,
-                    },
-                    body: JSON.stringify({ action: 'delete-account' }),
-                });
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    throw new Error(payload.error || 'Không thể xóa tài khoản.');
-                }
+            setActivePushNotificationUser(null);
+            await unbindDeviceNotificationsForCurrentUser(sessionUserId || undefined);
+        } catch {
+            // Device notification cleanup is best-effort.
+        }
+
+        try {
+            await supabase.auth.signOut();
+        } catch {
+            // Local cleanup and navigation must still complete.
+        }
+
+        clearLocalStoragePreservingDevicePreferences();
+        sessionStorage.clear();
+        onNavigateToLogin();
+    }, [onNavigateToLogin, sessionUserId]);
+
+    const executeResetData = useCallback(async (otp = '') => {
+        if (isGuest) {
+            await new Promise(resolve => window.setTimeout(resolve, 3000));
+            await finishLocalDeletion();
+            return true;
+        }
+
+        try {
+            const response = await fetch(apiUrl('/auth'), {
+                method: 'POST',
+                headers: apiHeaders({
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${sessionAccessToken}`,
+                }),
+                body: JSON.stringify({
+                    action: 'delete-account',
+                    otp,
+                }),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(payload.error || 'Không thể xóa tài khoản.');
             }
 
+            setResetStep(4);
             await new Promise(resolve => window.setTimeout(resolve, 3000));
+            await finishLocalDeletion();
+            return true;
         } catch (error) {
-            console.error('Lỗi khi reset:', error);
+            console.error('Lỗi khi xóa tài khoản:', error);
+            setOtpError(error instanceof Error ? error.message : 'Không thể xóa tài khoản.');
             await logWebError({
                 source: 'auth',
                 action: 'delete_data',
                 error,
             });
-        } finally {
-            try {
-                setActivePushNotificationUser(null);
-                await unbindDeviceNotificationsForCurrentUser(sessionUserId || undefined);
-            } catch {
-                // Device notification cleanup is best-effort.
-            }
-
-            try {
-                await supabase.auth.signOut();
-            } catch {
-                // Local cleanup and navigation must still complete.
-            }
-
-            clearLocalStoragePreservingDevicePreferences();
-            sessionStorage.clear();
-            onNavigateToLogin();
+            return false;
         }
-    }, [isGuest, onNavigateToLogin, sessionAccessToken, sessionUserId]);
+    }, [finishLocalDeletion, isGuest, sessionAccessToken]);
 
     const requestDeleteAccount = useCallback(() => {
         playClick();
@@ -121,7 +140,7 @@ export const useDeleteAccount = ({
 
         setShowResetModal(true);
         setResetStep(1);
-        setOtpInput('');
+        setOtpDigits(createEmptyDeleteAccountOtp());
         setOtpError('');
         setDeleteTurnstileToken('');
         onCloseUserMenu();
@@ -139,45 +158,51 @@ export const useDeleteAccount = ({
 
     const backToDeleteVerification = useCallback(() => {
         setResetStep(2);
-        setOtpInput('');
+        setOtpDigits(createEmptyDeleteAccountOtp());
         setOtpError('');
         setDeleteTurnstileToken('');
     }, []);
 
     const sendOtpEmail = useCallback(async () => {
+        if (!deleteTurnstileToken) {
+            setOtpError('Vui lòng xác minh bạn không phải robot.');
+            return;
+        }
+
         setIsSendingOtp(true);
         setOtpError('');
         try {
-            const otp = Math.floor(100000 + Math.random() * 900000).toString();
-            setGeneratedOtp(otp);
-
-            const expireTime = new Date(Date.now() + 15 * 60 * 1000);
-            const timeString = expireTime.toLocaleTimeString('vi-VN', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false,
-                timeZone: 'Asia/Ho_Chi_Minh',
-            });
-            const { data, error } = await supabase.functions.invoke('send-otp-email', {
-                body: {
-                    email: sessionEmail,
-                    passcode: otp,
-                    time: timeString,
-                    expiresAt: expireTime.toISOString(),
+            const response = await fetch(apiUrl('/auth'), {
+                method: 'POST',
+                headers: apiHeaders({
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${sessionAccessToken}`,
+                }),
+                body: JSON.stringify({
+                    action: 'send-otp',
                     purpose: 'delete_data',
-                },
+                    turnstileToken: deleteTurnstileToken,
+                }),
             });
-
-            if (error || !data || data.error) {
-                throw new Error('Lỗi từ máy chủ Backend');
+            const payload = await response.json().catch(() => ({}));
+            const retryAfterSeconds = Number(payload.retryAfterSeconds || 0);
+            if (!response.ok) {
+                if (response.status === 429 && retryAfterSeconds > 0) {
+                    setResetStep(3);
+                    setResendCountdown(retryAfterSeconds);
+                }
+                throw new Error(payload.error || 'Không thể gửi mã OTP.');
             }
 
             setResetStep(3);
-            setOtpInput('');
-            setResendCountdown(300);
+            setOtpDigits(createEmptyDeleteAccountOtp());
+            setResendCountdown(retryAfterSeconds || 600);
+            setDeleteTurnstileToken('');
         } catch (error) {
             console.error('Lỗi gửi mail:', error);
-            setOtpError('Hệ thống mail đang bận. Vui lòng thử lại sau.');
+            setOtpError(error instanceof Error
+                ? error.message
+                : 'Hệ thống mail đang bận. Vui lòng thử lại sau.');
             await logWebError({
                 source: 'otp',
                 action: 'otp_request',
@@ -191,57 +216,42 @@ export const useDeleteAccount = ({
         } finally {
             setIsSendingOtp(false);
         }
-    }, [sessionEmail]);
+    }, [deleteTurnstileToken, sessionAccessToken, sessionEmail]);
 
     const verifyTurnstileAndSendOtp = useCallback(async () => {
         playClick();
-        if (!deleteTurnstileToken) {
-            setOtpError('Vui lòng xác minh bạn không phải robot.');
-            return;
-        }
+        await sendOtpEmail();
+    }, [sendOtpEmail]);
 
-        setOtpError('');
-        setIsSendingOtp(true);
-        try {
-            await verifyTurnstileOnly(deleteTurnstileToken);
-            await sendOtpEmail();
-        } catch (error) {
-            await logWebError({
-                source: 'otp',
-                action: 'otp_request',
-                error,
-                metadata: { purpose: 'delete_data' },
-            });
-            setOtpError(error instanceof Error
-                ? error.message
-                : 'Xác minh bảo mật không thành công. Vui lòng thử lại.');
-            setDeleteTurnstileToken('');
-            setIsSendingOtp(false);
-        }
-    }, [deleteTurnstileToken, sendOtpEmail]);
-
-    const updateOtpInput = useCallback((value: string) => {
-        setOtpInput(value.replace(/\D/g, '').slice(0, 6));
+    const updateOtpDigit = useCallback((index: number, value: string) => {
+        setOtpDigits(previous => updateDeleteAccountOtpDigit(previous, index, value));
         setOtpError('');
     }, []);
 
-    const verifyOtpAndReset = useCallback(() => {
+    const pasteOtp = useCallback((value: string) => {
+        setOtpDigits(parseDeleteAccountOtp(value));
+        setOtpError('');
+    }, []);
+
+    const verifyOtpAndReset = useCallback(async () => {
         playClick();
-        if (otpInput !== generatedOtp) {
-            setOtpError('Mã xác nhận không chính xác!');
+        if (otpInput.length !== 6) {
+            setOtpError('Mã OTP cần đủ 6 chữ số.');
             return;
         }
 
         setOtpError('');
-        setResetStep(4);
-        void executeResetData();
-    }, [executeResetData, generatedOtp, otpInput]);
+        setIsDeletingAccount(true);
+        const deleted = await executeResetData(otpInput);
+        if (!deleted) setIsDeletingAccount(false);
+    }, [executeResetData, otpInput]);
 
     return {
         showResetModal,
         resetStep,
-        otpInput,
+        otpDigits,
         isSendingOtp,
+        isDeletingAccount,
         otpError,
         resendCountdown,
         deleteTurnstileToken,
@@ -253,7 +263,8 @@ export const useDeleteAccount = ({
         backToDeleteIntro,
         backToDeleteVerification,
         sendOtpEmail,
-        updateOtpInput,
+        updateOtpDigit,
+        pasteOtp,
         verifyTurnstileAndSendOtp,
         verifyOtpAndReset,
     };

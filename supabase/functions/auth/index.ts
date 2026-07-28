@@ -132,6 +132,11 @@ const OTP_EMAIL_COPY: Record<string, { title: string; subjectAction: string; act
     subjectAction: 'cài đặt lại mật khẩu',
     actionText: 'cài đặt lại mật khẩu',
   },
+  delete_data: {
+    title: 'Xác nhận xóa tài khoản HUB Planner',
+    subjectAction: 'xóa tài khoản',
+    actionText: 'xóa vĩnh viễn tài khoản và dữ liệu',
+  },
   admin_export: {
     title: 'Xác nhận xuất danh sách sinh viên HUB Planner',
     subjectAction: 'xuất danh sách sinh viên',
@@ -568,10 +573,16 @@ const sendEmail = async ({ email, otp, purpose }: { email: string; otp: string; 
   }
 }
 
-const sendOtp = async (body: any) => {
+const sendOtp = async (req: Request, body: any) => {
   const purpose = body?.purpose
-  if (!['register', 'forgot_password'].includes(purpose)) return json({ error: 'Loại OTP không hợp lệ.' }, 400)
-  const email = await resolveEmail(body?.email || body?.identifier)
+  if (!['register', 'forgot_password', 'delete_data'].includes(purpose)) return json({ error: 'Loại OTP không hợp lệ.' }, 400)
+  const authenticatedUser = purpose === 'delete_data' ? await getRequestUser(req) : null
+  if (purpose === 'delete_data' && !authenticatedUser) return json({ error: 'Phiên đăng nhập không hợp lệ.' }, 401)
+  await verifyTurnstile(req, body?.turnstileToken || body?.captchaToken)
+  const email = purpose === 'delete_data'
+    ? normalizeEmail(authenticatedUser?.user.email || '')
+    : await resolveEmail(body?.email || body?.identifier)
+  if (!email) return json({ error: 'Tài khoản chưa có email để nhận mã OTP.' }, 400)
   const existingProfile = await getPrivateProfileByEmail(email)
   if (purpose === 'register' && existingProfile?.user_id) return json({ error: 'Email này đã được đăng ký. Hãy chuyển sang đăng nhập.' }, 409)
   if (purpose === 'forgot_password' && !existingProfile?.user_id) return json({ error: 'Không tìm thấy tài khoản HUB/MSSV này.' }, 404)
@@ -658,6 +669,12 @@ const sendAdminExportOtp = async (req: Request) => {
   return json({ email, expiresInSeconds: OTP_TTL_MINUTES * 60 })
 }
 
+const otpValidationError = (message: string) => {
+  const error: any = new Error(message)
+  error.statusCode = 400
+  return error
+}
+
 const verifyOtpRecord = async ({ email, purpose, otp }: { email: string; purpose: string; otp: string }) => {
   const { data, error } = await supabase
     .from('auth_otp_codes')
@@ -669,12 +686,12 @@ const verifyOtpRecord = async ({ email, purpose, otp }: { email: string; purpose
     .limit(1)
     .maybeSingle()
   if (error) throw error
-  if (!data) throw new Error('Mã OTP không tồn tại hoặc đã được sử dụng.')
-  if (new Date(data.expires_at).getTime() < Date.now()) throw new Error('Mã OTP đã hết hạn.')
-  if (data.attempts >= MAX_ATTEMPTS) throw new Error('Bạn đã nhập sai quá nhiều lần. Hãy gửi lại mã mới.')
+  if (!data) throw otpValidationError('Mã OTP không tồn tại hoặc đã được sử dụng.')
+  if (new Date(data.expires_at).getTime() < Date.now()) throw otpValidationError('Mã OTP đã hết hạn.')
+  if (data.attempts >= MAX_ATTEMPTS) throw otpValidationError('Bạn đã nhập sai quá nhiều lần. Hãy gửi lại mã mới.')
   if (data.otp_hash !== await hashOtp(email, purpose, otp)) {
     await supabase.from('auth_otp_codes').update({ attempts: data.attempts + 1 }).eq('id', data.id)
-    throw new Error('Mã OTP không chính xác.')
+    throw otpValidationError('Mã OTP không chính xác.')
   }
   await supabase.from('auth_otp_codes').update({ used_at: new Date().toISOString() }).eq('id', data.id)
 }
@@ -805,11 +822,15 @@ const verifyAdminExportOtp = async (req: Request, body: any) => {
   return json({ verified: true })
 }
 
-const deleteAccount = async (req: Request) => {
+const deleteAccount = async (req: Request, body: any) => {
   const auth = await getRequestUser(req)
   if (!auth) return json({ error: 'Phiên đăng nhập không hợp lệ.' }, 401)
   const userId = auth.user.id
   const email = normalizeEmail(auth.user.email || '')
+  const otp = String(body?.otp || '').replace(/\D/g, '').slice(0, 6)
+  if (!email) return json({ error: 'Tài khoản chưa có email để xác minh.' }, 400)
+  if (otp.length !== 6) return json({ error: 'Mã OTP cần đủ 6 chữ số.' }, 400)
+  await verifyOtpRecord({ email, purpose: 'delete_data', otp })
   const userIdHash = await anonymizedUserHash(userId)
   try {
     const { data: avatarFiles, error } = await supabase.storage.from('avatars').list(userId)
@@ -947,12 +968,12 @@ Deno.serve(async (req) => {
 
     const action = body?.action
     if (action === 'resolve-identifier') return json({ email: await resolveEmail(body?.identifier) })
-    if (action === 'send-otp') return await sendOtp(body)
+    if (action === 'send-otp') return await sendOtp(req, body)
     if (action === 'verify-otp') return await verifyOtp(req, body)
     if (action === 'send-admin-export-otp') return await sendAdminExportOtp(req)
     if (action === 'verify-admin-export-otp') return await verifyAdminExportOtp(req, body)
     if (action === 'record-policy-consent') return await recordPolicyConsent(req, body)
-    if (action === 'delete-account') return await deleteAccount(req)
+    if (action === 'delete-account') return await deleteAccount(req, body)
     if (action === 'create-avatar-upload') return await createAvatarUpload(req, body)
     if (action === 'upload-avatar') return await uploadAvatar(req, body)
     return json({ error: 'Thao tác không hợp lệ.' }, 400)
