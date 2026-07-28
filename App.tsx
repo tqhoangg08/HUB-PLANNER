@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { UserData, Semester } from './types';
 import { ActivityLogModal } from './components/ActivityLogModal';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, RefreshCw, ClipboardList, Share, PlusSquare } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, RefreshCw, ClipboardList } from 'lucide-react';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { useAppMode } from './hooks/useAppMode';
@@ -11,6 +11,7 @@ import { useAccountPassword } from './hooks/useAccountPassword';
 import { useTranscriptTransfer } from './hooks/useTranscriptTransfer';
 import { useDeleteAccount } from './hooks/useDeleteAccount';
 import { useSessionLifecycle } from './hooks/useSessionLifecycle';
+import { usePwaInstall } from './hooks/usePwaInstall';
 import { supabase } from './utils/supabase';
 import { Link, Navigate, Route, Routes, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { ImportGuideModal } from './components/ImportGuideModal';
@@ -33,7 +34,8 @@ import { AccountAcademicProfileFields } from './components/account/AccountAcadem
 import { AccountPublicProfileFields } from './components/account/AccountPublicProfileFields';
 import { AccountSettingsModal } from './components/account/AccountSettingsModal';
 import { DeleteAccountModal } from './components/account/DeleteAccountModal';
-import { showAlert, showConfirm } from './utils/appNotifications';
+import { PwaInstallInstructionsModal } from './components/PwaInstallInstructionsModal';
+import { showConfirm } from './utils/appNotifications';
 import { clearLocalStoragePreservingDevicePreferences } from './utils/devicePreferences';
 import {
     setActivePushNotificationUser,
@@ -69,11 +71,6 @@ import {
     hasCompleteRequiredStudyProfile,
 } from './features/study-data/model';
 
-let globalDeferredPrompt: any = null;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    globalDeferredPrompt = e;
-});
 const SCHOOL_DOMAIN = 'st.buh.edu.vn';
 const STUDENT_PROFILE_TABLE = 'profiles';
 
@@ -109,65 +106,14 @@ const App: React.FC = () => {
         pathname: location.pathname,
     });
 
-    // ==========================================
-    // ✨ LÕI XỬ LÝ CÀI ĐẶT APP (PWA INSTALL)
-    // ==========================================
-    const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-    const [isIOS, setIsIOS] = useState(false);
-    const [showIOSInstructions, setShowIOSInstructions] = useState(false);
-
-    useEffect(() => {
-        // Nhận diện thiết bị Apple
-        const userAgent = window.navigator.userAgent.toLowerCase();
-        const isIOSDevice = /iphone|ipad|ipod|macintosh/.test(userAgent) && 'ontouchend' in document;
-        setIsIOS(isIOSDevice);
-
-        // Bắt sự kiện cài đặt tự động (Chrome, Edge, Android...)
-        const handleBeforeInstallPrompt = (e: Event) => {
-            e.preventDefault();
-            setDeferredPrompt(e);
-        };
-
-        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-        return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    }, []);
-
-    const handleInstallApp = async () => {
-        playClick();
-        const promptToUse = deferredPrompt || globalDeferredPrompt;
-        if (isIOS) {
-            setShowIOSInstructions(true);
-        } else if (promptToUse) {
-            promptToUse.prompt();
-            const { outcome } = await promptToUse.userChoice;
-            if (outcome === 'accepted') {
-                setDeferredPrompt(null);
-                globalDeferredPrompt = null;
-            }
-        } else {
-          await showAlert({
-              title: 'Không thể cài tự động',
-              message: 'Trình duyệt không hỗ trợ cài tự động, hoặc HUB Planner đã được cài trên thiết bị này rồi.',
-              variant: 'info',
-              confirmText: 'Đã hiểu',
-          });
-        }
-    };
-    useEffect(() => {
-        const searchParams = new URLSearchParams(location.search);
-        if (searchParams.get('install') === 'true') {
-            // Đợi 1 giây để giao diện load xong, sau đó nảy bảng cài đặt lên
-            const timer = setTimeout(() => {
-                handleInstallApp();
-
-                // (Tuỳ chọn) Dọn dẹp URL cho đẹp, xóa chữ ?install=true đi sau khi đã hiện bảng
-                window.history.replaceState({}, document.title, location.pathname);
-            }, 1000);
-
-            return () => clearTimeout(timer);
-        }
-    }, [location, handleInstallApp]);
-    // ==========================================
+    const {
+        handleInstallApp,
+        showIOSInstructions,
+        dismissIOSInstructions,
+    } = usePwaInstall({
+        pathname: location.pathname,
+        search: location.search,
+    });
 
     // ==========================================
     // LOGIC BONG BÓNG CHAT
@@ -898,48 +844,10 @@ const App: React.FC = () => {
                     onSubmit={handleChangeAccountPassword}
                 />
 
-                {showIOSInstructions && (
-                    <div className="fixed inset-0 z-[99999] bg-black/60 flex items-end justify-center sm:items-center p-4 animate-fadeIn" onClick={() => setShowIOSInstructions(false)}>
-                        <div className="bg-white w-full max-w-sm rounded-3xl p-6 relative animate-slideUp sm:animate-scaleIn shadow-2xl" onClick={e => e.stopPropagation()}>
-                            <button onClick={() => setShowIOSInstructions(false)} className="absolute top-4 right-4 bg-gray-100 p-2 rounded-full text-gray-500 hover:bg-gray-200 transition-colors">
-                                <X size={20} />
-                            </button>
-
-                            <div className="w-16 h-16 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Download size={32} />
-                            </div>
-
-                            <h3 className="text-xl font-black text-center text-[#003375] mb-2">Cài đặt HUB Planner</h3>
-                            <p className="text-sm text-gray-600 text-center mb-6 leading-relaxed">
-                                Trình duyệt của Apple không cho phép cài đặt tự động. Bạn vui lòng làm theo 2 bước cực nhanh sau:
-                            </p>
-
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0 text-blue-500">
-                                        <Share size={20} />
-                                    </div>
-                                    <p className="text-sm font-medium text-gray-700">
-                                        <strong>Bước 1:</strong> Nhấn vào biểu tượng <span className="text-blue-500 font-bold">Chia sẻ (Share)</span> ở thanh công cụ trình duyệt.
-                                    </p>
-                                </div>
-
-                                <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0 text-gray-800">
-                                        <PlusSquare size={20} />
-                                    </div>
-                                    <p className="text-sm font-medium text-gray-700">
-                                        <strong>Bước 2:</strong> Cuộn xuống và chọn <span className="font-bold text-gray-900">Thêm vào MH chính</span>.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <button onClick={() => setShowIOSInstructions(false)} className="w-full bg-[#003375] text-white font-bold py-4 rounded-2xl mt-6 active:scale-95 transition-transform shadow-md">
-                                Đã hiểu
-                            </button>
-                        </div>
-                    </div>
-                )}
+                <PwaInstallInstructionsModal
+                    open={showIOSInstructions}
+                    onClose={dismissIOSInstructions}
+                />
             </>
         );
 
