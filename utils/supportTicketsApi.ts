@@ -212,7 +212,7 @@ export const fetchSupportTickets = async (filters: TicketFilters = {}) => {
   if (error) throw error;
   logSupportPayload(filters.isStaff ? 'ticket_list_staff' : 'ticket_list_user', data);
 
-  return (data || []) as SupportTicket[];
+  return (data || []) as unknown as SupportTicket[];
 };
 
 export const fetchSupportTicketPage = async (filters: TicketFilters = {}) => {

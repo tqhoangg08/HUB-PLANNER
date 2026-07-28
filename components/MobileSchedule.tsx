@@ -133,7 +133,7 @@ interface MobileScheduleProps {
 
 const STUDENT_EDIT_LOCKED_SEMESTERS = new Set(['HK1_2026_2027']);
 
-const isStudentCourseEditLocked = (course?: Pick<Course, 'semester'> | null) => (
+const isStudentCourseEditLocked = (course?: Partial<Pick<Course, 'semester'>> | null) => (
   !!course?.semester && STUDENT_EDIT_LOCKED_SEMESTERS.has(course.semester)
 );
 

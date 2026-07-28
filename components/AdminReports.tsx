@@ -81,10 +81,11 @@ export const AdminReports: React.FC = () => {
 
             if (reportError) throw reportError;
             setTotalReports(count || 0);
+            const typedReportData = (reportData || []) as unknown as ReportData[];
 
-            if (reportData && reportData.length > 0) {
+            if (typedReportData.length > 0) {
                 // Gom tất cả user_id duy nhất để query profile 1 lần
-                const userIds = [...new Set(reportData.map(item => item.user_id).filter(Boolean))] as string[];
+                const userIds = [...new Set(typedReportData.map(item => item.user_id).filter(Boolean))] as string[];
                 
                 let profilesMap: Record<string, any> = {};
                 
@@ -103,7 +104,7 @@ export const AdminReports: React.FC = () => {
                 }
 
                 // Ráp dữ liệu report với profile
-                const enrichedData = reportData.map(item => ({
+                const enrichedData = typedReportData.map(item => ({
                     ...item,
                     profile: item.user_id ? (profilesMap[item.user_id] || null) : null
                 }));

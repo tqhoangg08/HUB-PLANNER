@@ -179,7 +179,7 @@ const SYSTEM_COURSE_SUGGESTION_LIMIT = 10;
 const DEFAULT_ACADEMIC_PROGRAM_OPTIONS = ['Chính quy chuẩn'];
 let hasShownScheduleUpdateNoticeThisLoad = false;
 
-const isStudentCourseEditLocked = (course?: Pick<Course, 'semester'> | null) => (
+const isStudentCourseEditLocked = (course?: Partial<Pick<Course, 'semester'>> | null) => (
     !!course?.semester && STUDENT_EDIT_LOCKED_SEMESTERS.has(course.semester)
 );
 

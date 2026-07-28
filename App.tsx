@@ -1,49 +1,27 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { UserData, Semester, STORAGE_KEY } from './types';
-import { Dashboard } from './components/Dashboard';
-import { Onboarding } from './components/Onboarding';
-import { Handbook } from './components/Handbook';
-import { EventsBoard } from './components/EventsBoard';
-import { LostFoundBoard } from './components/LostFoundBoard';
-import { LoginScreen } from './components/LoginScreen';
+import { UserData, Semester } from './types';
 import { ActivityLogModal } from './components/ActivityLogModal';
-import { PrivacyPolicy } from './components/PrivacyPolicy';
-import { TermsOfUse } from './components/TermsOfUse';
 import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Download, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Mail, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ShieldAlert, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, HeartCrack, ArrowLeft, RefreshCw, ClipboardList, Share, PlusSquare, Lock, Eye, EyeOff } from 'lucide-react';
-import { parseHubPdf } from './utils/pdfImport';
-import { exportTranscriptToPdf } from './utils/pdfExport';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
+import { useAppMode } from './hooks/useAppMode';
+import { useStudyData } from './hooks/useStudyData';
 import { supabase } from './utils/supabase';
 import { Link, Navigate, Route, Routes, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { ImportGuideModal } from './components/ImportGuideModal';
 import { TranscriptImportPreviewModal } from './components/TranscriptImportPreviewModal';
 import { UserGuideModal } from './components/UserGuideModal';
-import ProfilePage from './pages/ProfilePage';
-import ProfileSearchPage from './pages/ProfileSearchPage';
 import NotificationBell from './components/NotificationBell';
-import ScheduleBoard from './components/ScheduleBoard';
 import Particles from "react-particles";
 import { loadSlim } from "tsparticles-slim";
 import type { Engine, ISourceOptions } from "tsparticles-engine";
-import { AdminReports } from './components/AdminReports';
-import { AdminEventCandidates } from './components/AdminEventCandidates';
-import { AdminSupportTickets } from './components/AdminSupportTickets';
 import { AIAdvisor } from './components/AIAdvisor';
 import { FloatingSupportTab } from './components/FloatingSupportTab';
 import { MobileAIAdvisor } from './components/MobileAIAdvisor';
-import { SupportTickets } from './components/SupportTickets';
 import { ACADEMIC_PROGRAMS, Program, Major, Specialization, getMajors } from './utils/programs';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileAppLayout } from './layouts/MobileAppLayout';
-import { MobileHome } from './components/MobileHome';
-import { MobileLearning } from './components/MobileLearning';
-import { MobileEvents } from './components/MobileEvents';
-import { MobileLostFound } from './components/MobileLostFound';
-import { MobileProfile } from './components/MobileProfile';
 import { PasswordSetupModal } from './components/PasswordSetupModal';
-import { SupportNoticeModal } from './components/SupportNoticeModal';
-import { MobileHandbook } from './components/MobileHandbook';
 import { showAlert, showConfirm } from './utils/appNotifications';
 import { clearLocalStoragePreservingDevicePreferences } from './utils/devicePreferences';
 import {
@@ -62,6 +40,33 @@ import { TurnstileBox } from './components/TurnstileBox';
 import { ProtectedSubmitError, verifyTurnstileOnly } from './utils/protectedSubmit';
 import { logWebError } from './utils/logWebError';
 import { promptSendParserDebugFile } from './utils/parserDebugTicket';
+import {
+    AdminEventCandidates,
+    AdminReports,
+    AdminSupportTickets,
+    Dashboard,
+    EventsBoard,
+    Handbook,
+    LostFoundBoard,
+    MobileEvents,
+    MobileHandbook,
+    MobileHome,
+    MobileLearning,
+    MobileLostFound,
+    MobileProfile,
+    ProfilePage,
+    ProfileSearchPage,
+    ScheduleBoard,
+    SupportTickets,
+} from './app/routing/lazyScreens';
+import { RouteLoadingFallback } from './app/routing/RouteLoadingFallback';
+import { RouteErrorBoundary } from './app/routing/RouteErrorBoundary';
+import { AppRoutes } from './app/routing/AppRoutes';
+import { AuthGate } from './app/auth/AuthGate';
+import {
+    getNextTranscriptSemesterName,
+    hasCompleteRequiredStudyProfile,
+} from './features/study-data/model';
 
 let globalDeferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -76,21 +81,6 @@ const PUSH_DEVICE_SYNC_MIN_INTERVAL_MS = 10 * 60 * 1000;
 const isMissingLegacyProfileColumn = (error: any, columnName: string) => {
     const message = `${error?.message || ''} ${error?.details || ''}`;
     return message.includes(columnName) || error?.code === '42703' || error?.code === 'PGRST204';
-};
-
-const fetchLegacyProfileData = async (userId: string) => {
-    const { data, error } = await supabase
-        .from(STUDENT_PROFILE_TABLE)
-        .select('data')
-        .eq('id', userId)
-        .maybeSingle();
-
-    if (error) {
-        if (!isMissingLegacyProfileColumn(error, 'data')) console.warn('Không thể đọc profiles.data legacy:', error);
-        return null;
-    }
-
-    return (data as any)?.data || null;
 };
 
 const normalizeOtpEmail = (email: string) => email.trim().toLowerCase();
@@ -159,151 +149,6 @@ const COHORT_OPTIONS: Record<string, string[]> = {
     'special': ['CTDBK1', 'CTDBK2']
 };
 
-const DEFAULT_TRANSCRIPT_SEMESTER_NAME = 'Học kỳ 1 Năm học 2025-2026';
-const isValidTranscriptSemesterName = (name?: string) => /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test((name || '').trim());
-const parseTranscriptSemesterName = (name?: string) => {
-    const match = (name || '').trim().match(/^Học kỳ (1|2) Năm học (\d{4})-\d{4}$/);
-    if (!match) return null;
-    return { term: Number(match[1]), year: Number(match[2]) };
-};
-const getFollowingTranscriptSemesterName = ({ term, year }: { term: number; year: number }) => {
-    const nextTerm = term === 1 ? 2 : 1;
-    const nextYear = term === 1 ? year : year + 1;
-    return `Học kỳ ${nextTerm} Năm học ${nextYear}-${nextYear + 1}`;
-};
-const getNextTranscriptSemesterName = (semesters: Semester[]) => {
-    const selectedSemesters = semesters
-        .map(semester => parseTranscriptSemesterName(semester.name))
-        .filter((semester): semester is { term: number; year: number } => Boolean(semester));
-
-    if (selectedSemesters.length === 0) {
-        return DEFAULT_TRANSCRIPT_SEMESTER_NAME;
-    }
-
-    const latestSemester = selectedSemesters.reduce((latest, current) => {
-        const latestWeight = latest.year * 2 + latest.term;
-        const currentWeight = current.year * 2 + current.term;
-        return currentWeight > latestWeight ? current : latest;
-    });
-
-    return getFollowingTranscriptSemesterName(latestSemester);
-};
-
-const createInitialSemester = (): Semester => ({
-    id: 'y1_hk1',
-    name: DEFAULT_TRANSCRIPT_SEMESTER_NAME,
-    subjects: [],
-    trainingScore: null
-});
-
-const INITIAL_DATA: UserData = {
-    studentName: '',
-    cohort: '',
-    programName: '',
-    majorName: '',
-    specializationName: '',
-    totalCreditsRequired: 125,
-    hasOnboarded: false,
-    semesters: [createInitialSemester()],
-    targetGPA: 3.2,
-};
-
-const REMOTE_SAVE_DEBOUNCE_MS = 8000;
-const hasMeaningfulStudyData = (value?: Partial<UserData> | null): boolean => {
-    if (!value) return false;
-    return Boolean(
-        value.studentName?.trim() ||
-        value.cohort?.trim() ||
-        value.programName?.trim() ||
-        value.majorName?.trim() ||
-        value.specializationName?.trim() ||
-        value.semesters?.some(semester =>
-            semester.subjects?.length > 0 ||
-            semester.trainingScore !== null ||
-            Boolean(semester.name?.trim() && semester.name.trim() !== DEFAULT_TRANSCRIPT_SEMESTER_NAME)
-        )
-    );
-};
-
-const hasCompleteRequiredStudyProfile = (value?: Partial<UserData> | null): boolean => {
-    if (!value) return false;
-    return Boolean(
-        value.studentName?.trim() &&
-        value.programName?.trim() &&
-        value.cohort?.trim() &&
-        value.majorName?.trim() &&
-        value.specializationName?.trim()
-    );
-};
-
-const normalizeSemesterName = (name?: string) => {
-    const trimmed = (name || '').trim();
-    if (!trimmed) return '';
-    if (/^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(trimmed)) return trimmed;
-
-    const compactMatch = trimmed.match(/^Học kỳ\s+(1|2|3|Hè)\s+(\d{4})-(\d{4})$/i);
-    if (compactMatch) {
-        return `Học kỳ ${compactMatch[1]} Năm học ${compactMatch[2]}-${compactMatch[3]}`;
-    }
-
-    return trimmed;
-};
-
-const normalizeLoadedUserData = (value?: Partial<UserData> | null): UserData => {
-    const loadedData = { ...INITIAL_DATA, ...(value || {}) };
-    const usedSemesterNames = new Set<string>();
-    loadedData.semesters = (loadedData.semesters || []).map((semester) => ({
-        ...semester,
-        name: normalizeSemesterName(semester.name),
-        subjects: Array.isArray(semester.subjects) ? semester.subjects : [],
-    })).reduce<Semester[]>((semesters, semester) => {
-        const hasSemesterData = semester.subjects.length > 0 || semester.trainingScore !== null;
-        const hasValidName = isValidTranscriptSemesterName(semester.name);
-
-        if (!hasSemesterData && !hasValidName) return semesters;
-
-        let nextSemester = semester;
-        if (!hasValidName) {
-            nextSemester = {
-                ...semester,
-                name: getNextTranscriptSemesterName(semesters),
-            };
-        }
-
-        if (usedSemesterNames.has(nextSemester.name)) {
-            nextSemester = {
-                ...nextSemester,
-                name: getNextTranscriptSemesterName(semesters),
-            };
-        }
-
-        usedSemesterNames.add(nextSemester.name);
-        semesters.push(nextSemester);
-        return semesters;
-    }, []);
-    if (loadedData.semesters.length === 0) {
-        loadedData.semesters = [createInitialSemester()];
-    }
-    const hasExistingStudyData = hasMeaningfulStudyData(loadedData);
-
-    return {
-        ...loadedData,
-        hasOnboarded: loadedData.hasOnboarded || hasExistingStudyData,
-    };
-};
-
-const isLocalPreviewHost = (hostname: string) => (
-    ['localhost', '127.0.0.1', '::1'].includes(hostname) ||
-    /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
-    /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
-    /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname)
-);
-
-const shouldForceMobileAppPreview = () => (
-    isLocalPreviewHost(window.location.hostname) &&
-    new URLSearchParams(window.location.search).get('appPreview') === '1'
-);
-
 const App: React.FC = () => {
     const { isAdmin, isAuditor, isCTV, session, loading: loadingRole } = useUserRole();
     console.log("Kiểm tra quyền hiện tại:", { isAdmin, isAuditor, isCTV });
@@ -315,12 +160,12 @@ const App: React.FC = () => {
     const [passwordSetAt, setPasswordSetAt] = useState<string | null | undefined>(undefined);
     const [passwordSetupSchemaMissing, setPasswordSetupSchemaMissing] = useState(false);
 
-    // ==========================================
-    // ✨ PWA MODE & RESPONSIVE DETECTOR
-    // ==========================================
-    const [isAppMode, setIsAppMode] = useState(false);
-    const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth < 768);
-    const [forceMobileAppPreview, setForceMobileAppPreview] = useState(() => shouldForceMobileAppPreview());
+    const {
+        isAppMode,
+        isMobileScreen,
+        useMobileLayout,
+        isMobileBrowser,
+    } = useAppMode(location.search);
     const lastLoggedUserIdRef = useRef<string | null>(null);
     const lastPushDeviceSyncRef = useRef<{ userId: string | null; syncedAt: number }>({ userId: null, syncedAt: 0 });
 
@@ -351,39 +196,6 @@ const App: React.FC = () => {
     }, [session?.user?.id]);
 
     useEffect(() => {
-        const checkIfAppMode = () => {
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-            const isIOSStandalone = (window.navigator as any).standalone === true;
-            setIsAppMode(isStandalone || isIOSStandalone);
-        };
-        const handleResize = () => setIsMobileScreen(window.innerWidth < 768);
-
-        checkIfAppMode();
-        window.matchMedia('(display-mode: standalone)').addEventListener('change', checkIfAppMode);
-        window.addEventListener('resize', handleResize);
-
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
-
-    useEffect(() => {
-        if (!isLocalPreviewHost(window.location.hostname)) {
-            localStorage.removeItem('hub_mobile_app_preview');
-            setForceMobileAppPreview(false);
-            return;
-        }
-
-        if (shouldForceMobileAppPreview()) {
-            setForceMobileAppPreview(true);
-        } else {
-            localStorage.removeItem('hub_mobile_app_preview');
-            setForceMobileAppPreview(false);
-        }
-    }, [location.search]);
-
-    const useMobileLayout = (isAppMode && isMobileScreen) || forceMobileAppPreview;
-    const isMobileBrowser = isMobileScreen && !isAppMode && !forceMobileAppPreview;
-
-    useEffect(() => {
         if (!session?.user?.id) {
             lastLoggedUserIdRef.current = null;
             return;
@@ -409,61 +221,6 @@ const App: React.FC = () => {
             },
         });
     }, [session?.user?.id, loadingRole, isAdmin, isAuditor, location.pathname]);
-
-    useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
-
-    const isIOSDevice =
-        /iPhone|iPad|iPod/i.test(window.navigator.userAgent) ||
-        ((window.navigator as any).platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
-
-    const applyClasses = () => {
-        html.classList.toggle('mobile-browser', isMobileBrowser);
-        body.classList.toggle('mobile-browser', isMobileBrowser);
-
-        html.classList.toggle('mobile-standalone', (isAppMode && isMobileScreen) || forceMobileAppPreview);
-        body.classList.toggle('mobile-standalone', (isAppMode && isMobileScreen) || forceMobileAppPreview);
-
-        html.classList.toggle('platform-ios', isIOSDevice);
-        body.classList.toggle('platform-ios', isIOSDevice);
-    };
-
-    const applyViewportVars = () => {
-        const visualViewport = window.visualViewport;
-        const viewportHeight = visualViewport?.height ?? window.innerHeight;
-        const viewportOffsetTop = visualViewport?.offsetTop ?? 0;
-
-        const bottomGap = Math.max(
-            0,
-            window.innerHeight - viewportHeight - viewportOffsetTop
-        );
-
-        html.style.setProperty('--app-vh', `${viewportHeight * 0.01}px`);
-        html.style.setProperty('--app-bottom-gap', `${bottomGap}px`);
-    };
-
-    applyClasses();
-    applyViewportVars();
-
-    window.addEventListener('resize', applyViewportVars);
-    window.addEventListener('orientationchange', applyViewportVars);
-    window.visualViewport?.addEventListener('resize', applyViewportVars);
-    window.visualViewport?.addEventListener('scroll', applyViewportVars);
-
-    return () => {
-        window.removeEventListener('resize', applyViewportVars);
-        window.removeEventListener('orientationchange', applyViewportVars);
-        window.visualViewport?.removeEventListener('resize', applyViewportVars);
-        window.visualViewport?.removeEventListener('scroll', applyViewportVars);
-
-        html.classList.remove('mobile-browser', 'mobile-standalone', 'platform-ios');
-        body.classList.remove('mobile-browser', 'mobile-standalone', 'platform-ios');
-
-        html.style.removeProperty('--app-vh');
-        html.style.removeProperty('--app-bottom-gap');
-    };
-}, [isMobileBrowser, isAppMode, isMobileScreen, forceMobileAppPreview]);
 
     useEffect(() => {
         setActivePushNotificationUser(session?.user?.id || null);
@@ -708,51 +465,9 @@ const App: React.FC = () => {
         return () => window.removeEventListener('resize', updateNavIndicator);
     }, [location.pathname, isHandbookMenuOpen]);
 
-    const [data, setData] = useState<UserData>(INITIAL_DATA);
     const [adminSearchMssv, setAdminSearchMssv] = useState('');
     const [viewingUser, setViewingUser] = useState<{ id: string, mssv: string, name: string } | null>(null);
     const [isSearchingUser, setIsSearchingUser] = useState(false);
-    const dataRef = useRef<UserData>(INITIAL_DATA);
-    const dataOwnerIdRef = useRef<string | null>(null);
-
-    const handleAdminSearchUser = async (e?: React.FormEvent) => {
-        if (e) e.preventDefault();
-        if (!adminSearchMssv.trim() || !supabase) return;
-        setIsSearchingUser(true);
-        playClick();
-
-        try {
-            const { data: userProfile, error } = await supabase
-                .from(STUDENT_PROFILE_TABLE)
-                .select('id, student_code, full_name')
-                .eq('student_code', adminSearchMssv.trim())
-                .single();
-
-            if (error || !userProfile) {
-                alert("Không tìm thấy sinh viên có MSSV này trong hệ thống!");
-                setViewingUser(null);
-                setData(INITIAL_DATA);
-                dataOwnerIdRef.current = session?.user?.id || null;
-            } else {
-                setData(INITIAL_DATA);
-                dataOwnerIdRef.current = userProfile.id;
-
-                setViewingUser({
-                    id: userProfile.id,
-                    mssv: userProfile.student_code,
-                    name: userProfile.full_name || 'Chưa cập nhật tên'
-                });
-                alert(`Đã chuyển sang xem dữ liệu của sinh viên: ${userProfile.student_code}`);
-            }
-        } catch (err) {
-            console.error(err);
-            alert("Lỗi khi tìm kiếm sinh viên!");
-        } finally {
-            setIsSearchingUser(false);
-        }
-    };
-
-    const [isLoaded, setIsLoaded] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const [showImportGuide, setShowImportGuide] = useState(false);
     const [showImportLoadingToast, setShowImportLoadingToast] = useState(false);
@@ -771,6 +486,24 @@ const App: React.FC = () => {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [profileFullName, setProfileFullName] = useState('');
     const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
+    const {
+        data,
+        isLoaded,
+        commitDataUpdate,
+        resetStudyData,
+        saveSemestersNow,
+        completeOnboarding,
+    } = useStudyData({
+        session,
+        isAdmin,
+        isAuditor,
+        viewingUser,
+        pathname: location.pathname,
+        profileFullName,
+        profileAvatarUrl,
+        setProfileFullName,
+        setProfileAvatarUrl,
+    });
     const [draftFullName, setDraftFullName] = useState('');
     const [draftAvatarUrl, setDraftAvatarUrl] = useState('');
     const [draftBio, setDraftBio] = useState('');
@@ -798,6 +531,40 @@ const App: React.FC = () => {
     const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null);
     const [passwordChangeNotice, setPasswordChangeNotice] = useState<string | null>(null);
     const [accountPasswordTurnstileToken, setAccountPasswordTurnstileToken] = useState('');
+
+    const handleAdminSearchUser = async (event?: React.FormEvent) => {
+        event?.preventDefault();
+        if (!adminSearchMssv.trim() || !supabase) return;
+        setIsSearchingUser(true);
+        playClick();
+
+        try {
+            const { data: userProfile, error } = await supabase
+                .from(STUDENT_PROFILE_TABLE)
+                .select('id, student_code, full_name')
+                .eq('student_code', adminSearchMssv.trim())
+                .single();
+
+            if (error || !userProfile) {
+                alert('Không tìm thấy sinh viên có MSSV này trong hệ thống!');
+                setViewingUser(null);
+                resetStudyData(session?.user?.id || null);
+            } else {
+                resetStudyData(userProfile.id);
+                setViewingUser({
+                    id: userProfile.id,
+                    mssv: userProfile.student_code,
+                    name: userProfile.full_name || 'Chưa cập nhật tên',
+                });
+                alert(`Đã chuyển sang xem dữ liệu của sinh viên: ${userProfile.student_code}`);
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Lỗi khi tìm kiếm sinh viên!');
+        } finally {
+            setIsSearchingUser(false);
+        }
+    };
 
     const [draftStudentName, setDraftStudentName] = useState('');
     const [draftProgram, setDraftProgram] = useState<Program | null>(null);
@@ -877,8 +644,6 @@ const App: React.FC = () => {
         setOtpError('');
     }, []);
 
-    const userRolePref: 'guest' | 'school' | 'admin' = session ? (isAdmin ? 'admin' : 'school') : 'guest';
-
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout>;
         if (resendCountdown > 0) {
@@ -908,327 +673,6 @@ const App: React.FC = () => {
         },
         detectRetina: true,
     }), []);
-
-    const storageKey = useMemo(() => {
-        if (!isGuest && session?.user?.id) {
-            const targetId = ((isAdmin || isAuditor) && viewingUser) ? viewingUser.id : session.user.id;
-            return `${STORAGE_KEY}:${targetId}`;
-        }
-        return STORAGE_KEY;
-    }, [session?.user?.id, isGuest, isAdmin, viewingUser]);
-
-    const saveTimeoutRef = useRef<number | null>(null);
-    const lastPrivateSaveRef = useRef<{ ownerId: string | null; signature: string | null }>({
-        ownerId: null,
-        signature: null,
-    });
-
-    const getStorageDirtyKey = useCallback((key: string) => `${key}:dirty`, []);
-    const commitDataUpdate = useCallback((updater: (previousData: UserData) => UserData) => {
-        const nextData = updater(dataRef.current);
-        dataRef.current = nextData;
-        setData(nextData);
-    }, []);
-
-    const loadDataIntoState = useCallback((nextData: UserData) => {
-        dataRef.current = nextData;
-        setData(nextData);
-    }, []);
-
-    useEffect(() => {
-        dataRef.current = data;
-    }, [data]);
-
-    useEffect(() => {
-        if (!session?.user?.id) return;
-        Object.keys(localStorage)
-            .filter(key => key === STORAGE_KEY || key.startsWith(`${STORAGE_KEY}:`))
-            .forEach(key => localStorage.removeItem(key));
-    }, [session?.user?.id]);
-
-    const saveStudyDataToRemote = useCallback(async (dataToSave: UserData) => {
-        if ((userRolePref !== 'school' && userRolePref !== 'admin') || !session?.user?.id || !supabase) return false;
-
-        const targetUserId = ((isAdmin || isAuditor) && viewingUser) ? viewingUser.id : session.user.id;
-        if (dataOwnerIdRef.current !== targetUserId) return false;
-        if (!hasMeaningfulStudyData(dataToSave)) return false;
-
-        const privateDataSignature = JSON.stringify(dataToSave);
-        if (
-            lastPrivateSaveRef.current.ownerId === targetUserId &&
-            lastPrivateSaveRef.current.signature === privateDataSignature
-        ) {
-            localStorage.removeItem(getStorageDirtyKey(storageKey));
-            return true;
-        }
-
-        if (isAdmin && viewingUser) {
-            await updateProfilePrivate(targetUserId, {
-                data: dataToSave,
-                updated_at: new Date().toISOString()
-            });
-
-            const { error } = await supabase
-                .from(STUDENT_PROFILE_TABLE)
-                .update({
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', targetUserId);
-
-            if (error) console.error("Lỗi Admin update data user:", error);
-        } else if (!isAuditor) {
-            const userEmail = session.user.email || '';
-            const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
-            const nameToSave = profileFullName || metaName;
-
-            const { error } = await supabase
-                .from(STUDENT_PROFILE_TABLE)
-                .update({
-                    full_name: nameToSave,
-                    avatar_url: profileAvatarUrl,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', session.user.id);
-
-            if (error) console.error("Lỗi update hồ sơ công khai:", error);
-
-            await upsertProfilePrivate({
-                user_id: session.user.id,
-                email: userEmail,
-                data: dataToSave,
-                updated_at: new Date().toISOString(),
-            });
-
-            if (!error && !profileFullName && nameToSave) {
-                setProfileFullName(nameToSave);
-            }
-        } else {
-            return false;
-        }
-
-        lastPrivateSaveRef.current = { ownerId: targetUserId, signature: privateDataSignature };
-        localStorage.removeItem(getStorageDirtyKey(storageKey));
-        return true;
-    }, [getStorageDirtyKey, isAdmin, isAuditor, profileAvatarUrl, profileFullName, session?.user?.email, session?.user?.id, session?.user?.user_metadata, storageKey, userRolePref, viewingUser]);
-
-    useEffect(() => {
-        let isActive = true;
-        setIsLoaded(false);
-        if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
-        lastPrivateSaveRef.current = { ownerId: null, signature: null };
-
-        const loadData = async () => {
-            if ((userRolePref === 'school' || userRolePref === 'admin') && session?.user?.id && supabase) {
-
-                if ((isAdmin || isAuditor) && viewingUser) {
-                    let privateData: Record<string, any> | null | undefined = null;
-                    try {
-                        privateData = (await fetchProfilePrivate(viewingUser.id))?.data;
-                    } catch (error) {
-                        console.warn('Không thể đọc dữ liệu học tập private:', error);
-                    }
-                    const legacyData = privateData ? null : await fetchLegacyProfileData(viewingUser.id);
-
-                    if (!isActive) return;
-
-                    if (privateData || legacyData) {
-                        const remoteData = normalizeLoadedUserData(privateData || legacyData);
-                        loadDataIntoState(remoteData);
-                        lastPrivateSaveRef.current = { ownerId: viewingUser.id, signature: JSON.stringify(remoteData) };
-                    } else {
-                        loadDataIntoState(INITIAL_DATA);
-                    }
-
-                    dataOwnerIdRef.current = viewingUser.id;
-                    setIsLoaded(true);
-                    return;
-                }
-
-                const { data: profileData } = await supabase
-                    .from(STUDENT_PROFILE_TABLE)
-                    .select('full_name, avatar_url, bio, class_name, profile_tags, show_profile_stats')
-                    .eq('id', session.user.id)
-                    .maybeSingle();
-                let privateData: Record<string, any> | null | undefined = null;
-                try {
-                    privateData = (await fetchProfilePrivate(session.user.id))?.data;
-                } catch (error) {
-                    console.warn('Không thể đọc dữ liệu học tập private:', error);
-                }
-                const legacyData = privateData ? null : await fetchLegacyProfileData(session.user.id);
-
-                if (!isActive) return;
-
-                const remoteData = hasMeaningfulStudyData(privateData || legacyData)
-                    ? normalizeLoadedUserData(privateData || legacyData)
-                    : null;
-
-                if (remoteData) {
-                    loadDataIntoState(remoteData);
-                    lastPrivateSaveRef.current = { ownerId: session.user.id, signature: JSON.stringify(remoteData) };
-                    setProfileFullName(profileData?.full_name || '');
-                    setProfileAvatarUrl(profileData?.avatar_url || '');
-                    dataOwnerIdRef.current = session.user.id;
-                    setIsLoaded(true);
-                    return;
-                }
-
-                const metaName = session.user.user_metadata.full_name || session.user.user_metadata.name || '';
-                const metaAvatar = session.user.user_metadata.avatar_url || session.user.user_metadata.picture || '';
-                setProfileFullName(metaName);
-                setProfileAvatarUrl(metaAvatar);
-
-                loadDataIntoState(INITIAL_DATA);
-                dataOwnerIdRef.current = session.user.id;
-                setIsLoaded(true);
-                return;
-            }
-
-            if (userRolePref !== 'school' && userRolePref !== 'admin') {
-                setProfileFullName('');
-                setProfileAvatarUrl('');
-            }
-            loadDataIntoState(INITIAL_DATA);
-            dataOwnerIdRef.current = 'guest';
-            setIsLoaded(true);
-        };
-
-        loadData();
-        return () => { isActive = false; };
-    }, [storageKey, session?.user?.id, userRolePref, isAdmin, viewingUser, isGuest, loadDataIntoState]);
-
-    useEffect(() => {
-        if (!isLoaded) return;
-        if ((userRolePref !== 'school' && userRolePref !== 'admin') || !session?.user?.id || !supabase) return;
-
-        if (saveTimeoutRef.current) {
-            window.clearTimeout(saveTimeoutRef.current);
-        }
-
-        saveTimeoutRef.current = window.setTimeout(async () => {
-            try {
-                await saveStudyDataToRemote(data);
-            } catch (privateError) {
-                console.error("Lỗi lưu profile_private_data:", privateError);
-            }
-            return;
-
-            const targetUserId = ((isAdmin || isAuditor) && viewingUser) ? viewingUser.id : session!.user.id;
-
-if (dataOwnerIdRef.current !== targetUserId) return;
-
-const privateDataSignature = JSON.stringify(data);
-if (!hasMeaningfulStudyData(data)) {
-    return;
-}
-
-if (
-    lastPrivateSaveRef.current.ownerId === targetUserId &&
-    lastPrivateSaveRef.current.signature === privateDataSignature
-) {
-    return;
-}
-
-if (isAdmin && viewingUser) {
-    try {
-        await updateProfilePrivate(targetUserId, { data });
-        lastPrivateSaveRef.current = { ownerId: targetUserId, signature: privateDataSignature };
-        localStorage.removeItem(getStorageDirtyKey(storageKey));
-    } catch (privateError) {
-        console.error("Lá»—i Admin update data user private:", privateError);
-    }
-    // Admin được quyền lưu
-    const { error } = await supabase
-        .from(STUDENT_PROFILE_TABLE)
-        .update({
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', targetUserId);
-
-    if (error) console.error("Lỗi Admin update data user:", error);
-}
-else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR LẠI
-    // User thường mới được tự động save (Auditor thì bị chặn lại không cho save)
-    const userEmail = session!.user.email || '';
-    const metaName = session!.user.user_metadata.full_name || session!.user.user_metadata.name || '';
-    const nameToSave = profileFullName || metaName;
-
-    const { error } = await supabase
-        .from(STUDENT_PROFILE_TABLE)
-        .update({
-            full_name: nameToSave,
-            avatar_url: profileAvatarUrl,
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', session!.user.id);
-
-    try {
-        await upsertProfilePrivate({
-            user_id: session!.user.id,
-            email: userEmail,
-            data,
-            updated_at: new Date().toISOString(),
-        });
-        lastPrivateSaveRef.current = { ownerId: targetUserId, signature: privateDataSignature };
-        localStorage.removeItem(getStorageDirtyKey(storageKey));
-    } catch (privateError) {
-        console.error("Lỗi lưu profile_private_data:", privateError);
-    }
-
-    if (!error && !profileFullName && nameToSave) {
-        setProfileFullName(nameToSave);
-    }
-}
-        }, REMOTE_SAVE_DEBOUNCE_MS);
-
-        return () => {
-            if (saveTimeoutRef.current) {
-                window.clearTimeout(saveTimeoutRef.current);
-            }
-        };
-    }, [data, getStorageDirtyKey, isLoaded, saveStudyDataToRemote, session?.user?.id, userRolePref, profileFullName, profileAvatarUrl, isAdmin, viewingUser, storageKey]);
-
-    useEffect(() => {
-        if (!isLoaded || !session?.user?.id || viewingUser || !hasMeaningfulStudyData(data)) return;
-
-        const flushPendingSave = () => {
-            if (saveTimeoutRef.current) {
-                window.clearTimeout(saveTimeoutRef.current);
-                saveTimeoutRef.current = null;
-            }
-            void saveStudyDataToRemote(data).catch(error => {
-                console.error('Lỗi flush dữ liệu học tập:', error);
-            });
-        };
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'hidden') flushPendingSave();
-        };
-
-        window.addEventListener('pagehide', flushPendingSave);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            window.removeEventListener('pagehide', flushPendingSave);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [data, isLoaded, saveStudyDataToRemote, session?.user?.id, viewingUser]);
-
-    const lastLocationPathRef = useRef(location.pathname);
-    useEffect(() => {
-        if (lastLocationPathRef.current === location.pathname) return;
-        lastLocationPathRef.current = location.pathname;
-        if (!isLoaded || !session?.user?.id || viewingUser || !hasMeaningfulStudyData(data)) return;
-
-        if (saveTimeoutRef.current) {
-            window.clearTimeout(saveTimeoutRef.current);
-            saveTimeoutRef.current = null;
-        }
-
-        void saveStudyDataToRemote(data).catch(error => {
-            console.error('Lỗi lưu dữ liệu khi chuyển trang:', error);
-        });
-    }, [data, isLoaded, location.pathname, saveStudyDataToRemote, session?.user?.id, viewingUser]);
 
     useEffect(() => {
         if (showAccountSettings) {
@@ -1364,9 +808,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
 
             clearLocalStoragePreservingDevicePreferences();
             sessionStorage.clear();
-            loadDataIntoState(INITIAL_DATA);
-            dataOwnerIdRef.current = null;
-            lastPrivateSaveRef.current = { ownerId: null, signature: null };
+            resetStudyData();
             setProfileFullName('');
             setProfileAvatarUrl('');
             setViewingUser(null);
@@ -1960,63 +1402,10 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         }
     };
 
-    const saveSemestersNow = async (semesters: Semester[]) => {
-        const nextData = { ...dataRef.current, semesters };
-        dataRef.current = nextData;
-        setData(nextData);
-        let saved = await saveStudyDataToRemote(nextData);
-
-        if (!saved && session?.user?.id && !viewingUser && !isAuditor) {
-            await upsertProfilePrivate({
-                user_id: session.user.id,
-                email: session.user.email || '',
-                data: nextData,
-                updated_at: new Date().toISOString(),
-            });
-            saved = true;
-        }
-
-        if (!saved) {
-            throw new Error('Không thể lưu bảng điểm lúc này.');
-        }
-
-        lastPrivateSaveRef.current = { ownerId: session?.user?.id || null, signature: JSON.stringify(nextData) };
-        localStorage.removeItem(getStorageDirtyKey(storageKey));
-    };
-
-    const handleOnboardingComplete = async (onboardingData: Partial<UserData>) => {
-        const nextData = {
-            ...dataRef.current,
-            ...onboardingData,
-            hasOnboarded: true
-        };
-        dataRef.current = nextData;
-        setData(nextData);
-
-        if (session?.user?.id && !viewingUser && !isAuditor) {
-            try {
-                let saved = await saveStudyDataToRemote(nextData);
-                if (!saved) {
-                    await upsertProfilePrivate({
-                        user_id: session.user.id,
-                        email: session.user.email || '',
-                        data: nextData,
-                        updated_at: new Date().toISOString(),
-                    });
-                    saved = true;
-                }
-                if (saved) {
-                    lastPrivateSaveRef.current = { ownerId: session.user.id, signature: JSON.stringify(nextData) };
-                }
-            } catch (error) {
-                console.error('Không thể lưu onboarding profile:', error);
-            }
-        }
-    };
-
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
         playClick();
-        exportTranscriptToPdf(data);
+        const { exportTranscriptToPdf } = await import('./utils/pdfExport');
+        await exportTranscriptToPdf(data);
     };
 
     const handleFileUpload = async (
@@ -2033,6 +1422,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         try {
             await verifyTurnstileOnly(gradeImportTurnstileToken);
             setGradeImportTurnstileToken('');
+            const { parseHubPdf } = await import('./utils/pdfImport');
             const result = await parseHubPdf(file);
             const importedSubjectCount = result.semesters.reduce((total, semester) => total + semester.subjects.length, 0);
             if (importedSubjectCount === 0) {
@@ -2188,7 +1578,7 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         const requiresPasswordSetup = Boolean(session?.user && !isPrivilegedUser && passwordSetAt === null);
         const requiresRequiredProfileSetup = Boolean(session?.user && !isPrivilegedUser && !hasCompleteRequiredStudyProfile(data));
 
-        if (!isLoaded) return null;
+        if (!isLoaded) return <RouteLoadingFallback />;
 
         if (isAccessDenied && !isAdmin && !isAuditor && !isCTV) {
             return (
@@ -3177,48 +2567,33 @@ else if (!isAuditor) { // <--- THÊM ĐIỀU KIỆN NÀY ĐỂ KHÓA AUDITOR L�
         );
     };
 
-    if (loadingRole) {
-        return (
-            <div className="h-[100dvh] w-full flex flex-col items-center justify-center bg-[#F8FAFC]">
-                <Loader2 className="animate-spin text-[#003375] mb-4" size={40} />
-                <p className="text-sm font-bold text-[#003375] animate-pulse">Đang đồng bộ tài khoản...</p>
-            </div>
-        );
-    }
-
     return (
-        <>
-            <Routes>
-                <Route path="/privacy" element={(useMobileLayout || isMobileScreen) ? <MobileHandbook forcedTab="privacy" /> : <PrivacyPolicy />} />
-                <Route path="/terms" element={(useMobileLayout || isMobileScreen) ? <MobileHandbook forcedTab="terms" /> : <TermsOfUse />} />
-                <Route path="/login" element={<LoginScreen />} />
-                <Route
-                    path="/onboarding"
-                    element={isLoaded ? (
-                        session?.user && (
-                            isAdmin
-                            || isAuditor
-                            || isCTV
-                            || hasCompleteRequiredStudyProfile(data)
-                        ) ? (
-                            <Navigate to={useMobileLayout ? '/mobile-home' : '/dashboard'} replace />
-                        ) : (
-                            <Onboarding
-                                initialData={data}
-                                onComplete={(onboardingData) => {
-                                    void handleOnboardingComplete(onboardingData);
-                                    navigate(useMobileLayout ? '/mobile-home' : '/dashboard', { replace: true });
-                                }}
-                            />
-                        )
-                    ) : null}
-                />
-
-                <Route path="/" element={<Navigate to={useMobileLayout ? "/mobile-home" : "/dashboard"} replace />} />
-                <Route path="/*" element={renderProtectedApp()} />
-            </Routes>
-            <SupportNoticeModal />
-        </>
+        <AuthGate loading={loadingRole}>
+            <RouteErrorBoundary resetKey={location.pathname}>
+                <React.Suspense fallback={<RouteLoadingFallback />}>
+                    <AppRoutes
+                        data={data}
+                        isLoaded={isLoaded}
+                        mobileLayout={useMobileLayout}
+                        mobileScreen={isMobileScreen}
+                        canSkipOnboarding={Boolean(
+                            session?.user
+                            && (
+                                isAdmin
+                                || isAuditor
+                                || isCTV
+                                || hasCompleteRequiredStudyProfile(data)
+                            )
+                        )}
+                        onCompleteOnboarding={(onboardingData) => {
+                            void completeOnboarding(onboardingData);
+                            navigate(useMobileLayout ? '/mobile-home' : '/dashboard', { replace: true });
+                        }}
+                        protectedApp={renderProtectedApp()}
+                    />
+                </React.Suspense>
+            </RouteErrorBoundary>
+        </AuthGate>
     );
 };
 

@@ -1,0 +1,42 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "checkJs": false,
+    "types": [
+      "node",
+      "vite/client"
+    ]
+  },
+  "include": [
+    "index.tsx",
+    "App.tsx",
+    "types.ts",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "components/**/*.jsx",
+    "features/**/*.ts",
+    "features/**/*.tsx",
+    "hooks/**/*.ts",
+    "hooks/**/*.tsx",
+    "layouts/**/*.ts",
+    "layouts/**/*.tsx",
+    "pages/**/*.ts",
+    "pages/**/*.tsx",
+    "pages/**/*.jsx",
+    "utils/**/*.ts",
+    "utils/**/*.tsx",
+    "utils/**/*.js"
+  ],
+  "exclude": [
+    "api",
+    "dist",
+    "dev-dist",
+    "node_modules",
+    "scripts",
+    "server",
+    "supabase",
+    "tmp"
+  ]
+}

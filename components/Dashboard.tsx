@@ -22,11 +22,7 @@ import SchoolAnnouncements from './SchoolAnnouncements';
 import { mapIdToDisplay, normalizeSemesterId } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
 import { FEATURE_FORECAST_TOOLS } from '../utils/featureFlags';
-import { useSemesterLookback } from '../hooks/useSemesterLookback';
-import { SemesterLookbackModal } from './SemesterLookbackModal';
 import { useUserRole } from '../hooks/useUserRole';
-import { exportTranscriptToPdf } from '../utils/pdfExport';
-import { exportTranscriptToExcel } from '../utils/excelExport';
 import { PROFILE_PRIVATE_TABLE, fetchProfilePrivate, updateProfilePrivate } from '../utils/profilePrivate';
 import PushNotificationPrompt from '../components/PushNotificationPrompt'; // Đường dẫn tùy sếp lưu ở đâu
 import { notifyModerators } from '../utils/moderatorNotifications';
@@ -35,7 +31,17 @@ import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { TargetGpaTipInput } from './TargetGpaTipInput';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
-import { AdminStudentExcelExportModal } from './AdminStudentExcelExportModal';
+
+const AdminStudentExcelExportModal = React.lazy(() =>
+    import('./AdminStudentExcelExportModal').then(module => ({
+        default: module.AdminStudentExcelExportModal,
+    }))
+);
+const SemesterLookbackDialog = React.lazy(() =>
+    import('../features/semester-lookback/SemesterLookbackDialog').then(module => ({
+        default: module.SemesterLookbackDialog,
+    }))
+);
 
 // ============================================================================
 // HELPERS CHO GIAO DIỆN ADMIN
@@ -1844,10 +1850,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
     };
 
-    const semesterLookback = useSemesterLookback(
-        activeData,
-        !isGuest && !showAdminPanel && !selectedUserOverview
-    );
+    const [showSemesterLookback, setShowSemesterLookback] = useState(false);
 
     const handleLocalSetSemesters = (semesters: Semester[]) => {
         if (selectedUserOverview) {
@@ -2168,6 +2171,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         setIsExportingPdf(true);
 
         try {
+            const { exportTranscriptToPdf } = await import('../utils/pdfExport');
             await exportTranscriptToPdf(activeData, {
                 scope: 'full',
                 semesters: validDataSemesters
@@ -2183,6 +2187,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         setIsExportingPdf(true);
 
         try {
+            const { exportTranscriptToExcel } = await import('../utils/excelExport');
             await exportTranscriptToExcel(activeData, {
                 scope: 'full',
                 semesters: validDataSemesters
@@ -2206,6 +2211,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         setIsExportingPdf(true);
 
         try {
+            const { exportTranscriptToPdf } = await import('../utils/pdfExport');
             await exportTranscriptToPdf(activeData, {
                 scope: 'year',
                 semesters: yearSemesters,
@@ -2230,6 +2236,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         setIsExportingPdf(true);
 
         try {
+            const { exportTranscriptToExcel } = await import('../utils/excelExport');
             await exportTranscriptToExcel(activeData, {
                 scope: 'year',
                 semesters: yearSemesters,
@@ -2289,16 +2296,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
  return (
     <div className={`w-full ${showAdminPanel ? '' : 'pb-10'}`}>
-        <SemesterLookbackModal
-            isOpen={semesterLookback.isOpen}
-            data={semesterLookback.lookback}
-            loading={semesterLookback.loading}
-            onClose={semesterLookback.close}
-        />
-        <AdminStudentExcelExportModal
-            isOpen={showAdminExcelModal}
-            onClose={() => setShowAdminExcelModal(false)}
-        />
+        {showSemesterLookback && (
+            <React.Suspense fallback={null}>
+                <SemesterLookbackDialog
+                    data={activeData}
+                    onClose={() => setShowSemesterLookback(false)}
+                />
+            </React.Suspense>
+        )}
+        {showAdminExcelModal && (
+            <React.Suspense fallback={null}>
+                <AdminStudentExcelExportModal
+                    isOpen
+                    onClose={() => setShowAdminExcelModal(false)}
+                />
+            </React.Suspense>
+        )}
 
         {showAdminPanel ? (
             <div className="w-full space-y-3 sm:space-y-4 animate-fadeIn">
@@ -2485,7 +2498,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                         {!isGuest && !selectedUserOverview && (
                             <button
-                                onClick={() => { playClick(); semesterLookback.open(); }}
+                                onClick={() => { playClick(); setShowSemesterLookback(true); }}
                                 className="shrink-0 rounded-lg border border-blue-200 bg-white px-3 py-2 text-left transition-all duration-150 hover:border-[#003375] hover:bg-blue-50 hover:shadow-sm active:scale-[0.98] motion-reduce:transition-none"
                             >
                                 <div className="flex items-center gap-2">

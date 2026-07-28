@@ -87,8 +87,6 @@ export const isSemesterHolidayWeek = (semester: string | undefined, weekNum: num
 };
 
 export const getWeekDatesForSemester = (weekNum: number, semester?: string) => {
-  if (weekNum === 0) return ['', '', '', '', '', '', ''];
-
   const startDate = getSemesterStartDate(semester);
   return Array.from({ length: 7 }, (_, index) => {
     const date = new Date(startDate);
