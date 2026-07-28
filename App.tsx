@@ -6,6 +6,7 @@ import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { useAppMode } from './hooks/useAppMode';
 import { useStudyData } from './hooks/useStudyData';
+import { useAccountProfileDraft } from './hooks/useAccountProfileDraft';
 import { supabase } from './utils/supabase';
 import { Link, Navigate, Route, Routes, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { ImportGuideModal } from './components/ImportGuideModal';
@@ -18,7 +19,7 @@ import type { Engine, ISourceOptions } from "tsparticles-engine";
 import { AIAdvisor } from './components/AIAdvisor';
 import { FloatingSupportTab } from './components/FloatingSupportTab';
 import { MobileAIAdvisor } from './components/MobileAIAdvisor';
-import { ACADEMIC_PROGRAMS, Program, Major, Specialization, getMajors } from './utils/programs';
+import { ACADEMIC_PROGRAMS, getMajors } from './utils/programs';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileAppLayout } from './layouts/MobileAppLayout';
 import { PasswordSetupModal } from './components/PasswordSetupModal';
@@ -37,9 +38,7 @@ import {
 } from './utils/pushNotifications';
 import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from './utils/profilePrivate';
 import { apiHeaders, apiUrl } from './utils/api';
-import { calculateCumulativeStats } from './utils/calculations';
 import { logActivity, logActivityQuietly } from './utils/activityLogger';
-import { getSafeAvatarColor } from './utils/avatarColors';
 import { recordPolicyConsent } from './utils/policyConsent';
 import { TurnstileBox } from './components/TurnstileBox';
 import { ProtectedSubmitError, verifyTurnstileOnly } from './utils/protectedSubmit';
@@ -99,54 +98,6 @@ const storeOtpCooldown = (email: string, purpose: 'register' | 'forgot_password'
     localStorage.setItem(otpCooldownKey(email, purpose), String(Date.now() + seconds * 1000));
 };
 const formatOtpCooldown = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-
-const resizeAvatarImage = (file: File) => new Promise<Blob>((resolve, reject) => {
-    const image = new Image();
-    const objectUrl = URL.createObjectURL(file);
-
-    image.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        const size = 512;
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const context = canvas.getContext('2d');
-        if (!context) {
-            reject(new Error('Không thể xử lý ảnh avatar.'));
-            return;
-        }
-
-        const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
-        const sourceX = Math.max(0, (image.naturalWidth - sourceSize) / 2);
-        const sourceY = Math.max(0, (image.naturalHeight - sourceSize) / 2);
-
-        context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
-        canvas.toBlob((blob) => {
-            if (!blob) {
-                reject(new Error('Không thể nén ảnh avatar.'));
-                return;
-            }
-            resolve(blob);
-        }, 'image/webp', 0.78);
-    };
-
-    image.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        reject(new Error('File ảnh không hợp lệ.'));
-    };
-
-    image.src = objectUrl;
-});
-
-const blobToBase64 = (blob: Blob) => new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-        const result = String(reader.result || '');
-        resolve(result.includes(',') ? result.split(',')[1] : result);
-    };
-    reader.onerror = () => reject(new Error('Không thể đọc ảnh avatar.'));
-    reader.readAsDataURL(blob);
-});
 
 const COHORT_OPTIONS: Record<string, string[]> = {
     'standard': ['K38', 'K39', 'K40', 'K41'],
@@ -509,19 +460,51 @@ const App: React.FC = () => {
         setProfileFullName,
         setProfileAvatarUrl,
     });
-    const [draftFullName, setDraftFullName] = useState('');
-    const [draftAvatarUrl, setDraftAvatarUrl] = useState('');
-    const [draftBio, setDraftBio] = useState('');
-    const [draftClassName, setDraftClassName] = useState('');
-    const [defaultClassName, setDefaultClassName] = useState('');
-    const [draftProfileTags, setDraftProfileTags] = useState('');
-    const [draftPublicProfileEnabled, setDraftPublicProfileEnabled] = useState(false);
-    const [draftShowProfileStats, setDraftShowProfileStats] = useState(false);
-    const [profileRefreshKey, setProfileRefreshKey] = useState(0);
-    const [draftAvatarFile, setDraftAvatarFile] = useState<File | null>(null);
-    const [draftAvatarPreview, setDraftAvatarPreview] = useState('');
-    const [profileSaving, setProfileSaving] = useState(false);
-    const [profileError, setProfileError] = useState<string | null>(null);
+    const {
+        draftFullName,
+        setDraftFullName,
+        draftAvatarUrl,
+        setDraftAvatarUrl,
+        draftBio,
+        setDraftBio,
+        draftClassName,
+        setDraftClassName,
+        defaultClassName,
+        draftProfileTags,
+        setDraftProfileTags,
+        draftPublicProfileEnabled,
+        setDraftPublicProfileEnabled,
+        draftShowProfileStats,
+        setDraftShowProfileStats,
+        profileRefreshKey,
+        setDraftAvatarFile,
+        draftAvatarPreview,
+        setDraftAvatarPreview,
+        profileSaving,
+        profileError,
+        setProfileError,
+        draftStudentName,
+        setDraftStudentName,
+        draftProgram,
+        setDraftProgram,
+        draftCohort,
+        setDraftCohort,
+        draftMajor,
+        setDraftMajor,
+        draftSpecialization,
+        setDraftSpecialization,
+        saveProfile,
+    } = useAccountProfileDraft({
+        open: showAccountSettings,
+        session,
+        data,
+        profileFullName,
+        profileAvatarUrl,
+        commitDataUpdate,
+        setProfileFullName,
+        setProfileAvatarUrl,
+        onSaved: () => setShowAccountSettings(false),
+    });
     const [showPasswordChange, setShowPasswordChange] = useState(false);
     const [showAccountPasswordOtpModal, setShowAccountPasswordOtpModal] = useState(false);
     const [currentPassword, setCurrentPassword] = useState('');
@@ -570,12 +553,6 @@ const App: React.FC = () => {
             setIsSearchingUser(false);
         }
     };
-
-    const [draftStudentName, setDraftStudentName] = useState('');
-    const [draftProgram, setDraftProgram] = useState<Program | null>(null);
-    const [draftCohort, setDraftCohort] = useState('');
-    const [draftMajor, setDraftMajor] = useState<Major | null>(null);
-    const [draftSpecialization, setDraftSpecialization] = useState<Specialization | null>(null);
 
     const [showResetModal, setShowResetModal] = useState(false);
     const [resetStep, setResetStep] = useState<1 | 2 | 3 | 4>(1);
@@ -681,28 +658,6 @@ const App: React.FC = () => {
 
     useEffect(() => {
         if (showAccountSettings) {
-            setDraftFullName(profileFullName);
-            setDraftAvatarUrl(profileAvatarUrl);
-            const loadPublicProfileDraft = async () => {
-                if (!session?.user?.id || !supabase) return;
-                const studentCode = (session.user.email || '').split('@')[0] || '';
-                const { data: publicProfile } = await supabase
-                    .from(STUDENT_PROFILE_TABLE)
-                    .select('bio, class_name, profile_tags, public_profile_enabled, show_profile_stats, class_name_overridden')
-                    .eq('id', session.user.id)
-                    .maybeSingle();
-                const officialClassName = await fetchDefaultClassName(studentCode);
-                setDefaultClassName(officialClassName);
-                setDraftBio((publicProfile as any)?.bio || '');
-                setDraftClassName((publicProfile as any)?.class_name || officialClassName || '');
-                setDraftProfileTags(Array.isArray((publicProfile as any)?.profile_tags) ? (publicProfile as any).profile_tags.join(', ') : '');
-                setDraftPublicProfileEnabled(Boolean((publicProfile as any)?.public_profile_enabled));
-                setDraftShowProfileStats(Boolean((publicProfile as any)?.show_profile_stats));
-            };
-            void loadPublicProfileDraft();
-            setDraftAvatarFile(null);
-            setDraftAvatarPreview('');
-            setProfileError(null);
             setShowPasswordChange(false);
             setCurrentPassword('');
             setAccountPasswordOtp('');
@@ -714,28 +669,8 @@ const App: React.FC = () => {
             setPasswordChangeError(null);
             setPasswordChangeNotice(null);
             setAccountPasswordTurnstileToken('');
-
-            setDraftStudentName(data.studentName || '');
-
-            const prog = ACADEMIC_PROGRAMS.find(p => p.name === data.programName) || null;
-            setDraftProgram(prog);
-            setDraftCohort(data.cohort || '');
-
-            if (prog && data.cohort) {
-                const maj = findMajorFromSavedProfile(prog, data.cohort, data.majorName, data.specializationName);
-                setDraftMajor(maj);
-
-                if (maj) {
-                    setDraftSpecialization(findSpecializationFromSavedProfile(maj, data.specializationName));
-                } else {
-                    setDraftSpecialization(null);
-                }
-            } else {
-                setDraftMajor(null);
-                setDraftSpecialization(null);
-            }
         }
-    }, [showAccountSettings, profileFullName, profileAvatarUrl, data]);
+    }, [showAccountSettings]);
 
     useEffect(() => {
         const email = session?.user?.email;
@@ -752,14 +687,6 @@ const App: React.FC = () => {
         const timer = window.setInterval(syncCooldown, 1000);
         return () => window.clearInterval(timer);
     }, [session?.user?.email]);
-
-    useEffect(() => {
-        return () => {
-            if (draftAvatarPreview) {
-                URL.revokeObjectURL(draftAvatarPreview);
-            }
-        };
-    }, [draftAvatarPreview]);
 
     useEffect(() => {
         const ensureSchoolDomain = async () => {
@@ -980,213 +907,6 @@ const App: React.FC = () => {
 
             navigate('/login', { replace: true });
         }
-    };
-
-    const fetchDefaultClassName = async (studentCode: string) => {
-        const normalizedCode = studentCode.trim();
-        if (!normalizedCode || !supabase) return '';
-
-        try {
-            const { data: orderedData, error: orderedError } = await supabase
-                .from('v_drl_ranking')
-                .select('class_name, semester_id')
-                .eq('student_code', normalizedCode)
-                .not('class_name', 'is', null)
-                .order('semester_id', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-            if (!orderedError && orderedData?.class_name) {
-                return String(orderedData.class_name).trim();
-            }
-        } catch (error) {
-            console.warn('Không thể đọc lớp mặc định theo semester_id:', error);
-        }
-
-        try {
-            const { data: fallbackData, error: fallbackError } = await supabase
-                .from('v_drl_ranking')
-                .select('class_name')
-                .eq('student_code', normalizedCode)
-                .not('class_name', 'is', null)
-                .limit(1)
-                .maybeSingle();
-
-            if (!fallbackError && fallbackData?.class_name) {
-                return String(fallbackData.class_name).trim();
-            }
-        } catch (error) {
-            console.warn('Không thể đọc lớp mặc định:', error);
-        }
-
-        return '';
-    };
-
-    const findMajorFromSavedProfile = (
-        program: Program,
-        cohort: string,
-        savedMajorName?: string,
-        savedSpecializationName?: string,
-    ) => {
-        const majors = getMajors(program.id, cohort);
-        const normalize = (value?: string) => (value || '').trim().toLowerCase();
-        const majorKey = normalize(savedMajorName);
-        const specializationKey = normalize(savedSpecializationName);
-
-        return (
-            majors.find(major => normalize(major.name) === majorKey) ||
-            majors.find(major => major.specializations.some(spec => normalize(spec.name) === specializationKey)) ||
-            null
-        );
-    };
-
-    const findSpecializationFromSavedProfile = (
-        major: Major,
-        savedSpecializationName?: string,
-    ) => {
-        const normalize = (value?: string) => (value || '').trim().toLowerCase();
-        const specializationKey = normalize(savedSpecializationName);
-
-        return (
-            major.specializations.find(spec => normalize(spec.name) === specializationKey) ||
-            (major.specializations.length === 1 ? major.specializations[0] : null)
-        );
-    };
-
-    const handleSaveProfile = async () => {
-        if (!session?.user?.id || !supabase) return;
-        setProfileSaving(true);
-        setProfileError(null);
-
-        if (!draftStudentName.trim() || !draftProgram || !draftCohort || !draftMajor || !draftSpecialization) {
-            setProfileError('Vui lòng cập nhật đầy đủ tên, hệ đào tạo, khóa, ngành và chuyên ngành.');
-            setProfileSaving(false);
-            return;
-        }
-
-        let avatarUrlToSave = draftAvatarUrl.trim();
-
-        if (draftAvatarFile) {
-            try {
-                const avatarBlob = await resizeAvatarImage(draftAvatarFile);
-                const base64 = await blobToBase64(avatarBlob);
-                const response = await fetch(apiUrl('/auth'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${session.access_token}`,
-                    },
-                    body: JSON.stringify({
-                        action: 'upload-avatar',
-                        contentType: avatarBlob.type || 'image/webp',
-                        size: avatarBlob.size,
-                        base64,
-                    }),
-                });
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok || !payload.publicUrl) {
-                    throw new Error(payload.error || 'Không thể tải ảnh avatar lên R2.');
-                }
-
-                avatarUrlToSave = payload.publicUrl;
-            } catch (error: any) {
-                setProfileError(error.message || 'Không thể tải ảnh lên. Vui lòng thử lại.');
-                setProfileSaving(false);
-                return;
-            }
-        } else if (avatarUrlToSave.startsWith('#')) {
-            avatarUrlToSave = getSafeAvatarColor(avatarUrlToSave);
-        }
-
-        const userEmail = session.user.email || '';
-        const studentCode = userEmail.split('@')[0];
-        const officialClassName = defaultClassName || await fetchDefaultClassName(studentCode);
-        const classNameInput = draftClassName.trim();
-        const classNameToSave = classNameInput || officialClassName || null;
-        const classNameOverridden = Boolean(classNameInput && (!officialClassName || classNameInput !== officialClassName));
-        const validPublicSemesters = data.semesters.filter((sem: any) => /^Học kỳ (1|2|3|Hè) Năm học \d{4}-\d{4}$/.test(sem.name) && Array.isArray(sem.subjects) && sem.subjects.length > 0);
-        const publicStats = calculateCumulativeStats(validPublicSemesters as any);
-        const profileTags = draftProfileTags
-            .split(',')
-            .map(tag => tag.trim())
-            .filter(Boolean)
-            .slice(0, 6);
-
-        const shouldPublishStats = draftPublicProfileEnabled && draftShowProfileStats;
-        const profileUpdatePayload = {
-            full_name: draftFullName.trim(),
-            avatar_url: avatarUrlToSave,
-            bio: draftBio.trim() || null,
-            class_name: classNameToSave,
-            class_name_overridden: classNameOverridden,
-            profile_tags: profileTags,
-            public_profile_enabled: draftPublicProfileEnabled,
-            show_profile_stats: shouldPublishStats,
-            public_gpa: shouldPublishStats ? Number(publicStats.rawGPA4.toFixed(2)) : null,
-            public_completed_semesters: shouldPublishStats ? validPublicSemesters.length : null,
-            public_credits: shouldPublishStats ? publicStats.passedCredits : null,
-            updated_at: new Date().toISOString(),
-        };
-
-        console.debug('Profile update payload:', profileUpdatePayload);
-
-        const { error } = await supabase
-            .from(STUDENT_PROFILE_TABLE)
-            .update(profileUpdatePayload)
-            .eq('id', session.user.id);
-
-        if (error) {
-            console.error('Không thể lưu thông tin hồ sơ:', error);
-            setProfileError([error.message, error.details, error.hint, error.code].filter(Boolean).join(' | ') || 'Không thể lưu thông tin. Vui lòng thử lại.');
-            setProfileSaving(false);
-            return;
-        }
-
-        setProfileFullName(draftFullName.trim());
-        setProfileAvatarUrl(avatarUrlToSave);
-        setDraftAvatarFile(null);
-        if (draftAvatarPreview) {
-            URL.revokeObjectURL(draftAvatarPreview);
-            setDraftAvatarPreview('');
-        }
-
-        const nextData = {
-            ...data,
-            studentName: draftStudentName.trim(),
-            programName: draftProgram?.name || data.programName,
-            cohort: draftCohort || data.cohort,
-            majorName: draftMajor?.name || data.majorName,
-            specializationName: draftSpecialization?.name || data.specializationName,
-            totalCreditsRequired: draftSpecialization?.credits || data.totalCreditsRequired
-        };
-
-        try {
-            await upsertProfilePrivate({
-                user_id: session.user.id,
-                email: userEmail,
-                data: nextData,
-                updated_at: new Date().toISOString(),
-            });
-        } catch (privateError: any) {
-            console.error('Không thể lưu dữ liệu học tập riêng tư:', privateError);
-            setProfileError(privateError?.message || 'Không thể lưu dữ liệu học tập riêng tư. Vui lòng thử lại.');
-            setProfileSaving(false);
-            return;
-        }
-
-        commitDataUpdate(prev => ({
-            ...prev,
-            studentName: draftStudentName.trim(),
-            programName: draftProgram?.name || prev.programName,
-            cohort: draftCohort || prev.cohort,
-            majorName: draftMajor?.name || prev.majorName,
-            specializationName: draftSpecialization?.name || prev.specializationName,
-            totalCreditsRequired: draftSpecialization?.credits || prev.totalCreditsRequired
-        }));
-
-        setProfileRefreshKey(prev => prev + 1);
-        setProfileSaving(false);
-        setShowAccountSettings(false);
     };
 
     const validateAccountPasswordChange = () => {
@@ -1958,7 +1678,7 @@ const App: React.FC = () => {
                     saving={profileSaving}
                     canSave={Boolean(draftProgram && draftCohort && draftMajor && draftSpecialization)}
                     onClose={() => setShowAccountSettings(false)}
-                    onSave={handleSaveProfile}
+                    onSave={saveProfile}
                 >
                                 <AccountPublicProfileFields
                                     fullName={draftFullName}
