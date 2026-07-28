@@ -25,6 +25,7 @@ import { PasswordSetupModal } from './components/PasswordSetupModal';
 import { AccountPasswordOtpModal } from './components/account/AccountPasswordOtpModal';
 import { AccountPasswordPanel } from './components/account/AccountPasswordPanel';
 import { AccountAcademicProfileFields } from './components/account/AccountAcademicProfileFields';
+import { AccountPublicProfileFields } from './components/account/AccountPublicProfileFields';
 import { showAlert, showConfirm } from './utils/appNotifications';
 import { clearLocalStoragePreservingDevicePreferences } from './utils/devicePreferences';
 import {
@@ -37,7 +38,7 @@ import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from 
 import { apiHeaders, apiUrl } from './utils/api';
 import { calculateCumulativeStats } from './utils/calculations';
 import { logActivity, logActivityQuietly } from './utils/activityLogger';
-import { AVATAR_COLOR_OPTIONS, getAvatarColorClass, getSafeAvatarColor, isAvatarImageUrl } from './utils/avatarColors';
+import { getSafeAvatarColor } from './utils/avatarColors';
 import { recordPolicyConsent } from './utils/policyConsent';
 import { TurnstileBox } from './components/TurnstileBox';
 import { ProtectedSubmitError, verifyTurnstileOnly } from './utils/protectedSubmit';
@@ -1370,7 +1371,6 @@ const App: React.FC = () => {
         return 'H';
     }, [displayName]);
 
-    const avatarColors = AVATAR_COLOR_OPTIONS;
     const studentId = session?.user?.email?.split('@')[0] ?? '';
 
     const addSemester = () => {
@@ -1985,109 +1985,44 @@ const App: React.FC = () => {
                                     </div>
                                 )}
 
-                                <div>
-                                    <h4 className="text-xs font-black text-[#003375] uppercase tracking-wider mb-3 border-b border-gray-100 pb-1">1. Thông tin hiển thị</h4>
-                                    <div className="space-y-4">
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-bold text-gray-500">Tên hiển thị (Góc phải)</label>
-                                            <input type="text" value={draftFullName} onChange={(e) => setDraftFullName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="Nhập tên..." />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-bold text-gray-500">Bio cá nhân</label>
-                                            <textarea value={draftBio} onChange={(e) => setDraftBio(e.target.value)} rows={3} maxLength={220} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm resize-none" placeholder="VD: Sinh viên năm 3, đam mê công nghệ..." />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-bold text-gray-500">Lớp</label>
-                                            <input type="text" value={draftClassName} onChange={(e) => setDraftClassName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder={defaultClassName ? `Mặc định: ${defaultClassName}` : 'VD: DH22KTA'} />
-                                            <p className="text-[11px] text-gray-500">Nếu để trống, hệ thống sẽ dùng lớp mặc định theo MSSV khi có dữ liệu.</p>
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-bold text-gray-500">Tag hồ sơ, cách nhau bằng dấu phẩy</label>
-                                            <input type="text" value={draftProfileTags} onChange={(e) => setDraftProfileTags(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#003375] focus:border-[#003375] outline-none transition-shadow text-sm" placeholder="VD: Khoa Kế toán, CLB Tin học" />
-                                        </div>
-                                        <label className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm">
-                                            <input type="checkbox" checked={draftPublicProfileEnabled} onChange={(e) => {
-                                                setDraftPublicProfileEnabled(e.target.checked);
-                                                if (!e.target.checked) setDraftShowProfileStats(false);
-                                            }} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#003375] focus:ring-[#003375]" />
-                                            <span>
-                                                <span className="block font-bold text-amber-900">Công khai hồ sơ để người khác tìm thấy</span>
-                                                <span className="text-xs text-amber-800">Khi bật, tên hiển thị, MSSV, lớp, bio, avatar và tag hồ sơ có thể xuất hiện trong trang tìm kiếm và trang hồ sơ công khai.</span>
-                                            </span>
-                                        </label>
-                                        <label className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-sm">
-                                            <input type="checkbox" checked={draftShowProfileStats} disabled={!draftPublicProfileEnabled} onChange={(e) => setDraftShowProfileStats(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#003375] focus:ring-[#003375] disabled:opacity-50" />
-                                            <span>
-                                                <span className="block font-bold text-[#003375]">Hiển thị thành tích học tập trên hồ sơ công khai</span>
-                                                <span className="text-xs text-gray-600">Chỉ bật được sau khi bạn bật hồ sơ công khai. Công khai GPA tích lũy, số học kỳ hoàn thành và tín chỉ tích lũy; dữ liệu chi tiết từng môn vẫn riêng tư.</span>
-                                            </span>
-                                        </label>
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-bold text-gray-500">Màu Avatar</label>
-                                            <div className="flex gap-3">
-                                                {avatarColors.map((color) => (
-                                                    <button
-                                                        key={color}
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setDraftAvatarUrl(color);
-                                                            setDraftAvatarFile(null);
-                                                            if (draftAvatarPreview) {
-                                                                URL.revokeObjectURL(draftAvatarPreview);
-                                                                setDraftAvatarPreview('');
-                                                            }
-                                                        }}
-                                                        className={`h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 ${getAvatarColorClass(color)} ${draftAvatarUrl === color ? 'border-gray-900 scale-110' : 'border-transparent'}`}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-xs font-bold text-gray-500">Ảnh Avatar</label>
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-50">
-                                                    {draftAvatarPreview ? (
-                                                        <img src={draftAvatarPreview} alt="Avatar xem trước" className="h-full w-full object-cover" />
-                                                    ) : isAvatarImageUrl(draftAvatarUrl) ? (
-                                                        <img src={draftAvatarUrl} alt="Avatar hiện tại" className="h-full w-full object-cover" />
-                                                    ) : (
-                                                        <div className={`flex h-full w-full items-center justify-center text-sm font-black text-white ${getAvatarColorClass(draftAvatarUrl)}`}>
-                                                            {avatarSeed}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <input
-                                                        id="avatar-upload"
-                                                        type="file"
-                                                        accept="image/png,image/jpeg,image/webp"
-                                                        className="hidden"
-                                                        onChange={(event) => {
-                                                            const file = event.target.files?.[0];
-                                                            if (!file) return;
-                                                            if (!file.type.startsWith('image/')) {
-                                                                setProfileError('Vui lòng chọn đúng file ảnh.');
-                                                                return;
-                                                            }
-                                                            if (draftAvatarPreview) URL.revokeObjectURL(draftAvatarPreview);
-                                                            setDraftAvatarFile(file);
-                                                            setDraftAvatarUrl('');
-                                                            setDraftAvatarPreview(URL.createObjectURL(file));
-                                                        }}
-                                                    />
-                                                    <label
-                                                        htmlFor="avatar-upload"
-                                                        className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-[#003375] transition-colors hover:bg-blue-50"
-                                                    >
-                                                        Tải ảnh lên
-                                                    </label>
-                                                    <p className="mt-1 text-[11px] font-medium leading-4 text-gray-400">
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                <AccountPublicProfileFields
+                                    fullName={draftFullName}
+                                    bio={draftBio}
+                                    className={draftClassName}
+                                    defaultClassName={defaultClassName}
+                                    profileTags={draftProfileTags}
+                                    publicProfileEnabled={draftPublicProfileEnabled}
+                                    showProfileStats={draftShowProfileStats}
+                                    avatarUrl={draftAvatarUrl}
+                                    avatarPreview={draftAvatarPreview}
+                                    avatarSeed={avatarSeed}
+                                    onFullNameChange={setDraftFullName}
+                                    onBioChange={setDraftBio}
+                                    onClassNameChange={setDraftClassName}
+                                    onProfileTagsChange={setDraftProfileTags}
+                                    onPublicProfileEnabledChange={(enabled) => {
+                                        setDraftPublicProfileEnabled(enabled);
+                                        if (!enabled) setDraftShowProfileStats(false);
+                                    }}
+                                    onShowProfileStatsChange={setDraftShowProfileStats}
+                                    onAvatarColorChange={(color) => {
+                                        setDraftAvatarUrl(color);
+                                        setDraftAvatarFile(null);
+                                        if (draftAvatarPreview) {
+                                            URL.revokeObjectURL(draftAvatarPreview);
+                                            setDraftAvatarPreview('');
+                                        }
+                                    }}
+                                    onAvatarFileSelect={(file) => {
+                                        if (draftAvatarPreview) URL.revokeObjectURL(draftAvatarPreview);
+                                        setDraftAvatarFile(file);
+                                        setDraftAvatarUrl('');
+                                        setDraftAvatarPreview(URL.createObjectURL(file));
+                                    }}
+                                    onInvalidAvatarFile={() => {
+                                        setProfileError('Vui lòng chọn đúng file ảnh.');
+                                    }}
+                                />
 
                                 <AccountPasswordPanel
                                     error={passwordChangeError}
