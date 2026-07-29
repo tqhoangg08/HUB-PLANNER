@@ -1,7 +1,6 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { UserData, Semester } from './types';
+import React, { useMemo, useState, useCallback } from 'react';
 import { ActivityLogModal } from './components/ActivityLogModal';
-import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, AlertTriangle, Zap, Search, HelpCircle, LogOut, Shield, Clock, Facebook, Phone, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, RefreshCw, ClipboardList } from 'lucide-react';
+import { Plus, RotateCcw, FileUp, Loader2, Book, LayoutDashboard, X, Zap, Search, HelpCircle, Clock, Facebook, Phone, Calendar, ChevronDown, Users, Award, MessageSquarePlus, Heart, Info, User, ChevronLeft, ArrowUp, ArrowDown, ListFilter, Trash2, Crown, BarChart2, TrendingUp, RefreshCw, ClipboardList } from 'lucide-react';
 import { playClick } from './utils/audio';
 import { useUserRole } from './hooks/useUserRole';
 import { useAppMode } from './hooks/useAppMode';
@@ -13,7 +12,8 @@ import { useDeleteAccount } from './hooks/useDeleteAccount';
 import { useSessionLifecycle } from './hooks/useSessionLifecycle';
 import { usePwaInstall } from './hooks/usePwaInstall';
 import { useAiHintBubble } from './hooks/useAiHintBubble';
-import { supabase } from './utils/supabase';
+import { useManagedStudentView } from './hooks/useManagedStudentView';
+import { useSessionAccessControl } from './hooks/useSessionAccessControl';
 import { Link, Navigate, Route, Routes, useNavigate, NavLink, useLocation } from 'react-router-dom';
 import { ImportGuideModal } from './components/ImportGuideModal';
 import { TranscriptImportPreviewModal } from './components/TranscriptImportPreviewModal';
@@ -36,13 +36,6 @@ import { AccountPublicProfileFields } from './components/account/AccountPublicPr
 import { AccountSettingsModal } from './components/account/AccountSettingsModal';
 import { DeleteAccountModal } from './components/account/DeleteAccountModal';
 import { PwaInstallInstructionsModal } from './components/PwaInstallInstructionsModal';
-import { showConfirm } from './utils/appNotifications';
-import { clearLocalStoragePreservingDevicePreferences } from './utils/devicePreferences';
-import {
-    setActivePushNotificationUser,
-    unbindDeviceNotificationsForCurrentUser,
-} from './utils/pushNotifications';
-import { logActivity } from './utils/activityLogger';
 import { TurnstileBox } from './components/TurnstileBox';
 import {
     AdminEventCandidates,
@@ -67,13 +60,10 @@ import { RouteLoadingFallback } from './app/routing/RouteLoadingFallback';
 import { RouteErrorBoundary } from './app/routing/RouteErrorBoundary';
 import { AppRoutes } from './app/routing/AppRoutes';
 import { AuthGate } from './app/auth/AuthGate';
-import {
-    getNextTranscriptSemesterName,
-    hasCompleteRequiredStudyProfile,
-} from './features/study-data/model';
-
-const SCHOOL_DOMAIN = 'st.buh.edu.vn';
-const STUDENT_PROFILE_TABLE = 'profiles';
+import { AccessDeniedScreen } from './app/auth/AccessDeniedScreen';
+import { PasswordSetupSchemaWarning } from './app/auth/PasswordSetupSchemaWarning';
+import { hasCompleteRequiredStudyProfile } from './features/study-data/model';
+import { useStudyActions } from './hooks/useStudyActions';
 
 const COHORT_OPTIONS: Record<string, string[]> = {
     'standard': ['K38', 'K39', 'K40', 'K41'],
@@ -118,14 +108,17 @@ const App: React.FC = () => {
 
     const showBubble = useAiHintBubble();
 
-    const [adminSearchMssv, setAdminSearchMssv] = useState('');
-    const [viewingUser, setViewingUser] = useState<{ id: string, mssv: string, name: string } | null>(null);
-    const [isSearchingUser, setIsSearchingUser] = useState(false);
+    const {
+        adminSearchMssv,
+        setAdminSearchMssv,
+        viewingUser,
+        isSearchingUser,
+        handleAdminSearchUser,
+        clearViewingUser,
+    } = useManagedStudentView();
     const [showGuide, setShowGuide] = useState(false);
     const [showActivityLog, setShowActivityLog] = useState(false);
     const [showAccountSettings, setShowAccountSettings] = useState(false);
-    const [isAccessDenied, setIsAccessDenied] = useState(false);
-    const [deniedEmail, setDeniedEmail] = useState<string>('');
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [profileFullName, setProfileFullName] = useState('');
     const [profileAvatarUrl, setProfileAvatarUrl] = useState('');
@@ -147,6 +140,13 @@ const App: React.FC = () => {
         setProfileFullName,
         setProfileAvatarUrl,
     });
+    const {
+        setSemesters,
+        setTargetGPA,
+        addSemester,
+        updateSemester,
+        removeSemester,
+    } = useStudyActions({ commitDataUpdate });
     const {
         fileInputRef,
         isImporting,
@@ -274,40 +274,27 @@ const App: React.FC = () => {
         onCloseUserMenu: () => setIsUserMenuOpen(false),
         onNavigateToLogin: navigateToLogin,
     });
-
-    const handleAdminSearchUser = async (event?: React.FormEvent) => {
-        event?.preventDefault();
-        if (!adminSearchMssv.trim() || !supabase) return;
-        setIsSearchingUser(true);
-        playClick();
-
-        try {
-            const { data: userProfile, error } = await supabase
-                .from(STUDENT_PROFILE_TABLE)
-                .select('id, student_code, full_name')
-                .eq('student_code', adminSearchMssv.trim())
-                .single();
-
-            if (error || !userProfile) {
-                alert('Không tìm thấy sinh viên có MSSV này trong hệ thống!');
-                setViewingUser(null);
-                resetStudyData(session?.user?.id || null);
-            } else {
-                resetStudyData(userProfile.id);
-                setViewingUser({
-                    id: userProfile.id,
-                    mssv: userProfile.student_code,
-                    name: userProfile.full_name || 'Chưa cập nhật tên',
-                });
-                alert(`Đã chuyển sang xem dữ liệu của sinh viên: ${userProfile.student_code}`);
-            }
-        } catch (error) {
-            console.error(error);
-            alert('Lỗi khi tìm kiếm sinh viên!');
-        } finally {
-            setIsSearchingUser(false);
-        }
-    };
+    const {
+        isAccessDenied,
+        deniedEmail,
+        handleLogout,
+        handleMenuLogout,
+        handleDeniedAccessLogout,
+    } = useSessionAccessControl({
+        session,
+        isAdmin,
+        isAuditor,
+        isCTV,
+        pathname: location.pathname,
+        search: location.search,
+        resetStudyData,
+        setProfileFullName,
+        setProfileAvatarUrl,
+        clearViewingUser,
+        resetDeleteAccountModal,
+        closeUserMenu: () => setIsUserMenuOpen(false),
+        navigateToLogin,
+    });
 
     const particlesInit = useCallback(async (engine: Engine) => {
         await loadSlim(engine);
@@ -328,73 +315,6 @@ const App: React.FC = () => {
         detectRetina: true,
     }), []);
 
-    useEffect(() => {
-        const ensureSchoolDomain = async () => {
-            const searchParams = new URLSearchParams(window.location.search);
-            const authError = searchParams.get('error');
-
-            if (authError) {
-                setIsAccessDenied(true);
-                setDeniedEmail('Ngoài hệ thống HUB (VD: @gmail.com)');
-                window.history.replaceState({}, document.title, window.location.pathname);
-                return;
-            }
-
-            if (isGuest || isAdmin || isAuditor || isCTV || !session?.user?.email) return;
-
-            const emailDomain = session.user.email.split('@')[1];
-            if (emailDomain !== SCHOOL_DOMAIN) {
-                setIsAccessDenied(true);
-                setDeniedEmail(session.user.email);
-            } else {
-                setIsAccessDenied(false);
-            }
-        };
-
-        ensureSchoolDomain();
-    }, [session, isGuest, isAdmin, isCTV]);
-
-    const handleLogout = async () => {
-        playClick();
-        if (window.confirm("Đăng xuất khỏi hệ thống?")) {
-            try {
-                setActivePushNotificationUser(null);
-                await unbindDeviceNotificationsForCurrentUser(session?.user?.id);
-                if (session && (isAdmin || isAuditor)) {
-                    await logActivity({
-                        action: 'logout',
-                        session,
-                        userRole: isAdmin ? 'admin' : 'auditor',
-                        pagePath: location.pathname,
-                    });
-                }
-            } catch (e) {
-                console.error("Lỗi gỡ liên kết thông báo thiết bị:", e);
-            }
-
-            try {
-                if (supabase) await supabase.auth.signOut();
-            } catch (e) {
-                console.error("Lỗi khi đăng xuất Supabase:", e);
-            }
-
-            clearLocalStoragePreservingDevicePreferences();
-            sessionStorage.clear();
-            resetStudyData();
-            setProfileFullName('');
-            setProfileAvatarUrl('');
-            setViewingUser(null);
-            resetDeleteAccountModal();
-
-            navigate('/login', { replace: true });
-        }
-    };
-
-    const handleMenuLogout = async () => {
-        setIsUserMenuOpen(false);
-        await handleLogout();
-    };
-
     const displayName = useMemo(() => {
         if (profileFullName.trim()) return profileFullName.trim();
         return session?.user?.email ?? 'HUB User';
@@ -407,38 +327,6 @@ const App: React.FC = () => {
 
     const studentId = session?.user?.email?.split('@')[0] ?? '';
 
-    const addSemester = () => {
-        playClick();
-        commitDataUpdate(prev => {
-            const newSem: Semester = {
-                id: Date.now().toString(),
-                name: getNextTranscriptSemesterName(prev.semesters),
-                subjects: [],
-                trainingScore: null
-            };
-            return { ...prev, semesters: [...prev.semesters, newSem] };
-        });
-    };
-
-    const updateSemester = (index: number, updatedSem: Semester) => {
-        commitDataUpdate(prev => {
-            const newSemesters = [...prev.semesters];
-            if (index < 0 || index >= newSemesters.length) return prev;
-            newSemesters[index] = updatedSem;
-            return { ...prev, semesters: newSemesters };
-        });
-    };
-
-    const removeSemester = (index: number) => {
-        playClick();
-        if (window.confirm("Bạn có chắc muốn xóa học kỳ này không?")) {
-            commitDataUpdate(prev => ({
-                ...prev,
-                semesters: prev.semesters.filter((_, i) => i !== index)
-            }));
-        }
-    };
-
     const renderProtectedApp = () => {
         const isPrivilegedUser = isAdmin || isAuditor || isCTV;
         const requiresPasswordSetup = Boolean(session?.user && !isPrivilegedUser && passwordSetAt === null);
@@ -448,36 +336,11 @@ const App: React.FC = () => {
 
         if (isAccessDenied && !isAdmin && !isAuditor && !isCTV) {
             return (
-                <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#F8FAFC] animate-fadeIn">
-                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 max-w-md text-center">
-                        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <Shield className="text-red-500" size={32} />
-                        </div>
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">Truy cập bị từ chối</h2>
-                        <p className="text-gray-500 mb-6 text-sm">
-                            Hệ thống phát hiện bạn đang sử dụng tài khoản email: <br />
-                            <strong className="text-gray-800">{deniedEmail}</strong>
-                        </p>
-                        <div className="bg-red-50 text-red-700 p-4 rounded-xl text-sm mb-8 text-left border border-red-100">
-                            <p className="font-bold flex items-center gap-2 mb-1"><AlertTriangle size={16} /> Yêu cầu bắt buộc:</p>
-                            <p>Vui lòng đăng nhập bằng email sinh viên trường ĐH Ngân hàng TP.HCM có đuôi tên miền là <strong>@{SCHOOL_DOMAIN}</strong></p>
-                        </div>
-                        <button
-                            onClick={async () => {
-                                playClick();
-                                setActivePushNotificationUser(null);
-                                await unbindDeviceNotificationsForCurrentUser(session?.user?.id).catch(() => undefined);
-                                await supabase?.auth.signOut();
-                                setIsAccessDenied(false);
-                                navigate('/login', { replace: true });
-                            }}
-                            className="w-full bg-[#003375] text-white font-bold py-3 rounded-xl hover:bg-[#002855] transition-colors flex items-center justify-center gap-2 shadow-sm"
-                        >
-                            <LogOut size={18} /> Đăng xuất & Thử lại
-                        </button>
-                    </div>
-                </div>
-            )
+                <AccessDeniedScreen
+                    deniedEmail={deniedEmail}
+                    onLogout={handleDeniedAccessLogout}
+                />
+            );
         }
 
         if (session && requiresRequiredProfileSetup) {
@@ -494,12 +357,12 @@ const App: React.FC = () => {
                     <div className="animate-fadeIn">
                         <Dashboard
                             data={data}
-                            onSetSemesters={(sems) => commitDataUpdate(prev => ({ ...prev, semesters: sems }))}
+                            onSetSemesters={setSemesters}
                             onSaveSemesters={saveSemestersNow}
                             isGuest={isGuest}
                             currentUserId={session?.user?.id || null}
                             onRequireOnboarding={() => navigate('/onboarding')}
-                            onTargetChange={(newTarget) => commitDataUpdate(prev => ({ ...prev, targetGPA: newTarget }))}
+                            onTargetChange={setTargetGPA}
                             showSecurityNotice={!session}
                             onUpdateSemester={updateSemester}
                             onRemoveSemester={removeSemester}
@@ -539,7 +402,7 @@ const App: React.FC = () => {
             <Routes>
                 <Route path="/" element={<Navigate to="/mobile-home" replace />} />
                 <Route path="/mobile-home" element={<MobileHome data={data} displayName={displayName} avatarUrl={profileAvatarUrl} avatarSeed={avatarSeed} isGuest={isGuest} showSecurityNotice={!session} onRequireOnboarding={() => navigate('/onboarding')} />} />
-                <Route path="/learning" element={<MobileLearning data={data} onSetSemesters={(sems) => commitDataUpdate(prev => ({ ...prev, semesters: sems }))} onSaveSemesters={saveSemestersNow} isGuest={isGuest} onRequireOnboarding={() => navigate('/onboarding')} onTargetChange={(newTarget) => commitDataUpdate(prev => ({ ...prev, targetGPA: newTarget }))} showSecurityNotice={!session} onUpdateSemester={updateSemester} onRemoveSemester={removeSemester} onAddSemester={addSemester} onExportPDF={handleExportPDF} onImportPDF={openImportGuide} isImporting={isImporting} fileInputRef={fileInputRef} onFileUpload={handleFileUpload} viewUserId={viewingUser?.id} isManagementUser={isAdmin || isAuditor} />} />
+                <Route path="/learning" element={<MobileLearning data={data} onSetSemesters={setSemesters} onSaveSemesters={saveSemestersNow} isGuest={isGuest} onRequireOnboarding={() => navigate('/onboarding')} onTargetChange={setTargetGPA} showSecurityNotice={!session} onUpdateSemester={updateSemester} onRemoveSemester={removeSemester} onAddSemester={addSemester} onExportPDF={handleExportPDF} onImportPDF={openImportGuide} isImporting={isImporting} fileInputRef={fileInputRef} onFileUpload={handleFileUpload} viewUserId={viewingUser?.id} isManagementUser={isAdmin || isAuditor} />} />
                 <Route path="/events" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/events/edit/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
                 <Route path="/events/:eventId" element={<MobileEvents viewUserId={viewingUser?.id} />} />
@@ -834,19 +697,9 @@ const App: React.FC = () => {
                     isAuditor={isAuditor}
                     isMobileLayout={useMobileLayout || isMobileScreen}
                 />
-                {passwordSetupSchemaMissing && !isPrivilegedUser && (
-                    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/65 p-4">
-                        <div className="w-full max-w-md rounded-[24px] border border-amber-200 bg-white p-6 shadow-2xl sm:p-8">
-                            <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
-                                <AlertTriangle size={28} />
-                            </div>
-                            <h2 className="text-2xl font-black tracking-normal text-slate-950">Cần cập nhật Database</h2>
-                            <p className="mt-2 text-sm leading-6 text-slate-600">
-                                Hệ thống cần cột <strong className="font-black text-slate-900">profiles.password_set_at</strong> để nhận biết tài khoản nào chưa có mật khẩu riêng và bắt buộc cập nhật mật khẩu. Vui lòng chạy migration <strong className="font-black text-slate-900">20260501090000_add_password_setup_tracking.sql</strong> trước khi cho sinh viên dùng tiếp.
-                            </p>
-                        </div>
-                    </div>
-                )}
+                <PasswordSetupSchemaWarning
+                    open={passwordSetupSchemaMissing && !isPrivilegedUser}
+                />
                 {requiresPasswordSetup && (
                     <PasswordSetupModal
                         email={session?.user?.email}

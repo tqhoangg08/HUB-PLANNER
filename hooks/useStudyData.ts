@@ -98,6 +98,11 @@ export const useStudyData = ({
             ? viewingUser.id
             : sessionUserId;
     }, [isAdmin, isAuditor, sessionUserId, viewingUser]);
+    const expectedDataOwnerId = targetUserId || (isGuest ? 'guest' : null);
+    const isCurrentTargetLoaded = (
+        isLoaded
+        && dataOwnerIdRef.current === expectedDataOwnerId
+    );
 
     const storageKey = useMemo(
         () => targetUserId ? `${STORAGE_KEY}:${targetUserId}` : STORAGE_KEY,
@@ -437,7 +442,7 @@ export const useStudyData = ({
 
     return {
         data,
-        isLoaded,
+        isLoaded: isCurrentTargetLoaded,
         commitDataUpdate,
         resetStudyData,
         saveSemestersNow,

@@ -4,6 +4,7 @@ export interface SchedulePdfTextItem {
     y: number;
     width: number;
     height: number;
+    sourcePage?: number;
 }
 
 export interface SchedulePdfLayoutPage {
@@ -217,6 +218,20 @@ const parseSemester = (text: string) => {
     return `HK${semester}_${match[2]}_${match[3]}`;
 };
 
+const getCourseBoundary = (
+    upperCode: SchedulePdfTextItem,
+    lowerCode: SchedulePdfTextItem,
+) => {
+    if (
+        upperCode.sourcePage !== undefined
+        && lowerCode.sourcePage !== undefined
+        && upperCode.sourcePage !== lowerCode.sourcePage
+    ) {
+        return lowerCode.y + 20;
+    }
+    return (upperCode.y + lowerCode.y) / 2;
+};
+
 const parsePageCourses = (page: SchedulePdfLayoutPage): ImportedScheduleCourse[] => {
     const items = page.items.filter(item => normalizeText(item.text));
     const codeItems = items
@@ -236,10 +251,10 @@ const parsePageCourses = (page: SchedulePdfLayoutPage): ImportedScheduleCourse[]
         const previousCode = codeItems[index - 1];
         const nextCode = codeItems[index + 1];
         const upper = previousCode
-            ? (previousCode.y + codeItem.y) / 2
+            ? getCourseBoundary(previousCode, codeItem)
             : codeItem.y + Math.abs(codeItem.y - (nextCode?.y ?? codeItem.y - 50)) * 0.52;
         const lower = nextCode
-            ? (codeItem.y + nextCode.y) / 2
+            ? getCourseBoundary(codeItem, nextCode)
             : codeItem.y - Math.abs((previousCode?.y ?? codeItem.y + 50) - codeItem.y) * 0.45;
         const block = items.filter(item => item.y <= upper && item.y > lower);
         const dates = block
@@ -262,10 +277,10 @@ const parsePageCourses = (page: SchedulePdfLayoutPage): ImportedScheduleCourse[]
         const previousCode = codeItems[index - 1];
         const nextCode = codeItems[index + 1];
         const upper = previousCode
-            ? (previousCode.y + codeItem.y) / 2
+            ? getCourseBoundary(previousCode, codeItem)
             : codeItem.y + Math.abs(codeItem.y - (nextCode?.y ?? codeItem.y - 50)) * 0.52;
         const lower = nextCode
-            ? (codeItem.y + nextCode.y) / 2
+            ? getCourseBoundary(codeItem, nextCode)
             : codeItem.y - Math.abs((previousCode?.y ?? codeItem.y + 50) - codeItem.y) * 0.45;
         const block = items.filter(item => item.y <= upper && item.y > lower);
 
@@ -319,7 +334,24 @@ export const parseHubScheduleLayout = (pages: SchedulePdfLayoutPage[]): HubSched
         (total, page) => total + page.items.filter(item => COURSE_CODE_PATTERN.test(normalizeText(item.text))).length,
         0,
     );
-    const courses = pages.flatMap(parsePageCourses);
+    // HUB Portal only prints the column headers on page 1. Treat all PDF
+    // pages as one continuous coordinate space so rows that cross a page
+    // boundary (and headerless continuation pages) are parsed together.
+    let followingPagesHeight = pages.reduce((total, page) => total + page.height, 0);
+    const stitchedItems = pages.flatMap(page => {
+        followingPagesHeight -= page.height;
+        return page.items.map(item => ({
+            ...item,
+            y: item.y + followingPagesHeight,
+            sourcePage: page.pageNumber,
+        }));
+    });
+    const courses = parsePageCourses({
+        pageNumber: 1,
+        width: Math.max(0, ...pages.map(page => page.width)),
+        height: pages.reduce((total, page) => total + page.height, 0),
+        items: stitchedItems,
+    });
     const completeCourseCount = courses.filter(course => (
         course.course_code
         && course.subject_name
