@@ -1,8 +1,12 @@
+import { handleCourses, syncCourseSchedules } from './courses.ts';
+import { handleEvents, syncPublicEvents } from './events.ts';
+
 interface Env {
   DB: D1Database;
   ALLOWED_ORIGINS?: string;
   SUPABASE_URL?: string;
   SUPABASE_ANON_KEY?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
 }
 
 interface AnnouncementRow {
@@ -34,6 +38,44 @@ const DEFAULT_ALLOWED_ORIGINS = [
 ];
 const ANNOUNCEMENT_SYNC_PAGE_SIZE = 500;
 const ANNOUNCEMENT_RECENT_REFRESH_SIZE = 200;
+const ANNOUNCEMENT_EDGE_TTL_SECONDS = 300;
+const COURSE_EDGE_TTL_SECONDS = 1800;
+const EVENT_EDGE_TTL_SECONDS = 300;
+const ANNOUNCEMENT_CACHE_PARAMS = new Set([
+  'resource',
+  'limit',
+  'offset',
+  'search',
+  'startDate',
+  'endDate',
+]);
+const COURSE_CACHE_PARAMS = new Set([
+  'resource',
+  'semester',
+  'major',
+  'cohort',
+  'academicProgram',
+  'subjectName',
+  'phase',
+  'isUserAdded',
+  'search',
+  'suggestions',
+  'limit',
+  'offset',
+  'view',
+  'groupName',
+  'id',
+]);
+const EVENT_CACHE_PARAMS = new Set([
+  'limit',
+  'offset',
+  'search',
+  'criteria',
+  'scope',
+  'sort',
+  'group',
+  'ids',
+]);
 
 const json = (payload: unknown, status = 200, headers: HeadersInit = {}) =>
   new Response(JSON.stringify(payload), {
@@ -63,6 +105,30 @@ export const parseAnnouncementQuery = (params: URLSearchParams): AnnouncementQue
   startDate: String(params.get('startDate') || '').trim(),
   endDate: String(params.get('endDate') || '').trim(),
 });
+
+export const buildPublicCacheKey = (request: Request) => {
+  const requestUrl = new URL(request.url);
+  const resource = String(requestUrl.searchParams.get('resource') || '');
+  const allowedParams = requestUrl.pathname.endsWith('/courses')
+    ? COURSE_CACHE_PARAMS
+    : resource === 'announcements'
+      ? ANNOUNCEMENT_CACHE_PARAMS
+      : EVENT_CACHE_PARAMS;
+  const sorted = [...requestUrl.searchParams.entries()]
+    .filter(([name]) => allowedParams.has(name))
+    .sort(([leftName, leftValue], [rightName, rightValue]) =>
+      leftName === rightName
+        ? leftValue.localeCompare(rightValue)
+        : leftName.localeCompare(rightName)
+    );
+  requestUrl.search = '';
+  for (const [name, value] of sorted) requestUrl.searchParams.append(name, value);
+  requestUrl.searchParams.set(
+    '__hub_cache_origin',
+    request.headers.get('Origin') || 'no-origin'
+  );
+  return new Request(requestUrl.toString(), { method: 'GET' });
+};
 
 export const formatPostgrestTimestamp = (value: string | null) => {
   if (!value) return value;
@@ -130,6 +196,13 @@ const writeAnnouncementRows = async (env: Env, rows: SupabaseAnnouncementRow[]) 
       is_new = excluded.is_new,
       created_at = excluded.created_at,
       is_hidden = excluded.is_hidden
+    WHERE school_announcements.title IS NOT excluded.title
+       OR school_announcements.title_search IS NOT excluded.title_search
+       OR school_announcements.link IS NOT excluded.link
+       OR school_announcements.date IS NOT excluded.date
+       OR school_announcements.is_new IS NOT excluded.is_new
+       OR school_announcements.created_at IS NOT excluded.created_at
+       OR school_announcements.is_hidden IS NOT excluded.is_hidden
   `;
 
   for (let index = 0; index < rows.length; index += 100) {
@@ -176,25 +249,32 @@ export const syncSchoolAnnouncements = async (env: Env) => {
   const summary = await env.DB.prepare(
     `SELECT
        COUNT(*) AS source_row_count,
+       SUM(CASE WHEN is_hidden = 0 THEN 1 ELSE 0 END) AS visible_row_count,
        MAX(created_at) AS source_max_created_at
      FROM school_announcements`
-  ).first<{ source_row_count: number; source_max_created_at: string | null }>();
+  ).first<{
+    source_row_count: number;
+    visible_row_count: number;
+    source_max_created_at: string | null;
+  }>();
   const syncedAt = new Date().toISOString();
 
   await env.DB.prepare(
     `INSERT INTO sync_metadata
-       (resource, source_row_count, source_max_created_at, synced_at)
-     VALUES (?, ?, ?, ?)
+       (resource, source_row_count, source_max_created_at, synced_at, visible_row_count)
+     VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(resource) DO UPDATE SET
        source_row_count = excluded.source_row_count,
        source_max_created_at = excluded.source_max_created_at,
-       synced_at = excluded.synced_at`
+       synced_at = excluded.synced_at,
+       visible_row_count = excluded.visible_row_count`
   )
     .bind(
       'school_announcements',
       Number(summary?.source_row_count || 0),
       summary?.source_max_created_at || null,
-      syncedAt
+      syncedAt,
+      Number(summary?.visible_row_count || 0)
     )
     .run();
 
@@ -202,6 +282,7 @@ export const syncSchoolAnnouncements = async (env: Env) => {
     insertedOrUpdated,
     recentRowsRefreshed: recentRows.length,
     sourceRowCount: Number(summary?.source_row_count || 0),
+    visibleRowCount: Number(summary?.visible_row_count || 0),
     syncedAt,
   };
 };
@@ -246,11 +327,16 @@ const handleAnnouncements = async (requestUrl: URL, env: Env) => {
   }
 
   const whereSql = where.join(' AND ');
-  const countRow = await env.DB.prepare(
-    `SELECT COUNT(*) AS total FROM school_announcements WHERE ${whereSql}`
-  )
-    .bind(...bindings)
-    .first<{ total: number }>();
+  const canUseMetadataCount = !query.search && !query.startDate && !query.endDate;
+  const countRow = canUseMetadataCount
+    ? await env.DB.prepare(
+      'SELECT visible_row_count AS total FROM sync_metadata WHERE resource = ?'
+    ).bind('school_announcements').first<{ total: number }>()
+    : await env.DB.prepare(
+      `SELECT COUNT(*) AS total FROM school_announcements WHERE ${whereSql}`
+    )
+      .bind(...bindings)
+      .first<{ total: number }>();
 
   const total = Number(countRow?.total || 0);
   const rows = await env.DB.prepare(
@@ -280,20 +366,57 @@ const handleAnnouncements = async (requestUrl: URL, env: Env) => {
   };
 };
 
+const readCachedResponse = async (request: Request) => {
+  try {
+    const cached = await caches.default.match(buildPublicCacheKey(request));
+    if (!cached) return null;
+    const response = new Response(cached.body, cached);
+    response.headers.set('X-Hub-Cache', 'HIT');
+    return response;
+  } catch (error) {
+    console.warn('edge_cache_read_failed', error);
+    return null;
+  }
+};
+
+const storeCachedResponse = (
+  request: Request,
+  response: Response,
+  ctx: ExecutionContext
+) => {
+  try {
+    ctx.waitUntil(
+      caches.default
+        .put(buildPublicCacheKey(request), response.clone())
+        .catch((error) => console.warn('edge_cache_write_failed', error))
+    );
+  } catch (error) {
+    console.warn('edge_cache_write_failed', error);
+  }
+};
+
 const worker = {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const cors = corsHeaders(request, env);
     if (cors === null) return json({ error: 'Origin không được phép.' }, 403);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
     const requestUrl = new URL(request.url);
     if (requestUrl.pathname === '/health') {
-      const row = await env.DB.prepare(
-        'SELECT source_row_count, source_max_created_at, synced_at FROM sync_metadata WHERE resource = ?'
-      )
-        .bind('school_announcements')
-        .first();
-      return json({ ok: true, resource: 'school_announcements', sync: row || null }, 200, cors);
+      const rows = await env.DB.prepare(
+        `SELECT resource, source_row_count, visible_row_count,
+                source_max_created_at, synced_at
+           FROM sync_metadata`
+      ).all<Record<string, unknown>>();
+      const resources = Object.fromEntries(
+        (rows.results || []).map((row) => [String(row.resource), row])
+      );
+      return json({
+        ok: true,
+        resource: 'school_announcements',
+        sync: resources.school_announcements || null,
+        resources,
+      }, 200, cors);
     }
 
     if (request.method !== 'GET') {
@@ -303,21 +426,85 @@ const worker = {
       });
     }
 
-    if (requestUrl.pathname !== '/events' && requestUrl.pathname !== '/api/events') {
+    const isEventsPath =
+      requestUrl.pathname === '/events' || requestUrl.pathname === '/api/events';
+    const isCoursesPath =
+      requestUrl.pathname === '/courses' || requestUrl.pathname === '/api/courses';
+
+    if (!isEventsPath && !isCoursesPath) {
       return json({ error: 'Không tìm thấy endpoint.' }, 404, cors);
     }
 
-    if (String(requestUrl.searchParams.get('resource') || 'announcements') !== 'announcements') {
+    const bypassCache =
+      requestUrl.searchParams.has('refresh') ||
+      String(request.headers.get('Cache-Control') || '').includes('no-cache');
+    const cached = bypassCache ? null : await readCachedResponse(request);
+    if (cached) return cached;
+
+    if (isCoursesPath) {
+      try {
+        const result = await handleCourses(requestUrl, env);
+        const response = json(result.payload, result.status, {
+          ...cors,
+          'Cache-Control':
+            result.status === 200
+              ? `public, max-age=300, s-maxage=${COURSE_EDGE_TTL_SECONDS}, stale-while-revalidate=3600`
+              : 'no-store',
+          'X-Hub-Backend': 'cloudflare-d1',
+          'X-Hub-Cache': 'MISS',
+        });
+        if (result.status === 200 && !bypassCache) {
+          storeCachedResponse(request, response, ctx);
+        }
+        return response;
+      } catch (error) {
+        console.error('course_query_failed', error);
+        return json({ error: 'Không tải được danh sách môn.' }, 500, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      }
+    }
+
+    const resource = String(requestUrl.searchParams.get('resource') || '');
+    if (resource && resource !== 'announcements') {
       return json({ error: 'Resource không hợp lệ.' }, 400, cors);
+    }
+
+    if (!resource) {
+      try {
+        const payload = await handleEvents(requestUrl, env);
+        const response = json(payload, 200, {
+          ...cors,
+          'Cache-Control': bypassCache
+            ? 'no-store'
+            : `public, max-age=60, s-maxage=${EVENT_EDGE_TTL_SECONDS}, stale-while-revalidate=900`,
+          'X-Hub-Backend': 'cloudflare-d1',
+          'X-Hub-Cache': bypassCache ? 'BYPASS' : 'MISS',
+        });
+        if (!bypassCache) storeCachedResponse(request, response, ctx);
+        return response;
+      } catch (error) {
+        console.error('event_query_failed', error);
+        return json({ error: 'Không tải được dữ liệu sự kiện.' }, 500, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      }
     }
 
     try {
       const payload = await handleAnnouncements(requestUrl, env);
-      return json(payload, 200, {
+      const response = json(payload, 200, {
         ...cors,
-        'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=300',
+        'Cache-Control': bypassCache
+          ? 'no-store'
+          : `public, max-age=60, s-maxage=${ANNOUNCEMENT_EDGE_TTL_SECONDS}, stale-while-revalidate=900`,
         'X-Hub-Backend': 'cloudflare-d1',
+        'X-Hub-Cache': bypassCache ? 'BYPASS' : 'MISS',
       });
+      if (!bypassCache) storeCachedResponse(request, response, ctx);
+      return response;
     } catch (error) {
       console.error('announcement_query_failed', error);
       return json({ error: 'Không tải được thông báo trường.' }, 500, {
@@ -327,11 +514,49 @@ const worker = {
     }
   },
 
-  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    const hourlyCron = controller.cron === '17 * * * *';
+    const eventCron = controller.cron === '*/10 * * * *';
+    const runAll = !hourlyCron && !eventCron;
+    const reconcileCourseDeletes =
+      (hourlyCron || runAll) &&
+      new Date(controller.scheduledTime).getUTCHours() === 20;
+    const jobs: Array<{ failureEvent: string; promise: Promise<unknown> }> = [];
+
+    if (hourlyCron || runAll) {
+      jobs.push(
+        {
+          failureEvent: 'announcement_sync_failed',
+          promise: syncSchoolAnnouncements(env).then((summary) =>
+            console.log('announcement_sync_complete', summary)
+          ),
+        },
+        {
+          failureEvent: 'course_sync_failed',
+          promise: syncCourseSchedules(env, reconcileCourseDeletes).then((summary) =>
+            console.log('course_sync_complete', summary)
+          ),
+        }
+      );
+    }
+
+    if (eventCron || runAll) {
+      jobs.push({
+        failureEvent: 'event_sync_failed',
+        promise: syncPublicEvents(env).then((summary) =>
+          console.log('event_sync_complete', summary)
+        ),
+      });
+    }
+
     ctx.waitUntil(
-      syncSchoolAnnouncements(env)
-        .then((summary) => console.log('announcement_sync_complete', summary))
-        .catch((error) => console.error('announcement_sync_failed', error))
+      Promise.allSettled(jobs.map(({ promise }) => promise)).then((results) => {
+        results.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            console.error(jobs[index].failureEvent, result.reason);
+          }
+        });
+      })
     );
   },
 };

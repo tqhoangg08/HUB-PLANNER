@@ -17,8 +17,9 @@ additional_redirect_urls = ["http://127.0.0.1:3000"]
 [auth.external.google]
 enabled = true
 client_id = "1097002285480-3og7gdbd6v0sid980n6vc9ctshj9u6br.apps.googleusercontent.com"
-secret = "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"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET)"
 redirect_uri = "http://127.0.0.1:54321/auth/v1/callback"
+
 [functions.auth]
 enabled = true
 verify_jwt = true

@@ -20,6 +20,7 @@ import { notifyModerators } from '../utils/moderatorNotifications';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { apiHeaders, apiUrl } from '../utils/api';
+import { fetchPublicEvents } from '../utils/eventsApi';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 
 // --- Types ---
@@ -757,7 +758,7 @@ const canManage = isAdmin || isAuditor || isCTV;
       }
       const pageOffset = Math.max(0, page) * EVENTS_PAGE_SIZE;
       const term = searchTerm.trim();
-      if (!(isManagementView && canManage) && !supabase) {
+      if (!(isManagementView && canManage)) {
         const participantIds = participatedEvents.map(id => Number(id)).filter(id => Number.isFinite(id));
         const buildApiParams = (group: 'open' | 'closed', offset: number, limit: number) => {
           const params = new URLSearchParams({
@@ -774,7 +775,7 @@ const canManage = isAdmin || isAuditor || isCTV;
           return params;
         };
         const fetchEventGroup = async (group: 'open' | 'closed', offset: number, limit: number) => {
-          const response = await fetch(apiUrl(`/events?${buildApiParams(group, offset, limit).toString()}`), {
+          const response = await fetchPublicEvents(`/events?${buildApiParams(group, offset, limit).toString()}`, {
             headers: apiHeaders(),
           });
           const payload = await response.json();
@@ -917,6 +918,15 @@ const canManage = isAdmin || isAuditor || isCTV;
 
   const fetchOpenEventsTotal = async () => {
     try {
+      if (!(isManagementView && canManage)) {
+        const response = await fetchPublicEvents('/events?group=open&limit=1', {
+          headers: apiHeaders(),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error || 'Không thể tải tổng sự kiện mở');
+        setOpenEventsTotal(Number(payload?.total || 0));
+        return;
+      }
       let query = supabase!
         .from('events')
         .select('id', { count: 'exact', head: true })
@@ -935,7 +945,7 @@ const canManage = isAdmin || isAuditor || isCTV;
 
   useEffect(() => {
     fetchOpenEventsTotal();
-  }, [canManage]);
+  }, [canManage, isManagementView]);
 
   useEffect(() => {
                   <button onClick={() => { playClick(); setIsManagementView(false); }} className={`py-2 rounded-xl text-xs font-black transition-all ${!isManagementView ? 'bg-[#EEF2FF] text-[#1A56FF]' : 'text-[#7B8AB0]'}`}>Giao diện SV</button>

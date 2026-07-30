@@ -11,6 +11,7 @@ import { playClick } from '../utils/audio';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
+import { fetchPublicCourses } from '../utils/coursesApi';
 import { TurnstileBox } from './TurnstileBox';
 import { ProtectedSubmitError, protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
 import { logWebError } from '../utils/logWebError';
@@ -658,7 +659,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         if (isSuggestionMode) params.set('suggestions', 'true');
         if (term) params.set('search', term);
 
-        const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
+        const response = await fetchPublicCourses(`/courses?${params.toString()}`, {
             headers: apiHeaders(),
         });
         const payload = await response.json();

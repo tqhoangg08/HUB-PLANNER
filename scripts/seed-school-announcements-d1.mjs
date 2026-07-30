@@ -113,14 +113,18 @@ const latestCreatedAt = rows.reduce((latest, row) => {
   const current = String(row.created_at || '');
   return current > latest ? current : latest;
 }, '');
+const visibleRowCount = rows.filter((row) => !row.is_hidden).length;
 
 statements.push(`
-INSERT INTO sync_metadata (resource, source_row_count, source_max_created_at, synced_at)
+INSERT INTO sync_metadata (
+  resource, source_row_count, source_max_created_at, synced_at, visible_row_count
+)
 VALUES (
   'school_announcements',
   ${rows.length},
   ${sqlText(latestCreatedAt || null)},
-  ${sqlText(new Date().toISOString())}
+  ${sqlText(new Date().toISOString())},
+  ${visibleRowCount}
 );`);
 
 await mkdir(CACHE_DIR, { recursive: true });

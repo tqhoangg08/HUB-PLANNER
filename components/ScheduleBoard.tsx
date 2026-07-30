@@ -13,6 +13,7 @@ import { showAlert, showConfirm } from '../utils/appNotifications';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
+import { fetchPublicCourses } from '../utils/coursesApi';
 import { TurnstileBox } from './TurnstileBox';
 import { ProtectedSubmitError, protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
 import { logWebError } from '../utils/logWebError';
@@ -802,7 +803,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         if (isSuggestionMode) baseParams.set('suggestions', 'true');
         if (term) baseParams.set('search', term);
 
-        const response = await fetch(apiUrl(`/courses?${baseParams.toString()}`), {
+        const response = await fetchPublicCourses(`/courses?${baseParams.toString()}`, {
             headers: apiHeaders(),
         });
         const payload = await response.json();
@@ -870,7 +871,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         if (selectedCohort !== 'all') params.set('cohort', selectedCohort);
         if (selectedAcademicProgram !== 'all') params.set('academicProgram', selectedAcademicProgram);
 
-        const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
+        const response = await fetchPublicCourses(`/courses?${params.toString()}`, {
             headers: apiHeaders(),
         });
         const payload = await response.json();
@@ -949,7 +950,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     const loadCourseDetail = async () => {
         try {
             const params = new URLSearchParams({ resource: 'course-detail', id: courseId });
-            const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
+            const response = await fetchPublicCourses(`/courses?${params.toString()}`, {
                 headers: apiHeaders(),
             });
             const payload = await response.json();
@@ -1526,7 +1527,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     if (cachedDetail) return { ...course, ...cachedDetail, __detailLoaded: true } as Course;
 
     const params = new URLSearchParams({ resource: 'course-detail', id: course.id });
-    const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
+    const response = await fetchPublicCourses(`/courses?${params.toString()}`, {
       headers: apiHeaders(),
     });
     const payload = await response.json();

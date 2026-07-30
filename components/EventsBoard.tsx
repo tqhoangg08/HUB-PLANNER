@@ -18,6 +18,7 @@ import { CTVRegistrationForm } from './CTVRegistrationForm';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
+import { fetchPublicEvents } from '../utils/eventsApi';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
@@ -1397,7 +1398,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       if (!showManagementView) {
         const params = new URLSearchParams({ limit: '100' });
         if (options.bypassCache) params.set('refresh', '1');
-        const response = await fetch(apiUrl(`/events?${params.toString()}`), {
+        const response = await fetchPublicEvents(`/events?${params.toString()}`, {
           headers: apiHeaders(),
         });
         const payload = await response.json();

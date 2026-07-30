@@ -172,6 +172,55 @@ Cổng kiểm tra: chạy ổn ít nhất 7 ngày.
 
 ### Giai đoạn 5 — Mở rộng có kiểm soát
 
+Pilot thứ hai ngày 2026-07-30 — `course_schedules`:
+
+- Supabase migration:
+  `20260730170000_add_course_schedules_updated_at.sql`
+- D1 migration: `0002_create_course_schedules.sql`
+- D1 remote: 4.500 UUID duy nhất, khoảng 7,6 MB sau seed
+- Worker version sau tối ưu quota: `ea8b7fd5-4be9-454e-888c-7e6f52bcea23`
+- Shadow comparison local và remote: khớp 13/13 trường hợp
+- Chuyển sang Cloudflare:
+  - danh sách/gợi ý môn
+  - bộ lọc môn
+  - chi tiết môn
+- Vẫn giữ ở Supabase:
+  - lịch cá nhân và lịch của sinh viên
+  - yêu cầu thêm môn
+  - mọi thao tác thêm/sửa/xóa
+  - dữ liệu profile riêng tư
+- Đồng bộ thay đổi mỗi giờ bằng `updated_at`; đối chiếu UUID đã xóa mỗi ngày.
+- Frontend tự fallback về API cũ nếu Worker lỗi hoặc timeout sau 5 giây.
+
+### Mốc tối ưu quota ngày 2026-07-30
+
+- D1 migrations:
+  - `0003_reduce_read_amplification.sql`
+  - `0005_cover_course_list_order.sql`
+- Tổng thông báo không lọc đọc từ `sync_metadata`, không còn `COUNT(*)` mỗi request.
+- Tổng lịch học theo bộ lọc đọc từ bảng facet 2.661 dòng thay vì bảng gốc 4.500 dòng.
+- Bộ lọc môn chỉ trả các giá trị duy nhất và vẫn giữ nguyên thứ tự API cũ.
+- Các danh sách theo học kỳ/giai đoạn dùng index bao phủ cả `source_position`.
+- GET công khai dùng Cache API của Worker:
+  - thông báo: edge TTL 5 phút
+  - lịch học: edge TTL 30 phút
+- Query parameter không thuộc hợp đồng API bị loại khỏi cache key để ngăn cache-busting.
+- Upsert đồng bộ bỏ qua dòng không đổi để giảm `rows_written`.
+- Kiểm tra online:
+  - lịch học khớp 13/13
+  - thông báo khớp 10/10
+  - cache `MISS` ở lần đầu, `HIT` ở lần hai
+  - origin ngoài allowlist trả HTTP 403
+- D1 ngay sau migration và toàn bộ shadow test:
+  - 4.500 lịch được đại diện đầy đủ trong facet
+  - 5.482 thông báo hiển thị
+  - dung lượng khoảng 9,74 MB
+  - 2.516.469 / 5.000.000 rows read trong cửa sổ 24 giờ
+  - 77.490 / 100.000 rows written trong cửa sổ 24 giờ; phần tăng là migration một lần
+
+Không chạy thêm seed/import lớn trước lần reset quota kế tiếp. Theo dõi lại mốc
+24 giờ sau reset để đo tải vận hành bình thường, không dùng ngày migration làm baseline.
+
 Thứ tự dự kiến:
 
 1. Các danh sách public/read-heavy khác.
