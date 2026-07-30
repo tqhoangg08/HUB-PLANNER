@@ -42,190 +42,38 @@ import {
   getWeekNumberForDate,
   isSemesterHolidayWeek,
 } from '../utils/academicCalendar';
+import {
+  COURSE_PAGE_SIZE_COMPACT,
+  COURSE_PAGE_SIZE_EXPANDED,
+  COURSE_REQUEST_CACHE_PREFIX,
+  COURSE_REQUEST_CACHE_TTL_MS,
+  COURSE_REQUEST_PAGE_SIZE,
+  DEFAULT_ACADEMIC_PROGRAM_OPTIONS,
+  PDF_SCHEDULE_FILE_MESSAGE,
+  PLAN_KEYS,
+  PLAN_SCHEDULE_STORAGE_PREFIX,
+  SCHEDULE_UPDATE_NOTICE_STORAGE_KEY,
+  SYSTEM_COURSE_SUGGESTION_LIMIT,
+  createEmptyPlanSchedules,
+  getCourseRequestStudentCode,
+  getPaginationPages,
+  getSemesterContainingDate,
+  isPdfScheduleFile,
+  isStudentCourseEditLocked,
+  normalizeAcademicProgramOptions,
+  sortCourseRequestsNewestFirst,
+  type Course,
+  type CourseLabel,
+  type CourseRequest,
+  type CourseRequestPageCache,
+  type PlanScheduleKey,
+  type PlanSchedules,
+  type ScheduleViewMode,
+  type StudentScheduleSummary,
+  type UserProfile,
+} from '../features/schedule/scheduleBoardModel';
 
-interface UserProfile {
-  id?: string;
-  full_name?: string;
-  student_code?: string;
-  email?: string;
-}
-
-interface StudentScheduleSummary {
-  user_id: string;
-  full_name: string;
-  student_code: string;
-  email?: string;
-  course_count: number;
-  semesters: string[];
-}
-
-interface CourseRequest {
-  id: string;
-  subject_name: string;
-  course_code: string;
-  instructor?: string;
-  status?: string;
-  created_at?: string;
-  user_id?: string;
-  user?: UserProfile | null;
-  duplicate_course?: Course | null;
-}
-
-interface CourseRequestPageCache {
-  data: CourseRequest[];
-  total: number;
-  hasMore: boolean;
-  cachedAt: number;
-}
-
-const COURSE_REQUEST_PAGE_SIZE = 10;
-const COURSE_REQUEST_CACHE_TTL_MS = 5 * 60 * 1000;
-const COURSE_REQUEST_CACHE_PREFIX = 'hub_admin_course_requests_v2';
-
-const getCourseRequestTime = (request: CourseRequest) => {
-  const time = request.created_at ? new Date(request.created_at).getTime() : 0;
-  return Number.isFinite(time) ? time : 0;
-};
-
-const sortCourseRequestsNewestFirst = (requests: CourseRequest[]) => {
-  return [...requests].sort((a, b) => getCourseRequestTime(b) - getCourseRequestTime(a));
-};
-
-const getCourseRequestStudentCode = (request: CourseRequest) => {
-  const profileCode = request.user?.student_code?.trim();
-  if (profileCode) return profileCode;
-
-  const email = request.user?.email?.trim();
-  if (email) return email.split('@')[0];
-
-  return request.user_id || '-';
-};
-
-const getPaginationPages = (currentPage: number, totalPages: number) => {
-  const pages = new Set([1, totalPages]);
-  for (let page = currentPage - 2; page <= currentPage + 2; page += 1) {
-    if (page >= 1 && page <= totalPages) pages.add(page);
-  }
-  return [...pages].sort((a, b) => a - b);
-};
-
-const PDF_SCHEDULE_FILE_MESSAGE = 'Vui lòng tải lên file PDF lịch học, hệ thống chưa hỗ trợ ảnh PNG/JPG.';
-const isPdfScheduleFile = (file: File) => (
-  file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-);
-
-interface CourseLabel {
-  id: string;
-  type: string;
-  text?: string; 
-  color: string;
-  date?: string; 
-  makeupId?: string;
-}
-
-interface MakeupScheduleItem {
-  id: string;
-  originalDate: string;
-  date: string;
-  shift: string;
-  room: string;
-}
-
-interface Course {
-  id: string;
-  course_code: string;
-  subject_name: string;
-  prerequisite?: string | null;
-  credits: number;
-  knowledge_block?: string | null;
-  shift: string;
-  day_of_week: string;
-  weeks: string;
-  room: string;
-  campus: string;
-  managing_faculty?: string | null;
-  exam_date: string;
-  exam_shift: string;
-  exam_campus?: string | null;
-  exam_room?: string;
-  cohort: string;
-  major: string;
-  group_name?: string | null;
-  orientation?: string | null;
-  orientation_note_3?: string | null;
-  registration_type?: string | null;
-  general_note?: string | null;
-  academic_program: string;
-  student_count?: number | null;
-  phase: string;      
-  semester: string;   
-  instructor?: string; 
-  is_user_added?: boolean;
-  user_schedule_id?: string;
-  user?: UserProfile;
-  labels?: CourseLabel[]; 
-  makeup_schedules?: MakeupScheduleItem[];
-  dateStr?: string; 
-  original_course?: Partial<Course>;
-  custom_data?: Record<string, any>;
-}
-
-const SCHEDULE_UPDATE_NOTICE_STORAGE_KEY = 'hub_schedule_board_update_notice_hidden_v1';
-const STUDENT_EDIT_LOCKED_SEMESTERS = new Set(['HK1_2026_2027']);
-const PLAN_SCHEDULE_STORAGE_PREFIX = 'hub_schedule_plans_v1';
-const COURSE_PAGE_SIZE_COMPACT = 30;
-const COURSE_PAGE_SIZE_EXPANDED = 40;
-const SYSTEM_COURSE_SUGGESTION_LIMIT = 10;
-const DEFAULT_ACADEMIC_PROGRAM_OPTIONS = ['Chính quy chuẩn'];
 let hasShownScheduleUpdateNoticeThisLoad = false;
-
-const isStudentCourseEditLocked = (course?: Partial<Pick<Course, 'semester'>> | null) => (
-    !!course?.semester && STUDENT_EDIT_LOCKED_SEMESTERS.has(course.semester)
-);
-
-type ScheduleViewMode = 'official' | 'plan';
-type PlanScheduleKey = 'A' | 'B' | 'C';
-type PlanSchedules = Record<PlanScheduleKey, Course[]>;
-
-const PLAN_KEYS: PlanScheduleKey[] = ['A', 'B', 'C'];
-
-const createEmptyPlanSchedules = (): PlanSchedules => ({ A: [], B: [], C: [] });
-
-const parseGroupTokens = (value?: string | null) => {
-    const raw = String(value || '').trim();
-    if (!raw) return [];
-
-    const parts = raw.split(',').map(part => part.trim()).filter(Boolean);
-    if (parts.length === 0) return [];
-
-    const firstPrefix = parts[0].match(/^(.+_N)(\d+)$/i)?.[1];
-    return [...new Set(parts.map((part, index) => {
-        if (index > 0 && firstPrefix && /^\d+$/.test(part)) {
-            return `${firstPrefix}${part}`;
-        }
-        return part;
-    }).filter(Boolean))];
-};
-
-const normalizeAcademicProgramOptions = (values: string[]) => {
-    const options = [...DEFAULT_ACADEMIC_PROGRAM_OPTIONS, ...values]
-        .map(value => String(value || '').trim())
-        .filter(Boolean);
-
-    return [...new Set(options)].sort((a, b) => {
-        if (DEFAULT_ACADEMIC_PROGRAM_OPTIONS.includes(a)) return -1;
-        if (DEFAULT_ACADEMIC_PROGRAM_OPTIONS.includes(b)) return 1;
-        return a.localeCompare(b, 'vi', { numeric: true, sensitivity: 'base' });
-    });
-};
-
-const getSemesterContainingDate = (date: Date, fallbackSemester: string) => {
-    const matchedSemester = SEMESTER_OPTIONS.find(option => {
-        const weekNumber = getWeekNumberForDate(date, option.value);
-        return weekNumber >= 1 && weekNumber <= getSemesterMaxWeek(option.value);
-    });
-    return matchedSemester?.value || fallbackSemester;
-};
 
 const SYNCABLE_COURSE_FIELDS: { key: keyof Course; label: string }[] = [
     { key: 'course_code', label: 'Mã học phần' },

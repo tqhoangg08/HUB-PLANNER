@@ -1,7 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight, ShieldCheck, User } from 'lucide-react';
 import { UserData } from '../types';
-import { ACADEMIC_PROGRAMS, Major, Program, Specialization, getMajors } from '../utils/programs';
+import {
+  ACADEMIC_COHORT_OPTIONS,
+  ACADEMIC_PROGRAMS,
+  Major,
+  Program,
+  Specialization,
+  getMajors,
+} from '../utils/programs';
 import { playClick } from '../utils/audio';
 import { supabase } from '../utils/supabase';
 
@@ -9,12 +16,6 @@ interface OnboardingProps {
   onComplete: (data: Partial<UserData>) => void;
   initialData?: Partial<UserData>;
 }
-
-const COHORT_OPTIONS: Record<string, string[]> = {
-  standard: ['K38', 'K39', 'K40', 'K41'],
-  tabp: ['CLCK10', 'CLCK11', 'CLCK12', 'CLCK13'],
-  special: ['CTDBK1', 'CTDBK2'],
-};
 
 const normalize = (value?: string) => (value || '').trim().toLocaleLowerCase('vi');
 
@@ -75,7 +76,9 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
   const [formData, setFormData] = useState(() => buildInitialFormData(initialData));
   const [submitted, setSubmitted] = useState(false);
 
-  const cohortOptions = formData.program ? COHORT_OPTIONS[formData.program.id] || [] : [];
+  const cohortOptions = formData.program
+    ? ACADEMIC_COHORT_OPTIONS[formData.program.id] || []
+    : [];
   const majorOptions = useMemo(
     () => (formData.program && formData.cohort ? getMajors(formData.program.id, formData.cohort) : []),
     [formData.program, formData.cohort],

@@ -10,7 +10,7 @@ import { logWebError } from '../utils/logWebError';
 import { promptSendParserDebugFile } from '../utils/parserDebugTicket';
 import { ProtectedSubmitError, verifyTurnstileOnly } from '../utils/protectedSubmit';
 
-interface PendingTranscriptImport {
+export interface PendingTranscriptImport {
     semesters: Semester[];
     onImportedSemesters?: (semesters: Semester[]) => void;
 }
@@ -210,3 +210,5 @@ export const useTranscriptTransfer = ({
         confirmTranscriptImport,
     };
 };
+
+export type TranscriptTransferController = ReturnType<typeof useTranscriptTransfer>;

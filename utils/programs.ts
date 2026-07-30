@@ -361,6 +361,12 @@ export const ACADEMIC_PROGRAMS: Program[] = [
   }
 ];
 
+export const ACADEMIC_COHORT_OPTIONS: Record<string, string[]> = {
+  standard: ['K38', 'K39', 'K40', 'K41'],
+  tabp: ['CLCK10', 'CLCK11', 'CLCK12', 'CLCK13'],
+  special: ['CTDBK1', 'CTDBK2'],
+};
+
 // Helper function to get majors based on Program AND Cohort
 export const getMajors = (programId: string, cohort: string): Major[] => {
     const pId = programId;

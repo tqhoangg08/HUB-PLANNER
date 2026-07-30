@@ -269,3 +269,5 @@ export const useDeleteAccount = ({
         verifyOtpAndReset,
     };
 };
+
+export type DeleteAccountController = ReturnType<typeof useDeleteAccount>;

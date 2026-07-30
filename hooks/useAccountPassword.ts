@@ -359,3 +359,5 @@ export const useAccountPassword = ({
         forgotAccountPassword,
     };
 };
+
+export type AccountPasswordController = ReturnType<typeof useAccountPassword>;

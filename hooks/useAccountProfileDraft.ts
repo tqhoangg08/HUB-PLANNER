@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import type { UserData } from '../types';
 import {
+    ACADEMIC_COHORT_OPTIONS,
     ACADEMIC_PROGRAMS,
     getMajors,
     type Major,
@@ -100,6 +101,12 @@ export const useAccountProfileDraft = ({
     const sessionUserId = session?.user.id || null;
     const sessionEmail = session?.user.email || '';
     const sessionAccessToken = session?.access_token || '';
+    const cohortOptions = draftProgram
+        ? ACADEMIC_COHORT_OPTIONS[draftProgram.id] || []
+        : [];
+    const majorOptions = draftProgram && draftCohort
+        ? getMajors(draftProgram.id, draftCohort)
+        : [];
 
     useEffect(() => {
         if (!open) return;
@@ -178,6 +185,68 @@ export const useAccountProfileDraft = ({
             }
         };
     }, [draftAvatarPreview]);
+
+    const updatePublicProfileEnabled = useCallback((enabled: boolean) => {
+        setDraftPublicProfileEnabled(enabled);
+        if (!enabled) setDraftShowProfileStats(false);
+    }, []);
+
+    const selectAvatarColor = useCallback((color: string) => {
+        setDraftAvatarUrl(color);
+        setDraftAvatarFile(null);
+        if (draftAvatarPreview) {
+            URL.revokeObjectURL(draftAvatarPreview);
+            setDraftAvatarPreview('');
+        }
+    }, [draftAvatarPreview]);
+
+    const selectAvatarFile = useCallback((file: File) => {
+        if (draftAvatarPreview) {
+            URL.revokeObjectURL(draftAvatarPreview);
+        }
+        setDraftAvatarFile(file);
+        setDraftAvatarUrl('');
+        setDraftAvatarPreview(URL.createObjectURL(file));
+    }, [draftAvatarPreview]);
+
+    const rejectAvatarFile = useCallback(() => {
+        setProfileError('Vui lòng chọn đúng file ảnh.');
+    }, []);
+
+    const selectProgram = useCallback((programId: string) => {
+        const program = ACADEMIC_PROGRAMS.find(item => item.id === programId) || null;
+        setDraftProgram(program);
+        setDraftCohort('');
+        setDraftMajor(null);
+        setDraftSpecialization(null);
+    }, []);
+
+    const selectCohort = useCallback((cohort: string) => {
+        setDraftCohort(cohort);
+        setDraftMajor(null);
+        setDraftSpecialization(null);
+    }, []);
+
+    const selectMajor = useCallback((majorCode: string) => {
+        const majors = draftProgram && draftCohort
+            ? getMajors(draftProgram.id, draftCohort)
+            : [];
+        const major = majors.find(item => item.code === majorCode) || null;
+        setDraftMajor(major);
+        setDraftSpecialization(
+            major?.specializations.length === 1
+                ? major.specializations[0]
+                : null,
+        );
+    }, [draftCohort, draftProgram]);
+
+    const selectSpecialization = useCallback((specializationName: string) => {
+        setDraftSpecialization(
+            draftMajor?.specializations.find(
+                item => item.name === specializationName,
+            ) || null,
+        );
+    }, [draftMajor]);
 
     const saveProfile = useCallback(async () => {
         if (!sessionUserId) return;
@@ -381,7 +450,6 @@ export const useAccountProfileDraft = ({
         draftFullName,
         setDraftFullName,
         draftAvatarUrl,
-        setDraftAvatarUrl,
         draftBio,
         setDraftBio,
         draftClassName,
@@ -390,26 +458,31 @@ export const useAccountProfileDraft = ({
         draftProfileTags,
         setDraftProfileTags,
         draftPublicProfileEnabled,
-        setDraftPublicProfileEnabled,
+        updatePublicProfileEnabled,
         draftShowProfileStats,
         setDraftShowProfileStats,
         profileRefreshKey,
-        setDraftAvatarFile,
         draftAvatarPreview,
-        setDraftAvatarPreview,
+        selectAvatarColor,
+        selectAvatarFile,
+        rejectAvatarFile,
         profileSaving,
         profileError,
-        setProfileError,
         draftStudentName,
         setDraftStudentName,
         draftProgram,
-        setDraftProgram,
+        selectProgram,
         draftCohort,
-        setDraftCohort,
+        selectCohort,
         draftMajor,
-        setDraftMajor,
+        selectMajor,
         draftSpecialization,
-        setDraftSpecialization,
+        selectSpecialization,
+        programOptions: ACADEMIC_PROGRAMS,
+        cohortOptions,
+        majorOptions,
         saveProfile,
     };
 };
+
+export type AccountProfileDraftController = ReturnType<typeof useAccountProfileDraft>;

@@ -58,3 +58,5 @@ export const useStudyActions = ({ commitDataUpdate }: UseStudyActionsOptions) =>
         removeSemester,
     };
 };
+
+export type StudyActionsController = ReturnType<typeof useStudyActions>;
