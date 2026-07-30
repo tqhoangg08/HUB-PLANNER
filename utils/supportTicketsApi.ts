@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { apiHeaders, apiUrl } from './api';
+import { getLocalSessionUser } from './clientSession';
 
 export type SupportTicketStatus = 'open' | 'pending' | 'resolved' | 'closed';
 export type SupportTicketPriority = 'low' | 'normal' | 'high' | 'urgent';
@@ -158,10 +159,9 @@ export const validateTicketInput = (subject: string, message: string) => {
 };
 
 export const getCurrentUserId = async () => {
-  const { data, error } = await supabase.auth.getUser();
-  if (error) throw error;
-  if (!data.user?.id) throw new Error('Bạn cần đăng nhập để dùng tính năng hỗ trợ.');
-  return data.user.id;
+  const user = await getLocalSessionUser();
+  if (!user?.id) throw new Error('Bạn cần đăng nhập để dùng tính năng hỗ trợ.');
+  return user.id;
 };
 
 const postSupportTicketAction = async <T>(action: string, payload: Record<string, unknown>) => {

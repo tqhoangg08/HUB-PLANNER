@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getLocalSessionUser } from './clientSession';
 
 export type WebErrorSource = 'frontend' | 'supabase' | 'parser' | 'otp' | 'auth' | 'unknown';
 export type WebErrorLevel = 'error' | 'warn';
@@ -235,9 +236,8 @@ export const logWebError = async ({
     const duplicateKey = [source, action || '', normalizedError.message, pagePath].join('|');
     if (shouldSkipDuplicate(duplicateKey)) return null;
 
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    const user = userData?.user;
-    if (userError || !user) return null;
+    const user = await getLocalSessionUser();
+    if (!user) return null;
     const logId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, '0').slice(-12)}`;

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
+import { getLocalSessionUser } from '../utils/clientSession';
 
 export const useAdminCheck = () => {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -15,7 +16,7 @@ export const useAdminCheck = () => {
 
       try {
         // 1. Get current authenticated user
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = await getLocalSessionUser();
 
         if (!user) {
           setIsAdmin(false);

@@ -960,7 +960,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   }, [selectedSemester, isAuthenticated, effectiveAdminView, adminTab]);
 
   const fetchMySchedule = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = session?.user;
     if (!user) return;
     const targetId = viewUserId || user.id;
 
@@ -1006,7 +1006,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   const addToSchedule = async (course: Course) => {
     if (isSyncing || addScheduleInFlightRef.current) return;
     addScheduleInFlightRef.current = true;
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = session?.user;
     if (!user) {
       addScheduleInFlightRef.current = false;
       alert("Vui lòng đăng nhập!");
@@ -1089,7 +1089,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   };
 
   const removeFromSchedule = async (courseId: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = session?.user;
     if (!user) return;
     const backup = [...mySchedule];
     setMySchedule(mySchedule.filter(c => c.id !== courseId));
@@ -1299,7 +1299,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = session?.user;
     if (!user) { alert("Vui lòng đăng nhập!"); return; }
 
     setIsPdfGuideOpen(false); setIsProcessingPdf(true);
@@ -1376,7 +1376,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     if (!pendingScheduleImport || pendingScheduleImport.rows.length === 0) return;
     setIsConfirmingScheduleImport(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = session?.user;
       if (!user) throw new Error('Vui lòng đăng nhập lại để nhập thời khóa biểu.');
 
       const importedCount = await replaceUserScheduleFromPreview(
@@ -1470,7 +1470,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
   const handleReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = session?.user;
     if (!user) { alert("Bạn cần đăng nhập để gửi báo cáo!"); return; }
 
     openSupportTicketDraft(buildManualSupportTicketDraft({

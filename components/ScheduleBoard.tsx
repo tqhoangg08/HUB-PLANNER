@@ -1438,7 +1438,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   }, [selectedRouteStudentCode, adminTab, studentScheduleSummaries, selectedSemester]);
 
   const fetchMySchedule = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = session?.user;
     if (!user) return; 
     const targetId = viewUserId || user.id;
 
@@ -1601,7 +1601,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const addToSchedule = async (course: Course) => {
     if (isSyncing || addScheduleInFlightRef.current) return;
     addScheduleInFlightRef.current = true;
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = session?.user;
     if (!user) {
       addScheduleInFlightRef.current = false;
       alert("⚠️ Vui lòng đăng nhập!");
@@ -1668,7 +1668,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   };
 
   const removeFromSchedule = async (courseId: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = session?.user;
     if (!user) return;
     const backup = [...mySchedule];
     setMySchedule(mySchedule.filter(c => c.id !== courseId));
@@ -1959,7 +1959,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = session?.user;
     if (!user) { alert("⚠️ Vui lòng đăng nhập!"); return; }
 
     setIsPdfGuideOpen(false); setIsProcessingPdf(true);
@@ -2037,7 +2037,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     if (!pendingScheduleImport || pendingScheduleImport.rows.length === 0) return;
     setIsConfirmingScheduleImport(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = session?.user;
       if (!user) throw new Error('Vui lòng đăng nhập lại để nhập thời khóa biểu.');
 
       const importedCount = await replaceUserScheduleFromPreview(
@@ -2133,7 +2133,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
   const handleReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = session?.user;
     if (!user) { alert("⚠️ Bạn cần đăng nhập để gửi báo cáo!"); return; }
 
     openSupportTicketDraft(buildManualSupportTicketDraft({

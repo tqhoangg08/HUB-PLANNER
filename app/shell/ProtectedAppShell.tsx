@@ -153,6 +153,7 @@ export const ProtectedAppShell = ({
             {requiresPasswordSetup && (
                 <PasswordSetupModal
                     email={session?.user.email}
+                    userId={session?.user.id}
                     onComplete={onPasswordSetupComplete}
                 />
             )}

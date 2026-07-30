@@ -32,6 +32,7 @@ interface ProtectedAppRoutesProps {
     isGuest: boolean;
     hasSession: boolean;
     sessionUserId: string | null;
+    sessionStudentCode: string;
     viewingUserId?: string;
     isAdmin: boolean;
     isAuditor: boolean;
@@ -55,6 +56,7 @@ export const ProtectedAppRoutes = ({
     isGuest,
     hasSession,
     sessionUserId,
+    sessionStudentCode,
     viewingUserId,
     isAdmin,
     isAuditor,
@@ -190,6 +192,8 @@ export const ProtectedAppRoutes = ({
                 element={(
                     <ProfilePage
                         refreshKey={profileRefreshKey}
+                        currentUserId={sessionUserId}
+                        currentStudentCode={sessionStudentCode}
                         onEditProfile={() => setAccountSettingsOpen(true)}
                     />
                 )}

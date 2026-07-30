@@ -5,6 +5,7 @@ import { getBenchmarkRankingTotal } from '../utils/benchmarkRankings';
 import { normalizeSemesterId } from '../utils/rankingData';
 import { supabase } from '../utils/supabase';
 import { fetchProfilePrivate } from '../utils/profilePrivate';
+import { getLocalSessionUser } from '../utils/clientSession';
 
 export const LOOKBACK_SEMESTER_ID = '2025-2026_HK1';
 export const LOOKBACK_SEMESTER_LABEL = 'Học kỳ 1, Năm học 2025-2026';
@@ -44,7 +45,7 @@ const findLookbackSemester = (semesters?: Semester[] | null): Semester | null =>
 const getCurrentUserIdentity = async (): Promise<{ studentCode: string | null; userId: string | null }> => {
     if (!supabase) return { studentCode: null, userId: null };
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getLocalSessionUser();
     const emailCode = user?.email?.split('@')[0]?.trim();
     if (emailCode) return { studentCode: emailCode, userId: user?.id || null };
     if (!user?.id) return { studentCode: null, userId: null };

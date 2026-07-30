@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
+import { getLocalSessionUser } from '../utils/clientSession';
 import { normalizeSemesterId } from '../utils/rankingData';
 import { getBenchmarkRankingTotal } from '../utils/benchmarkRankings';
 
@@ -46,7 +47,7 @@ const toRankValue = (value: unknown): number => toNumberOrNull(value) ?? -Infini
 const getCurrentStudentCode = async (): Promise<string | null> => {
     if (!supabase) return null;
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getLocalSessionUser();
     const emailCode = user?.email?.split('@')[0]?.trim();
     if (emailCode) return emailCode;
     if (!user?.id) return null;

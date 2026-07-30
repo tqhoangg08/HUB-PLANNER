@@ -6,6 +6,7 @@ import { updateProfilePrivate } from '../utils/profilePrivate';
 
 type PasswordSetupModalProps = {
     email?: string | null;
+    userId?: string | null;
     onComplete: () => void;
 };
 
@@ -15,7 +16,7 @@ const validatePassword = (password: string, confirmPassword: string) => {
     return null;
 };
 
-export const PasswordSetupModal: React.FC<PasswordSetupModalProps> = ({ email, onComplete }) => {
+export const PasswordSetupModal: React.FC<PasswordSetupModalProps> = ({ email, userId, onComplete }) => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -39,14 +40,8 @@ export const PasswordSetupModal: React.FC<PasswordSetupModalProps> = ({ email, o
 
             const markedAt = new Date().toISOString();
             const { error: markError } = await supabase.rpc('mark_password_set');
-            if (markError) {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user?.id) throw markError;
-                await updateProfilePrivate(user.id, { password_set_at: markedAt });
-            } else {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user?.id) await updateProfilePrivate(user.id, { password_set_at: markedAt });
-            }
+            if (!userId) throw markError || new Error('Không tìm thấy phiên đăng nhập hiện tại.');
+            await updateProfilePrivate(userId, { password_set_at: markedAt });
 
             onComplete();
         } catch (err: any) {

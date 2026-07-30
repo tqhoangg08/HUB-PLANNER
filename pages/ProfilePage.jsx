@@ -5,10 +5,14 @@ import { BookOpen, Calendar, Check, Copy, Edit3, GraduationCap, ShieldAlert, Tro
 import { formatDate } from '../utils/dateUtils';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 
-const ProfilePage = ({ onEditProfile, refreshKey = 0 }) => {
+const ProfilePage = ({
+  onEditProfile,
+  refreshKey = 0,
+  currentUserId = null,
+  currentStudentCode = '',
+}) => {
   const { id } = useParams();
   const [profile, setProfile] = useState(null);
-  const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -16,10 +20,6 @@ const ProfilePage = ({ onEditProfile, refreshKey = 0 }) => {
     const fetchProfile = async () => {
       setLoading(true);
       try {
-        const { data: currentUserData } = await supabase.auth.getUser();
-        const ownStudentCode = currentUserData?.user?.email?.split('@')[0] || '';
-        if (currentUserData?.user?.id) setCurrentUserId(currentUserData.user.id);
-
         const { data: user, error } = await supabase
           .from('public_profiles')
           .select('id, full_name, student_code, avatar_url, created_at, bio, class_name, profile_tags, public_profile_enabled, show_profile_stats, public_gpa, public_completed_semesters, public_credits')
@@ -31,11 +31,11 @@ const ProfilePage = ({ onEditProfile, refreshKey = 0 }) => {
           return;
         }
 
-        if (ownStudentCode && String(id) === ownStudentCode && currentUserData?.user?.id) {
+        if (currentStudentCode && String(id) === currentStudentCode && currentUserId) {
           const { data: ownProfile, error: ownError } = await supabase
             .from('profiles')
             .select('id, full_name, student_code, avatar_url, created_at, bio, class_name, profile_tags, public_profile_enabled, show_profile_stats, public_gpa, public_completed_semesters, public_credits')
-            .eq('id', currentUserData.user.id)
+            .eq('id', currentUserId)
             .maybeSingle();
 
           if (!ownError && ownProfile) {
@@ -53,26 +53,7 @@ const ProfilePage = ({ onEditProfile, refreshKey = 0 }) => {
     };
 
     if (id) fetchProfile();
-  }, [id, refreshKey]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadCurrentUser = async () => {
-      try {
-        const { data } = await supabase.auth.getUser();
-        if (mounted) setCurrentUserId(data?.user?.id || null);
-      } catch (error) {
-        if (mounted) setCurrentUserId(null);
-      }
-    };
-
-    loadCurrentUser();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  }, [currentStudentCode, currentUserId, id, refreshKey]);
 
   const handleCopyLink = async () => {
     try {

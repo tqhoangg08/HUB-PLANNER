@@ -55,3 +55,9 @@ supabase/migrations/20260602120000_create_payment_request_rpc.sql
 
 # Supabase local temp state
 supabase/.temp/
+
+# Cloudflare local state and generated D1 seed data
+.wrangler/
+cloudflare/.wrangler/
+cloudflare/.dev.vars
+.cache/cloudflare/

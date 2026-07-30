@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { GradeStatus, Semester, UserData } from '../types';
 import { supabase } from '../utils/supabase';
+import { getLocalSessionUser } from './clientSession';
 import {
     calculateCumulativeStats,
     calculateSemesterStats,
@@ -104,9 +105,7 @@ export const exportTranscriptToPdf = async (data: UserData, options: TranscriptE
     let studentCode = (data as any).studentCode || (data as any).student_code;
     if (!studentCode) {
         try {
-            const {
-                data: { user }
-            } = await supabase.auth.getUser();
+            const user = await getLocalSessionUser();
 
             if (user) {
                 const { data: profile } = await supabase

@@ -189,6 +189,7 @@ const App: React.FC = () => {
                 isGuest={isGuest}
                 hasSession={Boolean(session)}
                 sessionUserId={session?.user.id || null}
+                sessionStudentCode={studentId}
                 viewingUserId={viewingUser?.id}
                 isAdmin={isAdmin}
                 isAuditor={isAuditor}

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter, Building } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import { apiUrl } from '../utils/api';
+import { fetchSchoolAnnouncements } from '../utils/announcementsApi';
 
 const ITEMS_PER_PAGE = 10;
 const ANNOUNCEMENT_WIDGET_CACHE_KEY = 'hub_school_announcements_widget_v1';
@@ -101,7 +102,7 @@ const SchoolAnnouncements = () => {
 
     const fetchNews = async () => {
       try {
-        const response = await fetch(apiUrl('/events?resource=announcements&limit=10'));
+        const response = await fetchSchoolAnnouncements('/events?resource=announcements&limit=10');
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error || 'Không tải được thông báo trường.');
         const data = payload.data;
@@ -142,7 +143,7 @@ const SchoolAnnouncements = () => {
       if (startDate) params.set('startDate', startDate);
       if (endDate) params.set('endDate', endDate);
 
-      const response = await fetch(apiUrl(`/events?${params.toString()}`));
+      const response = await fetchSchoolAnnouncements(`/events?${params.toString()}`);
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error || 'Không tải được thông báo trường.');
       setModalNews(payload.data || []);
