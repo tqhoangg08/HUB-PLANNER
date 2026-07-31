@@ -7,6 +7,7 @@ import {
     AdminEventCandidates,
     AdminReports,
     AdminSupportTickets,
+    CloudflareDataAdmin,
     Dashboard,
     EventsBoard,
     Handbook,
@@ -130,6 +131,7 @@ export const ProtectedAppRoutes = ({
                 <Route path="/admin/support" element={isManagementUser ? <AdminSupportTickets /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/support/:ticketId" element={isManagementUser ? <AdminSupportTickets /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/mobile-home" replace />} />
+                <Route path="/admin/data" element={isAdmin ? <CloudflareDataAdmin /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/event-candidates" element={isManagementUser ? <AdminEventCandidates /> : <Navigate to="/mobile-home" replace />} />
                 <Route
                     path="/profile/:id"
@@ -203,6 +205,7 @@ export const ProtectedAppRoutes = ({
             <Route path="/admin/support" element={isManagementUser ? <AdminSupportTickets /> : <Navigate to="/dashboard" replace />} />
             <Route path="/admin/support/:ticketId" element={isManagementUser ? <AdminSupportTickets /> : <Navigate to="/dashboard" replace />} />
             <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/dashboard" replace />} />
+            <Route path="/admin/data" element={isAdmin ? <CloudflareDataAdmin /> : <Navigate to="/dashboard" replace />} />
             <Route path="/admin/event-candidates" element={isManagementUser ? <AdminEventCandidates /> : <Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

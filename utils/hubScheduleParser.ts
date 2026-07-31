@@ -239,7 +239,9 @@ const parsePageCourses = (page: SchedulePdfLayoutPage): ImportedScheduleCourse[]
         .sort((a, b) => b.y - a.y);
     if (!codeItems.length) return [];
 
-    const nameHeader = findHeader(items, /^Tên\s+học\s+phần$/i);
+    // Depending on the print width, HUB Portal renders this header either as
+    // "Tên học phần" on one line or as "Tên học" / "phần" on two lines.
+    const nameHeader = findHeader(items, /^Tên\s+học(?:\s+phần)?$/i);
     const infoHeader = findHeader(items, /^Thông\s+tin$/i);
     const instructorHeader = findHeader(items, /^Giảng$/i);
     if (!nameHeader || !infoHeader || !instructorHeader) return [];

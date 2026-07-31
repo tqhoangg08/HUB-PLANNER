@@ -34,6 +34,9 @@ export const AdminEventCandidates = lazy(() =>
 export const AdminSupportTickets = lazy(() =>
     import('../../components/AdminSupportTickets').then(module => ({ default: module.AdminSupportTickets }))
 );
+export const CloudflareDataAdmin = lazy(() =>
+    import('../../components/CloudflareDataAdmin').then(module => ({ default: module.CloudflareDataAdmin }))
+);
 export const SupportTickets = lazy(() =>
     import('../../components/SupportTickets').then(module => ({ default: module.SupportTickets }))
 );

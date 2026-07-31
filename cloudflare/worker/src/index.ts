@@ -1,5 +1,6 @@
 import { handleCourses, syncCourseSchedules } from './courses.ts';
 import { handleEvents, syncPublicEvents } from './events.ts';
+import { handleLostFound, syncPublicLostFound } from './lost-found.ts';
 
 interface Env {
   DB: D1Database;
@@ -41,6 +42,7 @@ const ANNOUNCEMENT_RECENT_REFRESH_SIZE = 200;
 const ANNOUNCEMENT_EDGE_TTL_SECONDS = 300;
 const COURSE_EDGE_TTL_SECONDS = 1800;
 const EVENT_EDGE_TTL_SECONDS = 300;
+const LOST_FOUND_EDGE_TTL_SECONDS = 120;
 const ANNOUNCEMENT_CACHE_PARAMS = new Set([
   'resource',
   'limit',
@@ -75,6 +77,12 @@ const EVENT_CACHE_PARAMS = new Set([
   'sort',
   'group',
   'ids',
+]);
+const LOST_FOUND_CACHE_PARAMS = new Set([
+  'type',
+  'limit',
+  'offset',
+  'search',
 ]);
 
 const json = (payload: unknown, status = 200, headers: HeadersInit = {}) =>
@@ -111,6 +119,9 @@ export const buildPublicCacheKey = (request: Request) => {
   const resource = String(requestUrl.searchParams.get('resource') || '');
   const allowedParams = requestUrl.pathname.endsWith('/courses')
     ? COURSE_CACHE_PARAMS
+    : requestUrl.pathname.endsWith('/lost-found') ||
+        resource === 'lost-found'
+      ? LOST_FOUND_CACHE_PARAMS
     : resource === 'announcements'
       ? ANNOUNCEMENT_CACHE_PARAMS
       : EVENT_CACHE_PARAMS;
@@ -430,8 +441,11 @@ const worker = {
       requestUrl.pathname === '/events' || requestUrl.pathname === '/api/events';
     const isCoursesPath =
       requestUrl.pathname === '/courses' || requestUrl.pathname === '/api/courses';
+    const isLostFoundPath =
+      requestUrl.pathname === '/lost-found' ||
+      requestUrl.pathname === '/api/lost-found';
 
-    if (!isEventsPath && !isCoursesPath) {
+    if (!isEventsPath && !isCoursesPath && !isLostFoundPath) {
       return json({ error: 'Không tìm thấy endpoint.' }, 404, cors);
     }
 
@@ -467,6 +481,30 @@ const worker = {
     }
 
     const resource = String(requestUrl.searchParams.get('resource') || '');
+    const isLostFoundRequest =
+      isLostFoundPath || (isEventsPath && resource === 'lost-found');
+    if (isLostFoundRequest) {
+      try {
+        const payload = await handleLostFound(requestUrl, env);
+        const response = json(payload, 200, {
+          ...cors,
+          'Cache-Control': bypassCache
+            ? 'no-store'
+            : `public, max-age=60, s-maxage=${LOST_FOUND_EDGE_TTL_SECONDS}, stale-while-revalidate=300`,
+          'X-Hub-Backend': 'cloudflare-d1',
+          'X-Hub-Cache': bypassCache ? 'BYPASS' : 'MISS',
+        });
+        if (!bypassCache) storeCachedResponse(request, response, ctx);
+        return response;
+      } catch (error) {
+        console.error('lost_found_query_failed', error);
+        return json({ error: 'Không tải được danh sách tìm đồ.' }, 500, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      }
+    }
+
     if (resource && resource !== 'announcements') {
       return json({ error: 'Resource không hợp lệ.' }, 400, cors);
     }
@@ -517,7 +555,8 @@ const worker = {
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
     const hourlyCron = controller.cron === '17 * * * *';
     const eventCron = controller.cron === '*/10 * * * *';
-    const runAll = !hourlyCron && !eventCron;
+    const lostFoundCron = controller.cron === '*/5 * * * *';
+    const runAll = !hourlyCron && !eventCron && !lostFoundCron;
     const reconcileCourseDeletes =
       (hourlyCron || runAll) &&
       new Date(controller.scheduledTime).getUTCHours() === 20;
@@ -545,6 +584,15 @@ const worker = {
         failureEvent: 'event_sync_failed',
         promise: syncPublicEvents(env).then((summary) =>
           console.log('event_sync_complete', summary)
+        ),
+      });
+    }
+
+    if (lostFoundCron || runAll) {
+      jobs.push({
+        failureEvent: 'lost_found_sync_failed',
+        promise: syncPublicLostFound(env).then((summary) =>
+          console.log('lost_found_sync_complete', summary)
         ),
       });
     }

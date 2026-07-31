@@ -15,7 +15,7 @@ import {
     getGradeDetails,
     getCombinedYearClassification
 } from '../utils/calculations';
-import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CalendarDays, Check, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter, Sparkles, Bell, Edit3, Home, Lock, ShieldCheck, ClipboardList, Activity } from 'lucide-react';
+import { Target, AlertTriangle, User, BookOpen, BarChart3, Calendar, CalendarDays, Check, CheckCircle2, Pencil, Trophy, Zap, ChevronRight, X, GraduationCap, TrendingUp, Plus, Star, Search, Crown, Loader2, AlertCircle, BarChart2, ChevronLeft, Award, ArrowUpDown, ArrowUp, ArrowDown, ListFilter, Trash2, Download, FileUp, Info, Shield, ChevronDown, ShieldAlert, RefreshCw, Users, Filter, Sparkles, Bell, Edit3, Home, Lock, ShieldCheck, ClipboardList, Activity, Database } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { playClick } from '../utils/audio';
 import { mapIdToDisplay, normalizeSemesterId } from '../utils/rankingData';
@@ -1509,6 +1509,14 @@ const NativeQuickActions = ({
 const NativeAdminTools = () => {
   const { isAdmin, isAuditor } = useUserRole();
   const tools = [
+    {
+      to: '/admin/data',
+      label: 'Trung tâm dữ liệu',
+      description: 'Theo dõi tình trạng đồng bộ dữ liệu Cloudflare.',
+      icon: Database,
+      className: 'bg-indigo-50 text-indigo-600',
+      visible: isAdmin,
+    },
     {
       to: '/admin-reports',
       label: 'Báo cáo quản trị',

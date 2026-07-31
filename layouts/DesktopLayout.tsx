@@ -1,6 +1,6 @@
 ﻿import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Book, Calendar, ChevronDown, ClipboardList, Headphones, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Menu, X, FileText, ShieldCheck, Sparkles } from 'lucide-react';
+import { Book, Calendar, ChevronDown, ClipboardList, Database, Headphones, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Menu, X, FileText, ShieldCheck, Sparkles } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import NotificationBell from '../components/NotificationBell';
 import { supabase } from '../utils/supabase';
@@ -234,25 +234,53 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       }
 
       let cancelled = false;
-      const unresolvedStatuses = new Set(['ok', 'resolved']);
-      const reportTables = ['course_reports', 'bug_reports', 'ctv_requests', 'event_reports', 'feedback'];
+      const badgeCacheKey = 'hub_admin_sidebar_badges_v2';
+      const badgeCacheTtlMs = 2 * 60 * 1000;
+      const reportTables = [
+          'course_reports',
+          'bug_reports',
+          'ctv_requests',
+          'event_reports',
+          'feedback',
+          'canva_pro_requests',
+      ];
+      const resolvedStatuses = '(ok,resolved,contacted,approved,rejected)';
+
+      try {
+          const rawCached = sessionStorage.getItem(badgeCacheKey);
+          if (rawCached) {
+              const cached = JSON.parse(rawCached) as {
+                  cachedAt?: number;
+                  pendingReports?: number;
+                  pendingCandidates?: number;
+              };
+              if (
+                  Number.isFinite(cached.cachedAt) &&
+                  Date.now() - Number(cached.cachedAt) <= badgeCacheTtlMs
+              ) {
+                  setPendingReportCount(Number(cached.pendingReports || 0));
+                  setPendingCandidateCount(Number(cached.pendingCandidates || 0));
+                  return;
+              }
+          }
+      } catch {
+          // Ignore unavailable or malformed session cache.
+      }
 
       const loadPendingCounts = async () => {
           try {
               const reportCounts = await Promise.all(reportTables.map(async (table) => {
-                  const { data, error } = await supabase
+                  const { count, error } = await supabase
                       .from(table)
-                      .select('id,status');
+                      .select('id', { count: 'exact', head: true })
+                      .not('status', 'in', resolvedStatuses);
 
                   if (error) {
                       console.warn(`Không thể tải số báo cáo chờ xử lý từ ${table}:`, error.message);
                       return 0;
                   }
 
-                  return (data || []).filter((item: any) => {
-                      const status = String(item?.status || '').toLowerCase();
-                      return !unresolvedStatuses.has(status);
-                  }).length;
+                  return Number(count || 0);
               }));
 
               const { count: candidateCount, error: candidateError } = await supabase
@@ -265,8 +293,22 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               }
 
               if (!cancelled) {
-                  setPendingReportCount(reportCounts.reduce((sum, value) => sum + value, 0));
-                  setPendingCandidateCount(candidateError ? 0 : (candidateCount || 0));
+                  const pendingReports = reportCounts.reduce((sum, value) => sum + value, 0);
+                  const pendingCandidates = candidateError ? 0 : Number(candidateCount || 0);
+                  setPendingReportCount(pendingReports);
+                  setPendingCandidateCount(pendingCandidates);
+                  try {
+                      sessionStorage.setItem(
+                          badgeCacheKey,
+                          JSON.stringify({
+                              cachedAt: Date.now(),
+                              pendingReports,
+                              pendingCandidates,
+                          })
+                      );
+                  } catch {
+                      // The counts still work when sessionStorage is unavailable.
+                  }
               }
           } catch (error) {
               console.warn('Không thể tải badge sidebar:', error);
@@ -277,7 +319,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
           }
       };
 
-      loadPendingCounts();
+      void loadPendingCounts();
 
       return () => {
           cancelled = true;
@@ -374,6 +416,11 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           <MessageSquarePlus size={16} /> Hỗ trợ ticket
                       </NavLink>
                       {isAdmin && (
+                          <NavLink to="/admin/data" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
+                              <Database size={16} /> Trung tâm dữ liệu
+                          </NavLink>
+                      )}
+                      {isAdmin && (
                           <NavLink to="/admin/activity" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
                               <Clock size={16} /> Theo dõi hoạt động
                           </NavLink>
@@ -445,6 +492,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               <span className="text-gray-900 font-bold truncate max-w-[150px] sm:max-w-full">
                                   {location.pathname.includes('admin/activity')
                                       ? 'Quản lý hoạt động'
+                                      : location.pathname.includes('admin/data')
+                                      ? 'Trung tâm dữ liệu'
                                       : location.pathname.includes('admin/event-candidates')
                                       ? 'Quản lý Duyệt sự kiện'
                                       : location.pathname.includes('admin-reports')

@@ -19,6 +19,11 @@ import {
   parseEventIds,
   parseEventQuery,
 } from '../cloudflare/worker/src/events.ts';
+import {
+  buildSupabaseLostFoundUrl,
+  normalizeLostFoundSearch,
+  parseLostFoundQuery,
+} from '../cloudflare/worker/src/lost-found.ts';
 
 test('announcement query uses safe defaults', () => {
   const query = parseAnnouncementQuery(new URLSearchParams());
@@ -195,4 +200,55 @@ test('event and announcement cache keys cannot collide', () => {
     )
   );
   assert.notEqual(events.url, announcements.url);
+});
+
+test('lost-found query validates type, paging and Vietnamese search', () => {
+  assert.deepEqual(
+    parseLostFoundQuery(
+      new URLSearchParams('type=lost&limit=999&offset=-2&search=  ĐIỆN, THOẠI%  ')
+    ),
+    {
+      limit: 50,
+      offset: 0,
+      type: 'LOST',
+      search: 'điện thoại',
+    }
+  );
+  assert.equal(normalizeLostFoundSearch('  KHU   A,  '), 'khu a');
+  assert.equal(parseLostFoundQuery(new URLSearchParams('type=other')).type, null);
+});
+
+test('lost-found sync requests only published non-deleted rows', () => {
+  const url = buildSupabaseLostFoundUrl(
+    'https://example.supabase.co/',
+    500
+  );
+  assert.equal(url.pathname, '/rest/v1/lost_found_items');
+  assert.equal(url.searchParams.get('is_deleted'), 'eq.false');
+  assert.equal(url.searchParams.get('status'), 'in.(approved,resolved)');
+  assert.equal(url.searchParams.get('order'), 'id.asc');
+  assert.equal(url.searchParams.get('limit'), '500');
+  assert.equal(url.searchParams.get('offset'), '500');
+});
+
+test('lost-found cache keys ignore unrelated parameters and stay isolated', () => {
+  const first = buildPublicCacheKey(
+    new Request(
+      'https://api.example.com/lost-found?type=LOST&limit=24&random=ignored',
+      { headers: { Origin: 'https://hotrosinhvienhub.id.vn' } }
+    )
+  );
+  const reordered = buildPublicCacheKey(
+    new Request(
+      'https://api.example.com/lost-found?limit=24&type=LOST',
+      { headers: { Origin: 'https://hotrosinhvienhub.id.vn' } }
+    )
+  );
+  const events = buildPublicCacheKey(
+    new Request('https://api.example.com/events?limit=24', {
+      headers: { Origin: 'https://hotrosinhvienhub.id.vn' },
+    })
+  );
+  assert.equal(first.url, reordered.url);
+  assert.notEqual(first.url, events.url);
 });

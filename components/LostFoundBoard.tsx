@@ -10,6 +10,7 @@ import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiUrl } from '../utils/api';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
+import { fetchPublicLostFound } from '../utils/lostFoundApi';
 
 // --- Types ---
 interface LostFoundItem {
@@ -486,7 +487,6 @@ export const LostFoundBoard: React.FC = () => {
   const fetchItems = async () => {
     setLoading(true);
     setError(null);
-    if (!supabase) { setItems([]); setError("Chưa cấu hình Supabase."); setLoading(false); return; }
 
     try {
       if (!canManage) {
@@ -500,7 +500,9 @@ export const LostFoundBoard: React.FC = () => {
           const term = sanitizeLostFoundSearch(searchTerm);
           if (term) params.set('search', term);
 
-          const response = await fetch(apiUrl(`/events?${params.toString()}`));
+          const response = await fetchPublicLostFound(
+              `/events?${params.toString()}`
+          );
           const payload = await response.json();
           if (!response.ok) throw new Error(payload?.error || 'Không tải được danh sách tìm đồ.');
           setItems((payload.data || []) as LostFoundItem[]);
@@ -508,6 +510,7 @@ export const LostFoundBoard: React.FC = () => {
           return;
       }
 
+      if (!supabase) throw new Error('Chưa cấu hình Supabase.');
       let query = supabase.from('lost_found_items')
         .select('id,created_at,type,title,description,location,contact_info,user_name,image_url,status,is_deleted,user_id', { count: 'exact' })
         .eq('is_deleted', false)
