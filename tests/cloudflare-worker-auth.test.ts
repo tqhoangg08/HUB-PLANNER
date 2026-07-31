@@ -429,3 +429,50 @@ test('user schedule routes expose only their intended methods', async () => {
   assert.equal(replaceResponse.status, 405);
   assert.equal(replaceResponse.headers.get('Allow'), 'PUT, OPTIONS');
 });
+
+test('private exact ranking rejects unauthenticated requests before reading D1', async () => {
+  const response = await worker.fetch(
+    new Request(
+      'https://api.example.com/api/user/v1/rankings/exact?semester=2025-2026_HK1'
+    ),
+    {
+      ALLOWED_ORIGINS: 'https://hotrosinhvienhub.id.vn',
+      SUPABASE_URL: 'https://example.supabase.co',
+    } as never,
+    {} as never
+  );
+
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.equal(response.headers.get('WWW-Authenticate'), 'Bearer');
+});
+
+test('public ranking forecast accepts only bounded JSON POST requests', async () => {
+  const env = {
+    ALLOWED_ORIGINS: 'https://hotrosinhvienhub.id.vn',
+  } as never;
+  const context = {} as never;
+  const methodResponse = await worker.fetch(
+    new Request(
+      'https://api.example.com/api/public/v1/rankings/forecast'
+    ),
+    env,
+    context
+  );
+  const contentTypeResponse = await worker.fetch(
+    new Request(
+      'https://api.example.com/api/public/v1/rankings/forecast',
+      {
+        method: 'POST',
+        body: '{}',
+      }
+    ),
+    env,
+    context
+  );
+
+  assert.equal(methodResponse.status, 405);
+  assert.equal(methodResponse.headers.get('Allow'), 'POST, OPTIONS');
+  assert.equal(contentTypeResponse.status, 415);
+  assert.equal(contentTypeResponse.headers.get('Cache-Control'), 'no-store');
+});

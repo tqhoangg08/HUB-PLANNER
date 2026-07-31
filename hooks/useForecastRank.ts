@@ -3,6 +3,12 @@ import { supabase } from '../utils/supabase';
 import { getLocalSessionUser } from '../utils/clientSession';
 import { normalizeSemesterId } from '../utils/rankingData';
 import { getBenchmarkRankingTotal } from '../utils/benchmarkRankings';
+import {
+    fetchCloudflareOwnRanking,
+    fetchCloudflareRankingSemesters,
+    forecastCloudflareRankings,
+    RANKINGS_BACKEND_MODE
+} from '../utils/benchmarkRankingsApi';
 
 interface ForecastRankResult {
     rank: number;
@@ -77,6 +83,26 @@ export const useForecastRank = () => {
 
         setLoadingSemesters(true);
         try {
+            if (RANKINGS_BACKEND_MODE === 'cloudflare') {
+                try {
+                    const rows = await fetchCloudflareRankingSemesters();
+                    setAvailableSemesters(
+                        rows
+                            .map((item) => item.semester)
+                            .filter(Boolean)
+                            .sort()
+                            .reverse()
+                    );
+                    return;
+                } catch (cloudflareError) {
+                    console.warn('[ranking-semesters-cloudflare-fallback]', {
+                        message: cloudflareError instanceof Error
+                            ? cloudflareError.message
+                            : 'unknown-error'
+                    });
+                }
+            }
+
             const { data, error } = await supabase.rpc('get_semesters');
             if (error) throw error;
 
@@ -87,6 +113,30 @@ export const useForecastRank = () => {
                 .reverse();
 
             setAvailableSemesters(uniqueSemesters);
+
+            if (RANKINGS_BACKEND_MODE === 'shadow') {
+                void fetchCloudflareRankingSemesters()
+                    .then((candidateRows) => {
+                        const candidate = candidateRows
+                            .map((item) => item.semester)
+                            .filter(Boolean)
+                            .sort()
+                            .reverse();
+                        if (JSON.stringify(candidate) !== JSON.stringify(uniqueSemesters)) {
+                            console.warn('[ranking-semesters-shadow-mismatch]', {
+                                sourceCount: uniqueSemesters.length,
+                                candidateCount: candidate.length
+                            });
+                        }
+                    })
+                    .catch((shadowError) => {
+                        console.warn('[ranking-semesters-shadow-failed]', {
+                            message: shadowError instanceof Error
+                                ? shadowError.message
+                                : 'unknown-error'
+                        });
+                    });
+            }
         } catch (err: any) {
             console.error('Error fetching semesters:', err);
         } finally {
@@ -104,6 +154,30 @@ export const useForecastRank = () => {
                 credits: Number.isFinite(inputs.credits) ? inputs.credits : 0,
                 trainingScore: Number.isFinite(inputs.trainingScore) ? inputs.trainingScore : 0
             };
+
+            if (RANKINGS_BACKEND_MODE === 'cloudflare') {
+                try {
+                    const rows = await forecastCloudflareRankings({
+                        semesters,
+                        ...normalizedInputs
+                    });
+                    setSemesterRanks(
+                        rows.reduce<Record<string, number>>((acc, row) => {
+                            if (row.semester && Number.isFinite(row.rank)) {
+                                acc[row.semester] = row.rank;
+                            }
+                            return acc;
+                        }, {})
+                    );
+                    return;
+                } catch (cloudflareError) {
+                    console.warn('[ranking-history-cloudflare-fallback]', {
+                        message: cloudflareError instanceof Error
+                            ? cloudflareError.message
+                            : 'unknown-error'
+                    });
+                }
+            }
 
             const { data, error } = await supabase.rpc('get_ranks_for_all_semesters', {
                 p_gpa: normalizedInputs.gpa,
@@ -125,6 +199,37 @@ export const useForecastRank = () => {
             ) ?? {};
 
             setSemesterRanks(mappedRanks);
+
+            if (RANKINGS_BACKEND_MODE === 'shadow') {
+                void forecastCloudflareRankings({
+                    semesters,
+                    ...normalizedInputs
+                })
+                    .then((candidateRows) => {
+                        const candidateRanks = candidateRows.reduce<Record<string, number>>(
+                            (acc, row) => {
+                                if (row.semester && Number.isFinite(row.rank)) {
+                                    acc[row.semester] = row.rank;
+                                }
+                                return acc;
+                            },
+                            {}
+                        );
+                        if (JSON.stringify(candidateRanks) !== JSON.stringify(mappedRanks)) {
+                            console.warn('[ranking-history-shadow-mismatch]', {
+                                sourceCount: Object.keys(mappedRanks).length,
+                                candidateCount: Object.keys(candidateRanks).length
+                            });
+                        }
+                    })
+                    .catch((shadowError) => {
+                        console.warn('[ranking-history-shadow-failed]', {
+                            message: shadowError instanceof Error
+                                ? shadowError.message
+                                : 'unknown-error'
+                        });
+                    });
+            }
         } catch (err: any) {
             console.error('Error fetching semester ranks:', err);
         } finally {
@@ -169,10 +274,43 @@ export const useForecastRank = () => {
             const selectedSemesterKey = normalizeSemesterId(semesterId) || semesterId;
             const currentSemesterKey = normalizeSemesterId(context?.currentSemesterId) || context?.currentSemesterId || null;
             const isSameSemester = Boolean(currentSemesterKey && selectedSemesterKey && currentSemesterKey === selectedSemesterKey);
-            const studentCode = context?.studentCode?.trim() || await getCurrentStudentCode();
+            let studentCode = context?.studentCode?.trim() || null;
 
             let exactStudentRow: any = null;
-            if (isSameSemester && studentCode) {
+            let rankRow: any = null;
+            let resolvedRank: number | null = null;
+            let resolvedTotal: number | null = null;
+
+            if (isSameSemester && RANKINGS_BACKEND_MODE === 'cloudflare') {
+                try {
+                    const ownRanking = await fetchCloudflareOwnRanking(semesterId);
+                    if (ownRanking) {
+                        exactStudentRow = {
+                            student_rank: ownRanking.studentRank,
+                            rank_in_class: ownRanking.rankInClass,
+                            total_in_class: ownRanking.totalInClass,
+                            class_code: ownRanking.classCode,
+                            rank_in_major: ownRanking.rankInMajor,
+                            total_in_major: ownRanking.totalInMajor,
+                            major: ownRanking.major
+                        };
+                        rankRow = exactStudentRow;
+                        resolvedRank = toNumberOrNull(ownRanking.studentRank);
+                        resolvedTotal = toNumberOrNull(ownRanking.totalStudents);
+                    }
+                } catch (cloudflareError) {
+                    console.warn('[ranking-exact-cloudflare-fallback]', {
+                        message: cloudflareError instanceof Error
+                            ? cloudflareError.message
+                            : 'unknown-error'
+                    });
+                }
+            }
+
+            if (isSameSemester && !exactStudentRow) {
+                studentCode = studentCode || await getCurrentStudentCode();
+            }
+            if (isSameSemester && !exactStudentRow && studentCode) {
                 const { data, error } = await supabase
                     .from('benchmark_rankings')
                     .select('student_rank,rank_in_class,total_in_class,class_code,rank_in_major,total_in_major,major')
@@ -182,45 +320,98 @@ export const useForecastRank = () => {
 
                 if (error) throw error;
                 exactStudentRow = data;
+                if (data) {
+                    rankRow = data;
+                    resolvedRank = toNumberOrNull(data.student_rank);
+                }
             }
 
             const lookupStudentCode = isSameSemester ? studentCode : null;
             const lookupClassCode = exactStudentRow?.class_code || (isSameSemester ? context?.classCode || null : null);
             const lookupMajor = exactStudentRow?.major || context?.major || null;
 
-            const { data: detailData, error: detailError } = await supabase.rpc('get_smart_rank_details', {
-                p_semester: semesterId,
-                p_gpa: normalizedGpa,
-                p_credits: normalizedCredits,
-                p_drl: normalizedTrainingScore,
-                p_student_code: lookupStudentCode,
-                p_class_code: lookupClassCode,
-                p_major: lookupMajor
-            });
+            if (
+                (!resolvedRank || !resolvedTotal) &&
+                RANKINGS_BACKEND_MODE === 'cloudflare'
+            ) {
+                try {
+                    const rows = await forecastCloudflareRankings({
+                        semesters: [semesterId],
+                        gpa: normalizedGpa,
+                        credits: normalizedCredits,
+                        trainingScore: normalizedTrainingScore,
+                        major: lookupMajor
+                    });
+                    const candidate = rows[0];
+                    if (candidate) {
+                        resolvedRank = resolvedRank ?? toNumberOrNull(candidate.rank);
+                        resolvedTotal = toNumberOrNull(candidate.totalStudents);
+                        rankRow = {
+                            ...rankRow,
+                            rank: candidate.rank,
+                            total_students: candidate.totalStudents,
+                            rank_in_major:
+                                rankRow?.rank_in_major ?? candidate.rankInMajor,
+                            total_in_major:
+                                rankRow?.total_in_major ?? candidate.totalInMajor,
+                            major: rankRow?.major ?? candidate.major
+                        };
+                    }
+                } catch (cloudflareError) {
+                    console.warn('[ranking-forecast-cloudflare-fallback]', {
+                        message: cloudflareError instanceof Error
+                            ? cloudflareError.message
+                            : 'unknown-error'
+                    });
+                }
+            }
 
-            let rankRow: any = null;
-            let resolvedRank: number | null = null;
-            let resolvedTotal: number | null = null;
+            if (!resolvedRank || !resolvedTotal) {
+                const { data: detailData, error: detailError } = await supabase.rpc(
+                    'get_smart_rank_details',
+                    {
+                        p_semester: semesterId,
+                        p_gpa: normalizedGpa,
+                        p_credits: normalizedCredits,
+                        p_drl: normalizedTrainingScore,
+                        p_student_code: lookupStudentCode,
+                        p_class_code: lookupClassCode,
+                        p_major: lookupMajor
+                    }
+                );
 
-            if (!detailError && detailData) {
-                rankRow = Array.isArray(detailData) ? detailData[0] : detailData;
-                resolvedRank = toNumberOrNull(rankRow?.rank);
-                resolvedTotal = toNumberOrNull(rankRow?.total_students);
-            } else {
-                const { data: rankData, error: rankError } = await supabase.rpc('get_smart_rank', {
-                    p_semester: semesterId,
-                    p_gpa: normalizedGpa,
-                    p_credits: normalizedCredits,
-                    p_drl: normalizedTrainingScore
-                });
+                if (!detailError && detailData) {
+                    const detailRow = Array.isArray(detailData)
+                        ? detailData[0]
+                        : detailData;
+                    rankRow = { ...detailRow, ...rankRow };
+                    resolvedRank =
+                        resolvedRank ?? toNumberOrNull(detailRow?.rank);
+                    resolvedTotal =
+                        resolvedTotal ??
+                        toNumberOrNull(detailRow?.total_students);
+                } else {
+                    const { data: rankData, error: rankError } = await supabase.rpc(
+                        'get_smart_rank',
+                        {
+                            p_semester: semesterId,
+                            p_gpa: normalizedGpa,
+                            p_credits: normalizedCredits,
+                            p_drl: normalizedTrainingScore
+                        }
+                    );
 
-                if (rankError) throw detailError || rankError;
-
-                resolvedRank = typeof rankData === 'number'
-                    ? rankData
-                    : Array.isArray(rankData)
-                        ? toNumberOrNull(rankData[0]?.rank)
-                        : toNumberOrNull((rankData as { rank?: number } | null)?.rank);
+                    if (rankError) throw detailError || rankError;
+                    resolvedRank = resolvedRank ?? (
+                        typeof rankData === 'number'
+                            ? rankData
+                            : Array.isArray(rankData)
+                                ? toNumberOrNull(rankData[0]?.rank)
+                                : toNumberOrNull(
+                                    (rankData as { rank?: number } | null)?.rank
+                                )
+                    );
+                }
             }
 
             if (!resolvedTotal) {
@@ -246,7 +437,11 @@ export const useForecastRank = () => {
                 };
             }
 
-            if (exactStudentRow?.class_code && (!rankRow?.rank_in_class || !rankRow?.total_in_class)) {
+            if (
+                studentCode &&
+                exactStudentRow?.class_code &&
+                (!rankRow?.rank_in_class || !rankRow?.total_in_class)
+            ) {
                 const { data: classRows, error: classError } = await supabase
                     .from('benchmark_rankings')
                     .select('student_code,gpa,training_score,credits')

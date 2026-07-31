@@ -29,6 +29,14 @@ import {
   UserScheduleError,
 } from './user-schedules.ts';
 import {
+  forecastBenchmarkRankings,
+  listRankingSemesters,
+  parseRankingSemester,
+  RankingError,
+  readOwnBenchmarkRanking,
+  readRankingForecastBody,
+} from './rankings.ts';
+import {
   readBearerToken,
   requireAuthenticatedUser,
   requireStaff,
@@ -507,6 +515,42 @@ const userScheduleErrorResponse = (
   });
 };
 
+const rankingErrorResponse = (
+  error: unknown,
+  requestUrl: URL,
+  cors: HeadersInit
+) => {
+  const status =
+    error instanceof StaffAuthError
+      ? error.status
+      : error instanceof RankingError
+        ? error.status
+        : 500;
+  const message =
+    status === 401
+      ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+      : error instanceof RankingError
+        ? error.message
+        : 'Không thể xử lý dữ liệu xếp hạng.';
+
+  if (
+    !(error instanceof StaffAuthError) &&
+    !(error instanceof RankingError)
+  ) {
+    console.error(JSON.stringify({
+      event: 'ranking_request_failed',
+      path: requestUrl.pathname,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+  }
+
+  return json({ error: message }, status, {
+    ...cors,
+    'Cache-Control': 'no-store',
+    ...(status === 401 ? { 'WWW-Authenticate': 'Bearer' } : {}),
+  });
+};
+
 const scheduleUserScheduleMirrorRepair = (
   env: WorkerEnv,
   ctx: ExecutionContext
@@ -835,6 +879,83 @@ const worker = {
         });
       } catch (error) {
         return adminErrorResponse(error, requestUrl, cors);
+      }
+    }
+
+    if (requestUrl.pathname === '/api/public/v1/rankings/semesters') {
+      if (request.method !== 'GET') {
+        return json({ error: 'Chỉ hỗ trợ phương thức GET.' }, 405, {
+          ...cors,
+          Allow: 'GET, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+
+      try {
+        return json(await listRankingSemesters(env), 200, {
+          ...cors,
+          'Cache-Control':
+            'public, max-age=300, s-maxage=1800, stale-while-revalidate=3600',
+        });
+      } catch (error) {
+        return rankingErrorResponse(error, requestUrl, cors);
+      }
+    }
+
+    if (requestUrl.pathname === '/api/public/v1/rankings/forecast') {
+      if (request.method !== 'POST') {
+        return json({ error: 'Chỉ hỗ trợ phương thức POST.' }, 405, {
+          ...cors,
+          Allow: 'POST, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+      if (
+        !String(request.headers.get('Content-Type') || '')
+          .toLowerCase()
+          .startsWith('application/json')
+      ) {
+        return json({ error: 'Content-Type phải là application/json.' }, 415, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      }
+
+      try {
+        const input = await readRankingForecastBody(request);
+        return json(await forecastBenchmarkRankings(env, input), 200, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      } catch (error) {
+        return rankingErrorResponse(error, requestUrl, cors);
+      }
+    }
+
+    if (requestUrl.pathname === '/api/user/v1/rankings/exact') {
+      if (request.method !== 'GET') {
+        return json({ error: 'Chỉ hỗ trợ phương thức GET.' }, 405, {
+          ...cors,
+          Allow: 'GET, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+
+      try {
+        const identity = await requireAuthenticatedUser(request, env);
+        const semester = parseRankingSemester(
+          requestUrl.searchParams.get('semester')
+        );
+        return json(
+          await readOwnBenchmarkRanking(env, identity.userId, semester),
+          200,
+          {
+            ...cors,
+            'Cache-Control': 'private, no-store',
+          }
+        );
+      } catch (error) {
+        return rankingErrorResponse(error, requestUrl, cors);
       }
     }
 
