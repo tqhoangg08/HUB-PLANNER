@@ -14,6 +14,12 @@ import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
 import { fetchPublicCourses } from '../utils/coursesApi';
+import {
+  addCloudflareUserSchedule,
+  fetchCloudflareUserSchedules,
+  removeCloudflareUserSchedule,
+  updateCloudflareUserSchedule,
+} from '../utils/userSchedulesApi';
 import { TurnstileBox } from './TurnstileBox';
 import { ProtectedSubmitError, protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
 import { logWebError } from '../utils/logWebError';
@@ -1444,6 +1450,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     const targetId = viewUserId || user.id;
 
     try {
+      if (targetId === user.id) {
+        try {
+          const cloudflareSchedule = await fetchCloudflareUserSchedules();
+          setMySchedule(cloudflareSchedule as unknown as Course[]);
+          return;
+        } catch (cloudflareError) {
+          console.warn(
+            'D1 chưa sẵn sàng cho lịch cá nhân, dùng nguồn dự phòng:',
+            cloudflareError
+          );
+        }
+      }
+
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) return;
@@ -1641,14 +1660,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     setMySchedule([...mySchedule, fullCourse]);
     setIsSyncing(true);
     try {
-      const { error } = await supabase
-        .from('user_schedules')
-        .upsert(
-          { user_id: user.id, course_id: fullCourse.id, semester: selectedSemester },
-          { onConflict: 'user_id,course_id', ignoreDuplicates: true }
-        );
-      if (error) throw error;
-      fetchMySchedule();
+      await addCloudflareUserSchedule(fullCourse.id, selectedSemester);
+      await fetchMySchedule();
     } catch (err) {
         await logWebError({
           source: 'supabase',
@@ -1674,19 +1687,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     const backup = [...mySchedule];
     setMySchedule(mySchedule.filter(c => c.id !== courseId));
     try {
-      const { error } = await supabase.from('user_schedules').delete().eq('user_id', user.id).eq('course_id', courseId);
-      if (error) {
-        await logWebError({
-          source: 'supabase',
-          action: 'remove_subject_from_plan',
-          error,
-          metadata: {
-            courseId,
-            semester: selectedSemester,
-          },
-        });
-        setMySchedule(backup);
-      }
+      await removeCloudflareUserSchedule(courseId);
     } catch (err) {
       await logWebError({
         source: 'supabase',
@@ -1757,12 +1758,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
               makeup_schedules: labelPayload.updatedMakeupSchedules
           };
 
-          const { error } = await supabase
-              .from('user_schedules')
-              .update({ custom_data: overrideData })
-              .eq('id', quickTagCourse.user_schedule_id);
-
-          if (error) throw error;
+          await updateCloudflareUserSchedule(
+              quickTagCourse.user_schedule_id,
+              overrideData
+          );
           
           setQuickTagCourse(null);
           setQuickTagData(createInitialTagData());
@@ -1803,12 +1802,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
               makeup_schedules: labelPayload.updatedMakeupSchedules
           };
 
-          const { error } = await supabase
-              .from('user_schedules')
-              .update({ custom_data: overrideData })
-              .eq('id', course.user_schedule_id);
-
-          if (error) throw error;
+          await updateCloudflareUserSchedule(
+              course.user_schedule_id,
+              overrideData
+          );
 
           const updatedCourse = { ...course, labels: labelPayload.updatedLabels, makeup_schedules: labelPayload.updatedMakeupSchedules };
           setSelectedCourseInfo({ ...selectedCourseInfo, course: updatedCourse });
@@ -1841,12 +1838,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
               makeup_schedules: updatedMakeupSchedules
           };
 
-          const { error } = await supabase
-              .from('user_schedules')
-              .update({ custom_data: overrideData })
-              .eq('id', course.user_schedule_id);
-
-          if (error) throw error;
+          await updateCloudflareUserSchedule(
+              course.user_schedule_id,
+              overrideData
+          );
 
           const updatedCourse = { ...course, labels: updatedLabels, makeup_schedules: updatedMakeupSchedules };
           setSelectedCourseInfo({ ...selectedCourseInfo, course: updatedCourse });
@@ -1860,6 +1855,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
   const handleStudentSaveCourse = async (e: React.FormEvent) => {
       e.preventDefault();
+      if (!studentEditData.user_schedule_id) return;
       if (isStudentCourseEditLocked(studentEditData)) {
           alert("Tạm thời chưa cho phép sinh viên chỉnh sửa thông tin môn học của học kỳ 1 năm học 2026-2027.");
           setIsStudentEditModalOpen(false);
@@ -1873,12 +1869,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       try {
           const { id, user_schedule_id, is_user_added, user, dateStr, ...overrideData } = studentEditData;
 
-          const { error } = await supabase
-              .from('user_schedules')
-              .update({ custom_data: overrideData })
-              .eq('id', user_schedule_id);
-
-          if (error) throw error;
+          await updateCloudflareUserSchedule(
+              user_schedule_id,
+              overrideData
+          );
           alert("Cập nhật thông tin môn học cá nhân thành công!");
           setIsStudentEditModalOpen(false);
           setSelectedCourseInfo(null);

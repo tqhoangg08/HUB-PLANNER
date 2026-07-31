@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { resolveImportedScheduleMetadata } from './scheduleImportUtils';
+import { replaceCloudflareUserScheduleSemester } from './userSchedulesApi';
 
 export interface ScheduleImportCourse {
   id?: string;
@@ -180,6 +181,7 @@ export const replaceUserScheduleFromPreview = async (
   semester: string,
   rows: ScheduleImportPreviewRow[],
 ) => {
+  if (!userId) throw new Error('Không tìm thấy người dùng đang đăng nhập.');
   const courseIds: string[] = [];
 
   for (const row of rows) {
@@ -188,35 +190,9 @@ export const replaceUserScheduleFromPreview = async (
   }
 
   const uniqueCourseIds = [...new Set(courseIds)];
-  if (uniqueCourseIds.length > 0) {
-    const { error: upsertError } = await supabase
-      .from('user_schedules')
-      .upsert(
-        uniqueCourseIds.map(courseId => ({ user_id: userId, course_id: courseId, semester })),
-        { onConflict: 'user_id,course_id', ignoreDuplicates: true },
-      );
-    if (upsertError) throw upsertError;
-  }
-
-  const { data: currentLinks, error: currentLinksError } = await supabase
-    .from('user_schedules')
-    .select('id, course_id')
-    .eq('user_id', userId)
-    .eq('semester', semester);
-  if (currentLinksError) throw currentLinksError;
-
-  const desiredIds = new Set(uniqueCourseIds);
-  const obsoleteLinkIds = (currentLinks || [])
-    .filter(link => !desiredIds.has(link.course_id))
-    .map(link => link.id);
-
-  if (obsoleteLinkIds.length > 0) {
-    const { error: deleteError } = await supabase
-      .from('user_schedules')
-      .delete()
-      .in('id', obsoleteLinkIds);
-    if (deleteError) throw deleteError;
-  }
-
-  return uniqueCourseIds.length;
+  const result = await replaceCloudflareUserScheduleSemester(
+    semester,
+    uniqueCourseIds
+  );
+  return result.count;
 };

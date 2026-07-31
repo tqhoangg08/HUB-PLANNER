@@ -166,6 +166,45 @@ test('fails closed when Worker auth secrets are missing', async () => {
   );
 });
 
+test('public health is minimal, non-cacheable and hardened', async () => {
+  const response = await worker.fetch(
+    new Request('https://api.example.com/health'),
+    {
+      ALLOWED_ORIGINS: 'https://hotrosinhvienhub.id.vn',
+    } as never,
+    {} as never
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { ok: true });
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.equal(
+    response.headers.get('Content-Security-Policy'),
+    "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+  );
+  assert.equal(response.headers.get('Permissions-Policy'), 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+  assert.equal(response.headers.get('Referrer-Policy'), 'no-referrer');
+  assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff');
+  assert.equal(response.headers.get('X-Frame-Options'), 'DENY');
+  assert.equal(response.headers.get('X-Hub-Backend'), null);
+  assert.equal(response.headers.get('X-Hub-Cache'), null);
+});
+
+test('detailed health rejects unauthenticated requests', async () => {
+  const response = await worker.fetch(
+    new Request('https://api.example.com/api/admin/v1/health'),
+    {
+      ALLOWED_ORIGINS: 'https://hotrosinhvienhub.id.vn',
+      SUPABASE_URL: 'https://example.supabase.co',
+    } as never,
+    {} as never
+  );
+
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+  assert.equal(response.headers.get('WWW-Authenticate'), 'Bearer');
+});
+
 test('admin event route rejects unauthenticated requests before reading D1', async () => {
   const response = await worker.fetch(
     new Request('https://api.example.com/api/admin/v1/events'),
@@ -310,4 +349,83 @@ test('event participation routes expose only their intended methods', async () =
   assert.equal(collectionResponse.headers.get('Allow'), 'GET, OPTIONS');
   assert.equal(detailResponse.status, 405);
   assert.equal(detailResponse.headers.get('Allow'), 'PUT, DELETE, OPTIONS');
+});
+
+test('user schedule routes reject unauthenticated requests before touching D1', async () => {
+  const env = {
+    ALLOWED_ORIGINS: 'https://hotrosinhvienhub.id.vn',
+    SUPABASE_URL: 'https://example.supabase.co',
+  } as never;
+  const context = {} as never;
+  const readResponse = await worker.fetch(
+    new Request('https://api.example.com/api/user/v1/schedules'),
+    env,
+    context
+  );
+  const writeResponse = await worker.fetch(
+    new Request(
+      'https://api.example.com/api/user/v1/schedules/courses/57768d5d-e2a7-49c3-92a5-3956cd05de69',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ semester: 'HK1_2026_2027' }),
+      }
+    ),
+    env,
+    context
+  );
+
+  assert.equal(readResponse.status, 401);
+  assert.equal(readResponse.headers.get('Cache-Control'), 'no-store');
+  assert.equal(readResponse.headers.get('WWW-Authenticate'), 'Bearer');
+  assert.equal(writeResponse.status, 401);
+  assert.equal(writeResponse.headers.get('Cache-Control'), 'no-store');
+  assert.equal(writeResponse.headers.get('WWW-Authenticate'), 'Bearer');
+});
+
+test('user schedule routes expose only their intended methods', async () => {
+  const env = {
+    ALLOWED_ORIGINS: 'https://hotrosinhvienhub.id.vn',
+    SUPABASE_URL: 'https://example.supabase.co',
+  } as never;
+  const context = {} as never;
+  const collectionResponse = await worker.fetch(
+    new Request('https://api.example.com/api/user/v1/schedules', {
+      method: 'POST',
+    }),
+    env,
+    context
+  );
+  const courseResponse = await worker.fetch(
+    new Request(
+      'https://api.example.com/api/user/v1/schedules/courses/57768d5d-e2a7-49c3-92a5-3956cd05de69',
+      { method: 'PATCH' }
+    ),
+    env,
+    context
+  );
+  const entryResponse = await worker.fetch(
+    new Request(
+      'https://api.example.com/api/user/v1/schedules/entries/1368d47c-f0cb-47da-aa8a-cb650078b2e2',
+      { method: 'PUT' }
+    ),
+    env,
+    context
+  );
+  const replaceResponse = await worker.fetch(
+    new Request('https://api.example.com/api/user/v1/schedules/replace', {
+      method: 'POST',
+    }),
+    env,
+    context
+  );
+
+  assert.equal(collectionResponse.status, 405);
+  assert.equal(collectionResponse.headers.get('Allow'), 'GET, OPTIONS');
+  assert.equal(courseResponse.status, 405);
+  assert.equal(courseResponse.headers.get('Allow'), 'PUT, DELETE, OPTIONS');
+  assert.equal(entryResponse.status, 405);
+  assert.equal(entryResponse.headers.get('Allow'), 'PATCH, OPTIONS');
+  assert.equal(replaceResponse.status, 405);
+  assert.equal(replaceResponse.headers.get('Allow'), 'PUT, OPTIONS');
 });

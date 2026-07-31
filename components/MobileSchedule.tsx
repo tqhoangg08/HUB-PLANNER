@@ -12,6 +12,12 @@ import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
 import { fetchPublicCourses } from '../utils/coursesApi';
+import {
+  addCloudflareUserSchedule,
+  fetchCloudflareUserSchedules,
+  removeCloudflareUserSchedule,
+  updateCloudflareUserSchedule,
+} from '../utils/userSchedulesApi';
 import { TurnstileBox } from './TurnstileBox';
 import { ProtectedSubmitError, protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
 import { logWebError } from '../utils/logWebError';
@@ -966,6 +972,19 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     const targetId = viewUserId || user.id;
 
     try {
+      if (targetId === user.id) {
+        try {
+          const cloudflareSchedule = await fetchCloudflareUserSchedules();
+          setMySchedule(cloudflareSchedule as unknown as Course[]);
+          return;
+        } catch (cloudflareError) {
+          console.warn(
+            'D1 chưa sẵn sàng cho lịch cá nhân, dùng nguồn dự phòng:',
+            cloudflareError
+          );
+        }
+      }
+
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) return;
@@ -1050,26 +1069,8 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     setMySchedule([...mySchedule, course]);
     setIsSyncing(true);
     try {
-      const { error } = await supabase
-        .from('user_schedules')
-        .upsert(
-          { user_id: user.id, course_id: course.id, semester: selectedSemester },
-          { onConflict: 'user_id,course_id', ignoreDuplicates: true }
-        );
-      if (error) {
-        await logWebError({
-          source: 'supabase',
-          action: 'save_schedule',
-          error,
-          metadata: {
-            operation: 'add_subject_to_plan',
-            courseId: course.id,
-            courseCode: course.course_code,
-            semester: selectedSemester,
-          },
-        });
-        setMySchedule(mySchedule.filter(c => c.id !== course.id));
-      }
+      await addCloudflareUserSchedule(course.id, selectedSemester);
+      await fetchMySchedule();
     } catch (err) {
       await logWebError({
         source: 'supabase',
@@ -1095,19 +1096,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     const backup = [...mySchedule];
     setMySchedule(mySchedule.filter(c => c.id !== courseId));
     try {
-      const { error } = await supabase.from('user_schedules').delete().eq('user_id', user.id).eq('course_id', courseId);
-      if (error) {
-        await logWebError({
-          source: 'supabase',
-          action: 'remove_subject_from_plan',
-          error,
-          metadata: {
-            courseId,
-            semester: selectedSemester,
-          },
-        });
-        setMySchedule(backup);
-      }
+      await removeCloudflareUserSchedule(courseId);
     } catch (err) {
       await logWebError({
         source: 'supabase',
@@ -1144,12 +1133,10 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
               makeup_schedules: labelPayload.updatedMakeupSchedules
           };
 
-          const { error } = await supabase
-              .from('user_schedules')
-              .update({ custom_data: overrideData })
-              .eq('id', quickTagCourse.user_schedule_id);
-
-          if (error) throw error;
+          await updateCloudflareUserSchedule(
+              quickTagCourse.user_schedule_id,
+              overrideData
+          );
 
           setQuickTagCourse(null);
           setQuickTagData(createInitialTagData());
@@ -1191,12 +1178,10 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       setIsSavingStudentCourse(true);
       try {
           const { id, user_schedule_id, is_user_added, user, dateStr, ...overrideData } = studentEditData;
-          const { error } = await supabase
-              .from('user_schedules')
-              .update({ custom_data: overrideData })
-              .eq('id', user_schedule_id);
-
-          if (error) throw error;
+          await updateCloudflareUserSchedule(
+              user_schedule_id,
+              overrideData
+          );
           await fetchMySchedule();
           setIsStudentEditModalOpen(false);
       } catch (err: any) {

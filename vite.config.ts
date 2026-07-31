@@ -298,5 +298,5 @@ export default defineConfig(({ mode }) => {
     target: "esnext",
     sourcemap: false,
   },
-}
+};
 })

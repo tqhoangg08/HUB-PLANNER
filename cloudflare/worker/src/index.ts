@@ -18,6 +18,17 @@ import {
   syncEventParticipations,
 } from './event-participations.ts';
 import {
+  addUserSchedule,
+  assertOwnUserScheduleTarget,
+  deleteUserSchedule,
+  listUserSchedules,
+  readUserScheduleBody,
+  replaceUserScheduleSemester,
+  syncUserSchedules,
+  updateUserScheduleCustomData,
+  UserScheduleError,
+} from './user-schedules.ts';
+import {
   readBearerToken,
   requireAuthenticatedUser,
   requireStaff,
@@ -103,12 +114,24 @@ const LOST_FOUND_CACHE_PARAMS = new Set([
   'search',
 ]);
 
+const JSON_SECURITY_HEADERS = {
+  'Content-Security-Policy':
+    "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+  'Permissions-Policy':
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  'Referrer-Policy': 'no-referrer',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-Permitted-Cross-Domain-Policies': 'none',
+} satisfies HeadersInit;
+
 const json = (payload: unknown, status = 200, headers: HeadersInit = {}) =>
   new Response(JSON.stringify(payload), {
     status,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'no-store',
+      ...JSON_SECURITY_HEADERS,
       ...headers,
     },
   });
@@ -446,6 +469,58 @@ const eventParticipationErrorResponse = (
   });
 };
 
+const userScheduleErrorResponse = (
+  error: unknown,
+  requestUrl: URL,
+  cors: HeadersInit
+) => {
+  const status =
+    error instanceof StaffAuthError
+      ? error.status
+      : error instanceof UserScheduleError
+        ? error.status
+        : 500;
+  const message =
+    status === 401
+      ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+      : status === 403
+        ? 'Bạn không có quyền xem lịch cá nhân của người dùng này.'
+        : error instanceof UserScheduleError
+          ? error.message
+          : 'Không thể xử lý lịch cá nhân.';
+
+  if (
+    !(error instanceof StaffAuthError) &&
+    !(error instanceof UserScheduleError)
+  ) {
+    console.error(JSON.stringify({
+      event: 'user_schedule_request_failed',
+      path: requestUrl.pathname,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+  }
+
+  return json({ error: message }, status, {
+    ...cors,
+    'Cache-Control': 'no-store',
+    ...(status === 401 ? { 'WWW-Authenticate': 'Bearer' } : {}),
+  });
+};
+
+const scheduleUserScheduleMirrorRepair = (
+  env: WorkerEnv,
+  ctx: ExecutionContext
+) => {
+  ctx.waitUntil(
+    syncUserSchedules(env).catch((error) => {
+      console.error(JSON.stringify({
+        event: 'user_schedule_mirror_repair_failed',
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    })
+  );
+};
+
 const scheduleEventMirrorRepair = (
   env: WorkerEnv,
   ctx: ExecutionContext,
@@ -533,7 +608,6 @@ const readCachedResponse = async (request: Request) => {
     const cached = await caches.default.match(buildPublicCacheKey(request));
     if (!cached) return null;
     const response = new Response(cached.body, cached);
-    response.headers.set('X-Hub-Cache', 'HIT');
     return response;
   } catch (error) {
     console.warn('edge_cache_read_failed', error);
@@ -565,7 +639,16 @@ const worker = {
   ): Promise<Response> {
     const cors = corsHeaders(request, env);
     if (cors === null) return json({ error: 'Origin không được phép.' }, 403);
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          ...JSON_SECURITY_HEADERS,
+          ...cors,
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
 
     const requestUrl = new URL(request.url);
     if (requestUrl.pathname === '/api/admin/v1/events/sync') {
@@ -591,7 +674,6 @@ const worker = {
         return json({ success: true, ...summary }, 200, {
           ...cors,
           'Cache-Control': 'no-store',
-          'X-Hub-Backend': 'cloudflare-d1-admin',
         });
       } catch (error) {
         if (error instanceof StaffAuthError) {
@@ -646,7 +728,6 @@ const worker = {
         return json(result, 200, {
           ...cors,
           'Cache-Control': 'no-store',
-          'X-Hub-Backend': 'cloudflare-supabase-write-d1-mirror',
         });
       } catch (error) {
         if (
@@ -701,14 +782,12 @@ const worker = {
           return json(result, 201, {
             ...cors,
             'Cache-Control': 'no-store',
-            'X-Hub-Backend': 'cloudflare-supabase-write-d1-mirror',
           });
         }
 
         return json(await handleAdminEvents(requestUrl, env), 200, {
           ...cors,
           'Cache-Control': 'no-store',
-          'X-Hub-Backend': 'cloudflare-d1-admin',
         });
       } catch (error) {
         if (request.method === 'POST') {
@@ -753,7 +832,6 @@ const worker = {
         return json(await readSyncHealth(env), 200, {
           ...cors,
           'Cache-Control': 'no-store',
-          'X-Hub-Backend': 'cloudflare-d1-admin',
         });
       } catch (error) {
         return adminErrorResponse(error, requestUrl, cors);
@@ -798,7 +876,6 @@ const worker = {
         return json(result, 200, {
           ...cors,
           'Cache-Control': 'no-store',
-          'X-Hub-Backend': 'cloudflare-d1-participations',
         });
       } catch (error) {
         return eventParticipationErrorResponse(error, requestUrl, cors);
@@ -833,11 +910,152 @@ const worker = {
           {
             ...cors,
             'Cache-Control': 'private, no-store',
-            'X-Hub-Backend': 'cloudflare-d1-participations',
           }
         );
       } catch (error) {
         return eventParticipationErrorResponse(error, requestUrl, cors);
+      }
+    }
+
+    const userScheduleCourseMatch = requestUrl.pathname.match(
+      /^\/api\/user\/v1\/schedules\/courses\/([0-9a-f-]+)$/i
+    );
+    if (userScheduleCourseMatch) {
+      if (request.method !== 'PUT' && request.method !== 'DELETE') {
+        return json({ error: 'Chỉ hỗ trợ phương thức PUT hoặc DELETE.' }, 405, {
+          ...cors,
+          Allow: 'PUT, DELETE, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+
+      try {
+        const identity = await requireAuthenticatedUser(request, env);
+        const accessToken = readBearerToken(request);
+        if (!accessToken) {
+          throw new StaffAuthError(401, 'Thiếu hoặc sai access token.');
+        }
+        const result =
+          request.method === 'PUT'
+            ? await addUserSchedule(
+              env,
+              accessToken,
+              identity.userId,
+              userScheduleCourseMatch[1],
+              (await readUserScheduleBody(request)).semester
+            )
+            : await deleteUserSchedule(
+              env,
+              accessToken,
+              identity.userId,
+              userScheduleCourseMatch[1]
+            );
+        if (!result.mirrorSynced) {
+          scheduleUserScheduleMirrorRepair(env, ctx);
+        }
+        return json(result, 200, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      } catch (error) {
+        return userScheduleErrorResponse(error, requestUrl, cors);
+      }
+    }
+
+    const userScheduleEntryMatch = requestUrl.pathname.match(
+      /^\/api\/user\/v1\/schedules\/entries\/([0-9a-f-]+)$/i
+    );
+    if (userScheduleEntryMatch) {
+      if (request.method !== 'PATCH') {
+        return json({ error: 'Chỉ hỗ trợ phương thức PATCH.' }, 405, {
+          ...cors,
+          Allow: 'PATCH, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+
+      try {
+        const identity = await requireAuthenticatedUser(request, env);
+        const accessToken = readBearerToken(request);
+        if (!accessToken) {
+          throw new StaffAuthError(401, 'Thiếu hoặc sai access token.');
+        }
+        const payload = await readUserScheduleBody(request);
+        const result = await updateUserScheduleCustomData(
+          env,
+          accessToken,
+          identity.userId,
+          userScheduleEntryMatch[1],
+          payload.customData
+        );
+        if (!result.mirrorSynced) {
+          scheduleUserScheduleMirrorRepair(env, ctx);
+        }
+        return json(result, 200, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      } catch (error) {
+        return userScheduleErrorResponse(error, requestUrl, cors);
+      }
+    }
+
+    if (requestUrl.pathname === '/api/user/v1/schedules/replace') {
+      if (request.method !== 'PUT') {
+        return json({ error: 'Chỉ hỗ trợ phương thức PUT.' }, 405, {
+          ...cors,
+          Allow: 'PUT, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+
+      try {
+        const identity = await requireAuthenticatedUser(request, env);
+        const accessToken = readBearerToken(request);
+        if (!accessToken) {
+          throw new StaffAuthError(401, 'Thiếu hoặc sai access token.');
+        }
+        const payload = await readUserScheduleBody(request);
+        const result = await replaceUserScheduleSemester(
+          env,
+          accessToken,
+          identity.userId,
+          payload.semester,
+          payload.courseIds
+        );
+        if (!result.mirrorSynced) {
+          scheduleUserScheduleMirrorRepair(env, ctx);
+        }
+        return json(result, 200, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      } catch (error) {
+        return userScheduleErrorResponse(error, requestUrl, cors);
+      }
+    }
+
+    if (requestUrl.pathname === '/api/user/v1/schedules') {
+      if (request.method !== 'GET') {
+        return json({ error: 'Chỉ hỗ trợ phương thức GET.' }, 405, {
+          ...cors,
+          Allow: 'GET, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+
+      try {
+        const identity = await requireAuthenticatedUser(request, env);
+        const targetUserId = assertOwnUserScheduleTarget(
+          identity.userId,
+          requestUrl.searchParams.get('userId')
+        );
+        return json(await listUserSchedules(env, targetUserId), 200, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        return userScheduleErrorResponse(error, requestUrl, cors);
       }
     }
 
@@ -846,9 +1064,13 @@ const worker = {
         return json({ error: 'Chỉ hỗ trợ phương thức GET.' }, 405, {
           ...cors,
           Allow: 'GET, OPTIONS',
+          'Cache-Control': 'no-store',
         });
       }
-      return json(await readSyncHealth(env), 200, cors);
+      return json({ ok: true }, 200, {
+        ...cors,
+        'Cache-Control': 'no-store',
+      });
     }
 
     if (request.method !== 'GET') {
@@ -885,8 +1107,6 @@ const worker = {
             result.status === 200
               ? `public, max-age=300, s-maxage=${COURSE_EDGE_TTL_SECONDS}, stale-while-revalidate=3600`
               : 'no-store',
-          'X-Hub-Backend': 'cloudflare-d1',
-          'X-Hub-Cache': 'MISS',
         });
         if (result.status === 200 && !bypassCache) {
           storeCachedResponse(request, response, ctx);
@@ -912,8 +1132,6 @@ const worker = {
           'Cache-Control': bypassCache
             ? 'no-store'
             : `public, max-age=60, s-maxage=${LOST_FOUND_EDGE_TTL_SECONDS}, stale-while-revalidate=300`,
-          'X-Hub-Backend': 'cloudflare-d1',
-          'X-Hub-Cache': bypassCache ? 'BYPASS' : 'MISS',
         });
         if (!bypassCache) storeCachedResponse(request, response, ctx);
         return response;
@@ -938,8 +1156,6 @@ const worker = {
           'Cache-Control': bypassCache
             ? 'no-store'
             : `public, max-age=60, s-maxage=${EVENT_EDGE_TTL_SECONDS}, stale-while-revalidate=900`,
-          'X-Hub-Backend': 'cloudflare-d1',
-          'X-Hub-Cache': bypassCache ? 'BYPASS' : 'MISS',
         });
         if (!bypassCache) storeCachedResponse(request, response, ctx);
         return response;
@@ -959,8 +1175,6 @@ const worker = {
         'Cache-Control': bypassCache
           ? 'no-store'
           : `public, max-age=60, s-maxage=${ANNOUNCEMENT_EDGE_TTL_SECONDS}, stale-while-revalidate=900`,
-        'X-Hub-Backend': 'cloudflare-d1',
-        'X-Hub-Cache': bypassCache ? 'BYPASS' : 'MISS',
       });
       if (!bypassCache) storeCachedResponse(request, response, ctx);
       return response;
@@ -1033,6 +1247,12 @@ const worker = {
           failureEvent: 'event_participation_sync_failed',
           promise: syncEventParticipations(env).then((summary) =>
             console.log('event_participation_sync_complete', summary)
+          ),
+        },
+        {
+          failureEvent: 'user_schedule_sync_failed',
+          promise: syncUserSchedules(env).then((summary) =>
+            console.log('user_schedule_sync_complete', summary)
           ),
         }
       );
