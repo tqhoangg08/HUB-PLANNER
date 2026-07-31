@@ -21,9 +21,11 @@ import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { apiHeaders, apiUrl } from '../utils/api';
 import {
+  createAdminEvent,
   fetchAdminEvents,
   fetchPublicEvents,
   syncAdminEventMirror,
+  updateAdminEvent,
 } from '../utils/eventsApi';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 
@@ -1093,17 +1095,19 @@ const canManage = isAdmin || isAuditor || isCTV;
               description: eventEditData.description || null,
           };
 
-          const query = editingEvent
-              ? supabase!.from('events').update(payload).eq('id', editingEvent.id).select()
-              : supabase!.from('events').insert([payload]).select();
-          const { data, error } = await query;
-          if (error) throw error;
+          const mutation = editingEvent
+              ? await updateAdminEvent(editingEvent.id, payload)
+              : await createAdminEvent(payload);
+          const data = mutation.data;
           if ((!editingEvent || (editingEvent.status === 'pending' && payload.status !== 'pending')) && data?.[0]) {
               await notifyAllUsersAboutEvent(data[0]);
           }
           showToast(editingEvent ? 'Cập nhật sự kiện thành công.' : 'Thêm sự kiện thành công.', 'success');
           closeEventEditor();
-          await fetchEvents({ bypassCache: true, page: eventsPage });
+          await fetchEvents({
+              bypassCache: !mutation.mirrorSynced,
+              page: eventsPage,
+          });
       } catch (err: any) {
           showToast('Lỗi: ' + (err.message || 'Không thể lưu sự kiện'), 'error');
       } finally {
@@ -1115,13 +1119,12 @@ const canManage = isAdmin || isAuditor || isCTV;
       if (!canManage) return;
       playClick();
       try {
-          const { error } = await supabase!.from('events').update(patch).eq('id', evt.id);
-          if (error) throw error;
+          const mutation = await updateAdminEvent(evt.id, patch);
           if (evt.status === 'pending' && patch.status && patch.status !== 'pending') {
               await notifyAllUsersAboutEvent({ ...evt, ...patch, title: evt.name, criteria: patch.criteria || evt.category });
           }
           setEvents(prev => prev.map(item => item.id === evt.id ? { ...item, ...patch } : item));
-          void syncAdminEventMirror();
+          if (!mutation.mirrorSynced) void syncAdminEventMirror();
           showToast(successMessage, 'success');
       } catch (err: any) {
           showToast('Lỗi: ' + (err.message || 'Không thể cập nhật sự kiện'), 'error');

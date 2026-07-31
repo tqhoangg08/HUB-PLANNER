@@ -155,10 +155,10 @@ test('admin event route rejects unauthenticated requests before reading D1', asy
   assert.equal(response.headers.get('WWW-Authenticate'), 'Bearer');
 });
 
-test('admin event route exposes only GET and OPTIONS', async () => {
+test('admin event collection route exposes only GET, POST and OPTIONS', async () => {
   const response = await worker.fetch(
     new Request('https://api.example.com/api/admin/v1/events', {
-      method: 'POST',
+      method: 'DELETE',
     }),
     {
       ALLOWED_ORIGINS: 'https://hotrosinhvienhub.id.vn',
@@ -168,7 +168,37 @@ test('admin event route exposes only GET and OPTIONS', async () => {
   );
 
   assert.equal(response.status, 405);
-  assert.equal(response.headers.get('Allow'), 'GET, OPTIONS');
+  assert.equal(response.headers.get('Allow'), 'GET, POST, OPTIONS');
+});
+
+test('admin event write routes reject unauthenticated requests before writes', async () => {
+  const env = {
+    ALLOWED_ORIGINS: 'https://hotrosinhvienhub.id.vn',
+    SUPABASE_URL: 'https://example.supabase.co',
+  } as never;
+  const context = {} as never;
+  const createResponse = await worker.fetch(
+    new Request('https://api.example.com/api/admin/v1/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Không được tạo' }),
+    }),
+    env,
+    context
+  );
+  const updateResponse = await worker.fetch(
+    new Request('https://api.example.com/api/admin/v1/events/42', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Đang diễn ra' }),
+    }),
+    env,
+    context
+  );
+
+  assert.equal(createResponse.status, 401);
+  assert.equal(updateResponse.status, 401);
+  assert.equal(updateResponse.headers.get('WWW-Authenticate'), 'Bearer');
 });
 
 test('admin event sync route exposes only POST and OPTIONS', async () => {

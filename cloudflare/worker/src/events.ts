@@ -1,10 +1,10 @@
-interface EventsEnv {
+export interface EventsEnv {
   DB: D1Database;
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
 }
 
-interface SupabaseEventRow {
+export interface SupabaseEventRow {
   id: number;
   title: string;
   organizer: string | null;
@@ -253,6 +253,50 @@ const writeEventRows = async (env: EventsEnv, rows: SupabaseEventRow[]) => {
     );
     await env.DB.batch(batch);
   }
+};
+
+const refreshPublicEventMetadata = async (env: EventsEnv) => {
+  const summary = await env.DB.prepare(
+    `SELECT COUNT(*) AS row_count, MAX(created_at) AS max_created_at
+       FROM public_events`
+  ).first<{ row_count: number; max_created_at: string | null }>();
+  const rowCount = Number(summary?.row_count || 0);
+  const syncedAt = new Date().toISOString();
+
+  await env.DB.prepare(
+    `INSERT INTO sync_metadata (
+       resource, source_row_count, source_max_created_at, synced_at,
+       visible_row_count
+     ) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(resource) DO UPDATE SET
+       source_row_count = excluded.source_row_count,
+       source_max_created_at = excluded.source_max_created_at,
+       synced_at = excluded.synced_at,
+       visible_row_count = excluded.visible_row_count`
+  )
+    .bind(
+      'events',
+      rowCount,
+      summary?.max_created_at || null,
+      syncedAt,
+      rowCount
+    )
+    .run();
+};
+
+export const mirrorPublicEventRow = async (
+  env: EventsEnv,
+  row: SupabaseEventRow
+) => {
+  const isPublic = !Boolean(row.is_deleted) && row.status !== 'pending';
+  if (isPublic) {
+    await writeEventRows(env, [row]);
+  } else {
+    await env.DB.prepare('DELETE FROM public_events WHERE id = ?')
+      .bind(Number(row.id))
+      .run();
+  }
+  await refreshPublicEventMetadata(env);
 };
 
 const deleteMissingEvents = async (env: EventsEnv, sourceRows: SupabaseEventRow[]) => {

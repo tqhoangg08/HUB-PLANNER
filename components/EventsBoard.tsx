@@ -19,9 +19,11 @@ import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
 import {
+  createAdminEvent,
   fetchAdminEvents,
   fetchPublicEvents,
   syncAdminEventMirror,
+  updateAdminEvent,
 } from '../utils/eventsApi';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
@@ -777,14 +779,10 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                 description: formData.description
             };
 
+            let mutation;
             if (editingEvent) {
-                const { data, error } = await supabase!
-                    .from('events')
-                    .update(payload)
-                    .eq('id', editingEvent.id)
-                    .select();
-
-                if (error) throw error;
+                mutation = await updateAdminEvent(editingEvent.id, payload);
+                const data = mutation.data;
                 if (editingEvent.status === 'pending' && payload.status !== 'pending' && data?.[0]) {
                     await notifyAllUsersAboutEvent(data[0]);
                 }
@@ -793,15 +791,15 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
                 }
                 onShowToast("Cập nhật thành công!", "success");
             } else {
-                const { data, error } = await supabase!.from('events').insert([payload]).select();
-                if (error) throw error;
+                mutation = await createAdminEvent(payload);
+                const data = mutation.data;
                 if (data?.[0]) await notifyAllUsersAboutEvent(data[0]);
                 if (!data || data.length === 0) {
                     throw new Error("Bảo mật RLS đang chặn bạn thêm! Vui lòng chạy lệnh SQL để cấp quyền Admin.");
                 }
                 onShowToast("Thêm sự kiện thành công!", "success");
             }
-            await fetchEvents({ bypassCache: true });
+            await fetchEvents({ bypassCache: !mutation.mirrorSynced });
             onClose();
         } catch (err: any) {
             onShowToast("Lỗi: " + err.message, "error");
@@ -1574,15 +1572,10 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       if (!await showConfirm("Bạn có chắc chắn muốn xóa sự kiện này? Nó sẽ ẩn khỏi bảng tin chung nhưng vẫn hiện với người đã tham gia.")) return;
 
       try {
-          const { error } = await supabase!
-            .from('events')
-            .update({ is_deleted: true })
-            .eq('id', id);
-
-          if (error) throw error;
+          const mutation = await updateAdminEvent(id, { is_deleted: true });
           showToast("Đã xóa sự kiện thành công (Soft Delete)", "success");
           setEvents(prev => prev.map(e => e.id === id ? { ...e, is_deleted: true } : e));
-          void syncAdminEventMirror();
+          if (!mutation.mirrorSynced) void syncAdminEventMirror();
       } catch (err: any) {
           showToast("Lỗi khi xóa: " + err.message, "error");
       }
@@ -1594,15 +1587,12 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       const newState = !event.is_manually_closed;
       
       try {
-          const { error } = await supabase!
-            .from('events')
-            .update({ is_manually_closed: newState })
-            .eq('id', event.id);
-          
-          if (error) throw error;
+          const mutation = await updateAdminEvent(event.id, {
+            is_manually_closed: newState,
+          });
           
           setEvents(prev => prev.map(e => e.id === event.id ? { ...e, is_manually_closed: newState } : e));
-          void syncAdminEventMirror();
+          if (!mutation.mirrorSynced) void syncAdminEventMirror();
           showToast(newState ? "Đã đóng đơn đăng ký" : "Đã mở lại đơn đăng ký", "success");
       } catch (err: any) {
           showToast("Lỗi cập nhật: " + err.message, "error");

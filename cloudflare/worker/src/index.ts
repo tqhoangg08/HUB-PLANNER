@@ -3,6 +3,14 @@ import { handleEvents, syncPublicEvents } from './events.ts';
 import { handleLostFound, syncPublicLostFound } from './lost-found.ts';
 import { handleAdminEvents, syncAdminEvents } from './admin-events.ts';
 import {
+  AdminEventMutationError,
+  assertAdminEventMutationAllowed,
+  cleanupAdminEventMutations,
+  mutateAdminEvent,
+  readAdminEventIdempotencyKey,
+  readAdminEventMutationPayload,
+} from './admin-event-mutations.ts';
+import {
   requireStaff,
   StaffAuthError,
   type StaffAuthEnv,
@@ -315,8 +323,8 @@ const corsHeaders = (request: Request, env: WorkerEnv): HeadersInit | null => {
   if (!readAllowedOrigins(env).has(origin)) return null;
   return {
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };
@@ -365,6 +373,52 @@ const adminErrorResponse = (
     'Cache-Control': 'no-store',
     ...(status === 401 ? { 'WWW-Authenticate': 'Bearer' } : {}),
   });
+};
+
+const adminEventMutationErrorResponse = (
+  error: unknown,
+  requestUrl: URL,
+  cors: HeadersInit
+) => {
+  if (error instanceof StaffAuthError) {
+    return adminErrorResponse(error, requestUrl, cors);
+  }
+
+  const status =
+    error instanceof AdminEventMutationError ? error.status : 500;
+  const message =
+    error instanceof AdminEventMutationError
+      ? error.message
+      : 'Không thể lưu sự kiện.';
+
+  return json({ error: message }, status, {
+    ...cors,
+    'Cache-Control': 'no-store',
+  });
+};
+
+const scheduleEventMirrorRepair = (
+  env: WorkerEnv,
+  ctx: ExecutionContext,
+  eventId: number
+) => {
+  ctx.waitUntil(
+    Promise.allSettled([
+      syncAdminEvents(env),
+      syncPublicEvents(env),
+    ]).then((results) => {
+      const failed = results.filter(
+        (result) => result.status === 'rejected'
+      ).length;
+      console.log(JSON.stringify({
+        event: failed === 0
+          ? 'admin_event_mirror_repaired'
+          : 'admin_event_mirror_repair_incomplete',
+        eventId,
+        failed,
+      }));
+    })
+  );
 };
 
 const handleAnnouncements = async (requestUrl: URL, env: WorkerEnv) => {
@@ -506,25 +560,121 @@ const worker = {
       }
     }
 
-    if (requestUrl.pathname === '/api/admin/v1/events') {
-      if (request.method !== 'GET') {
-        return json({ error: 'Chỉ hỗ trợ phương thức GET.' }, 405, {
+    const adminEventDetailMatch = requestUrl.pathname.match(
+      /^\/api\/admin\/v1\/events\/([1-9]\d*)$/
+    );
+    if (adminEventDetailMatch) {
+      if (request.method !== 'PATCH') {
+        return json({ error: 'Chỉ hỗ trợ phương thức PATCH.' }, 405, {
           ...cors,
-          Allow: 'GET, OPTIONS',
+          Allow: 'PATCH, OPTIONS',
           'Cache-Control': 'no-store',
         });
       }
 
       try {
-        await requireStaff(request, env, {
+        const identity = await requireStaff(request, env, {
           allowedRoles: ['admin', 'auditor'],
         });
+        const payload = await readAdminEventMutationPayload(request, 'update');
+        assertAdminEventMutationAllowed(payload, identity.role);
+        const eventId = Number(adminEventDetailMatch[1]);
+        const result = await mutateAdminEvent(
+          env,
+          'update',
+          payload,
+          eventId
+        );
+        if (!result.mirrorSynced) {
+          scheduleEventMirrorRepair(env, ctx, eventId);
+        }
+        console.log(JSON.stringify({
+          event: 'admin_event_updated',
+          eventId,
+          role: identity.role,
+          mirrorSynced: result.mirrorSynced,
+        }));
+        return json(result, 200, {
+          ...cors,
+          'Cache-Control': 'no-store',
+          'X-Hub-Backend': 'cloudflare-supabase-write-d1-mirror',
+        });
+      } catch (error) {
+        if (
+          !(error instanceof StaffAuthError) &&
+          !(error instanceof AdminEventMutationError)
+        ) {
+          console.error(JSON.stringify({
+            event: 'admin_event_update_failed',
+            path: requestUrl.pathname,
+            error: error instanceof Error ? error.message : String(error),
+          }));
+        }
+        return adminEventMutationErrorResponse(error, requestUrl, cors);
+      }
+    }
+
+    if (requestUrl.pathname === '/api/admin/v1/events') {
+      if (request.method !== 'GET' && request.method !== 'POST') {
+        return json({ error: 'Chỉ hỗ trợ phương thức GET hoặc POST.' }, 405, {
+          ...cors,
+          Allow: 'GET, POST, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+
+      try {
+        const identity = await requireStaff(request, env, {
+          allowedRoles: ['admin', 'auditor'],
+        });
+        if (request.method === 'POST') {
+          const mutationId = readAdminEventIdempotencyKey(request);
+          const payload = await readAdminEventMutationPayload(request, 'create');
+          assertAdminEventMutationAllowed(payload, identity.role);
+          const result = await mutateAdminEvent(
+            env,
+            'create',
+            payload,
+            undefined,
+            fetch,
+            { mutationId, userId: identity.userId }
+          );
+          const eventId = Number(result.data[0].id);
+          if (!result.mirrorSynced) {
+            scheduleEventMirrorRepair(env, ctx, eventId);
+          }
+          console.log(JSON.stringify({
+            event: 'admin_event_created',
+            eventId,
+            role: identity.role,
+            mirrorSynced: result.mirrorSynced,
+          }));
+          return json(result, 201, {
+            ...cors,
+            'Cache-Control': 'no-store',
+            'X-Hub-Backend': 'cloudflare-supabase-write-d1-mirror',
+          });
+        }
+
         return json(await handleAdminEvents(requestUrl, env), 200, {
           ...cors,
           'Cache-Control': 'no-store',
           'X-Hub-Backend': 'cloudflare-d1-admin',
         });
       } catch (error) {
+        if (request.method === 'POST') {
+          if (
+            !(error instanceof StaffAuthError) &&
+            !(error instanceof AdminEventMutationError)
+          ) {
+            console.error(JSON.stringify({
+              event: 'admin_event_create_failed',
+              path: requestUrl.pathname,
+              error: error instanceof Error ? error.message : String(error),
+            }));
+          }
+          return adminEventMutationErrorResponse(error, requestUrl, cors);
+        }
         if (error instanceof StaffAuthError) {
           return adminErrorResponse(error, requestUrl, cors);
         }
@@ -736,12 +886,20 @@ const worker = {
     }
 
     if (adminEventCron || runAll) {
-      jobs.push({
-        failureEvent: 'admin_event_sync_failed',
-        promise: syncAdminEvents(env).then((summary) =>
-          console.log('admin_event_sync_complete', summary)
-        ),
-      });
+      jobs.push(
+        {
+          failureEvent: 'admin_event_sync_failed',
+          promise: syncAdminEvents(env).then((summary) =>
+            console.log('admin_event_sync_complete', summary)
+          ),
+        },
+        {
+          failureEvent: 'admin_event_mutation_cleanup_failed',
+          promise: cleanupAdminEventMutations(env).then((deleted) =>
+            console.log('admin_event_mutation_cleanup_complete', { deleted })
+          ),
+        }
+      );
     }
 
     if (lostFoundCron || runAll) {

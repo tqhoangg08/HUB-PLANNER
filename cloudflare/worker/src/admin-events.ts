@@ -1,12 +1,12 @@
 import { normalizeEventSearch, parseEventIds } from './events.ts';
 
-interface AdminEventsEnv {
+export interface AdminEventsEnv {
   DB: D1Database;
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
 }
 
-interface SupabaseAdminEventRow {
+export interface SupabaseAdminEventRow {
   id: number;
   title: string;
   organizer: string | null;
@@ -59,7 +59,7 @@ export interface AdminEventQuery {
   sort: 'newest' | 'oldest' | 'expiring_soon';
 }
 
-const ADMIN_EVENT_SOURCE_COLUMNS = [
+export const ADMIN_EVENT_SOURCE_COLUMNS = [
   'id',
   'title',
   'organizer',
@@ -326,6 +326,43 @@ const writeAdminEventRows = async (
     );
     await env.DB.batch(batch);
   }
+};
+
+const refreshAdminEventMetadata = async (env: AdminEventsEnv) => {
+  const summary = await env.DB.prepare(
+    `SELECT COUNT(*) AS row_count, MAX(created_at) AS max_created_at
+       FROM admin_events`
+  ).first<{ row_count: number; max_created_at: string | null }>();
+  const rowCount = Number(summary?.row_count || 0);
+  const syncedAt = new Date().toISOString();
+
+  await env.DB.prepare(
+    `INSERT INTO sync_metadata (
+       resource, source_row_count, source_max_created_at, synced_at,
+       visible_row_count
+     ) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(resource) DO UPDATE SET
+       source_row_count = excluded.source_row_count,
+       source_max_created_at = excluded.source_max_created_at,
+       synced_at = excluded.synced_at,
+       visible_row_count = excluded.visible_row_count`
+  )
+    .bind(
+      'admin_events',
+      rowCount,
+      summary?.max_created_at || null,
+      syncedAt,
+      rowCount
+    )
+    .run();
+};
+
+export const mirrorAdminEventRow = async (
+  env: AdminEventsEnv,
+  row: SupabaseAdminEventRow
+) => {
+  await writeAdminEventRows(env, [row]);
+  await refreshAdminEventMetadata(env);
 };
 
 const deleteMissingAdminEvents = async (
