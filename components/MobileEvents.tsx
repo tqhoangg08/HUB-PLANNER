@@ -28,6 +28,10 @@ import {
   updateAdminEvent,
 } from '../utils/eventsApi';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
+import {
+  fetchEventParticipations,
+  setEventParticipation,
+} from '../utils/eventParticipationsApi';
 
 // --- Types ---
 interface HubEvent {
@@ -697,7 +701,20 @@ const canManage = isAdmin || isAuditor || isCTV;
       const loadParticipation = async () => {
           if (session?.user?.id && supabase) {
               const targetId = viewUserId || session.user.id;
-              const { data, error } = await supabase.from('user_participations').select('event_id').eq('user_id', targetId); 
+              try {
+                  const eventIds = await fetchEventParticipations(targetId);
+                  const dbEvents = eventIds.map(String);
+                  setParticipatedEvents(dbEvents);
+                  localStorage.setItem('hub_participated_events', JSON.stringify(dbEvents));
+                  return;
+              } catch (cloudflareError) {
+                  console.warn('Cloudflare participation fallback:', cloudflareError);
+              }
+
+              const { data, error } = await supabase
+                  .from('user_participations')
+                  .select('event_id')
+                  .eq('user_id', targetId);
               if (!error && data) {
                   const dbEvents = data.map(item => item.event_id.toString());
                   setParticipatedEvents(dbEvents);
@@ -721,11 +738,26 @@ const canManage = isAdmin || isAuditor || isCTV;
           return newEvents;
       });
 
-      if (session?.user?.id && supabase) {
-          if (isCurrentlyParticipated) {
-              await supabase.from('user_participations').delete().match({ user_id: session.user.id, event_id: parseInt(eventId) });
-          } else {
-              await supabase.from('user_participations').insert({ user_id: session.user.id, event_id: parseInt(eventId) });
+      if (session?.user?.id) {
+          try {
+              await setEventParticipation(eventId, !isCurrentlyParticipated);
+          } catch (error) {
+              setParticipatedEvents(prev => {
+                  const restored = isCurrentlyParticipated
+                      ? [...new Set([...prev, eventId])]
+                      : prev.filter(id => id !== eventId);
+                  localStorage.setItem(
+                      'hub_participated_events',
+                      JSON.stringify(restored)
+                  );
+                  return restored;
+              });
+              showToast(
+                  error instanceof Error
+                      ? error.message
+                      : 'Không thể cập nhật trạng thái tham gia.',
+                  'error'
+              );
           }
       }
   };

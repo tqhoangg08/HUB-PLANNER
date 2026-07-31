@@ -6,15 +6,21 @@ export interface StaffAuthEnv {
   SUPABASE_SERVICE_ROLE_KEY?: string;
 }
 
-export interface StaffIdentity {
+export interface AuthenticatedIdentity {
   userId: string;
   email: string | null;
+}
+
+export interface StaffIdentity extends AuthenticatedIdentity {
   role: StaffRole;
 }
 
-interface RequireStaffOptions {
-  allowedRoles?: readonly StaffRole[];
+interface RequireAuthenticatedOptions {
   fetcher?: typeof fetch;
+}
+
+interface RequireStaffOptions extends RequireAuthenticatedOptions {
+  allowedRoles?: readonly StaffRole[];
 }
 
 type StaffAuthStatus = 401 | 403 | 503;
@@ -90,31 +96,27 @@ const readJson = async (response: Response): Promise<unknown> => {
   }
 };
 
-const readAuthConfig = (env: StaffAuthEnv) => {
+const readUserAuthConfig = (env: StaffAuthEnv) => {
   const supabaseUrl = String(env.SUPABASE_URL || '').trim();
   const anonKey = String(env.SUPABASE_ANON_KEY || '').trim();
-  const serviceRoleKey = String(env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-    throw new StaffAuthError(503, 'Cấu hình xác thực quản trị chưa đầy đủ.');
+  if (!supabaseUrl || !anonKey) {
+    throw new StaffAuthError(503, 'Cấu hình xác thực người dùng chưa đầy đủ.');
   }
-  return { supabaseUrl, anonKey, serviceRoleKey };
+  return { supabaseUrl, anonKey };
 };
 
-export const requireStaff = async (
+export const requireAuthenticatedUser = async (
   request: Request,
   env: StaffAuthEnv,
-  options: RequireStaffOptions = {}
-): Promise<StaffIdentity> => {
+  options: RequireAuthenticatedOptions = {}
+): Promise<AuthenticatedIdentity> => {
   const token = readBearerToken(request);
   if (!token) {
     throw new StaffAuthError(401, 'Thiếu hoặc sai access token.');
   }
 
-  const allowedRoles = options.allowedRoles?.length
-    ? [...new Set(options.allowedRoles)]
-    : (['admin', 'auditor'] as const);
   const fetcher = options.fetcher || fetch;
-  const { supabaseUrl, anonKey, serviceRoleKey } = readAuthConfig(env);
+  const { supabaseUrl, anonKey } = readUserAuthConfig(env);
 
   let userResponse: Response;
   try {
@@ -149,11 +151,39 @@ export const requireStaff = async (
     throw new StaffAuthError(401, 'Phiên đăng nhập không hợp lệ.');
   }
 
+  return {
+    userId,
+    email:
+      isRecord(userPayload) && typeof userPayload.email === 'string'
+        ? userPayload.email
+        : null,
+  };
+};
+
+export const requireStaffRole = async (
+  identity: AuthenticatedIdentity,
+  env: StaffAuthEnv,
+  options: RequireStaffOptions = {}
+): Promise<StaffIdentity> => {
+  const allowedRoles = options.allowedRoles?.length
+    ? [...new Set(options.allowedRoles)]
+    : (['admin', 'auditor'] as const);
+  const fetcher = options.fetcher || fetch;
+  const supabaseUrl = String(env.SUPABASE_URL || '').trim();
+  const serviceRoleKey = String(env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new StaffAuthError(503, 'Cấu hình xác thực quản trị chưa đầy đủ.');
+  }
+
   let roleResponse: Response;
   try {
     roleResponse = await fetchWithTimeout(
       fetcher,
-      buildSupabaseStaffRoleUrl(supabaseUrl, userId, allowedRoles),
+      buildSupabaseStaffRoleUrl(
+        supabaseUrl,
+        identity.userId,
+        allowedRoles
+      ),
       {
         method: 'GET',
         headers: {
@@ -182,11 +212,16 @@ export const requireStaff = async (
   }
 
   return {
-    userId,
-    email:
-      isRecord(userPayload) && typeof userPayload.email === 'string'
-        ? userPayload.email
-        : null,
+    ...identity,
     role,
   };
+};
+
+export const requireStaff = async (
+  request: Request,
+  env: StaffAuthEnv,
+  options: RequireStaffOptions = {}
+): Promise<StaffIdentity> => {
+  const identity = await requireAuthenticatedUser(request, env, options);
+  return requireStaffRole(identity, env, options);
 };

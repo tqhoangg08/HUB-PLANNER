@@ -4,6 +4,7 @@ import {
   buildSupabaseAuthUserUrl,
   buildSupabaseStaffRoleUrl,
   readBearerToken,
+  requireAuthenticatedUser,
   requireStaff,
   StaffAuthError,
   type StaffAuthEnv,
@@ -96,6 +97,31 @@ test('rejects a valid student session with 403', async () => {
     assertAuthStatus(403)
   );
   assert.equal(requestCount, 2);
+});
+
+test('accepts a valid student session without requiring a staff role', async () => {
+  let requestCount = 0;
+  const identity = await requireAuthenticatedUser(
+    new Request('https://api.example.com', {
+      headers: { Authorization: 'Bearer student-token' },
+    }),
+    AUTH_ENV,
+    {
+      fetcher: async () => {
+        requestCount += 1;
+        return Response.json({
+          id: USER_ID,
+          email: 'student@st.buh.edu.vn',
+        });
+      },
+    }
+  );
+
+  assert.deepEqual(identity, {
+    userId: USER_ID,
+    email: 'student@st.buh.edu.vn',
+  });
+  assert.equal(requestCount, 1);
 });
 
 test('accepts admin and keeps the service key out of the user verification request', async () => {
@@ -230,4 +256,58 @@ test('admin event sync rejects unauthenticated POST before syncing D1', async ()
   assert.equal(response.status, 401);
   assert.equal(response.headers.get('Cache-Control'), 'no-store');
   assert.equal(response.headers.get('WWW-Authenticate'), 'Bearer');
+});
+
+test('event participation routes reject unauthenticated requests before reading or writing D1', async () => {
+  const env = {
+    ALLOWED_ORIGINS: 'https://hotrosinhvienhub.id.vn',
+    SUPABASE_URL: 'https://example.supabase.co',
+  } as never;
+  const context = {} as never;
+  const readResponse = await worker.fetch(
+    new Request('https://api.example.com/api/user/v1/event-participations'),
+    env,
+    context
+  );
+  const writeResponse = await worker.fetch(
+    new Request('https://api.example.com/api/user/v1/event-participations/42', {
+      method: 'PUT',
+    }),
+    env,
+    context
+  );
+
+  assert.equal(readResponse.status, 401);
+  assert.equal(readResponse.headers.get('Cache-Control'), 'no-store');
+  assert.equal(readResponse.headers.get('WWW-Authenticate'), 'Bearer');
+  assert.equal(writeResponse.status, 401);
+  assert.equal(writeResponse.headers.get('Cache-Control'), 'no-store');
+  assert.equal(writeResponse.headers.get('WWW-Authenticate'), 'Bearer');
+});
+
+test('event participation routes expose only their intended methods', async () => {
+  const env = {
+    ALLOWED_ORIGINS: 'https://hotrosinhvienhub.id.vn',
+    SUPABASE_URL: 'https://example.supabase.co',
+  } as never;
+  const context = {} as never;
+  const collectionResponse = await worker.fetch(
+    new Request('https://api.example.com/api/user/v1/event-participations', {
+      method: 'POST',
+    }),
+    env,
+    context
+  );
+  const detailResponse = await worker.fetch(
+    new Request('https://api.example.com/api/user/v1/event-participations/42', {
+      method: 'PATCH',
+    }),
+    env,
+    context
+  );
+
+  assert.equal(collectionResponse.status, 405);
+  assert.equal(collectionResponse.headers.get('Allow'), 'GET, OPTIONS');
+  assert.equal(detailResponse.status, 405);
+  assert.equal(detailResponse.headers.get('Allow'), 'PUT, DELETE, OPTIONS');
 });

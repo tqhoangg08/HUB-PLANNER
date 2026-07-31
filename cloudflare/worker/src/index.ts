@@ -11,7 +11,17 @@ import {
   readAdminEventMutationPayload,
 } from './admin-event-mutations.ts';
 import {
+  EventParticipationError,
+  listEventParticipations,
+  mutateEventParticipation,
+  parseParticipationUserId,
+  syncEventParticipations,
+} from './event-participations.ts';
+import {
+  readBearerToken,
+  requireAuthenticatedUser,
   requireStaff,
+  requireStaffRole,
   StaffAuthError,
   type StaffAuthEnv,
 } from './auth.ts';
@@ -323,7 +333,8 @@ const corsHeaders = (request: Request, env: WorkerEnv): HeadersInit | null => {
   if (!readAllowedOrigins(env).has(origin)) return null;
   return {
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+    'Access-Control-Allow-Methods':
+      'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type, Idempotency-Key',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
@@ -394,6 +405,44 @@ const adminEventMutationErrorResponse = (
   return json({ error: message }, status, {
     ...cors,
     'Cache-Control': 'no-store',
+  });
+};
+
+const eventParticipationErrorResponse = (
+  error: unknown,
+  requestUrl: URL,
+  cors: HeadersInit
+) => {
+  const status =
+    error instanceof StaffAuthError
+      ? error.status
+      : error instanceof EventParticipationError
+        ? error.status
+        : 500;
+  const message =
+    status === 401
+      ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+      : status === 403
+        ? 'Bạn không có quyền xem lịch sử tham gia của người dùng này.'
+        : error instanceof EventParticipationError
+          ? error.message
+          : 'Không thể xử lý lịch sử tham gia sự kiện.';
+
+  if (
+    !(error instanceof StaffAuthError) &&
+    !(error instanceof EventParticipationError)
+  ) {
+    console.error(JSON.stringify({
+      event: 'event_participation_request_failed',
+      path: requestUrl.pathname,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+  }
+
+  return json({ error: message }, status, {
+    ...cors,
+    'Cache-Control': 'no-store',
+    ...(status === 401 ? { 'WWW-Authenticate': 'Bearer' } : {}),
   });
 };
 
@@ -711,6 +760,87 @@ const worker = {
       }
     }
 
+    const participationDetailMatch = requestUrl.pathname.match(
+      /^\/api\/user\/v1\/event-participations\/([1-9]\d*)$/
+    );
+    if (participationDetailMatch) {
+      if (request.method !== 'PUT' && request.method !== 'DELETE') {
+        return json({ error: 'Chỉ hỗ trợ phương thức PUT hoặc DELETE.' }, 405, {
+          ...cors,
+          Allow: 'PUT, DELETE, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+
+      try {
+        const identity = await requireAuthenticatedUser(request, env);
+        const accessToken = readBearerToken(request);
+        if (!accessToken) {
+          throw new StaffAuthError(401, 'Thiếu hoặc sai access token.');
+        }
+        const result = await mutateEventParticipation(
+          env,
+          accessToken,
+          identity.userId,
+          participationDetailMatch[1],
+          request.method === 'PUT'
+        );
+        if (!result.mirrorSynced) {
+          ctx.waitUntil(
+            syncEventParticipations(env).catch((error) => {
+              console.error(JSON.stringify({
+                event: 'event_participation_mirror_repair_failed',
+                error: error instanceof Error ? error.message : String(error),
+              }));
+            })
+          );
+        }
+        return json(result, 200, {
+          ...cors,
+          'Cache-Control': 'no-store',
+          'X-Hub-Backend': 'cloudflare-d1-participations',
+        });
+      } catch (error) {
+        return eventParticipationErrorResponse(error, requestUrl, cors);
+      }
+    }
+
+    if (
+      requestUrl.pathname === '/api/user/v1/event-participations'
+    ) {
+      if (request.method !== 'GET') {
+        return json({ error: 'Chỉ hỗ trợ phương thức GET.' }, 405, {
+          ...cors,
+          Allow: 'GET, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+
+      try {
+        const identity = await requireAuthenticatedUser(request, env);
+        const requestedUserId = requestUrl.searchParams.get('userId');
+        const targetUserId = requestedUserId
+          ? parseParticipationUserId(requestedUserId)
+          : identity.userId;
+        if (targetUserId !== identity.userId) {
+          await requireStaffRole(identity, env, {
+            allowedRoles: ['admin', 'auditor'],
+          });
+        }
+        return json(
+          await listEventParticipations(env, targetUserId),
+          200,
+          {
+            ...cors,
+            'Cache-Control': 'private, no-store',
+            'X-Hub-Backend': 'cloudflare-d1-participations',
+          }
+        );
+      } catch (error) {
+        return eventParticipationErrorResponse(error, requestUrl, cors);
+      }
+    }
+
     if (requestUrl.pathname === '/health') {
       if (request.method !== 'GET') {
         return json({ error: 'Chỉ hỗ trợ phương thức GET.' }, 405, {
@@ -897,6 +1027,12 @@ const worker = {
           failureEvent: 'admin_event_mutation_cleanup_failed',
           promise: cleanupAdminEventMutations(env).then((deleted) =>
             console.log('admin_event_mutation_cleanup_complete', { deleted })
+          ),
+        },
+        {
+          failureEvent: 'event_participation_sync_failed',
+          promise: syncEventParticipations(env).then((summary) =>
+            console.log('event_participation_sync_complete', summary)
           ),
         }
       );
