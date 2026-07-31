@@ -67,6 +67,69 @@ const fetchCandidate = async (path: string, init?: RequestInit) => {
   }
 };
 
+const fetchAdminCandidate = async (
+  path: string,
+  init: RequestInit = {},
+  timeoutMs = CLOUDFLARE_TIMEOUT_MS
+): Promise<Response | null> => {
+  const controller = new AbortController();
+  const abortFromCaller = () => controller.abort(init.signal?.reason);
+  if (init.signal) {
+    if (init.signal.aborted) abortFromCaller();
+    else init.signal.addEventListener('abort', abortFromCaller, { once: true });
+  }
+  const timeout = window.setTimeout(
+    () => controller.abort('cloudflare-admin-timeout'),
+    timeoutMs
+  );
+
+  try {
+    const { supabase } = await import('./supabase');
+    const { data, error } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (error || !accessToken) return null;
+
+    const headers = new Headers(init.headers);
+    headers.set('Accept', 'application/json');
+    headers.set('Authorization', `Bearer ${accessToken}`);
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return await fetch(`${cloudflareBase}${normalizedPath}`, {
+      ...init,
+      headers,
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+  } catch (error) {
+    console.warn('[admin-event-cloudflare-unavailable]', {
+      message: error instanceof Error ? error.message : 'unknown-error',
+    });
+    return null;
+  } finally {
+    window.clearTimeout(timeout);
+    init.signal?.removeEventListener('abort', abortFromCaller);
+  }
+};
+
+export const fetchAdminEvents = (
+  params: URLSearchParams,
+  init?: RequestInit
+) =>
+  fetchAdminCandidate(
+    `/api/admin/v1/events?${params.toString()}`,
+    init
+  );
+
+export const syncAdminEventMirror = async () => {
+  const response = await fetchAdminCandidate('/api/admin/v1/events/sync', {
+    method: 'POST',
+  }, 15_000);
+  if (response?.ok) return true;
+  console.warn('[admin-event-sync-fallback]', {
+    status: response?.status || 0,
+  });
+  return false;
+};
+
 const compareShadow = async (
   sourceResponse: Response,
   candidatePromise: Promise<Response | null>

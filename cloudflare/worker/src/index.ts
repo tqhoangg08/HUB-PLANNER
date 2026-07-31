@@ -1,14 +1,14 @@
 import { handleCourses, syncCourseSchedules } from './courses.ts';
 import { handleEvents, syncPublicEvents } from './events.ts';
 import { handleLostFound, syncPublicLostFound } from './lost-found.ts';
+import { handleAdminEvents, syncAdminEvents } from './admin-events.ts';
+import {
+  requireStaff,
+  StaffAuthError,
+  type StaffAuthEnv,
+} from './auth.ts';
 
-interface Env {
-  DB: D1Database;
-  ALLOWED_ORIGINS?: string;
-  SUPABASE_URL?: string;
-  SUPABASE_ANON_KEY?: string;
-  SUPABASE_SERVICE_ROLE_KEY?: string;
-}
+type WorkerEnv = Env & StaffAuthEnv;
 
 interface AnnouncementRow {
   id: number;
@@ -19,7 +19,7 @@ interface AnnouncementRow {
   created_at: string | null;
 }
 
-interface SupabaseAnnouncementRow extends AnnouncementRow {
+interface SupabaseAnnouncementRow extends Omit<AnnouncementRow, 'is_new'> {
   is_hidden: boolean | number | null;
   is_new: boolean | number | null;
 }
@@ -171,7 +171,7 @@ export const buildSupabaseAnnouncementsUrl = (
 };
 
 const readSupabaseAnnouncements = async (
-  env: Env,
+  env: WorkerEnv,
   options: { afterId?: number; latestLimit?: number }
 ) => {
   if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
@@ -192,7 +192,10 @@ const readSupabaseAnnouncements = async (
   return (await response.json()) as SupabaseAnnouncementRow[];
 };
 
-const writeAnnouncementRows = async (env: Env, rows: SupabaseAnnouncementRow[]) => {
+const writeAnnouncementRows = async (
+  env: WorkerEnv,
+  rows: SupabaseAnnouncementRow[]
+) => {
   if (rows.length === 0) return;
 
   const statement = `
@@ -233,7 +236,7 @@ const writeAnnouncementRows = async (env: Env, rows: SupabaseAnnouncementRow[]) 
   }
 };
 
-export const syncSchoolAnnouncements = async (env: Env) => {
+export const syncSchoolAnnouncements = async (env: WorkerEnv) => {
   const maxIdRow = await env.DB.prepare(
     'SELECT COALESCE(MAX(id), 0) AS max_id FROM school_announcements'
   ).first<{ max_id: number }>();
@@ -298,7 +301,7 @@ export const syncSchoolAnnouncements = async (env: Env) => {
   };
 };
 
-const readAllowedOrigins = (env: Env) => {
+const readAllowedOrigins = (env: WorkerEnv) => {
   const configured = String(env.ALLOWED_ORIGINS || '')
     .split(',')
     .map((value) => value.trim())
@@ -306,20 +309,65 @@ const readAllowedOrigins = (env: Env) => {
   return new Set(configured.length > 0 ? configured : DEFAULT_ALLOWED_ORIGINS);
 };
 
-const corsHeaders = (request: Request, env: Env): HeadersInit | null => {
+const corsHeaders = (request: Request, env: WorkerEnv): HeadersInit | null => {
   const origin = request.headers.get('Origin');
   if (!origin) return {};
   if (!readAllowedOrigins(env).has(origin)) return null;
   return {
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };
 };
 
-const handleAnnouncements = async (requestUrl: URL, env: Env) => {
+const readSyncHealth = async (env: WorkerEnv) => {
+  const rows = await env.DB.prepare(
+    `SELECT resource, source_row_count, visible_row_count,
+            source_max_created_at, synced_at
+       FROM sync_metadata`
+  ).all<Record<string, unknown>>();
+  const resources = Object.fromEntries(
+    (rows.results || []).map((row) => [String(row.resource), row])
+  );
+  return {
+    ok: true,
+    resource: 'school_announcements',
+    sync: resources.school_announcements || null,
+    resources,
+  };
+};
+
+const adminErrorResponse = (
+  error: unknown,
+  requestUrl: URL,
+  cors: HeadersInit
+) => {
+  const status = error instanceof StaffAuthError ? error.status : 500;
+  const message =
+    status === 401
+      ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+      : status === 403
+        ? 'Tài khoản không có quyền quản trị.'
+        : status === 503
+          ? 'Dịch vụ xác thực quản trị tạm thời không khả dụng.'
+          : 'Không thể tải dữ liệu quản trị.';
+
+  console.warn(JSON.stringify({
+    event: 'admin_access_denied',
+    path: requestUrl.pathname,
+    status,
+  }));
+
+  return json({ error: message }, status, {
+    ...cors,
+    'Cache-Control': 'no-store',
+    ...(status === 401 ? { 'WWW-Authenticate': 'Bearer' } : {}),
+  });
+};
+
+const handleAnnouncements = async (requestUrl: URL, env: WorkerEnv) => {
   const query = parseAnnouncementQuery(requestUrl.searchParams);
   const where = ['COALESCE(is_hidden, 0) = 0'];
   const bindings: Array<string | number> = [];
@@ -407,27 +455,120 @@ const storeCachedResponse = (
 };
 
 const worker = {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: WorkerEnv,
+    ctx: ExecutionContext
+  ): Promise<Response> {
     const cors = corsHeaders(request, env);
     if (cors === null) return json({ error: 'Origin không được phép.' }, 403);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
     const requestUrl = new URL(request.url);
+    if (requestUrl.pathname === '/api/admin/v1/events/sync') {
+      if (request.method !== 'POST') {
+        return json({ error: 'Chỉ hỗ trợ phương thức POST.' }, 405, {
+          ...cors,
+          Allow: 'POST, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+
+      try {
+        const identity = await requireStaff(request, env, {
+          allowedRoles: ['admin', 'auditor'],
+        });
+        const summary = await syncAdminEvents(env);
+        console.log(JSON.stringify({
+          event: 'admin_event_sync_complete',
+          role: identity.role,
+          sourceRowCount: summary.sourceRowCount,
+          deleted: summary.deleted,
+        }));
+        return json({ success: true, ...summary }, 200, {
+          ...cors,
+          'Cache-Control': 'no-store',
+          'X-Hub-Backend': 'cloudflare-d1-admin',
+        });
+      } catch (error) {
+        if (error instanceof StaffAuthError) {
+          return adminErrorResponse(error, requestUrl, cors);
+        }
+        console.error(JSON.stringify({
+          event: 'admin_event_sync_failed',
+          path: requestUrl.pathname,
+          error: error instanceof Error ? error.message : String(error),
+        }));
+        return json({ error: 'Không thể đồng bộ dữ liệu Sự kiện quản trị.' }, 500, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/admin/v1/events') {
+      if (request.method !== 'GET') {
+        return json({ error: 'Chỉ hỗ trợ phương thức GET.' }, 405, {
+          ...cors,
+          Allow: 'GET, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+
+      try {
+        await requireStaff(request, env, {
+          allowedRoles: ['admin', 'auditor'],
+        });
+        return json(await handleAdminEvents(requestUrl, env), 200, {
+          ...cors,
+          'Cache-Control': 'no-store',
+          'X-Hub-Backend': 'cloudflare-d1-admin',
+        });
+      } catch (error) {
+        if (error instanceof StaffAuthError) {
+          return adminErrorResponse(error, requestUrl, cors);
+        }
+        console.error(JSON.stringify({
+          event: 'admin_event_query_failed',
+          path: requestUrl.pathname,
+          error: error instanceof Error ? error.message : String(error),
+        }));
+        return json({ error: 'Không thể tải dữ liệu Sự kiện quản trị.' }, 500, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/admin/v1/health') {
+      if (request.method !== 'GET') {
+        return json({ error: 'Chỉ hỗ trợ phương thức GET.' }, 405, {
+          ...cors,
+          Allow: 'GET, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+
+      try {
+        await requireStaff(request, env, { allowedRoles: ['admin'] });
+        return json(await readSyncHealth(env), 200, {
+          ...cors,
+          'Cache-Control': 'no-store',
+          'X-Hub-Backend': 'cloudflare-d1-admin',
+        });
+      } catch (error) {
+        return adminErrorResponse(error, requestUrl, cors);
+      }
+    }
+
     if (requestUrl.pathname === '/health') {
-      const rows = await env.DB.prepare(
-        `SELECT resource, source_row_count, visible_row_count,
-                source_max_created_at, synced_at
-           FROM sync_metadata`
-      ).all<Record<string, unknown>>();
-      const resources = Object.fromEntries(
-        (rows.results || []).map((row) => [String(row.resource), row])
-      );
-      return json({
-        ok: true,
-        resource: 'school_announcements',
-        sync: resources.school_announcements || null,
-        resources,
-      }, 200, cors);
+      if (request.method !== 'GET') {
+        return json({ error: 'Chỉ hỗ trợ phương thức GET.' }, 405, {
+          ...cors,
+          Allow: 'GET, OPTIONS',
+        });
+      }
+      return json(await readSyncHealth(env), 200, cors);
     }
 
     if (request.method !== 'GET') {
@@ -552,11 +693,17 @@ const worker = {
     }
   },
 
-  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+  async scheduled(
+    controller: ScheduledController,
+    env: WorkerEnv,
+    ctx: ExecutionContext
+  ) {
     const hourlyCron = controller.cron === '17 * * * *';
     const eventCron = controller.cron === '*/10 * * * *';
+    const adminEventCron = controller.cron === '37 19 * * *';
     const lostFoundCron = controller.cron === '*/5 * * * *';
-    const runAll = !hourlyCron && !eventCron && !lostFoundCron;
+    const runAll =
+      !hourlyCron && !eventCron && !adminEventCron && !lostFoundCron;
     const reconcileCourseDeletes =
       (hourlyCron || runAll) &&
       new Date(controller.scheduledTime).getUTCHours() === 20;
@@ -588,6 +735,15 @@ const worker = {
       });
     }
 
+    if (adminEventCron || runAll) {
+      jobs.push({
+        failureEvent: 'admin_event_sync_failed',
+        promise: syncAdminEvents(env).then((summary) =>
+          console.log('admin_event_sync_complete', summary)
+        ),
+      });
+    }
+
     if (lostFoundCron || runAll) {
       jobs.push({
         failureEvent: 'lost_found_sync_failed',
@@ -607,6 +763,6 @@ const worker = {
       })
     );
   },
-};
+} satisfies ExportedHandler<WorkerEnv>;
 
 export default worker;

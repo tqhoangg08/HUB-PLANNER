@@ -1,6 +1,6 @@
 const DEFAULT_CLOUDFLARE_PUBLIC_API =
   'https://hub-planner-public-dev-api.tqhoangg2.workers.dev';
-const HEALTH_CACHE_KEY = 'hub_cloudflare_admin_health_v1';
+const HEALTH_CACHE_KEY = 'hub_cloudflare_admin_health_v2';
 const HEALTH_CACHE_TTL_MS = 5 * 60 * 1000;
 const HEALTH_TIMEOUT_MS = 5_000;
 
@@ -29,6 +29,11 @@ export type SyncFreshness = 'healthy' | 'stale' | 'missing';
 interface CachedHealth {
   checkedAt: number;
   snapshot: CloudflareHealthSnapshot;
+}
+
+interface AdminSession {
+  accessToken: string;
+  userId: string;
 }
 
 const cloudflarePublicApiBase = String(
@@ -102,10 +107,12 @@ export const classifySyncFreshness = (
     : 'stale';
 };
 
-const readCachedHealth = (): CachedHealth | null => {
+const buildHealthCacheKey = (userId: string) => `${HEALTH_CACHE_KEY}:${userId}`;
+
+const readCachedHealth = (userId: string): CachedHealth | null => {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.sessionStorage.getItem(HEALTH_CACHE_KEY);
+    const raw = window.sessionStorage.getItem(buildHealthCacheKey(userId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CachedHealth;
     if (!Number.isFinite(parsed?.checkedAt)) return null;
@@ -118,16 +125,32 @@ const readCachedHealth = (): CachedHealth | null => {
   }
 };
 
-const writeCachedHealth = (cached: CachedHealth) => {
+const writeCachedHealth = (userId: string, cached: CachedHealth) => {
   if (typeof window === 'undefined') return;
   try {
-    window.sessionStorage.setItem(HEALTH_CACHE_KEY, JSON.stringify(cached));
+    window.sessionStorage.setItem(
+      buildHealthCacheKey(userId),
+      JSON.stringify(cached)
+    );
   } catch {
     // sessionStorage can be unavailable in private/restricted browser modes.
   }
 };
 
-const requestHealth = async (): Promise<CachedHealth> => {
+const readAdminSession = async (): Promise<AdminSession> => {
+  const { supabase } = await import('./supabase');
+  const { data, error } = await supabase.auth.getSession();
+  const session = data.session;
+  if (error || !session?.access_token || !session.user?.id) {
+    throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+  }
+  return {
+    accessToken: session.access_token,
+    userId: session.user.id,
+  };
+};
+
+const requestHealth = async (session: AdminSession): Promise<CachedHealth> => {
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(
     () => controller.abort('cloudflare-health-timeout'),
@@ -135,30 +158,43 @@ const requestHealth = async (): Promise<CachedHealth> => {
   );
 
   try {
-    const response = await fetch(`${cloudflarePublicApiBase}/health`, {
-      headers: { Accept: 'application/json' },
+    const response = await fetch(
+      `${cloudflarePublicApiBase}/api/admin/v1/health`,
+      {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${session.accessToken}`,
+      },
       cache: 'no-store',
       signal: controller.signal,
-    });
+      }
+    );
     if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      }
+      if (response.status === 403) {
+        throw new Error('Tài khoản không có quyền truy cập dữ liệu quản trị.');
+      }
       throw new Error(`Cloudflare trả về mã ${response.status}.`);
     }
 
     const snapshot = normalizeCloudflareHealthPayload(await response.json());
     const cached = { checkedAt: Date.now(), snapshot };
-    writeCachedHealth(cached);
+    writeCachedHealth(session.userId, cached);
     return cached;
   } finally {
     globalThis.clearTimeout(timeout);
   }
 };
 
-let pendingHealthRequest: Promise<CachedHealth> | null = null;
+const pendingHealthRequests = new Map<string, Promise<CachedHealth>>();
 
 export const fetchCloudflareHealth = async (
   options: { force?: boolean } = {}
 ): Promise<CloudflareHealthResult> => {
-  const cached = readCachedHealth();
+  const session = await readAdminSession();
+  const cached = readCachedHealth(session.userId);
   const cacheAge = cached ? Date.now() - cached.checkedAt : Number.POSITIVE_INFINITY;
   if (!options.force && cached && cacheAge <= HEALTH_CACHE_TTL_MS) {
     return {
@@ -169,10 +205,12 @@ export const fetchCloudflareHealth = async (
   }
 
   try {
+    let pendingHealthRequest = pendingHealthRequests.get(session.userId);
     if (!pendingHealthRequest) {
-      pendingHealthRequest = requestHealth().finally(() => {
-        pendingHealthRequest = null;
+      pendingHealthRequest = requestHealth(session).finally(() => {
+        pendingHealthRequests.delete(session.userId);
       });
+      pendingHealthRequests.set(session.userId, pendingHealthRequest);
     }
     const fresh = await pendingHealthRequest;
     return {
@@ -191,4 +229,3 @@ export const fetchCloudflareHealth = async (
     throw error;
   }
 };
-

@@ -20,7 +20,11 @@ import { notifyModerators } from '../utils/moderatorNotifications';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { apiHeaders, apiUrl } from '../utils/api';
-import { fetchPublicEvents } from '../utils/eventsApi';
+import {
+  fetchAdminEvents,
+  fetchPublicEvents,
+  syncAdminEventMirror,
+} from '../utils/eventsApi';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 
 // --- Types ---
@@ -832,6 +836,69 @@ const canManage = isAdmin || isAuditor || isCTV;
 
       const eventColumns = 'id,title,criteria,points,format,deadline,deadline_time,close_on_full,description,link,organizer,category,classification,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url';
       const participantIds = participatedEvents.map(id => Number(id)).filter(id => Number.isFinite(id));
+      const mirrorReady =
+        !options.bypassCache || (await syncAdminEventMirror());
+
+      if (mirrorReady) {
+        try {
+          const params = new URLSearchParams({
+            limit: '500',
+            state: 'all',
+            sort: sortOrder,
+          });
+          if (term) params.set('search', term);
+          if (activeScope !== 'all') params.set('scope', activeScope);
+          if (activeTab === 'participated') {
+            params.set('ids', participantIds.join(','));
+          } else if (activeTab !== 'all') {
+            params.set('criteria', activeTab);
+          }
+
+          const response = await fetchAdminEvents(params);
+          if (response?.ok) {
+            const payload = await response.json();
+            if (Array.isArray(payload?.data)) {
+              const openRows = payload.data.filter(
+                (row: any) =>
+                  !row.is_manually_closed && row.status !== 'Đã kết thúc'
+              );
+              const closedRows = payload.data.filter(
+                (row: any) =>
+                  row.is_manually_closed || row.status === 'Đã kết thúc'
+              );
+              const pageRows = [...openRows, ...closedRows].slice(
+                pageOffset,
+                pageOffset + EVENTS_PAGE_SIZE
+              );
+              const parsedEvents: HubEvent[] = pageRows.map((row: any) => {
+                let deadlineDate = null;
+                if (row.deadline) {
+                  deadlineDate = new Date(row.deadline);
+                  deadlineDate.setHours(23, 59, 59, 999);
+                }
+                return {
+                  id: row.id.toString(), name: row.title || 'Sự kiện chưa có tên', category: row.criteria || 'Khác',
+                  score: row.points?.toString() || '0', location: row.format || 'Offline', time: formatDateString(row.deadline),
+                  deadlineDate, deadline_time: row.deadline_time || null, close_on_full: row.close_on_full || false,
+                  description: row.description || null, link: row.link || '', organizer: row.organizer || 'HUB',
+                  type: row.category || '', classification: row.classification || '', scope: row.location_type || 'Trong trường',
+                  status: row.status || 'Sắp diễn ra', is_manually_closed: row.is_manually_closed || false,
+                  is_deleted: row.is_deleted || false, created_at: row.created_at || new Date().toISOString(),
+                  event_date: row.event_date || null, event_time: row.event_time || null,
+                  registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null,
+                  image_url: row.image_url || null
+                };
+              });
+              setEvents(parsedEvents);
+              setEventsTotal(openRows.length + closedRows.length);
+              return;
+            }
+          }
+        } catch (cloudflareError) {
+          console.warn('Không thể đọc sự kiện quản trị từ Cloudflare:', cloudflareError);
+        }
+      }
+
       const buildQuery = (select: string, countOptions: any, group: 'open' | 'closed') => {
         let query = supabase!.from('events').select(select, countOptions);
         if (!(isManagementView && canManage)) {
@@ -918,25 +985,12 @@ const canManage = isAdmin || isAuditor || isCTV;
 
   const fetchOpenEventsTotal = async () => {
     try {
-      if (!(isManagementView && canManage)) {
-        const response = await fetchPublicEvents('/events?group=open&limit=1', {
-          headers: apiHeaders(),
-        });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload?.error || 'Không thể tải tổng sự kiện mở');
-        setOpenEventsTotal(Number(payload?.total || 0));
-        return;
-      }
-      let query = supabase!
-        .from('events')
-        .select('id', { count: 'exact', head: true })
-        .or('is_deleted.is.false,is_deleted.is.null')
-        .or('is_manually_closed.is.false,is_manually_closed.is.null')
-        .neq('status', 'pending')
-        .neq('status', 'Đã kết thúc');
-      const { count, error } = await query;
-      if (error) throw error;
-      setOpenEventsTotal(count || 0);
+      const response = await fetchPublicEvents('/events?group=open&limit=1', {
+        headers: apiHeaders(),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || 'Không thể tải tổng sự kiện mở');
+      setOpenEventsTotal(Number(payload?.total || 0));
     } catch (error) {
       console.error('Không thể tải tổng sự kiện mở:', error);
       setOpenEventsTotal(0);
@@ -1067,6 +1121,7 @@ const canManage = isAdmin || isAuditor || isCTV;
               await notifyAllUsersAboutEvent({ ...evt, ...patch, title: evt.name, criteria: patch.criteria || evt.category });
           }
           setEvents(prev => prev.map(item => item.id === evt.id ? { ...item, ...patch } : item));
+          void syncAdminEventMirror();
           showToast(successMessage, 'success');
       } catch (err: any) {
           showToast('Lỗi: ' + (err.message || 'Không thể cập nhật sự kiện'), 'error');

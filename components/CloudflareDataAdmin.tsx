@@ -26,6 +26,8 @@ const RESOURCE_CARDS = [
     label: 'Thông báo trường',
     description: 'Danh sách thông báo công khai trên trang tổng quan.',
     route: '/dashboard',
+    actionLabel: 'Mở quản lý',
+    secondaryLabel: 'Đang hiển thị',
     icon: BellRing,
     staleAfterMinutes: 150,
     cadence: 'Mỗi giờ',
@@ -35,24 +37,41 @@ const RESOURCE_CARDS = [
     label: 'Môn học & thời khóa biểu',
     description: 'Danh mục môn và dữ liệu phục vụ tra cứu lịch học.',
     route: '/schedule',
+    actionLabel: 'Mở quản lý',
+    secondaryLabel: 'Đang hiển thị',
     icon: BookOpen,
     staleAfterMinutes: 150,
     cadence: 'Mỗi giờ',
   },
   {
     key: 'events',
-    label: 'Sự kiện ĐRL',
+    label: 'Sự kiện công khai',
     description: 'Sự kiện đang hiển thị cho sinh viên.',
     route: '/events',
+    actionLabel: 'Mở trang sự kiện',
+    secondaryLabel: 'Đang hiển thị',
     icon: CalendarDays,
     staleAfterMinutes: 30,
     cadence: 'Mỗi 10 phút',
+  },
+  {
+    key: 'admin_events',
+    label: 'Kho sự kiện quản trị',
+    description: 'Bản sao đầy đủ chỉ dành cho quản trị và đối chiếu dữ liệu.',
+    route: null,
+    actionLabel: null,
+    secondaryLabel: 'Ngoài danh sách công khai',
+    icon: ShieldCheck,
+    staleAfterMinutes: 36 * 60,
+    cadence: 'Mỗi ngày',
   },
   {
     key: 'lost_found_items',
     label: 'Đồ thất lạc',
     description: 'Tin báo mất và tin nhặt được đã công khai.',
     route: '/lost-found',
+    actionLabel: 'Mở quản lý',
+    secondaryLabel: 'Đang hiển thị',
     icon: Search,
     staleAfterMinutes: 20,
     cadence: 'Mỗi 5 phút',
@@ -222,6 +241,17 @@ export const CloudflareDataAdmin: React.FC = () => {
             const presentation = freshnessPresentation[freshness];
             const StatusIcon = presentation.icon;
             const CardIcon = card.icon;
+            const sourceRowCount = Number(resource?.source_row_count || 0);
+            const secondaryRowCount =
+              card.key === 'admin_events'
+                ? Math.max(
+                    0,
+                    sourceRowCount -
+                      Number(
+                        result?.snapshot.resources.events?.visible_row_count || 0
+                      )
+                  )
+                : Number(resource?.visible_row_count || 0);
 
             return (
               <article
@@ -260,15 +290,15 @@ export const CloudflareDataAdmin: React.FC = () => {
                       Bản ghi nguồn
                     </p>
                     <p className="mt-1 text-lg font-black text-[#0D1B3E]">
-                      {Number(resource?.source_row_count || 0).toLocaleString('vi-VN')}
+                      {sourceRowCount.toLocaleString('vi-VN')}
                     </p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 p-3">
                     <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                      Đang hiển thị
+                      {card.secondaryLabel}
                     </p>
                     <p className="mt-1 text-lg font-black text-[#0D1B3E]">
-                      {Number(resource?.visible_row_count || 0).toLocaleString('vi-VN')}
+                      {secondaryRowCount.toLocaleString('vi-VN')}
                     </p>
                   </div>
                 </div>
@@ -278,13 +308,20 @@ export const CloudflareDataAdmin: React.FC = () => {
                     <Clock3 size={14} />
                     {formatTimestamp(resource?.synced_at)}
                   </div>
-                  <Link
-                    to={card.route}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#0D1B3E] px-3 py-2 text-xs font-black text-white transition hover:bg-[#1664F5]"
-                  >
-                    Mở quản lý
-                    <ExternalLink size={13} />
-                  </Link>
+                  {card.route && card.actionLabel ? (
+                    <Link
+                      to={card.route}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#0D1B3E] px-3 py-2 text-xs font-black text-white transition hover:bg-[#1664F5]"
+                    >
+                      {card.actionLabel}
+                      <ExternalLink size={13} />
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-500">
+                      <ShieldCheck size={13} />
+                      Chỉ theo dõi
+                    </span>
+                  )}
                 </div>
               </article>
             );
@@ -299,14 +336,15 @@ export const CloudflareDataAdmin: React.FC = () => {
             </h2>
             <div className="mt-4 space-y-3 text-sm font-medium leading-6 text-slate-600">
               <p>
-                Trang này chỉ đọc số liệu tổng hợp công khai từ endpoint{' '}
+                Trang này chỉ đọc số liệu tổng hợp từ endpoint quản trị{' '}
                 <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-700">
-                  /health
+                  /api/admin/v1/health
                 </code>
                 , không tải toàn bộ bảng.
               </p>
               <p>
-                Không có API key, token quản trị hoặc khóa Cloudflare nào được
+                Trình duyệt chỉ gửi phiên đăng nhập hiện tại. Worker tự xác minh
+                lại tài khoản và vai trò; khóa service role không bao giờ được
                 đưa xuống trình duyệt.
               </p>
               <p>
@@ -321,12 +359,12 @@ export const CloudflareDataAdmin: React.FC = () => {
               Tiến độ chuyển đổi
             </p>
             <h2 className="mt-2 text-lg font-black text-[#0D1B3E]">
-              Đọc công khai: 4/4 nhóm
+              Đọc Sự kiện quản trị: sẵn sàng kiểm thử
             </h2>
             <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
-              Bước kế tiếp là lớp xác thực Cloudflare cho API ghi. Sau khi lớp
-              này hoàn tất, các nút thêm/sửa/xóa mới được chuyển sang D1 mà
-              không làm lộ bí mật quản trị.
+              Desktop và mobile ưu tiên đọc từ D1, có fallback Supabase nếu
+              Cloudflare gián đoạn. Thao tác thêm/sửa/duyệt/xóa vẫn ghi vào
+              Supabase và yêu cầu Worker cập nhật lại bản sao ngay sau đó.
             </p>
           </div>
         </section>
@@ -336,4 +374,3 @@ export const CloudflareDataAdmin: React.FC = () => {
 };
 
 export default CloudflareDataAdmin;
-

@@ -18,7 +18,11 @@ import { CTVRegistrationForm } from './CTVRegistrationForm';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { apiHeaders, apiUrl } from '../utils/api';
-import { fetchPublicEvents } from '../utils/eventsApi';
+import {
+  fetchAdminEvents,
+  fetchPublicEvents,
+  syncAdminEventMirror,
+} from '../utils/eventsApi';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
@@ -1445,23 +1449,38 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       }
 
       const eventColumns = 'id,title,criteria,points,format,deadline,deadline_time,close_on_full,description,link,organizer,category,classification,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url';
-      let query = supabase
-        .from('events')
-        .select(eventColumns)
-        .order('created_at', { ascending: false })
-        .limit(300);
+      let fetchedData: any[] | null = null;
+      const mirrorReady =
+        !options.bypassCache || (await syncAdminEventMirror());
 
-      if (!showManagementView) {
-        query = query.or('is_deleted.is.false,is_deleted.is.null').neq('status', 'pending');
+      if (mirrorReady) {
+        try {
+          const params = new URLSearchParams({
+            limit: '500',
+            state: 'all',
+            sort: 'newest',
+          });
+          const response = await fetchAdminEvents(params);
+          if (response?.ok) {
+            const payload = await response.json();
+            if (Array.isArray(payload?.data)) fetchedData = payload.data;
+          }
+        } catch (cloudflareError) {
+          console.warn(
+            'Không thể đọc sự kiện quản trị từ Cloudflare:',
+            cloudflareError
+          );
+        }
       }
 
-      const { data, error: fetchError } = await query;
-      if (fetchError) throw fetchError;
-
-      let fetchedData = data || [];
-
-      if (!canManage) {
-        fetchedData = fetchedData.filter((evt: any) => evt.status !== 'pending');
+      if (!fetchedData) {
+        const { data, error: fetchError } = await supabase
+          .from('events')
+          .select(eventColumns)
+          .order('created_at', { ascending: false })
+          .limit(500);
+        if (fetchError) throw fetchError;
+        fetchedData = data || [];
       }
 
       if (fetchedData) {
@@ -1563,6 +1582,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
           if (error) throw error;
           showToast("Đã xóa sự kiện thành công (Soft Delete)", "success");
           setEvents(prev => prev.map(e => e.id === id ? { ...e, is_deleted: true } : e));
+          void syncAdminEventMirror();
       } catch (err: any) {
           showToast("Lỗi khi xóa: " + err.message, "error");
       }
@@ -1582,6 +1602,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
           if (error) throw error;
           
           setEvents(prev => prev.map(e => e.id === event.id ? { ...e, is_manually_closed: newState } : e));
+          void syncAdminEventMirror();
           showToast(newState ? "Đã đóng đơn đăng ký" : "Đã mở lại đơn đăng ký", "success");
       } catch (err: any) {
           showToast("Lỗi cập nhật: " + err.message, "error");
