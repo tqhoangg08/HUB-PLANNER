@@ -76,6 +76,69 @@ const uniqueSortedOptions = (values: unknown[]) =>
     left.localeCompare(right, 'vi', { numeric: true, sensitivity: 'base' })
   );
 
+const getFilterValues = (params: URLSearchParams, name: string) =>
+  [...new Set(params.getAll(name).map(clean).filter(Boolean))];
+
+const appendMultiValueCondition = (
+  where: string[],
+  bindings: Array<string | number>,
+  column: string,
+  values: string[]
+) => {
+  if (values.length === 0) return;
+  where.push(`${column} IN (${values.map(() => '?').join(', ')})`);
+  bindings.push(...values);
+};
+
+const ADVANCED_COURSE_FILTER_COLUMNS = {
+  courseCode: 'course_code',
+  prerequisite: 'prerequisite',
+  credits: 'credits',
+  knowledgeBlock: 'knowledge_block',
+  instructor: 'instructor',
+  dayOfWeek: 'day_of_week',
+  shift: 'shift',
+  room: 'room',
+  weeks: 'weeks',
+  managingFaculty: 'managing_faculty',
+  campus: 'campus',
+  examDate: 'exam_date',
+  examShift: 'exam_shift',
+  examCampus: 'exam_campus',
+  examRoom: 'exam_room',
+  orientation: 'orientation',
+  orientationNote3: 'orientation_note_3',
+  registrationType: 'registration_type',
+  generalNote: 'general_note',
+  studentCount: 'student_count',
+} as const;
+
+const ADVANCED_NUMERIC_FILTERS = new Set(['credits', 'studentCount']);
+
+export const hasAdvancedCourseFilters = (params: URLSearchParams) =>
+  Object.keys(ADVANCED_COURSE_FILTER_COLUMNS).some(name => clean(params.get(name)));
+
+const appendAdvancedCourseFilters = (
+  params: URLSearchParams,
+  where: string[],
+  bindings: Array<string | number>
+) => {
+  for (const [parameter, column] of Object.entries(ADVANCED_COURSE_FILTER_COLUMNS)) {
+    const value = clean(params.get(parameter));
+    if (!value) continue;
+    if (ADVANCED_NUMERIC_FILTERS.has(parameter)) {
+      const numericValue = Number(value);
+      if (Number.isFinite(numericValue)) {
+        where.push(`${column} = ?`);
+        bindings.push(numericValue);
+      }
+      continue;
+    }
+    where.push(`LOWER(COALESCE(${column}, '')) LIKE LOWER(?) ESCAPE '\\'`);
+    bindings.push(`%${value.replace(/[\\%_]/g, '\\$&')}%`);
+  }
+};
+
 export const parseCourseGroupTokens = (value: unknown) => {
   const parts = clean(value).split(',').map((part) => part.trim()).filter(Boolean);
   if (parts.length === 0) return [];
@@ -108,17 +171,15 @@ const buildWhere = (params: URLSearchParams) => {
     ['academicProgram', 'academic_program'], ['subjectName', 'subject_name'],
   ] as const;
   for (const [parameter, column] of exact) {
-    const value = clean(params.get(parameter));
-    if (value) {
-      where.push(`${column} = ?`);
-      bindings.push(value);
-    }
+    appendMultiValueCondition(where, bindings, column, getFilterValues(params, parameter));
   }
-  const phase = clean(params.get('phase'));
-  if (phase && phase !== 'all') {
-    where.push('phase = ?');
-    bindings.push(phase);
-  }
+  appendMultiValueCondition(
+    where,
+    bindings,
+    'phase',
+    getFilterValues(params, 'phase').filter(value => value !== 'all')
+  );
+  appendAdvancedCourseFilters(params, where, bindings);
   const isUserAdded = clean(params.get('isUserAdded'));
   if (isUserAdded === 'true') where.push('is_user_added = 1');
   if (isUserAdded === 'false') where.push('(is_user_added = 0 OR is_user_added IS NULL)');
@@ -156,18 +217,17 @@ const buildFacetWhere = (
   ] as const;
 
   for (const [parameter, column, shouldInclude] of exact) {
-    const value = clean(params.get(parameter));
-    if (value && shouldInclude) {
-      where.push(`${column} = ?`);
-      bindings.push(value);
+    if (shouldInclude) {
+      appendMultiValueCondition(where, bindings, column, getFilterValues(params, parameter));
     }
   }
 
-  const phase = clean(params.get('phase'));
-  if (phase && phase !== 'all') {
-    where.push('phase = ?');
-    bindings.push(phase);
-  }
+  appendMultiValueCondition(
+    where,
+    bindings,
+    'phase',
+    getFilterValues(params, 'phase').filter(value => value !== 'all')
+  );
 
   const isUserAdded = clean(params.get('isUserAdded'));
   if (isUserAdded === 'true') where.push('is_user_added = 1');
@@ -190,6 +250,7 @@ export const canUseCourseMetadataCount = (params: URLSearchParams) => {
     'search',
     'groupName',
   ].some((name) => clean(params.get(name))) &&
+  !hasAdvancedCourseFilters(params) &&
   !['true', 'false'].includes(clean(params.get('isUserAdded'))) &&
   (!phase || phase === 'all');
 };
@@ -202,7 +263,7 @@ const countCourses = async (params: URLSearchParams, env: CourseEnv) => {
     if (metadata) return Number(metadata.source_row_count || 0);
   }
 
-  if (!normalizeSearch(params.get('search')) && !clean(params.get('groupName'))) {
+  if (!normalizeSearch(params.get('search')) && !clean(params.get('groupName')) && !hasAdvancedCourseFilters(params)) {
     const { whereSql, bindings } = buildFacetWhere(params);
     const facetCount = await env.DB.prepare(
       `SELECT COALESCE(SUM(course_count), 0) AS total
@@ -234,18 +295,19 @@ const courseList = async (url: URL, env: CourseEnv) => {
   const { suggestions, limit, offset } = parseCourseListPaging(url.searchParams);
   const { whereSql, bindings } = buildWhere(url.searchParams);
   const columns = url.searchParams.get('view') === 'detail' ? DETAIL_COLUMNS : SUMMARY_COLUMNS;
-  const groupName = clean(url.searchParams.get('groupName'));
+  const groupNames = getFilterValues(url.searchParams, 'groupName');
   let rows: Record<string, unknown>[] = [];
   let total = 0;
 
-  if (groupName && !suggestions) {
+  if (groupNames.length > 0 && !suggestions) {
     const candidates = await env.DB.prepare(
       `SELECT ${SUMMARY_COLUMNS.join(', ')}, source_position
        FROM course_schedules ${whereSql} ORDER BY source_position`
     ).bind(...bindings).all<Record<string, unknown>>();
-    const matching = (candidates.results || []).filter((row) =>
-      parseCourseGroupTokens(row.group_name).includes(groupName)
-    );
+    const matching = (candidates.results || []).filter((row) => {
+      const rowGroups = parseCourseGroupTokens(row.group_name);
+      return groupNames.some(groupName => rowGroups.includes(groupName));
+    });
     total = matching.length;
     rows = matching.slice(offset, offset + limit);
   } else {

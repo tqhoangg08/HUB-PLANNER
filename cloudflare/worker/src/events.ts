@@ -45,7 +45,11 @@ export interface EventQuery {
   search: string;
   criteria: string;
   scope: string;
-  sort: 'newest' | 'oldest' | 'expiring_soon';
+  eventType: string;
+  dateFrom: string;
+  dateTo: string;
+  registrationStatus: string;
+  sort: 'newest' | 'oldest' | 'expiring_soon' | 'upcoming' | 'highest_score';
   group: 'all' | 'open' | 'closed';
   ids: number[] | null;
 }
@@ -102,8 +106,9 @@ export const parseEventIds = (value: string | null) => {
 
 export const parseEventQuery = (params: URLSearchParams): EventQuery => {
   const rawSort = clean(params.get('sort'));
-  const sort =
-    rawSort === 'oldest' || rawSort === 'expiring_soon' ? rawSort : 'newest';
+  const sort = ['oldest', 'expiring_soon', 'upcoming', 'highest_score'].includes(rawSort)
+    ? rawSort as EventQuery['sort']
+    : 'newest';
   const rawGroup = clean(params.get('group'));
   const group =
     rawGroup === 'open' || rawGroup === 'closed' ? rawGroup : 'all';
@@ -114,6 +119,10 @@ export const parseEventQuery = (params: URLSearchParams): EventQuery => {
     search: normalizeEventSearch(params.get('search')),
     criteria: clean(params.get('criteria') || 'all'),
     scope: clean(params.get('scope') || 'all'),
+    eventType: clean(params.get('eventType') || 'all'),
+    dateFrom: clean(params.get('dateFrom')),
+    dateTo: clean(params.get('dateTo')),
+    registrationStatus: clean(params.get('registrationStatus') || 'all'),
     sort,
     group,
     ids: parseEventIds(params.get('ids')),
@@ -388,13 +397,37 @@ export const handleEvents = async (requestUrl: URL, env: EventsEnv) => {
     query.criteria !== 'all' &&
     query.criteria !== 'participated'
   ) {
-    where.push('criteria = ?');
-    bindings.push(query.criteria);
+    const criteria = query.criteria.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 5);
+    where.push(`criteria IN (${criteria.map(() => '?').join(', ')})`);
+    bindings.push(...criteria);
   }
   if (query.scope === 'internal') {
     where.push("location_type = 'Trong trường'");
   } else if (query.scope === 'external') {
     where.push("location_type = 'Ngoài trường'");
+  }
+  if (query.eventType !== 'all') {
+    where.push('category = ?');
+    bindings.push(query.eventType);
+  }
+  if (query.dateFrom) {
+    where.push('event_date >= ?');
+    bindings.push(query.dateFrom);
+  }
+  if (query.dateTo) {
+    where.push('event_date <= ?');
+    bindings.push(query.dateTo);
+  }
+  if (query.registrationStatus === 'ended') {
+    where.push("(COALESCE(is_manually_closed, 0) = 1 OR LOWER(COALESCE(status, '')) LIKE '%kết thúc%' OR (event_date IS NOT NULL AND event_date < date('now'))) ");
+  } else if (query.registrationStatus === 'ongoing') {
+    where.push("(event_date = date('now') OR LOWER(COALESCE(status, '')) LIKE '%đang diễn ra%')");
+  } else if (query.registrationStatus === 'upcoming') {
+    where.push("registration_start_date IS NOT NULL AND registration_start_date > date('now')");
+  } else if (query.registrationStatus === 'closed') {
+    where.push("(deadline IS NOT NULL AND deadline < date('now'))");
+  } else if (query.registrationStatus === 'open') {
+    where.push("COALESCE(is_manually_closed, 0) = 0 AND (deadline IS NULL OR deadline >= date('now')) AND (registration_start_date IS NULL OR registration_start_date <= date('now')) AND (event_date IS NULL OR event_date >= date('now'))");
   }
   if (query.group === 'open') {
     where.push('COALESCE(is_manually_closed, 0) = 0');
@@ -413,6 +446,10 @@ export const handleEvents = async (requestUrl: URL, env: EventsEnv) => {
       ? 'created_at ASC'
       : query.sort === 'expiring_soon'
         ? 'deadline IS NULL ASC, deadline ASC, created_at DESC'
+        : query.sort === 'upcoming'
+          ? 'event_date IS NULL ASC, event_date ASC, created_at DESC'
+          : query.sort === 'highest_score'
+            ? 'CAST(points AS REAL) DESC, created_at DESC'
         : 'created_at DESC';
   const countRow = await env.DB.prepare(
     `SELECT COUNT(*) AS total FROM public_events WHERE ${whereSql}`

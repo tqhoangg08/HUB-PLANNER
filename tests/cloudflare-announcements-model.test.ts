@@ -10,6 +10,7 @@ import {
 import {
   buildSupabaseCourseSyncUrl,
   canUseCourseMetadataCount,
+  hasAdvancedCourseFilters,
   parseCourseGroupTokens,
   parseCourseListPaging,
 } from '../cloudflare/worker/src/courses.ts';
@@ -116,6 +117,19 @@ test('course totals use metadata only when no real filters are active', () => {
   assert.equal(canUseCourseMetadataCount(new URLSearchParams('semester=HK1')), false);
   assert.equal(canUseCourseMetadataCount(new URLSearchParams('isUserAdded=false')), false);
   assert.equal(canUseCourseMetadataCount(new URLSearchParams('search=toan')), false);
+  assert.equal(canUseCourseMetadataCount(new URLSearchParams('room=B2.302')), false);
+  assert.equal(hasAdvancedCourseFilters(new URLSearchParams('room=B2.302&credits=3')), true);
+  assert.equal(hasAdvancedCourseFilters(new URLSearchParams('semester=HK1')), false);
+});
+
+test('course cache keys include advanced schedule filters', () => {
+  const first = buildPublicCacheKey(new Request(
+    'https://api.example.com/courses?semester=HK1&room=B2.302&credits=3'
+  ));
+  const differentRoom = buildPublicCacheKey(new Request(
+    'https://api.example.com/courses?semester=HK1&room=B2.401&credits=3'
+  ));
+  assert.notEqual(first.url, differentRoom.url);
 });
 
 test('course group tokens expand compact follow-up group numbers', () => {
@@ -145,6 +159,10 @@ test('public event query matches current API defaults and clamps paging', () => 
     search: '',
     criteria: 'all',
     scope: 'all',
+    eventType: 'all',
+    dateFrom: '',
+    dateTo: '',
+    registrationStatus: 'all',
     sort: 'newest',
     group: 'all',
     ids: null,
@@ -165,6 +183,10 @@ test('public event filters normalize search and reject invalid ids', () => {
       search: '',
       criteria: 'all',
       scope: 'all',
+      eventType: 'all',
+      dateFrom: '',
+      dateTo: '',
+      registrationStatus: 'all',
       sort: 'newest',
       group: 'all',
       ids: null,

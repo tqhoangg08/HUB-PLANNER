@@ -32,6 +32,8 @@ import {
   fetchEventParticipations,
   setEventParticipation,
 } from '../utils/eventParticipationsApi';
+import { EventFilterControls } from './event-filters/EventFilterControls';
+import { createDefaultEventFilters, getEventFilterCount } from '../utils/eventFilters';
 
 // --- Types ---
 interface HubEvent {
@@ -659,10 +661,11 @@ const canManage = isAdmin || isAuditor || isCTV;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const [searchTerm, setSearchTerm] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState(createDefaultEventFilters);
   const [activeTab, setActiveTab] = useState('all');
-  const [activeScope, setActiveScope] = useState('all');
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'expiring_soon'>('newest'); 
+  const searchTerm = appliedFilters.keyword;
+  const activeScope = appliedFilters.region === 'Trong trường' ? 'internal' : appliedFilters.region === 'Ngoài trường' ? 'external' : 'all';
+  const sortOrder = appliedFilters.sortBy === 'oldest' ? 'oldest' : appliedFilters.sortBy === 'registrationDeadline' ? 'expiring_soon' : appliedFilters.sortBy === 'upcoming' ? 'upcoming' : appliedFilters.sortBy === 'highestScore' ? 'highest_score' : 'newest';
 
   const [participatedEvents, setParticipatedEvents] = useState<string[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -684,6 +687,8 @@ const canManage = isAdmin || isAuditor || isCTV;
       {id:'participated', l:`Đã tham gia (${participatedEvents.length})`}, 
       {id:'I',l:'Mục I'},{id:'II',l:'Mục II'},{id:'III',l:'Mục III'},{id:'IV',l:'Mục IV'},{id:'V',l:'Mục V'}
   ], [participatedEvents.length]);
+  const eventTypes = useMemo(() => Array.from(new Set(events.map((event) => event.type?.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'vi')), [events]);
+  const eventRegions = useMemo(() => Array.from(new Set(events.map((event) => event.scope?.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'vi')), [events]);
   const tabIndicatorClass = `event-tab-active-${Math.max(0, tabsList.findIndex(tab => tab.id === activeTab))}`;
 
   useEffect(() => {
@@ -808,7 +813,12 @@ const canManage = isAdmin || isAuditor || isCTV;
           if (options.bypassCache) params.set('refresh', '1');
           if (term) params.set('search', term);
           if (activeScope !== 'all') params.set('scope', activeScope);
+          if (appliedFilters.eventType !== 'all') params.set('eventType', appliedFilters.eventType);
+          if (appliedFilters.dateFrom) params.set('dateFrom', appliedFilters.dateFrom);
+          if (appliedFilters.dateTo) params.set('dateTo', appliedFilters.dateTo);
+          if (appliedFilters.registrationStatus !== 'all') params.set('registrationStatus', appliedFilters.registrationStatus);
           if (activeTab === 'participated') params.set('ids', participantIds.join(','));
+          else if (appliedFilters.trainingCategories.length) params.set('criteria', appliedFilters.trainingCategories.join(','));
           else if (activeTab !== 'all') params.set('criteria', activeTab);
           return params;
         };
@@ -882,8 +892,14 @@ const canManage = isAdmin || isAuditor || isCTV;
           });
           if (term) params.set('search', term);
           if (activeScope !== 'all') params.set('scope', activeScope);
+          if (appliedFilters.eventType !== 'all') params.set('eventType', appliedFilters.eventType);
+          if (appliedFilters.dateFrom) params.set('dateFrom', appliedFilters.dateFrom);
+          if (appliedFilters.dateTo) params.set('dateTo', appliedFilters.dateTo);
+          if (appliedFilters.registrationStatus !== 'all') params.set('registrationStatus', appliedFilters.registrationStatus);
           if (activeTab === 'participated') {
             params.set('ids', participantIds.join(','));
+          } else if (appliedFilters.trainingCategories.length) {
+            params.set('criteria', appliedFilters.trainingCategories.join(','));
           } else if (activeTab !== 'all') {
             params.set('criteria', activeTab);
           }
@@ -939,9 +955,13 @@ const canManage = isAdmin || isAuditor || isCTV;
           query = query.or('is_deleted.is.false,is_deleted.is.null').neq('status', 'pending');
         }
         if (activeTab === 'participated') query = query.in('id', participantIds);
+        else if (appliedFilters.trainingCategories.length) query = query.in('criteria', appliedFilters.trainingCategories);
         else if (activeTab !== 'all') query = query.eq('criteria', activeTab);
         if (activeScope === 'internal') query = query.eq('location_type', 'Trong trường');
         if (activeScope === 'external') query = query.eq('location_type', 'Ngoài trường');
+        if (appliedFilters.eventType !== 'all') query = query.eq('category', appliedFilters.eventType);
+        if (appliedFilters.dateFrom) query = query.gte('event_date', appliedFilters.dateFrom);
+        if (appliedFilters.dateTo) query = query.lte('event_date', appliedFilters.dateTo);
         if (term) query = query.or(`title.ilike.%${term}%,organizer.ilike.%${term}%`);
         if (group === 'open') {
           query = query.or('is_manually_closed.is.false,is_manually_closed.is.null').neq('status', 'Đã kết thúc');
@@ -1015,7 +1035,7 @@ const canManage = isAdmin || isAuditor || isCTV;
 
   useEffect(() => {
       fetchEvents({ page: eventsPage });
-  }, [canManage, isManagementView, searchTerm, activeTab, activeScope, sortOrder, eventsPage, participatedEvents.join(',')]);
+  }, [canManage, isManagementView, appliedFilters, activeTab, eventsPage, participatedEvents.join(',')]);
 
   const fetchOpenEventsTotal = async () => {
     try {
@@ -1189,7 +1209,7 @@ const canManage = isAdmin || isAuditor || isCTV;
 
   useEffect(() => {
     setEventsPage(0);
-  }, [searchTerm, activeTab, activeScope, sortOrder, isManagementView]);
+  }, [appliedFilters, activeTab, isManagementView]);
 
   const goToEventsPage = (page: number) => {
     setEventsPage(Math.min(eventsTotalPages - 1, Math.max(0, page)));
@@ -1530,7 +1550,7 @@ return (
 
           {!eventId && <div className="hidden">
               <div className="relative flex-1">
-                  <input type="text" placeholder="Tìm tên, BTC..." className="pl-10 pr-4 py-3 w-full bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375]" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  <input type="text" placeholder="Tìm tên, BTC..." className="pl-10 pr-4 py-3 w-full bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#003375]" value={searchTerm} readOnly />
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               </div>
               <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-600 active:bg-gray-100">
@@ -1539,10 +1559,10 @@ return (
           </div>}
 
           {!eventId && <div className="hidden">
-              <select value={activeScope} onChange={(e) => setActiveScope(e.target.value)} className="appearance-none bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 outline-none">
+              <select value={activeScope} disabled className="appearance-none bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 outline-none">
                   <option value="all">Khu vực: Tất cả</option><option value="internal">Trong trường</option><option value="external">Ngoài trường</option>
               </select>
-              <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} className="appearance-none bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 outline-none">
+              <select value={sortOrder} disabled className="appearance-none bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 outline-none">
                   <option value="newest">Sắp xếp: Mới nhất</option><option value="expiring_soon">Sắp hết hạn</option>
               </select>
           </div>}
@@ -1602,30 +1622,23 @@ return (
                   )}
 
                   <div className="mb-3 rounded-[20px] bg-white p-3.5 shadow-[0_2px_14px_rgba(13,27,62,0.06)]">
-                      <div className="mb-2.5 flex items-center justify-between">
-                          <h3 className="flex items-center gap-1.5 text-[13.5px] font-black text-[#0D1B3E]"><Search size={16} className="text-[#1A56FF]" /> Tìm kiếm & Lọc</h3>
-                          <div className="flex gap-1.5">
-                              <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] bg-[#EEF2FF] text-[#1A56FF]"><FileText size={15} /></button>
-                              <button onClick={() => { playClick(); setSortOrder(sortOrder === 'expiring_soon' ? 'newest' : 'expiring_soon'); }} className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] bg-[#EEF2FF] text-[#1A56FF]"><ArrowDownUp size={15} /></button>
-                          </div>
-                      </div>
-                      <div className="relative mb-2.5">
-                          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8B2C8]" />
-                          <input type="text" placeholder="Tìm tên sự kiện, BTC..." className="h-[38px] w-full rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] pl-8 pr-3 text-xs font-semibold text-[#5B6478] outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                          <select value={activeScope} onChange={(e) => setActiveScope(e.target.value)} className="h-[38px] appearance-none rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-xs font-bold text-[#0D1B3E] outline-none">
-                              <option value="all">Khu vực: Tất cả</option><option value="internal">Trong trường</option><option value="external">Ngoài trường</option>
-                          </select>
-                          <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} className="h-[38px] appearance-none rounded-xl border border-[#E5EAF4] bg-[#F8FAFD] px-3 text-xs font-bold text-[#0D1B3E] outline-none">
-                              <option value="newest">Mới nhất</option><option value="expiring_soon">Sắp hết hạn</option><option value="oldest">Cũ nhất</option>
-                          </select>
-                      </div>
+                      <EventFilterControls
+                          compact
+                          filters={appliedFilters}
+                          onChange={(next) => { setAppliedFilters(next); setEventsPage(0); }}
+                          regions={eventRegions}
+                          eventTypes={eventTypes}
+                          loading={loading}
+                          onRefresh={() => { playClick(); fetchEvents({ bypassCache: true, page: 0 }); }}
+                          onOpenGuide={() => { playClick(); setShowScoreGuide(true); }}
+                          onPrimaryAction={() => { playClick(); isManagementView ? openEventEditor(null) : setShowContributeModal(true); }}
+                          primaryActionLabel={isManagementView ? 'Thêm mới' : 'Gửi đóng góp'}
+                      />
                   </div>
 
                   <div className="-mx-6 mb-3 flex gap-2 overflow-x-auto px-6 pb-1 no-scrollbar">
                       {tabsList.map((tab) => (
-                          <button key={tab.id} onClick={() => { playClick(); setActiveTab(tab.id); }} className={`shrink-0 rounded-full px-3 py-2 text-[11px] font-black shadow-[0_2px_10px_rgba(13,27,62,0.04)] ${activeTab === tab.id ? 'bg-[#1A56FF] text-white shadow-[0_6px_16px_rgba(26,86,255,0.25)]' : 'bg-white text-[#7B8AB0]'}`}>
+                          <button key={tab.id} onClick={() => { playClick(); setActiveTab(tab.id); setEventsPage(0); if (tab.id === 'all') setAppliedFilters((current) => ({ ...current, trainingCategories: [] })); else if (['I', 'II', 'III', 'IV', 'V'].includes(tab.id)) setAppliedFilters((current) => ({ ...current, trainingCategories: [tab.id] })); }} className={`shrink-0 rounded-full px-3 py-2 text-[11px] font-black shadow-[0_2px_10px_rgba(13,27,62,0.04)] ${activeTab === tab.id ? 'bg-[#1A56FF] text-white shadow-[0_6px_16px_rgba(26,86,255,0.25)]' : 'bg-white text-[#7B8AB0]'}`}>
                               {tab.l}
                           </button>
                       ))}
@@ -1675,6 +1688,7 @@ return (
                 <div className="py-12 text-center bg-white rounded-xl border border-dashed border-gray-300">
                     <Calendar className="mx-auto text-gray-300 mb-2" size={32}/>
                     <p className="text-gray-500 text-sm font-medium">Không tìm thấy sự kiện phù hợp.</p>
+                    {(appliedFilters.keyword || getEventFilterCount(appliedFilters) > 0) && <button type="button" onClick={() => { setAppliedFilters(createDefaultEventFilters()); setActiveTab('all'); setEventsPage(0); }} className="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-black text-[#1A56FF]">Đặt lại bộ lọc</button>}
                 </div>
              )}
              {renderEventsPager()}

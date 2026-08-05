@@ -32,6 +32,13 @@ import {
   fetchEventParticipations,
   setEventParticipation,
 } from '../utils/eventParticipationsApi';
+import { EventFilterControls } from './event-filters/EventFilterControls';
+import {
+  compareFilteredEvents,
+  createDefaultEventFilters,
+  getEventFilterCount,
+  matchesEventFilters,
+} from '../utils/eventFilters';
 
 // --- Types ---
 interface HubEvent {
@@ -1253,16 +1260,11 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const [searchTerm, setSearchTerm] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState(createDefaultEventFilters);
   const [activeTab, setActiveTab] = useState('all');
-  const [activeScope, setActiveScope] = useState('all');
-  const [activeEventType, setActiveEventType] = useState('all');
-  const [eventDateFilter, setEventDateFilter] = useState('');
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'expiring_soon'>('newest'); 
   const [isStudentPreview, setIsStudentPreview] = useState(false);
 
   const [participatedEvents, setParticipatedEvents] = useState<string[]>([]);
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   const [showCTVModal, setShowCTVModal] = useState(false);
   const showManagementView = canManage && !isStudentPreview;
@@ -1287,11 +1289,9 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       return Array.from(uniqueTypes).sort((a, b) => a.localeCompare(b, 'vi'));
   }, [events]);
 
-  useEffect(() => {
-      const closeDropdown = () => setActiveDropdown(null);
-      document.addEventListener('click', closeDropdown);
-      return () => document.removeEventListener('click', closeDropdown);
-  }, []);
+  const eventRegions = useMemo(() => Array.from(new Set(
+      events.map((event) => event.scope?.trim()).filter(Boolean)
+  )).sort((a, b) => a.localeCompare(b, 'vi')), [events]);
 
   useEffect(() => {
       const loadParticipation = async () => {
@@ -1665,10 +1665,6 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
   };
 
   const filteredEvents = events.filter(evt => {
-    const matchesSearch = evt.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          evt.organizer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          evt.type.toLowerCase().includes(searchTerm.toLowerCase());
-    
     let matchesTab = true;
     let isVisible = true;
 
@@ -1677,50 +1673,16 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     } else {
         if (evt.is_deleted) isVisible = false;
         if (isStudentPreview && evt.status === 'pending') isVisible = false;
-        if (activeTab !== 'all') {
+        if (activeTab !== 'all' && appliedFilters.trainingCategories.length === 0) {
             matchesTab = evt.category === activeTab;
         }
     }
 
-    const matchesScope = activeScope === 'all' || 
-                         (activeScope === 'internal' && evt.scope === 'Trong trường') ||
-                         (activeScope === 'external' && evt.scope === 'Ngoài trường');
-    const matchesType = activeEventType === 'all' || evt.type === activeEventType;
-    const matchesDate = !eventDateFilter || getEventDateKey(evt.event_date) === eventDateFilter;
-    return matchesSearch && matchesTab && matchesScope && matchesType && matchesDate && isVisible;
+    return matchesTab && matchesEventFilters(evt, appliedFilters) && isVisible;
   }).sort((a, b) => {
       const deadlinePriority = Number(isDeadlineEventToday(b)) - Number(isDeadlineEventToday(a));
       if (deadlinePriority !== 0) return deadlinePriority;
-
-      if (sortOrder === 'expiring_soon') {
-          const now = today.getTime();
-          const getScore = (evt: HubEvent) => {
-              if (evt.is_manually_closed || evt.status === 'Đã kết thúc' || evt.is_deleted) return Infinity;
-              
-              if (evt.deadlineDate) {
-                  const diff = evt.deadlineDate.getTime() - now;
-                  if (diff < 0) return Infinity; 
-                  return diff;
-              } else if (evt.close_on_full && evt.event_date) {
-                  const evtDate = new Date(evt.event_date);
-                  evtDate.setHours(23, 59, 59, 999);
-                  const diff = evtDate.getTime() - now;
-                  if (diff < 0) return Infinity;
-                  return diff;
-              }
-              return Infinity - 1;
-          };
-          return getScore(a) - getScore(b);
-      }
-
-      const dateA = new Date(a.created_at).getTime();
-      const dateB = new Date(b.created_at).getTime();
-      
-      if (sortOrder === 'newest') {
-          return dateB - dateA; 
-      } else {
-          return dateA - dateB; 
-      }
+      return compareFilteredEvents(a, b, appliedFilters.sortBy);
   });
 
   const isSameDay = (d1: Date | null, d2: Date) => {
@@ -1994,193 +1956,22 @@ return (
 )}
                 </div>
                 
-                {/* Thanh Công Cụ */}
-                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 w-full shrink-0 justify-start md:justify-between">
-                    
-                    {/* Search Bar */}
-                    <div className="relative w-full md:max-w-[390px] md:flex-1">
-                        <input 
-                            type="text" 
-                            placeholder="Tìm tên, BTC, loại hình..." 
-                            className="w-full pl-8 pr-3 py-2 md:py-1.5 border border-gray-300 rounded-md text-xs outline-none focus:border-[#003375] focus:ring-1 focus:ring-[#003375] transition-all" 
-                            value={searchTerm} 
-                            onChange={(e) => setSearchTerm(e.target.value)} 
-                        />
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                    </div>
-                    
-                    {/* Desktop filters */}
-                    <div className="hidden md:flex flex-row items-center gap-2 w-auto">
-                        <div className="flex items-center gap-2">
-                            <div className="relative">
-                                <select 
-                                    value={activeScope} 
-                                    onChange={(e) => { playClick(); setActiveScope(e.target.value); }} 
-                                    className="w-full appearance-none pl-7 pr-6 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-400 transition-colors"
-                                >
-                                    <option value="all">Tất cả khu vực</option>
-                                    <option value="internal">Trong trường</option>
-                                    <option value="external">Ngoài trường</option>
-                                </select>
-                                <Building2 className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
-                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
-                            </div>
-
-                            <div className="relative">
-                                <select
-                                    value={activeEventType}
-                                    onChange={(e) => { playClick(); setActiveEventType(e.target.value); }}
-                                    className="w-full appearance-none pl-7 pr-6 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-400 transition-colors"
-                                >
-                                    <option value="all">Tất cả loại hình</option>
-                                    {eventTypes.map(type => (
-                                        <option key={type} value={type}>{type}</option>
-                                    ))}
-                                </select>
-                                <Tag className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
-                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
-                            </div>
-
-                            <div className="relative">
-                                <input
-                                    type="date"
-                                    value={eventDateFilter}
-                                    onChange={(e) => { playClick(); setEventDateFilter(e.target.value); }}
-                                    className="w-full pl-7 pr-2 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-400 transition-colors"
-                                    title="Lọc theo ngày diễn ra"
-                                />
-                                <CalendarDays className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={12} />
-                            </div>
-                            
-                            <div className="relative">
-                                <select 
-                                    value={sortOrder} 
-                                    onChange={(e) => { playClick(); setSortOrder(e.target.value as 'newest' | 'oldest' | 'expiring_soon'); }} 
-                                    className="w-full appearance-none pl-7 pr-6 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white outline-none cursor-pointer hover:border-blue-400 transition-colors"
-                                >
-                                    <option value="newest">Mới nhất</option>
-                                    <option value="oldest">Cũ nhất</option>
-                                    <option value="expiring_soon">Gần hết hạn</option>
-                                </select>
-                                <ArrowDownUp className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
-                                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                            <button onClick={() => { playClick(); fetchEvents({ bypassCache: true }); }} className="p-1.5 sm:px-2 sm:py-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Làm mới">
-                                <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-                            </button>
-                            <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="p-1.5 sm:px-2 sm:py-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Xem bảng điểm">
-                                <FileText size={14} />
-                            </button>
-
-                            {canPreviewStudentUI && (
-                                <button onClick={() => { playClick(); setIsStudentPreview(prev => !prev); }} className="p-1.5 sm:px-3 sm:py-1.5 bg-white border border-blue-200 hover:bg-blue-50 text-[#003375] rounded-md flex items-center justify-center text-xs font-bold transition-all active:scale-95" title={isStudentPreview ? "Quay lại quản lý" : "Xem giao diện sinh viên"}>
-                                    <RotateCcw size={14} />
-                                    <span className="hidden sm:inline sm:ml-1.5">{isStudentPreview ? 'Quản lý' : 'Sinh viên'}</span>
-                                </button>
-                            )}
-                            
-                            {showManagementView ? (
-                                <button onClick={handleOpenAdd} className="p-1.5 sm:px-3 sm:py-1.5 bg-[#003375] border border-transparent hover:bg-[#002855] text-white rounded-md flex items-center justify-center text-xs font-bold transition-all active:scale-95" title="Thêm mới">
-                                    <PlusCircle size={14} />
-                                    <span className="hidden sm:inline sm:ml-1.5">Thêm mới</span>
-                                </button>
-                            ) : !canManage ? (
-                                <button onClick={() => { playClick(); setShowContributeModal(true); }} className="p-1.5 sm:px-3 sm:py-1.5 bg-[#003375] border border-transparent hover:bg-[#002855] text-white rounded-md flex items-center justify-center text-xs font-bold transition-all active:scale-95" title="Gửi đóng góp">
-                                    <PlusCircle size={14} />
-                                    <span className="hidden sm:inline sm:ml-1.5">Gửi đóng góp</span>
-                                </button>
-                            ) : null}
-                        </div>
-                    </div>
-
-                    {/* Mobile compact filters */}
-                    <div className="md:hidden flex items-center gap-2 w-full">
-                        <div className="relative flex-1" onClick={(e) => e.stopPropagation()}>
-                            <button
-                                type="button"
-                                onClick={() => { playClick(); setActiveDropdown(activeDropdown === 'eventFilters' ? null : 'eventFilters'); }}
-                                className={`w-full h-9 px-3 rounded-md border text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all ${activeDropdown === 'eventFilters' || activeScope !== 'all' || activeEventType !== 'all' || eventDateFilter || sortOrder !== 'newest' ? 'bg-blue-50 border-blue-200 text-[#003375]' : 'bg-white border-gray-300 text-gray-700'}`}
-                            >
-                                <MoreHorizontal size={15} />
-                                Bộ lọc
-                                {(activeScope !== 'all' || activeEventType !== 'all' || eventDateFilter || sortOrder !== 'newest') && (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
-                                )}
-                            </button>
-
-                            {activeDropdown === 'eventFilters' && (
-                                <div className="absolute left-0 right-0 top-11 z-50 bg-white border border-gray-200 rounded-xl p-3 shadow-xl animate-fadeIn">
-                                    <div className="grid grid-cols-1 gap-2">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase">Khu vực</label>
-                                        <select value={activeScope} onChange={(e) => { playClick(); setActiveScope(e.target.value); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium outline-none focus:border-[#003375] bg-white">
-                                            <option value="all">Tất cả khu vực</option>
-                                            <option value="internal">Trong trường</option>
-                                            <option value="external">Ngoài trường</option>
-                                        </select>
-
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mt-1">Loại hình</label>
-                                        <select value={activeEventType} onChange={(e) => { playClick(); setActiveEventType(e.target.value); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium outline-none focus:border-[#003375] bg-white">
-                                            <option value="all">Tất cả loại hình</option>
-                                            {eventTypes.map(type => (
-                                                <option key={type} value={type}>{type}</option>
-                                            ))}
-                                        </select>
-
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mt-1">Ngày diễn ra</label>
-                                        <input type="date" value={eventDateFilter} onChange={(e) => { playClick(); setEventDateFilter(e.target.value); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium outline-none focus:border-[#003375] bg-white" />
-
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mt-1">Sắp xếp</label>
-                                        <select value={sortOrder} onChange={(e) => { playClick(); setSortOrder(e.target.value as 'newest' | 'oldest' | 'expiring_soon'); }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium outline-none focus:border-[#003375] bg-white">
-                                            <option value="newest">Mới nhất</option>
-                                            <option value="oldest">Cũ nhất</option>
-                                            <option value="expiring_soon">Gần hết hạn</option>
-                                        </select>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                playClick();
-                                                setActiveScope('all');
-                                                setActiveEventType('all');
-                                                setEventDateFilter('');
-                                                setSortOrder('newest');
-                                            }}
-                                            className="mt-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-100"
-                                        >
-                                            Xóa bộ lọc
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <button onClick={() => { playClick(); fetchEvents({ bypassCache: true }); }} className="h-9 w-9 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Làm mới">
-                            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+                <EventFilterControls
+                    filters={appliedFilters}
+                    onChange={setAppliedFilters}
+                    regions={eventRegions}
+                    eventTypes={eventTypes}
+                    loading={loading}
+                    onRefresh={() => { playClick(); fetchEvents({ bypassCache: true }); }}
+                    onOpenGuide={() => { playClick(); setShowScoreGuide(true); }}
+                    onPrimaryAction={showManagementView ? handleOpenAdd : !canManage ? () => { playClick(); setShowContributeModal(true); } : undefined}
+                    primaryActionLabel={showManagementView ? 'Thêm mới' : 'Gửi đóng góp'}
+                    extraActions={canPreviewStudentUI ? (
+                        <button type="button" onClick={() => { playClick(); setIsStudentPreview((value) => !value); }} title={isStudentPreview ? 'Quay lại quản lý' : 'Xem giao diện sinh viên'} aria-label={isStudentPreview ? 'Quay lại quản lý' : 'Xem giao diện sinh viên'} className="flex h-11 items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 text-xs font-bold text-[#003375] hover:bg-blue-50">
+                            <RotateCcw size={16} /><span className="hidden sm:inline">{isStudentPreview ? 'Quản lý' : 'Sinh viên'}</span>
                         </button>
-                        <button onClick={() => { playClick(); setShowScoreGuide(true); }} className="h-9 w-9 bg-white border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 hover:text-[#003375] transition-all active:scale-95 flex items-center justify-center" title="Xem bảng điểm">
-                            <FileText size={14} />
-                        </button>
-
-                        {canPreviewStudentUI && (
-                            <button onClick={() => { playClick(); setIsStudentPreview(prev => !prev); }} className="h-9 w-9 bg-white border border-blue-200 hover:bg-blue-50 text-[#003375] rounded-md flex items-center justify-center transition-all active:scale-95" title={isStudentPreview ? "Quay lại quản lý" : "Xem giao diện sinh viên"}>
-                                <RotateCcw size={14} />
-                            </button>
-                        )}
-
-                        {showManagementView ? (
-                            <button onClick={handleOpenAdd} className="h-9 w-9 bg-[#003375] border border-transparent hover:bg-[#002855] text-white rounded-md flex items-center justify-center transition-all active:scale-95" title="Thêm mới">
-                                <PlusCircle size={14} />
-                            </button>
-                        ) : !canManage ? (
-                            <button onClick={() => { playClick(); setShowContributeModal(true); }} className="h-9 w-9 bg-[#003375] border border-transparent hover:bg-[#002855] text-white rounded-md flex items-center justify-center transition-all active:scale-95" title="Gửi đóng góp">
-                                <PlusCircle size={14} />
-                            </button>
-                        ) : null}
-                    </div>
-                </div>
+                    ) : undefined}
+                />
         </div>
  </div>
        {/* ✨ ẨN BANNER CTV NẾU LÀ ADMIN / CTV ✨ */}
@@ -2233,7 +2024,12 @@ return (
             {tabsList.map((tab, idx) => (
                 <button 
                     key={tab.id} 
-                    onClick={() => { playClick(); setActiveTab(tab.id); }} 
+                    onClick={() => {
+                        playClick();
+                        setActiveTab(tab.id);
+                        if (tab.id === 'all') setAppliedFilters((current) => ({ ...current, trainingCategories: [] }));
+                        else if (['I', 'II', 'III', 'IV', 'V'].includes(tab.id)) setAppliedFilters((current) => ({ ...current, trainingCategories: [tab.id] }));
+                    }}
                     className={`flex-1 px-2 pb-3 text-center text-sm font-semibold whitespace-nowrap transition-colors z-10 ${activeTab === tab.id ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}
                 >
                     {tab.l}
@@ -2399,6 +2195,11 @@ return (
                         <p className="text-gray-500 font-medium">
                             {activeTab === 'participated' ? 'Bạn chưa đánh dấu tham gia sự kiện nào.' : 'Không tìm thấy sự kiện phù hợp.'}
                         </p>
+                        {(appliedFilters.keyword || getEventFilterCount(appliedFilters) > 0) && (
+                            <button type="button" onClick={() => { setAppliedFilters(createDefaultEventFilters()); setActiveTab('all'); }} className="mt-4 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-[#064B9B] hover:bg-blue-100">
+                                <RotateCcw size={15} /> Đặt lại bộ lọc
+                            </button>
+                        )}
                     </div>
                 )}
             </div>

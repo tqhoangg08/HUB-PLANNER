@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, Tag, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, Tag, PanelLeftOpen, SlidersHorizontal, RotateCcw } from 'lucide-react';
 import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
@@ -51,7 +51,6 @@ import {
 } from '../utils/academicCalendar';
 import {
   COURSE_PAGE_SIZE_COMPACT,
-  COURSE_PAGE_SIZE_EXPANDED,
   COURSE_REQUEST_CACHE_PREFIX,
   COURSE_REQUEST_CACHE_TTL_MS,
   COURSE_REQUEST_PAGE_SIZE,
@@ -81,6 +80,38 @@ import {
 } from '../features/schedule/scheduleBoardModel';
 
 let hasShownScheduleUpdateNoticeThisLoad = false;
+
+type SidebarFilterSection = 'subject' | 'program' | 'semester' | 'phase' | 'major' | 'cohort' | 'group';
+
+const STUDENT_FILTER_SEMESTER_OPTIONS = SEMESTER_OPTIONS.filter(
+    option => option.value !== 'HK1_2025_2026' && option.value !== 'HK2_2025_2026',
+);
+
+const ADVANCED_SCHEDULE_FILTER_FIELDS = [
+    { key: 'courseCode', label: 'Mã học phần', placeholder: 'Ví dụ: ECE301' },
+    { key: 'prerequisite', label: 'Môn tiên quyết / tiền đề', placeholder: 'Nhập môn tiên quyết' },
+    { key: 'credits', label: 'Tín chỉ', placeholder: 'Ví dụ: 3', type: 'number' },
+    { key: 'knowledgeBlock', label: 'Khối kiến thức', placeholder: 'Nhập khối kiến thức' },
+    { key: 'instructor', label: 'Giảng viên', placeholder: 'Nhập tên giảng viên' },
+    { key: 'dayOfWeek', label: 'Thứ', placeholder: 'Ví dụ: 2, 4' },
+    { key: 'shift', label: 'Ca / tiết học', placeholder: 'Ví dụ: S hoặc 1-3' },
+    { key: 'room', label: 'Phòng học', placeholder: 'Ví dụ: B2.302' },
+    { key: 'weeks', label: 'Tuần học', placeholder: 'Ví dụ: 1-15' },
+    { key: 'managingFaculty', label: 'Khoa quản lý', placeholder: 'Nhập khoa quản lý' },
+    { key: 'campus', label: 'Cơ sở học', placeholder: 'Nhập cơ sở' },
+    { key: 'examDate', label: 'Ngày thi', placeholder: 'DD/MM/YYYY' },
+    { key: 'examShift', label: 'Ca thi', placeholder: 'Nhập ca thi' },
+    { key: 'examCampus', label: 'Cơ sở thi', placeholder: 'Nhập cơ sở thi' },
+    { key: 'examRoom', label: 'Phòng thi', placeholder: 'Nhập phòng thi' },
+    { key: 'orientation', label: 'Định hướng', placeholder: 'Nhập định hướng' },
+    { key: 'orientationNote3', label: 'Ghi chú định hướng', placeholder: 'Nhập ghi chú định hướng' },
+    { key: 'registrationType', label: 'Hình thức đăng ký', placeholder: 'Nhập hình thức đăng ký' },
+    { key: 'generalNote', label: 'Ghi chú chung', placeholder: 'Nhập nội dung ghi chú' },
+    { key: 'studentCount', label: 'Sĩ số sinh viên', placeholder: 'Ví dụ: 50', type: 'number' },
+] as const;
+
+type AdvancedScheduleFilterKey = typeof ADVANCED_SCHEDULE_FILTER_FIELDS[number]['key'];
+type AdvancedScheduleFilters = Partial<Record<AdvancedScheduleFilterKey, string>>;
 
 const SYNCABLE_COURSE_FIELDS: { key: keyof Course; label: string }[] = [
     { key: 'course_code', label: 'Mã học phần' },
@@ -212,7 +243,7 @@ const getLabelStyle = (color: string) => {
         blue: 'bg-blue-50 text-blue-700 border-blue-200',
         purple: 'bg-purple-50 text-purple-700 border-purple-200',
         rose: 'bg-rose-50 text-rose-700 border-rose-200',
-        gray: 'bg-gray-50 text-gray-700 border-gray-200',
+        gray: 'bg-gray-50 text-gray-700 border-gray-300',
     };
     return styles[color] || styles.gray;
 };
@@ -289,6 +320,23 @@ const getCourseTimeLabel = (shiftStr?: string) => {
   if (s.includes('6-8')) return '13:00 - 15:15';
   if (s.includes('9-10')) return '15:35 - 17:05';
   return ''; 
+};
+
+const getCourseTimeRangeMinutes = (shiftStr?: string) => {
+  const label = String(shiftStr || '')
+    .split(';')
+    .map(segment => getCourseTimeLabel(segment.trim()))
+    .filter(Boolean)
+    .join(' / ');
+  const ranges = [...label.matchAll(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/g)];
+  if (!ranges.length) return null;
+  const first = ranges[0];
+  const last = ranges[ranges.length - 1];
+  return {
+    start: Number(first[1]) * 60 + Number(first[2]),
+    end: Number(last[3]) * 60 + Number(last[4]),
+    label,
+  };
 };
 
 const getExamTime = (shiftStr?: string) => {
@@ -483,6 +531,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const addScheduleInFlightRef = useRef(false);
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
+  const [isCourseResultsOpen, setIsCourseResultsOpen] = useState(false);
+  const [openSidebarFilterSections, setOpenSidebarFilterSections] = useState<Set<SidebarFilterSection>>(() => new Set(['semester']));
   const [adminScheduleError, setAdminScheduleError] = useState('');
   
   const [selectedSemester, setSelectedSemester] = useState<string>(DEFAULT_SCHEDULE_SEMESTER);
@@ -492,6 +542,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [selectedCohort, setSelectedCohort] = useState<string>('all');
   const [selectedGroupName, setSelectedGroupName] = useState<string>('all');
   const [selectedAcademicProgram, setSelectedAcademicProgram] = useState<string>('all');
+  const [selectedFilterSemesters, setSelectedFilterSemesters] = useState<string[]>([DEFAULT_SCHEDULE_SEMESTER]);
+  const [selectedFilterPhases, setSelectedFilterPhases] = useState<string[]>([]);
+  const [selectedFilterMajors, setSelectedFilterMajors] = useState<string[]>([]);
+  const [selectedFilterCohorts, setSelectedFilterCohorts] = useState<string[]>([]);
+  const [selectedFilterGroups, setSelectedFilterGroups] = useState<string[]>([]);
+  const [selectedFilterPrograms, setSelectedFilterPrograms] = useState<string[]>([]);
+  const [advancedScheduleFilters, setAdvancedScheduleFilters] = useState<AdvancedScheduleFilters>({});
   const [subjectNameOptions, setSubjectNameOptions] = useState<string[]>([]);
   const [majorOptions, setMajorOptions] = useState<string[]>([]);
   const [cohortOptions, setCohortOptions] = useState<string[]>([]);
@@ -531,7 +588,58 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const displayedSchedule = isPlanMode ? currentPlanSchedule : currentSemesterSchedule;
   const displayedScheduleTitle = isPlanMode ? `Kế hoạch ${activePlanKey}` : 'Lịch cá nhân';
   const displayedScheduleCount = displayedSchedule.length;
-  const hasActiveCourseFilters = Boolean(searchTerm.trim()) || selectedSubjectName !== 'all' || selectedMajor !== 'all' || selectedCohort !== 'all' || selectedGroupName !== 'all' || selectedAcademicProgram !== 'all';
+  const activeAdvancedScheduleFilters = Object.entries(advancedScheduleFilters)
+    .filter(([, value]) => String(value || '').trim());
+  const hasNonSemesterCourseFilters = Boolean(searchTerm.trim())
+    || selectedFilterPhases.length > 0
+    || selectedSubjectName !== 'all'
+    || selectedFilterMajors.length > 0
+    || selectedFilterCohorts.length > 0
+    || selectedFilterGroups.length > 0
+    || selectedFilterPrograms.length > 0
+    || activeAdvancedScheduleFilters.length > 0;
+  const hasActiveCourseFilters = selectedFilterSemesters.length > 0 || hasNonSemesterCourseFilters;
+  const activeCourseFilterCount = (selectedFilterSemesters.length > 0 ? 1 : 0)
+    + (searchTerm.trim() ? 1 : 0)
+    + (selectedFilterPhases.length > 0 ? 1 : 0)
+    + (selectedSubjectName !== 'all' ? 1 : 0)
+    + (selectedFilterMajors.length > 0 ? 1 : 0)
+    + (selectedFilterCohorts.length > 0 ? 1 : 0)
+    + (selectedFilterGroups.length > 0 ? 1 : 0)
+    + (selectedFilterPrograms.length > 0 ? 1 : 0)
+    + activeAdvancedScheduleFilters.length;
+  const toggleMultiFilterValue = (setter: React.Dispatch<React.SetStateAction<string[]>>, value: string) => {
+    setter(previous => previous.includes(value)
+      ? previous.filter(item => item !== value)
+      : [...previous, value]
+    );
+    setCoursePage(0);
+  };
+  const clearCourseFilters = () => {
+    setSearchTerm('');
+    setSelectedPhase('all');
+    setSelectedSubjectName('all');
+    setSelectedMajor('all');
+    setSelectedCohort('all');
+    setSelectedGroupName('all');
+    setSelectedAcademicProgram('all');
+    setSelectedFilterSemesters([]);
+    setSelectedFilterPhases([]);
+    setSelectedFilterMajors([]);
+    setSelectedFilterCohorts([]);
+    setSelectedFilterGroups([]);
+    setSelectedFilterPrograms([]);
+    setAdvancedScheduleFilters({});
+    setCoursePage(0);
+  };
+  const toggleSidebarFilterSection = (section: SidebarFilterSection) => {
+    setOpenSidebarFilterSections(previous => {
+      const next = new Set(previous);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  };
   const coursePageCacheRef = useRef(new Map<string, { data: Course[]; total: number; hasMore: boolean }>());
   const courseDetailCacheRef = useRef(new Map<string, Course>());
   const courseFilterOptionsCacheRef = useRef(new Map<string, { subjectNameOptions: string[]; majorOptions: string[]; cohortOptions: string[]; groupNameOptions: string[]; academicProgramOptions: string[] }>());
@@ -595,11 +703,15 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isAdminView, setIsAdminView] = useState(isAdmin);
   const [adminTab, setAdminTab] = useState<'system' | 'user' | 'requested' | 'user_changed' | 'student_schedules'>('system');
   const isSystemCourseCatalog = !isAdminView || adminTab === 'system';
-  const isCourseSuggestionMode = isSystemCourseCatalog && !searchTerm.trim();
-  const coursePageSize = isSystemCourseCatalog
+  const hasCatalogPaginationFilters = isAdminView
+    ? Boolean(searchTerm.trim()) || selectedPhase !== 'all'
+    : hasNonSemesterCourseFilters;
+  const isCourseSuggestionMode = isSystemCourseCatalog && !hasCatalogPaginationFilters;
+  const coursePageSize = isCourseSuggestionMode
     ? SYSTEM_COURSE_SUGGESTION_LIMIT
-    : (isFilterExpanded ? COURSE_PAGE_SIZE_EXPANDED : COURSE_PAGE_SIZE_COMPACT);
+    : COURSE_PAGE_SIZE_COMPACT;
   const courseTotalPages = Math.max(1, Math.ceil(courseTotal / coursePageSize));
+  const coursePaginationPages = getPaginationPages(coursePage + 1, courseTotalPages);
   const [isAdminEditModalOpen, setIsAdminEditModalOpen] = useState(false);
   const [adminEditData, setAdminEditData] = useState<Partial<Course>>({});
   const [isSavingAdminCourse, setIsSavingAdminCourse] = useState(false);
@@ -743,20 +855,35 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const fetchCourses = async (options: { force?: boolean } = {}) => {
     const term = searchTerm.trim();
     const isSystemCatalog = !isAdminView || adminTab === 'system';
-    const isSuggestionMode = isSystemCatalog && !term;
-    const requestPageSize = isSystemCatalog ? SYSTEM_COURSE_SUGGESTION_LIMIT : coursePageSize;
+    const semesterFilters = isAdminView ? [selectedSemester] : selectedFilterSemesters;
+    const phaseFilters = isAdminView
+        ? (selectedPhase === 'all' ? [] : [selectedPhase])
+        : selectedFilterPhases;
+    const hasAdditionalFilters = Boolean(term)
+        || phaseFilters.length > 0
+        || (!isAdminView && (
+            selectedSubjectName !== 'all'
+            || selectedFilterMajors.length > 0
+            || selectedFilterCohorts.length > 0
+            || selectedFilterGroups.length > 0
+            || selectedFilterPrograms.length > 0
+            || activeAdvancedScheduleFilters.length > 0
+        ));
+    const isSuggestionMode = isSystemCatalog && !hasAdditionalFilters;
+    const requestPageSize = isSuggestionMode ? SYSTEM_COURSE_SUGGESTION_LIMIT : coursePageSize;
     const requestPage = isSuggestionMode ? 0 : coursePage;
     setIsLoading(true);
     try {
         const filterKey = JSON.stringify({
-            semester: selectedSemester,
-            phase: selectedPhase,
+            semesters: semesterFilters,
+            phases: phaseFilters,
             search: term,
             subjectName: isAdminView ? 'all' : selectedSubjectName,
-            major: isAdminView ? 'all' : selectedMajor,
-            cohort: isAdminView ? 'all' : selectedCohort,
-            groupName: isAdminView ? 'all' : selectedGroupName,
-            academicProgram: isAdminView ? 'all' : selectedAcademicProgram,
+            majors: isAdminView ? [] : selectedFilterMajors,
+            cohorts: isAdminView ? [] : selectedFilterCohorts,
+            groups: isAdminView ? [] : selectedFilterGroups,
+            academicPrograms: isAdminView ? [] : selectedFilterPrograms,
+            advancedFilters: isAdminView ? {} : advancedScheduleFilters,
             isAdminView,
             adminTab,
             pageSize: requestPageSize,
@@ -792,17 +919,20 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         }
 
         const baseParams = new URLSearchParams({
-            semester: selectedSemester,
             view: isAdminView ? 'detail' : 'summary',
             limit: String(requestPageSize),
             offset: String(requestPage * requestPageSize),
         });
-        if (selectedPhase !== 'all') baseParams.set('phase', selectedPhase);
+        semesterFilters.forEach(value => baseParams.append('semester', value));
+        phaseFilters.forEach(value => baseParams.append('phase', value));
         if (!isAdminView && selectedSubjectName !== 'all') baseParams.set('subjectName', selectedSubjectName);
-        if (!isAdminView && selectedMajor !== 'all') baseParams.set('major', selectedMajor);
-        if (!isAdminView && selectedCohort !== 'all') baseParams.set('cohort', selectedCohort);
-        if (!isAdminView && selectedGroupName !== 'all') baseParams.set('groupName', selectedGroupName);
-        if (!isAdminView && selectedAcademicProgram !== 'all') baseParams.set('academicProgram', selectedAcademicProgram);
+        if (!isAdminView) {
+            selectedFilterMajors.forEach(value => baseParams.append('major', value));
+            selectedFilterCohorts.forEach(value => baseParams.append('cohort', value));
+            selectedFilterGroups.forEach(value => baseParams.append('groupName', value));
+            selectedFilterPrograms.forEach(value => baseParams.append('academicProgram', value));
+            activeAdvancedScheduleFilters.forEach(([key, value]) => baseParams.set(key, String(value).trim()));
+        }
         if (isAdminView && (adminTab === 'system' || adminTab === 'user')) {
             baseParams.set('isUserAdded', adminTab === 'user' ? 'true' : 'false');
         }
@@ -833,13 +963,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             action: searchTerm.trim() ? 'search_subjects' : 'load_subjects',
             error,
             metadata: {
-                semester: selectedSemester,
-                phase: selectedPhase,
+                semesters: semesterFilters,
+                phases: phaseFilters,
                 subjectName: selectedSubjectName,
-                major: selectedMajor,
-                cohort: selectedCohort,
-                groupName: selectedGroupName,
-                academicProgram: selectedAcademicProgram,
+                majors: selectedFilterMajors,
+                cohorts: selectedFilterCohorts,
+                groups: selectedFilterGroups,
+                academicPrograms: selectedFilterPrograms,
+                advancedFilters: advancedScheduleFilters,
                 page: requestPage,
                 pageSize: requestPageSize,
                 hasSearchTerm: Boolean(searchTerm.trim()),
@@ -852,11 +983,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     if (!isAuthenticated) return;
     try {
         const optionsCacheKey = JSON.stringify({
-            semester: selectedSemester,
-            phase: selectedPhase,
-            major: selectedMajor,
-            cohort: selectedCohort,
-            academicProgram: selectedAcademicProgram,
+            semesters: selectedFilterSemesters,
+            phases: selectedFilterPhases,
+            majors: selectedFilterMajors,
+            cohorts: selectedFilterCohorts,
+            academicPrograms: selectedFilterPrograms,
         });
         const cachedOptions = courseFilterOptionsCacheRef.current.get(optionsCacheKey);
         if (cachedOptions) {
@@ -868,14 +999,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             return;
         }
 
-        const params = new URLSearchParams({
-            resource: 'filter-options',
-            semester: selectedSemester,
-        });
-        if (selectedPhase !== 'all') params.set('phase', selectedPhase);
-        if (selectedMajor !== 'all') params.set('major', selectedMajor);
-        if (selectedCohort !== 'all') params.set('cohort', selectedCohort);
-        if (selectedAcademicProgram !== 'all') params.set('academicProgram', selectedAcademicProgram);
+        const params = new URLSearchParams({ resource: 'filter-options' });
+        selectedFilterSemesters.forEach(value => params.append('semester', value));
+        selectedFilterPhases.forEach(value => params.append('phase', value));
+        selectedFilterMajors.forEach(value => params.append('major', value));
+        selectedFilterCohorts.forEach(value => params.append('cohort', value));
+        selectedFilterPrograms.forEach(value => params.append('academicProgram', value));
 
         const response = await fetchPublicCourses(`/courses?${params.toString()}`, {
             headers: apiHeaders(),
@@ -902,11 +1031,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             action: 'filter_subjects',
             error,
             metadata: {
-                semester: selectedSemester,
-                phase: selectedPhase,
-                major: selectedMajor,
-                cohort: selectedCohort,
-                academicProgram: selectedAcademicProgram,
+                semesters: selectedFilterSemesters,
+                phases: selectedFilterPhases,
+                majors: selectedFilterMajors,
+                cohorts: selectedFilterCohorts,
+                academicPrograms: selectedFilterPrograms,
+                advancedFilters: advancedScheduleFilters,
             },
         });
         setSubjectNameOptions([]);
@@ -1380,11 +1510,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       fetchCourses();
     }, 400);
     return () => window.clearTimeout(timeoutId);
-  }, [searchTerm, selectedSemester, selectedPhase, selectedSubjectName, selectedMajor, selectedCohort, selectedGroupName, selectedAcademicProgram, coursePage, coursePageSize, isAuthenticated, isAdminView, adminTab]);
+  }, [searchTerm, selectedSemester, selectedPhase, selectedSubjectName, selectedFilterSemesters, selectedFilterPhases, selectedFilterMajors, selectedFilterCohorts, selectedFilterGroups, selectedFilterPrograms, advancedScheduleFilters, coursePage, coursePageSize, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => {
     if (!isAuthenticated || isAdminView) return;
     fetchCourseFilterOptions();
-  }, [selectedSemester, selectedPhase, selectedMajor, selectedCohort, selectedAcademicProgram, isAuthenticated, isAdminView, adminTab]);
+  }, [selectedFilterSemesters, selectedFilterPhases, selectedFilterMajors, selectedFilterCohorts, selectedFilterPrograms, isAuthenticated, isAdminView, adminTab]);
   useEffect(() => {
     if (selectedSubjectName !== 'all' && !subjectNameOptions.includes(selectedSubjectName)) {
         setSelectedSubjectName('all');
@@ -1410,6 +1540,30 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         setSelectedAcademicProgram('all');
     }
   }, [selectedAcademicProgram, academicProgramOptions]);
+  useEffect(() => {
+    setSelectedFilterMajors(previous => {
+      const next = previous.filter(value => majorOptions.includes(value));
+      return next.length === previous.length ? previous : next;
+    });
+  }, [majorOptions]);
+  useEffect(() => {
+    setSelectedFilterCohorts(previous => {
+      const next = previous.filter(value => cohortOptions.includes(value));
+      return next.length === previous.length ? previous : next;
+    });
+  }, [cohortOptions]);
+  useEffect(() => {
+    setSelectedFilterGroups(previous => {
+      const next = previous.filter(value => groupNameOptions.includes(value));
+      return next.length === previous.length ? previous : next;
+    });
+  }, [groupNameOptions]);
+  useEffect(() => {
+    setSelectedFilterPrograms(previous => {
+      const next = previous.filter(value => academicProgramOptions.includes(value));
+      return next.length === previous.length ? previous : next;
+    });
+  }, [academicProgramOptions]);
   useEffect(() => {
     if (!isAuthenticated || !isAdminView || adminTab !== 'requested') return;
     const timeoutId = window.setTimeout(() => {
@@ -2280,9 +2434,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     <div className={`w-full ${isAdminView ? '' : 'pb-10'}`}>
         {showScheduleUpdateNotice && (
             <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/40 p-4" onClick={handleCloseScheduleUpdateNotice}>
-                <div className="w-full max-w-md select-none overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl animate-scaleIn" onClick={(e) => e.stopPropagation()}>
+                <div className="w-full max-w-md select-none overflow-hidden rounded-2xl border border-gray-300 bg-white animate-scaleIn" onClick={(e) => e.stopPropagation()}>
                     <div className="relative border-b border-gray-100 bg-gray-50 px-5 py-4">
-                        <button onClick={handleCloseScheduleUpdateNotice} className="absolute right-4 top-4 rounded-full border border-gray-200 bg-white p-1.5 text-gray-400 transition-colors hover:text-gray-700" aria-label="Đóng thông báo">
+                        <button onClick={handleCloseScheduleUpdateNotice} className="absolute right-4 top-4 rounded-full border border-gray-300 bg-white p-1.5 text-gray-400 transition-colors hover:text-gray-700" aria-label="Đóng thông báo">
                             <X size={18} />
                         </button>
                         <div className="flex items-start gap-3 pr-8">
@@ -2322,7 +2476,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             <span>Không hiển thị lại thông báo này</span>
                         </label>
                         <div className="mt-4 flex justify-end">
-                            <button onClick={handleConfirmScheduleUpdateNotice} className="rounded-xl bg-[#003375] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#002855]">
+                            <button onClick={handleConfirmScheduleUpdateNotice} className="rounded-xl bg-[#003375] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#002855]">
                                 Đã hiểu
                             </button>
                         </div>
@@ -2332,27 +2486,41 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         )}
 
 
-        <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-1 sm:pb-4 -mt-2 mb-1 sm:mb-4 md:border-b md:border-transparent md:border-gray-200/60">
-            <div className="flex flex-row justify-between items-end px-1 overflow-hidden shrink-0">
+        {isAdminView && <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-1 sm:pb-4 -mt-2 mb-1 sm:mb-4 md:border-b md:border-transparent md:border-gray-300/60">
+            <div className="flex flex-row justify-between items-end gap-3 px-1 overflow-hidden shrink-0">
                 <div className="flex flex-col">
                     <h1 className="text-2xl sm:text-[28px] font-black text-[#003375]">Thời khóa biểu</h1>
                     <div className="flex items-center gap-1.5 mt-1 sm:mt-2 text-[12px] sm:text-[13px] text-gray-500 overflow-x-auto whitespace-nowrap custom-scrollbar pb-1">
                         <span className="shrink-0">Quản lý học tập</span><span className="text-gray-300 shrink-0">•</span><span className="font-bold text-gray-700 shrink-0">Lịch học & Thi</span>
                     </div>
                 </div>
-                {(isAdmin || isAuditor) && (
-                    <button onClick={() => { playClick(); setIsAdminView(!isAdminView); }} className="flex items-center gap-1.5 px-4 py-2 bg-purple-100 text-purple-700 font-bold rounded-lg hover:bg-purple-200 transition-colors shadow-sm text-xs sm:text-sm active:scale-95">
-                        <Settings size={16}/> <span className="hidden sm:inline">{isAdminView ? 'Về giao diện Sinh viên' : 'Quản lý Môn học'}</span><span className="sm:hidden">Admin</span>
-                    </button>
-                )}
+                <div className="flex shrink-0 items-center gap-2">
+                    {!isAdminView && (
+                        <>
+                            <button onClick={() => setIsFilterExpanded(true)} className="hidden sm:flex h-10 items-center gap-2 rounded-xl border border-blue-200 bg-white px-4 text-sm font-bold text-[#003375] transition-colors hover:bg-blue-50">
+                                <SlidersHorizontal size={17}/>
+                                Bộ lọc nâng cao
+                                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#155EEF] px-1.5 text-[11px] text-white">{activeCourseFilterCount}</span>
+                            </button>
+                            <button onClick={clearCourseFilters} disabled={!hasActiveCourseFilters && selectedPhase === 'all'} className="hidden sm:flex h-10 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3.5 text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">
+                                <Trash2 size={15}/> Xóa bộ lọc
+                            </button>
+                        </>
+                    )}
+                    {(isAdmin || isAuditor) && (
+                        <button onClick={() => { playClick(); setIsAdminView(!isAdminView); }} className="flex items-center gap-1.5 px-4 py-2 bg-purple-100 text-purple-700 font-bold rounded-lg hover:bg-purple-200 transition-colors text-xs sm:text-sm active:scale-95">
+                            <Settings size={16}/> <span className="hidden sm:inline">{isAdminView ? 'Về giao diện Sinh viên' : 'Quản lý Môn học'}</span><span className="sm:hidden">Admin</span>
+                        </button>
+                    )}
+                </div>
             </div>
-        </div>
+        </div>}
 
         {!isAdminView && <NotificationNudge variant="schedule" className="mb-4" />}
 
         {isAdminView ? (
             <div className="w-full bg-white rounded-xl border border-gray-300 overflow-hidden flex flex-col h-[calc(100vh-150px)]">
-                <div className="p-4 border-b border-gray-200 bg-[#f8fafc] flex flex-wrap gap-4 items-center justify-between">
+                <div className="p-4 border-b border-gray-300 bg-[#f8fafc] flex flex-wrap gap-4 items-center justify-between">
                     <div className="flex items-center gap-3">
                         <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-300 outline-none text-sm font-bold text-[#003375] bg-white hover:border-gray-400 transition-colors cursor-pointer">
                             {SEMESTER_OPTIONS.map(option => (
@@ -2397,7 +2565,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     </div>
                 </div>
 
-                <div className="px-4 pt-4 border-b border-gray-200 flex gap-6 bg-white shrink-0 overflow-x-auto custom-scrollbar">
+                <div className="px-4 pt-4 border-b border-gray-300 flex gap-6 bg-white shrink-0 overflow-x-auto custom-scrollbar">
                     <button
                         onClick={() => {
                             setAdminTab('system');
@@ -2422,7 +2590,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     ) : adminTab === 'student_schedules' ? (
                         selectedStudentSchedule ? (
                             <div className="h-full flex flex-col">
-                                <div className="p-4 border-b border-gray-200 bg-emerald-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="p-4 border-b border-gray-300 bg-emerald-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                     <div>
                                         <button onClick={() => { playClick(); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); navigate('/schedule'); }} className="text-xs font-bold text-emerald-700 hover:text-emerald-900 mb-2">
                                             ← Quay lại danh sách sinh viên
@@ -2447,14 +2615,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     <table className="w-full text-left border-collapse text-sm min-w-[900px]">
                                         <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
                                             <tr>
-                                                <th className="p-3 border-b border-gray-200 font-bold text-center w-14">STT</th>
-                                                <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">Mã Học Phần</th>
-                                                <th className="p-3 border-b border-gray-200 font-bold">Tên Môn Học</th>
-                                                <th className="p-3 border-b border-gray-200 font-bold text-center">TC</th>
-                                                <th className="p-3 border-b border-gray-200 font-bold text-center">Đợt</th>
-                                                <th className="p-3 border-b border-gray-200 font-bold">Giảng Viên</th>
-                                                <th className="p-3 border-b border-gray-200 font-bold">Lịch Học & Phòng</th>
-                                                <th className="p-3 border-b border-gray-200 font-bold">Lịch thi</th>
+                                                <th className="p-3 border-b border-gray-300 font-bold text-center w-14">STT</th>
+                                                <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">Mã Học Phần</th>
+                                                <th className="p-3 border-b border-gray-300 font-bold">Tên Môn Học</th>
+                                                <th className="p-3 border-b border-gray-300 font-bold text-center">TC</th>
+                                                <th className="p-3 border-b border-gray-300 font-bold text-center">Đợt</th>
+                                                <th className="p-3 border-b border-gray-300 font-bold">Giảng Viên</th>
+                                                <th className="p-3 border-b border-gray-300 font-bold">Lịch Học & Phòng</th>
+                                                <th className="p-3 border-b border-gray-300 font-bold">Lịch thi</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -2499,12 +2667,12 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 <table className="w-full text-left border-collapse text-sm min-w-[760px]">
                                 <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
                                     <tr>
-                                        <th className="p-3 border-b border-gray-200 font-bold text-center w-14">STT</th>
-                                        <th className="p-3 border-b border-gray-200 font-bold">Sinh viên</th>
-                                        <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">MSSV</th>
-                                        <th className="p-3 border-b border-gray-200 font-bold">Email</th>
-                                        <th className="p-3 border-b border-gray-200 font-bold text-center">Số môn</th>
-                                        <th className="p-3 border-b border-gray-200 font-bold text-center">Thao tác</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold text-center w-14">STT</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold">Sinh viên</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">MSSV</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold">Email</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold text-center">Số môn</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold text-center">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2548,13 +2716,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 </colgroup>
                                 <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
                                     <tr>
-                                        <th className="p-3 border-b border-gray-200 font-bold text-center">STT</th>
-                                        <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">Mã Học Phần</th>
-                                        <th className="p-3 border-b border-gray-200 font-bold">Tên Môn Học</th>
-                                        <th className="p-3 border-b border-gray-200 font-bold">Giảng Viên</th>
-                                        <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">MSSV yêu cầu</th>
-                                        <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">Ngày gửi</th>
-                                        <th className="p-3 border-b border-gray-200 font-bold text-center">Thao tác</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold text-center">STT</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">Mã Học Phần</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold">Tên Môn Học</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold">Giảng Viên</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">MSSV yêu cầu</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">Ngày gửi</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold text-center">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2603,7 +2771,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     ))}
                                 </tbody>
                             </table>
-                            <div className="sticky bottom-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.04)]">
+                            <div className="sticky bottom-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-t border-gray-300 bg-white px-4 py-3">
                                 <p className="text-xs font-medium text-gray-500">
                                     Hiển thị <span className="font-bold text-gray-700">{courseRequestRangeStart}-{courseRequestRangeEnd}</span> trong <span className="font-bold text-gray-700">{courseRequestTotal}</span> yêu cầu
                                 </p>
@@ -2612,7 +2780,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         type="button"
                                         onClick={() => setCourseRequestPage(page => Math.max(1, page - 1))}
                                         disabled={courseRequestPage <= 1}
-                                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:border-[#0052cc] hover:text-[#0052cc] disabled:cursor-not-allowed disabled:opacity-40"
+                                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 text-gray-600 transition-colors hover:border-[#0052cc] hover:text-[#0052cc] disabled:cursor-not-allowed disabled:opacity-40"
                                         aria-label="Trang trước"
                                     >
                                         <ChevronLeft size={16} />
@@ -2627,7 +2795,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                 <button
                                                     type="button"
                                                     onClick={() => setCourseRequestPage(page)}
-                                                    className={`h-8 min-w-8 rounded-lg px-2 text-xs font-bold transition-colors ${courseRequestPage === page ? 'bg-[#0052cc] text-white' : 'border border-gray-200 text-gray-600 hover:border-[#0052cc] hover:text-[#0052cc]'}`}
+                                                    className={`h-8 min-w-8 rounded-lg px-2 text-xs font-bold transition-colors ${courseRequestPage === page ? 'bg-[#0052cc] text-white' : 'border border-gray-300 text-gray-600 hover:border-[#0052cc] hover:text-[#0052cc]'}`}
                                                     aria-current={courseRequestPage === page ? 'page' : undefined}
                                                 >
                                                     {page}
@@ -2639,7 +2807,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         type="button"
                                         onClick={() => setCourseRequestPage(page => Math.min(courseRequestTotalPages, page + 1))}
                                         disabled={courseRequestPage >= courseRequestTotalPages}
-                                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:border-[#0052cc] hover:text-[#0052cc] disabled:cursor-not-allowed disabled:opacity-40"
+                                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-300 text-gray-600 transition-colors hover:border-[#0052cc] hover:text-[#0052cc] disabled:cursor-not-allowed disabled:opacity-40"
                                         aria-label="Trang sau"
                                     >
                                         <ChevronRight size={16} />
@@ -2678,14 +2846,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             </colgroup>
                             <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
                                 <tr>
-                                    <th className="p-3 border-b border-gray-200 font-bold text-center w-14">STT</th>
-                                    <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">Tên Sinh Viên</th>
-                                    <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">MSSV</th>
-                                    <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">Mã Học Phần</th>
-                                    <th className="p-3 border-b border-gray-200 font-bold">Tên Môn Học</th>
-                                    <th className="p-3 border-b border-gray-200 font-bold">Giảng Viên</th>
-                                    <th className="p-3 border-b border-gray-200 font-bold">Lịch Học & Phòng</th>
-                                    <th className="p-3 border-b border-gray-200 font-bold text-center w-28">Thao tác</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold text-center w-14">STT</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">Tên Sinh Viên</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">MSSV</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">Mã Học Phần</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold">Tên Môn Học</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold">Giảng Viên</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold">Lịch Học & Phòng</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold text-center w-28">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2748,14 +2916,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             </colgroup>
                             <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
                                 <tr>
-                                    <th className="p-3 border-b border-gray-200 font-bold text-center w-14">STT</th>
-                                    <th className="p-3 border-b border-gray-200 font-bold whitespace-nowrap">Mã Học Phần</th>
-                                    <th className="p-3 border-b border-gray-200 font-bold">Tên Môn Học</th>
-                                    <th className="p-3 border-b border-gray-200 font-bold text-center">TC</th>
-                                    <th className="p-3 border-b border-gray-200 font-bold text-center">Đợt</th>
-                                    <th className="p-3 border-b border-gray-200 font-bold">Giảng Viên</th>
-                                    <th className="p-3 border-b border-gray-200 font-bold">Lịch Học & Phòng</th>
-                                    <th className="p-3 border-b border-gray-200 font-bold text-center w-28">Thao tác</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold text-center w-14">STT</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">Mã Học Phần</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold">Tên Môn Học</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold text-center">TC</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold text-center">Đợt</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold">Giảng Viên</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold">Lịch Học & Phòng</th>
+                                    <th className="p-3 border-b border-gray-300 font-bold text-center w-28">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2782,255 +2950,107 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                 </div>
             </div>
         ) : (
-            <div className={`flex flex-col lg:flex-row lg:h-[calc(100vh-150px)] items-start transition-[gap] duration-300 ease-out ${isFilterExpanded ? 'gap-0' : 'gap-3 sm:gap-6'}`}>
+            <div className="flex flex-col items-start gap-3 sm:gap-5 lg:h-[calc(100vh-92px)] lg:flex-row">
             
                 {/* CỘT TRÁI: SIDEBAR FILTER */}
-                <div className={`w-full bg-white rounded-xl border border-gray-300 flex flex-col overflow-visible transition-all duration-300 ease-out ${isFilterExpanded ? 'lg:flex-1 lg:max-w-none h-[calc(100vh-180px)] lg:h-full' : `lg:w-[300px] lg:shrink-0 ${hasActiveCourseFilters ? 'h-[450px]' : 'h-auto'} lg:h-full`}`}>
-                    <div className={`border-b border-gray-200 flex justify-between items-center bg-[#f8fafc] ${isFilterExpanded ? 'p-3 sm:p-4' : 'px-3 py-2.5'}`}>
-                        <h2 className="text-sm sm:text-base font-bold text-[#003375] flex items-center gap-2"><Search size={16} className="text-[#003375]" /> Bộ lọc</h2>
+                <div className={`flex w-full flex-col overflow-visible rounded-xl border border-gray-300 bg-white lg:h-full lg:w-[330px] lg:shrink-0 ${hasActiveCourseFilters ? 'h-[520px]' : 'h-auto'}`}>
+                    <div className="flex items-center justify-between rounded-t-xl border-b border-blue-900 bg-gradient-to-r from-[#073B7A] to-[#062D63] px-4 py-3 text-white">
+                        <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wide"><SlidersHorizontal size={16}/> Bộ lọc</h2>
                         <div className="flex items-center gap-1.5">
-                            {isFilterExpanded && (
-                                <button onClick={() => setIsMyScheduleModalOpen(true)} className="flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 text-xs font-bold text-[#003375] shadow-sm hover:bg-gray-50 active:scale-95 transition-transform">
-                                    <List size={14}/> {isPlanMode ? `KH ${activePlanKey}` : 'Đã lưu'} ({displayedScheduleCount})
+                            {isSyncing ? <Loader2 size={15} className="animate-spin text-blue-200"/> : (
+                                <button onClick={clearCourseFilters} className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-blue-50 transition-colors hover:bg-white/10" title="Xóa tất cả bộ lọc">
+                                    <RefreshCw size={13}/> Xóa tất cả
                                 </button>
                             )}
-                            {isSyncing ? ( <Loader2 size={16} className="text-blue-500 animate-spin" /> ) : ( <button onClick={refreshCourseListAndFilters} className="rounded-md p-1.5 text-gray-400 hover:bg-blue-50 hover:text-[#003375] transition-colors" title="Làm mới"><RefreshCw size={14}/></button> )}
-                            <button onClick={() => setIsFilterExpanded(prev => !prev)} className="rounded-md p-1.5 text-gray-500 hover:bg-blue-50 hover:text-[#003375] transition-colors" title={isFilterExpanded ? 'Thu gọn bộ lọc' : 'Mở rộng bộ lọc'}>
-                                {isFilterExpanded ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+                            <button onClick={() => setIsFilterExpanded(true)} className="rounded-md p-1.5 text-white transition-colors hover:bg-white/10" title="Mở bộ lọc nâng cao">
+                                <PanelLeftOpen size={16}/>
                             </button>
                         </div>
                     </div>
                     
-                    <div className={`border-b border-gray-200 ${isFilterExpanded ? 'grid grid-cols-1 gap-2 overflow-visible p-3 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.35fr)_minmax(180px,1.05fr)_minmax(140px,0.75fr)_minmax(100px,0.52fr)_minmax(150px,0.85fr)_minmax(100px,0.52fr)_minmax(110px,0.58fr)_minmax(165px,0.9fr)]' : 'space-y-2 px-3 py-2.5'}`}>
-                        <div className="relative">
-                            <input disabled={!isAuthenticated} type="text" placeholder="Tên môn + mã (VD: Toán cao cấp D01)..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`w-full rounded-lg border border-gray-300 bg-white pr-3 outline-none transition-all hover:border-gray-400 focus:border-[#003375] focus:ring-1 focus:ring-[#003375] disabled:bg-gray-50 disabled:cursor-not-allowed ${isFilterExpanded ? 'h-10 pl-10 text-sm' : 'h-9 pl-9 text-xs'}`}/>
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={isFilterExpanded ? 16 : 14} />
-                        </div>
-
-                        <div className={isFilterExpanded ? 'contents' : 'grid grid-cols-[1fr_0.9fr] gap-1.5'}>
-                            <div className="min-w-0">
-                                <select
-                                    disabled={!isAuthenticated}
-                                    value={selectedSubjectName}
-                                    onChange={(e) => setSelectedSubjectName(e.target.value)}
-                                    className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}
-                                    title={selectedSubjectName === 'all' ? 'Tất cả môn học' : selectedSubjectName}
-                                >
-                                    <option value="all">Tất cả môn học</option>
-                                    {subjectNameOptions.map(option => (
-                                        <option key={option} value={option}>{option}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="min-w-0">
-                                <select
-                                    disabled={!isAuthenticated}
-                                    value={selectedAcademicProgram}
-                                    onChange={(e) => setSelectedAcademicProgram(e.target.value)}
-                                    className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}
-                                    title={selectedAcademicProgram === 'all' ? 'Tất cả chương trình' : selectedAcademicProgram}
-                                >
-                                    <option value="all">Tất cả chương trình</option>
-                                    {academicProgramOptions.map(option => (
-                                        <option key={option} value={option}>{option}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className={isFilterExpanded ? 'contents' : 'grid grid-cols-[1fr_0.72fr] gap-1.5'}>
-                            <div className="flex-1">
-                                <select disabled={!isAuthenticated} value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-[#003375] outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}>
-                                    {SEMESTER_OPTIONS.map(option => (
-                                        <option key={option.value} value={option.value}>{option.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="min-w-0">
-                                <select disabled={!isAuthenticated} value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}>
-                                    <option value="all">Mọi đợt</option>
-                                    <option value="1">Đợt 1</option>
-                                    <option value="2">Đợt 2</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className={isFilterExpanded ? 'contents' : 'grid grid-cols-[1fr_0.7fr_0.78fr] gap-1.5'}>
-                            <div className="min-w-0">
-                                <select
-                                    disabled={!isAuthenticated}
-                                    value={selectedMajor}
-                                    onChange={(e) => setSelectedMajor(e.target.value)}
-                                    className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}
-                                    title={selectedMajor === 'all' ? 'Tất cả chuyên ngành' : selectedMajor}
-                                >
-                                    <option value="all">Tất cả chuyên ngành</option>
-                                    {majorOptions.map(option => (
-                                        <option key={option} value={option}>{option}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="min-w-0">
-                                <select
-                                    disabled={!isAuthenticated}
-                                    value={selectedCohort}
-                                    onChange={(e) => setSelectedCohort(e.target.value)}
-                                    className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}
-                                    title={selectedCohort === 'all' ? 'Tất cả khóa' : selectedCohort}
-                                >
-                                    <option value="all">Tất cả khóa</option>
-                                    {cohortOptions.map(option => (
-                                        <option key={option} value={option}>{option}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="min-w-0">
-                                <select
-                                    disabled={!isAuthenticated}
-                                    value={selectedGroupName}
-                                    onChange={(e) => setSelectedGroupName(e.target.value)}
-                                    className={`${isFilterExpanded ? 'h-10 px-3 text-sm' : 'h-9 px-2.5 text-xs'} w-full min-w-0 truncate rounded-lg border border-gray-300 bg-white font-bold text-gray-700 outline-none hover:border-gray-400 transition-colors cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed`}
-                                    title={selectedGroupName === 'all' ? 'Tất cả nhóm' : selectedGroupName}
-                                >
-                                    <option value="all">Tất cả nhóm</option>
-                                    {groupNameOptions.map(option => (
-                                        <option key={option} value={option}>{option}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload} />
+                    <div className="flex items-center gap-2 border-b border-gray-300 bg-gray-50/70 px-4 py-3 text-[11px] font-medium text-gray-500">
+                        <Info size={14} className="shrink-0 text-gray-400"/>
+                        Thu hẹp kết quả để tìm lớp học phù hợp
                     </div>
 
-                    {/* Danh sách môn học gợi ý */}
-                    <div className={`flex-1 overflow-y-auto p-3 sm:p-4 bg-gray-50/50 custom-scrollbar relative ${isFilterExpanded || hasActiveCourseFilters ? 'block' : 'hidden lg:block'}`}>
-                        {!isAuthenticated ? (
-                            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6 bg-white/80 animate-fadeIn">
-                                <div className="w-14 h-14 bg-blue-50 text-[#003375] rounded-full flex items-center justify-center mb-3 border border-blue-200"><Lock size={24} /></div>
-                                <p className="text-xs text-gray-600 font-medium leading-relaxed">Đăng nhập bằng tài khoản sinh viên để xem lịch học.</p>
-                            </div>
-                        ) : isLoading ? (
-                            <p className="text-center text-xs text-gray-400 mt-10 animate-pulse font-medium">Đang tải dữ liệu...</p>
-                        ) : availableCourses.length === 0 ? (
-                            <div className="text-center mt-8 px-3">
-                                <p className="text-gray-500 text-xs mb-2 font-medium">Không tìm thấy môn học.</p>
-                                <p className="text-[11px] leading-relaxed text-gray-400">Thử bỏ bớt từ khóa, chọn lại học kỳ/đợt, hoặc kiểm tra chuyên ngành/nhóm.</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {isFilterExpanded && (
-                                    <div className="flex flex-wrap items-center justify-between gap-3">
-                                        <p className="text-sm font-black text-[#003375]">
-                                            {isCourseSuggestionMode ? `${availableCourses.length} môn gợi ý` : `Tìm thấy ${courseTotal} môn học`}
-                                        </p>
-                                        <p className="text-xs font-semibold text-gray-500">Bấm vào card để xem chi tiết</p>
-                                    </div>
-                                )}
-                                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
-                                    <p className="text-xs font-bold text-gray-500">
-                                        {isCourseSuggestionMode
-                                            ? `${availableCourses.length} môn học được gợi ý`
-                                            : `Trang ${coursePage + 1}/${courseTotalPages} • ${availableCourses.length} môn đang hiển thị`}
-                                    </p>
-                                    {!isCourseSuggestionMode && <div className="flex items-center gap-1.5">
-                                        <button
-                                            disabled={coursePage === 0 || isLoading}
-                                            onClick={() => setCoursePage(prev => Math.max(0, prev - 1))}
-                                            className="rounded-md border border-gray-200 px-2 py-1 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                        >
-                                            Trước
-                                        </button>
-                                        <input
-                                            type="number"
-                                            min={1}
-                                            max={courseTotalPages}
-                                            value={coursePage + 1}
-                                            onChange={(event) => {
-                                                const nextPage = Number(event.target.value);
-                                                if (!Number.isFinite(nextPage)) return;
-                                                setCoursePage(Math.min(Math.max(nextPage - 1, 0), courseTotalPages - 1));
-                                            }}
-                                            className="h-7 w-14 rounded-md border border-gray-200 text-center text-xs font-bold text-[#003375] outline-none focus:border-[#003375]"
-                                            aria-label="Nhập số trang môn học"
-                                        />
-                                        <button
-                                            disabled={!courseHasMore || isLoading}
-                                            onClick={() => setCoursePage(prev => prev + 1)}
-                                            className="rounded-md border border-gray-200 px-2 py-1 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                        >
-                                            Sau
-                                        </button>
-                                    </div>}
-                                </div>
-                                <div className={isFilterExpanded ? 'grid grid-cols-1 gap-3 xl:grid-cols-2' : 'space-y-3'}>
-                                    {availableCourses.map((course) => {
-                                        const color = getColorForCourse(course.id);
-                                        if (isFilterExpanded) {
-                                            return (
-                                                <div key={course.id} className={`bg-white border border-gray-200 border-l-4 ${color.border} rounded-xl p-3 relative group hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer`} onClick={() => setSelectedCourseInfo({ course })}>
-                                                    <div className="flex items-start justify-between gap-3">
-                                                        <div className="min-w-0">
-                                                            <h3 className={`line-clamp-2 text-sm font-black leading-snug ${color.text}`}>{course.subject_name}</h3>
-                                                            <p className="mt-1 text-xs font-bold text-gray-500">{course.course_code} • Đợt {course.phase || '1'} • {course.credits || 0} TC</p>
-                                                        </div>
-                                                        <button onClick={(e) => { e.stopPropagation(); addToActiveSchedule(course); }} disabled={isSyncing} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#003375] hover:bg-blue-100 transition-colors disabled:opacity-50" title={isPlanMode ? `Thêm vào Kế hoạch ${activePlanKey}` : 'Thêm vào Lịch cá nhân'}><Plus size={16}/></button>
-                                                    </div>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                        {([
+                            ['subject', 'Môn học', selectedSubjectName === 'all' ? 'Tất cả' : '1 môn đã chọn'],
+                            ['program', 'Chương trình', selectedFilterPrograms.length ? `${selectedFilterPrograms.length} chương trình đã chọn` : 'Tất cả'],
+                            ['semester', 'Học kỳ', selectedFilterSemesters.length ? `${selectedFilterSemesters.length} học kỳ đã chọn` : 'Tất cả'],
+                            ['phase', 'Đợt', selectedFilterPhases.length ? `${selectedFilterPhases.length} đợt đã chọn` : 'Tất cả'],
+                            ['major', 'Chuyên ngành', selectedFilterMajors.length ? `${selectedFilterMajors.length} ngành đã chọn` : 'Tất cả'],
+                            ['cohort', 'Khóa', selectedFilterCohorts.length ? `${selectedFilterCohorts.length} khóa đã chọn` : 'Tất cả'],
+                            ['group', 'Nhóm', selectedFilterGroups.length ? `${selectedFilterGroups.length} nhóm đã chọn` : 'Tất cả'],
+                        ] as const).map(([key, label, summary]) => {
+                            const isOpen = openSidebarFilterSections.has(key);
+                            return (
+                                <div key={key} className="border-b border-gray-300">
+                                    <button onClick={() => toggleSidebarFilterSection(key)} className="flex h-[52px] w-full items-center justify-between px-4 text-left transition-colors hover:bg-gray-50">
+                                        <span className="text-sm font-extrabold text-[#12366A]">{label}</span>
+                                        <span className="flex min-w-0 items-center gap-2 pl-3">
+                                            <span className="max-w-[132px] truncate text-[11px] font-medium text-gray-500">{summary}</span>
+                                            <ChevronDown size={16} className={`shrink-0 text-[#12366A] transition-transform ${isOpen ? 'rotate-180' : ''}`}/>
+                                        </span>
+                                    </button>
 
-                                                    <div className="mt-3 grid grid-cols-1 gap-1.5 text-xs font-semibold text-gray-600 sm:grid-cols-2 xl:grid-cols-3">
-                                                        <div className="flex min-w-0 items-center gap-1.5">
-                                                            <Clock size={12} className="shrink-0 text-gray-400" />
-                                                            <span className="truncate">Thứ {course.day_of_week || '?'} • {getShiftDisplay(course.shift)}</span>
-                                                        </div>
-                                                        <div className="flex min-w-0 items-center gap-1.5">
-                                                            <MapPin size={12} className="shrink-0 text-gray-400" />
-                                                            <span className="truncate">P. {course.room || 'Chưa cập nhật'}{course.campus ? ` • ${course.campus}` : ''}</span>
-                                                        </div>
-                                                        <div className="flex min-w-0 items-center gap-1.5">
-                                                            <User size={12} className="shrink-0 text-gray-400" />
-                                                            <span className="truncate">{course.instructor || 'Chưa cập nhật'}</span>
-                                                        </div>
-                                                        <div className="min-w-0 truncate text-gray-500">Tuần: {course.weeks || 'Chưa cập nhật'}</div>
-                                                        <div className="min-w-0 truncate text-gray-500">Nhóm: {course.group_name || 'Tất cả'}</div>
-                                                        <div className="min-w-0 truncate text-gray-500">CT: {course.academic_program || 'Chưa cập nhật'}</div>
-                                                    </div>
+                                    {isOpen && (
+                                        <div className="border-t border-gray-100 bg-white px-4 pb-4 pt-3">
+                                            {key === 'subject' && <>
+                                                <div className="relative mb-3">
+                                                    <input disabled={!isAuthenticated} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm tên môn hoặc mã học phần..." className="h-9 w-full rounded-lg border border-gray-300 pl-9 pr-3 text-xs outline-none focus:border-[#155EEF]"/>
+                                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
                                                 </div>
-                                            );
-                                        }
-
-                                        return (
-                                            <div key={course.id} className={`bg-white border border-gray-200 border-l-4 ${color.border} rounded-lg p-3 relative group hover:border-gray-300 transition-all cursor-pointer`} onClick={() => setSelectedCourseInfo({ course })}>
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <h3 className={`font-bold text-xs leading-tight pr-6 line-clamp-2 ${color.text}`}>{course.subject_name}</h3>
-                                                        <p className="text-[10px] text-gray-500 font-medium mt-0.5">{course.course_code} • Đợt {course.phase || '1'}</p>
-                                                    </div>
-                                                    <button onClick={(e) => { e.stopPropagation(); addToActiveSchedule(course); }} disabled={isSyncing} className="text-gray-400 hover:text-[#003375] p-1 bg-gray-50 hover:bg-blue-50 rounded-md transition-colors shrink-0" title={isPlanMode ? `Thêm vào Kế hoạch ${activePlanKey}` : 'Thêm vào Lịch cá nhân'}><Plus size={14}/></button>
-                                                </div>
-                                                <div className="text-[10px] text-gray-500 mt-2 flex items-center gap-1 font-medium"><Clock size={10} className="text-gray-400"/> Thứ {course.day_of_week} ({getShiftDisplay(course.shift)})</div>
-                                                <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1 font-medium"><MapPin size={10} className="text-gray-400"/> P. {course.room}</div>
-                                                <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1 font-medium"><User size={10} className="text-gray-400"/> {course.instructor || 'Chưa cập nhật'}</div>
-                                            </div>
-                                        );
-                                    })}
+                                                <select disabled={!isAuthenticated} value={selectedSubjectName} onChange={(event) => setSelectedSubjectName(event.target.value)} className="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                                    <option value="all">Tất cả môn học</option>
+                                                    {subjectNameOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                                                </select>
+                                            </>}
+                                            {key === 'program' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">
+                                                {academicProgramOptions.map(option => <label key={option} className="flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterPrograms.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterPrograms, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}
+                                                {academicProgramOptions.length === 0 && <p className="text-xs text-gray-400">Chưa có dữ liệu chương trình.</p>}
+                                            </div>}
+                                            {key === 'semester' && <div className="space-y-2.5">
+                                                {STUDENT_FILTER_SEMESTER_OPTIONS.map(option => (
+                                                    <label key={option.value} className="flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]">
+                                                        <input type="checkbox" checked={selectedFilterSemesters.includes(option.value)} onChange={() => toggleMultiFilterValue(setSelectedFilterSemesters, option.value)} className="h-4 w-4 accent-[#0D4E9B]"/>
+                                                        <span className="flex-1">{option.label}</span>
+                                                    </label>
+                                                ))}
+                                            </div>}
+                                            {key === 'phase' && <div className="space-y-2.5">{['1', '2'].map(value => <label key={value} className="flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]"><input type="checkbox" checked={selectedFilterPhases.includes(value)} onChange={() => toggleMultiFilterValue(setSelectedFilterPhases, value)} className="h-4 w-4 accent-[#0D4E9B]"/><span>Đợt {value}</span></label>)}</div>}
+                                            {key === 'major' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{majorOptions.map(option => <label key={option} className="flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterMajors.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterMajors, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}</div>}
+                                            {key === 'cohort' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{cohortOptions.map(option => <label key={option} className="flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterCohorts.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterCohorts, option)} className="h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span>{option}</span></label>)}</div>}
+                                            {key === 'group' && <div className="max-h-52 space-y-2.5 overflow-y-auto pr-1 custom-scrollbar">{groupNameOptions.map(option => <label key={option} className="flex cursor-pointer items-start gap-3 text-xs font-semibold text-[#28466F]"><input type="checkbox" disabled={!isAuthenticated} checked={selectedFilterGroups.includes(option)} onChange={() => toggleMultiFilterValue(setSelectedFilterGroups, option)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0D4E9B]"/><span className="flex-1 leading-5">{option}</span></label>)}</div>}
+                                        </div>
+                                    )}
                                 </div>
-                                {!courseHasMore && (
-                                    <p className="text-center text-[11px] font-semibold text-gray-400">Đã hiển thị tất cả môn phù hợp.</p>
-                                )}
-                            </div>
-                        )}
+                            );
+                        })}
+                        <input type="file" accept="application/pdf" className="hidden" ref={fileInputRef} onChange={handlePdfUpload}/>
+                    </div>
+
+                    <div className="flex shrink-0 items-center justify-between gap-3 border-t border-gray-300 bg-white px-4 py-4">
+                        <button onClick={() => setOpenSidebarFilterSections(new Set())} disabled={openSidebarFilterSections.size === 0} className="flex items-center gap-2 text-xs font-bold text-[#28466F] hover:text-[#003375] disabled:cursor-not-allowed disabled:opacity-40">
+                            <ChevronDown size={15} className="rotate-180"/> Thu gọn
+                        </button>
+                        <button disabled={!isAuthenticated || isLoading} onClick={() => setIsCourseResultsOpen(true)} className="flex h-11 min-w-[205px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0D4E9B] to-[#073B7A] px-4 text-sm font-extrabold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
+                            {isLoading ? <Loader2 size={17} className="animate-spin"/> : <SlidersHorizontal size={17}/>} Áp dụng bộ lọc ({courseTotal || availableCourses.length} lớp)
+                        </button>
                     </div>
                 </div>
 
                 {/* CỘT PHẢI: KHUNG HIỂN THỊ TKB */}
-                <div className={`bg-white rounded-xl border border-gray-300 flex flex-col overflow-hidden min-h-[600px] lg:min-h-0 lg:h-full w-full relative transition-all duration-300 ease-out ${isFilterExpanded ? 'w-0 flex-[0_0_0%] min-w-0 max-h-0 opacity-0 pointer-events-none border-transparent lg:max-h-none' : 'flex-1 opacity-100'}`}>
-                    <div className="schedule-toolbar border-b border-gray-200 bg-white shrink-0">
-                        <div className="no-scrollbar flex min-h-[54px] items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap px-3 pt-3 sm:px-4">
+                <div className="relative flex min-h-[600px] w-full flex-1 flex-col overflow-hidden bg-[#F8FAFC] lg:h-full lg:min-h-0">
+                    <div className="schedule-toolbar shrink-0 bg-[#F8FAFC]">
+                        <div className="no-scrollbar flex min-h-[62px] items-center gap-2 overflow-x-auto overflow-y-hidden whitespace-nowrap px-1 pb-2">
                             <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
-                                <h2 className="flex shrink-0 items-center gap-2 text-lg font-extrabold text-[#003375]"><Calendar size={20} className="shrink-0 text-[#990000]" /> {displayedScheduleTitle}</h2>
+                                <div className="mr-1 shrink-0">
+                                    <h1 className="flex items-center gap-2 text-2xl font-black text-[#003375]"><Calendar size={20} className="text-[#990000]"/> Thời khóa biểu</h1>
+                                    <p className="mt-0.5 text-xs font-medium text-gray-500">Xem và quản lý lịch học của bạn</p>
+                                </div>
                                 <div className="relative grid w-[168px] shrink-0 grid-cols-2 items-center rounded-lg border border-gray-300 bg-gray-50 p-1">
-                                    <span className={`absolute left-1 top-1 bottom-1 w-[calc(50%-0.25rem)] rounded-md border border-gray-200 bg-white shadow-sm transition-transform duration-300 ease-out ${isPlanMode ? 'translate-x-full' : 'translate-x-0'}`} />
+                                    <span className={`absolute left-1 top-1 bottom-1 w-[calc(50%-0.25rem)] rounded-md border border-gray-300 bg-white transition-transform duration-300 ease-out ${isPlanMode ? 'translate-x-full' : 'translate-x-0'}`} />
                                     <button onClick={() => setScheduleViewMode('official')} className={`relative z-10 px-2.5 py-1 text-xs font-bold transition-all active:scale-[0.98] ${!isPlanMode ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Lịch cá nhân</button>
                                     <button onClick={() => setScheduleViewMode('plan')} className={`relative z-10 px-2.5 py-1 text-xs font-bold transition-all active:scale-[0.98] ${isPlanMode ? 'text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Kế hoạch</button>
                                 </div>
@@ -3039,7 +3059,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             {isPlanMode && (
                                 <div className="flex shrink-0 items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 p-1">
                                     {PLAN_KEYS.map(planKey => (
-                                        <button key={planKey} onClick={() => setActivePlanKey(planKey)} className={`px-2.5 py-1 text-[11px] font-black rounded-md transition-all active:scale-[0.98] ${activePlanKey === planKey ? 'bg-white text-amber-700 border border-amber-200 shadow-sm' : 'text-amber-600 hover:bg-white/70'}`}>
+                                        <button key={planKey} onClick={() => setActivePlanKey(planKey)} className={`px-2.5 py-1 text-[11px] font-black rounded-md transition-all active:scale-[0.98] ${activePlanKey === planKey ? 'bg-white text-amber-700 border border-amber-200' : 'text-amber-600 hover:bg-white/70'}`}>
                                             KH {planKey}
                                         </button>
                                     ))}
@@ -3048,8 +3068,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
                             <div className="ml-auto flex shrink-0 items-center gap-2">
                                 <div className="flex shrink-0 items-center bg-gray-50 border border-gray-300 rounded-lg p-1">
-                                    <button onClick={() => setViewMode('week')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-[#003375] border border-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>Tuần</button>
-                                    <button onClick={() => setViewMode('month')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-[#003375] border border-gray-200' : 'text-gray-500 hover:text-gray-800'}`}>Tháng</button>
+                                    <button onClick={() => setViewMode('week')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-[#003375] border border-gray-300' : 'text-gray-500 hover:text-gray-800'}`}>Tuần</button>
+                                    <button onClick={() => setViewMode('month')} className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${viewMode === 'month' ? 'bg-white text-[#003375] border border-gray-300' : 'text-gray-500 hover:text-gray-800'}`}>Tháng</button>
                                 </div>
 
                                 <button onClick={goToToday} className="shrink-0 px-3 py-1.5 text-xs font-bold bg-blue-50 text-[#003375] rounded-lg hover:bg-blue-100 transition-colors border border-blue-200 active:scale-95 whitespace-nowrap">Hôm nay</button>
@@ -3095,14 +3115,26 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             </div>
 
                             {selectedWeek !== 0 && viewMode === 'week' && (
-                                <span className="flex shrink-0 items-center gap-1.5 rounded-md border border-gray-200 bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-500">
+                                <span className="flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-500">
                                     <CalendarDays size={12}/> {weekStartStr} - {weekEndStr}
                                 </span>
                             )}
                         </div>
 
+                        <div className="no-scrollbar mb-3 flex min-h-[48px] items-center gap-2 overflow-x-auto rounded-xl border border-gray-300 bg-white px-4 py-2 whitespace-nowrap">
+                            <span className="mr-1 shrink-0 text-xs font-extrabold text-[#12366A]">Bộ lọc đang áp dụng</span>
+                            {!hasActiveCourseFilters && <span className="text-[11px] font-medium text-gray-400">Chưa chọn tiêu chí nào</span>}
+                            {selectedFilterSemesters.map(value => <span key={`semester-${value}`} className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">{SEMESTER_OPTIONS.find(option => option.value === value)?.label || value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterSemesters, value)} aria-label="Bỏ lọc học kỳ"><X size={12}/></button></span>)}
+                            {selectedFilterPhases.map(value => <span key={`phase-${value}`} className="flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">Đợt {value}<button onClick={() => toggleMultiFilterValue(setSelectedFilterPhases, value)} aria-label="Bỏ lọc đợt"><X size={12}/></button></span>)}
+                            {selectedSubjectName !== 'all' && <span className="flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{selectedSubjectName}</span><button onClick={() => setSelectedSubjectName('all')} aria-label="Bỏ lọc môn"><X size={12}/></button></span>}
+                            {selectedFilterPrograms.map(value => <span key={`program-${value}`} className="flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{value}</span><button onClick={() => toggleMultiFilterValue(setSelectedFilterPrograms, value)} aria-label="Bỏ lọc chương trình"><X size={12}/></button></span>)}
+                            {selectedFilterMajors.map(value => <span key={`major-${value}`} className="flex max-w-[180px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{value}</span><button onClick={() => toggleMultiFilterValue(setSelectedFilterMajors, value)} aria-label="Bỏ lọc chuyên ngành"><X size={12}/></button></span>)}
+                            {activeAdvancedScheduleFilters.map(([key, value]) => <span key={`advanced-${key}`} className="flex max-w-[200px] shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-[#28466F]"><span className="truncate">{ADVANCED_SCHEDULE_FILTER_FIELDS.find(field => field.key === key)?.label}: {value}</span><button onClick={() => setAdvancedScheduleFilters(previous => ({ ...previous, [key]: '' }))} aria-label={`Bỏ lọc ${key}`}><X size={12}/></button></span>)}
+                            <button onClick={() => setIsFilterExpanded(true)} className="ml-auto flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-[11px] font-extrabold text-[#155EEF] transition hover:bg-blue-50"><Edit size={13}/> Chỉnh sửa bộ lọc <ChevronDown size={13}/></button>
+                        </div>
+
                         {isWeekDropdownOpen && createPortal(
-                            <div onClick={(e) => e.stopPropagation()} style={getToolbarDropdownStyle(weekDropdownButtonRef, 192)} className="z-[100000] rounded-xl border border-gray-200 bg-white py-1 shadow-2xl max-h-[320px] overflow-y-auto custom-scrollbar">
+                            <div onClick={(e) => e.stopPropagation()} style={getToolbarDropdownStyle(weekDropdownButtonRef, 192)} className="z-[100000] rounded-xl border border-gray-300 bg-white py-1 max-h-[320px] overflow-y-auto custom-scrollbar">
                                 <button onClick={() => { setSelectedWeek(0); setIsWeekDropdownOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 font-bold text-gray-700 border-b border-gray-100">Hiển thị Tổng quát</button>
                                 {Array.from({length: selectedSemesterMaxWeek}, (_, i) => i + 1).map(w => {
                                     const wDates = getWeekDatesFull(w, selectedSemester);
@@ -3117,7 +3149,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         )}
 
                         {isMonthDropdownOpen && createPortal(
-                            <div onClick={(e) => e.stopPropagation()} style={getToolbarDropdownStyle(monthDropdownButtonRef, 128)} className="z-[100000] rounded-xl border border-gray-200 bg-white py-1 shadow-2xl max-h-[320px] overflow-y-auto custom-scrollbar">
+                            <div onClick={(e) => e.stopPropagation()} style={getToolbarDropdownStyle(monthDropdownButtonRef, 128)} className="z-[100000] rounded-xl border border-gray-300 bg-white py-1 max-h-[320px] overflow-y-auto custom-scrollbar">
                                 {selectedSemesterMonths.map((_, m) => (
                                     <button key={m} onClick={() => { setSelectedMonthIndex(m); setIsMonthDropdownOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedMonthIndex === m ? 'bg-blue-50 text-[#003375] font-bold' : 'text-gray-600 font-medium'}`}>
                                         {getSemesterMonthLabel(selectedSemester, m)}
@@ -3129,7 +3161,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     </div>
 
                     {/* LƯỚI LỊCH (GRID) */}
-                    <div className="flex-1 overflow-auto custom-scrollbar relative bg-white">
+                    <div className="relative flex-1 overflow-auto rounded-xl border border-gray-300 bg-white custom-scrollbar">
                         {isSemesterHolidayWeek(selectedSemester, selectedWeek) && viewMode === 'week' && (
                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80">
                                 <div className="bg-red-50 text-red-600 px-6 py-3 rounded-full font-bold text-sm border border-red-200 flex items-center gap-2 animate-bounce">
@@ -3139,14 +3171,128 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         )}
                         
                         {viewMode === 'week' ? (
-                            <table className="w-full min-w-[700px] border-collapse table-fixed h-full">
+                            <>
+                            {(() => {
+                                const startMinutes = 7 * 60;
+                                const endMinutes = 19 * 60;
+                                const hourHeight = 52;
+                                const timelineHeight = ((endMinutes - startMinutes) / 60) * hourHeight;
+                                const hours = Array.from({ length: 13 }, (_, index) => 7 + index);
+
+                                return (
+                                    <div className="hidden min-w-[900px] bg-white">
+                                        <div className="sticky top-0 z-30 grid grid-cols-[64px_repeat(7,minmax(118px,1fr))] border-b border-gray-300 bg-white">
+                                            <div className="flex items-center justify-center border-r border-gray-300 text-[11px] font-extrabold text-gray-600">Giờ</div>
+                                            {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
+                                                const isTodayCol = selectedWeek !== 0 && currentWeekDates[index] === todayStr;
+                                                return (
+                                                    <div key={`hourly-header-${day}`} className={`flex min-h-[52px] flex-col items-center justify-center border-r border-gray-300 text-xs ${isTodayCol ? 'bg-blue-50 text-[#003375]' : 'text-gray-700'}`}>
+                                                        <span className="font-extrabold">{day === 8 ? 'Chủ nhật' : `Thứ ${day}`}</span>
+                                                        {selectedWeek !== 0 && <span className="mt-0.5 text-[10px] font-medium text-gray-500">{currentWeekDates[index]?.substring(0, 5)}</span>}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="grid grid-cols-[64px_repeat(7,minmax(118px,1fr))]" style={{ height: timelineHeight }}>
+                                            <div className="relative border-r border-gray-300 bg-[#FCFDFE]">
+                                                {hours.map((hour, index) => (
+                                                    <div key={`hour-label-${hour}`} className="absolute left-0 right-0 border-t border-gray-200 px-2 pt-1 text-center text-[10px] font-bold text-gray-500" style={{ top: index * hourHeight }}>
+                                                        {String(hour).padStart(2, '0')}:00
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {[2, 3, 4, 5, 6, 7, 8].map((day, dayIndex) => {
+                                                const cellDateStr = currentWeekDates[dayIndex];
+                                                const regularItems = displayedSchedule.flatMap(course => ['S', 'C'].map(shiftType => {
+                                                    const slotDetails = getCourseDetailsForSlot(course, day, selectedWeek, shiftType);
+                                                    if (!slotDetails) return null;
+                                                    const timeRange = getCourseTimeRangeMinutes(slotDetails.shift);
+                                                    return timeRange ? { course, slotDetails, timeRange } : null;
+                                                })).filter(Boolean) as Array<{ course: Course; slotDetails: any; timeRange: { start: number; end: number; label: string } }>;
+                                                const makeupItems = displayedSchedule.flatMap(course => (course.makeup_schedules || [])
+                                                    .filter(item => item.date === cellDateStr)
+                                                    .map(item => {
+                                                        const timeRange = getCourseTimeRangeMinutes(item.shift);
+                                                        if (!timeRange) return null;
+                                                        return {
+                                                            course,
+                                                            slotDetails: { id: item.id, day, shift: item.shift, room: item.room, weeks: 'Học bù', isMakeup: true, originalDate: item.originalDate },
+                                                            timeRange,
+                                                        };
+                                                    }).filter(Boolean)
+                                                ) as Array<{ course: Course; slotDetails: any; timeRange: { start: number; end: number; label: string } }>;
+                                                const courseItems = [...regularItems, ...makeupItems];
+                                                const examItems = displayedSchedule.flatMap(course => {
+                                                    if (!course.exam_date || !course.exam_shift || selectedWeek === 0) return [];
+                                                    if (getExamDayMonth(course.exam_date) !== cellDateStr?.substring(0, 5)) return [];
+                                                    const examStart = getExamStartMinutes(course.exam_shift);
+                                                    return examStart === null ? [] : [{ course, start: examStart, end: examStart + 90 }];
+                                                });
+                                                const isTodayCol = selectedWeek !== 0 && cellDateStr === todayStr;
+
+                                                return (
+                                                    <div key={`hourly-day-${day}`} className={`relative border-r border-gray-300 ${isTodayCol ? 'bg-blue-50/30' : 'bg-white'}`}>
+                                                        {hours.map((hour, index) => <div key={`hour-line-${day}-${hour}`} className="absolute left-0 right-0 border-t border-gray-200" style={{ top: index * hourHeight }}/>) }
+
+                                                        {courseItems.map((item, itemIndex) => {
+                                                            const visibleStart = Math.max(startMinutes, item.timeRange.start);
+                                                            const visibleEnd = Math.min(endMinutes, item.timeRange.end);
+                                                            if (visibleEnd <= visibleStart) return null;
+                                                            const sameStartItems = courseItems.filter(candidate => candidate.timeRange.start === item.timeRange.start);
+                                                            const overlapIndex = sameStartItems.indexOf(item);
+                                                            const overlapCount = Math.max(1, sameStartItems.length);
+                                                            const color = getColorForCourse(item.course.id);
+                                                            const cellLabels = item.course.labels?.filter(label => label.date === cellDateStr) || [];
+                                                            const top = ((visibleStart - startMinutes) / 60) * hourHeight + 2;
+                                                            const height = Math.max(44, ((visibleEnd - visibleStart) / 60) * hourHeight - 4);
+                                                            return (
+                                                                <div
+                                                                    key={`hourly-course-${item.course.id}-${item.slotDetails.isMakeup ? item.slotDetails.id : itemIndex}`}
+                                                                    onClick={() => setSelectedCourseInfo({ course: item.course, details: item.slotDetails, dateStr: cellDateStr })}
+                                                                    className={`group absolute z-10 cursor-pointer overflow-hidden rounded-r-md border border-gray-300 border-l-4 ${color.border} ${color.bg} p-2 transition hover:brightness-[0.98]`}
+                                                                    style={{ top, height, left: `calc(${(overlapIndex * 100) / overlapCount}% + 3px)`, width: `calc(${100 / overlapCount}% - 6px)` }}
+                                                                >
+                                                                    <div className="absolute right-1 top-1 hidden items-center gap-1 group-hover:flex">
+                                                                        {selectedWeek !== 0 && <button onClick={(event) => { event.stopPropagation(); setQuickTagCourse({ ...item.course, dateStr: cellDateStr }); }} className="rounded border border-gray-300 bg-white p-1 text-blue-600" title="Gắn nhãn"><Tag size={10}/></button>}
+                                                                        <button onClick={(event) => { event.stopPropagation(); removeFromActiveSchedule(item.course.id); }} className="rounded border border-gray-300 bg-white p-1 text-red-500" title="Xóa môn"><X size={10}/></button>
+                                                                    </div>
+                                                                    {cellLabels.length > 0 && <div className="mb-1 flex gap-1">{cellLabels.slice(0, 2).map(label => <span key={label.id} className={`rounded border px-1 py-0.5 text-[7px] font-bold ${getLabelStyle(label.color)}`}>{label.type === 'Khác' ? label.text : label.type}</span>)}</div>}
+                                                                    <h4 className={`line-clamp-2 pr-5 text-[10px] font-extrabold leading-tight ${color.text}`}>{item.course.subject_name}</h4>
+                                                                    <p className={`mt-1 truncate text-[9px] font-semibold ${color.label}`}>{item.course.course_code}</p>
+                                                                    {height >= 70 && <p className={`mt-1 truncate text-[9px] font-medium ${color.label}`}>P. {item.slotDetails.room || 'Chưa cập nhật'}</p>}
+                                                                    {height >= 92 && <p className={`mt-0.5 truncate text-[9px] font-medium ${color.label}`}>{item.timeRange.label}</p>}
+                                                                </div>
+                                                            );
+                                                        })}
+
+                                                        {examItems.map(({ course, start, end }) => {
+                                                            const top = ((Math.max(start, startMinutes) - startMinutes) / 60) * hourHeight + 2;
+                                                            const height = Math.max(48, ((Math.min(end, endMinutes) - Math.max(start, startMinutes)) / 60) * hourHeight - 4);
+                                                            return (
+                                                                <div key={`hourly-exam-${course.id}`} onClick={() => setSelectedCourseInfo({ course, dateStr: cellDateStr })} className="absolute left-1 right-1 z-20 cursor-pointer overflow-hidden rounded-r-md border border-gray-300 border-l-4 border-l-red-500 bg-red-50 p-2" style={{ top, height }}>
+                                                                    <p className="text-[8px] font-black uppercase text-red-600">Lịch thi</p>
+                                                                    <h4 className="mt-1 line-clamp-2 text-[10px] font-extrabold text-red-900">{course.subject_name}</h4>
+                                                                    {height >= 70 && <p className="mt-1 text-[9px] font-medium text-red-700">{course.exam_room ? `P. ${course.exam_room}` : getExamTime(course.exam_shift)}</p>}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                            <table className="h-full w-full min-w-[700px] table-fixed border-collapse">
                                 <thead>
                                     <tr>
-                                        <th className="w-[60px] border-b border-r border-gray-200 bg-[#f8fafc]"></th>
+                                        <th className="w-[60px] border-b border-r border-gray-300 bg-[#f8fafc]"></th>
                                         {[2, 3, 4, 5, 6, 7, 8].map((day, index) => {
                                             const isTodayCol = selectedWeek !== 0 && currentWeekDates[index] === todayStr;
                                             return (
-                                            <th key={day} className={`py-2 border-b border-r border-gray-200 transition-colors ${isTodayCol ? 'bg-[#F0F9FF]' : 'bg-[#f8fafc]'}`}>
+                                            <th key={day} className={`py-2 border-b border-r border-gray-300 transition-colors ${isTodayCol ? 'bg-[#F0F9FF]' : 'bg-[#f8fafc]'}`}>
                                                 <div className={`flex flex-col items-center gap-0.5 ${isTodayCol ? 'text-[#003375]' : 'text-gray-700'}`}>
                                                     <span className="font-extrabold text-xs uppercase tracking-wide">Thứ {day === 8 ? 'CN' : day}</span>
                                                     {selectedWeek !== 0 && (
@@ -3163,7 +3309,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 <tbody>
                                     {['S', 'C'].map((shift) => (
                                         <tr key={shift}>
-                                            <td className="border-r border-b border-gray-200 text-center align-middle bg-[#f8fafc] py-2">
+                                            <td className="border-r border-b border-gray-300 text-center align-middle bg-[#f8fafc] py-2">
                                                 <span className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${shift === 'S' ? 'text-orange-500' : 'text-indigo-500'}`}>{shift === 'S' ? 'Sáng' : 'Chiều'}</span>
                                                 <span className="text-[9px] font-bold text-gray-400 whitespace-pre-line leading-tight">{shift === 'S' ? '07:00\n|\n11:05' : '13:00\n|\n17:05'}</span>
                                             </td>
@@ -3211,11 +3357,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                                                     
                                                                     <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                                                         {selectedWeek !== 0 && (
-                                                                            <button onClick={(e) => { e.stopPropagation(); setQuickTagCourse({ ...course, dateStr: cellDateStr }); }} className="bg-white/80 hover:bg-white text-blue-600 hover:text-blue-800 rounded p-1 shadow-sm border border-blue-100" title="Gắn nhãn cho ngày này">
+                                                                            <button onClick={(e) => { e.stopPropagation(); setQuickTagCourse({ ...course, dateStr: cellDateStr }); }} className="bg-white/80 hover:bg-white text-blue-600 hover:text-blue-800 rounded p-1 border border-blue-100" title="Gắn nhãn cho ngày này">
                                                                                 <Tag size={12}/>
                                                                             </button>
                                                                         )}
-                                                                        <button onClick={(e) => { e.stopPropagation(); removeFromActiveSchedule(course.id); }} className="bg-white/80 hover:bg-white text-red-500 hover:text-red-700 rounded p-1 shadow-sm border border-red-100" title={isPlanMode ? 'Xóa khỏi kế hoạch' : 'Xóa môn'}>
+                                                                        <button onClick={(e) => { e.stopPropagation(); removeFromActiveSchedule(course.id); }} className="bg-white/80 hover:bg-white text-red-500 hover:text-red-700 rounded p-1 border border-red-100" title={isPlanMode ? 'Xóa khỏi kế hoạch' : 'Xóa môn'}>
                                                                             <X size={12}/>
                                                                         </button>
                                                                     </div>
@@ -3260,13 +3406,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     ))}
                                 </tbody>
                             </table>
+                            </>
     ) : (
                             // LỊCH THÁNG
                             <div className="flex flex-col h-full bg-white">
                                 <div className="flex-1 overflow-y-auto custom-scrollbar p-3 sm:p-4">
                                     <div className="grid grid-cols-7 gap-px bg-gray-200 rounded-xl border border-gray-300 min-h-full">
                                         {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(d => (
-                                            <div key={d} className="bg-[#f8fafc] text-center text-[11px] font-bold py-2.5 text-[#003375] uppercase border-b border-gray-200">{d}</div>
+                                            <div key={d} className="bg-[#f8fafc] text-center text-[11px] font-bold py-2.5 text-[#003375] uppercase border-b border-gray-300">{d}</div>
                                         ))}
                                         
                                         {renderMonthDays().map((date, idx) => {
@@ -3313,15 +3460,251 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             </div>
                         )}
                     </div>
-                    
+
                     {/* NÚT DANH SÁCH MÔN (FAB Nằm trong khung lịch) */}
                     <div className="absolute bottom-4 right-4 flex gap-2">
-                        <button onClick={() => setIsMyScheduleModalOpen(true)} className="bg-white border border-gray-300 text-[#003375] hover:bg-gray-50 px-4 py-2.5 rounded-full font-bold text-sm shadow-md flex items-center gap-2 active:scale-95 transition-transform">
+                        <button onClick={() => setIsMyScheduleModalOpen(true)} className="bg-white border border-gray-300 text-[#003375] hover:bg-gray-50 px-4 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 active:scale-95 transition-transform">
                             <List size={16}/> {isPlanMode ? `KH ${activePlanKey}` : 'Đã lưu'} ({displayedScheduleCount})
                         </button>
                     </div>
                 </div>
             </div>
+        )}
+
+        {isFilterExpanded && !isAdminView && createPortal(
+            <div className="fixed inset-0 z-[99990] flex justify-end bg-[#071C3A]/20 backdrop-blur-[1px]" onMouseDown={() => setIsFilterExpanded(false)}>
+                <section
+                    className="flex h-full w-full max-w-[850px] flex-col border-l border-gray-300 bg-[#FBFCFF] animate-slideInRight"
+                    onMouseDown={(event) => event.stopPropagation()}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Bộ lọc nâng cao"
+                >
+                    <header className="flex items-start justify-between border-b border-gray-300 bg-white px-6 py-5 sm:px-8">
+                        <div className="flex items-start gap-4">
+                            <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[#155EEF]"><SlidersHorizontal size={22}/></div>
+                            <div>
+                                <h2 className="text-xl font-black text-[#082B68] sm:text-2xl">Bộ lọc nâng cao</h2>
+                                <p className="mt-1 text-sm text-gray-500">Tùy chỉnh để tìm thời khóa biểu phù hợp với bạn.</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="hidden items-center gap-3 rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-2 text-sm font-bold text-[#082B68] sm:flex">
+                                Bộ lọc đang áp dụng
+                                <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-[#155EEF] px-1.5 text-xs text-white">{activeCourseFilterCount}</span>
+                            </div>
+                            <button onClick={() => setIsFilterExpanded(false)} className="rounded-lg p-2 text-[#082B68] transition-colors hover:bg-gray-100" aria-label="Đóng bộ lọc"><X size={20}/></button>
+                        </div>
+                    </header>
+
+                    <div className="flex-1 overflow-y-auto p-5 custom-scrollbar sm:p-6">
+                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                            <div className="space-y-4">
+                                <div className="rounded-2xl border border-gray-300 bg-white p-4">
+                                    <h3 className="mb-3 font-extrabold text-[#082B68]">Tìm kiếm</h3>
+                                    <div className="relative">
+                                        <input disabled={!isAuthenticated} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Tìm môn học, mã lớp, giảng viên..." className="h-11 w-full rounded-xl border border-gray-300 bg-white pl-4 pr-11 text-sm outline-none transition focus:border-[#155EEF] focus:ring-2 focus:ring-blue-100"/>
+                                        <Search size={17} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"/>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-gray-300 bg-white p-4">
+                                    <h3 className="mb-4 font-extrabold text-[#082B68]">Học kỳ & chương trình</h3>
+                                    <label className="mb-2 block text-sm font-medium text-gray-600">Học kỳ</label>
+                                    <select value={selectedFilterSemesters[0] || ''} onChange={(event) => setSelectedFilterSemesters(event.target.value ? [event.target.value] : [])} className="mb-4 h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                        <option value="">Không lọc học kỳ</option>
+                                        {STUDENT_FILTER_SEMESTER_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                    </select>
+                                    <label className="mb-2 block text-sm font-medium text-gray-600">Chương trình đào tạo</label>
+                                    <select value={selectedFilterPrograms[0] || 'all'} onChange={(event) => setSelectedFilterPrograms(event.target.value === 'all' ? [] : [event.target.value])} className="h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                        <option value="all">Mọi chương trình</option>
+                                        {academicProgramOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                                    </select>
+                                </div>
+
+                                <div className="rounded-2xl border border-gray-300 bg-white p-4">
+                                    <h3 className="mb-4 font-extrabold text-[#082B68]">Môn học & đợt học</h3>
+                                    <label className="mb-2 block text-sm font-medium text-gray-600">Môn học</label>
+                                    <select value={selectedSubjectName} onChange={(event) => setSelectedSubjectName(event.target.value)} className="mb-4 h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                        <option value="all">Tất cả môn học</option>
+                                        {subjectNameOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                                    </select>
+                                    <label className="mb-2 block text-sm font-medium text-gray-600">Đợt</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {[['all', 'Mọi đợt'], ['1', 'Đợt 1'], ['2', 'Đợt 2']].map(([value, label]) => (
+                                            <button key={value} onClick={() => value === 'all' ? setSelectedFilterPhases([]) : toggleMultiFilterValue(setSelectedFilterPhases, value)} className={`h-10 rounded-xl border text-sm font-bold transition-colors ${(value === 'all' ? selectedFilterPhases.length === 0 : selectedFilterPhases.includes(value)) ? 'border-[#155EEF] bg-blue-50 text-[#155EEF]' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}>{label}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="rounded-2xl border border-gray-300 bg-white p-4">
+                                    <h3 className="mb-4 font-extrabold text-[#082B68]">Ngành & khóa</h3>
+                                    <label className="mb-2 block text-sm font-medium text-gray-600">Chuyên ngành</label>
+                                    <select value={selectedFilterMajors[0] || 'all'} onChange={(event) => setSelectedFilterMajors(event.target.value === 'all' ? [] : [event.target.value])} className="mb-4 h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                        <option value="all">Tất cả chuyên ngành</option>
+                                        {majorOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                                    </select>
+                                    <label className="mb-2 block text-sm font-medium text-gray-600">Khóa</label>
+                                    <select value={selectedFilterCohorts[0] || 'all'} onChange={(event) => setSelectedFilterCohorts(event.target.value === 'all' ? [] : [event.target.value])} className="h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                        <option value="all">Tất cả khóa</option>
+                                        {cohortOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                                    </select>
+                                </div>
+
+                                <div className="rounded-2xl border border-gray-300 bg-white p-4">
+                                    <h3 className="mb-4 font-extrabold text-[#082B68]">Nhóm lớp</h3>
+                                    <label className="mb-2 block text-sm font-medium text-gray-600">Nhóm học</label>
+                                    <select value={selectedFilterGroups[0] || 'all'} onChange={(event) => setSelectedFilterGroups(event.target.value === 'all' ? [] : [event.target.value])} className="h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 outline-none focus:border-[#155EEF]">
+                                        <option value="all">Tất cả nhóm</option>
+                                        {groupNameOptions.map(option => <option key={option} value={option}>{option}</option>)}
+                                    </select>
+                                    <p className="mt-3 text-xs leading-relaxed text-gray-400">Các nhóm hiển thị được lấy trực tiếp từ dữ liệu môn học của học kỳ và chương trình đã chọn.</p>
+                                </div>
+
+                                <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+                                    <div className="flex items-start gap-3">
+                                        <Info size={18} className="mt-0.5 shrink-0 text-[#155EEF]"/>
+                                        <p className="text-sm leading-relaxed text-[#28466F]">Bộ lọc hỗ trợ toàn bộ trường của bảng schedule: thông tin học phần, lịch học, cơ sở/phòng, kỳ thi, ngành–khóa–nhóm, quản lý, định hướng, đăng ký, ghi chú và sĩ số.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 rounded-2xl border border-gray-300 bg-white p-4 sm:p-5">
+                            <div className="mb-4 flex items-start justify-between gap-4">
+                                <div>
+                                    <h3 className="font-extrabold text-[#082B68]">Tất cả trường dữ liệu của bảng schedule</h3>
+                                    <p className="mt-1 text-xs leading-relaxed text-gray-500">Kết hợp cùng các tiêu chí phía trên để lọc chính xác theo học phần, lịch học, địa điểm, kỳ thi và thông tin quản lý.</p>
+                                </div>
+                                {activeAdvancedScheduleFilters.length > 0 && <button onClick={() => setAdvancedScheduleFilters({})} className="shrink-0 text-xs font-bold text-[#155EEF] hover:underline">Xóa {activeAdvancedScheduleFilters.length} trường</button>}
+                            </div>
+                            <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+                                {ADVANCED_SCHEDULE_FILTER_FIELDS.map(field => (
+                                    <label key={field.key} className="block">
+                                        <span className="mb-1.5 block text-xs font-bold text-[#28466F]">{field.label}</span>
+                                        <input
+                                            type={'type' in field ? field.type : 'text'}
+                                            value={advancedScheduleFilters[field.key] || ''}
+                                            onChange={(event) => setAdvancedScheduleFilters(previous => ({ ...previous, [field.key]: event.target.value }))}
+                                            placeholder={field.placeholder}
+                                            className="h-10 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-[#155EEF] focus:ring-2 focus:ring-blue-100"
+                                        />
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <footer className="border-t border-gray-300 bg-white p-4 sm:px-6">
+                        <div className="mb-4 flex min-h-12 flex-wrap items-center gap-2 rounded-xl border border-gray-300 bg-[#F8FAFC] px-4 py-2">
+                            <span className="mr-1 text-sm font-extrabold text-[#082B68]">Xem trước bộ lọc ({activeCourseFilterCount})</span>
+                            {selectedFilterSemesters.map(value => <span key={value} className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#28466F]">{SEMESTER_OPTIONS.find(option => option.value === value)?.label || value}</span>)}
+                            {selectedFilterPhases.map(value => <span key={value} className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#28466F]">Đợt {value}</span>)}
+                            {selectedFilterMajors.map(value => <span key={value} className="max-w-[180px] truncate rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#28466F]">{value}</span>)}
+                            {activeAdvancedScheduleFilters.slice(0, 4).map(([key, value]) => <span key={key} className="max-w-[190px] truncate rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#28466F]">{ADVANCED_SCHEDULE_FILTER_FIELDS.find(field => field.key === key)?.label}: {value}</span>)}
+                            {activeAdvancedScheduleFilters.length > 4 && <span className="text-xs font-bold text-gray-500">+{activeAdvancedScheduleFilters.length - 4} trường</span>}
+                            <button onClick={clearCourseFilters} className="ml-auto text-xs font-bold text-[#155EEF] hover:underline">Xóa tất cả</button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            <button onClick={() => setIsFilterExpanded(false)} className="h-11 rounded-xl border border-gray-300 bg-white text-sm font-bold text-gray-500 hover:bg-gray-50">Hủy</button>
+                            <button onClick={clearCourseFilters} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white text-sm font-bold text-gray-600 hover:bg-gray-50"><RotateCcw size={15}/> Đặt lại</button>
+                            <button onClick={() => { setIsFilterExpanded(false); setIsCourseResultsOpen(true); }} className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#155EEF] text-sm font-extrabold text-white transition hover:bg-[#0E4ED8]">Xem kết quả <Search size={16}/></button>
+                        </div>
+                    </footer>
+                </section>
+            </div>,
+            document.body
+        )}
+
+        {isCourseResultsOpen && !isAdminView && createPortal(
+            <div className="fixed inset-0 z-[99990] flex justify-end bg-[#071C3A]/25 backdrop-blur-[1px]" onMouseDown={() => setIsCourseResultsOpen(false)}>
+                <section className="flex h-full w-full max-w-[620px] flex-col border-l border-gray-300 bg-[#F8FAFC] animate-slideInRight" onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Kết quả lớp học phù hợp">
+                    <header className="flex items-start justify-between border-b border-gray-300 bg-white px-5 py-5 sm:px-6">
+                        <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#155EEF]"><Search size={20}/></div>
+                            <div>
+                                <h2 className="text-xl font-black text-[#082B68]">Kết quả phù hợp</h2>
+                                <p className="mt-1 text-sm text-gray-500">{isLoading ? 'Đang tìm lớp học...' : `Tìm thấy ${courseTotal || availableCourses.length} lớp theo bộ lọc của bạn.`}</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setIsCourseResultsOpen(false)} className="rounded-lg p-2 text-[#082B68] hover:bg-gray-100" aria-label="Đóng kết quả"><X size={20}/></button>
+                    </header>
+
+                    <div className="flex flex-wrap items-center gap-2 border-b border-gray-300 bg-white px-5 py-3 sm:px-6">
+                        {selectedFilterSemesters.map(value => <span key={value} className="rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">{SEMESTER_OPTIONS.find(option => option.value === value)?.label || value}</span>)}
+                        {selectedFilterPhases.map(value => <span key={value} className="rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">Đợt {value}</span>)}
+                        {selectedSubjectName !== 'all' && <span className="max-w-[190px] truncate rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">{selectedSubjectName}</span>}
+                        {activeAdvancedScheduleFilters.slice(0, 3).map(([key, value]) => <span key={key} className="max-w-[190px] truncate rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-[11px] font-semibold text-[#28466F]">{ADVANCED_SCHEDULE_FILTER_FIELDS.find(field => field.key === key)?.label}: {value}</span>)}
+                        {activeAdvancedScheduleFilters.length > 3 && <span className="text-[11px] font-bold text-gray-500">+{activeAdvancedScheduleFilters.length - 3} trường</span>}
+                        <button onClick={() => { setIsCourseResultsOpen(false); setIsFilterExpanded(true); }} className="ml-auto text-xs font-bold text-[#155EEF] hover:underline">Chỉnh bộ lọc</button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 custom-scrollbar sm:p-5">
+                        {!isAuthenticated ? (
+                            <div className="flex h-full flex-col items-center justify-center text-center text-gray-500"><Lock size={32} className="mb-3 text-gray-300"/><p className="text-sm font-semibold">Đăng nhập để xem kết quả lớp học.</p></div>
+                        ) : isLoading ? (
+                            <div className="flex h-full items-center justify-center gap-2 text-sm font-semibold text-gray-500"><Loader2 size={20} className="animate-spin text-[#155EEF]"/> Đang tải kết quả...</div>
+                        ) : availableCourses.length === 0 ? (
+                            <div className="flex h-full flex-col items-center justify-center px-8 text-center"><Search size={34} className="mb-3 text-gray-300"/><h3 className="font-extrabold text-[#082B68]">Không tìm thấy lớp phù hợp</h3><p className="mt-2 text-sm leading-relaxed text-gray-500">Hãy bỏ bớt tiêu chí hoặc chọn lại học kỳ, đợt, chuyên ngành và nhóm.</p><button onClick={() => { setIsCourseResultsOpen(false); setIsFilterExpanded(true); }} className="mt-4 rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-[#155EEF]">Chỉnh bộ lọc</button></div>
+                        ) : (
+                            <div className="space-y-3">
+                                {availableCourses.map(course => {
+                                    const color = getColorForCourse(course.id);
+                                    const isAlreadySaved = displayedSchedule.some(savedCourse => savedCourse.id === course.id);
+                                    return (
+                                        <article key={`result-${course.id}`} className={`rounded-xl border border-gray-300 border-l-4 ${color.border} bg-white p-4 transition hover:border-gray-300`}>
+                                            <div className="flex items-start justify-between gap-3">
+                                                <button onClick={() => { setIsCourseResultsOpen(false); setSelectedCourseInfo({ course }); }} className="min-w-0 flex-1 text-left">
+                                                    <h3 className={`truncate text-sm font-black ${color.text}`}>{course.subject_name}</h3>
+                                                    <p className="mt-1 text-xs font-bold text-gray-500">{course.course_code} • Đợt {course.phase || '1'} • {course.credits || 0} TC</p>
+                                                </button>
+                                                <button disabled={isSyncing || isAlreadySaved} onClick={() => addToActiveSchedule(course)} className={`flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-extrabold transition ${isAlreadySaved ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-[#0D4E9B] hover:bg-blue-100'} disabled:cursor-not-allowed disabled:opacity-70`}>
+                                                    {isAlreadySaved ? <CheckCircle size={15}/> : <Plus size={15}/>} {isAlreadySaved ? 'Đã lưu' : 'Thêm vào lịch'}
+                                                </button>
+                                            </div>
+                                            <div className="mt-3 grid grid-cols-1 gap-2 text-xs font-medium text-gray-600 sm:grid-cols-2">
+                                                <span className="flex items-center gap-1.5"><Clock size={13} className="text-gray-400"/> Thứ {course.day_of_week || '?'} • {getShiftDisplay(course.shift)}</span>
+                                                <span className="flex items-center gap-1.5"><MapPin size={13} className="text-gray-400"/> P. {course.room || 'Chưa cập nhật'}</span>
+                                                <span className="flex items-center gap-1.5 sm:col-span-2"><User size={13} className="text-gray-400"/> {course.instructor || 'Chưa cập nhật giảng viên'}</span>
+                                            </div>
+                                        </article>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {!isCourseSuggestionMode && courseTotalPages > 1 && (
+                        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-300 bg-white px-5 py-4 sm:px-6">
+                            <span className="text-xs font-bold text-gray-500">Trang {coursePage + 1}/{courseTotalPages} • {courseTotal} lớp</span>
+                            <div className="flex items-center gap-1.5">
+                                <button disabled={coursePage === 0 || isLoading} onClick={() => setCoursePage(page => Math.max(0, page - 1))} className="h-9 rounded-lg border border-gray-300 px-4 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-40">Trước</button>
+                                {coursePaginationPages.map((pageNumber, index) => {
+                                    const previousPage = coursePaginationPages[index - 1];
+                                    return (
+                                        <React.Fragment key={pageNumber}>
+                                            {previousPage && pageNumber - previousPage > 1 && <span className="px-1 text-xs text-gray-400">…</span>}
+                                            <button
+                                                onClick={() => setCoursePage(pageNumber - 1)}
+                                                disabled={isLoading}
+                                                aria-label={`Trang ${pageNumber}`}
+                                                aria-current={coursePage + 1 === pageNumber ? 'page' : undefined}
+                                                className={`h-9 min-w-9 rounded-lg border px-2 text-xs font-extrabold transition disabled:opacity-40 ${coursePage + 1 === pageNumber ? 'border-[#155EEF] bg-[#155EEF] text-white' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'}`}
+                                            >
+                                                {pageNumber}
+                                            </button>
+                                        </React.Fragment>
+                                    );
+                                })}
+                                <button disabled={!courseHasMore || isLoading} onClick={() => setCoursePage(page => page + 1)} className="h-9 rounded-lg bg-[#155EEF] px-4 text-xs font-bold text-white hover:bg-[#0E4ED8] disabled:opacity-40">Trang sau</button>
+                            </div>
+                        </footer>
+                    )}
+                </section>
+            </div>,
+            document.body
         )}
 
         {/* MODAL CHI TIẾT MÔN HỌC (TÍCH HỢP QUẢN LÝ LABEL TRỰC TIẾP) */}
@@ -3412,9 +3795,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
             return createPortal(
                 <div className="fixed inset-0 bg-black/55 z-[100000] flex items-center justify-center p-4" onClick={() => setSelectedCourseInfo(null)}>
-                    <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] border border-gray-200 shadow-2xl flex flex-col overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white rounded-2xl w-full max-w-xl max-h-[90vh] border border-gray-300 flex flex-col overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-gray-100 relative bg-gray-50 shrink-0">
-                            <button onClick={() => setSelectedCourseInfo(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-200"><X size={16}/></button>
+                            <button onClick={() => setSelectedCourseInfo(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-300"><X size={16}/></button>
                             <h2 className="text-lg font-bold text-[#003375] pr-8 leading-tight">{displayCourse.subject_name}</h2>
                             <p className="text-gray-500 mt-1 text-sm font-medium">{displayCourse.course_code}</p>
                             
@@ -3443,7 +3826,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
                             {/* FORM THÊM NHÃN INLINE */}
                             {isSaved && targetDateStr && showInlineLabelForm && (
-                                <div className="mt-3 p-2 bg-white rounded-lg border border-gray-200 shadow-sm flex flex-wrap gap-2 items-start animate-fadeIn">
+                                <div className="mt-3 p-2 bg-white rounded-lg border border-gray-300 flex flex-wrap gap-2 items-start animate-fadeIn">
                                     <select 
                                         value={inlineLabelData.type} 
                                         onChange={(e) => setInlineLabelData({...inlineLabelData, type: e.target.value})}
@@ -3461,7 +3844,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     )}
                                     
                                     {inlineLabelData.type === 'Khác' && (
-                                        <div className="flex gap-1 items-center bg-gray-50 px-1.5 py-1 rounded border border-gray-200 w-full mt-1">
+                                        <div className="flex gap-1 items-center bg-gray-50 px-1.5 py-1 rounded border border-gray-300 w-full mt-1">
                                             <span className="text-[10px] font-bold text-gray-500">Màu:</span>
                                             {LABEL_COLORS.map(c => (
                                                 <button 
@@ -3501,7 +3884,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         <button onClick={() => setShowInlineLabelForm(false)} className="bg-gray-100 text-gray-600 px-2 py-1.5 rounded hover:bg-gray-200 text-xs font-bold">
                                             Hủy
                                         </button>
-                                        <button onClick={handleInlineSaveLabel} disabled={isSavingInlineLabel} className="bg-[#003375] text-white px-2 py-1.5 rounded hover:bg-[#002855] disabled:opacity-50 flex items-center gap-1 text-xs font-bold shadow-sm">
+                                        <button onClick={handleInlineSaveLabel} disabled={isSavingInlineLabel} className="bg-[#003375] text-white px-2 py-1.5 rounded hover:bg-[#002855] disabled:opacity-50 flex items-center gap-1 text-xs font-bold">
                                             {isSavingInlineLabel ? <Loader2 size={12} className="animate-spin"/> : <CheckCircle size={12}/>} Lưu
                                         </button>
                                     </div>
@@ -3586,7 +3969,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             )}
                         </div>
                         <div className="p-4 bg-white border-t border-gray-100 flex gap-2 shrink-0">
-                            <button onClick={() => { setReportData({ course_code: displayCourse.course_code, subject_name: displayCourse.subject_name, description: '', suggested_correction: '' }); setIsReportModalOpen(true); setSelectedCourseInfo(null); }} className="px-3 py-2.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors" title="Báo lỗi thông tin">
+                            <button onClick={() => { setReportData({ course_code: displayCourse.course_code, subject_name: displayCourse.subject_name, description: '', suggested_correction: '' }); setIsReportModalOpen(true); setSelectedCourseInfo(null); }} className="px-3 py-2.5 rounded-lg border border-gray-300 text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors" title="Báo lỗi thông tin">
                                 <AlertTriangle size={18} />
                             </button>
                             {isPlanMode ? (
@@ -3621,10 +4004,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         {/* MODAL DANH SÁCH MÔN ĐÃ LƯU */}
         {isMyScheduleModalOpen && (
             <div className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setIsMyScheduleModalOpen(false)}>
-                <div className="bg-white rounded-2xl w-full max-w-md border border-gray-200 shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+                <div className="bg-white rounded-2xl w-full max-w-md border border-gray-300 flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="bg-gray-50 border-b border-gray-100 p-4 flex items-center justify-between shrink-0">
                         <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><List size={18}/> {isPlanMode ? `Kế hoạch ${activePlanKey}` : 'Môn học đã lưu'} ({displayedScheduleCount})</h2>
-                        <button onClick={() => setIsMyScheduleModalOpen(false)} className="text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-200"><X size={16}/></button>
+                        <button onClick={() => setIsMyScheduleModalOpen(false)} className="text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-300"><X size={16}/></button>
                     </div>
                     <div className="p-4 overflow-y-auto custom-scrollbar flex-1 space-y-2 bg-white">
                         {displayedSchedule.length === 0 ? (
@@ -3634,7 +4017,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             </div>
                         ) : (
                             displayedSchedule.map(course => (
-                                <div key={course.id} className="bg-white p-3 rounded-xl border border-gray-200 flex items-center justify-between gap-3 hover:border-blue-300 transition-colors cursor-pointer" onClick={() => { setIsMyScheduleModalOpen(false); setSelectedCourseInfo({ course }); }}>
+                                <div key={course.id} className="bg-white p-3 rounded-xl border border-gray-300 flex items-center justify-between gap-3 hover:border-blue-300 transition-colors cursor-pointer" onClick={() => { setIsMyScheduleModalOpen(false); setSelectedCourseInfo({ course }); }}>
                                     <div className="flex-1 min-w-0">
                                         <h4 className="font-bold text-gray-800 text-sm truncate">{course.subject_name}</h4>
                                         <p className="text-[10px] text-gray-500 mt-0.5 font-medium">{course.course_code} <span className="mx-1">•</span> Đợt {course.phase || '1'}</p>
@@ -3656,7 +4039,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         {/* MODAL BÁO LỖI */}
         {isReportModalOpen && (
             <div className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setIsReportModalOpen(false)}>
-                <div className="bg-white rounded-2xl w-full max-w-sm border border-gray-200 shadow-2xl overflow-hidden flex flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
+                <div className="bg-white rounded-2xl w-full max-w-sm border border-gray-300 overflow-hidden flex flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 flex items-center justify-between border-b border-gray-100 bg-red-50 text-red-700">
                         <h2 className="font-bold text-base flex items-center gap-2"><AlertTriangle size={18}/> Báo lỗi môn học</h2>
                         <button onClick={() => setIsReportModalOpen(false)} className="text-red-400 hover:text-red-800"><X size={20}/></button>
@@ -3675,7 +4058,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         {/* MODAL THÊM MÔN MỚI DÀNH CHO USER */}
         {isCreateCourseModalOpen && (
             <div className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setIsCreateCourseModalOpen(false)}>
-                <div className="bg-white rounded-2xl w-full max-w-sm border border-gray-200 shadow-2xl overflow-hidden flex flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
+                <div className="bg-white rounded-2xl w-full max-w-sm border border-gray-300 overflow-hidden flex flex-col animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 flex items-center justify-between border-b border-gray-100 bg-[#f8fafc]">
                         <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><BookPlus size={18}/> Yêu cầu thêm môn</h2>
                         <button onClick={() => setIsCreateCourseModalOpen(false)} className="text-gray-400 hover:text-gray-800"><X size={20}/></button>
@@ -3694,10 +4077,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         {/* ✨ MODAL GẮN NHÃN NHANH (QUICK TAG) ✨ */}
         {quickTagCourse && (
             <div className="fixed inset-0 bg-black/40 z-[99999] flex items-center justify-center p-4" onClick={() => setQuickTagCourse(null)}>
-                <div className="bg-white rounded-2xl w-full max-w-sm border-2 border-gray-100 shadow-2xl flex flex-col overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+                <div className="bg-white rounded-2xl w-full max-w-sm border-2 border-gray-100 flex flex-col overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
                         <h2 className="font-bold text-[#003375] text-base flex items-center gap-2"><Tag size={18} /> Gắn nhãn nhanh</h2>
-                        <button onClick={() => setQuickTagCourse(null)} className="text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-200 transition-colors"><X size={16}/></button>
+                        <button onClick={() => setQuickTagCourse(null)} className="text-gray-400 hover:text-gray-800 bg-white rounded-full p-1 border border-gray-300 transition-colors"><X size={16}/></button>
                     </div>
                     
                     <div className="p-5 flex flex-col gap-4">
@@ -3734,7 +4117,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                             <button 
                                                 key={c.value} type="button" title={c.name}
                                                 onClick={() => setQuickTagData({...quickTagData, color: c.value})}
-                                                className={`w-8 h-8 rounded-full ${getLabelDotColor(c.value)} ${quickTagData.color === c.value ? 'ring-2 ring-offset-2 ring-gray-400 scale-110 shadow-md' : 'hover:scale-110 shadow-sm'} transition-transform`}
+                                                className={`w-8 h-8 rounded-full ${getLabelDotColor(c.value)} ${quickTagData.color === c.value ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-110'} transition-transform`}
                                             />
                                         ))}
                                     </div>
@@ -3775,7 +4158,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
                     <div className="p-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0">
                         <button type="button" onClick={() => setQuickTagCourse(null)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg transition-colors text-sm">Hủy</button>
-                        <button type="button" onClick={handleQuickSaveLabel} disabled={isSavingQuickTag} className="px-6 py-2 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-lg shadow-md transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
+                        <button type="button" onClick={handleQuickSaveLabel} disabled={isSavingQuickTag} className="px-6 py-2 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-lg transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
                             {isSavingQuickTag ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} Gắn Nhãn
                         </button>
                     </div>
@@ -3786,14 +4169,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         {/* MODAL SINH VIÊN SỬA MÔN CÁ NHÂN VÀ GẮN NHÃN CHUNG (BẢNG LỚN) */}
         {isStudentEditModalOpen && (
             <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => setIsStudentEditModalOpen(false)}>
-                <div className="bg-white rounded-2xl w-full max-w-3xl border border-gray-200 shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+                <div className="bg-white rounded-2xl w-full max-w-3xl border border-gray-300 flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 sm:p-5 bg-[#003375] text-white flex justify-between items-center shrink-0">
                         <h2 className="font-bold text-lg flex items-center gap-2"><Edit size={18} /> Tùy chỉnh môn học cá nhân</h2>
                         <button onClick={() => setIsStudentEditModalOpen(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
                     </div>
                     <div className="p-5 overflow-y-auto custom-scrollbar flex-1 bg-gray-50 flex flex-col gap-6">
                         
-                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                        <div className="bg-white p-4 rounded-xl border border-gray-300">
                             <h3 className="text-sm font-bold text-[#003375] mb-3 flex items-center gap-1.5"><Tag size={16}/> Nhãn dán đã gắn cho môn này</h3>
                             
                             {studentEditData.labels && studentEditData.labels.length > 0 ? (
@@ -3865,7 +4248,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     </div>
                     <div className="p-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0 rounded-b-xl">
                         <button type="button" onClick={() => setIsStudentEditModalOpen(false)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors text-sm">Hủy bỏ</button>
-                        <button type="submit" form="studentCourseForm" disabled={isSavingStudentCourse} className="px-6 py-2 bg-[#0052cc] hover:bg-[#003d99] text-white font-bold rounded-lg shadow-md transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
+                        <button type="submit" form="studentCourseForm" disabled={isSavingStudentCourse} className="px-6 py-2 bg-[#0052cc] hover:bg-[#003d99] text-white font-bold rounded-lg transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
                             {isSavingStudentCourse ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} Lưu Tùy Chỉnh
                         </button>
                     </div>
@@ -3875,7 +4258,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
         {selectedChangedCourse && (
             <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={closeChangedCourseModal}>
-                <div className="bg-white rounded-2xl w-full max-w-5xl border border-gray-200 shadow-2xl flex flex-col max-h-[82vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+                <div className="bg-white rounded-2xl w-full max-w-5xl border border-gray-300 flex flex-col max-h-[82vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 sm:p-5 bg-[#003375] text-white flex justify-between items-start gap-4 shrink-0">
                         <div>
                             <h2 className="font-bold text-lg flex items-center gap-2"><Info size={18} /> So sánh thay đổi môn học</h2>
@@ -3896,13 +4279,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 <p className="font-bold">Không còn khác biệt cần đồng bộ.</p>
                             </div>
                         ) : (
-                            <table className="w-full text-left border-collapse text-sm bg-white rounded-xl overflow-hidden border border-gray-200">
+                            <table className="w-full text-left border-collapse text-sm bg-white rounded-xl overflow-hidden border border-gray-300">
                                 <thead className="bg-gray-100 text-gray-600">
                                     <tr>
-                                        <th className="p-3 border-b border-gray-200 font-bold w-44">Trường dữ liệu</th>
-                                        <th className="p-3 border-b border-gray-200 font-bold">Dữ liệu gốc</th>
-                                        <th className="p-3 border-b border-gray-200 font-bold">Sinh viên đã chỉnh</th>
-                                        <th className="p-3 border-b border-gray-200 font-bold text-center w-28">Thao tác</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold w-44">Trường dữ liệu</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold">Dữ liệu gốc</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold">Sinh viên đã chỉnh</th>
+                                        <th className="p-3 border-b border-gray-300 font-bold text-center w-28">Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -3947,7 +4330,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         {/* MODAL ADMIN: THÊM / SỬA MÔN HỌC */}
         {isAdminEditModalOpen && (
             <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 sm:p-6" onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }}>
-                <div className="bg-white rounded-2xl w-full max-w-3xl border border-gray-200 shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+                <div className="bg-white rounded-2xl w-full max-w-3xl border border-gray-300 flex flex-col max-h-[80vh] overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
                     <div className="p-4 sm:p-5 bg-[#003375] text-white flex justify-between items-center shrink-0">
                         <h2 className="font-bold text-lg flex items-center gap-2"><Edit size={18} /> {activeCourseRequest ? 'Sửa yêu cầu và thêm môn chính thức' : adminEditData.id ? 'Sửa thông tin môn học' : 'Thêm môn học mới'}</h2>
                         <button onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
@@ -4006,7 +4389,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                     </div>
                     <div className="p-4 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0 rounded-b-xl">
                         <button type="button" onClick={() => { setIsAdminEditModalOpen(false); setActiveCourseRequest(null); }} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors text-sm">Hủy bỏ</button>
-                        <button type="submit" form="adminCourseForm" disabled={isSavingAdminCourse} className="px-6 py-2 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-lg shadow-md transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
+                        <button type="submit" form="adminCourseForm" disabled={isSavingAdminCourse} className="px-6 py-2 bg-[#003375] hover:bg-[#002855] text-white font-bold rounded-lg transition-colors text-sm flex items-center gap-2 disabled:opacity-50">
                             {isSavingAdminCourse ? <Loader2 size={16} className="animate-spin"/> : <CheckCircle size={16}/>} {activeCourseRequest ? 'Thêm thành môn chính thức' : 'Lưu Thông Tin'}
                         </button>
                     </div>
