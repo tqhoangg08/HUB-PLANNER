@@ -119,39 +119,38 @@ const getFirstArray = (source: any, keys: string[]) => {
 };
 
 // ==========================================
-// 🛡️ PHẦN 1: BỘ LỌC CHỐNG SPAM
+// 🛡️ PHẦN 1: GIỚI HẠN RIÊNG CHO AI FALLBACK
 // ==========================================
-const checkSpamLimit = (): boolean => {
+const consumeAiRequestQuota = (): { allowed: boolean; waitMinutes: number } => {
     const LIMIT_CONFIG = {
-        MAX_REQUESTS: 2,              // Tối đa 2 lần upload
+        MAX_REQUESTS: 2,
         TIME_WINDOW: 60 * 60 * 1000, // 1 giờ
-        STORAGE_KEY: 'hub_planner_rate_limit'
+        STORAGE_KEY: 'hub_planner_transcript_ai_rate_limit_v2'
     };
 
-    const rawData = localStorage.getItem(LIMIT_CONFIG.STORAGE_KEY);
     const now = Date.now();
-    let data = rawData ? JSON.parse(rawData) : null;
+    let data: { startTime: number; count: number } | null = null;
+    try {
+        const rawData = localStorage.getItem(LIMIT_CONFIG.STORAGE_KEY);
+        data = rawData ? JSON.parse(rawData) : null;
+    } catch {
+        data = null;
+    }
 
-    // Reset nếu quá hạn (sau 24h từ lần đầu tiên)
-    if (!data || (now - data.startTime > LIMIT_CONFIG.TIME_WINDOW)) {
+    if (!data || !Number.isFinite(data.startTime) || !Number.isFinite(data.count) || now - data.startTime > LIMIT_CONFIG.TIME_WINDOW) {
         const newData = { startTime: now, count: 1 };
         localStorage.setItem(LIMIT_CONFIG.STORAGE_KEY, JSON.stringify(newData));
-        return true; 
+        return { allowed: true, waitMinutes: 0 };
     }
 
-    // Chặn nếu quá giới hạn
     if (data.count >= LIMIT_CONFIG.MAX_REQUESTS) {
         const waitMinutes = Math.ceil((data.startTime + LIMIT_CONFIG.TIME_WINDOW - now) / 60000);
-        const waitHours = (waitMinutes / 60).toFixed(1);
-
-        alert(`⚠️ ĐÃ ĐẠT GIỚI HẠN TRONG NGÀY!\n\nĐể tiết kiệm tài nguyên, hệ thống giới hạn mỗi người chỉ được dùng 2 lần/giờ.\n\nVui lòng quay lại sau khoảng ${waitHours} giờ nữa (hoặc ${waitMinutes} phút).`);
-        return false; 
+        return { allowed: false, waitMinutes: Math.max(1, waitMinutes) };
     }
 
-    // Tăng đếm và cho qua
     data.count++;
     localStorage.setItem(LIMIT_CONFIG.STORAGE_KEY, JSON.stringify(data));
-    return true;
+    return { allowed: true, waitMinutes: 0 };
 };
 
 // ==========================================
@@ -241,10 +240,6 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
         }
     };
 
-    if (!checkSpamLimit()) {
-        return result; 
-    }
-
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     result.debug = { ...result.debug, stage: 'pdf-loaded', pages: pdf.numPages };
@@ -290,6 +285,14 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
             mappedSemesterCount: result.semesters.length,
         };
         saveImportDebug(result.debug);
+        return result;
+    }
+
+    const aiQuota = consumeAiRequestQuota();
+    if (!aiQuota.allowed) {
+        result.error = `Parser trực tiếp chưa nhận diện chắc chắn bố cục này. Giới hạn phân tích AI là 2 lần/giờ; vui lòng thử lại sau ${aiQuota.waitMinutes} phút.`;
+        result.debug = { ...result.debug, stage: 'ai-rate-limited', waitMinutes: aiQuota.waitMinutes };
+        saveImportDebug({ ...result.debug, error: result.error });
         return result;
     }
 
