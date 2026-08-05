@@ -65,7 +65,6 @@ import {
   getPaginationPages,
   getSemesterContainingDate,
   isPdfScheduleFile,
-  isStudentCourseEditLocked,
   normalizeAcademicProgramOptions,
   sortCourseRequestsNewestFirst,
   type Course,
@@ -2010,11 +2009,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const handleStudentSaveCourse = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!studentEditData.user_schedule_id) return;
-      if (isStudentCourseEditLocked(studentEditData)) {
-          alert("Tạm thời chưa cho phép sinh viên chỉnh sửa thông tin môn học của học kỳ 1 năm học 2026-2027.");
-          setIsStudentEditModalOpen(false);
-          return;
-      }
       if (!studentEditData.subject_name || !studentEditData.course_code) {
           alert("Vui lòng nhập Tên môn và Mã môn!");
           return;
@@ -3713,7 +3707,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             const details = selectedCourseInfo.details;
             const isSaved = !!displayCourse.user_schedule_id;
             const isInCurrentPlan = currentPlanSchedule.some(c => c.id === displayCourse.id);
-            const isStudentEditLocked = isStudentCourseEditLocked(displayCourse);
             const targetDateStr = selectedCourseInfo.dateStr;
 
             const modalLabels = targetDateStr 
@@ -3982,15 +3975,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 <button onClick={() => { addToSchedule(displayCourse); setSelectedCourseInfo(null); }} disabled={isSyncing} className="flex-1 py-2.5 rounded-lg bg-[#003375] text-white text-sm font-bold hover:bg-[#002855] transition-all disabled:opacity-50">Thêm vào Lịch</button>
                             ) : (
                                 <>
-                                    {!isStudentEditLocked && (
-                                        <button onClick={() => {
-                                            setStudentEditData(displayCourse);
-                                            setIsStudentEditModalOpen(true);
-                                            setSelectedCourseInfo(null);
-                                        }} className="px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors" title="Sửa thông tin cá nhân">
-                                            <Edit size={18} />
-                                        </button>
-                                    )}
+                                    <button onClick={() => {
+                                        setStudentEditData(displayCourse);
+                                        setIsStudentEditModalOpen(true);
+                                        setSelectedCourseInfo(null);
+                                    }} className="px-3 py-2.5 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors" title="Sửa thông tin cá nhân">
+                                        <Edit size={18} />
+                                    </button>
                                     <button onClick={() => { removeFromSchedule(displayCourse.id); setSelectedCourseInfo(null); }} className="flex-1 py-2.5 rounded-lg bg-red-50 text-red-600 border border-red-200 text-sm font-bold hover:bg-red-100 transition-all">Xóa khỏi Lịch</button>
                                 </>
                             )}
@@ -4023,7 +4014,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         <p className="text-[10px] text-gray-500 mt-0.5 font-medium">{course.course_code} <span className="mx-1">•</span> Đợt {course.phase || '1'}</p>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
-                                        {!isPlanMode && !isStudentCourseEditLocked(course) && (
+                                        {!isPlanMode && (
                                             <button onClick={(e) => { e.stopPropagation(); setStudentEditData(course); setIsStudentEditModalOpen(true); setIsMyScheduleModalOpen(false); }} className="text-gray-400 hover:text-blue-600 p-2 rounded-lg hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-100" title="Sửa lịch cá nhân"><Edit size={16}/></button>
                                         )}
                                         <button onClick={(e) => { e.stopPropagation(); removeFromActiveSchedule(course.id); }} className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition-colors border border-transparent hover:border-red-100" title={isPlanMode ? 'Xóa khỏi kế hoạch' : 'Xóa môn khỏi lịch'}><Trash2 size={16}/></button>

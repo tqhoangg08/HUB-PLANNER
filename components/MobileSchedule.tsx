@@ -138,12 +138,6 @@ interface MobileScheduleProps {
     managementOnly?: boolean;
 }
 
-const STUDENT_EDIT_LOCKED_SEMESTERS = new Set(['HK1_2026_2027']);
-
-const isStudentCourseEditLocked = (course?: Partial<Pick<Course, 'semester'>> | null) => (
-  !!course?.semester && STUDENT_EDIT_LOCKED_SEMESTERS.has(course.semester)
-);
-
 const COURSE_SCHEDULE_COLUMNS = [
   'id',
   'course_code',
@@ -1151,10 +1145,6 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
   const openStudentEditModal = (course: Course) => {
       if (!course.user_schedule_id) return;
-      if (isStudentCourseEditLocked(course)) {
-          alert('Tạm thời chưa cho phép sinh viên chỉnh sửa thông tin môn học của học kỳ 1 năm học 2026-2027.');
-          return;
-      }
       playClick();
       setStudentEditData(course);
       setSelectedCourseInfo(null);
@@ -1165,11 +1155,6 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   const handleStudentSaveCourse = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!studentEditData.user_schedule_id) return;
-      if (isStudentCourseEditLocked(studentEditData)) {
-          alert('Tạm thời chưa cho phép sinh viên chỉnh sửa thông tin môn học của học kỳ 1 năm học 2026-2027.');
-          setIsStudentEditModalOpen(false);
-          return;
-      }
       if (!studentEditData.subject_name || !studentEditData.course_code) {
           alert('Vui lòng nhập tên môn học và mã học phần.');
           return;
@@ -2779,7 +2764,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                         <Tag size={18} />
                                     </button>
                                 )}
-                                {course.user_schedule_id && !isStudentCourseEditLocked(course) && (
+                                {course.user_schedule_id && (
                                     <button onClick={() => openStudentEditModal(course)} className="p-3.5 rounded-xl border border-blue-100 bg-blue-50 text-blue-600 active:bg-blue-100 shrink-0" title="Chỉnh sửa">
                                         <Edit size={18} />
                                     </button>
@@ -2892,7 +2877,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
                                         <h4 className="font-bold text-gray-800 text-[13px] leading-tight mb-1">{course.subject_name}</h4>
                                         <p className="text-[10px] text-gray-500 font-medium">{course.course_code} <span className="mx-1">•</span> Đợt {course.phase || '1'}</p>
                                     </div>
-                                    {course.user_schedule_id && !isStudentCourseEditLocked(course) && (
+                                    {course.user_schedule_id && (
                                         <button onClick={(e) => { e.stopPropagation(); openStudentEditModal(course); }} className="text-blue-600 bg-blue-50 p-2 rounded-lg active:bg-blue-100 shrink-0" title="Chỉnh sửa"><Edit size={16}/></button>
                                     )}
                                     <button onClick={(e) => { e.stopPropagation(); removeFromSchedule(course.id); }} className="text-red-500 bg-red-50 p-2 rounded-lg active:bg-red-100 shrink-0"><Trash2 size={16}/></button>

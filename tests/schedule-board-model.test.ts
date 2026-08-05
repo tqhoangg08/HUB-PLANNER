@@ -4,7 +4,6 @@ import {
     createEmptyPlanSchedules,
     getCourseRequestStudentCode,
     getPaginationPages,
-    isStudentCourseEditLocked,
     normalizeAcademicProgramOptions,
     sortCourseRequestsNewestFirst,
     type CourseRequest,
@@ -64,13 +63,10 @@ test('academic program options are trimmed, unique, and keep the default first',
     assert.equal(options.includes(''), false);
 });
 
-test('plan schedules start independent and semester edit locking is explicit', () => {
+test('plan schedules start independent', () => {
     const plans = createEmptyPlanSchedules();
 
     assert.notEqual(plans.A, plans.B);
     assert.notEqual(plans.B, plans.C);
     assert.deepEqual(plans, { A: [], B: [], C: [] });
-    assert.equal(isStudentCourseEditLocked({ semester: 'HK1_2026_2027' }), true);
-    assert.equal(isStudentCourseEditLocked({ semester: 'HK2_2026_2027' }), false);
-    assert.equal(isStudentCourseEditLocked(null), false);
 });

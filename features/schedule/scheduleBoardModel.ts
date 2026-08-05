@@ -111,8 +111,6 @@ export const SYSTEM_COURSE_SUGGESTION_LIMIT = 10;
 export const DEFAULT_ACADEMIC_PROGRAM_OPTIONS = ['Chính quy chuẩn'];
 export const PLAN_KEYS: PlanScheduleKey[] = ['A', 'B', 'C'];
 
-const STUDENT_EDIT_LOCKED_SEMESTERS = new Set(['HK1_2026_2027']);
-
 const getCourseRequestTime = (request: CourseRequest) => {
     const time = request.created_at ? new Date(request.created_at).getTime() : 0;
     return Number.isFinite(time) ? time : 0;
@@ -143,10 +141,6 @@ export const getPaginationPages = (currentPage: number, totalPages: number) => {
 export const isPdfScheduleFile = (file: File) => (
     file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
 );
-
-export const isStudentCourseEditLocked = (
-    course?: Partial<Pick<Course, 'semester'>> | null,
-) => Boolean(course?.semester && STUDENT_EDIT_LOCKED_SEMESTERS.has(course.semester));
 
 export const createEmptyPlanSchedules = (): PlanSchedules => ({
     A: [],
