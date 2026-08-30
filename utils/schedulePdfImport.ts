@@ -1,6 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { apiHeaders, apiUrl } from './api';
+import { requestPdfAi } from './pdfAiApi';
 import {
     parseHubScheduleLayout,
     type SchedulePdfLayoutPage,
@@ -115,7 +115,7 @@ const buildReadableLayoutText = (pages: SchedulePdfLayoutPage[]) => pages
     })
     .join('\n\n--- TRANG MỚI ---\n\n');
 
-export const parseSchedulePdf = async (file: File) => {
+export const parseSchedulePdf = async (file: File, turnstileToken: string) => {
     const debug: Record<string, any> = {
         fileName: file.name,
         fileSize: file.size,
@@ -177,18 +177,8 @@ export const parseSchedulePdf = async (file: File) => {
 
     try {
         const fullMessage = `${SCHEDULE_PROMPT}\n\nVĂN BẢN ĐẦU VÀO:\n${layoutText}`;
-        debug.stage = 'calling-chat-api';
-        const response = await fetch(apiUrl('/chat'), {
-            method: 'POST',
-            headers: apiHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ message: fullMessage }),
-        });
-        if (!response.ok) {
-            const message = await response.text().catch(() => '');
-            throw new Error(`API Error: ${response.status}${message ? ` - ${message.slice(0, 160)}` : ''}`);
-        }
-        const data = await response.json();
-        const parsed = extractJsonObject(data.reply || '');
+        debug.stage = 'calling-pdf-ai-worker';
+        const parsed = extractJsonObject(await requestPdfAi(fullMessage, turnstileToken));
         if (!parsed) {
             const error = 'Groq không trả về JSON TKB hợp lệ.';
             saveScheduleImportDebug({ ...debug, stage: 'invalid-ai-json', error });

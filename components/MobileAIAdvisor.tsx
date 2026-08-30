@@ -5,11 +5,15 @@ import { UserData } from '../types';
 import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
-import { supabase } from '../utils/supabase';
 import DOMPurify from 'dompurify';
 import { createPortal } from 'react-dom';
 import { usePlatform } from '../hooks/usePlatform';
-import { apiHeaders, apiUrl } from '../utils/api';
+import {
+  getAiAdvisorSession,
+  listAiAdvisorSessions,
+  sendAiAdvisorMessage,
+  updateAiAdvisorSession,
+} from '../utils/aiAdvisorApi';
 import { sanitizeAIReply } from '../utils/aiSafety';
 import { setRuntimeStyleRule } from '../utils/runtimeStyles';
 import { CONSENT_POLICIES, recordPolicyConsent } from '../utils/policyConsent';
@@ -157,17 +161,10 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
 
   useEffect(() => {
       const fetchHistorySessions = async () => {
-          if (isOpen && userId && supabase) {
+          if (isOpen && userId) {
               setLoadingHistory(true);
               try {
-                  const { data: logs, error } = await supabase
-                      .from('ai_chat_logs')
-                      .select('id,created_at,is_helpful,title,is_deleted,is_pinned')
-                      .eq('user_id', userId)
-                      .order('created_at', { ascending: false }) 
-                      .limit(50); 
-
-                  if (error) throw error;
+                  const logs = await listAiAdvisorSessions();
                   if (logs) {
                     setSavedSessions(logs);
                   }
@@ -225,30 +222,11 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
     try {
       const studentContext = getStudentContext();
       const cleanHistoryForAI = chatHistory.map(msg => ({ role: msg.role, content: msg.content }));
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-
-      const res = await fetch(apiUrl('/bot'), {
-        method: 'POST',
-        headers: apiHeaders({
-          'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
-        }),
-        body: JSON.stringify({ 
+      const resData = await sendAiAdvisorMessage({
             question: questionToAsk,
-            message: questionToAsk,
             history: cleanHistoryForAI,
             context: studentContext,
-            userId: userId
-        })
       });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => null);
-        throw new Error(errorData?.message || errorData?.error || "Máy chủ AI đang bận hoặc mất kết nối.");
-      }
-
-      const resData = await res.json();
       const botReply = sanitizeAIReply(resData.reply || "Xin lỗi, mình không có câu trả lời.");
       const returnedLogId = resData.logId || Date.now(); 
 
@@ -281,9 +259,9 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       newHistory[index].rating = isHelpful ? 'up' : 'down';
       setChatHistory(newHistory);
 
-      if (msg.logId && supabase) {
+      if (msg.logId) {
         try {
-            await supabase.from('ai_chat_logs').update({ is_helpful: isHelpful }).eq('id', msg.logId);
+            await updateAiAdvisorSession(msg.logId, { is_helpful: isHelpful });
             setSavedSessions(prev => prev.map(s => s.id === msg.logId ? { ...s, is_helpful: isHelpful } : s));
         } catch (err) {}
       }
@@ -310,13 +288,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
           const hasFullContent = typeof session.user_message === 'string' && typeof session.bot_reply === 'string';
 
           if (!hasFullContent) {
-              const { data, error } = await supabase
-                  .from('ai_chat_logs')
-                  .select('id,user_message,bot_reply,created_at,is_helpful,title,is_deleted,is_pinned')
-                  .eq('id', session.id)
-                  .maybeSingle();
-
-              if (error) throw error;
+              const data = await getAiAdvisorSession(session.id);
               if (!data) throw new Error('Không tìm thấy cuộc trò chuyện này.');
 
               fullSession = {
@@ -350,7 +322,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       const newPinStatus = !session.is_pinned;
       setSavedSessions(prev => prev.map(s => s.id === session.id ? { ...s, is_pinned: newPinStatus } : s));
       setActiveDropdown(null);
-      if (supabase) await supabase.from('ai_chat_logs').update({ is_pinned: newPinStatus }).eq('id', session.id);
+      await updateAiAdvisorSession(session.id, { is_pinned: newPinStatus });
   };
 
   const deleteSession = async (id: number) => {
@@ -359,7 +331,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       setSavedSessions(prev => prev.map(s => s.id === id ? { ...s, is_deleted: true } : s));
       setActiveDropdown(null);
       if (chatHistory.length > 0 && chatHistory.some(m => m.logId === id)) setChatHistory([]);
-      if (supabase) await supabase.from('ai_chat_logs').update({ is_deleted: true }).eq('id', id);
+      await updateAiAdvisorSession(id, { is_deleted: true });
   };
 
   const startRename = (session: ChatSessionLog) => {
@@ -374,7 +346,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       const finalTitle = editingTitle.trim();
       setSavedSessions(prev => prev.map(s => s.id === id ? { ...s, title: finalTitle } : s));
       setEditingSessionId(null);
-      if (supabase && finalTitle) await supabase.from('ai_chat_logs').update({ title: finalTitle }).eq('id', id);
+      if (finalTitle) await updateAiAdvisorSession(id, { title: finalTitle });
   };
 
   const sortedSessions = useMemo(() => {

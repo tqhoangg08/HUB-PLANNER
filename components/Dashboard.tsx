@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom'; 
-import { supabase } from '../utils/supabase';
 import { Link, useNavigate } from 'react-router-dom';
 import { SubjectRankingModal } from './SubjectRankingModal';
 import { UserData, GradeStatus, Subject, Semester } from '../types';
@@ -23,7 +22,8 @@ import { mapIdToDisplay, normalizeSemesterId } from '../utils/rankingData';
 import { useForecastRank } from '../hooks/useForecastRank';
 import { FEATURE_FORECAST_TOOLS } from '../utils/featureFlags';
 import { useUserRole } from '../hooks/useUserRole';
-import { PROFILE_PRIVATE_TABLE, fetchProfilePrivate, updateProfilePrivate } from '../utils/profilePrivate';
+import { fetchProfilePrivate, updateProfilePrivate } from '../utils/profilePrivate';
+import { searchStaffProfiles } from '../utils/staffProfilesApi';
 import PushNotificationPrompt from '../components/PushNotificationPrompt'; // Đường dẫn tùy sếp lưu ở đâu
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { showAlert, showConfirm } from '../utils/appNotifications';
@@ -149,9 +149,7 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
         setSubmitting(true);
         playClick();
         try {
-            if (!supabase) throw new Error("Chưa cấu hình database.");
-            
-            const { data: { session } } = await supabase.auth.getSession();
+            const session: { user?: { id?: string } } | null = null;
             
             const data = await protectedSubmit<{ id?: number }>({
                 action: 'bug-report',
@@ -1549,30 +1547,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         setLoadingAdmin(true);
         try {
             const safeQuery = query.replace(/[%,_]/g, ' ').trim();
-            const { data: profiles, error } = await supabase
-                .from('profiles')
-                .select('id, student_code, full_name, created_at, updated_at')
-                .or(`student_code.ilike.%${safeQuery}%,full_name.ilike.%${safeQuery}%`)
-                .order('updated_at', { ascending: false })
-                .limit(80);
-            
-            if (error) throw error;
-            const allProfiles = profiles || [];
-
-            let profileInfoMap: Record<string, any> = {};
-            if (allProfiles.length > 0) {
-                const { data: profileInfo, error: profileInfoError } = await supabase
-                    .from(PROFILE_PRIVATE_TABLE)
-                    .select('user_id, student_name, program_name, cohort, major_name, specialization_name, updated_at')
-                    .in('user_id', allProfiles.map(profile => profile.id));
-
-                if (!profileInfoError && profileInfo) {
-                    profileInfoMap = profileInfo.reduce((map: Record<string, any>, row: any) => {
-                        map[row.user_id] = row;
-                        return map;
-                    }, {});
-                }
-            }
+            const allProfiles = await searchStaffProfiles(safeQuery, { limit: 80 });
+            const profileInfoMap = allProfiles.reduce((map: Record<string, any>, row: any) => {
+                map[row.id] = row;
+                return map;
+            }, {});
 
             const baseUsers = allProfiles.map(profile => {
                 const profileInfo = profileInfoMap[profile.id] || {};
@@ -1970,65 +1949,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
         handleLocalSetSemesters(newSemesters);
     };
-
-    // ✨ TÍNH NĂNG: TỰ ĐỘNG ĐIỀN ĐIỂM RÈN LUYỆN TỪ DB TRƯỜNG ✨
-    useEffect(() => {
-        const fetchAndFillTrainingScore = async () => {
-            // 1. Xác định MSSV
-            let targetStudentCode = (data as any).studentCode || (data as any).student_code; 
-            if (selectedAdminUserId) {
-                const adminViewUser = adminUsers.find(u => u.id === selectedAdminUserId);
-                if (adminViewUser) targetStudentCode = adminViewUser.student_code;
-            } else if (!targetStudentCode && currentUserId) {
-                const { data: profile } = await supabase.from('profiles').select('student_code').eq('id', currentUserId).single();
-                targetStudentCode = profile?.student_code;
-            }
-
-            if (!targetStudentCode) return;
-
-            let hasChanges = false;
-            const newSemesters = [...activeData.semesters];
-
-            // 2. Quét các học kỳ chưa nhập điểm
-            for (let i = 0; i < newSemesters.length; i++) {
-                const sem = newSemesters[i];
-                
-                // Chỉ tự động điền nếu user chưa nhập
-                if (sem.trainingScore === null || sem.trainingScore === undefined || sem.trainingScore === 0) {
-                    
-                    const match = sem.name.match(/Học kỳ (1|2) Năm học (\d{4})-(\d{4})/);
-                    if (match) {
-                        const hk = match[1];
-                        const year1 = match[2];
-                        const year2 = match[3];
-                        const semId = `HK${hk}_${year1}_${year2}`;
-
-                        // Móc dữ liệu từ bảng official_training_scores
-                        const { data: official, error } = await supabase
-                            .from('official_training_scores')
-                            .select('official_score')
-                            .eq('student_code', targetStudentCode)
-                            .eq('semester_id', semId)
-                            .maybeSingle();
-
-                        if (official && !error && official.official_score !== null && official.official_score !== undefined) {
-                            newSemesters[i] = { ...sem, trainingScore: official.official_score };
-                            hasChanges = true;
-                        }
-                    }
-                }
-            }
-
-            // 3. Cập nhật lại giao diện
-            if (hasChanges) {
-                handleLocalSetSemesters(newSemesters);
-            }
-        };
-
-        if (activeData.semesters && activeData.semesters.length > 0) {
-            fetchAndFillTrainingScore();
-        }
-    }, [activeData.semesters.length, selectedAdminUserId]);
 
     const transcriptSemesters = useMemo(() => {
         const cleanedSemesters = activeData.semesters.filter((semester) => {

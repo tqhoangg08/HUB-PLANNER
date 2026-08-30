@@ -1,5 +1,3 @@
-export type RankingsBackendMode = 'supabase' | 'shadow' | 'cloudflare';
-
 export interface CloudflareRankingForecastRow {
   semester: string;
   rank: number;
@@ -20,35 +18,27 @@ export interface CloudflareOwnRanking {
   major: string | null;
 }
 
-const DEFAULT_CLOUDFLARE_PUBLIC_API =
-  'https://hub-planner-public-dev-api.tqhoangg2.workers.dev';
 const REQUEST_TIMEOUT_MS = 6_000;
 
-const normalizeMode = (value: unknown): RankingsBackendMode => {
-  const mode = String(value || '').trim().toLowerCase();
-  if (mode === 'shadow' || mode === 'cloudflare') return mode;
-  return 'supabase';
-};
-
-export const RANKINGS_BACKEND_MODE = normalizeMode(
-  import.meta.env?.VITE_RANKINGS_BACKEND
-);
-
-const cloudflareBase = String(
-  import.meta.env?.VITE_CLOUDFLARE_PUBLIC_API_BASE_URL ||
-    DEFAULT_CLOUDFLARE_PUBLIC_API
-).replace(/\/$/, '');
-
 const readError = async (response: Response) => {
-  try {
-    const payload = await response.json();
-    if (typeof payload?.error === 'string') return payload.error;
-  } catch {
-    // Use the safe fallback below for non-JSON responses.
+  if (response.status === 401) {
+    return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
   }
-  return response.status === 401
-    ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
-    : 'Không thể tải dữ liệu xếp hạng từ Cloudflare.';
+  if (response.status === 403) return 'Bạn không có quyền xem dữ liệu này.';
+  if (response.status === 503) {
+    return 'Dịch vụ xếp hạng tạm thời chưa khả dụng. Vui lòng thử lại sau.';
+  }
+  if ([400, 404, 409, 422].includes(response.status)) {
+    try {
+      const payload = await response.json();
+      if (typeof payload?.error === 'string' && payload.error.length <= 240) {
+        return payload.error;
+      }
+    } catch {
+      // Keep the generic fallback for invalid client-error bodies.
+    }
+  }
+  return 'Không thể tải dữ liệu xếp hạng từ Cloudflare.';
 };
 
 const cloudflareRequest = async (
@@ -64,25 +54,15 @@ const cloudflareRequest = async (
   const headers = new Headers(init.headers);
   headers.set('Accept', 'application/json');
 
-  if (authenticated) {
-    const { supabase } = await import('./supabase');
-    const { data, error } = await supabase.auth.getSession();
-    const accessToken = data.session?.access_token;
-    if (error || !accessToken) {
-      globalThis.clearTimeout(timeout);
-      throw new Error(
-        'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
-      );
-    }
-    headers.set('Authorization', `Bearer ${accessToken}`);
-  }
   if (init.body) headers.set('Content-Type', 'application/json');
 
   try {
-    const response = await fetch(`${cloudflareBase}${path}`, {
+    const response = await fetch(path, {
       ...init,
       headers,
       cache: 'no-store',
+      credentials: authenticated ? 'include' : 'omit',
+      redirect: 'manual',
       signal: controller.signal,
     });
     if (!response.ok) throw new Error(await readError(response));

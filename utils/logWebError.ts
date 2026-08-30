@@ -1,6 +1,3 @@
-import { supabase } from './supabase';
-import { getLocalSessionUser } from './clientSession';
-
 export type WebErrorSource = 'frontend' | 'supabase' | 'parser' | 'otp' | 'auth' | 'unknown';
 export type WebErrorLevel = 'error' | 'warn';
 
@@ -18,7 +15,8 @@ const MAX_STACK_LENGTH = 3000;
 const MAX_METADATA_DEPTH = 5;
 const MAX_METADATA_ARRAY_LENGTH = 50;
 const MAX_METADATA_STRING_LENGTH = 1000;
-const SESSION_STORAGE_KEY = 'hub_session_id';
+const MAX_TELEMETRY_BYTES = 8 * 1024;
+const WEB_ERROR_TELEMETRY_PATH = '/api/public/v1/telemetry/web-errors';
 const REDACTED = '[REDACTED]';
 const SENSITIVE_KEYS = new Set([
   'password',
@@ -53,7 +51,6 @@ const TRACKING_URL_PARAMS = new Set([
 ]);
 
 const recentLogs = new Map<string, number>();
-let memorySessionId = '';
 
 const truncate = (value: unknown, maxLength: number) => {
   const text = typeof value === 'string' ? value : String(value ?? '');
@@ -63,36 +60,6 @@ const truncate = (value: unknown, maxLength: number) => {
 const getPagePath = () => {
   if (typeof window === 'undefined') return '';
   return sanitizeUrlLikeValue(`${window.location.pathname}${window.location.search}${window.location.hash}`);
-};
-
-export const getWebErrorSessionId = () => {
-  if (memorySessionId) return memorySessionId;
-
-  const createId = () => {
-    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
-    return `session_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
-  };
-
-  if (typeof sessionStorage === 'undefined') {
-    memorySessionId = createId();
-    return memorySessionId;
-  }
-
-  try {
-    const existing = sessionStorage.getItem(SESSION_STORAGE_KEY);
-    if (existing) {
-      memorySessionId = existing;
-      return existing;
-    }
-
-    const nextId = createId();
-    sessionStorage.setItem(SESSION_STORAGE_KEY, nextId);
-    memorySessionId = nextId;
-    return nextId;
-  } catch {
-    memorySessionId = createId();
-    return memorySessionId;
-  }
 };
 
 const isSensitiveKey = (key: string) => SENSITIVE_KEYS.has(key.trim().toLowerCase());
@@ -222,6 +189,43 @@ const isIgnorableFrontendNoise = (input: {
     (!filename || filename === '/' || filename === window.location.origin || filename === window.location.href);
 };
 
+const TELEMETRY_METADATA_KEYS = new Set([
+  'page_path',
+  'filename',
+  'lineno',
+  'colno',
+  'surface',
+  'stage',
+  'import_type',
+  'file_type',
+  'file_size',
+  'semester',
+  'parser',
+  'course_count',
+  'semester_count',
+]);
+
+const telemetryMetadata = (metadata: Record<string, any>) => {
+  const sanitized = sanitizeWebErrorMetadata(metadata);
+  if (!sanitized || typeof sanitized !== 'object' || Array.isArray(sanitized)) return {};
+
+  return Object.fromEntries(
+    Object.entries(sanitized as Record<string, unknown>)
+      .filter(([key]) => TELEMETRY_METADATA_KEYS.has(key.toLowerCase()))
+      .filter(([, value]) =>
+        value === null ||
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean'
+      )
+  );
+};
+
+const makeLogId = () => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  return `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, '0').slice(-12)}`;
+};
+
 export const logWebError = async ({
   source,
   action,
@@ -236,31 +240,32 @@ export const logWebError = async ({
     const duplicateKey = [source, action || '', normalizedError.message, pagePath].join('|');
     if (shouldSkipDuplicate(duplicateKey)) return null;
 
-    const user = await getLocalSessionUser();
-    if (!user) return null;
-    const logId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, '0').slice(-12)}`;
-
-    const row = {
+    const logId = makeLogId();
+    const payload = {
       id: logId,
-      user_id: user.id,
-      session_id: getWebErrorSessionId(),
       level,
       source,
-      action,
+      action: action ? truncate(action, 120) : null,
       page_path: pagePath || null,
-      error_name: normalizedError.name,
-      error_message: normalizedError.message,
-      error_code: normalizedError.code,
-      stack: normalizedError.stack,
-      metadata: sanitizeWebErrorMetadata(metadata) || {},
-      user_agent: typeof navigator === 'undefined' ? null : navigator.userAgent,
-      app_version: import.meta.env.VITE_APP_VERSION || import.meta.env.VITE_VERSION || import.meta.env.npm_package_version || null,
+      error: {
+        name: normalizedError.name,
+        message: normalizedError.message,
+        code: normalizedError.code,
+      },
+      metadata: telemetryMetadata(metadata),
     };
+    const body = JSON.stringify(payload);
+    if (new TextEncoder().encode(body).byteLength > MAX_TELEMETRY_BYTES) return null;
 
-    await supabase.from('web_error_logs').insert(row);
-    return logId;
+    const response = await fetch(WEB_ERROR_TELEMETRY_PATH, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'omit',
+      redirect: 'manual',
+      keepalive: true,
+      body,
+    });
+    return response.ok ? logId : null;
   } catch {
     // Logging must never become a new user-facing failure.
     return null;

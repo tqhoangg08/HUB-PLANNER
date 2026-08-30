@@ -2,7 +2,6 @@
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, Tag, PanelLeftOpen, SlidersHorizontal, RotateCcw } from 'lucide-react';
-import { supabase } from '../utils/supabase'; 
 import { parseWeeks } from '../utils/scheduleLogic'; 
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { ScheduleImportPreviewModal } from './ScheduleImportPreviewModal';
@@ -17,16 +16,26 @@ import { fetchPublicCourses } from '../utils/coursesApi';
 import {
   addCloudflareUserSchedule,
   fetchCloudflareUserSchedules,
+  isScheduleRevisionConflict,
   removeCloudflareUserSchedule,
   updateCloudflareUserSchedule,
 } from '../utils/userSchedulesApi';
 import { TurnstileBox } from './TurnstileBox';
-import { ProtectedSubmitError, protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
+import { ProtectedSubmitError, protectedSubmit } from '../utils/protectedSubmit';
 import { logWebError } from '../utils/logWebError';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { promptSendParserDebugFile } from '../utils/parserDebugTicket';
 import { submitManualCourseRequest } from '../utils/manualCourseRequest';
 import { normalizeImportedSemester } from '../utils/scheduleImportUtils';
+import {
+  approveD1CourseRequest,
+  createD1Course,
+  listD1CourseRequestsForReview,
+  rejectD1CourseRequest,
+  retireD1Course,
+  updateD1Course,
+} from '../utils/courseAuthorityApi';
+import { fetchStaffSchedules } from '../utils/staffSchedulesApi';
 import {
   readScheduleCoursePageCache,
   removeScheduleCoursePageCache,
@@ -1118,24 +1127,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   }, [selectedCourseInfo?.course?.id, selectedCourseInfo?.course?.user_schedule_id, (selectedCourseInfo?.course as any)?.__detailLoaded]);
 
   const fetchAdminUserSchedules = async (mode: 'changed' | 'summaries' | 'courses', extraParams: Record<string, string> = {}) => {
-    const token = session?.access_token;
-    if (!token) throw new Error('Admin session is missing');
-
-    const params = new URLSearchParams({
-        mode,
-        semester: selectedSemester,
-        ...extraParams
-    });
-
-    params.set('resource', 'user-schedules');
-
-    const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
-        headers: { Authorization: `Bearer ${token}` }
-    });
-    const payload = await response.json();
-
-    if (!response.ok) throw new Error(payload?.error || 'Unable to load user schedules');
-    return payload.data || [];
+    return fetchStaffSchedules(mode, selectedSemester, extraParams);
   };
 
   const fetchChangedUserScheduleCourses = async () => {
@@ -1178,24 +1170,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
     setIsSyncingChangedCourse(true);
     try {
-        const token = session?.access_token;
-        if (!token) throw new Error('Admin session is missing');
-
-        const response = await fetch(apiUrl('/courses?resource=user-schedules'), {
-            method: 'PATCH',
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                userScheduleId: selectedChangedCourse.user_schedule_id,
-                fieldKeys: [fieldKey]
-            })
-        });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload?.error || 'Không đồng bộ được dữ liệu gốc.');
-
-        const syncedValue = payload?.data?.updates?.[fieldKey] ?? selectedDiff.changedValue;
+        throw new Error('Đồng bộ trường riêng đã được khóa sau khi Course authority chuyển sang D1.');
+        const syncedValue = selectedDiff.changedValue;
         const syncedCourseId = selectedChangedCourse.id;
 
         const updateCourseOriginal = (course: Course): Course => {
@@ -1368,8 +1344,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       options: { force?: boolean; prefetch?: boolean } = {},
   ) => {
     if (!isAdmin && !isAuditor) return;
-    const token = session?.access_token;
-    if (!token) return;
+    if (!session?.user) return;
 
     const page = Math.max(1, requestedPage);
     const normalizedSearch = searchTerm.trim();
@@ -1400,29 +1375,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     }
 
     try {
-        const params = new URLSearchParams({
-            resource: 'course-requests',
-            status: 'pending',
-            search: normalizedSearch,
-            limit: String(COURSE_REQUEST_PAGE_SIZE),
-            offset: String((page - 1) * COURSE_REQUEST_PAGE_SIZE),
-        });
-
-        const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
-            headers: { Authorization: `Bearer ${token}` },
-        });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload?.error || 'Không tải được yêu cầu thêm môn.');
+        const payload = await listD1CourseRequestsForReview();
         const pendingRequests = (payload.data || []).filter((request: CourseRequest) =>
             String(request.status || 'pending').trim().toLowerCase() === 'pending'
+              && (!normalizedSearch || `${request.course_code} ${request.subject_name}`.toLocaleLowerCase('vi-VN').includes(normalizedSearch.toLocaleLowerCase('vi-VN')))
         );
         const rows = sortCourseRequestsNewestFirst(pendingRequests);
-        const total = Number.isFinite(Number(payload.total))
-            ? Number(payload.total)
-            : (page - 1) * COURSE_REQUEST_PAGE_SIZE + rows.length + (payload.hasMore ? 1 : 0);
-        const hasMore = typeof payload.hasMore === 'boolean'
-            ? payload.hasMore
-            : total > page * COURSE_REQUEST_PAGE_SIZE;
+        const total = rows.length;
+        const hasMore = false;
         const entry: CourseRequestPageCache = {
             data: rows,
             total,
@@ -1477,20 +1437,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const rejectCourseRequest = async (request: CourseRequest) => {
       if (isAuditor) { alert("⚠️ Tính năng này bị khóa đối với tài khoản Auditor."); return; }
       if (!await showConfirm(`Từ chối yêu cầu thêm môn "${request.subject_name}"?`)) return;
-      const token = session?.access_token;
-      if (!token) return;
-
       try {
-          const response = await fetch(apiUrl('/courses?resource=course-requests'), {
-              method: 'PATCH',
-              headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ requestId: request.id, status: 'rejected' }),
-          });
-          const payload = await response.json();
-          if (!response.ok) throw new Error(payload?.error || 'Không thể từ chối yêu cầu.');
+          if (!Number.isInteger(request.revision)) throw new Error('Yêu cầu cần được tải lại trước khi xử lý.');
+          await rejectD1CourseRequest(request.id, request.revision);
           clearCourseRequestCache();
           if (courseRequests.length === 1 && courseRequestPage > 1) {
               setCourseRequestPage(page => page - 1);
@@ -1604,31 +1553,13 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
     try {
       if (targetId === user.id) {
-        try {
-          const cloudflareSchedule = await fetchCloudflareUserSchedules();
-          setMySchedule(cloudflareSchedule as unknown as Course[]);
-          return;
-        } catch (cloudflareError) {
-          console.warn(
-            'D1 chưa sẵn sàng cho lịch cá nhân, dùng nguồn dự phòng:',
-            cloudflareError
-          );
-        }
+        const cloudflareSchedule = await fetchCloudflareUserSchedules();
+        setMySchedule(cloudflareSchedule as unknown as Course[]);
+        return;
       }
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) return;
-
-      const params = new URLSearchParams({ resource: 'my-schedule' });
-      if (targetId !== user.id) params.set('userId', targetId);
-
-      const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
-        headers: apiHeaders({ Authorization: `Bearer ${token}` }),
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Không tải được TKB cá nhân.');
-      setMySchedule(payload.data || []);
+      const data = await fetchStaffSchedules('courses', selectedSemester, { userId: targetId });
+      setMySchedule(data as Course[]);
     } catch (error) {
       console.error("Lỗi kéo TKB:", error);
       await logWebError({
@@ -1816,6 +1747,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       await addCloudflareUserSchedule(fullCourse.id, selectedSemester);
       await fetchMySchedule();
     } catch (err) {
+        if (isScheduleRevisionConflict(err)) await fetchMySchedule();
         await logWebError({
           source: 'supabase',
           action: 'save_schedule',
@@ -1840,8 +1772,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     const backup = [...mySchedule];
     setMySchedule(mySchedule.filter(c => c.id !== courseId));
     try {
-      await removeCloudflareUserSchedule(courseId);
+      await removeCloudflareUserSchedule(courseId, selectedSemester);
     } catch (err) {
+      if (isScheduleRevisionConflict(err)) await fetchMySchedule();
       await logWebError({
         source: 'supabase',
         action: 'remove_subject_from_plan',
@@ -1912,7 +1845,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           };
 
           await updateCloudflareUserSchedule(
-              quickTagCourse.user_schedule_id,
+              quickTagCourse,
               overrideData
           );
           
@@ -1920,6 +1853,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           setQuickTagData(createInitialTagData());
           fetchMySchedule(); 
       } catch (err) {
+          if (isScheduleRevisionConflict(err)) await fetchMySchedule();
           console.error(err);
           alert("Lỗi khi gắn nhãn nhanh.");
       } finally {
@@ -1956,7 +1890,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           };
 
           await updateCloudflareUserSchedule(
-              course.user_schedule_id,
+              course,
               overrideData
           );
 
@@ -1968,6 +1902,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           setShowInlineLabelForm(false);
           setInlineLabelData(createInitialTagData());
       } catch (err) {
+          if (isScheduleRevisionConflict(err)) await fetchMySchedule();
           console.error(err);
           alert("Lỗi khi thêm nhãn.");
       } finally {
@@ -1992,7 +1927,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           };
 
           await updateCloudflareUserSchedule(
-              course.user_schedule_id,
+              course,
               overrideData
           );
 
@@ -2001,6 +1936,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           setMySchedule(prev => prev.map(c => c.id === course.id ? updatedCourse : c));
           setChangedUserScheduleCourses(prev => prev.map(c => c.id === course.id ? updatedCourse : c));
       } catch (err) {
+          if (isScheduleRevisionConflict(err)) await fetchMySchedule();
           console.error(err);
           alert("Lỗi khi xóa nhãn.");
       }
@@ -2018,7 +1954,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           const { id, user_schedule_id, is_user_added, user, dateStr, ...overrideData } = studentEditData;
 
           await updateCloudflareUserSchedule(
-              user_schedule_id,
+              { ...studentEditData, semester: studentEditData.semester || selectedSemester },
               overrideData
           );
           alert("Cập nhật thông tin môn học cá nhân thành công!");
@@ -2026,6 +1962,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
           setSelectedCourseInfo(null);
           fetchMySchedule();
       } catch (err) {
+          if (isScheduleRevisionConflict(err)) await fetchMySchedule();
           console.error(err);
           alert("Có lỗi xảy ra khi lưu lịch cá nhân.");
       } finally {
@@ -2049,29 +1986,19 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             is_user_added: activeCourseRequest ? false : (adminEditData.is_user_added ?? (adminTab === 'user'))
         };
         if (activeCourseRequest) {
-            const token = session?.access_token;
-            if (!token) throw new Error('Admin session is missing');
-            const response = await fetch(apiUrl('/courses?resource=course-requests'), {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ requestId: activeCourseRequest.id, course: payload }),
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result?.error || 'Không thể thêm môn chính thức.');
+            if (!Number.isInteger(activeCourseRequest.revision)) throw new Error('Yêu cầu cần được tải lại trước khi xử lý.');
+            await approveD1CourseRequest(activeCourseRequest.id, activeCourseRequest.revision, payload);
             alert("Đã thêm môn thành môn chính thức!");
             setActiveCourseRequest(null);
             clearCourseRequestCache();
             setAdminTab('system');
             fetchCourses();
         } else if (payload.id) {
-            const { error } = await supabase.from('course_schedules').update(payload).eq('id', payload.id);
-            if (error) throw error; alert("Cập nhật môn học thành công!");
+            if (!Number.isInteger((payload as Course).revision)) throw new Error('Môn học cần được tải lại trước khi cập nhật.');
+            const { id, revision, ...course } = payload as Course;
+            await updateD1Course(id, revision!, course); alert("Cập nhật môn học thành công!");
         } else {
-            const { error } = await supabase.from('course_schedules').insert(payload);
-            if (error) throw error; alert("Thêm môn mới thành công!");
+            await createD1Course(payload); alert("Thêm môn mới thành công!");
         }
         setIsAdminEditModalOpen(false); fetchCourses();
     } catch (err) {
@@ -2085,8 +2012,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     if (isAuditor) { alert("⚠️ Tính năng này bị khóa đối với tài khoản Auditor."); return; }
       if (!await showConfirm("BẠN CÓ CHẮC CHẮN MUỐN XÓA?\nHành động này sẽ xóa môn học khỏi cơ sở dữ liệu và tự động xóa khỏi Thời khóa biểu của tất cả sinh viên đang lưu môn này!")) return;
       try {
-          const { error } = await supabase.from('course_schedules').delete().eq('id', id);
-          if (error) throw error; fetchCourses();
+          const course = availableCourses.find((item) => item.id === id);
+          if (!Number.isInteger(course?.revision)) throw new Error('Môn học cần được tải lại trước khi xóa.');
+          await retireD1Course(id, course.revision!); fetchCourses();
       } catch (err) { alert("Lỗi khi xóa môn học."); }
   };
 
@@ -2107,9 +2035,8 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
 
     setIsPdfGuideOpen(false); setIsProcessingPdf(true);
     try {
-        await verifyTurnstileOnly(scheduleImportTurnstileToken);
         setScheduleImportTurnstileToken('');
-        const aiData = await parseSchedulePdf(file);
+        const aiData = await parseSchedulePdf(file, scheduleImportTurnstileToken);
         if (!aiData || !aiData.courses || aiData.courses.length === 0) {
             const errorLogId = await logWebError({
                 source: 'parser',
@@ -2184,7 +2111,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       if (!user) throw new Error('Vui lòng đăng nhập lại để nhập thời khóa biểu.');
 
       const importedCount = await replaceUserScheduleFromPreview(
-        user.id,
         pendingScheduleImport.semester,
         pendingScheduleImport.rows,
       );
@@ -2196,6 +2122,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         `Đã nhập ${importedCount} môn và thay thế thời khóa biểu cũ của ${importedSemester.replaceAll('_', ' ')}.`,
       );
     } catch (error) {
+      if (isScheduleRevisionConflict(error)) await fetchMySchedule();
       console.error('Không thể xác nhận nhập thời khóa biểu:', error);
       await logWebError({
         source: 'supabase',
@@ -2316,13 +2243,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     e.preventDefault();
     if (!newCourseData.subject_name.trim() || !newCourseData.course_code.trim()) { alert("Vui lòng điền tối thiểu Tên môn học và Mã học phần!"); return; }
 
-    const accessToken = session?.access_token;
-    if (!accessToken) { alert("⚠️ Bạn cần đăng nhập để gửi yêu cầu!"); return; }
+    if (!session?.user) { alert("⚠️ Bạn cần đăng nhập để gửi yêu cầu!"); return; }
 
     setIsSubmittingCourse(true);
     try {
       const result = await submitManualCourseRequest({
-        accessToken,
         subjectName: newCourseData.subject_name,
         courseCode: newCourseData.course_code,
         instructor: newCourseData.instructor,

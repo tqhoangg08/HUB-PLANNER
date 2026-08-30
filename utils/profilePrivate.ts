@@ -1,8 +1,6 @@
-import { supabase } from './supabase';
-import { apiUrl } from './api';
 import { logWebError } from './logWebError';
-
-export const PROFILE_PRIVATE_TABLE = 'profile_private_data';
+import { fetchBetterAuthSession, privateApiRequest, PrivateApiError } from './privateApi';
+import { updateOwnPrivateProfile } from './privateProfileApi';
 
 export type ProfilePrivateRow = {
   user_id: string;
@@ -90,51 +88,12 @@ const cacheSummaryRows = (rows: ProfilePrivateRow[]) => {
   persistSummarySessionCache();
 };
 
-const shouldUseVercelProfileApi = () => {
-  return import.meta.env.VITE_USE_VERCEL_API === 'true' || import.meta.env.VITE_API_BASE_URL === '/api';
-};
-
-const PROFILE_PRIVATE_API_PATH = '/courses?resource=profile-private';
-
-const getAccessToken = async () => {
-  const { data: sessionData } = await supabase.auth.getSession();
-  return sessionData?.session?.access_token || '';
-};
+const PROFILE_PRIVATE_API_PATH = '/api/staff/v1/profiles';
 
 const fetchJson = async (path: string, init: RequestInit = {}) => {
-  const token = await getAccessToken();
-  if (!token) throw new Error('Unauthorized');
-
-  const headers = new Headers(init.headers);
-  if (!headers.has('Content-Type') && init.body) headers.set('Content-Type', 'application/json');
-  headers.set('Authorization', `Bearer ${token}`);
-
-  const response = await fetch(apiUrl(path), {
-    ...init,
-    headers,
-  });
-
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    const error = new Error(payload.error || `Profile API failed (${response.status})`) as Error & { status?: number };
-    error.status = response.status;
-    throw error;
-  }
-
+  const response = await privateApiRequest(path, init);
   return response.json();
 };
-
-const isNetworkFetchFailure = (error: any) => {
-  const message = String(error?.message || error || '').toLowerCase();
-  return error?.name === 'TypeError' && (
-    message.includes('load failed') ||
-    message.includes('failed to fetch') ||
-    message.includes('networkerror') ||
-    message.includes('network request failed')
-  );
-};
-
-const shouldFallbackToSupabase = (error: any) => [404, 501].includes(error?.status) || isNetworkFetchFailure(error);
 
 const hasMeaningfulProfileData = (value: any) => {
   if (!value || typeof value !== 'object') return false;
@@ -176,46 +135,21 @@ const preserveExistingTranscriptData = async (userId: string, data: any) => {
 };
 
 export const fetchProfilePrivate = async (userId: string) => {
-  if (shouldUseVercelProfileApi()) {
-    try {
-      const payload = await fetchJson(`${PROFILE_PRIVATE_API_PATH}&userId=${encodeURIComponent(userId)}`);
-      return payload.data as ProfilePrivateRow | null;
-    } catch (error: any) {
-      if (!shouldFallbackToSupabase(error)) {
-        await logWebError({
-          source: 'supabase',
-          action: 'load_profile_private',
-          error,
-          metadata: {
-            stage: 'api_fetch_single',
-            userId,
-          },
-        });
-        throw error;
-      }
-      console.warn('Profile private API unavailable, falling back to Supabase:', error);
-    }
-  }
-
-  const { data, error } = await supabase
-    .from(PROFILE_PRIVATE_TABLE)
-    .select('user_id, email, data, password_set_at, updated_at')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (error) {
+  try {
+    const payload = await fetchJson(PROFILE_PRIVATE_API_PATH, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'map', userIds: [userId], mode: 'full' }),
+    });
+    return (payload.data?.[0] || null) as ProfilePrivateRow | null;
+  } catch (error) {
     await logWebError({
-      source: 'supabase',
+      source: 'frontend',
       action: 'load_profile_private',
       error,
-      metadata: {
-        stage: 'supabase_fetch_single',
-        userId,
-      },
+      metadata: { stage: 'd1_staff_fetch_single' },
     });
     throw error;
   }
-  return data as ProfilePrivateRow | null;
 };
 
 export const fetchProfilePrivateMap = async (userIds: string[], options: FetchProfilePrivateMapOptions = {}) => {
@@ -228,61 +162,30 @@ export const fetchProfilePrivateMap = async (userIds: string[], options: FetchPr
 
   if (cachedResult && idsToFetch.length === 0) return cachedResult.cached;
 
-  if (shouldUseVercelProfileApi()) {
-    try {
-      const payload = await fetchJson(PROFILE_PRIVATE_API_PATH, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'map', userIds: idsToFetch, mode }),
-      });
-      const fetchedRows = payload.data as ProfilePrivateRow[];
-      if (mode === 'summary') cacheSummaryRows(fetchedRows);
-      return {
-        ...(cachedResult?.cached || {}),
-        ...rowsToMap(fetchedRows),
-      };
-    } catch (error: any) {
-      if (!shouldFallbackToSupabase(error)) {
-        await logWebError({
-          source: 'supabase',
-          action: 'load_profile_private',
-          error,
-          metadata: {
-            stage: 'api_fetch_map',
-            userCount: idsToFetch.length,
-            mode,
-          },
-        });
-        throw error;
-      }
-      console.warn('Profile private API unavailable, falling back to Supabase:', error);
-    }
-  }
-
-  const { data, error } = await supabase
-    .from(PROFILE_PRIVATE_TABLE)
-    .select('user_id, email, data, password_set_at, updated_at')
-    .in('user_id', idsToFetch);
-
-  if (error) {
+  try {
+    const payload = await fetchJson(PROFILE_PRIVATE_API_PATH, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'map', userIds: idsToFetch, mode }),
+    });
+    const fetchedRows = payload.data as ProfilePrivateRow[];
+    if (mode === 'summary') cacheSummaryRows(fetchedRows);
+    return {
+      ...(cachedResult?.cached || {}),
+      ...rowsToMap(fetchedRows),
+    };
+  } catch (error) {
     await logWebError({
-      source: 'supabase',
+      source: 'frontend',
       action: 'load_profile_private',
       error,
       metadata: {
-        stage: 'supabase_fetch_map',
+        stage: 'd1_staff_fetch_map',
         userCount: idsToFetch.length,
         mode,
       },
     });
     throw error;
   }
-
-  const fetchedRows = data as ProfilePrivateRow[];
-  if (mode === 'summary') cacheSummaryRows(fetchedRows);
-  return {
-    ...(cachedResult?.cached || {}),
-    ...rowsToMap(fetchedRows),
-  };
 };
 
 export const upsertProfilePrivate = async (row: ProfilePrivateRow) => {
@@ -291,86 +194,15 @@ export const upsertProfilePrivate = async (row: ProfilePrivateRow) => {
     nextRow.data = await preserveExistingTranscriptData(nextRow.user_id, nextRow.data);
   }
   const hasData = Object.prototype.hasOwnProperty.call(nextRow, 'data');
-
-  if (shouldUseVercelProfileApi()) {
-    try {
-      await fetchJson(PROFILE_PRIVATE_API_PATH, {
-        method: 'POST',
-        body: JSON.stringify({ row: nextRow }),
-      });
-      return;
-    } catch (error: any) {
-      if (!shouldFallbackToSupabase(error)) {
-        await logWebError({
-          source: 'supabase',
-          action: 'save_profile_private',
-          error,
-          metadata: {
-            stage: 'api_upsert',
-            userId: nextRow.user_id,
-            hasData,
-          },
-        });
-        throw error;
-      }
-      console.warn('Profile private API unavailable, falling back to Supabase:', error);
-    }
+  const session = await fetchBetterAuthSession();
+  if (!session || session.user.id !== nextRow.user_id) {
+    throw new PrivateApiError(403, 'Không có quyền cập nhật hồ sơ này.');
   }
-
-  const now = new Date().toISOString();
-  const shouldWriteData = hasData && hasMeaningfulProfileData(nextRow.data);
-
-  if (!shouldWriteData) {
-    const { data: updated, error: updateError } = await supabase
-      .from(PROFILE_PRIVATE_TABLE)
-      .update({
-        email: nextRow.email,
-        password_set_at: nextRow.password_set_at,
-        updated_at: nextRow.updated_at || now,
-      })
-      .eq('user_id', nextRow.user_id)
-      .select('user_id')
-      .maybeSingle();
-
-    if (updateError) {
-      await logWebError({
-        source: 'supabase',
-        action: 'save_profile_private',
-        error: updateError,
-        metadata: {
-          stage: 'supabase_update_metadata',
-          userId: nextRow.user_id,
-          hasData,
-        },
-      });
-      throw updateError;
-    }
-    if (updated?.user_id) return;
+  const unsupported = Object.keys(nextRow).filter((key) => !['user_id', 'data'].includes(key));
+  if (unsupported.length > 0 || !hasData) {
+    throw new PrivateApiError(400, 'Trường hồ sơ này chỉ được cập nhật bởi máy chủ.');
   }
-
-  const { error } = await supabase
-    .from(PROFILE_PRIVATE_TABLE)
-    .upsert({
-      user_id: nextRow.user_id,
-      email: nextRow.email,
-      data: shouldWriteData ? (nextRow.data ?? {}) : {},
-      password_set_at: nextRow.password_set_at,
-      updated_at: nextRow.updated_at || now,
-    }, { onConflict: 'user_id' });
-
-  if (error) {
-    await logWebError({
-      source: 'supabase',
-      action: 'save_profile_private',
-      error,
-      metadata: {
-        stage: 'supabase_upsert',
-        userId: nextRow.user_id,
-        hasData,
-      },
-    });
-    throw error;
-  }
+  await updateOwnPrivateProfile({ privateProfile: { data: nextRow.data || {} } });
 };
 
 export const updateProfilePrivate = async (userId: string, patch: Partial<Omit<ProfilePrivateRow, 'user_id'>>) => {
@@ -381,51 +213,23 @@ export const updateProfilePrivate = async (userId: string, patch: Partial<Omit<P
   if (Object.prototype.hasOwnProperty.call(nextPatch, 'data') && !hasMeaningfulProfileData(nextPatch.data)) {
     delete nextPatch.data;
   }
-
-  if (shouldUseVercelProfileApi()) {
-    try {
-      await fetchJson(PROFILE_PRIVATE_API_PATH, {
-        method: 'PATCH',
-        body: JSON.stringify({ userId, patch: nextPatch }),
-      });
-      return;
-    } catch (error: any) {
-      if (!shouldFallbackToSupabase(error)) {
-        await logWebError({
-          source: 'supabase',
-          action: 'save_profile_private',
-          error,
-          metadata: {
-            stage: 'api_update',
-            userId,
-            patchKeys: Object.keys(nextPatch),
-          },
-        });
-        throw error;
-      }
-      console.warn('Profile private API unavailable, falling back to Supabase:', error);
-    }
+  const session = await fetchBetterAuthSession();
+  if (!session) {
+    throw new PrivateApiError(403, 'Không có quyền cập nhật hồ sơ này.');
   }
-
-  const { error } = await supabase
-    .from(PROFILE_PRIVATE_TABLE)
-    .update({
-      ...nextPatch,
-      updated_at: nextPatch.updated_at || new Date().toISOString(),
-    })
-    .eq('user_id', userId);
-
-  if (error) {
-    await logWebError({
-      source: 'supabase',
-      action: 'save_profile_private',
-      error,
-      metadata: {
-        stage: 'supabase_update',
-        userId,
-        patchKeys: Object.keys(nextPatch),
-      },
-    });
-    throw error;
+  const patchKeys = Object.keys(nextPatch);
+  if (patchKeys.some((key) => key !== 'data') || !Object.hasOwn(nextPatch, 'data')) {
+    throw new PrivateApiError(400, 'Trường hồ sơ này chỉ được cập nhật bởi máy chủ.');
   }
+  if (session.user.id === userId) {
+    await updateOwnPrivateProfile({ privateProfile: { data: nextPatch.data || {} } });
+    return;
+  }
+  if (session.role !== 'admin') {
+    throw new PrivateApiError(403, 'Không có quyền cập nhật hồ sơ này.');
+  }
+  await privateApiRequest(PROFILE_PRIVATE_API_PATH, {
+    method: 'PATCH',
+    body: JSON.stringify({ userId, privateProfile: { data: nextPatch.data || {} } }),
+  });
 };

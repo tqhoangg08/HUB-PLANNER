@@ -1,4 +1,17 @@
 import { handleCourses, syncCourseSchedules } from './courses.ts';
+import {
+  CourseAuthorityError,
+  courseAuthorityErrorStatus,
+  handleCourseAuthority,
+  type CourseAuthorityEnv,
+} from './course-authority.ts';
+import {
+  CourseAuthorityInternalError,
+  courseAuthorityInternalErrorStatus,
+  courseAuthorityInternalScraperDiagnostic,
+  handleCourseAuthorityInternal,
+  type CourseAuthorityInternalEnv,
+} from './course-authority-internal.ts';
 import { handleEvents, syncPublicEvents } from './events.ts';
 import { handleLostFound, syncPublicLostFound } from './lost-found.ts';
 import { handleAdminEvents, syncAdminEvents } from './admin-events.ts';
@@ -18,14 +31,14 @@ import {
   syncEventParticipations,
 } from './event-participations.ts';
 import {
-  addUserSchedule,
-  assertOwnUserScheduleTarget,
-  deleteUserSchedule,
+  addUserScheduleForBetterAuth,
+  deleteUserScheduleForBetterAuth,
   listUserSchedules,
   readUserScheduleBody,
-  replaceUserScheduleSemester,
+  replaceUserScheduleSemesterForBetterAuth,
+  replaceUserScheduleImportForBetterAuth,
   syncUserSchedules,
-  updateUserScheduleCustomData,
+  updateUserScheduleForBetterAuth,
   UserScheduleError,
 } from './user-schedules.ts';
 import {
@@ -44,8 +57,124 @@ import {
   StaffAuthError,
   type StaffAuthEnv,
 } from './auth.ts';
+import { isSensitiveAuthIngressRequest } from '../../shared/auth-sensitive-routes.ts';
+import {
+  BetterAuthIdentityError,
+  handleBetterAuthMeRequest,
+  requireBetterAuthStaff,
+  requireBetterAuthSession,
+  type BetterAuthIdentityEnv,
+} from './better-auth-identity.ts';
+import {
+  allowsSupabaseCourseSync,
+  allowsSupabaseUserScheduleSync,
+  isScheduleMutationRequest,
+  readScheduleWriteMode,
+  type ScheduleWriteModeEnv,
+} from './schedule-write-mode.ts';
+import {
+  mutateD1UserScheduleCourse,
+  parseD1ScheduleMutationRequest,
+  parseD1ScheduleReplaceRequest,
+  parseD1ScheduleUpdateRequest,
+  replaceD1UserScheduleSemester,
+  updateD1UserScheduleCustomData,
+} from './d1-user-schedule-mutations.ts';
+import {
+  handlePrivateProfile,
+  privateProfileErrorStatus,
+  PrivateProfileError,
+} from './private-profile.ts';
+import {
+  handleProfileAuthorityInternal,
+  profileAuthorityInternalErrorStatus,
+  ProfileAuthorityInternalError,
+  type ProfileAuthorityInternalEnv,
+} from './profile-authority-internal.ts';
+import {
+  handleScheduleAuthorityInternal,
+  scheduleAuthorityInternalErrorStatus,
+  ScheduleAuthorityInternalError,
+  type ScheduleAuthorityInternalEnv,
+} from './schedule-authority-internal.ts';
+import {
+  handleStaffProfile,
+  staffProfileErrorStatus,
+  StaffProfileError,
+  type StaffProfileEnv,
+} from './staff-profile.ts';
+import {
+  handlePrivateNotifications,
+  privateNotificationsErrorStatus,
+  PrivateNotificationsError,
+} from './private-notifications.ts';
+import {
+  activityLogErrorStatus,
+  ActivityLogError,
+  handleActivityLog,
+  type ActivityLogEnv,
+} from './activity-log.ts';
+import {
+  handlePushSubscription,
+  pushSubscriptionErrorStatus,
+  PushSubscriptionError,
+  type PushSubscriptionEnv,
+} from './push-subscriptions.ts';
+import {
+  aiAdvisorErrorStatus,
+  AiAdvisorError,
+  handleAiAdvisor,
+  type AiAdvisorEnv,
+} from './ai-advisor.ts';
+import {
+  handlePrivatePolicyConsent,
+  privatePolicyConsentErrorStatus,
+  PrivatePolicyConsentError,
+} from './private-policy-consent.ts';
+import {
+  handleCtvRegistration,
+  handleModeratorNotification,
+  handleProtectedSubmission,
+  UserSubmissionError,
+  userSubmissionErrorStatus,
+} from './user-submissions.ts';
+import { handleWebErrorTelemetry } from './web-error-telemetry.ts';
+import { handlePdfAi, PdfAiError, pdfAiErrorStatus, type PdfAiEnv } from './pdf-ai.ts';
+import {
+  AdminLegacyDataError,
+  adminLegacyDataErrorStatus,
+  handleAdminLegacyData,
+  type AdminLegacyDataEnv,
+} from './admin-legacy-data.ts';
+import { handleStaffSchedules, staffSchedulesErrorStatus, type StaffSchedulesEnv } from './staff-schedules.ts';
+import {
+  adminSupportErrorStatus,
+  handleAdminSupport,
+  handleAdminSupportAttachmentObject,
+  type AdminSupportEnv,
+} from './admin-support.ts';
+import { adminExportErrorStatus, handleAdminExport, type AdminExportEnv } from './admin-export.ts';
+import {
+  accountDeleteErrorStatus,
+  AccountDeleteError,
+  handleAccountDelete,
+  handleAccountDeleteSyntheticTest,
+  handleAccountDeleteSyntheticTestPage,
+  handleAccountDeleteSyntheticTestTurnstileFrame,
+  type AccountDeleteEnv,
+} from './account-delete.ts';
+import {
+  publicDirectoryErrorStatus,
+  readPublicDonations,
+  readPublicProfile,
+  searchPublicProfiles,
+  type PublicDirectoryEnv,
+} from './public-directory.ts';
 
-type WorkerEnv = Env & StaffAuthEnv;
+type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv &
+  ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & AiAdvisorEnv & PublicDirectoryEnv & {
+  AUTH_SERVICE_PROXY_MODE?: string;
+};
 
 interface AnnouncementRow {
   id: number;
@@ -152,6 +281,131 @@ const JSON_SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
   'X-Permitted-Cross-Domain-Policies': 'none',
 } satisfies HeadersInit;
+
+const FRONTEND_SECURITY_HEADERS = {
+  'Content-Security-Policy':
+    "default-src 'self'; script-src 'self' 'unsafe-inline' https:; script-src-attr 'none'; worker-src 'self' blob: https://esm.sh; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; media-src 'self' https://assets.mixkit.co; connect-src 'self' https: wss://*.supabase.co; frame-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;",
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+} satisfies HeadersInit;
+
+const isFrontendNavigation = (request: Request) => {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return false;
+  return (
+    request.headers.get('Sec-Fetch-Mode') === 'navigate' ||
+    String(request.headers.get('Accept') || '').includes('text/html')
+  );
+};
+
+const isAuthServicePath = (pathname: string) =>
+  pathname === '/api/auth' || pathname.startsWith('/api/auth/');
+
+const PRODUCTION_AUTH_HOST = 'hotrosinhvienhub.id.vn';
+const INTEGRATION_PREVIEW_AUTH_HOST = 'hub-planner-public-dev-api-preview.tqhoangg2.workers.dev';
+const RECOVERY_AUTH_ROUTES = new Set([
+  'POST /api/auth/sign-in/social',
+  'GET /api/auth/callback/google',
+  'GET /api/auth/get-session',
+  'POST /api/auth/sign-out',
+  'POST /api/auth/sign-in/email',
+  'POST /api/auth/login/dispatch',
+  'POST /api/auth/mssv/sign-in',
+  'POST /api/auth/mssv/request-password-reset',
+  'POST /api/auth/student/sign-up/start',
+  'POST /api/auth/student/sign-up/verify',
+  'POST /api/auth/student/sign-up/resend',
+  'GET /api/auth/registration/status',
+  'POST /api/auth/registration/set-password',
+  'POST /api/auth/request-password-reset',
+  'POST /api/auth/staff/request-password-reset',
+  'POST /api/auth/reset-password',
+]);
+
+const isPasswordResetCallback = (method: string, pathname: string) =>
+  method === 'GET' && /^\/api\/auth\/reset-password\/[^/]+$/.test(pathname);
+
+export const isProductionRecoveryAuthRequest = (request: Request) => {
+  const url = new URL(request.url);
+  return (
+    url.hostname === PRODUCTION_AUTH_HOST &&
+    (
+      RECOVERY_AUTH_ROUTES.has(`${request.method.toUpperCase()} ${url.pathname}`) ||
+      isPasswordResetCallback(request.method.toUpperCase(), url.pathname)
+    )
+  );
+};
+
+const INTEGRATION_STAGE2_AUTH_ROUTES = new Set([
+  'POST /api/auth/request-password-reset',
+  'POST /api/auth/reset-password',
+  'POST /api/auth/sign-in/email',
+  'GET /api/auth/get-session',
+  'POST /api/auth/sign-out',
+]);
+
+export const isIntegrationPreviewStage2AuthRequest = (request: Request) => {
+  const url = new URL(request.url);
+  return (
+    url.hostname === INTEGRATION_PREVIEW_AUTH_HOST &&
+    (
+      INTEGRATION_STAGE2_AUTH_ROUTES.has(`${request.method.toUpperCase()} ${url.pathname}`) ||
+      isPasswordResetCallback(request.method.toUpperCase(), url.pathname)
+    )
+  );
+};
+
+const isConfiguredAuthProxyRequest = (request: Request, env: WorkerEnv) =>
+  env.AUTH_SERVICE_PROXY_MODE === 'integration-stage2'
+    ? isIntegrationPreviewStage2AuthRequest(request)
+    : isProductionRecoveryAuthRequest(request);
+
+export const proxyAuthServiceIfEnabled = async (
+  request: Request,
+  env: WorkerEnv
+): Promise<Response | null> => {
+  const url = new URL(request.url);
+  if (!isAuthServicePath(url.pathname)) return null;
+  if (!isConfiguredAuthProxyRequest(request, env)) {
+    return json({ error: 'Không tìm thấy endpoint.' }, 404);
+  }
+  if (env.AUTH_SERVICE_PROXY_ENABLED !== 'true' || !env.AUTH_SERVICE) {
+    return json({ error: 'Dịch vụ xác thực tạm thời chưa sẵn sàng.' }, 503);
+  }
+
+  if (isSensitiveAuthIngressRequest(request)) {
+    const ingressIp = request.headers.get('cf-connecting-ip')?.trim();
+    if (ingressIp) {
+      if (!env.AUTH_INGRESS_IP_RATE_LIMIT) {
+        return json({ error: 'Dịch vụ xác thực tạm thời chưa sẵn sàng.' }, 503);
+      }
+      const outcome = await env.AUTH_INGRESS_IP_RATE_LIMIT.limit({
+        key: `auth-ingress-ip:${ingressIp}`,
+      });
+      if (!outcome.success) {
+        return json({ error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' }, 429);
+      }
+    }
+  }
+
+  // Forward the original request so callback query parameters, cookies,
+  // request bodies, CF metadata and multiple Set-Cookie headers are preserved.
+  return env.AUTH_SERVICE.fetch(request);
+};
+
+const withFrontendAssetHeaders = (response: Response) => {
+  const headers = new Headers(response.headers);
+  Object.entries(FRONTEND_SECURITY_HEADERS).forEach(([name, value]) => {
+    headers.set(name, value);
+  });
+  headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+};
 
 const json = (payload: unknown, status = 200, headers: HeadersInit = {}) =>
   new Response(JSON.stringify(payload), {
@@ -414,7 +668,10 @@ const adminErrorResponse = (
   requestUrl: URL,
   cors: HeadersInit
 ) => {
-  const status = error instanceof StaffAuthError ? error.status : 500;
+  const status =
+    error instanceof StaffAuthError || error instanceof BetterAuthIdentityError
+      ? error.status
+      : 500;
   const message =
     status === 401
       ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
@@ -442,7 +699,7 @@ const adminEventMutationErrorResponse = (
   requestUrl: URL,
   cors: HeadersInit
 ) => {
-  if (error instanceof StaffAuthError) {
+  if (error instanceof StaffAuthError || error instanceof BetterAuthIdentityError) {
     return adminErrorResponse(error, requestUrl, cors);
   }
 
@@ -465,7 +722,9 @@ const eventParticipationErrorResponse = (
   cors: HeadersInit
 ) => {
   const status =
-    error instanceof StaffAuthError
+    error instanceof BetterAuthIdentityError
+      ? error.status
+      : error instanceof StaffAuthError
       ? error.status
       : error instanceof EventParticipationError
         ? error.status
@@ -480,6 +739,7 @@ const eventParticipationErrorResponse = (
           : 'Không thể xử lý lịch sử tham gia sự kiện.';
 
   if (
+    !(error instanceof BetterAuthIdentityError) &&
     !(error instanceof StaffAuthError) &&
     !(error instanceof EventParticipationError)
   ) {
@@ -493,7 +753,6 @@ const eventParticipationErrorResponse = (
   return json({ error: message }, status, {
     ...cors,
     'Cache-Control': 'no-store',
-    ...(status === 401 ? { 'WWW-Authenticate': 'Bearer' } : {}),
   });
 };
 
@@ -503,7 +762,9 @@ const userScheduleErrorResponse = (
   cors: HeadersInit
 ) => {
   const status =
-    error instanceof StaffAuthError
+    error instanceof BetterAuthIdentityError
+      ? error.status
+      : error instanceof StaffAuthError
       ? error.status
       : error instanceof UserScheduleError
         ? error.status
@@ -518,6 +779,7 @@ const userScheduleErrorResponse = (
           : 'Không thể xử lý lịch cá nhân.';
 
   if (
+    !(error instanceof BetterAuthIdentityError) &&
     !(error instanceof StaffAuthError) &&
     !(error instanceof UserScheduleError)
   ) {
@@ -531,7 +793,83 @@ const userScheduleErrorResponse = (
   return json({ error: message }, status, {
     ...cors,
     'Cache-Control': 'no-store',
-    ...(status === 401 ? { 'WWW-Authenticate': 'Bearer' } : {}),
+  });
+};
+
+const userScheduleReadErrorResponse = (
+  error: unknown,
+  requestUrl: URL,
+  cors: HeadersInit
+) => {
+  const status =
+    error instanceof BetterAuthIdentityError
+      ? error.status
+      : error instanceof UserScheduleError
+        ? error.status
+        : 500;
+  const message =
+    error instanceof BetterAuthIdentityError
+      ? status === 401
+        ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+        : status === 403
+          ? 'Không có quyền truy cập.'
+          : 'Dịch vụ xác thực tạm thời chưa sẵn sàng.'
+      : error instanceof UserScheduleError
+        ? error.message
+        : 'Không thể xử lý lịch cá nhân.';
+
+  if (
+    !(error instanceof BetterAuthIdentityError) &&
+    !(error instanceof UserScheduleError)
+  ) {
+    console.error(JSON.stringify({
+      event: 'user_schedule_read_failed',
+      path: requestUrl.pathname,
+      status,
+    }));
+  }
+
+  return json({ error: message }, status, {
+    ...cors,
+    'Cache-Control': 'no-store',
+  });
+};
+
+const userScheduleD1WriteErrorResponse = (
+  error: unknown,
+  requestUrl: URL,
+  cors: HeadersInit
+) => {
+  const status =
+    error instanceof BetterAuthIdentityError
+      ? error.status
+      : error instanceof UserScheduleError
+        ? error.status
+        : 503;
+  const message =
+    error instanceof BetterAuthIdentityError
+      ? status === 401
+        ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+        : status === 403
+          ? 'Không có quyền truy cập.'
+          : 'Dịch vụ xác thực tạm thời chưa sẵn sàng.'
+      : error instanceof UserScheduleError
+        ? error.message
+        : 'Không thể cập nhật lịch cá nhân lúc này.';
+
+  if (
+    !(error instanceof BetterAuthIdentityError) &&
+    !(error instanceof UserScheduleError)
+  ) {
+    console.error(JSON.stringify({
+      event: 'd1_user_schedule_mutation_failed',
+      path: requestUrl.pathname,
+      status,
+    }));
+  }
+  return json({ error: message }, status, {
+    ...cors,
+    'Cache-Control': 'no-store',
   });
 };
 
@@ -571,10 +909,50 @@ const rankingErrorResponse = (
   });
 };
 
+const exactRankingErrorResponse = (
+  error: unknown,
+  requestUrl: URL,
+  cors: HeadersInit
+) => {
+  const status =
+    error instanceof BetterAuthIdentityError
+      ? error.status
+      : error instanceof RankingError
+        ? error.status
+        : 500;
+  const message =
+    error instanceof BetterAuthIdentityError
+      ? status === 401
+        ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+        : status === 403
+          ? 'Không có quyền truy cập.'
+          : 'Dịch vụ xác thực tạm thời chưa sẵn sàng.'
+      : error instanceof RankingError
+        ? error.message
+        : 'Không thể xử lý dữ liệu xếp hạng.';
+
+  if (
+    !(error instanceof BetterAuthIdentityError) &&
+    !(error instanceof RankingError)
+  ) {
+    console.error(JSON.stringify({
+      event: 'exact_ranking_request_failed',
+      path: requestUrl.pathname,
+      status,
+    }));
+  }
+
+  return json({ error: message }, status, {
+    ...cors,
+    'Cache-Control': 'no-store',
+  });
+};
+
 const scheduleUserScheduleMirrorRepair = (
   env: WorkerEnv,
   ctx: ExecutionContext
 ) => {
+  if (!allowsSupabaseUserScheduleSync(env)) return;
   ctx.waitUntil(
     syncUserSchedules(env).catch((error) => {
       console.error(JSON.stringify({
@@ -701,6 +1079,165 @@ const worker = {
     env: WorkerEnv,
     ctx: ExecutionContext
   ): Promise<Response> {
+    const requestUrl = new URL(request.url);
+    const authServiceResponse = await proxyAuthServiceIfEnabled(request, env);
+    if (authServiceResponse) return authServiceResponse;
+
+    if (
+      requestUrl.pathname === '/__account-delete-synthetic-test' ||
+      requestUrl.pathname === '/__account-delete-synthetic-test/turnstile-frame'
+    ) {
+      try {
+        return requestUrl.pathname.endsWith('/turnstile-frame')
+          ? handleAccountDeleteSyntheticTestTurnstileFrame(env)
+          : handleAccountDeleteSyntheticTestPage(env);
+      } catch (error) {
+        return json({ error: 'Không tìm thấy endpoint.' }, accountDeleteErrorStatus(error), {
+          ...JSON_SECURITY_HEADERS,
+          'Cache-Control': 'no-store',
+        });
+      }
+    }
+
+    if (requestUrl.pathname === '/internal/profile/v1/authority') {
+      try {
+        return json(await handleProfileAuthorityInternal(request, env), 200, {
+          ...JSON_SECURITY_HEADERS,
+          'Cache-Control': 'no-store',
+        });
+      } catch (error) {
+        const status = profileAuthorityInternalErrorStatus(error);
+        if (!(error instanceof ProfileAuthorityInternalError)) {
+          console.error(JSON.stringify({ event: 'profile_authority_internal_failed', status }));
+        }
+        return json({ error: status === 404 ? 'Not found.' : 'Profile authority request rejected.' }, status, {
+          ...JSON_SECURITY_HEADERS,
+          ...(status === 405 ? { Allow: 'POST' } : {}),
+          'Cache-Control': 'no-store',
+        });
+      }
+    }
+
+    if (requestUrl.pathname === '/internal/schedules/v1/authority') {
+      try {
+        return json(await handleScheduleAuthorityInternal(request, env), 200, {
+          ...JSON_SECURITY_HEADERS,
+          'Cache-Control': 'no-store',
+        });
+      } catch (error) {
+        const status = scheduleAuthorityInternalErrorStatus(error);
+        if (!(error instanceof ScheduleAuthorityInternalError)) {
+          console.error(JSON.stringify({ event: 'schedule_authority_internal_failed', status }));
+        }
+        return json({ error: status === 404 ? 'Not found.' : 'Schedule authority request rejected.' }, status, {
+          ...JSON_SECURITY_HEADERS,
+          ...(status === 405 ? { Allow: 'POST' } : {}),
+          'Cache-Control': 'no-store',
+        });
+      }
+    }
+
+    if (requestUrl.pathname === '/internal/courses/v1/authority') {
+      try {
+        return json(await handleCourseAuthorityInternal(request, env), 200, {
+          ...JSON_SECURITY_HEADERS,
+          'Cache-Control': 'no-store',
+        });
+      } catch (error) {
+        const status = courseAuthorityInternalErrorStatus(error);
+        const scraperDiagnostic = courseAuthorityInternalScraperDiagnostic(error);
+        if (!(error instanceof CourseAuthorityInternalError)) {
+          console.error(JSON.stringify({ event: 'course_authority_internal_failed', status, ...(scraperDiagnostic ? { scraperDiagnostic } : {}) }));
+        }
+        return json({ error: status === 404 ? 'Not found.' : 'Course authority request rejected.', ...(scraperDiagnostic ? { scraperDiagnostic } : {}) }, status, {
+          ...JSON_SECURITY_HEADERS,
+          ...(status === 405 ? { Allow: 'POST' } : {}),
+          'Cache-Control': 'no-store',
+        });
+      }
+    }
+
+    if (
+      requestUrl.pathname === '/api/private/v1/courses' ||
+      /^\/api\/private\/v1\/courses\/[0-9a-f-]+$/i.test(requestUrl.pathname) ||
+      requestUrl.pathname === '/api/private/v1/course-requests' ||
+      requestUrl.pathname === '/api/private/v1/course-requests/review' ||
+      /^\/api\/private\/v1\/course-requests\/[0-9a-f-]+\/(approve|reject)$/i.test(requestUrl.pathname)
+    ) {
+      const cors = corsHeaders(request, env);
+      if (cors === null) return json({ error: 'Origin không được phép.' }, 403);
+      try {
+        const result = await handleCourseAuthority(request, requestUrl, env);
+        return json(result.payload, result.status, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = courseAuthorityErrorStatus(error);
+        if (!(error instanceof CourseAuthorityError)) {
+          console.error(JSON.stringify({ event: 'course_authority_request_failed', status }));
+        }
+        return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' : status === 403 ? 'Không có quyền truy cập.' : status === 503 ? 'Course authority unavailable.' : 'Yêu cầu môn học không hợp lệ.' }, status, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/staff/v1/schedules') {
+      const staffCors = corsHeaders(request, env);
+      if (staffCors === null) return json({ error: 'Origin không được phép.' }, 403);
+      try {
+        return json(await handleStaffSchedules(request, requestUrl, env), 200, {
+          ...staffCors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = staffSchedulesErrorStatus(error);
+        return json({ error: error instanceof Error ? error.message : 'Không thể đọc lịch quản trị.' }, status, {
+          ...staffCors,
+          'Cache-Control': 'no-store',
+        });
+      }
+    }
+
+    if (/^\/api\/private\/v1\/support\/attachment-(?:upload|download)\/[0-9a-f-]{36}$/i.test(requestUrl.pathname)) {
+      const supportCors = corsHeaders(request, env);
+      if (supportCors === null) return json({ error: 'Origin không được phép.' }, 403);
+      try {
+        const result = await handleAdminSupportAttachmentObject(request, requestUrl, env);
+        const headers = new Headers(result.headers);
+        new Headers(supportCors).forEach((value, name) => headers.set(name, value));
+        headers.set('Cache-Control', 'private, no-store');
+        return new Response(result.body, { status: result.status, headers });
+      } catch (error) {
+        const status = adminSupportErrorStatus(error);
+        return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' : status === 403 ? 'Không có quyền truy cập.' : status < 500 && error instanceof Error ? error.message : 'Không thể xử lý tệp đính kèm.' }, status, { ...supportCors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/private/v1/support' || requestUrl.pathname === '/api/admin/v1/support/tickets' || /^\/api\/admin\/v1\/support\/tickets\/[0-9a-f-]{36}$/i.test(requestUrl.pathname) || requestUrl.pathname === '/api/admin/v1/support/resolve-all') {
+      const supportCors = corsHeaders(request, env);
+      if (supportCors === null) return json({ error: 'Origin không được phép.' }, 403);
+      try { return json(await handleAdminSupport(request, requestUrl, env), 200, { ...supportCors, 'Cache-Control': 'private, no-store' }); }
+      catch (error) { const status = adminSupportErrorStatus(error); return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' : status === 403 ? 'Không có quyền truy cập.' : status < 500 && error instanceof Error ? error.message : 'Không thể xử lý ticket hỗ trợ.' }, status, { ...supportCors, 'Cache-Control': 'no-store' }); }
+    }
+
+    if (requestUrl.pathname === '/api/private/v1/admin/export') {
+      const exportCors = corsHeaders(request, env);
+      if (exportCors === null) return json({ error: 'Origin không được phép.' }, 403);
+      try { return json(await handleAdminExport(request, env), 200, { ...exportCors, 'Cache-Control': 'private, no-store' }); }
+      catch (error) { const status = adminExportErrorStatus(error); return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' : status === 403 ? 'Không có quyền truy cập.' : status < 500 && error instanceof Error ? error.message : 'Không thể xử lý yêu cầu xuất dữ liệu.' }, status, { ...exportCors, 'Cache-Control': 'no-store' }); }
+    }
+
+    const isLegacyPublicAlias =
+      requestUrl.pathname === '/events' ||
+      requestUrl.pathname === '/courses' ||
+      requestUrl.pathname === '/lost-found';
+    if (isLegacyPublicAlias && isFrontendNavigation(request)) {
+      return withFrontendAssetHeaders(await env.ASSETS.fetch(request));
+    }
+
     const cors = corsHeaders(request, env);
     if (cors === null) return json({ error: 'Origin không được phép.' }, 403);
     if (request.method === 'OPTIONS') {
@@ -714,7 +1251,275 @@ const worker = {
       });
     }
 
-    const requestUrl = new URL(request.url);
+    if (requestUrl.pathname === '/api/private/v1/me') {
+      return handleBetterAuthMeRequest(request, env, cors);
+    }
+
+    if (
+      requestUrl.pathname === '/api/private/v1/account-delete/preflight' ||
+      requestUrl.pathname === '/api/private/v1/account-delete/request-otp' ||
+      requestUrl.pathname === '/api/private/v1/account-delete/confirm' ||
+      requestUrl.pathname === '/api/private/v1/account-delete/synthetic-test/status' ||
+      requestUrl.pathname === '/api/private/v1/account-delete/synthetic-test/execute'
+    ) {
+      try {
+        const result = requestUrl.pathname.includes('/synthetic-test/')
+          ? await handleAccountDeleteSyntheticTest(request, requestUrl, env)
+          : await handleAccountDelete(request, requestUrl, env);
+        return json(result, 200, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = accountDeleteErrorStatus(error);
+        if (!(error instanceof BetterAuthIdentityError) && !(error instanceof AccountDeleteError)) {
+          console.error(JSON.stringify({ event: 'account_delete_request_failed', status }));
+        }
+        return json({
+          error: status === 401
+            ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+            : status === 403
+              ? 'Không có quyền truy cập.'
+              : status < 500 && error instanceof AccountDeleteError
+                ? error.message
+                : 'Không thể hoàn tất xóa tài khoản lúc này.',
+        }, status, { ...cors, 'Cache-Control': 'private, no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/staff/v1/profiles') {
+      try {
+        return json(await handleStaffProfile(request, env), 200, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      } catch (error) {
+        const status = staffProfileErrorStatus(error);
+        if (!(error instanceof StaffProfileError) && !(error instanceof BetterAuthIdentityError)) {
+          console.error(JSON.stringify({ event: 'staff_profile_request_failed', status }));
+        }
+        return json({
+          error: status === 401
+            ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+            : status === 403
+              ? 'Không có quyền truy cập.'
+              : status < 500 && error instanceof Error
+                ? error.message
+                : 'Dịch vụ hồ sơ tạm thời chưa sẵn sàng.',
+        }, status, {
+          ...cors,
+          ...(status === 405 ? { Allow: 'POST, PATCH, OPTIONS' } : {}),
+          'Cache-Control': 'no-store',
+        });
+      }
+    }
+
+    if (
+      requestUrl.pathname === '/api/admin/v1/reports' ||
+      requestUrl.pathname === '/api/admin/v1/activity' ||
+      requestUrl.pathname === '/api/admin/v1/lost-found' ||
+      requestUrl.pathname === '/api/admin/v1/event-candidates'
+    ) {
+      try {
+        return json(await handleAdminLegacyData(request, requestUrl, env), 200, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = adminLegacyDataErrorStatus(error);
+        if (!(error instanceof AdminLegacyDataError) && !(error instanceof BetterAuthIdentityError)) {
+          console.error(JSON.stringify({ event: 'admin_legacy_data_failed', status, path: requestUrl.pathname }));
+        }
+        return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' : status === 403 ? 'Không có quyền truy cập.' : status === 405 ? 'Phương thức không được hỗ trợ.' : status === 404 ? 'Không tìm thấy dữ liệu quản trị.' : 'Không thể xử lý dữ liệu quản trị.' }, status, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/public/v1/telemetry/web-errors') {
+      const result = await handleWebErrorTelemetry(request);
+      return json(result.payload, result.status, {
+        ...cors,
+        ...(result.allow ? { Allow: result.allow } : {}),
+        'Cache-Control': 'no-store',
+      });
+    }
+
+    if (requestUrl.pathname === '/api/public/v1/pdf-ai') {
+      try {
+        return json(await handlePdfAi(request, env), 200, {
+          ...cors,
+          'Cache-Control': 'no-store',
+        });
+      } catch (error) {
+        const status = pdfAiErrorStatus(error);
+        if (!(error instanceof PdfAiError)) {
+          console.error(JSON.stringify({ event: 'pdf_ai_request_failed', status }));
+        }
+        return json({
+          error: error instanceof PdfAiError && status < 500
+            ? error.message
+            : 'Dịch vụ phân tích PDF đang tạm thời không phản hồi.',
+        }, status, {
+          ...cors,
+          ...(error instanceof PdfAiError && error.allow ? { Allow: error.allow } : {}),
+          'Cache-Control': 'no-store',
+        });
+      }
+    }
+
+    const userSubmissionHandler = requestUrl.pathname === '/api/submissions/v1/protected'
+      ? handleProtectedSubmission
+      : requestUrl.pathname === '/api/submissions/v1/ctv-requests'
+        ? handleCtvRegistration
+        : requestUrl.pathname === '/api/submissions/v1/moderator-notifications'
+          ? handleModeratorNotification
+          : null;
+    if (userSubmissionHandler) {
+      try {
+        return json(await userSubmissionHandler(request, env), 200, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = userSubmissionErrorStatus(error);
+        if (!(error instanceof BetterAuthIdentityError) && !(error instanceof UserSubmissionError)) {
+          console.error(JSON.stringify({ event: 'user_submission_request_failed' }));
+        }
+        return json({
+          error: status === 401
+            ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+            : status === 403
+              ? 'Không có quyền thực hiện thao tác này.'
+              : status === 400 || status === 405 || status === 409 || status === 413 || status === 422
+                ? (error as UserSubmissionError).message
+                : 'Không thể xử lý yêu cầu lúc này.',
+        }, status, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/private/v1/ai-advisor') {
+      try {
+        return json(await handleAiAdvisor(request, requestUrl, env), 200, {
+          ...cors, 'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = aiAdvisorErrorStatus(error);
+        if (!(error instanceof BetterAuthIdentityError) && !(error instanceof AiAdvisorError)) {
+          console.error(JSON.stringify({ event: 'ai_advisor_request_failed', status }));
+        }
+        return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' : status === 403 ? 'Không có quyền truy cập.' : status < 500 && error instanceof AiAdvisorError ? error.message : 'Không thể xử lý yêu cầu trợ lý.' }, status, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/private/v1/activity-log') {
+      try {
+        return json(await handleActivityLog(request, env), 200, {
+          ...cors, 'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = activityLogErrorStatus(error);
+        return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' : status === 403 ? 'Không có quyền truy cập.' : status < 500 && error instanceof ActivityLogError ? error.message : 'Không thể ghi nhật ký hoạt động.' }, status, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/private/v1/push-subscription') {
+      try {
+        return json(await handlePushSubscription(request, env), 200, {
+          ...cors, 'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = pushSubscriptionErrorStatus(error);
+        return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' : status === 403 ? 'Không có quyền truy cập.' : status < 500 && error instanceof PushSubscriptionError ? error.message : 'Không thể đồng bộ thiết bị nhận thông báo.' }, status, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/user/v1/profile') {
+      if (request.method !== 'GET' && request.method !== 'PATCH') {
+        return json({ error: 'Phương thức không được hỗ trợ.' }, 405, {
+          ...cors,
+          Allow: 'GET, PATCH, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+      try {
+        return json(await handlePrivateProfile(request, env, ctx), 200, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = privateProfileErrorStatus(error);
+        if (!(error instanceof BetterAuthIdentityError) && !(error instanceof PrivateProfileError)) {
+          console.error(JSON.stringify({ event: 'private_profile_request_failed' }));
+        }
+        return json({
+          error: status === 401
+            ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+            : status === 403
+              ? 'Không có quyền truy cập.'
+              : status === 400 || status === 405
+                ? (error as PrivateProfileError).message
+                : 'Không thể xử lý hồ sơ cá nhân.',
+        }, status, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/user/v1/notifications') {
+      if (request.method !== 'GET' && request.method !== 'PATCH') {
+        return json({ error: 'PhÆ°Æ¡ng thá»©c khÃ´ng Ä‘Æ°á»£c há»— trá»£.' }, 405, {
+          ...cors,
+          Allow: 'GET, PATCH, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+      try {
+        return json(await handlePrivateNotifications(request, env), 200, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = privateNotificationsErrorStatus(error);
+        if (!(error instanceof BetterAuthIdentityError) && !(error instanceof PrivateNotificationsError)) {
+          console.error(JSON.stringify({ event: 'private_notifications_request_failed' }));
+        }
+        return json({
+          error: status === 401
+            ? 'PhiÃªn Ä‘Äƒng nháº­p khÃ´ng há»£p lá»‡ hoáº·c Ä‘Ã£ háº¿t háº¡n.'
+            : status === 403
+              ? 'KhÃ´ng cÃ³ quyá»n truy cáº­p.'
+              : status === 400 || status === 405
+                ? (error as PrivateNotificationsError).message
+                : 'KhÃ´ng thá»ƒ xá»­ lÃ½ thÃ´ng bÃ¡o.',
+        }, status, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/user/v1/policy-consents') {
+      if (request.method !== 'POST') {
+        return json({ error: 'PhÆ°Æ¡ng thá»©c khÃ´ng Ä‘Æ°á»£c há»— trá»£.' }, 405, {
+          ...cors, Allow: 'POST, OPTIONS', 'Cache-Control': 'no-store',
+        });
+      }
+      try {
+        return json(await handlePrivatePolicyConsent(request, env), 200, {
+          ...cors, 'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = privatePolicyConsentErrorStatus(error);
+        if (!(error instanceof BetterAuthIdentityError) && !(error instanceof PrivatePolicyConsentError)) {
+          console.error(JSON.stringify({ event: 'private_policy_consent_request_failed' }));
+        }
+        return json({
+          error: status === 401
+            ? 'PhiÃªn Ä‘Äƒng nháº­p khÃ´ng há»£p lá»‡ hoáº·c Ä‘Ã£ háº¿t háº¡n.'
+            : status === 400 || status === 405
+              ? (error as PrivatePolicyConsentError).message
+              : 'KhÃ´ng thá»ƒ ghi nháº­n Ä‘á»“ng Ã½.',
+        }, status, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
     if (requestUrl.pathname === '/api/admin/v1/events/sync') {
       if (request.method !== 'POST') {
         return json({ error: 'Chỉ hỗ trợ phương thức POST.' }, 405, {
@@ -725,9 +1530,7 @@ const worker = {
       }
 
       try {
-        const identity = await requireStaff(request, env, {
-          allowedRoles: ['admin', 'auditor'],
-        });
+        const identity = await requireBetterAuthStaff(request, env);
         const summary = await syncAdminEvents(env);
         console.log(JSON.stringify({
           event: 'admin_event_sync_complete',
@@ -740,7 +1543,10 @@ const worker = {
           'Cache-Control': 'no-store',
         });
       } catch (error) {
-        if (error instanceof StaffAuthError) {
+        if (
+          error instanceof StaffAuthError ||
+          error instanceof BetterAuthIdentityError
+        ) {
           return adminErrorResponse(error, requestUrl, cors);
         }
         console.error(JSON.stringify({
@@ -768,9 +1574,7 @@ const worker = {
       }
 
       try {
-        const identity = await requireStaff(request, env, {
-          allowedRoles: ['admin', 'auditor'],
-        });
+        const identity = await requireBetterAuthStaff(request, env);
         const payload = await readAdminEventMutationPayload(request, 'update');
         assertAdminEventMutationAllowed(payload, identity.role);
         const eventId = Number(adminEventDetailMatch[1]);
@@ -796,6 +1600,7 @@ const worker = {
       } catch (error) {
         if (
           !(error instanceof StaffAuthError) &&
+          !(error instanceof BetterAuthIdentityError) &&
           !(error instanceof AdminEventMutationError)
         ) {
           console.error(JSON.stringify({
@@ -818,9 +1623,7 @@ const worker = {
       }
 
       try {
-        const identity = await requireStaff(request, env, {
-          allowedRoles: ['admin', 'auditor'],
-        });
+        const identity = await requireBetterAuthStaff(request, env);
         if (request.method === 'POST') {
           const mutationId = readAdminEventIdempotencyKey(request);
           const payload = await readAdminEventMutationPayload(request, 'create');
@@ -857,6 +1660,7 @@ const worker = {
         if (request.method === 'POST') {
           if (
             !(error instanceof StaffAuthError) &&
+            !(error instanceof BetterAuthIdentityError) &&
             !(error instanceof AdminEventMutationError)
           ) {
             console.error(JSON.stringify({
@@ -867,7 +1671,10 @@ const worker = {
           }
           return adminEventMutationErrorResponse(error, requestUrl, cors);
         }
-        if (error instanceof StaffAuthError) {
+        if (
+          error instanceof StaffAuthError ||
+          error instanceof BetterAuthIdentityError
+        ) {
           return adminErrorResponse(error, requestUrl, cors);
         }
         console.error(JSON.stringify({
@@ -892,7 +1699,7 @@ const worker = {
       }
 
       try {
-        await requireStaff(request, env, { allowedRoles: ['admin'] });
+        await requireBetterAuthStaff(request, env);
         return json(await readSyncHealth(env), 200, {
           ...cors,
           'Cache-Control': 'no-store',
@@ -919,6 +1726,34 @@ const worker = {
         });
       } catch (error) {
         return rankingErrorResponse(error, requestUrl, cors);
+      }
+    }
+
+    if (requestUrl.pathname === '/api/public/v1/profiles/search') {
+      if (request.method !== 'GET') return json({ error: 'Chỉ hỗ trợ phương thức GET.' }, 405, { ...cors, Allow: 'GET' });
+      try {
+        return json(await searchPublicProfiles(requestUrl, env), 200, { ...cors, 'Cache-Control': 'public, max-age=30' });
+      } catch (error) {
+        return json({ error: 'Không thể tải hồ sơ công khai.' }, publicDirectoryErrorStatus(error), { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    const publicProfileMatch = requestUrl.pathname.match(/^\/api\/public\/v1\/profiles\/([^/]+)$/);
+    if (publicProfileMatch) {
+      if (request.method !== 'GET') return json({ error: 'Chỉ hỗ trợ phương thức GET.' }, 405, { ...cors, Allow: 'GET' });
+      try {
+        return json(await readPublicProfile(publicProfileMatch[1], env), 200, { ...cors, 'Cache-Control': 'public, max-age=60' });
+      } catch (error) {
+        return json({ error: error instanceof Error ? error.message : 'Không thể tải hồ sơ công khai.' }, publicDirectoryErrorStatus(error), { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/public/v1/donations') {
+      if (request.method !== 'GET') return json({ error: 'Chỉ hỗ trợ phương thức GET.' }, 405, { ...cors, Allow: 'GET' });
+      try {
+        return json(await readPublicDonations(env), 200, { ...cors, 'Cache-Control': 'public, max-age=60' });
+      } catch (error) {
+        return json({ error: 'Không thể tải danh sách ủng hộ.' }, publicDirectoryErrorStatus(error), { ...cors, 'Cache-Control': 'no-store' });
       }
     }
 
@@ -962,7 +1797,7 @@ const worker = {
       }
 
       try {
-        const identity = await requireAuthenticatedUser(request, env);
+        const identity = await requireBetterAuthSession(request, env);
         const semester = parseRankingSemester(
           requestUrl.searchParams.get('semester')
         );
@@ -975,7 +1810,7 @@ const worker = {
           }
         );
       } catch (error) {
-        return rankingErrorResponse(error, requestUrl, cors);
+        return exactRankingErrorResponse(error, requestUrl, cors);
       }
     }
 
@@ -992,14 +1827,9 @@ const worker = {
       }
 
       try {
-        const identity = await requireAuthenticatedUser(request, env);
-        const accessToken = readBearerToken(request);
-        if (!accessToken) {
-          throw new StaffAuthError(401, 'Thiếu hoặc sai access token.');
-        }
+        const identity = await requireBetterAuthSession(request, env);
         const result = await mutateEventParticipation(
           env,
-          accessToken,
           identity.userId,
           participationDetailMatch[1],
           request.method === 'PUT'
@@ -1035,7 +1865,7 @@ const worker = {
       }
 
       try {
-        const identity = await requireAuthenticatedUser(request, env);
+        const identity = await requireBetterAuthSession(request, env);
         const requestedUserId = requestUrl.searchParams.get('userId');
         const targetUserId = requestedUserId
           ? parseParticipationUserId(requestedUserId)
@@ -1058,6 +1888,21 @@ const worker = {
       }
     }
 
+    const scheduleWriteMode = readScheduleWriteMode(env);
+    if (
+      isScheduleMutationRequest(requestUrl.pathname, request.method) &&
+      scheduleWriteMode !== 'legacy' && scheduleWriteMode !== 'd1'
+    ) {
+      return json(
+        { error: 'Tính năng lưu lịch cá nhân tạm thời chưa khả dụng.' },
+        503,
+        {
+          ...cors,
+          'Cache-Control': 'no-store',
+        }
+      );
+    }
+
     const userScheduleCourseMatch = requestUrl.pathname.match(
       /^\/api\/user\/v1\/schedules\/courses\/([0-9a-f-]+)$/i
     );
@@ -1070,24 +1915,42 @@ const worker = {
         });
       }
 
-      try {
-        const identity = await requireAuthenticatedUser(request, env);
-        const accessToken = readBearerToken(request);
-        if (!accessToken) {
-          throw new StaffAuthError(401, 'Thiếu hoặc sai access token.');
+      if (scheduleWriteMode === 'd1') {
+        try {
+          const identity = await requireBetterAuthSession(request, env);
+          const action = request.method === 'PUT' ? 'add' : 'delete';
+          const input = await parseD1ScheduleMutationRequest(
+            request,
+            action,
+            userScheduleCourseMatch[1]
+          );
+          const result = await mutateD1UserScheduleCourse(
+            env,
+            identity.userId,
+            input
+          );
+          return json(result, 200, {
+            ...cors,
+            'Cache-Control': 'no-store',
+            ETag: `"${result.revision}"`,
+          });
+        } catch (error) {
+          return userScheduleD1WriteErrorResponse(error, requestUrl, cors);
         }
+      }
+
+      try {
+        const identity = await requireBetterAuthSession(request, env);
         const result =
           request.method === 'PUT'
-            ? await addUserSchedule(
+            ? await addUserScheduleForBetterAuth(
               env,
-              accessToken,
               identity.userId,
               userScheduleCourseMatch[1],
               (await readUserScheduleBody(request)).semester
             )
-            : await deleteUserSchedule(
+            : await deleteUserScheduleForBetterAuth(
               env,
-              accessToken,
               identity.userId,
               userScheduleCourseMatch[1]
             );
@@ -1115,16 +1978,33 @@ const worker = {
         });
       }
 
-      try {
-        const identity = await requireAuthenticatedUser(request, env);
-        const accessToken = readBearerToken(request);
-        if (!accessToken) {
-          throw new StaffAuthError(401, 'Thiếu hoặc sai access token.');
+      if (scheduleWriteMode === 'd1') {
+        try {
+          const identity = await requireBetterAuthSession(request, env);
+          const input = await parseD1ScheduleUpdateRequest(
+            request,
+            userScheduleEntryMatch[1]
+          );
+          const result = await updateD1UserScheduleCustomData(
+            env,
+            identity.userId,
+            input
+          );
+          return json(result, 200, {
+            ...cors,
+            'Cache-Control': 'no-store',
+            ETag: `"${result.revision}"`,
+          });
+        } catch (error) {
+          return userScheduleD1WriteErrorResponse(error, requestUrl, cors);
         }
+      }
+
+      try {
+        const identity = await requireBetterAuthSession(request, env);
         const payload = await readUserScheduleBody(request);
-        const result = await updateUserScheduleCustomData(
+        const result = await updateUserScheduleForBetterAuth(
           env,
-          accessToken,
           identity.userId,
           userScheduleEntryMatch[1],
           payload.customData
@@ -1150,20 +2030,41 @@ const worker = {
         });
       }
 
-      try {
-        const identity = await requireAuthenticatedUser(request, env);
-        const accessToken = readBearerToken(request);
-        if (!accessToken) {
-          throw new StaffAuthError(401, 'Thiếu hoặc sai access token.');
+      if (scheduleWriteMode === 'd1') {
+        try {
+          const identity = await requireBetterAuthSession(request, env);
+          const input = await parseD1ScheduleReplaceRequest(request);
+          const result = await replaceD1UserScheduleSemester(
+            env,
+            identity.userId,
+            input
+          );
+          return json(result, 200, {
+            ...cors,
+            'Cache-Control': 'no-store',
+            ETag: `"${result.revision}"`,
+          });
+        } catch (error) {
+          return userScheduleD1WriteErrorResponse(error, requestUrl, cors);
         }
+      }
+
+      try {
+        const identity = await requireBetterAuthSession(request, env);
         const payload = await readUserScheduleBody(request);
-        const result = await replaceUserScheduleSemester(
-          env,
-          accessToken,
-          identity.userId,
-          payload.semester,
-          payload.courseIds
-        );
+        const result = Array.isArray(payload.rows)
+          ? await replaceUserScheduleImportForBetterAuth(
+            env,
+            identity.userId,
+            payload.semester,
+            payload.rows
+          )
+          : await replaceUserScheduleSemesterForBetterAuth(
+            env,
+            identity.userId,
+            payload.semester,
+            payload.courseIds
+          );
         if (!result.mirrorSynced) {
           scheduleUserScheduleMirrorRepair(env, ctx);
         }
@@ -1186,17 +2087,13 @@ const worker = {
       }
 
       try {
-        const identity = await requireAuthenticatedUser(request, env);
-        const targetUserId = assertOwnUserScheduleTarget(
-          identity.userId,
-          requestUrl.searchParams.get('userId')
-        );
-        return json(await listUserSchedules(env, targetUserId), 200, {
+        const identity = await requireBetterAuthSession(request, env);
+        return json(await listUserSchedules(env, identity.userId), 200, {
           ...cors,
           'Cache-Control': 'private, no-store',
         });
       } catch (error) {
-        return userScheduleErrorResponse(error, requestUrl, cors);
+        return userScheduleReadErrorResponse(error, requestUrl, cors);
       }
     }
 
@@ -1345,20 +2242,20 @@ const worker = {
     const jobs: Array<{ failureEvent: string; promise: Promise<unknown> }> = [];
 
     if (hourlyCron || runAll) {
-      jobs.push(
-        {
-          failureEvent: 'announcement_sync_failed',
-          promise: syncSchoolAnnouncements(env).then((summary) =>
-            console.log('announcement_sync_complete', summary)
-          ),
-        },
-        {
+      jobs.push({
+        failureEvent: 'announcement_sync_failed',
+        promise: syncSchoolAnnouncements(env).then((summary) =>
+          console.log('announcement_sync_complete', summary)
+        ),
+      });
+      if (allowsSupabaseCourseSync(env)) {
+        jobs.push({
           failureEvent: 'course_sync_failed',
           promise: syncCourseSchedules(env, reconcileCourseDeletes).then((summary) =>
             console.log('course_sync_complete', summary)
           ),
-        }
-      );
+        });
+      }
     }
 
     if (eventCron || runAll) {
@@ -1389,14 +2286,16 @@ const worker = {
           promise: syncEventParticipations(env).then((summary) =>
             console.log('event_participation_sync_complete', summary)
           ),
-        },
-        {
+        }
+      );
+      if (allowsSupabaseUserScheduleSync(env)) {
+        jobs.push({
           failureEvent: 'user_schedule_sync_failed',
           promise: syncUserSchedules(env).then((summary) =>
             console.log('user_schedule_sync_complete', summary)
           ),
-        }
-      );
+        });
+      }
     }
 
     if (lostFoundCron || runAll) {

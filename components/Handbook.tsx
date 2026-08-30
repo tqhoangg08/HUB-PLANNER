@@ -6,8 +6,7 @@ import {
     MessageSquarePlus, Crown, ShieldCheck, ChevronDown
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
-import { supabase } from '../utils/supabase';
-import { notifyModerators } from '../utils/moderatorNotifications';
+import { fetchPublicDonations } from '../utils/publicDirectoryApi';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
@@ -72,15 +71,14 @@ export const Handbook: React.FC = () => {
 
     const fetchDonors = async () => {
         setLoadingDonors(true);
-        const { data, error } = await supabase
-            .from('donations')
-            .select('id,name,amount,message,student_id,created_at')
-            .order('amount', { ascending: false }); 
-        
-        if (!error && data) {
-            setDonors(data);
+        try {
+            setDonors(await fetchPublicDonations());
+        } catch (error) {
+            console.error('Không thể tải danh sách ủng hộ:', error);
+            setDonors([]);
+        } finally {
+            setLoadingDonors(false);
         }
-        setLoadingDonors(false);
     };
 
     const handleDonateSubmit = async (e: React.FormEvent) => {
@@ -134,50 +132,6 @@ export const Handbook: React.FC = () => {
             ],
         }));
         return;
-
-        setIsSubmitting(true);
-        try {
-            const { data: sessionData } = await supabase.auth.getSession();
-            const user = sessionData?.session?.user || null;
-            let profile: { full_name?: string | null; student_code?: string | null; email?: string | null } | null = null;
-
-            if (user?.id) {
-                const { data: profileData } = await supabase
-                    .from('profiles')
-                    .select('full_name, student_code, email')
-                    .eq('id', user.id)
-                    .maybeSingle();
-                profile = profileData;
-            }
-
-            const feedbackPayload = {
-                type: feedbackType,
-                content: feedbackContent,
-                contact: contactInfo,
-                user_id: user?.id || null,
-                full_name: profile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.name || null,
-                student_code: profile?.student_code || user?.email?.split('@')[0] || null,
-                email: profile?.email || user?.email || null,
-            };
-
-            const data = await protectedSubmit<{ id?: number }>({
-                action: 'feedback',
-                payload: feedbackPayload,
-                turnstileToken: feedbackTurnstileToken,
-            });
-            void notifyModerators('feedback', data?.id);
-            setFeedbackTurnstileToken('');
-
-            setSubmitStatus('success');
-            setFeedbackContent('');
-            setContactInfo('');
-            setTimeout(() => setSubmitStatus('idle'), 5000);
-        } catch (error) {
-            console.error("Lỗi gửi feedback:", error);
-            setSubmitStatus('error');
-        } finally {
-            setIsSubmitting(false);
-        }
     };
 
     const contacts = [

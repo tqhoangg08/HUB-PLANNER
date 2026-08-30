@@ -146,14 +146,14 @@ const readSyncConfig = (env: EventParticipationsEnv) => {
 
 const readWriteConfig = (env: EventParticipationsEnv) => {
   const supabaseUrl = String(env.SUPABASE_URL || '').trim();
-  const anonKey = String(env.SUPABASE_ANON_KEY || '').trim();
-  if (!supabaseUrl || !anonKey) {
+  const serviceRoleKey = String(env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+  if (!supabaseUrl || !serviceRoleKey) {
     throw new EventParticipationError(
       503,
       'Cấu hình lưu lịch sử tham gia chưa đầy đủ.'
     );
   }
-  return { supabaseUrl, anonKey };
+  return { supabaseUrl, serviceRoleKey };
 };
 
 const writeParticipationRows = async (
@@ -310,13 +310,12 @@ export const listEventParticipations = async (
 
 const writeLegacyParticipation = async (
   env: EventParticipationsEnv,
-  accessToken: string,
   userId: string,
   eventId: number,
   participating: boolean,
   fetcher: typeof fetch
 ) => {
-  const { supabaseUrl, anonKey } = readWriteConfig(env);
+  const { supabaseUrl, serviceRoleKey } = readWriteConfig(env);
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(
     () => controller.abort('event-participation-write-timeout'),
@@ -336,8 +335,8 @@ const writeLegacyParticipation = async (
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
-          apikey: anonKey,
-          Authorization: `Bearer ${accessToken}`,
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
           Prefer: participating
             ? 'resolution=ignore-duplicates,return=representation'
             : 'return=minimal',
@@ -373,7 +372,6 @@ const writeLegacyParticipation = async (
 
 export const mutateEventParticipation = async (
   env: EventParticipationsEnv,
-  accessToken: string,
   userId: string,
   eventIdValue: unknown,
   participating: boolean,
@@ -383,7 +381,6 @@ export const mutateEventParticipation = async (
   const eventId = parseParticipationEventId(eventIdValue);
   const createdAt = await writeLegacyParticipation(
     env,
-    accessToken,
     normalizedUserId,
     eventId,
     participating,

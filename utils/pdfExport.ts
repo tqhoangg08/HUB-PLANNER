@@ -1,8 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { GradeStatus, Semester, UserData } from '../types';
-import { supabase } from '../utils/supabase';
-import { getLocalSessionUser } from './clientSession';
+import { fetchBetterAuthSession } from './privateApi';
 import {
     calculateCumulativeStats,
     calculateSemesterStats,
@@ -105,19 +104,14 @@ export const exportTranscriptToPdf = async (data: UserData, options: TranscriptE
     let studentCode = (data as any).studentCode || (data as any).student_code;
     if (!studentCode) {
         try {
-            const user = await getLocalSessionUser();
-
-            if (user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('student_code')
-                    .eq('id', user.id)
-                    .single();
-
-                if (profile?.student_code) studentCode = profile.student_code;
+            const session = await fetchBetterAuthSession();
+            const email = session?.user?.email || '';
+            const schoolSuffix = '@st.buh.edu.vn';
+            if (email.toLowerCase().endsWith(schoolSuffix)) {
+                studentCode = email.slice(0, -schoolSuffix.length);
             }
         } catch (err) {
-            console.log('Không thể fetch MSSV dự phòng', err);
+            console.log('Không thể xác định MSSV dự phòng', err);
         }
     }
     studentCode = studentCode || '.....................';

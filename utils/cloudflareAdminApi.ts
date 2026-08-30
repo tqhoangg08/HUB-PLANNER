@@ -1,5 +1,3 @@
-const DEFAULT_CLOUDFLARE_PUBLIC_API =
-  'https://hub-planner-public-dev-api.tqhoangg2.workers.dev';
 const HEALTH_CACHE_KEY = 'hub_cloudflare_admin_health_v2';
 const HEALTH_CACHE_TTL_MS = 5 * 60 * 1000;
 const HEALTH_TIMEOUT_MS = 5_000;
@@ -32,14 +30,8 @@ interface CachedHealth {
 }
 
 interface AdminSession {
-  accessToken: string;
   userId: string;
 }
-
-const cloudflarePublicApiBase = String(
-  import.meta.env?.VITE_CLOUDFLARE_PUBLIC_API_BASE_URL ||
-    DEFAULT_CLOUDFLARE_PUBLIC_API
-).replace(/\/$/, '');
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -138,14 +130,15 @@ const writeCachedHealth = (userId: string, cached: CachedHealth) => {
 };
 
 const readAdminSession = async (): Promise<AdminSession> => {
-  const { supabase } = await import('./supabase');
-  const { data, error } = await supabase.auth.getSession();
-  const session = data.session;
-  if (error || !session?.access_token || !session.user?.id) {
+  const { fetchBetterAuthSession } = await import('./privateApi');
+  const session = await fetchBetterAuthSession();
+  if (
+    !session?.user?.id ||
+    (session.role !== 'admin' && session.role !== 'auditor')
+  ) {
     throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
   }
   return {
-    accessToken: session.access_token,
     userId: session.user.id,
   };
 };
@@ -159,13 +152,14 @@ const requestHealth = async (session: AdminSession): Promise<CachedHealth> => {
 
   try {
     const response = await fetch(
-      `${cloudflarePublicApiBase}/api/admin/v1/health`,
+      '/api/admin/v1/health',
       {
       headers: {
         Accept: 'application/json',
-        Authorization: `Bearer ${session.accessToken}`,
       },
       cache: 'no-store',
+      credentials: 'include',
+      redirect: 'manual',
       signal: controller.signal,
       }
     );

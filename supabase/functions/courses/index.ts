@@ -2,22 +2,18 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { supabase } from '../_shared/supabase.ts'
 import { sendWebPush } from '../_shared/webpush.ts'
+import {
+  logServerError,
+  safeHttpError,
+} from '../_shared/schedule-source-barrier.ts'
+import { callProfileAuthorityInternal } from '../_shared/profile-authority-client.ts'
+import { callScheduleAuthorityInternal } from '../_shared/schedule-authority-client.ts'
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     status,
   })
-
-const errorMessage = (error: unknown) => {
-  if (error instanceof Error) return error.message
-  if (typeof error === 'string') return error
-  try {
-    return JSON.stringify(error)
-  } catch {
-    return String(error)
-  }
-}
 
 const normalizeSemester = (value = '') => String(value).replace(/\s+/g, '_').replace(/[()]/g, '')
 const SYNCABLE_COURSE_FIELDS = [
@@ -341,51 +337,21 @@ const getRequestUser = async (request: Request) => {
 const fetchProfilesMap = async (userIds: string[]) => {
   const uniqueUserIds = [...new Set(userIds.filter(Boolean))]
   if (uniqueUserIds.length === 0) return {}
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, full_name, student_code')
-    .in('id', uniqueUserIds)
-  if (error) throw error
-
-  const { data: privateRows, error: privateError } = await supabase
-    .from('profile_private_data')
-    .select('user_id, email')
-    .in('user_id', uniqueUserIds)
-  if (privateError) throw privateError
-
-  const privateMap = (privateRows || []).reduce((map: Record<string, any>, row: any) => {
-    map[row.user_id] = row
-    return map
-  }, {})
-
-  const profilesMap = (data || []).reduce((map: Record<string, any>, profile: any) => {
-    map[profile.id] = { ...profile, email: privateMap[profile.id]?.email }
-    return map
-  }, {})
-
-  uniqueUserIds.forEach((id) => {
-    if (!profilesMap[id] && privateMap[id]?.email) {
-      profilesMap[id] = {
-        id,
-        email: privateMap[id].email,
-        student_code: String(privateMap[id].email || '').split('@')[0],
-      }
-    }
-  })
-
-  const missingUserIds = uniqueUserIds.filter((id) => !profilesMap[id])
-  for (const id of missingUserIds) {
-    const { data: authUser } = await supabase.auth.admin.getUserById(id)
-    const email = authUser?.user?.email || ''
-    profilesMap[id] = {
-      id,
-      email,
-      student_code: email ? email.split('@')[0] : id,
-    }
+  const map: Record<string, any> = {}
+  for (let index = 0; index < uniqueUserIds.length; index += 200) {
+    const result = await callProfileAuthorityInternal<{
+      success: true
+      data: Array<{ id: string; full_name: string | null; student_code: string | null; email: string | null }>
+    }>({
+      writer: 'courses_edge',
+      operation: 'read_profile_map',
+      userIds: uniqueUserIds.slice(index, index + 200),
+    })
+    result.data.forEach((profile) => {
+      map[profile.id] = profile
+    })
   }
-
-  return profilesMap
+  return map
 }
 
 const handleMySchedule = async (request: Request, params: URLSearchParams) => {
@@ -563,7 +529,7 @@ const handleSyncUserSchedule = async (request: Request) => {
 
   const { data: row, error: readError } = await supabase
     .from('user_schedules')
-    .select(`id, course_id, custom_data, course_schedules (${COURSE_SCHEDULE_COLUMNS})`)
+    .select(`id, user_id, course_id, custom_data, course_schedules (${COURSE_SCHEDULE_COLUMNS})`)
     .eq('id', userScheduleId)
     .maybeSingle()
   if (readError) throw readError
@@ -577,78 +543,60 @@ const handleSyncUserSchedule = async (request: Request) => {
     result[key] = updates[key]
     return result
   }, {})
+  // An earlier request may have updated the shared course row successfully but
+  // failed before the D1 schedule mutation completed.  A retry then has no
+  // course diff left to apply, but it still must finish clearing the exact
+  // custom-data keys from the D1-authoritative private schedule.  Only an
+  // explicitly selected, syncable key whose current source value already
+  // equals the custom value qualifies for that replay-safe case.
+  const keysToClear = selectedFieldKeys.length > 0
+    ? [...new Set([
+      ...Object.keys(selectedUpdates),
+      ...selectedFieldKeys.filter((key) => (
+        SYNCABLE_COURSE_FIELDS.includes(key)
+        && Object.prototype.hasOwnProperty.call(customData, key)
+        && normalizeComparable(customData[key]) === normalizeComparable(row.course_schedules[key])
+      )),
+    ])]
+    : Object.keys(selectedUpdates)
 
-  if (Object.keys(selectedUpdates).length === 0) {
+  // Check the D1-authoritative owner-scoped target before making the
+  // independent legacy course-catalog mutation. This also makes the narrow
+  // schedule freeze block this privileged flow before it changes any data.
+  await callScheduleAuthorityInternal({
+    writer: 'courses_edge',
+    operation: 'authorize_user_schedule_custom_data',
+    userId: String(row.user_id || ''),
+    scheduleId: String(row.id || ''),
+  })
+
+  if (Object.keys(selectedUpdates).length === 0 && keysToClear.length === 0) {
     return json({ success: true, data: { updates: {}, remainingCustomData: customData } })
   }
 
-  const { error: updateError } = await supabase
-    .from('course_schedules')
-    .update(selectedUpdates)
-    .eq('id', row.course_schedules.id)
-  if (updateError) throw updateError
+  if (Object.keys(selectedUpdates).length > 0) {
+    const { error: updateError } = await supabase
+      .from('course_schedules')
+      .update(selectedUpdates)
+      .eq('id', row.course_schedules.id)
+    if (updateError) throw updateError
+  }
 
   const remainingCustomData = Object.entries(customData).reduce((result: Record<string, unknown>, [key, value]) => {
-    if (!Object.prototype.hasOwnProperty.call(selectedUpdates, key)) result[key] = value
+    if (!keysToClear.includes(key)) result[key] = value
     return result
   }, {})
 
-  const { error: customError } = await supabase
-    .from('user_schedules')
-    .update({ custom_data: remainingCustomData })
-    .eq('id', userScheduleId)
-  if (customError) throw customError
+  await callScheduleAuthorityInternal({
+    writer: 'courses_edge',
+    operation: 'update_user_schedule_custom_data',
+    userId: String(row.user_id || ''),
+    scheduleId: String(row.id || ''),
+    customData: remainingCustomData,
+    idempotencyKey: `courses-sync:${crypto.randomUUID()}`,
+  })
 
   return json({ success: true, data: { updates: selectedUpdates, remainingCustomData } })
-}
-
-const handleProfilePrivateMap = async (request: Request) => {
-  const role = await getActorRole(request)
-  if (!['admin', 'auditor'].includes(role || '')) return json({ error: 'Forbidden' }, 403)
-
-  const body = await request.json().catch(() => ({}))
-  const ids = Array.isArray(body.userIds) ? body.userIds : String(body.userIds || '').split(',')
-  const userIds = [...new Set(ids.map((id: unknown) => String(id || '').trim()).filter(Boolean))]
-  if (userIds.length === 0) return json({ success: true, data: [] })
-
-  const rows: any[] = []
-  for (let index = 0; index < userIds.length; index += 200) {
-    const batch = userIds.slice(index, index + 200)
-    const { data, error } = await supabase
-      .from('profile_private_data')
-      .select('user_id, email, data, password_set_at, updated_at')
-      .in('user_id', batch)
-    if (error) throw error
-    rows.push(...(data || []))
-  }
-
-  return json({ success: true, data: rows })
-}
-
-const ensureNotificationReceiverProfile = async (userId: string) => {
-  const { data: existingProfile, error: profileReadError } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('id', userId)
-    .maybeSingle()
-
-  if (profileReadError) throw profileReadError
-  if (existingProfile?.id) return
-
-  const { data: authUser } = await supabase.auth.admin.getUserById(userId)
-  const email = authUser?.user?.email || null
-  const studentCode = email ? email.split('@')[0] : null
-
-  const { error: insertError } = await supabase
-    .from('profiles')
-    .insert({
-      id: userId,
-      email,
-      student_code: studentCode,
-      full_name: studentCode || 'Sinh viên HUB',
-    })
-
-  if (insertError) throw insertError
 }
 
 const notifyCourseRequestApproved = async (userId: string | null, course: any) => {
@@ -666,7 +614,6 @@ const notifyCourseRequestApproved = async (userId: string | null, course: any) =
   }
 
   let notification = false
-  await ensureNotificationReceiverProfile(userId)
   const { error: notificationError } = await supabase
     .from('notifications')
     .insert({
@@ -908,8 +855,8 @@ const handleCourseRequests = async (request: Request, params: URLSearchParams) =
         error: null,
       }
     } catch (error) {
-      notification.error = errorMessage(error)
-      console.error('Course request approval notification failed:', notification.error)
+      notification.error = 'Notification delivery failed'
+      logServerError('course_request_notification', error)
     }
 
     return json({ success: true, data: officialCourse, notification, reusedExistingCourse: Boolean(existingCourse?.id) })
@@ -1001,7 +948,6 @@ Deno.serve(async (req) => {
 
   try {
     if (resource === 'user-schedules' && req.method === 'PATCH') return await handleSyncUserSchedule(req)
-    if (resource === 'profile-private-map' && req.method === 'POST') return await handleProfilePrivateMap(req)
     if (resource === 'course-requests') return await handleCourseRequests(req, params)
     if (resource === 'manual-course-request') return await handleManualCourseRequest(req)
     if (req.method !== 'GET') return json({ error: 'Chỉ hỗ trợ phương thức GET' }, 405)
@@ -1064,6 +1010,8 @@ Deno.serve(async (req) => {
 
     return json({ success: true, data: rows, total, hasMore, limit: pageLimit, offset: pageOffset })
   } catch (error) {
-    return json({ error: errorMessage(error) }, 500)
+    const safe = safeHttpError(error)
+    if (safe.status >= 500 && safe.status !== 503) logServerError('courses_request', error)
+    return json({ error: safe.message }, safe.status)
   }
 })

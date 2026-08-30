@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { supabase } from '../utils/supabase';
 import { Link } from 'react-router-dom';
 import { SubjectRankingModal } from './SubjectRankingModal';
 import { UserData, GradeStatus, Subject, Semester } from '../types';
@@ -24,10 +23,8 @@ import { FEATURE_FORECAST_TOOLS } from '../utils/featureFlags';
 import { useSemesterLookback } from '../hooks/useSemesterLookback';
 import { useUserRole } from '../hooks/useUserRole';
 import { SemesterLookbackModal } from './SemesterLookbackModal';
-import { PROFILE_PRIVATE_TABLE, fetchProfilePrivate, updateProfilePrivate } from '../utils/profilePrivate';
-import { notifyModerators } from '../utils/moderatorNotifications';
-import { TurnstileBox } from './TurnstileBox';
-import { protectedSubmit } from '../utils/protectedSubmit';
+import { fetchProfilePrivate, updateProfilePrivate } from '../utils/profilePrivate';
+import { searchStaffProfiles, searchStaffProfilesPage } from '../utils/staffProfilesApi';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { TargetGpaTipInput } from './TargetGpaTipInput';
 import { AdminStudentExcelExportModal } from './AdminStudentExcelExportModal';
@@ -90,8 +87,6 @@ const formatTopPercent = (rank?: number | null, total?: number | null) => {
 const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
     const [location, setLocation] = useState('');
     const [description, setDescription] = useState('');
-    const [submitting, setSubmitting] = useState(false);
-    const [turnstileToken, setTurnstileToken] = useState('');
     const [statusMsg, setStatusMsg] = useState<{text: string, type: 'success'|'error'} | null>(null);
 
     if (!isOpen) return null;
@@ -113,35 +108,6 @@ const ReportErrorModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () =>
             ],
         }));
         return;
-        setSubmitting(true);
-        playClick();
-        try {
-            if (!supabase) throw new Error("Chưa cấu hình database.");
-
-            const { data: { session } } = await supabase.auth.getSession();
-
-            const data = await protectedSubmit<{ id?: number }>({
-                action: 'bug-report',
-                turnstileToken,
-                payload: {
-                    user_id: session?.user?.id || null,
-                    error_location: location,
-                    description,
-                },
-            });
-            void notifyModerators('bug_report', data?.id);
-            setStatusMsg({text: 'Đã gửi báo cáo thành công. Cảm ơn bạn!', type: 'success'});
-            setTimeout(() => {
-                onClose();
-                setLocation('');
-                setDescription('');
-                setStatusMsg(null);
-            }, 2000);
-        } catch (err: any) {
-            setStatusMsg({text: err.message || 'Có lỗi xảy ra, vui lòng thử lại.', type: 'error'});
-        } finally {
-            setSubmitting(false);
-        }
     };
 
     return createPortal(
@@ -1952,31 +1918,16 @@ const NativeAdminStudentManager = () => {
     setLoadingStudents(true);
     try {
       const pageOffset = Math.max(0, page) * STUDENT_PAGE_SIZE;
-      const { data: profiles, error, count } = await supabase
-        .from('profiles')
-        .select('id, student_code, full_name, created_at, updated_at', { count: 'exact' })
-        .or(`student_code.ilike.%${safeQuery}%,full_name.ilike.%${safeQuery}%`)
-        .order('updated_at', { ascending: false })
-        .range(pageOffset, pageOffset + STUDENT_PAGE_SIZE - 1);
-
-      if (error) throw error;
-      const profileRows = profiles || [];
-      let privateMap: Record<string, any> = {};
-      if (profileRows.length > 0) {
-        const { data: profileInfo, error: profileInfoError } = await supabase
-          .from(PROFILE_PRIVATE_TABLE)
-          .select('user_id, student_name, program_name, cohort, major_name, specialization_name, updated_at')
-          .in('user_id', profileRows.map(profile => profile.id));
-
-        if (!profileInfoError && profileInfo) {
-          privateMap = profileInfo.reduce((map: Record<string, any>, row: any) => {
-            map[row.user_id] = row;
-            return map;
-          }, {});
-        }
-      }
+      const { data: profileRows, total } = await searchStaffProfilesPage(safeQuery, {
+        limit: STUDENT_PAGE_SIZE,
+        offset: pageOffset,
+      });
+      const privateMap = profileRows.reduce((map: Record<string, any>, row: any) => {
+        map[row.id] = row;
+        return map;
+      }, {});
       setStudents(profileRows.map(profile => hydrateStudent(profile, privateMap[profile.id])));
-      setStudentsTotal(count || 0);
+      setStudentsTotal(total || 0);
       setStudentsPage(page);
     } catch (error) {
       console.error('Không thể tìm sinh viên:', error);
@@ -2483,30 +2434,11 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
         setLoadingAdmin(true);
         try {
             const safeQuery = query.replace(/[%,_]/g, ' ').trim();
-            const { data: profiles, error } = await supabase
-                .from('profiles')
-                .select('id, student_code, full_name, created_at, updated_at')
-                .or(`student_code.ilike.%${safeQuery}%,full_name.ilike.%${safeQuery}%`)
-                .order('updated_at', { ascending: false })
-                .limit(80);
-
-            if (error) throw error;
-            const allProfiles = profiles || [];
-
-            let privateMap: Record<string, any> = {};
-            if (allProfiles.length > 0) {
-                const { data: profileInfo, error: profileInfoError } = await supabase
-                    .from(PROFILE_PRIVATE_TABLE)
-                    .select('user_id, student_name, program_name, cohort, major_name, specialization_name, updated_at')
-                    .in('user_id', allProfiles.map(profile => profile.id));
-
-                if (!profileInfoError && profileInfo) {
-                    privateMap = profileInfo.reduce((map: Record<string, any>, row: any) => {
-                        map[row.user_id] = row;
-                        return map;
-                    }, {});
-                }
-            }
+            const allProfiles = await searchStaffProfiles(safeQuery, { limit: 80 });
+            const privateMap = allProfiles.reduce((map: Record<string, any>, row: any) => {
+                map[row.id] = row;
+                return map;
+            }, {});
             const users = allProfiles.map(profile => {
                 const profileInfo = privateMap[profile.id] || {};
                 return ({
@@ -2751,52 +2683,6 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
 
         handleLocalSetSemesters(newSemesters);
     };
-    // TÍNH NĂNG: TỰ ĐỘNG ĐIỀN ĐIỂM RÈN LUYỆN TỪ DB TRƯỜNG
-    useEffect(() => {
-        const fetchAndFillTrainingScore = async () => {
-            let targetStudentCode = (data as any).studentCode || (data as any).student_code;
-            if (selectedAdminUserId) {
-                const adminViewUser = adminUsers.find(u => u.id === selectedAdminUserId);
-                if (adminViewUser) targetStudentCode = adminViewUser.student_code;
-            } else if (!targetStudentCode && currentUserId) {
-                const { data: profile } = await supabase.from('profiles').select('student_code').eq('id', currentUserId).single();
-                targetStudentCode = profile?.student_code;
-            }
-
-            if (!targetStudentCode) return;
-
-            let hasChanges = false;
-            const newSemesters = [...activeData.semesters];
-
-            for (let i = 0; i < newSemesters.length; i++) {
-                const sem = newSemesters[i];
-                if (sem.trainingScore === null || sem.trainingScore === undefined || sem.trainingScore === 0) {
-                    const match = sem.name.match(/Học kỳ (1|2) Năm học (\d{4})-(\d{4})/);
-                    if (match) {
-                        const hk = match[1];
-                        const year1 = match[2];
-                        const year2 = match[3];
-                        const semId = `HK${hk}_${year1}_${year2}`;
-
-                        const { data: official, error } = await supabase
-                            .from('official_training_scores')
-                            .select('official_score')
-                            .eq('student_code', targetStudentCode)
-                            .eq('semester_id', semId)
-                            .maybeSingle();
-
-                        if (official && !error && official.official_score !== null && official.official_score !== undefined) {
-                            newSemesters[i] = { ...sem, trainingScore: official.official_score };
-                            hasChanges = true;
-                        }
-                    }
-                }
-            }
-            if (hasChanges) handleLocalSetSemesters(newSemesters);
-        };
-
-        if (activeData.semesters && activeData.semesters.length > 0) fetchAndFillTrainingScore();
-    }, [activeData.semesters.length, selectedAdminUserId, data]);
     const transcriptSemesters = useMemo(() => {
         const cleanedSemesters = activeData.semesters.filter((semester) => {
             const hasSemesterData = (semester.subjects || []).length > 0 || semester.trainingScore !== null;

@@ -1,6 +1,6 @@
-import { supabase } from './supabase';
 import { resolveImportedScheduleMetadata } from './scheduleImportUtils';
 import { replaceCloudflareUserScheduleSemester } from './userSchedulesApi';
+import { fetchPublicCourses } from './coursesApi';
 
 export interface ScheduleImportCourse {
   id?: string;
@@ -92,16 +92,19 @@ export const buildScheduleImportPreview = async (
   const candidatesByCode = new Map<string, ScheduleImportCourse[]>();
 
   if (equivalentCodes.length > 0) {
-    const filters = equivalentCodes.map(courseCode => `course_code.ilike.${courseCode}`).join(',');
-    const { data, error } = await supabase
-      .from('course_schedules')
-      .select('*')
-      .eq('semester', semester)
-      .or(filters)
-      .limit(1000);
-
-    if (error) throw error;
-    for (const course of (data || []) as ScheduleImportCourse[]) {
+    const payloads = await Promise.all(equivalentCodes.map(async (courseCode) => {
+      const params = new URLSearchParams({
+        semester,
+        courseCode,
+        limit: '100',
+      });
+      const response = await fetchPublicCourses(`/courses?${params.toString()}`);
+      if (!response.ok) throw new Error('KhÃ´ng thá»ƒ Ä‘á»‘i chiáº¿u danh má»¥c mÃ´n há»c.');
+      return response.json() as Promise<{ data?: ScheduleImportCourse[] }>;
+    }));
+    const catalogRows = payloads.flatMap((payload) => payload.data || []);
+    const uniqueRows = [...new Map(catalogRows.map((course) => [course.id || `${course.course_code}:${course.phase}`, course])).values()];
+    for (const course of uniqueRows) {
       const canonical = normalizeComparableCourseCode(course.course_code);
       if (!canonicalCodes.includes(canonical)) continue;
       const matches = candidatesByCode.get(canonical) || [];
@@ -152,47 +155,26 @@ export const buildScheduleImportPreview = async (
   });
 };
 
-const createImportedCourse = async (row: ScheduleImportPreviewRow) => {
-  const course = row.course;
-  const { data, error } = await supabase
-    .from('course_schedules')
-    .insert({
-      course_code: course.course_code,
-      subject_name: course.subject_name,
-      credits: Number(course.credits) || 0,
-      instructor: course.instructor || '',
-      day_of_week: course.day_of_week || '',
-      shift: course.shift || '',
-      room: course.room || '',
-      campus: course.campus || 'TD',
-      weeks: course.weeks || '',
-      semester: row.semester,
-      phase: course.phase || '1',
-      is_user_added: true,
-    })
-    .select('id')
-    .single();
-  if (error) throw error;
-  return data.id as string;
-};
-
 export const replaceUserScheduleFromPreview = async (
-  userId: string,
   semester: string,
   rows: ScheduleImportPreviewRow[],
 ) => {
-  if (!userId) throw new Error('Không tìm thấy người dùng đang đăng nhập.');
-  const courseIds: string[] = [];
-
-  for (const row of rows) {
-    const courseId = row.systemCourseId || await createImportedCourse(row);
-    courseIds.push(courseId);
-  }
-
-  const uniqueCourseIds = [...new Set(courseIds)];
-  const result = await replaceCloudflareUserScheduleSemester(
-    semester,
-    uniqueCourseIds
-  );
+  const importRows = rows.map((row) => row.systemCourseId
+    ? { systemCourseId: row.systemCourseId }
+    : {
+      course: {
+        course_code: row.course.course_code,
+        subject_name: row.course.subject_name,
+        credits: Number(row.course.credits) || 0,
+        instructor: row.course.instructor || '',
+        day_of_week: row.course.day_of_week || '',
+        shift: row.course.shift || '',
+        room: row.course.room || '',
+        campus: row.course.campus || 'TD',
+        weeks: row.course.weeks || '',
+        phase: row.course.phase || '1',
+      },
+    });
+  const result = await replaceCloudflareUserScheduleSemester(semester, [], importRows);
   return result.count;
 };

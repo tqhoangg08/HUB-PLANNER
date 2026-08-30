@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Session } from '@supabase/supabase-js';
+import type { AppSession } from '../utils/privateApi';
 import type { Semester, UserData } from '../types';
 import { STORAGE_KEY } from '../types';
 import {
@@ -8,10 +8,8 @@ import {
     normalizeLoadedUserData,
     REMOTE_SAVE_DEBOUNCE_MS,
 } from '../features/study-data/model';
-import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from '../utils/profilePrivate';
-import { supabase } from '../utils/supabase';
-
-const STUDENT_PROFILE_TABLE = 'profiles';
+import { fetchProfilePrivate, updateProfilePrivate } from '../utils/profilePrivate';
+import { fetchOwnPrivateProfile, updateOwnPrivateProfile } from '../utils/privateProfileApi';
 
 interface ViewingUser {
     id: string;
@@ -20,7 +18,7 @@ interface ViewingUser {
 }
 
 interface UseStudyDataOptions {
-    session: Session | null;
+    session: AppSession | null;
     isAdmin: boolean;
     isAuditor: boolean;
     viewingUser: ViewingUser | null;
@@ -32,28 +30,6 @@ interface UseStudyDataOptions {
 }
 
 const getStorageDirtyKey = (key: string) => `${key}:dirty`;
-
-const isMissingLegacyProfileColumn = (error: any, columnName: string) => {
-    const message = `${error?.message || ''} ${error?.details || ''}`;
-    return message.includes(columnName) || error?.code === '42703' || error?.code === 'PGRST204';
-};
-
-const fetchLegacyProfileData = async (userId: string) => {
-    const { data, error } = await supabase
-        .from(STUDENT_PROFILE_TABLE)
-        .select('data')
-        .eq('id', userId)
-        .maybeSingle();
-
-    if (error) {
-        if (!isMissingLegacyProfileColumn(error, 'data')) {
-            console.warn('Không thể đọc profiles.data legacy:', error);
-        }
-        return null;
-    }
-
-    return (data as any)?.data || null;
-};
 
 export const useStudyData = ({
     session,
@@ -78,15 +54,15 @@ export const useStudyData = ({
     const lastLocationPathRef = useRef(pathname);
 
     const isGuest = !session;
-    const sessionUserId = session?.user.id || null;
-    const sessionEmail = session?.user.email || '';
+    const sessionUserId = session?.user?.id || null;
+    const sessionEmail = session?.user?.email || '';
     const sessionMetaName =
-        session?.user.user_metadata.full_name
-        || session?.user.user_metadata.name
+        session?.user?.user_metadata?.full_name
+        || session?.user?.user_metadata?.name
         || '';
     const sessionMetaAvatar =
-        session?.user.user_metadata.avatar_url
-        || session?.user.user_metadata.picture
+        session?.user?.user_metadata?.avatar_url
+        || session?.user?.user_metadata?.picture
         || '';
     const userRole: 'guest' | 'school' | 'admin' = session
         ? (isAdmin ? 'admin' : 'school')
@@ -155,38 +131,23 @@ export const useStudyData = ({
         }
 
         if (isAdmin && viewingUser) {
+            // Transitional Profile Stage 4A: privileged legacy browser writes
+            // are fail-closed by updateProfilePrivate until a server-side
+            // staff profile endpoint is explicitly authorized.
             await updateProfilePrivate(targetUserId, {
                 data: dataToSave,
-                updated_at: new Date().toISOString(),
             });
-
-            const { error } = await supabase
-                .from(STUDENT_PROFILE_TABLE)
-                .update({ updated_at: new Date().toISOString() })
-                .eq('id', targetUserId);
-
-            if (error) console.error('Lỗi Admin update data user:', error);
         } else if (!isAuditor) {
             const nameToSave = profileFullName || sessionMetaName;
-            const { error } = await supabase
-                .from(STUDENT_PROFILE_TABLE)
-                .update({
+            await updateOwnPrivateProfile({
+                publicProfile: {
                     full_name: nameToSave,
                     avatar_url: profileAvatarUrl,
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('id', sessionUserId);
-
-            if (error) console.error('Lỗi update hồ sơ công khai:', error);
-
-            await upsertProfilePrivate({
-                user_id: sessionUserId,
-                email: sessionEmail,
-                data: dataToSave,
-                updated_at: new Date().toISOString(),
+                },
+                privateProfile: { data: dataToSave },
             });
 
-            if (!error && !profileFullName && nameToSave) {
+            if (!profileFullName && nameToSave) {
                 setProfileFullName(nameToSave);
             }
         } else {
@@ -226,11 +187,10 @@ export const useStudyData = ({
                     } catch (error) {
                         console.warn('Không thể đọc dữ liệu học tập private:', error);
                     }
-                    const legacyData = privateData ? null : await fetchLegacyProfileData(viewingUser.id);
                     if (!isActive) return;
 
-                    if (privateData || legacyData) {
-                        const remoteData = normalizeLoadedUserData(privateData || legacyData);
+                    if (privateData) {
+                        const remoteData = normalizeLoadedUserData(privateData);
                         loadDataIntoState(remoteData);
                         lastPrivateSaveRef.current = {
                             ownerId: viewingUser.id,
@@ -245,22 +205,19 @@ export const useStudyData = ({
                     return;
                 }
 
-                const { data: profileData } = await supabase
-                    .from(STUDENT_PROFILE_TABLE)
-                    .select('full_name, avatar_url, bio, class_name, profile_tags, show_profile_stats')
-                    .eq('id', sessionUserId)
-                    .maybeSingle();
-                let privateData: Record<string, any> | null | undefined = null;
+                let profileData: Record<string, any> | null = null;
+                let privateData: Record<string, any> | null | undefined;
                 try {
-                    privateData = (await fetchProfilePrivate(sessionUserId))?.data;
+                    const profile = await fetchOwnPrivateProfile();
+                    profileData = profile.publicProfile;
+                    privateData = profile.privateProfile?.data;
                 } catch (error) {
                     console.warn('Không thể đọc dữ liệu học tập private:', error);
                 }
-                const legacyData = privateData ? null : await fetchLegacyProfileData(sessionUserId);
                 if (!isActive) return;
 
-                const remoteData = hasMeaningfulStudyData(privateData || legacyData)
-                    ? normalizeLoadedUserData(privateData || legacyData)
+                const remoteData = hasMeaningfulStudyData(privateData)
+                    ? normalizeLoadedUserData(privateData)
                     : null;
 
                 if (remoteData) {
@@ -375,12 +332,7 @@ export const useStudyData = ({
         let saved = await saveStudyDataToRemote(nextData);
 
         if (!saved && sessionUserId && !viewingUser && !isAuditor) {
-            await upsertProfilePrivate({
-                user_id: sessionUserId,
-                email: sessionEmail,
-                data: nextData,
-                updated_at: new Date().toISOString(),
-            });
+            await updateOwnPrivateProfile({ privateProfile: { data: nextData } });
             saved = true;
         }
         if (!saved) throw new Error('Không thể lưu bảng điểm lúc này.');
@@ -413,12 +365,7 @@ export const useStudyData = ({
             try {
                 let saved = await saveStudyDataToRemote(nextData);
                 if (!saved) {
-                    await upsertProfilePrivate({
-                        user_id: sessionUserId,
-                        email: sessionEmail,
-                        data: nextData,
-                        updated_at: new Date().toISOString(),
-                    });
+                    await updateOwnPrivateProfile({ privateProfile: { data: nextData } });
                     saved = true;
                 }
                 if (saved) {

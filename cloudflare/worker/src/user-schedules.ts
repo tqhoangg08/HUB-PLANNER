@@ -20,11 +20,17 @@ interface D1UserScheduleCourseRow extends Record<string, unknown> {
   schedule_semester: string;
   schedule_custom_data: string | null;
   base_course_id: string | null;
+  snapshot_course_json: string | null;
 }
 
 export interface UserScheduleMutationResult {
   success: true;
   mirrorSynced: boolean;
+}
+
+interface ScheduleImportResult {
+  count: number;
+  courseIds: string[];
 }
 
 const UUID_PATTERN =
@@ -71,6 +77,20 @@ const COURSE_COLUMNS = [
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+// Keep JSON representation deterministic wherever private schedule state is
+// persisted or compared. It is deliberately shared by the D1 mutation path
+// and reconciliation tooling rather than relying on client key ordering.
+export const canonicalizeUserScheduleJson = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(canonicalizeUserScheduleJson);
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(
+    Object.keys(value).sort().map((key) => [key, canonicalizeUserScheduleJson(value[key])])
+  );
+};
+
+export const serializeCanonicalUserScheduleJson = (value: unknown) =>
+  JSON.stringify(canonicalizeUserScheduleJson(value));
 
 const jsonDepth = (value: unknown, current = 0): number => {
   if (value === null || typeof value !== 'object') return current;
@@ -350,6 +370,25 @@ const fetchSourceRows = async (
       signal: controller.signal,
     });
     if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      let sourceCode = '';
+      let sourceMessage = '';
+      try {
+        const payload = JSON.parse(errorText) as Record<string, unknown>;
+        sourceCode = String(payload.code || '');
+        sourceMessage = String(payload.message || '');
+      } catch {
+        // Non-JSON upstream failures use the generic safe mapping below.
+      }
+      if (
+        sourceCode === '55000'
+        && sourceMessage.includes('HUB_SCHEDULE_SOURCE_WRITES_DISABLED')
+      ) {
+        throw new UserScheduleError(
+          503,
+          'Tính năng lưu lịch cá nhân tạm thời chưa khả dụng.'
+        );
+      }
       throw new UserScheduleError(
         response.status === 404 ? 404 : response.status === 409 ? 409 : 502,
         response.status === 404
@@ -378,6 +417,185 @@ const fetchSourceRows = async (
   } finally {
     globalThis.clearTimeout(timeout);
   }
+};
+
+export const parseStoredUserScheduleCourseSnapshot = (
+  value: unknown
+): Record<string, unknown> | null => {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const readServerWriteToken = (env: UserSchedulesEnv) =>
+  readSyncConfig(env).serviceRoleKey;
+
+export const addUserScheduleForBetterAuth = async (
+  env: UserSchedulesEnv,
+  userId: unknown,
+  courseId: unknown,
+  semester: unknown,
+  fetcher: typeof fetch = fetch
+) => addUserSchedule(
+  env,
+  readServerWriteToken(env),
+  userId,
+  courseId,
+  semester,
+  fetcher
+);
+
+export const deleteUserScheduleForBetterAuth = async (
+  env: UserSchedulesEnv,
+  userId: unknown,
+  courseId: unknown,
+  fetcher: typeof fetch = fetch
+) => deleteUserSchedule(
+  env,
+  readServerWriteToken(env),
+  userId,
+  courseId,
+  fetcher
+);
+
+export const updateUserScheduleForBetterAuth = async (
+  env: UserSchedulesEnv,
+  userId: unknown,
+  scheduleId: unknown,
+  customData: unknown,
+  fetcher: typeof fetch = fetch
+) => updateUserScheduleCustomData(
+  env,
+  readServerWriteToken(env),
+  userId,
+  scheduleId,
+  customData,
+  fetcher
+);
+
+export const replaceUserScheduleSemesterForBetterAuth = async (
+  env: UserSchedulesEnv,
+  userId: unknown,
+  semester: unknown,
+  courseIds: unknown,
+  fetcher: typeof fetch = fetch
+) => replaceUserScheduleSemester(
+  env,
+  readServerWriteToken(env),
+  userId,
+  semester,
+  courseIds,
+  fetcher
+);
+
+const parseScheduleImportResult = (value: unknown): ScheduleImportResult => {
+  if (!isRecord(value) || !Array.isArray(value.courseIds)) {
+    throw new UserScheduleError(502, 'Nguồn tạm thời trả về kết quả nhập lịch không hợp lệ.');
+  }
+  const courseIds = parseUserScheduleCourseIds(value.courseIds);
+  const count = Number(value.count);
+  if (!Number.isSafeInteger(count) || count !== courseIds.length) {
+    throw new UserScheduleError(502, 'Nguồn tạm thời trả về kết quả nhập lịch không hợp lệ.');
+  }
+  return { count, courseIds };
+};
+
+export const replaceUserScheduleImportForBetterAuth = async (
+  env: UserSchedulesEnv,
+  userIdValue: unknown,
+  semesterValue: unknown,
+  rowsValue: unknown,
+  fetcher: typeof fetch = fetch
+): Promise<UserScheduleMutationResult & { count: number }> => {
+  const { supabaseUrl, serviceRoleKey } = readSyncConfig(env);
+  const userId = parseUserScheduleId(userIdValue, 'Mã người dùng');
+  const semester = parseUserScheduleSemester(semesterValue);
+  if (!Array.isArray(rowsValue) || rowsValue.length > 100) {
+    throw new UserScheduleError(400, 'Danh sách nhập lịch không hợp lệ.');
+  }
+  const rpcUrl = new URL(
+    '/rest/v1/rpc/replace_user_schedule_import_source_server',
+    supabaseUrl.replace(/\/$/, '')
+  );
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(
+    () => controller.abort('user-schedule-import-timeout'),
+    WRITE_TIMEOUT_MS
+  );
+  let rpcValue: unknown;
+  try {
+    const response = await fetcher(rpcUrl, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+      body: JSON.stringify({
+        p_user_id: userId,
+        p_semester: semester,
+        p_rows: rowsValue,
+      }),
+      signal: controller.signal,
+    });
+    const responseText = await response.text();
+    if (!response.ok) {
+      let code = '';
+      let message = '';
+      try {
+        const payload = JSON.parse(responseText) as Record<string, unknown>;
+        code = String(payload.code || '');
+        message = String(payload.message || '');
+      } catch {
+        // Use the fixed generic upstream error below.
+      }
+      if (code === '55000' && message.includes('HUB_SCHEDULE_SOURCE_WRITES_DISABLED')) {
+        throw new UserScheduleError(503, 'Tính năng lưu lịch cá nhân tạm thời chưa khả dụng.');
+      }
+      throw new UserScheduleError(
+        code === '22023' ? 400 : code === '42501' ? 403 : 502,
+        code === '22023'
+          ? 'Dữ liệu nhập lịch không hợp lệ.'
+          : 'Không thể lưu lịch cá nhân.'
+      );
+    }
+    rpcValue = JSON.parse(responseText) as unknown;
+  } catch (error) {
+    if (error instanceof UserScheduleError) throw error;
+    throw new UserScheduleError(503, 'Dịch vụ lưu lịch cá nhân tạm thời không khả dụng.');
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+
+  const result = parseScheduleImportResult(rpcValue);
+  const finalRows = await fetchSourceRows(
+    env,
+    serviceRoleKey,
+    buildSupabaseUserSchedulesUrl(supabaseUrl, { userId, semester }),
+    { method: 'GET' },
+    fetcher
+  );
+  let mirrorSynced = true;
+  try {
+    await env.DB.prepare(
+      'DELETE FROM user_schedules WHERE user_id = ? AND semester = ?'
+    ).bind(userId, semester).run();
+    await writeRowsToD1(env, finalRows);
+  } catch (error) {
+    mirrorSynced = false;
+    console.error(JSON.stringify({
+      event: 'user_schedule_targeted_mirror_failed',
+      operation: 'atomic-import',
+      semester,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+  }
+  return { success: true, count: result.count, mirrorSynced };
 };
 
 const writeRowsToD1 = async (
@@ -526,9 +744,14 @@ export const listUserSchedules = async (
        us.semester AS schedule_semester,
        us.custom_data AS schedule_custom_data,
        cs.id AS base_course_id,
+       snapshots.course_json AS snapshot_course_json,
        ${courseSelect}
      FROM user_schedules us
      LEFT JOIN course_schedules cs ON cs.id = us.course_id
+     LEFT JOIN user_schedule_course_snapshots snapshots
+       ON snapshots.schedule_id = us.id
+      AND snapshots.user_id = us.user_id
+      AND snapshots.course_id = us.course_id
      WHERE us.user_id = ?
      ORDER BY us.created_at ASC, us.id ASC`
   )
@@ -536,18 +759,51 @@ export const listUserSchedules = async (
     .all<D1UserScheduleCourseRow>();
 
   const rows = result.results || [];
-  if (rows.some((row) => !row.base_course_id)) {
+  if (rows.some((row) => !row.base_course_id && !row.snapshot_course_json)) {
     throw new UserScheduleError(
       503,
       'Lịch cá nhân đang chờ đồng bộ đủ thông tin môn học.'
     );
   }
 
+  // `user_schedule_revisions` is the sole CAS token source. A revision is
+  // scoped to one owner and semester, rather than to the entire schedule
+  // collection, so an aggregate schedule response deliberately exposes a
+  // semester -> revision map instead of a misleading collection ETag.
+  const revisionResult = await env.DB.prepare(
+    'SELECT semester, revision FROM user_schedule_revisions WHERE user_id = ?'
+  )
+    .bind(userId)
+    .all<{ semester: string; revision: number }>();
+  const revisionsBySemester = new Map<string, number>();
+  for (const revisionRow of revisionResult.results || []) {
+    const semester = typeof revisionRow.semester === 'string'
+      ? revisionRow.semester.trim()
+      : '';
+    const revision = Number(revisionRow.revision);
+    if (
+      SEMESTER_PATTERN.test(semester) &&
+      Number.isSafeInteger(revision) &&
+      revision >= 0 &&
+      revision <= Number.MAX_SAFE_INTEGER - 1
+    ) {
+      revisionsBySemester.set(semester, revision);
+    }
+  }
+  for (const row of rows) {
+    if (!revisionsBySemester.has(row.schedule_semester)) {
+      revisionsBySemester.set(row.schedule_semester, 0);
+    }
+  }
+
   const data = rows.map((row) => {
-    const baseCourse = Object.fromEntries(
+    const publicCourse = Object.fromEntries(
       COURSE_COLUMNS.map((column) => [column, row[column]])
     ) as Record<string, unknown>;
-    baseCourse.id = row.base_course_id;
+    publicCourse.id = row.base_course_id;
+    const snapshotCourse = parseStoredUserScheduleCourseSnapshot(row.snapshot_course_json);
+    const baseCourse = snapshotCourse || publicCourse;
+    if (!baseCourse.id) baseCourse.id = row.schedule_course_id;
     if ('is_user_added' in baseCourse) {
       baseCourse.is_user_added =
         baseCourse.is_user_added === null ||
@@ -567,7 +823,15 @@ export const listUserSchedules = async (
     };
   });
 
-  return { success: true, data };
+  return {
+    success: true,
+    data,
+    revisions: Object.fromEntries(
+      [...revisionsBySemester.entries()].sort(([left], [right]) =>
+        left.localeCompare(right)
+      )
+    ),
+  };
 };
 
 const readOneSourceRow = async (

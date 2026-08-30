@@ -74,7 +74,7 @@ test('participation reads fail closed before the private mirror is seeded', asyn
   );
 });
 
-test('participation writes use the user token and target only one D1 row', async () => {
+test('participation writes use the server credential and target only one owner-scoped D1 row', async () => {
   const statements: string[] = [];
   const db = {
     prepare(sql: string) {
@@ -98,9 +98,8 @@ test('participation writes use the user token and target only one D1 row', async
     const headers = new Headers(init?.headers);
     assert.equal(url.pathname, '/rest/v1/user_participations');
     assert.equal(init?.method, 'POST');
-    assert.equal(headers.get('Authorization'), 'Bearer student-token');
-    assert.equal(headers.get('apikey'), 'anon-key');
-    assert.notEqual(headers.get('Authorization'), 'Bearer service-role-key');
+    assert.equal(headers.get('Authorization'), 'Bearer service-role-key');
+    assert.equal(headers.get('apikey'), 'service-role-key');
     return Response.json([
       {
         user_id: USER_ID,
@@ -117,7 +116,6 @@ test('participation writes use the user token and target only one D1 row', async
       SUPABASE_ANON_KEY: 'anon-key',
       SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
     } as never,
-    'student-token',
     USER_ID,
     42,
     true,

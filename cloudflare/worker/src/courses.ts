@@ -57,6 +57,7 @@ const DETAIL_COLUMNS = [
   'exam_shift', 'exam_campus', 'exam_room', 'cohort', 'major', 'group_name',
   'orientation', 'orientation_note_3', 'registration_type', 'general_note',
   'academic_program', 'student_count', 'phase', 'semester', 'instructor', 'is_user_added',
+  'revision',
 ] as const;
 
 const SUMMARY_COLUMNS = [
@@ -164,7 +165,10 @@ const publicRow = (row: Record<string, unknown>) => {
 };
 
 const buildWhere = (params: URLSearchParams) => {
-  const where: string[] = [];
+  // `course_schedules` is also the durable D1 store for retired course rows.
+  // Public catalogue queries must never infer visibility from mere table
+  // membership, otherwise a later authority cutover could publish history.
+  const where: string[] = ["catalogue_visibility = 'published'"];
   const bindings: Array<string | number> = [];
   const exact = [
     ['semester', 'semester'], ['major', 'major'], ['cohort', 'cohort'],
@@ -256,13 +260,6 @@ export const canUseCourseMetadataCount = (params: URLSearchParams) => {
 };
 
 const countCourses = async (params: URLSearchParams, env: CourseEnv) => {
-  if (canUseCourseMetadataCount(params)) {
-    const metadata = await env.DB.prepare(
-      'SELECT source_row_count FROM sync_metadata WHERE resource = ?'
-    ).bind('course_schedules').first<{ source_row_count: number }>();
-    if (metadata) return Number(metadata.source_row_count || 0);
-  }
-
   if (!normalizeSearch(params.get('search')) && !clean(params.get('groupName')) && !hasAdvancedCourseFilters(params)) {
     const { whereSql, bindings } = buildFacetWhere(params);
     const facetCount = await env.DB.prepare(
@@ -400,7 +397,7 @@ const courseDetail = async (url: URL, env: CourseEnv) => {
   const id = clean(url.searchParams.get('id'));
   if (!id) return { status: 400, payload: { error: 'Missing course id' } };
   const row = await env.DB.prepare(
-    `SELECT ${DETAIL_COLUMNS.join(', ')} FROM course_schedules WHERE id = ?`
+    `SELECT ${DETAIL_COLUMNS.join(', ')} FROM course_schedules WHERE id = ? AND catalogue_visibility = 'published'`
   ).bind(id).first<Record<string, unknown>>();
   if (!row) return { status: 404, payload: { error: 'Course not found' } };
   return { status: 200, payload: { success: true, data: publicRow(row) } };

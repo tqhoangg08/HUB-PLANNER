@@ -20,8 +20,8 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { supabase } from '../utils/supabase';
-import { fetchProfilePrivate } from '../utils/profilePrivate';
+import { fetchBetterAuthSession, signOutBetterAuth } from '../utils/privateApi';
+import { fetchOwnPrivateProfile } from '../utils/privateProfileApi';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
@@ -71,17 +71,18 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
 
     useEffect(() => {
         const fetchUser = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            setSession(session);
+            const betterAuthSession = await fetchBetterAuthSession().catch(() => null);
+            setSession(betterAuthSession);
 
-            if (session?.user) {
-                const { data } = await supabase
-                    .from('profiles')
-                    .select('id,full_name,student_code,avatar_url,class_name')
-                    .eq('id', session.user.id)
-                    .single();
-                const privateProfile = await fetchProfilePrivate(session.user.id).catch(() => null);
-                if (data) setProfile({ ...data, data: privateProfile?.data, email: privateProfile?.email });
+            if (betterAuthSession?.user) {
+                const ownProfile = await fetchOwnPrivateProfile().catch(() => null);
+                if (ownProfile?.publicProfile) {
+                    setProfile({
+                        ...ownProfile.publicProfile,
+                        data: ownProfile.privateProfile?.data,
+                        email: betterAuthSession.user.email,
+                    });
+                }
             }
 
             setLoading(false);
@@ -93,7 +94,7 @@ export const MobileProfile: React.FC<MobileProfileProps> = ({ setShowAccountSett
     const handleLogout = async () => {
         playClick();
         if (await showConfirm('Bạn có chắc chắn muốn đăng xuất?')) {
-            await supabase.auth.signOut();
+            await signOutBetterAuth();
             clearLocalStoragePreservingDevicePreferences();
             sessionStorage.clear();
             navigate('/login', { replace: true });

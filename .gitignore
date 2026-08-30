@@ -61,3 +61,5 @@ supabase/.temp/
 cloudflare/.wrangler/
 cloudflare/.dev.vars
 .cache/cloudflare/
+.cache/schedule-reconcile/
+.cache/

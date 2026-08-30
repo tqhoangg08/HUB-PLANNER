@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { BellRing, Loader2, X } from 'lucide-react';
-import { supabase } from '../utils/supabase';
 import {
   getCurrentPushSubscription,
+  isPushNotificationSyncAvailable,
   isPushSupported,
   subscribeToDeviceNotifications,
 } from '../utils/pushNotifications';
 import { FEATURE_SCHEDULE_REMINDERS } from '../utils/featureFlags';
+import { fetchBetterAuthSession } from '../utils/privateApi';
 
 type NotificationNudgeVariant = 'events' | 'lost-found' | 'schedule';
 
@@ -58,10 +59,10 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
       try {
         setError(null);
 
-        if (!isPushSupported()) return;
+        if (!isPushSupported() || !isPushNotificationSyncAvailable()) return;
 
-        const { data } = await supabase.auth.getSession();
-        if (!data.session?.user?.id) {
+        const session = await fetchBetterAuthSession();
+        if (!session?.user?.id) {
           if (alive) setVisible(false);
           return;
         }
@@ -83,14 +84,13 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
       }
     };
 
-    checkState();
-    const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      checkState();
-    });
+    void checkState();
+    const refresh = () => void checkState();
+    window.addEventListener('focus', refresh);
 
     return () => {
       alive = false;
-      listener.subscription.unsubscribe();
+      window.removeEventListener('focus', refresh);
     };
   }, [scheduleRemindersDisabled]);
 
@@ -114,8 +114,8 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
         return;
       }
 
-      const { data } = await supabase.auth.getSession();
-      await subscribeToDeviceNotifications(data.session?.user?.id || null);
+      const session = await fetchBetterAuthSession();
+      await subscribeToDeviceNotifications(session?.user?.id || null);
       setVisible(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Chưa bật được thông báo. Thử lại sau vài giây.');

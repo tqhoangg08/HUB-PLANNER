@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Session } from '@supabase/supabase-js';
+import type { AppSession } from '../utils/privateApi';
+import { signOutBetterAuth } from '../utils/privateApi';
 import { logActivity } from '../utils/activityLogger';
 import { playClick } from '../utils/audio';
 import { clearLocalStoragePreservingDevicePreferences } from '../utils/devicePreferences';
@@ -7,12 +8,11 @@ import {
     setActivePushNotificationUser,
     unbindDeviceNotificationsForCurrentUser,
 } from '../utils/pushNotifications';
-import { supabase } from '../utils/supabase';
 
 export const SCHOOL_EMAIL_DOMAIN = 'st.buh.edu.vn';
 
 interface UseSessionAccessControlOptions {
-    session: Session | null;
+    session: AppSession | null;
     isAdmin: boolean;
     isAuditor: boolean;
     isCTV: boolean;
@@ -42,8 +42,8 @@ export const useSessionAccessControl = ({
     closeUserMenu,
     navigateToLogin,
 }: UseSessionAccessControlOptions) => {
-    const sessionUserId = session?.user.id || null;
-    const sessionEmail = session?.user.email || '';
+    const sessionUserId = session?.user?.id || null;
+    const sessionEmail = session?.user?.email || '';
     const [isAccessDenied, setIsAccessDenied] = useState(false);
     const [deniedEmail, setDeniedEmail] = useState('');
 
@@ -91,9 +91,9 @@ export const useSessionAccessControl = ({
         }
 
         try {
-            await supabase.auth.signOut();
+            await signOutBetterAuth();
         } catch (error) {
-            console.error('Lỗi khi đăng xuất Supabase:', error);
+            console.error('Lỗi khi đăng xuất:', error);
         }
 
         clearLocalStoragePreservingDevicePreferences();

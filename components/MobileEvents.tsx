@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { supabase } from '../utils/supabase';
 import { 
   Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, 
   AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, 
@@ -90,14 +89,12 @@ const notifyAllUsersAboutEvent = async (event: any) => {
     try {
         const eventTitle = event.title || 'Có một sự kiện mới';
         const criteriaLabel = event.criteria ? ` - Mục ${event.criteria}` : '';
-        const { data: sessionData } = await supabase.auth.getSession();
-        const accessToken = sessionData.session?.access_token;
         await fetch(apiUrl('/push?resource=send'), {
             method: 'POST',
             headers: apiHeaders({
                 'Content-Type': 'application/json',
-                ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
             }),
+            credentials: 'include',
             body: JSON.stringify({
                 title: 'Sự kiện mới',
                 body: `${eventTitle}${criteriaLabel}`,
@@ -704,7 +701,7 @@ const canManage = isAdmin || isAuditor || isCTV;
 
   useEffect(() => {
       const loadParticipation = async () => {
-          if (session?.user?.id && supabase) {
+          if (session?.user?.id) {
               const targetId = viewUserId || session.user.id;
               try {
                   const eventIds = await fetchEventParticipations(targetId);
@@ -712,18 +709,18 @@ const canManage = isAdmin || isAuditor || isCTV;
                   setParticipatedEvents(dbEvents);
                   localStorage.setItem('hub_participated_events', JSON.stringify(dbEvents));
                   return;
-              } catch (cloudflareError) {
-                  console.warn('Cloudflare participation fallback:', cloudflareError);
-              }
-
-              const { data, error } = await supabase
-                  .from('user_participations')
-                  .select('event_id')
-                  .eq('user_id', targetId);
-              if (!error && data) {
-                  const dbEvents = data.map(item => item.event_id.toString());
-                  setParticipatedEvents(dbEvents);
-                  localStorage.setItem('hub_participated_events', JSON.stringify(dbEvents));
+              } catch {
+                  console.warn('Không thể tải lịch sử tham gia từ API riêng.');
+                  const saved = localStorage.getItem('hub_participated_events');
+                  if (saved) {
+                      try {
+                          setParticipatedEvents(JSON.parse(saved));
+                      } catch {
+                          setParticipatedEvents([]);
+                      }
+                  } else {
+                      setParticipatedEvents([]);
+                  }
               }
           } else {
               const saved = localStorage.getItem('hub_participated_events');
@@ -878,7 +875,6 @@ const canManage = isAdmin || isAuditor || isCTV;
         return;
       }
 
-      const eventColumns = 'id,title,criteria,points,format,deadline,deadline_time,close_on_full,description,link,organizer,category,classification,location_type,status,is_manually_closed,is_deleted,created_at,event_date,event_time,registration_start_date,registration_start_time,image_url';
       const participantIds = participatedEvents.map(id => Number(id)).filter(id => Number.isFinite(id));
       const mirrorReady =
         !options.bypassCache || (await syncAdminEventMirror());
@@ -949,85 +945,13 @@ const canManage = isAdmin || isAuditor || isCTV;
         }
       }
 
-      const buildQuery = (select: string, countOptions: any, group: 'open' | 'closed') => {
-        let query = supabase!.from('events').select(select, countOptions);
-        if (!(isManagementView && canManage)) {
-          query = query.or('is_deleted.is.false,is_deleted.is.null').neq('status', 'pending');
-        }
-        if (activeTab === 'participated') query = query.in('id', participantIds);
-        else if (appliedFilters.trainingCategories.length) query = query.in('criteria', appliedFilters.trainingCategories);
-        else if (activeTab !== 'all') query = query.eq('criteria', activeTab);
-        if (activeScope === 'internal') query = query.eq('location_type', 'Trong trường');
-        if (activeScope === 'external') query = query.eq('location_type', 'Ngoài trường');
-        if (appliedFilters.eventType !== 'all') query = query.eq('category', appliedFilters.eventType);
-        if (appliedFilters.dateFrom) query = query.gte('event_date', appliedFilters.dateFrom);
-        if (appliedFilters.dateTo) query = query.lte('event_date', appliedFilters.dateTo);
-        if (term) query = query.or(`title.ilike.%${term}%,organizer.ilike.%${term}%`);
-        if (group === 'open') {
-          query = query.or('is_manually_closed.is.false,is_manually_closed.is.null').neq('status', 'Đã kết thúc');
-        } else {
-          query = query.or('is_manually_closed.is.true,status.eq.Đã kết thúc');
-        }
-        if (sortOrder === 'oldest') {
-          query = query.order('created_at', { ascending: true });
-        } else if (sortOrder === 'expiring_soon') {
-          query = query.order('deadline', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false });
-        } else {
-          query = query.order('created_at', { ascending: false });
-        }
-        return query;
-      };
-
-      const [{ count: openCount, error: openCountError }, { count: closedCount, error: closedCountError }] = await Promise.all([
-        buildQuery('id', { count: 'exact', head: true }, 'open'),
-        buildQuery('id', { count: 'exact', head: true }, 'closed'),
-      ]);
-      if (openCountError) throw openCountError;
-      if (closedCountError) throw closedCountError;
-
-      const openTotal = openCount || 0;
-      const closedTotal = closedCount || 0;
-      const rows: any[] = [];
-      if (pageOffset < openTotal) {
-        const openEnd = Math.min(openTotal - 1, pageOffset + EVENTS_PAGE_SIZE - 1);
-        const { data, error: openError } = await buildQuery(eventColumns, {}, 'open').range(pageOffset, openEnd);
-        if (openError) throw openError;
-        rows.push(...(data || []));
-      }
-      if (rows.length < EVENTS_PAGE_SIZE) {
-        const closedOffset = Math.max(0, pageOffset - openTotal);
-        const closedLimit = EVENTS_PAGE_SIZE - rows.length;
-        if (closedOffset < closedTotal) {
-          const { data, error: closedError } = await buildQuery(eventColumns, {}, 'closed').range(closedOffset, closedOffset + closedLimit - 1);
-          if (closedError) throw closedError;
-          rows.push(...(data || []));
-        }
-      }
-
-      const parsedEvents: HubEvent[] = rows.map((row: any) => {
-          let deadlineDate = null;
-          if (row.deadline) {
-              deadlineDate = new Date(row.deadline);
-              deadlineDate.setHours(23, 59, 59, 999);
-          }
-          return {
-              id: row.id.toString(), name: row.title || 'Sự kiện chưa có tên', category: row.criteria || 'Khác', 
-              score: row.points?.toString() || '0', location: row.format || 'Offline', time: formatDateString(row.deadline),
-              deadlineDate: deadlineDate, deadline_time: row.deadline_time || null, close_on_full: row.close_on_full || false,
-              description: row.description || null, link: row.link || '', organizer: row.organizer || 'HUB',
-              type: row.category || '', classification: row.classification || '', scope: row.location_type || 'Trong trường',
-              status: row.status || 'Sắp diễn ra', is_manually_closed: row.is_manually_closed || false,
-              is_deleted: row.is_deleted || false, created_at: row.created_at || new Date().toISOString(),
-              event_date: row.event_date || null, event_time: row.event_time || null,
-              registration_start_date: row.registration_start_date || null, registration_start_time: row.registration_start_time || null,
-              image_url: row.image_url || null
-          };
-      });
-      setEvents(parsedEvents);
-      setEventsTotal(openTotal + closedTotal);
+      throw new Error('Không thể tải dữ liệu sự kiện quản trị từ máy chủ.');
     } catch (err) {
-      setEvents([]); // Fallback empty if failed
-      setEventsTotal(0);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Không thể tải dữ liệu sự kiện quản trị từ máy chủ.'
+      );
     } finally {
       setLoading(false);
     }

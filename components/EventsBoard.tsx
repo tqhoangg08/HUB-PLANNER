@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { supabase } from '../utils/supabase';
 import { 
   Search, Calendar, MapPin, Award, Loader2, RefreshCw, Users, Clock, 
   AlertCircle, FileText, X, PlusCircle, Sparkles, GraduationCap, BookOpen, 
@@ -119,14 +118,11 @@ const notifyAllUsersAboutEvent = async (event: any) => {
     try {
         const eventTitle = event.title || 'Có một sự kiện mới';
         const criteriaLabel = event.criteria ? ` - Mục ${event.criteria}` : '';
-        const { data: sessionData } = await supabase.auth.getSession();
-        const accessToken = sessionData.session?.access_token;
-
         const response = await fetch(apiUrl('/push?resource=send'), {
             method: 'POST',
             headers: apiHeaders({
                 'Content-Type': 'application/json',
-                ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+                // The server resolves the Better Auth session from the cookie.
             }),
             body: JSON.stringify({
                 title: 'Sự kiện mới',
@@ -423,11 +419,6 @@ const ContributeEventModal = ({ isOpen, onClose, onShowToast }: { isOpen: boolea
 
         if (!formData.link.trim()) {
             onShowToast("Vui lòng nhập link tham gia!", "error");
-            return;
-        }
-
-        if (!supabase) {
-            onShowToast("Lỗi kết nối Server.", "error");
             return;
         }
 
@@ -1295,7 +1286,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
 
   useEffect(() => {
       const loadParticipation = async () => {
-          if (session?.user?.id && supabase) {
+          if (session?.user?.id) {
               const targetId = viewUserId || session.user.id;
               try {
                   const eventIds = await fetchEventParticipations(targetId);
@@ -1303,20 +1294,18 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
                   setParticipatedEvents(dbEvents);
                   localStorage.setItem('hub_participated_events', JSON.stringify(dbEvents));
                   return;
-              } catch (cloudflareError) {
-                  console.warn('Cloudflare participation fallback:', cloudflareError);
-              }
-
-              const { data, error } = await supabase
-                  .from('user_participations')
-                  .select('event_id')
-                  .eq('user_id', targetId);
-              if (!error && data) {
-                  const dbEvents = data.map(item => item.event_id.toString());
-                  setParticipatedEvents(dbEvents);
-                  localStorage.setItem('hub_participated_events', JSON.stringify(dbEvents));
-              } else {
-                  console.error("Lỗi tải data tham gia:", error);
+              } catch {
+                  console.warn('Không thể tải lịch sử tham gia từ API riêng.');
+                  const saved = localStorage.getItem('hub_participated_events');
+                  if (saved) {
+                      try {
+                          setParticipatedEvents(JSON.parse(saved));
+                      } catch {
+                          setParticipatedEvents([]);
+                      }
+                  } else {
+                      setParticipatedEvents([]);
+                  }
               }
           } 
           else {
@@ -1413,8 +1402,6 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
     setError(null);
 
     try {
-      if (!supabase) throw new Error('Chưa khởi tạo kết nối Supabase');
-
       if (!showManagementView) {
         const params = new URLSearchParams({ limit: '100' });
         if (options.bypassCache) params.set('refresh', '1');
@@ -1490,13 +1477,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       }
 
       if (!fetchedData) {
-        const { data, error: fetchError } = await supabase
-          .from('events')
-          .select(eventColumns)
-          .order('created_at', { ascending: false })
-          .limit(500);
-        if (fetchError) throw fetchError;
-        fetchedData = data || [];
+        throw new Error('Không thể tải dữ liệu sự kiện quản trị từ máy chủ.');
       }
 
       if (fetchedData) {

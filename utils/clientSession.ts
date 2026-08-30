@@ -1,15 +1,24 @@
-import type { User } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { fetchBetterAuthSession } from './privateApi';
+
+export interface SessionUser {
+    id: string;
+    email?: string;
+    app_metadata?: Record<string, unknown>;
+    user_metadata?: Record<string, unknown>;
+}
 
 /**
- * Reads the browser's current Supabase session without making a separate
- * `/auth/v1/user` verification request. Server-side authorization must still
- * validate the access token independently.
+ * Resolves the current browser identity through the same-origin Better Auth
+ * bridge. Migrated private paths must not depend on a browser Supabase token.
  */
-export const getLocalSessionUser = async (): Promise<User | null> => {
-    if (!supabase) return null;
+export const getLocalSessionUser = async (): Promise<SessionUser | null> => {
+    const session = await fetchBetterAuthSession();
+    if (!session) return null;
 
-    const { data, error } = await supabase.auth.getSession();
-    if (error) throw error;
-    return data.session?.user ?? null;
+    return {
+        id: session.user.id,
+        email: session.user.email,
+        app_metadata: session.user.app_metadata,
+        user_metadata: session.user.user_metadata,
+    };
 };

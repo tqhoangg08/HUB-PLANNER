@@ -18,8 +18,29 @@ export const LostFoundBoard = lazy(() =>
 export const LoginScreen = lazy(() =>
     import('../../components/LoginScreen').then(module => ({ default: module.LoginScreen }))
 );
+export const RecoveryLoginScreen = lazy(() =>
+    import('../../components/RecoveryLoginScreen').then(module => ({ default: module.RecoveryLoginScreen }))
+);
+export const RecoveryAccountScreen = lazy(() =>
+    import('../../components/RecoveryAccountScreen').then(module => ({ default: module.RecoveryAccountScreen }))
+);
+export const RecoveryForgotPasswordScreen = lazy(() =>
+    import('../../components/RecoveryForgotPasswordScreen').then(module => ({ default: module.RecoveryForgotPasswordScreen }))
+);
+export const RecoveryResetPasswordScreen = lazy(() =>
+    import('../../components/RecoveryResetPasswordScreen').then(module => ({ default: module.RecoveryResetPasswordScreen }))
+);
+export const StaffPasswordActivationScreen = lazy(() =>
+    import('../../components/StaffPasswordActivationScreen').then(module => ({ default: module.StaffPasswordActivationScreen }))
+);
+export const RegistrationPasswordScreen = lazy(() =>
+    import('../../components/RegistrationPasswordScreen').then(module => ({ default: module.RegistrationPasswordScreen }))
+);
 export const PrivacyPolicy = lazy(() =>
     import('../../components/PrivacyPolicy').then(module => ({ default: module.PrivacyPolicy }))
+);
+export const PublicRankings = lazy(() =>
+    import('../../components/PublicRankings').then(module => ({ default: module.PublicRankings }))
 );
 export const TermsOfUse = lazy(() =>
     import('../../components/TermsOfUse').then(module => ({ default: module.TermsOfUse }))

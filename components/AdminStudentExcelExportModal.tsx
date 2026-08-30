@@ -6,9 +6,8 @@ import {
     AdminStudentExcelRow,
     exportAdminStudentListToExcel
 } from '../utils/excelExport';
-import { PROFILE_PRIVATE_TABLE } from '../utils/profilePrivate';
-import { supabase } from '../utils/supabase';
-import { apiHeaders, apiUrl } from '../utils/api';
+import { fetchStaffProfileExportPage } from '../utils/staffProfilesApi';
+import { fetchAdminExcelExportRows, requestAdminExcelOtp } from '../utils/adminExportApi';
 import { ACADEMIC_PROGRAMS, getMajors } from '../utils/programs';
 
 interface AdminStudentExcelExportModalProps {
@@ -24,7 +23,6 @@ interface FilterOptions {
 const PAGE_SIZE = 500;
 const FILTER_CACHE_KEY = 'hub_admin_excel_filter_options_v3';
 const FILTER_CACHE_TTL = 10 * 60 * 1000;
-const ADMIN_EXPORT_EMAIL = 'tqhoangg2@gmail.com';
 
 const cleanText = (value: unknown) => String(value || '').trim().replace(/\s+/g, ' ');
 
@@ -153,12 +151,7 @@ const fetchAllFilterOptions = async (): Promise<FilterOptions> => {
     const majors = new Map<string, string>();
 
     for (let from = 0; ; from += PAGE_SIZE) {
-        const { data, error } = await supabase
-            .from(PROFILE_PRIVATE_TABLE)
-            .select('cohort, program_name, major_name, specialization_name')
-            .order('user_id', { ascending: true })
-            .range(from, from + PAGE_SIZE - 1);
-        if (error) throw error;
+        const data = await fetchStaffProfileExportPage(from, PAGE_SIZE);
 
         (data || []).forEach((row: any) => {
             const cohort = normalizeCohort(row.cohort);
@@ -253,34 +246,15 @@ export const AdminStudentExcelExportModal: React.FC<AdminStudentExcelExportModal
     const selectedCohortLabel = cohort === 'all' ? 'Tất cả khóa' : cohort;
     const selectedMajorLabel = major === 'all' ? 'Tất cả ngành' : major;
 
-    const authHeaders = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-        return apiHeaders({
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`
-        });
-    };
-
     const handleSendOtp = async () => {
         setSendingOtp(true);
         setErrorText('');
         setNoticeText('');
         try {
-            const response = await fetch(apiUrl('/auth'), {
-                method: 'POST',
-                headers: await authHeaders(),
-                body: JSON.stringify({ action: 'send-admin-export-otp' })
-            });
-            const payload = await response.json().catch(() => ({}));
-            if (!response.ok && response.status !== 429) {
-                throw new Error(payload.error || 'Không thể gửi mã OTP.');
-            }
+            await requestAdminExcelOtp();
             setOtpRequested(true);
             setOtp('');
-            setNoticeText(response.status === 429
-                ? 'Mã OTP đã gửi trước đó vẫn còn hiệu lực. Vui lòng kiểm tra email.'
-                : `Đã gửi mã OTP đến ${ADMIN_EXPORT_EMAIL}.`);
+            setNoticeText('Nếu tài khoản được phép, mã OTP đã được gửi đến email của phiên đăng nhập.');
         } catch (error: any) {
             setErrorText(error?.message || 'Không thể gửi mã OTP. Vui lòng thử lại.');
         } finally {
@@ -304,55 +278,25 @@ export const AdminStudentExcelExportModal: React.FC<AdminStudentExcelExportModal
         setStatusText('Đang xác thực mã OTP...');
 
         try {
-            const verifyResponse = await fetch(apiUrl('/auth'), {
-                method: 'POST',
-                headers: await authHeaders(),
-                body: JSON.stringify({
-                    action: 'verify-admin-export-otp',
-                    otp
-                })
-            });
-            const verifyPayload = await verifyResponse.json().catch(() => ({}));
-            if (!verifyResponse.ok) {
-                throw new Error(verifyPayload.error || 'Mã OTP không đúng hoặc đã hết hạn.');
-            }
             setOtpRequested(false);
             setOtp('');
 
             setStatusText('Đang tải dữ liệu sinh viên...');
-            const privateRows: any[] = [];
-            for (let from = 0; ; from += PAGE_SIZE) {
-                const query: any = supabase
-                    .from(PROFILE_PRIVATE_TABLE)
-                    .select('user_id, email, student_name, student_code, cohort, program_name, major_name, specialization_name, semesters')
-                    .order('user_id', { ascending: true })
-                    .range(from, from + PAGE_SIZE - 1);
-
-                const { data, error } = await query;
-                if (error) throw error;
-                privateRows.push(...(data || []).filter((row: any) => {
-                    const matchesCohort = cohort === 'all' || normalizeCohort(row.cohort) === cohort;
-                    const matchesMajor = major === 'all'
-                        || optionKey(resolveOnboardingMajor(row)) === optionKey(major);
-                    return matchesCohort && matchesMajor;
-                }));
-                if (!data || data.length < PAGE_SIZE) break;
-                setStatusText(`Đang tải dữ liệu sinh viên... ${privateRows.length}`);
-            }
+            const exportResult = await fetchAdminExcelExportRows(otp);
+            const privateRows = (exportResult.rows || []).filter((row: any) => {
+                const matchesCohort = cohort === 'all' || normalizeCohort(row.cohort) === cohort;
+                const matchesMajor = major === 'all' || optionKey(resolveOnboardingMajor(row)) === optionKey(major);
+                return matchesCohort && matchesMajor;
+            });
 
             setStatusText('Đang ghép họ tên, MSSV và lớp...');
-            const userIds = privateRows.map(row => row.user_id).filter(Boolean);
             const profilesMap = new Map<string, any>();
-
-            for (let index = 0; index < userIds.length; index += 100) {
-                const ids = userIds.slice(index, index + 100);
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('id, student_code, full_name, class_name')
-                    .in('id', ids);
-                if (error) throw error;
-                (data || []).forEach((profile: any) => profilesMap.set(profile.id, profile));
-            }
+            privateRows.forEach((row: any) => profilesMap.set(row.user_id, {
+                id: row.user_id,
+                student_code: row.student_code,
+                full_name: row.full_name,
+                class_name: row.class_name,
+            }));
 
             setStatusText('Đang tính điểm theo bộ lọc...');
             const canonicalMajorLabels = new Map(
@@ -521,7 +465,7 @@ export const AdminStudentExcelExportModal: React.FC<AdminStudentExcelExportModal
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-black text-slate-800">Xác nhận bảo mật trước khi xuất</p>
                                     <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-                                        <Mail size={13} /> Mã được gửi cố định đến {ADMIN_EXPORT_EMAIL}
+                                        <Mail size={13} /> Mã được gửi đến email của tài khoản quản trị đang đăng nhập
                                     </p>
                                     <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                                         <input

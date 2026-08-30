@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import type { Session } from '@supabase/supabase-js';
+import type { AppSession } from '../utils/privateApi';
 import { playClick } from '../utils/audio';
 import { apiHeaders, apiUrl } from '../utils/api';
 import { logWebError } from '../utils/logWebError';
-import { updateProfilePrivate } from '../utils/profilePrivate';
 import { verifyTurnstileOnly } from '../utils/protectedSubmit';
-import { supabase } from '../utils/supabase';
 
 const OTP_RESEND_COOLDOWN_SECONDS = 10 * 60;
 const normalizeOtpEmail = (email: string) => email.trim().toLowerCase();
@@ -23,7 +21,7 @@ const formatOtpCooldown = (seconds: number) =>
 
 interface UseAccountPasswordOptions {
     settingsOpen: boolean;
-    session: Session | null;
+    session: AppSession | null;
     setPasswordSetAt: (value: string | null | undefined) => void;
 }
 
@@ -50,8 +48,8 @@ export const useAccountPassword = ({
     const [passwordChangeNotice, setPasswordChangeNotice] = useState<string | null>(null);
     const [accountPasswordTurnstileToken, setAccountPasswordTurnstileToken] = useState('');
 
-    const sessionUserId = session?.user.id || null;
-    const sessionEmail = session?.user.email || '';
+    const sessionUserId = session?.user?.id || null;
+    const sessionEmail = session?.user?.email || '';
 
     const resetPasswordDraft = useCallback(() => {
         setShowPasswordChange(false);
@@ -92,10 +90,10 @@ export const useAccountPassword = ({
 
     const startPasswordChange = useCallback(() => {
         playClick();
-        setShowPasswordChange(true);
+        setShowPasswordChange(false);
         setIsAccountPasswordOtpMode(false);
         setAccountPasswordOtp('');
-        setPasswordChangeError(null);
+        setPasswordChangeError('Đổi mật khẩu trong ứng dụng đang tạm bảo trì. Vui lòng dùng luồng Quên mật khẩu tại trang đăng nhập.');
         setPasswordChangeNotice(null);
     }, []);
 
@@ -170,30 +168,12 @@ export const useAccountPassword = ({
                 }
             } else {
                 await verifyTurnstileOnly(accountPasswordTurnstileToken);
-                const { error: verifyError } = await supabase.auth.signInWithPassword({
-                    email: sessionEmail,
-                    password: currentPassword,
-                });
-                if (verifyError) throw new Error('Mật khẩu cũ không chính xác.');
-
-                const { error: updateError } = await supabase.auth.updateUser({
-                    password: newPassword,
-                });
-                if (updateError) throw updateError;
+                throw new Error('Đổi mật khẩu bằng mật khẩu hiện tại đang tạm bảo trì. Vui lòng dùng luồng Quên mật khẩu.');
             }
 
+            // Profile metadata is server-managed. Browser profile writes are
+            // intentionally retired before the profile authority cutover.
             const markedAt = new Date().toISOString();
-            try {
-                await supabase.rpc('mark_password_set');
-            } catch {
-                await updateProfilePrivate(sessionUserId, {
-                    password_set_at: markedAt,
-                });
-            }
-            await updateProfilePrivate(sessionUserId, {
-                password_set_at: markedAt,
-            });
-
             setPasswordSetAt(markedAt);
             localStorage.removeItem(otpCooldownKey(sessionEmail));
             setAccountPasswordOtpCooldownRemaining(0);

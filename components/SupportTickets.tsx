@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, FileText, Filter, HelpCircle, Image as ImageIcon, Loader2, MessageSquarePlus, MoreVertical, Paperclip, Plus, Send, Slash, StickyNote, Trash2, X } from 'lucide-react';
 import { playClick } from '../utils/audio';
-import { supabase } from '../utils/supabase';
+import { fetchStaffPublicProfileMap } from '../utils/staffProfilesApi';
 import { useSupportTickets } from '../hooks/useSupportTickets';
 import { useTicketMessages } from '../hooks/useTicketMessages';
 import {
@@ -415,14 +415,11 @@ export const TicketDetailView = ({ ticketId, isStaff = false }: { ticketId: stri
 
     let cancelled = false;
     const loadResolverName = async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('full_name,email')
-        .eq('id', ticket.resolved_by)
-        .maybeSingle();
+      const profileMap = await fetchStaffPublicProfileMap([ticket.resolved_by!]);
+      const data = profileMap[ticket.resolved_by!];
       if (cancelled) return;
 
-      setResolvedByName(data?.full_name || data?.email || fallbackName);
+      setResolvedByName(data?.full_name || fallbackName);
     };
 
     void loadResolverName();

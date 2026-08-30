@@ -1,5 +1,4 @@
-import { apiHeaders, apiUrl } from './api';
-import { supabase } from './supabase';
+import { fetchBetterAuthSession, privateApiRequest } from './privateApi';
 
 export const POLICY_VERSION = '2026-06-11';
 const CONSENT_CACHE_PREFIX = 'hub_policy_consent_recorded';
@@ -14,11 +13,9 @@ export const recordPolicyConsent = async (
   policyType: string,
   context: 'registration' | 'ai_usage' | 'oauth_registration' = 'registration',
 ) => {
-  if (!supabase) return;
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  const userId = data.session?.user?.id;
-  if (!token || !userId) return;
+  const session = await fetchBetterAuthSession().catch(() => null);
+  const userId = session?.user?.id;
+  if (!userId) return;
 
   const cacheKey = `${CONSENT_CACHE_PREFIX}:${userId}:${policyType}:${POLICY_VERSION}:${context}`;
   try {
@@ -27,14 +24,9 @@ export const recordPolicyConsent = async (
     // Cache is only used to avoid duplicate POSTs.
   }
 
-  const response = await fetch(apiUrl('/auth'), {
+  const response = await privateApiRequest('/api/user/v1/policy-consents', {
     method: 'POST',
-    headers: apiHeaders({
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    }),
     body: JSON.stringify({
-      action: 'record-policy-consent',
       policyType,
       policyVersion: POLICY_VERSION,
       context,
@@ -44,7 +36,7 @@ export const recordPolicyConsent = async (
     return null;
   });
 
-  if (response?.ok) {
+  if (response) {
     try {
       localStorage.setItem(cacheKey, 'true');
     } catch {

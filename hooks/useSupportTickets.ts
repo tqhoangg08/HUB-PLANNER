@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { supabase } from '../utils/supabase';
 import {
   fetchSupportTicketPage,
   fetchSupportTickets,
@@ -50,19 +49,14 @@ export const useSupportTickets = (filters: TicketFilters = {}) => {
       }, 900);
     };
 
-    const channel = supabase
-      .channel(`support-tickets:${filterKey}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => {
-        scheduleReload();
-      })
-      .subscribe();
+    const intervalId = window.setInterval(scheduleReload, 30_000);
 
     return () => {
       if (reloadTimerRef.current) {
         window.clearTimeout(reloadTimerRef.current);
         reloadTimerRef.current = null;
       }
-      supabase.removeChannel(channel);
+      window.clearInterval(intervalId);
     };
   }, [filterKey, reload]);
 

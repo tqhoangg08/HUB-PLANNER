@@ -1,7 +1,6 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, HelpCircle, Tag, Bell, BarChart3 } from 'lucide-react';
-import { supabase } from '../utils/supabase';
 import { parseWeeks } from '../utils/scheduleLogic';
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { ScheduleImportPreviewModal } from './ScheduleImportPreviewModal';
@@ -15,17 +14,27 @@ import { fetchPublicCourses } from '../utils/coursesApi';
 import {
   addCloudflareUserSchedule,
   fetchCloudflareUserSchedules,
+  isScheduleRevisionConflict,
   removeCloudflareUserSchedule,
   updateCloudflareUserSchedule,
 } from '../utils/userSchedulesApi';
 import { TurnstileBox } from './TurnstileBox';
-import { ProtectedSubmitError, protectedSubmit, verifyTurnstileOnly } from '../utils/protectedSubmit';
+import { ProtectedSubmitError, protectedSubmit } from '../utils/protectedSubmit';
 import { logWebError } from '../utils/logWebError';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { promptSendParserDebugFile } from '../utils/parserDebugTicket';
 import { showAlert, showConfirm } from '../utils/appNotifications';
 import { submitManualCourseRequest } from '../utils/manualCourseRequest';
 import { normalizeImportedSemester } from '../utils/scheduleImportUtils';
+import {
+  approveD1CourseRequest,
+  createD1Course,
+  listD1CourseRequestsForReview,
+  rejectD1CourseRequest,
+  retireD1Course,
+  updateD1Course,
+} from '../utils/courseAuthorityApi';
+import { fetchStaffSchedules, fetchStaffSchedulesPayload } from '../utils/staffSchedulesApi';
 import {
   readScheduleCoursePageCache,
   removeScheduleCoursePageCache,
@@ -75,6 +84,7 @@ interface CourseRequest {
   user_id?: string;
   user?: UserProfile | null;
   duplicate_course?: Course | null;
+  revision?: number;
 }
 
 interface CourseLabel {
@@ -123,6 +133,7 @@ interface Course {
   phase: string;
   semester: string;
   instructor?: string;
+  revision?: number;
   is_user_added?: boolean;
   user_schedule_id?: string;
   user?: UserProfile;
@@ -695,15 +706,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
   };
 
   const fetchAdminUserSchedules = async (mode: 'changed' | 'summaries' | 'courses', extraParams: Record<string, string> = {}) => {
-    const token = session?.access_token;
-    if (!token) throw new Error('Admin session is missing');
-    const params = new URLSearchParams({ resource: 'user-schedules', mode, semester: selectedSemester, ...extraParams });
-    const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload?.error || 'Không tải được TKB sinh viên.');
-    return payload;
+    return fetchStaffSchedulesPayload(mode, selectedSemester, extraParams);
   };
 
   const fetchChangedUserScheduleCourses = async (options: { page?: number } = {}) => {
@@ -816,28 +819,20 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
   const fetchCourseRequests = async (options: { page?: number } = {}) => {
     if (!canManageSchedule) return;
-    const token = session?.access_token;
-    if (!token) return;
+    if (!session?.user) return;
     const page = options.page ?? 0;
     setIsLoading(true);
     setAdminScheduleError('');
     try {
-      const params = new URLSearchParams({
-        resource: 'course-requests',
-        status: 'pending',
-        search: searchTerm.trim(),
-        limit: String(ADMIN_LIST_PAGE_SIZE),
-        offset: String(page * ADMIN_LIST_PAGE_SIZE),
-      });
-      const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Không tải được yêu cầu thêm môn.');
-      const data = sortCourseRequestsNewestFirst(payload.data || []);
+      const payload = await listD1CourseRequestsForReview();
+      const search = searchTerm.trim().toLocaleLowerCase('vi-VN');
+      const data = sortCourseRequestsNewestFirst((payload.data || []).filter((request) =>
+        String(request.status || 'pending').trim().toLowerCase() === 'pending'
+          && (!search || `${request.course_code} ${request.subject_name}`.toLocaleLowerCase('vi-VN').includes(search))
+      ));
       setCourseRequests(data);
-      setHasMoreCourseRequests(Boolean(payload.hasMore));
-      setCourseRequestsTotal(Number(payload.total || 0));
+      setHasMoreCourseRequests(false);
+      setCourseRequestsTotal(data.length);
       setCourseRequestsPage(page);
     } catch (error: any) {
       console.error(error);
@@ -876,17 +871,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     if (!window.confirm(`Đồng bộ trường "${fieldLabel}" của môn ${selectedChangedCourse.course_code}?`)) return;
     setIsSyncingChangedCourse(true);
     try {
-      const token = session?.access_token;
-      if (!token) throw new Error('Admin session is missing');
-      const response = await fetch(apiUrl('/courses?resource=user-schedules'), {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userScheduleId: selectedChangedCourse.user_schedule_id, fieldKeys: [fieldKey] }),
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Không đồng bộ được dữ liệu.');
-      await fetchChangedUserScheduleCourses();
-      setSelectedChangedCourse(null);
+      throw new Error('Đồng bộ trường riêng đã được khóa sau khi Course authority chuyển sang D1.');
     } catch (error: any) {
       console.error(error);
       alert(error?.message || 'Có lỗi xảy ra khi đồng bộ dữ liệu.');
@@ -917,16 +902,9 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       return;
     }
     if (!window.confirm(`Từ chối yêu cầu thêm môn "${request.subject_name}"?`)) return;
-    const token = session?.access_token;
-    if (!token) return;
     try {
-      const response = await fetch(apiUrl('/courses?resource=course-requests'), {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: request.id, status: 'rejected' }),
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Không thể từ chối yêu cầu.');
+      if (!Number.isInteger(request.revision)) throw new Error('Yêu cầu cần được tải lại trước khi xử lý.');
+      await rejectD1CourseRequest(request.id, request.revision);
       setCourseRequests(prev => prev.filter(item => item.id !== request.id));
     } catch (error: any) {
       console.error(error);
@@ -967,31 +945,13 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
     try {
       if (targetId === user.id) {
-        try {
-          const cloudflareSchedule = await fetchCloudflareUserSchedules();
-          setMySchedule(cloudflareSchedule as unknown as Course[]);
-          return;
-        } catch (cloudflareError) {
-          console.warn(
-            'D1 chưa sẵn sàng cho lịch cá nhân, dùng nguồn dự phòng:',
-            cloudflareError
-          );
-        }
+        const cloudflareSchedule = await fetchCloudflareUserSchedules();
+        setMySchedule(cloudflareSchedule as unknown as Course[]);
+        return;
       }
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) return;
-
-      const params = new URLSearchParams({ resource: 'my-schedule' });
-      if (targetId !== user.id) params.set('userId', targetId);
-
-      const response = await fetch(apiUrl(`/courses?${params.toString()}`), {
-        headers: apiHeaders({ Authorization: `Bearer ${token}` }),
-      });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Không tải được TKB cá nhân.');
-      setMySchedule(payload.data || []);
+      const data = await fetchStaffSchedules('courses', selectedSemester, { userId: targetId });
+      setMySchedule(data as Course[]);
     } catch (error) {
       console.error("Lỗi kéo TKB:", error);
       await logWebError({
@@ -1066,6 +1026,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       await addCloudflareUserSchedule(course.id, selectedSemester);
       await fetchMySchedule();
     } catch (err) {
+      if (isScheduleRevisionConflict(err)) await fetchMySchedule();
       await logWebError({
         source: 'supabase',
         action: 'save_schedule',
@@ -1090,8 +1051,9 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     const backup = [...mySchedule];
     setMySchedule(mySchedule.filter(c => c.id !== courseId));
     try {
-      await removeCloudflareUserSchedule(courseId);
+      await removeCloudflareUserSchedule(courseId, selectedSemester);
     } catch (err) {
+      if (isScheduleRevisionConflict(err)) await fetchMySchedule();
       await logWebError({
         source: 'supabase',
         action: 'remove_subject_from_plan',
@@ -1128,7 +1090,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
           };
 
           await updateCloudflareUserSchedule(
-              quickTagCourse.user_schedule_id,
+              quickTagCourse,
               overrideData
           );
 
@@ -1136,6 +1098,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
           setQuickTagData(createInitialTagData());
           await fetchMySchedule();
       } catch (err) {
+          if (isScheduleRevisionConflict(err)) await fetchMySchedule();
           console.error(err);
           alert("Lỗi khi gắn nhãn nhanh.");
       } finally {
@@ -1164,12 +1127,13 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       try {
           const { id, user_schedule_id, is_user_added, user, dateStr, ...overrideData } = studentEditData;
           await updateCloudflareUserSchedule(
-              user_schedule_id,
+              { ...studentEditData, semester: studentEditData.semester || selectedSemester },
               overrideData
           );
           await fetchMySchedule();
           setIsStudentEditModalOpen(false);
       } catch (err: any) {
+          if (isScheduleRevisionConflict(err)) await fetchMySchedule();
           console.error(err);
           alert('Không thể lưu chỉnh sửa: ' + (err.message || 'Lỗi không xác định'));
       } finally {
@@ -1197,24 +1161,17 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
           };
 
           if (activeCourseRequest) {
-              const token = session?.access_token;
-              if (!token) throw new Error('Admin session is missing');
-              const response = await fetch(apiUrl('/courses?resource=course-requests'), {
-                  method: 'POST',
-                  headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ requestId: activeCourseRequest.id, course: payload }),
-              });
-              const result = await response.json();
-              if (!response.ok) throw new Error(result?.error || 'Không thể thêm môn chính thức.');
+              if (!Number.isInteger(activeCourseRequest.revision)) throw new Error('Yêu cầu cần được tải lại trước khi xử lý.');
+              await approveD1CourseRequest(activeCourseRequest.id, activeCourseRequest.revision, payload);
               setCourseRequests(prev => prev.filter(item => item.id !== activeCourseRequest.id));
               setActiveCourseRequest(null);
               setAdminTab('system');
           } else if (payload.id) {
-              const { error } = await supabase.from('course_schedules').update(payload).eq('id', payload.id);
-              if (error) throw error;
+              if (!Number.isInteger((payload as Course).revision)) throw new Error('Môn học cần được tải lại trước khi cập nhật.');
+              const { id, revision, ...course } = payload as Course;
+              await updateD1Course(id, revision!, course);
           } else {
-              const { error } = await supabase.from('course_schedules').insert(payload);
-              if (error) throw error;
+              await createD1Course(payload);
           }
 
           setIsAdminEditModalOpen(false);
@@ -1235,8 +1192,9 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       }
       if (!window.confirm('Bạn có chắc chắn muốn xóa môn học này khỏi hệ thống?')) return;
       try {
-          const { error } = await supabase.from('course_schedules').delete().eq('id', id);
-          if (error) throw error;
+          const course = availableCourses.find((item) => item.id === id);
+          if (!Number.isInteger(course?.revision)) throw new Error('Môn học cần được tải lại trước khi xóa.');
+          await retireD1Course(id, course.revision!);
           fetchCourses();
       } catch (error) {
           console.error(error);
@@ -1275,9 +1233,8 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
 
     setIsPdfGuideOpen(false); setIsProcessingPdf(true);
     try {
-        await verifyTurnstileOnly(scheduleImportTurnstileToken);
         setScheduleImportTurnstileToken('');
-        const aiData = await parseSchedulePdf(file);
+        const aiData = await parseSchedulePdf(file, scheduleImportTurnstileToken);
         if (!aiData || !aiData.courses || aiData.courses.length === 0) {
             const errorLogId = await logWebError({
                 source: 'parser',
@@ -1351,7 +1308,6 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       if (!user) throw new Error('Vui lòng đăng nhập lại để nhập thời khóa biểu.');
 
       const importedCount = await replaceUserScheduleFromPreview(
-        user.id,
         pendingScheduleImport.semester,
         pendingScheduleImport.rows,
       );
@@ -1363,6 +1319,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         `Đã nhập ${importedCount} môn và thay thế thời khóa biểu cũ của ${importedSemester.replaceAll('_', ' ')}.`,
       );
     } catch (error) {
+      if (isScheduleRevisionConflict(error)) await fetchMySchedule();
       console.error('Không thể xác nhận nhập thời khóa biểu:', error);
       await logWebError({
         source: 'supabase',
@@ -1482,13 +1439,11 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     e.preventDefault();
     if (!newCourseData.subject_name.trim() || !newCourseData.course_code.trim()) { alert("Vui lòng điền tối thiểu Tên môn học và Mã học phần!"); return; }
 
-    const accessToken = session?.access_token;
-    if (!accessToken) { alert("Bạn cần đăng nhập để gửi yêu cầu!"); return; }
+    if (!session?.user) { alert("Bạn cần đăng nhập để gửi yêu cầu!"); return; }
 
     setIsSubmittingCourse(true);
     try {
       const result = await submitManualCourseRequest({
-        accessToken,
         subjectName: newCourseData.subject_name,
         courseCode: newCourseData.course_code,
         instructor: newCourseData.instructor,

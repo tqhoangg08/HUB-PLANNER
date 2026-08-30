@@ -1,5 +1,5 @@
 import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react';
-import type { Session } from '@supabase/supabase-js';
+import type { AppSession } from '../../utils/privateApi';
 import type { ManagedStudent } from '../../hooks/useManagedStudentView';
 import { FloatingSupportTab } from '../../components/FloatingSupportTab';
 import { PasswordSetupModal } from '../../components/PasswordSetupModal';
@@ -14,7 +14,7 @@ interface ProtectedAppShellProps {
     mobileLayout: boolean;
     mobileScreen: boolean;
     mobileBrowser: boolean;
-    session: Session | null;
+    session: AppSession | null;
     isGuest: boolean;
     isAdmin: boolean;
     isAuditor: boolean;
@@ -139,7 +139,7 @@ export const ProtectedAppShell = ({
             {overlays}
 
             <FloatingSupportTab
-                currentUserId={session?.user.id || null}
+                currentUserId={session?.user?.id || null}
                 isGuest={isGuest}
                 isAdmin={isAdmin}
                 isAuditor={isAuditor}
@@ -152,8 +152,8 @@ export const ProtectedAppShell = ({
 
             {requiresPasswordSetup && (
                 <PasswordSetupModal
-                    email={session?.user.email}
-                    userId={session?.user.id}
+                    email={session?.user?.email}
+                    userId={session?.user?.id}
                     onComplete={onPasswordSetupComplete}
                 />
             )}

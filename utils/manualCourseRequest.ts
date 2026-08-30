@@ -1,4 +1,4 @@
-import { apiHeaders, apiUrl } from './api';
+import { createD1CourseRequest } from './courseAuthorityApi';
 
 export interface MatchingSystemCourse {
   id: string;
@@ -10,7 +10,6 @@ export interface MatchingSystemCourse {
 }
 
 interface SubmitManualCourseRequestInput {
-  accessToken: string;
   subjectName: string;
   courseCode: string;
   instructor?: string;
@@ -22,34 +21,16 @@ export type ManualCourseRequestResult =
   | { requestId: string; duplicateCourse?: never };
 
 export const submitManualCourseRequest = async ({
-  accessToken,
   subjectName,
   courseCode,
   instructor,
   semester,
 }: SubmitManualCourseRequestInput): Promise<ManualCourseRequestResult> => {
-  const response = await fetch(apiUrl('/courses?resource=manual-course-request'), {
-    method: 'POST',
-    headers: apiHeaders({
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    }),
-    body: JSON.stringify({
-      subject_name: subjectName.trim(),
-      course_code: courseCode.trim(),
-      instructor: instructor?.trim() || 'Chưa rõ',
-      semester,
-    }),
+  const payload = await createD1CourseRequest({
+    subjectName: subjectName.trim(),
+    courseCode: courseCode.trim(),
+    instructor: instructor?.trim() || 'Chưa rõ',
+    semester,
   });
-  const payload = await response.json().catch(() => ({}));
-
-  if (response.status === 409 && payload?.code === 'COURSE_ALREADY_EXISTS' && payload?.data?.id) {
-    return { duplicateCourse: payload.data as MatchingSystemCourse };
-  }
-
-  if (!response.ok) {
-    throw new Error(payload?.error || 'Không thể gửi yêu cầu thêm môn.');
-  }
-
-  return { requestId: String(payload?.data?.id || '') };
+  return { requestId: String(payload.id || '') };
 };

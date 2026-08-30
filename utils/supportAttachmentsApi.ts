@@ -1,5 +1,4 @@
-import { apiHeaders, apiUrl } from './api';
-import { supabase } from './supabase';
+import { privateApiRequest } from './privateApi';
 import type { SupportTicketAttachment } from './supportTicketsApi';
 
 export const SUPPORT_ATTACHMENT_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] as const;
@@ -19,7 +18,6 @@ export interface PendingSupportAttachment {
   error?: string;
 }
 
-const endpoint = () => apiUrl('/auth?resource=support-attachments');
 const isDev = import.meta.env.DEV;
 
 const logSupportAttachmentPayload = (queryName: string, data: unknown) => {
@@ -29,27 +27,13 @@ const logSupportAttachmentPayload = (queryName: string, data: unknown) => {
   console.info(`[support-attachment-query] ${queryName}`, { rows, bytes });
 };
 
-const getAccessToken = async () => {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) throw error;
-  const token = data.session?.access_token;
-  if (!token) throw new Error('Bạn cần đăng nhập để gửi file hỗ trợ.');
-  return token;
-};
-
 const postSupportAttachmentAction = async <T>(action: string, payload: Record<string, unknown>) => {
-  const token = await getAccessToken();
-  const response = await fetch(endpoint(), {
+  const response = await privateApiRequest('/api/private/v1/support', {
     method: 'POST',
-    headers: apiHeaders({
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    }),
-    body: JSON.stringify({ action, ...payload }),
+    body: JSON.stringify({ action: `attachment:${action}`, ...payload }),
   });
   const data = await response.json().catch(() => ({}));
-  if (response.ok) logSupportAttachmentPayload(action, data);
-  if (!response.ok) throw new Error(data?.error || 'Không thể xử lý file đính kèm.');
+  logSupportAttachmentPayload(action, data);
   return data as T;
 };
 

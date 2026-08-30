@@ -3,9 +3,10 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Book, Calendar, ChevronDown, ClipboardList, Database, Headphones, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Menu, X, FileText, ShieldCheck, Sparkles } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import NotificationBell from '../components/NotificationBell';
-import { supabase } from '../utils/supabase';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 import { setRuntimeStyleRule } from '../utils/runtimeStyles';
+import { searchPublicProfiles } from '../utils/publicDirectoryApi';
+import { fetchAdminEventCandidates, fetchAdminReports, type AdminReportKind } from '../utils/adminLegacyDataApi';
 
 interface DesktopLayoutProps {
   session: any;
@@ -43,7 +44,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   isMobileBrowser = false,
   adminSearchMssv, isSearchingUser, setAdminSearchMssv, handleAdminSearchUser,
   handleRequestReset, handleLogout, setShowGuide, setShowActivityLog,
-  setIsUserMenuOpen, isUserMenuOpen, handleMenuLogout, 
+  setIsUserMenuOpen, isUserMenuOpen, setShowAccountSettings, handleMenuLogout,
   handleExitAdminView, handleSyncDB, navigate, children,
   onInstallApp, showInstallButton
 }) => {
@@ -106,14 +107,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
       const timer = window.setTimeout(async () => {
           try {
-              const { data, error } = await supabase
-                  .from('public_profiles')
-                  .select('id, full_name, student_code, avatar_url, class_name')
-                  .or(`student_code.ilike.%${keyword}%,full_name.ilike.%${keyword}%`)
-                  .order('student_code', { ascending: true })
-                  .limit(6);
-
-              if (error) throw error;
+              const data = await searchPublicProfiles(keyword, 6);
               if (!cancelled) setProfileSearchSuggestions(data || []);
           } catch (error) {
               console.warn('Không thể tải gợi ý hồ sơ:', error);
@@ -236,7 +230,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       let cancelled = false;
       const badgeCacheKey = 'hub_admin_sidebar_badges_v2';
       const badgeCacheTtlMs = 2 * 60 * 1000;
-      const reportTables = [
+      const reportTables: AdminReportKind[] = [
           'course_reports',
           'bug_reports',
           'ctv_requests',
@@ -244,8 +238,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
           'feedback',
           'canva_pro_requests',
       ];
-      const resolvedStatuses = '(ok,resolved,contacted,approved,rejected)';
-
       try {
           const rawCached = sessionStorage.getItem(badgeCacheKey);
           if (rawCached) {
@@ -269,32 +261,14 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
       const loadPendingCounts = async () => {
           try {
-              const reportCounts = await Promise.all(reportTables.map(async (table) => {
-                  const { count, error } = await supabase
-                      .from(table)
-                      .select('id', { count: 'exact', head: true })
-                      .not('status', 'in', resolvedStatuses);
-
-                  if (error) {
-                      console.warn(`Không thể tải số báo cáo chờ xử lý từ ${table}:`, error.message);
-                      return 0;
-                  }
-
-                  return Number(count || 0);
-              }));
-
-              const { count: candidateCount, error: candidateError } = await supabase
-                  .from('event_candidates')
-                  .select('id', { count: 'exact', head: true })
-                  .eq('review_status', 'pending');
-
-              if (candidateError) {
-                  console.warn('Không thể tải số candidate chờ duyệt:', candidateError.message);
-              }
+              const [reportPayloads, candidatePayload] = await Promise.all([
+                  Promise.all(reportTables.map((table) => fetchAdminReports(table, 0, 1))),
+                  fetchAdminEventCandidates('pending'),
+              ]);
 
               if (!cancelled) {
-                  const pendingReports = reportCounts.reduce((sum, value) => sum + value, 0);
-                  const pendingCandidates = candidateError ? 0 : Number(candidateCount || 0);
+                  const pendingReports = reportPayloads.reduce((sum, value) => sum + Number(value.total || 0), 0);
+                  const pendingCandidates = candidatePayload.candidates.length;
                   setPendingReportCount(pendingReports);
                   setPendingCandidateCount(pendingCandidates);
                   try {
@@ -839,7 +813,8 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           
                           {isUserMenuOpen && (
                               <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
-                              <button type="button" onClick={() => { setIsMobileMenuOpen(false); const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
+                                  <button type="button" onClick={() => { setShowAccountSettings(true); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Cập nhật thông tin</button>
+                                  <button type="button" onClick={() => { setIsMobileMenuOpen(false); const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
                                   <button type="button" onClick={() => { handleRequestReset(); setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Làm mới dữ liệu</button>
                                   <button type="button" onClick={() => { handleMenuLogout(); setIsMobileMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
                               </div>

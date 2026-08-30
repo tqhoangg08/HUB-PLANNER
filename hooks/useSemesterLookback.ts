@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Semester, UserData } from '../types';
 import { calculateSemesterStats, calculateSubjectAverage, getGradeDetails, getScholarshipStatus } from '../utils/calculations';
-import { getBenchmarkRankingTotal } from '../utils/benchmarkRankings';
 import { normalizeSemesterId } from '../utils/rankingData';
-import { supabase } from '../utils/supabase';
-import { fetchProfilePrivate } from '../utils/profilePrivate';
 import { getLocalSessionUser } from '../utils/clientSession';
+import { fetchOwnPrivateProfile } from '../utils/privateProfileApi';
+import { fetchCloudflareOwnRanking } from '../utils/benchmarkRankingsApi';
 
 export const LOOKBACK_SEMESTER_ID = '2025-2026_HK1';
 export const LOOKBACK_SEMESTER_LABEL = 'Học kỳ 1, Năm học 2025-2026';
@@ -43,20 +42,10 @@ const findLookbackSemester = (semesters?: Semester[] | null): Semester | null =>
 };
 
 const getCurrentUserIdentity = async (): Promise<{ studentCode: string | null; userId: string | null }> => {
-    if (!supabase) return { studentCode: null, userId: null };
-
     const user = await getLocalSessionUser();
     const emailCode = user?.email?.split('@')[0]?.trim();
     if (emailCode) return { studentCode: emailCode, userId: user?.id || null };
-    if (!user?.id) return { studentCode: null, userId: null };
-
-    const { data } = await supabase
-        .from('profiles')
-        .select('student_code')
-        .eq('id', user.id)
-        .maybeSingle();
-
-    return { studentCode: data?.student_code?.trim() || null, userId: user.id };
+    return { studentCode: null, userId: user?.id || null };
 };
 
 export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
@@ -104,8 +93,8 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
                 let privateData: Record<string, any> | null = null;
 
                 if (userId) {
-                    const privateRow = await fetchProfilePrivate(userId);
-                    privateData = (privateRow?.data as Record<string, any> | null) || null;
+                    const profile = await fetchOwnPrivateProfile();
+                    privateData = (profile.privateProfile?.data as Record<string, any> | null) || null;
                     const privateSemester = findLookbackSemester((privateData as UserData | null | undefined)?.semesters);
                     if ((privateSemester?.subjects?.length || 0) > (resolvedSemester?.subjects?.length || 0)) {
                         resolvedSemester = privateSemester;
@@ -133,25 +122,24 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
                     .sort((a, b) => b.score10 - a.score10 || b.credits - a.credits)[0] || null;
                 const excellentSubjectCount = scoredSubjects.filter(subject => subject.letter.startsWith('A')).length;
                 const passedSubjectCount = scoredSubjects.filter(subject => subject.score10 >= 4).length;
-                let rankRow: any = null;
-
-                const { data, error } = await supabase
-                    .from('benchmark_rankings')
-                    .select('student_rank,rank_in_class,total_in_class,class_code,rank_in_major,total_in_major,major,gpa,credits,training_score,scholarship_status')
-                    .eq('semester', LOOKBACK_SEMESTER_ID)
-                    .eq('student_code', studentCode)
-                    .maybeSingle();
-
-                if (error) throw error;
-                rankRow = data;
+                const ownRanking = await fetchCloudflareOwnRanking(LOOKBACK_SEMESTER_ID);
+                const rankRow = ownRanking ? {
+                    student_rank: ownRanking.studentRank,
+                    rank_in_class: ownRanking.rankInClass,
+                    total_in_class: ownRanking.totalInClass,
+                    class_code: ownRanking.classCode,
+                    rank_in_major: ownRanking.rankInMajor,
+                    total_in_major: ownRanking.totalInMajor,
+                    major: ownRanking.major,
+                } : null;
 
                 const rank = typeof rankRow?.student_rank === 'number' ? rankRow.student_rank : null;
-                const totalStudents = rankRow ? await getBenchmarkRankingTotal(LOOKBACK_SEMESTER_ID) : null;
+                const totalStudents = ownRanking?.totalStudents ?? null;
 
-                const gpa4 = semesterStats?.hasData ? semesterStats.gpa4 : Number(rankRow?.gpa || 0);
+                const gpa4 = semesterStats?.hasData ? semesterStats.gpa4 : 0;
                 const gpa10 = semesterStats?.hasData ? semesterStats.gpa10 : 0;
-                const credits = semesterStats?.hasData ? semesterStats.totalCredits : Number(rankRow?.credits || 0);
-                const trainingScore = resolvedSemester?.trainingScore ?? Number(rankRow?.training_score || 0);
+                const credits = semesterStats?.hasData ? semesterStats.totalCredits : 0;
+                const trainingScore = resolvedSemester?.trainingScore ?? 0;
                 const scholarship = getScholarshipStatus(gpa4, trainingScore, credits);
 
                 if (cancelled) return;
@@ -171,7 +159,7 @@ export const useSemesterLookback = (activeData: UserData, enabled: boolean) => {
                     major: rankRow?.major || activeData.majorName || null,
                     classCode: rankRow?.class_code || null,
                     topPercent: rank && totalStudents ? (rank / totalStudents) * 100 : null,
-                    scholarshipLabel: rankRow?.scholarship_status || scholarship.label,
+                    scholarshipLabel: scholarship.label,
                     bestSubject,
                     excellentSubjectCount,
                     passedSubjectCount,

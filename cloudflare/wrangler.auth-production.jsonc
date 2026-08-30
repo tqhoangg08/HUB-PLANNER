@@ -1,0 +1,56 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "hub-planner-auth-production",
+  "main": "auth-production-worker/src/index.ts",
+  "compatibility_date": "2026-07-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {
+    "AUTH_ENABLED": "true",
+    "AUTH_ORIGIN": "https://hotrosinhvienhub.id.vn",
+    "AUTH_TURNSTILE_EXPECTED_HOSTNAME": "hotrosinhvienhub.id.vn",
+    "AUTH_TURNSTILE_SITE_KEY": "0x4AAAAAAEK-7MF6_cD_DkJr",
+    "AUTH_GOOGLE_CLIENT_ID": "1097002285480-vphshjnvpb744help37au7gi8qrts9ra.apps.googleusercontent.com",
+    "AUTH_EMAIL_FROM": "HUB Planner <no-reply@hotrosinhvienhub.id.vn>",
+    "AUTH_RESET_EMAIL_DAILY_BUDGET": "80"
+  },
+  "secrets": {
+    "required": [
+      "AUTH_BETTER_AUTH_SECRET",
+      "AUTH_TURNSTILE_SECRET",
+      "AUTH_GOOGLE_CLIENT_SECRET",
+      "AUTH_RESEND_API_KEY"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "AUTH_DB",
+      "database_name": "hub-planner-auth-production",
+      "database_id": "4f42d86e-f924-4ecc-b3af-fc947b48810b",
+      "migrations_dir": "auth-production-migrations"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "AUTH_IDENTIFIER_RATE_LIMIT",
+      "namespace_id": "45871912",
+      "simple": {
+        "limit": 8,
+        "period": 60
+      }
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 0.1,
+      "invocation_logs": false
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.01
+    }
+  }
+}

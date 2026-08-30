@@ -1,9 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { FormEvent } from 'react';
 import { playClick } from '../utils/audio';
-import { supabase } from '../utils/supabase';
-
-const STUDENT_PROFILE_TABLE = 'profiles';
+import { searchStaffProfiles } from '../utils/staffProfilesApi';
 
 export interface ManagedStudent {
     id: string;
@@ -25,13 +23,12 @@ export const useManagedStudentView = () => {
         playClick();
 
         try {
-            const { data: userProfile, error } = await supabase
-                .from(STUDENT_PROFILE_TABLE)
-                .select('id, student_code, full_name')
-                .eq('student_code', studentCode)
-                .single();
+            const candidates = await searchStaffProfiles(studentCode, { limit: 20, offset: 0 });
+            const userProfile = candidates.find(
+                (candidate) => String(candidate.student_code || '').toLowerCase() === studentCode.toLowerCase(),
+            );
 
-            if (error || !userProfile) {
+            if (!userProfile) {
                 alert('Không tìm thấy sinh viên có MSSV này trong hệ thống!');
                 setViewingUser(null);
                 return;

@@ -1,6 +1,3 @@
-import { apiUrl } from './api';
-import { supabase } from './supabase';
-
 export class ProtectedSubmitError extends Error {
   status?: number;
   category: 'missing-token' | 'verification-failed' | 'security-service' | 'unknown';
@@ -41,16 +38,14 @@ export const protectedSubmit = async <T = any>({
   turnstileToken: string;
 }): Promise<T> => {
   requireTurnstile(turnstileToken);
-  const { data: { session } } = supabase
-    ? await supabase.auth.getSession()
-    : { data: { session: null } } as any;
-
-  const response = await fetch(apiUrl('/auth?resource=protected-submit'), {
+  const response = await fetch('/api/submissions/v1/protected', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
     },
+    credentials: 'include',
+    cache: 'no-store',
+    redirect: 'manual',
     body: JSON.stringify({ action, payload, turnstileToken }),
   });
   const body = await response.json().catch(() => ({}));
@@ -63,3 +58,29 @@ export const protectedSubmit = async <T = any>({
 export const verifyTurnstileOnly = (turnstileToken: string) => (
   protectedSubmit({ action: 'verify-only', turnstileToken })
 );
+
+export const submitCtvRegistration = async (payload: {
+  full_name: string;
+  student_batch: string;
+  major: string;
+  contact_info: string;
+}) => {
+  const response = await fetch('/api/submissions/v1/ctv-requests', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    cache: 'no-store',
+    redirect: 'manual',
+    body: JSON.stringify(payload),
+  });
+  const body = await response.json().catch(() => ({})) as { id?: unknown; error?: unknown };
+  if (!response.ok) {
+    const safeMessage = response.status === 409 && typeof body.error === 'string'
+      ? body.error
+      : response.status === 400 && typeof body.error === 'string'
+        ? body.error
+        : 'Có lỗi xảy ra. Vui lòng thử lại sau.';
+    throw new ProtectedSubmitError(safeMessage, 'unknown', response.status);
+  }
+  return body as { id?: number };
+};

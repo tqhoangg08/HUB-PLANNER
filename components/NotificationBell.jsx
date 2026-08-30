@@ -2,13 +2,19 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Bell, Megaphone, Search, Settings, ShieldCheck, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../utils/supabase';
 import { formatDate, formatTime } from '../utils/dateUtils';
 import {
   getCurrentPushSubscription,
+  isPushNotificationSyncAvailable,
   isPushSupported,
   subscribeToDeviceNotifications,
 } from '../utils/pushNotifications';
+import {
+  fetchOwnNotifications,
+  markAllOwnNotificationsRead,
+  markOwnNotificationRead,
+  updateOwnNotificationPreferences,
+} from '../utils/privateNotificationsApi';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 import { setRuntimeStyleRule } from '../utils/runtimeStyles';
 import { FEATURE_SCHEDULE_REMINDERS } from '../utils/featureFlags';
@@ -45,87 +51,20 @@ const updateNotificationStream = (userId, updater) => {
 const fetchNotificationStream = (stream) => {
   if (stream.fetchPromise) return stream.fetchPromise;
 
-  stream.fetchPromise = supabase
-    .from('notifications')
-    .select('id,receiver_id,actor_id,type,content,link,is_read,created_at,actor:profiles!actor_id(full_name,avatar_url,student_code)')
-    .eq('receiver_id', stream.userId)
-    .order('created_at', { ascending: false })
-    .limit(20)
-    .then(({ data }) => {
-      if (data) {
-        logNotificationPayload('notification_list', data);
-        stream.notifications = data;
-        stream.notificationsLoaded = true;
-        stream.unreadCount = countUnread(data);
-        emitNotificationStream(stream);
-      }
+  stream.fetchPromise = fetchOwnNotifications()
+    .then(({ notifications, unreadCount }) => {
+      logNotificationPayload('notification_list', notifications);
+      stream.notifications = notifications;
+      stream.notificationsLoaded = true;
+      stream.unreadCount = unreadCount;
+      emitNotificationStream(stream);
     })
+    .catch(() => undefined)
     .finally(() => {
       stream.fetchPromise = null;
     });
 
   return stream.fetchPromise;
-};
-
-const fetchNotificationUnreadCount = (stream) => {
-  if (stream.unreadFetchPromise) return stream.unreadFetchPromise;
-
-  stream.unreadFetchPromise = supabase
-    .from('notifications')
-    .select('id', { count: 'exact', head: true })
-    .eq('receiver_id', stream.userId)
-    .eq('is_read', false)
-    .then(({ count }) => {
-      logNotificationPayload('notification_unread_count', { count: count || 0 });
-      stream.unreadCount = count || 0;
-      emitNotificationStream(stream);
-    })
-    .finally(() => {
-      stream.unreadFetchPromise = null;
-    });
-
-  return stream.unreadFetchPromise;
-};
-
-const ensureNotificationChannel = (stream) => {
-  if (stream.channel) return;
-
-  stream.channel = supabase
-    .channel(`notifications:${stream.userId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications',
-        filter: `receiver_id=eq.${stream.userId}`,
-      },
-      async (payload) => {
-        if (!stream.notificationsLoaded) {
-          if (!payload.new.is_read) stream.unreadCount += 1;
-          emitNotificationStream(stream);
-          return;
-        }
-
-        let actorData = null;
-
-        if (payload.new.actor_id) {
-          const { data } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url, student_code')
-            .eq('id', payload.new.actor_id)
-            .single();
-          actorData = data;
-        }
-
-        stream.notifications = [
-          { ...payload.new, actor: actorData },
-          ...stream.notifications.filter((item) => item.id !== payload.new.id),
-        ].slice(0, 20);
-        emitNotificationStream(stream);
-      }
-    )
-    .subscribe();
 };
 
 const subscribeToNotificationStream = (userId, listener) => {
@@ -139,9 +78,7 @@ const subscribeToNotificationStream = (userId, listener) => {
       unreadCount: 0,
       listeners: new Set(),
       subscribers: 0,
-      channel: null,
       fetchPromise: null,
-      unreadFetchPromise: null,
     };
     notificationStreams.set(userId, stream);
   }
@@ -149,15 +86,13 @@ const subscribeToNotificationStream = (userId, listener) => {
   stream.subscribers += 1;
   stream.listeners.add(listener);
   listener({ notifications: stream.notifications, unreadCount: stream.notificationsLoaded ? countUnread(stream.notifications) : stream.unreadCount });
-  fetchNotificationUnreadCount(stream);
-  ensureNotificationChannel(stream);
+  void fetchNotificationStream(stream);
 
   return () => {
     stream.listeners.delete(listener);
     stream.subscribers = Math.max(0, stream.subscribers - 1);
 
     if (stream.subscribers === 0) {
-      if (stream.channel) supabase.removeChannel(stream.channel);
       notificationStreams.delete(userId);
     }
   };
@@ -277,14 +212,9 @@ const NotificationBell = ({ currentUserId }) => {
       }
 
       if (!currentUserId) return;
-      const { data } = await supabase
-        .from('notification_preferences')
-        .select('system, events, lost_found, schedule, school')
-        .eq('user_id', currentUserId)
-        .maybeSingle();
-
-      if (data) {
-        const next = { ...defaultPreferences, ...data, schedule: FEATURE_SCHEDULE_REMINDERS };
+      const payload = await fetchOwnNotifications().catch(() => null);
+      if (payload?.preferences) {
+        const next = { ...defaultPreferences, ...payload.preferences, schedule: FEATURE_SCHEDULE_REMINDERS };
         setPreferences(next);
         localStorage.setItem(storageKey, JSON.stringify(next));
       }
@@ -304,6 +234,19 @@ const NotificationBell = ({ currentUserId }) => {
       setNotifications(snapshot.notifications);
       setUnreadCount(snapshot.unreadCount);
     });
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    const refresh = () => {
+      if (!document.hidden) void hydrateNotificationStream(currentUserId);
+    };
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+    };
   }, [currentUserId]);
 
   useEffect(() => {
@@ -343,22 +286,22 @@ const NotificationBell = ({ currentUserId }) => {
   };
 
   const togglePreference = async (key) => {
+    const previous = preferences;
     const next = { ...preferences, [key]: !preferences[key] };
     setPreferences(next);
     localStorage.setItem(storageKey, JSON.stringify(next));
 
     if (!currentUserId) return;
-    await supabase
-      .from('notification_preferences')
-      .upsert({
-        user_id: currentUserId,
-        ...next,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' });
+    try {
+      await updateOwnNotificationPreferences(next);
+    } catch {
+      setPreferences(previous);
+      localStorage.setItem(storageKey, JSON.stringify(previous));
+    }
   };
 
   const handleTogglePush = async () => {
-    if (!isPushSupported()) {
+    if (!isPushSupported() || !isPushNotificationSyncAvailable()) {
       alert('Trình duyệt của bạn không hỗ trợ thông báo.');
       return;
     }
@@ -392,27 +335,26 @@ const NotificationBell = ({ currentUserId }) => {
     }
 
     if (!notif.is_read) {
-      await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', notif.id);
-
-      updateNotificationStream(currentUserId, (prev) => prev.map((item) => (
-        item.id === notif.id ? { ...item, is_read: true } : item
-      )));
+      try {
+        await markOwnNotificationRead(notif.id);
+        updateNotificationStream(currentUserId, (prev) => prev.map((item) => (
+          item.id === notif.id ? { ...item, is_read: true } : item
+        )));
+      } catch {
+        // Navigation remains successful; a later refresh can retry the read state.
+      }
     }
   };
 
   const markAllRead = async () => {
     if (!currentUserId) return;
 
-    await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('receiver_id', currentUserId)
-      .eq('is_read', false);
-
-    updateNotificationStream(currentUserId, (prev) => prev.map((item) => ({ ...item, is_read: true })));
+    try {
+      await markAllOwnNotificationsRead();
+      updateNotificationStream(currentUserId, (prev) => prev.map((item) => ({ ...item, is_read: true })));
+    } catch {
+      // Keep the server state authoritative and leave the UI unchanged on failure.
+    }
   };
 
   const renderNotificationContent = (notif) => {
@@ -544,7 +486,7 @@ const NotificationBell = ({ currentUserId }) => {
         )}
       </div>
 
-      {!isPushEnabled && (
+      {!isPushEnabled && isPushNotificationSyncAvailable() && (
         <div className="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
           <div className="flex flex-col">
             <span className="text-xs font-bold text-gray-700">Thông báo đẩy</span>

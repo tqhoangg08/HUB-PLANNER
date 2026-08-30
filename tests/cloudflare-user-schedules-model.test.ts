@@ -132,6 +132,48 @@ test('user schedule reads fall back when a linked course is not mirrored yet', a
   );
 });
 
+test('private course snapshots resolve only through the owner-scoped schedule join', async () => {
+  const db = {
+    prepare(sql: string) {
+      const statement = {
+        bind() { return statement; },
+        async first() { return { synced_at: '2026-07-31T12:00:00Z' }; },
+        async all() {
+          if (sql.includes('FROM user_schedule_revisions')) {
+            return { results: [] };
+          }
+          assert.match(sql, /user_schedule_course_snapshots/);
+          assert.match(sql, /snapshots\.user_id = us\.user_id/);
+          return {
+            results: [{
+              user_schedule_id: SCHEDULE_ID,
+              schedule_course_id: COURSE_ID,
+              schedule_semester: 'HK1_2026_2027',
+              schedule_custom_data: null,
+              base_course_id: null,
+              snapshot_course_json: JSON.stringify({
+                id: COURSE_ID,
+                course_code: 'PRIVATE101',
+                subject_name: 'Private imported course',
+                is_user_added: true,
+              }),
+            }],
+          };
+        },
+      };
+      return statement;
+    },
+  };
+
+  const result = await listUserSchedules({ DB: db } as never, USER_ID);
+  assert.equal(result.data[0].id, COURSE_ID);
+  assert.equal(result.data[0].user_schedule_id, SCHEDULE_ID);
+  assert.notEqual(result.data[0].id, result.data[0].user_schedule_id);
+  assert.equal(result.data[0].course_code, 'PRIVATE101');
+  assert.equal(result.data[0].is_user_added, true);
+  assert.equal(JSON.stringify(result).includes(USER_ID), false);
+});
+
 test('user schedule responses do not expose the private owner identifier', async () => {
   const db = {
     prepare() {
@@ -165,6 +207,8 @@ test('user schedule responses do not expose the private owner identifier', async
   const serialized = JSON.stringify(result);
 
   assert.equal(result.data[0].id, COURSE_ID);
+  assert.equal(result.data[0].user_schedule_id, SCHEDULE_ID);
+  assert.notEqual(result.data[0].id, result.data[0].user_schedule_id);
   assert.equal('user' in result.data[0], false);
   assert.equal(serialized.includes(USER_ID), false);
 });

@@ -297,6 +297,7 @@ export default defineConfig(({ mode }) => {
   build: {
     target: "esnext",
     sourcemap: false,
+    manifest: true,
   },
 };
 })

@@ -1,12 +1,5 @@
-const DEFAULT_CLOUDFLARE_PUBLIC_API =
-  'https://hub-planner-public-dev-api.tqhoangg2.workers.dev';
 const READ_TIMEOUT_MS = 5_000;
 const WRITE_TIMEOUT_MS = 12_000;
-
-const cloudflareBase = String(
-  import.meta.env?.VITE_CLOUDFLARE_PUBLIC_API_BASE_URL ||
-    DEFAULT_CLOUDFLARE_PUBLIC_API
-).replace(/\/$/, '');
 
 const readErrorMessage = async (response: Response) => {
   try {
@@ -35,13 +28,6 @@ const authenticatedRequest = async (
   init: RequestInit = {},
   timeoutMs = READ_TIMEOUT_MS
 ) => {
-  const { supabase } = await import('./supabase');
-  const { data, error } = await supabase.auth.getSession();
-  const accessToken = data.session?.access_token;
-  if (error || !accessToken) {
-    throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-  }
-
   const controller = new AbortController();
   const timeout = globalThis.setTimeout(
     () => controller.abort('event-participation-timeout'),
@@ -49,14 +35,15 @@ const authenticatedRequest = async (
   );
   const headers = new Headers(init.headers);
   headers.set('Accept', 'application/json');
-  headers.set('Authorization', `Bearer ${accessToken}`);
 
   try {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    const response = await fetch(`${cloudflareBase}${normalizedPath}`, {
+    const response = await fetch(normalizedPath, {
       ...init,
       headers,
+      credentials: 'include',
       cache: 'no-store',
+      redirect: 'manual',
       signal: controller.signal,
     });
     if (!response.ok) {

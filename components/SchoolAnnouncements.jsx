@@ -106,18 +106,6 @@ const SchoolAnnouncements = () => {
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error || 'Không tải được thông báo trường.');
         const data = payload.data;
-        const error = null;
-        /*
-        await supabase
-          .from('school_announcements')
-          .select(ANNOUNCEMENT_LIST_COLUMNS)
-          .or('is_hidden.eq.false,is_hidden.is.null') // ✨ ĐÃ THÊM: Chỉ lấy tin chưa bị ẩn
-          .order('date', { ascending: false }) 
-          .order('created_at', { ascending: false }) 
-          .limit(10); 
-        */
-        
-        if (error) throw error;
         if (data) {
           setNews(data);
           writeAnnouncementWidgetCache(data);
@@ -148,30 +136,6 @@ const SchoolAnnouncements = () => {
       if (!response.ok) throw new Error(payload?.error || 'Không tải được thông báo trường.');
       setModalNews(payload.data || []);
       setTotalCount(payload.total || 0);
-      return;
-
-      let query = supabase
-        .from('school_announcements')
-        .select(ANNOUNCEMENT_LIST_COLUMNS, { count: 'exact' })
-        .or('is_hidden.eq.false,is_hidden.is.null'); // ✨ ĐÃ THÊM: Chỉ lấy tin chưa bị ẩn
-
-      if (searchQuery) query = query.ilike('title', `%${searchQuery}%`);
-      if (startDate) query = query.gte('date', startDate);
-      if (endDate) query = query.lte('date', endDate);
-
-      query = query.order('date', { ascending: false }).order('created_at', { ascending: false });
-
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
-      query = query.range(from, to);
-
-      const { data, count, error } = await query;
-
-      if (error) throw error;
-      if (data) {
-        setModalNews(data);
-        setTotalCount(count || 0);
-      }
     } catch (err) {
       console.error("Lỗi tải Modal thông báo:", err);
     } finally {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BellRing, X, AlertTriangle } from 'lucide-react';
-import { supabase } from '../utils/supabase';
-import { isPushSupported, subscribeToDeviceNotifications } from '../utils/pushNotifications';
+import { isPushNotificationSyncAvailable, subscribeToDeviceNotifications } from '../utils/pushNotifications';
+import { fetchBetterAuthSession } from '../utils/privateApi';
 
 const PushNotificationPrompt = () => {
   const [showPrompt, setShowPrompt] = useState(false);
@@ -16,24 +16,26 @@ const PushNotificationPrompt = () => {
     let isMounted = true;
 
     const loadUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await fetchBetterAuthSession();
       if (isMounted) setUserId(session?.user?.id || null);
     };
 
-    loadUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserId(session?.user?.id || null);
-    });
+    const refreshUser = () => {
+      void loadUser().catch(() => {
+        if (isMounted) setUserId(null);
+      });
+    };
+    refreshUser();
+    window.addEventListener('focus', refreshUser);
 
     return () => {
       isMounted = false;
-      authListener.subscription.unsubscribe();
+      window.removeEventListener('focus', refreshUser);
     };
   }, []);
 
   useEffect(() => {
-    if (!userId || !isPushSupported()) return;
+    if (!userId || !isPushNotificationSyncAvailable()) return;
     if (Notification.permission !== 'default') return;
     
     const hasDismissed = localStorage.getItem(`push_prompt_dismissed:${userId}`);

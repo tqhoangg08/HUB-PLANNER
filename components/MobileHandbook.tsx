@@ -6,7 +6,7 @@ import {
     MessageSquarePlus, Crown, ChevronLeft, ShieldCheck, ChevronDown
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
-import { supabase } from '../utils/supabase';
+import { fetchPublicDonations } from '../utils/publicDirectoryApi';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { TermsOfUse } from './TermsOfUse';
 import { PrivacyPolicy } from './PrivacyPolicy';
@@ -82,15 +82,14 @@ export const MobileHandbook: React.FC<MobileHandbookProps> = ({ forcedTab }) => 
 
     const fetchDonors = async () => {
         setLoadingDonors(true);
-        const { data, error } = await supabase
-            .from('donations')
-            .select('id,name,amount,message,student_id,created_at')
-            .order('amount', { ascending: false });
-
-        if (!error && data) {
-            setDonors(data);
+        try {
+            setDonors(await fetchPublicDonations());
+        } catch (error) {
+            console.error('Không thể tải danh sách ủng hộ:', error);
+            setDonors([]);
+        } finally {
+            setLoadingDonors(false);
         }
-        setLoadingDonors(false);
     };
 
     const handleDonateSubmit = async (e: React.FormEvent) => {

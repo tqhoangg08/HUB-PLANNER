@@ -10,7 +10,7 @@ import {
   getMajors,
 } from '../utils/programs';
 import { playClick } from '../utils/audio';
-import { supabase } from '../utils/supabase';
+import { signOutBetterAuth } from '../utils/privateApi';
 
 interface OnboardingProps {
   onComplete: (data: Partial<UserData>) => void;
@@ -152,7 +152,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
   const handleExit = async () => {
     playClick();
     localStorage.removeItem('user_role_preference');
-    if (supabase) await supabase.auth.signOut();
+    await signOutBetterAuth().catch(() => undefined);
     window.location.href = '/';
   };
 

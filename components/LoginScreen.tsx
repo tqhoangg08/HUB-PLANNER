@@ -1,1039 +1,202 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../utils/supabase';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Turnstile } from '@marsidev/react-turnstile';
 import {
-    AlertCircle,
-    ArrowLeft,
-    BookOpen,
-    CalendarDays,
-    Clock3,
-    Eye,
-    EyeOff,
-    Loader2,
-    Lock,
-    Mail,
-    ShieldCheck,
-    Target,
-    UserRound,
+  AlertCircle, ArrowLeft, BookOpen, CalendarDays, Clock3, Eye, EyeOff,
+  Loader2, Lock, Mail, ShieldCheck, Target, UserRound,
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
-import { apiHeaders, apiUrl } from '../utils/api';
-import { CONSENT_POLICIES, POLICY_VERSION } from '../utils/policyConsent';
-import { logWebError } from '../utils/logWebError';
-import { Turnstile } from '@marsidev/react-turnstile';
-const SCHOOL_DOMAIN = 'st.buh.edu.vn';
-const OTP_RESEND_COOLDOWN_SECONDS = 10 * 60;
+import type { AuthRefresh } from '../hooks/useUserRole';
+import { getRecoverySession } from '../app/auth/recoveryAuthClient';
+import {
+  beginGoogleStudentAuth,
+  getRegistrationStatus,
+  resendStudentSignup,
+  signInWithLoginDispatch,
+  startStudentSignup,
+  studentAuthMessage,
+  verifyStudentSignup,
+} from '../app/auth/studentAuthClient';
 
-type AuthFlow = 'login' | 'register';
-type OtpState = {
-    email: string;
-    purpose: 'register' | 'forgot_password';
-} | null;
+type Flow = 'login' | 'register';
+const SCHOOL_DOMAIN = 'st.buh.edu.vn';
+
+interface LoginScreenProps {
+  onRefreshAuth?: AuthRefresh;
+}
 
 const GoogleIcon = () => (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.24.81-.6z" fill="#FBBC05" />
-        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-    </svg>
+  <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.24.81-.6z" fill="#FBBC05" />
+    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+  </svg>
 );
 
-const normalizeHubEmail = (value: string) => value.trim().toLowerCase();
-
-const isHubEmail = (value: string) => normalizeHubEmail(value).endsWith(`@${SCHOOL_DOMAIN}`);
-
-const otpCooldownKey = (email: string, purpose: 'register' | 'forgot_password') =>
-    `hubplanner:otp-cooldown:${purpose}:${normalizeHubEmail(email)}`;
-
-const getStoredOtpCooldown = (email: string, purpose: 'register' | 'forgot_password') => {
-    const until = Number(localStorage.getItem(otpCooldownKey(email, purpose)) || 0);
-    return Math.max(0, Math.ceil((until - Date.now()) / 1000));
+const validatePassword = (value: string, confirmation?: string) => {
+  if (value.length < 12) return 'Mật khẩu cần ít nhất 12 ký tự.';
+  if (confirmation !== undefined && value !== confirmation) return 'Hai mật khẩu chưa trùng khớp.';
+  return '';
 };
 
-const storeOtpCooldown = (email: string, purpose: 'register' | 'forgot_password', seconds = OTP_RESEND_COOLDOWN_SECONDS) => {
-    localStorage.setItem(otpCooldownKey(email, purpose), String(Date.now() + seconds * 1000));
-};
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onRefreshAuth }) => {
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const [flow, setFlow] = useState<Flow>(params.get('tab') === 'register' ? 'register' : 'login');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpPending, setOtpPending] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [busy, setBusy] = useState<'form' | 'google' | 'resend' | null>(null);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [token, setToken] = useState('');
+  const [googleToken, setGoogleToken] = useState('');
+  const [turnstileKey, setTurnstileKey] = useState(0);
+  const [googleTurnstileKey, setGoogleTurnstileKey] = useState(0);
+  const siteKey = String(import.meta.env.VITE_AUTH_TURNSTILE_SITE_KEY || '').trim();
+  const action = otpPending ? 'verify_email' : flow === 'login' ? 'login' : 'signup';
 
-const formatOtpCooldown = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const rest = seconds % 60;
-    return `${minutes}:${String(rest).padStart(2, '0')}`;
-};
+  const resetChallenge = () => {
+    setToken('');
+    setTurnstileKey((value) => value + 1);
+  };
 
-const passwordError = (password: string, confirm?: string) => {
-    if (password.length < 8) return 'Mật khẩu cần ít nhất 8 ký tự.';
-    if (confirm !== undefined && password !== confirm) return 'Hai mật khẩu chưa trùng khớp.';
-    return null;
-};
+  const resetGoogleChallenge = () => {
+    setGoogleToken('');
+    setGoogleTurnstileKey((value) => value + 1);
+  };
 
-export const LoginScreen: React.FC = () => {
-    const navigate = useNavigate();
-    const [flow, setFlow] = useState<AuthFlow>('login');
-    const [identifier, setIdentifier] = useState('');
-    const [loginPassword, setLoginPassword] = useState('');
-    const [registerEmail, setRegisterEmail] = useState('');
-    const [registerPassword, setRegisterPassword] = useState('');
-    const [registerConfirm, setRegisterConfirm] = useState('');
-    const [recoveryPassword, setRecoveryPassword] = useState('');
-    const [recoveryConfirm, setRecoveryConfirm] = useState('');
-    const [otp, setOtp] = useState('');
-    const [otpState, setOtpState] = useState<OtpState>(null);
-    const [showLoginPassword, setShowLoginPassword] = useState(false);
-    const [showRegisterPassword, setShowRegisterPassword] = useState(false);
-    const [showRecoveryPassword, setShowRecoveryPassword] = useState(false);
-    const [isRecoveryMode, setIsRecoveryMode] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [googleLoading, setGoogleLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [notice, setNotice] = useState<string | null>(null);
-    const [agreed, setAgreed] = useState(false);
-    const [otpCooldownRemaining, setOtpCooldownRemaining] = useState(0);
-    const [captchaToken, setCaptchaToken] = useState('');
-    const [captchaStatus, setCaptchaStatus] = useState<'idle' | 'verified' | 'error'>('idle');
-    const [captchaRetryKey, setCaptchaRetryKey] = useState(0);
-    useEffect(() => {
-        if (!supabase) return;
+  useEffect(() => {
+    let current = true;
+    getRecoverySession().then(async (session) => {
+      if (!current || !session.authenticated) return;
+      try {
+        const registration = await getRegistrationStatus();
+        navigate(registration.pending ? '/complete-registration' : '/dashboard', { replace: true });
+      } catch {
+        navigate('/dashboard', { replace: true });
+      }
+    }).catch(() => undefined);
+    return () => { current = false; };
+  }, [navigate]);
 
-        const urlLooksLikeRecovery =
-            window.location.hash.includes('type=recovery') ||
-            window.location.search.includes('type=recovery');
-        if (urlLooksLikeRecovery) {
-            setIsRecoveryMode(true);
-            setFlow('login');
-            setNotice('Nhập mật khẩu mới để hoàn tất đặt lại tài khoản.');
+  useEffect(() => {
+    const oauth = params.get('oauth');
+    if (!oauth) return;
+    if (oauth.startsWith('signup')) {
+      setFlow('login');
+      setError('Tài khoản đã được đăng ký. Vui lòng đăng nhập.');
+    } else {
+      setFlow('register');
+      setError('Tài khoản này chưa được đăng ký trên HUB Planner. Vui lòng chuyển sang Đăng ký để tạo tài khoản.');
+    }
+  }, [params]);
+
+  const switchFlow = (next: Flow) => {
+    playClick();
+    setFlow(next); setOtpPending(false); setOtp(''); setError(''); setNotice(''); resetChallenge(); resetGoogleChallenge();
+  };
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(''); setNotice(''); playClick();
+    if (!token) return setError('Vui lòng hoàn tất bước xác minh bảo mật.');
+    if (flow === 'register' && !agreed) return setError('Bạn cần đồng ý Điều khoản trước khi đăng ký.');
+    setBusy('form');
+    try {
+      if (flow === 'login') {
+        await signInWithLoginDispatch(identifier, password, token);
+        const identity = await onRefreshAuth?.({ preserveStateOnError: true });
+        if (!identity?.current || !identity.authenticated) {
+          throw new Error('Đăng nhập thành công nhưng chưa thể đồng bộ tài khoản. Vui lòng thử lại.');
         }
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-            if (event === 'PASSWORD_RECOVERY') {
-                setIsRecoveryMode(true);
-                setFlow('login');
-                setNotice('Nhập mật khẩu mới để hoàn tất đặt lại tài khoản.');
-            }
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
-
-    useEffect(() => {
-        if (!otpState) {
-            setOtpCooldownRemaining(0);
-            return;
-        }
-
-        const syncCooldown = () => {
-            setOtpCooldownRemaining(getStoredOtpCooldown(otpState.email, otpState.purpose));
-        };
-
-        syncCooldown();
-        const timer = window.setInterval(syncCooldown, 1000);
-        return () => window.clearInterval(timer);
-    }, [otpState?.email, otpState?.purpose]);
-
-    const switchFlow = (nextFlow: AuthFlow) => {
-        if (flow === nextFlow) return;
-        playClick();
-        setFlow(nextFlow);
-        setError(null);
-        setNotice(null);
-        setOtpState(null);
-        setOtp('');
-        setIsRecoveryMode(false);
-        setCaptchaToken('');
-        setCaptchaStatus('idle');
-    };
-
-    const handleGoogleLogin = async () => {
-        if (flow === 'register' && !agreed) {
-            setError('Bạn cần đồng ý điều khoản trước khi tiếp tục.');
-            return;
-        }
-        if (!supabase) return setError('Chưa cấu hình kết nối Database.');
-
-        setGoogleLoading(true);
-        setError(null);
-        setNotice(null);
-        playClick();
-        localStorage.setItem('hubplanner:pending-registration-consent', JSON.stringify({
-            policies: [CONSENT_POLICIES.terms, CONSENT_POLICIES.privacy],
-            version: POLICY_VERSION,
-            context: 'oauth_registration',
-            createdAt: new Date().toISOString(),
-        }));
-
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: `${window.location.origin}/dashboard`,
-                queryParams: { hd: SCHOOL_DOMAIN, prompt: 'select_account' },
-            },
-        });
-
-        if (error) {
-            setError(error.message || `Vui lòng dùng email sinh viên có đuôi @${SCHOOL_DOMAIN}.`);
-            await logWebError({
-                source: 'auth',
-                action: flow === 'register' ? 'register' : 'login',
-                error,
-                metadata: {
-                    provider: 'google',
-                    flow,
-                },
-            });
-            setGoogleLoading(false);
-        }
-    };
-
-    const resolveLoginEmail = async (rawIdentifier: string) => {
-        const value = rawIdentifier.trim();
-        if (!value) throw new Error('Nhập MSSV hoặc Gmail HUB của bạn.');
-
-        if (value.includes('@')) {
-            const email = normalizeHubEmail(value);
-            return email;
-        }
-
-        const response = await fetch(apiUrl('/auth'), {
-            method: 'POST',
-            headers: apiHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ action: 'resolve-identifier', identifier: value }),
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok || !payload.email) {
-            if (response.status >= 500) {
-                await logWebError({
-                    source: 'auth',
-                    action: 'login',
-                    error: payload.error || `Resolve identifier failed (${response.status})`,
-                    metadata: {
-                        status: response.status,
-                        hasIdentifier: Boolean(value),
-                    },
-                });
-            }
-            throw new Error(payload.error || 'Không tìm thấy MSSV này. Hãy đăng nhập Google HUB một lần hoặc dùng Gmail HUB.');
-        }
-        return payload.email as string;
-    };
-
-    const sendOtpCode = async (email: string, purpose: 'register' | 'forgot_password') => {
-        if (!captchaToken) {
-            throw new Error(captchaStatus === 'error' ? 'Không thể xác minh bảo mật. Vui lòng thử lại.' : 'Vui lòng hoàn tất bước xác minh bảo mật.');
-        }
-        const storedCooldown = getStoredOtpCooldown(email, purpose);
-        if (storedCooldown > 0) {
-            setOtpState({ email, purpose });
-            setOtpCooldownRemaining(storedCooldown);
-            setNotice(`Mã OTP đã được gửi. Bạn có thể gửi lại sau ${formatOtpCooldown(storedCooldown)}.`);
-            return false;
-        }
-
-        const response = await fetch(apiUrl('/auth'), {
-            method: 'POST',
-            headers: apiHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ action: 'send-otp', purpose, email, turnstileToken: captchaToken }),
-        });
-        const payload = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-            if (!(response.status === 429 && payload.retryAfterSeconds)) {
-                await logWebError({
-                    source: 'otp',
-                    action: 'otp_request',
-                    error: payload.error || `OTP request failed (${response.status})`,
-                    metadata: {
-                        purpose,
-                        email,
-                        status: response.status,
-                    },
-                });
-            }
-            if (response.status === 429 && payload.retryAfterSeconds) {
-                const retryAfterSeconds = Number(payload.retryAfterSeconds);
-                storeOtpCooldown(email, purpose, retryAfterSeconds);
-                setOtpState({ email, purpose });
-                setOtpCooldownRemaining(retryAfterSeconds);
-                setNotice(`Mã OTP đã được gửi. Bạn có thể gửi lại sau ${formatOtpCooldown(retryAfterSeconds)}.`);
-                return false;
-            }
-            throw new Error(payload.error || 'Không thể gửi mã OTP.');
-        }
-
-        const cooldownSeconds = Number(payload.retryAfterSeconds || payload.expiresInSeconds || OTP_RESEND_COOLDOWN_SECONDS);
-        storeOtpCooldown(email, purpose, cooldownSeconds);
-        setOtpCooldownRemaining(cooldownSeconds);
-        return true;
-    };
-
-    const handlePasswordLogin = async (event: React.FormEvent) => {
-        event.preventDefault();
-        if (!supabase) return setError('Chưa cấu hình kết nối Database.');
-
-        setLoading(true);
-        setError(null);
-        setNotice(null);
-        playClick();
-
-        try {
-            const email = await resolveLoginEmail(identifier);
-                        // Chặn nếu chưa xác minh CAPTCHA
-            if (!captchaToken) throw new Error(captchaStatus === 'error' ? 'Không thể xác minh bảo mật. Vui lòng thử lại.' : 'Vui lòng hoàn tất bước xác minh bảo mật.');
-                        // Bắn token lên cho Supabase kiểm tra
-            const { error } = await supabase.auth.signInWithPassword({ 
-                email, 
-                password: loginPassword,
-                options: { captchaToken } 
-            });
-            
-            if (error) throw new Error('MSSV/Gmail HUB hoặc mật khẩu không chính xác.');
-            navigate('/dashboard', { replace: true });
-        } catch (err: any) {
-            setError(err.message || 'Đăng nhập thất bại.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleForgotPassword = async () => {
-        setLoading(true);
-        setError(null);
-        setNotice(null);
-        playClick();
-
-        try {
-            const email = await resolveLoginEmail(identifier);
-            const sent = await sendOtpCode(email, 'forgot_password');
-            setOtpState({ email, purpose: 'forgot_password' });
-            setOtp('');
-            setRecoveryPassword('');
-            setRecoveryConfirm('');
-            if (sent) setNotice(`Mã OTP đặt lại mật khẩu đã được gửi đến ${email}.`);
-        } catch (err: any) {
-            setError(err.message || 'Không thể gửi mã OTP đặt lại mật khẩu.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleRecoveryPasswordUpdate = async (event: React.FormEvent) => {
-        event.preventDefault();
-        if (!supabase) return setError('Chưa cấu hình kết nối Database.');
-
-        const invalidPassword = passwordError(recoveryPassword, recoveryConfirm);
-        if (invalidPassword) return setError(invalidPassword);
-
-        setLoading(true);
-        setError(null);
-        playClick();
-
-        try {
-            const { error } = await supabase.auth.updateUser({ password: recoveryPassword });
-            if (error) throw error;
-            try {
-                await supabase.rpc('mark_password_set');
-            } catch {
-                // Best effort: migration may not be applied in older environments yet.
-            }
-            navigate('/dashboard', { replace: true });
-        } catch (err: any) {
-            setError(err.message || 'Không thể cập nhật mật khẩu mới.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleRegister = async (event: React.FormEvent) => {
-        event.preventDefault();
-        if (!agreed) return setError('B\u1ea1n c\u1ea7n \u0111\u1ed3ng \u00fd \u0110i\u1ec1u kho\u1ea3n tr\u01b0\u1edbc khi \u0111\u0103ng k\u00fd.');
-
-        const email = normalizeHubEmail(registerEmail);
-        if (!isHubEmail(email)) return setError(`Email \u0111\u0103ng k\u00fd ph\u1ea3i c\u00f3 \u0111u\u00f4i @${SCHOOL_DOMAIN}.`);
-
-        const invalidPassword = passwordError(registerPassword, registerConfirm);
-        if (invalidPassword) return setError(invalidPassword);
-
-        setLoading(true);
-        setError(null);
-        setNotice(null);
-        playClick();
-
-        try {
-            const sent = await sendOtpCode(email, 'register');
-            setOtpState({ email, purpose: 'register' });
-            setOtp('');
-            if (sent) setNotice(`Mã OTP đăng ký đã được gửi đến ${email}. Nhập mã để hoàn tất đăng ký.`);
-        } catch (err: any) {
-            const message = err.message?.includes('\u0111\u00e3 \u0111\u01b0\u1ee3c \u0111\u0103ng k\u00fd') || err.message?.includes('already')
-                ? 'Email n\u00e0y \u0111\u00e3 \u0111\u01b0\u1ee3c \u0111\u0103ng k\u00fd. H\u00e3y chuy\u1ec3n sang \u0111\u0103ng nh\u1eadp.'
-                : err.message || 'Kh\u00f4ng th\u1ec3 g\u1eedi m\u00e3 OTP \u0111\u0103ng k\u00fd l\u00fac n\u00e0y.';
-            setError(message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleVerifyOtp = async (event: React.FormEvent) => {
-        event.preventDefault();
-        if (!otpState) return;
-
-        setLoading(true);
-        setError(null);
-        playClick();
-
-        try {
-            const isForgotPassword = otpState.purpose === 'forgot_password';
-            const password = isForgotPassword ? recoveryPassword : registerPassword;
-            const confirmPassword = isForgotPassword ? recoveryConfirm : registerConfirm;
-            const invalidPassword = passwordError(password, confirmPassword);
-            if (invalidPassword) throw new Error(invalidPassword);
-
-            const response = await fetch(apiUrl('/auth'), {
-                method: 'POST',
-                headers: apiHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({
-                    action: 'verify-otp',
-                    purpose: otpState.purpose,
-                    email: otpState.email,
-                    otp,
-                    password,
-                    confirmPassword,
-                    acceptedPolicies: isForgotPassword ? [] : [
-                        { type: CONSENT_POLICIES.terms, version: POLICY_VERSION, context: 'registration' },
-                        { type: CONSENT_POLICIES.privacy, version: POLICY_VERSION, context: 'registration' },
-                    ],
-                }),
-            });
-            const payload = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(payload.error || 'M\u00e3 OTP kh\u00f4ng ch\u00ednh x\u00e1c ho\u1eb7c \u0111\u00e3 h\u1ebft h\u1ea1n.');
-
-            localStorage.removeItem(otpCooldownKey(otpState.email, otpState.purpose));
-            setOtpCooldownRemaining(0);
-
-            if (isForgotPassword) {
-                setFlow('login');
-                setOtpState(null);
-                setOtp('');
-                setRecoveryPassword('');
-                setRecoveryConfirm('');
-                setLoginPassword('');
-                setNotice('\u0110\u00e3 c\u1eadp nh\u1eadt m\u1eadt kh\u1ea9u. B\u1ea1n c\u00f3 th\u1ec3 \u0111\u0103ng nh\u1eadp b\u1eb1ng m\u1eadt kh\u1ea9u m\u1edbi.');
-                return;
-            }
-
-            if (!supabase) throw new Error('Ch\u01b0a c\u1ea5u h\u00ecnh k\u1ebft n\u1ed1i Database.');
-            const { error: signInError } = await supabase.auth.signInWithPassword({
-                email: otpState.email,
-                password: registerPassword,
-            });
-            if (signInError) throw new Error('T\u00e0i kho\u1ea3n \u0111\u00e3 t\u1ea1o xong. Vui l\u00f2ng \u0111\u0103ng nh\u1eadp b\u1eb1ng m\u1eadt kh\u1ea9u v\u1eeba \u0111\u1eb7t.');
-            navigate('/dashboard', { replace: true });
-        } catch (err: any) {
-            setError(err.message || 'M\u00e3 OTP kh\u00f4ng ch\u00ednh x\u00e1c ho\u1eb7c \u0111\u00e3 h\u1ebft h\u1ea1n.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleResendOtp = async () => {
-        if (!otpState || otpCooldownRemaining > 0) return;
-
-        setLoading(true);
-        setError(null);
-        setNotice(null);
-        playClick();
-
-        try {
-            const sent = await sendOtpCode(otpState.email, otpState.purpose);
-            if (sent) {
-                setOtp('');
-                setNotice(`Mã OTP mới đã được gửi đến ${otpState.email}.`);
-            }
-        } catch (err: any) {
-            setError(err.message || 'Không thể gửi lại mã OTP.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const renderPasswordInput = (
-        id: string,
-        value: string,
-        onChange: (value: string) => void,
-        visible: boolean,
-        setVisible: (value: boolean) => void,
-        placeholder = 'Nhập mật khẩu'
-    ) => (
-        <div className="relative">
-            <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input
-                id={id}
-                type={visible ? 'text' : 'password'}
-                required
-                minLength={8}
-                placeholder={placeholder}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className={passwordInputClassName}
-            />
-            <button
-                type="button"
-                onClick={() => setVisible(!visible)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 transition-colors hover:text-[#003B7A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)]"
-                aria-label={visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-            >
-                {visible ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
-        </div>
-    );
-
-    const renderSecurityCheck = (action: string) => (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white px-2.5 py-1.5">
-            {captchaStatus === 'error' ? (
-                <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
-                        <AlertCircle size={15} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <p className="text-[12px] font-semibold text-slate-800">Không thể xác minh bảo mật.</p>
-                        <p className="text-[11px] font-medium text-slate-500">Vui lòng kiểm tra mạng và thử lại.</p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setCaptchaToken('');
-                            setCaptchaStatus('idle');
-                            setCaptchaRetryKey((value) => value + 1);
-                        }}
-                        className="rounded-xl bg-slate-100 px-2.5 py-1.5 text-[11.5px] font-bold text-[#003B7A] active:bg-slate-200"
-                    >
-                        Thử lại
-                    </button>
-                </div>
-            ) : (
-                <div className="space-y-1.5">
-                    <div className="flex items-center gap-2.5">
-                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${captchaStatus === 'verified' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-[#003B7A]'}`}>
-                        {captchaStatus === 'verified' ? <ShieldCheck size={16} /> : <Loader2 size={15} className="animate-spin" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <p className="text-[12px] font-semibold text-slate-800">
-                            {captchaStatus === 'verified' ? 'Đã xác minh bảo mật' : 'Đang chuẩn bị xác minh'}
-                        </p>
-                        <p className="text-[11px] font-medium text-slate-500">
-                            {captchaStatus === 'verified' ? 'Bạn có thể tiếp tục đăng nhập.' : 'Nếu được yêu cầu, hãy hoàn tất bước bảo mật.'}
-                        </p>
-                    </div>
-                    </div>
-                    <div className="flex h-[58px] w-full items-center justify-center overflow-hidden">
-                        <Turnstile
-                            key={`${action}-${captchaRetryKey}`}
-                            siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-                            options={{
-                                action,
-                                appearance: 'interaction-only',
-                                feedbackEnabled: false,
-                                language: 'vi',
-                                size: 'flexible',
-                                theme: 'light',
-                            }}
-                            onSuccess={(token) => {
-                                setCaptchaToken(token);
-                                setCaptchaStatus('verified');
-                            }}
-                            onError={() => {
-                                setCaptchaToken('');
-                                setCaptchaStatus('error');
-                            }}
-                            onExpire={() => {
-                                setCaptchaToken('');
-                                setCaptchaStatus('idle');
-                            }}
-                            onTimeout={() => {
-                                setCaptchaToken('');
-                                setCaptchaStatus('error');
-                            }}
-                            onUnsupported={() => {
-                                setCaptchaToken('');
-                                setCaptchaStatus('error');
-                            }}
-                            scriptOptions={{
-                                onError: () => {
-                                    setCaptchaToken('');
-                                    setCaptchaStatus('error');
-                                },
-                            }}
-                            className="w-full"
-                        />
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-
-    const backButtonClassName = 'auth-back-button';
-    const mainClassName = 'auth-page';
-    const shellClassName = 'auth-shell';
-    const formSectionClassName = 'auth-card';
-    const authFormClassName = 'auth-form';
-    const fieldInputClassName = 'auth-input auth-input-with-icon';
-    const passwordInputClassName = 'auth-input auth-input-password';
-    const tabButtonClassName = (active: boolean) => `auth-tab${active ? ' auth-tab-active' : ''}`;
-
-    const authTitle = isRecoveryMode
-        ? 'Đặt lại mật khẩu'
-        : otpState
-            ? 'Xác nhận OTP'
-            : flow === 'login'
-                ? 'Đăng nhập'
-                : 'Đăng ký';
-
-    const authDescription = isRecoveryMode
-        ? 'Tạo mật khẩu mới để tiếp tục sử dụng tài khoản.'
-        : otpState
-            ? 'Nhập mã xác nhận đã được gửi đến email sinh viên của bạn.'
-            : flow === 'login'
-                ? 'Vui lòng điền đầy đủ các thông tin bên dưới'
-                : `Đăng ký bằng Gmail sinh viên có đuôi @${SCHOOL_DOMAIN}`;
-
-    return (
-        <div className="auth-page-root">
-            <button
-                type="button"
-                onClick={() => {
-                    playClick();
-                    navigate('/');
-                }}
-                className={backButtonClassName}
-            >
-                <ArrowLeft size={17} />
-                <span>Về trang chủ</span>
-            </button>
-
-            <main className={mainClassName}>
-                <div className={shellClassName}>
-                <section className="auth-mobile-brand">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            playClick();
-                            navigate('/');
-                        }}
-                        className="relative z-10 mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white/12 text-white active:bg-white/18"
-                        aria-label="Về trang chủ"
-                    >
-                        <ArrowLeft size={17} />
-                    </button>
-                    <div className="relative z-10 flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-white shadow-[0_8px_18px_rgba(0,0,0,0.12)]">
-                            <img src="/logoapp.png" alt="HUB Planner" className="h-full w-full object-cover" />
-                        </div>
-                        <div className="min-w-0">
-                            <p className="text-[14px] font-bold leading-tight">HUB Planner</p>
-                            <p className="mt-0.5 text-[11.5px] font-medium text-blue-100">Tài khoản sinh viên HUB</p>
-                        </div>
-                    </div>
-                </section>
-                <section className="auth-visual-panel">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white">
-                            <img src="/logo.png" alt="HUB Planner" className="h-9 w-9 object-contain" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-black tracking-normal">HUB Planner</p>
-                            <p className="text-xs font-semibold text-blue-100">Đồng hành cùng sinh viên</p>
-                        </div>
-                    </div>
-
-                    <div className="py-5">
-                          <h1>
-            Chào mừng bạn đến với
-            <span>
-              HUB Planner <span aria-hidden="true"></span>
-            </span>
-          </h1>
-          <p className="onboarding-description">
-            Vui lòng đăng nhập để chúng tôi có thể hỗ trợ hành trình học tập của bạn tốt nhất.
-          </p>
-        </div>
-
-                    <div className="rounded-[22px] border border-white/16 bg-white/[0.08] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.12)]">
-                        <div className="mb-3 flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-bold uppercase tracking-normal text-blue-100">Tuần này</p>
-                                <p className="mt-1 text-lg font-black">4 việc cần nhớ</p>
-                            </div>
-                            <div className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#003B7A]">HK2</div>
-                        </div>
-                        <div className="space-y-2.5">
-                            <div className="flex items-center gap-3 rounded-2xl bg-white p-3 text-slate-900">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#003B7A]">
-                                    <CalendarDays size={18} />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-black">Marketing căn bản</p>
-                                <p className="text-xs font-semibold text-slate-500">Phòng B203 - 07:00</p>
-                                </div>
-                                <Clock3 className="text-slate-300" size={18} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-2.5">
-                                <div className="rounded-2xl bg-white/12 p-3">
-                                    <Target size={16} className="mb-2 text-blue-100" />
-                                    <p className="text-xs font-bold text-blue-50">Deadline</p>
-                                    <p className="mt-1 text-lg font-black">2 bài</p>
-                                </div>
-                                <div className="rounded-2xl bg-white/12 p-3">
-                                    <BookOpen size={16} className="mb-2 text-blue-100" />
-                                    <p className="text-xs font-bold text-blue-50">HK2</p>
-                                    <p className="mt-1 text-lg font-black">18 TC</p>
-                                </div>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                {['Đăng ký môn', 'Lịch học', 'Ghi chú'].map((item) => (
-                                    <span key={item} className="rounded-full bg-white/12 px-3 py-1.5 text-xs font-bold text-blue-50">
-                                        {item}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section className={formSectionClassName}>
-                    <header className="auth-card-header">
-                        <div className="auth-card-icon">
-                            <Lock size={25} strokeWidth={1.8} aria-hidden="true" />
-                        </div>
-                        <div>
-                            <h2>{authTitle}</h2>
-                            <p>{authDescription}</p>
-                        </div>
-                    </header>
-                    {false && (
-                        <div className="auth-inline-brand">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-100 bg-white shadow-sm">
-                                <img src="/logo.png" alt="HUB Planner" className="h-8 w-8 object-contain" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-black text-[#003B7A]">HUB Planner</p>
-                                <p className="text-xs font-semibold text-slate-500">TÃ i khoáº£n sinh viÃªn HUB</p>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="auth-tabs">
-                        <button
-                            type="button"
-                            onClick={() => switchFlow('login')}
-                            className={tabButtonClassName(flow === 'login')}
-                        >
-                            Đăng nhập
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => switchFlow('register')}
-                            className={tabButtonClassName(flow === 'register')}
-                        >
-                            Đăng ký
-                        </button>
-                    </div>
-
-                    <div className="hidden">
-                        <h2 className="text-[20px] font-bold leading-tight tracking-normal text-slate-950">
-                            {isRecoveryMode ? 'Đặt mật khẩu mới' : otpState ? 'Nhập mã OTP' : flow === 'login' ? 'Vào HUB Planner' : 'Bắt đầu với HUB'}
-                        </h2>
-                        <p className="mt-1 text-[12.5px] font-medium leading-5 text-slate-500">
-                            {isRecoveryMode
-                                ? 'Tạo mật khẩu mới để tiếp tục dùng tài khoản HUB Planner.'
-                                : otpState
-                                ? (otpState.purpose === 'forgot_password' ? 'Xác nhận OTP rồi đặt mật khẩu mới cho tài khoản.' : 'Kiểm tra Gmail HUB và nhập mã OTP để hoàn tất.')
-                                : flow === 'login'
-                                    ? 'Dùng Google HUB nhanh nhất, hoặc MSSV/Gmail với mật khẩu riêng.'
-                                    : `Chỉ dùng Gmail sinh viên có đuôi @${SCHOOL_DOMAIN}.`}
-                        </p>
-                    </div>
-
-                    <div className="hidden">
-                        <h2 className="text-[25px] font-black leading-tight tracking-normal text-slate-950 sm:text-[28px]">
-                            {isRecoveryMode ? '\u0110\u1eb7t l\u1ea1i m\u1eadt kh\u1ea9u' : otpState ? 'X\u00e1c nh\u1eadn OTP' : flow === 'login' ? 'Ch\u00e0o m\u1eebng tr\u1edf l\u1ea1i' : 'T\u1ea1o t\u00e0i kho\u1ea3n HUB'}
-                        </h2>
-                        <p className="mt-2 text-[13px] leading-6 text-slate-500 sm:text-sm">
-                            {isRecoveryMode
-                                ? 'Tạo mật khẩu mới cho tài khoản HUB Planner của bạn.'
-                                : otpState
-                                ? (otpState.purpose === 'forgot_password' ? 'Nh\u1eadp m\u00e3 OTP v\u00e0 m\u1eadt kh\u1ea9u m\u1edbi \u0111\u1ec3 \u0111\u1eb7t l\u1ea1i t\u00e0i kho\u1ea3n.' : 'Nh\u1eadp m\u00e3 x\u00e1c nh\u1eadn trong email tr\u01b0\u1eddng \u0111\u1ec3 ho\u00e0n t\u1ea5t \u0111\u0103ng k\u00fd.')
-                                : flow === 'login'
-                                    ? '\u0110\u0103ng nh\u1eadp b\u1eb1ng Google ho\u1eb7c MSSV/Gmail HUB v\u00e0 m\u1eadt kh\u1ea9u.'
-                                    : `Chỉ dùng Gmail sinh viên có đuôi @${SCHOOL_DOMAIN}.`}
-                        </p>
-                    </div>
-
-                    {error && (
-                        <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-3 text-sm font-bold text-red-700">
-                            <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                            <span>{error}</span>
-                        </div>
-                    )}
-                    {notice && (
-                        <div className="mb-4 flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-sm font-semibold text-[#003B7A]">
-                            <Mail size={18} className="mt-0.5 shrink-0" />
-                            <span>{notice}</span>
-                        </div>
-                    )}
-
-                    {false && flow === 'login' && !isRecoveryMode && !otpState && (
-                        <div className="mb-2.5 lg:hidden">
-                            <p className="mb-1.5 text-[12.5px] font-semibold text-slate-500">
-                                Đăng nhập nhanh
-                            </p>
-                            <button
-                                type="button"
-                                onClick={handleGoogleLogin}
-                                disabled={googleLoading || loading}
-                                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-4 text-[13.5px] font-semibold text-slate-900 shadow-[0_4px_12px_rgba(15,23,42,0.06)] transition-colors active:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                            >
-                                {googleLoading ? <Loader2 className="animate-spin" size={18} /> : <GoogleIcon />}
-                                {googleLoading ? 'Đang kết nối...' : 'Đăng nhập bằng Google HUB'}
-                            </button>
-                            <div className="my-2.5 flex items-center gap-3 text-[12px] font-medium text-slate-400">
-                                <span className="h-px flex-1 bg-slate-200" />
-                                Hoặc đăng nhập bằng mật khẩu
-                                <span className="h-px flex-1 bg-slate-200" />
-                            </div>
-                        </div>
-                    )}
-
-                    {isRecoveryMode ? (
-                        <form onSubmit={handleRecoveryPasswordUpdate} className={authFormClassName}>
-                            <div>
-                                <label htmlFor="recovery-password" className="mb-1.5 block text-sm font-bold text-slate-700">Mật khẩu mới</label>
-                                {renderPasswordInput('recovery-password', recoveryPassword, setRecoveryPassword, showRecoveryPassword, setShowRecoveryPassword, 'Nhập mật khẩu mới')}
-                            </div>
-
-                            <div>
-                                <label htmlFor="recovery-confirm" className="mb-1.5 block text-sm font-bold text-slate-700">Nhập lại mật khẩu</label>
-                                {renderPasswordInput('recovery-confirm', recoveryConfirm, setRecoveryConfirm, showRecoveryPassword, setShowRecoveryPassword, 'Nhập lại mật khẩu mới')}
-                            </div>
-
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#003B7A] px-4 text-sm font-black text-white shadow-sm transition-colors hover:bg-[#002F61] disabled:cursor-not-allowed disabled:bg-slate-300"
-                            >
-                                {loading ? <Loader2 className="animate-spin" size={18} /> : null}
-                                {loading ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
-                            </button>
-                        </form>
-                    ) : flow === 'login' && !otpState ? (
-                        <form onSubmit={handlePasswordLogin} className={authFormClassName}>
-                            <div>
-                                <label htmlFor="login-identifier" className="mb-1 block text-[12.5px] font-semibold text-slate-700 lg:text-sm lg:font-bold">Tài khoản</label>
-                                <div className="relative">
-                                    <UserRound className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
-                                    <input
-                                        id="login-identifier"
-                                        type="text"
-                                        required
-                                        placeholder={`MSSV hoặc Gmail HUB`}
-                                        value={identifier}
-                                        onChange={(e) => setIdentifier(e.target.value)}
-                                        className={fieldInputClassName}
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <div className="mb-1.5 flex items-center justify-between gap-3">
-                                    <label htmlFor="login-password" className="block text-[12.5px] font-semibold text-slate-700 lg:text-sm lg:font-bold">Mật khẩu</label>
-                                    <button
-                                        type="button"
-                                        onClick={handleForgotPassword}
-                                        disabled={loading || googleLoading}
-                                        className="text-[12px] font-bold text-[#003B7A] transition-colors hover:text-[#002F61] hover:underline disabled:cursor-not-allowed disabled:text-slate-400"
-                                    >
-                                        Quên mật khẩu?
-                                    </button>
-                                </div>
-                                {renderPasswordInput('login-password', loginPassword, setLoginPassword, showLoginPassword, setShowLoginPassword)}
-                            </div>
-
-                            <div className="rounded-2xl border border-blue-100 bg-blue-50 px-2.5 py-1.5 text-[11.5px] font-medium leading-5 text-slate-600 lg:rounded-xl lg:text-xs">
-                                Nếu từng đăng nhập bằng Google, bạn có thể cần đặt mật khẩu riêng để đăng nhập bằng MSSV/Gmail.
-                            </div>
-                            {renderSecurityCheck('login')}
-                            <button
-                                type="submit"
-                                disabled={loading || googleLoading}
-                                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#003B7A] px-4 text-[13.5px] font-bold text-white shadow-sm transition-colors hover:bg-[#002F61] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.18)] disabled:cursor-not-allowed disabled:bg-slate-300 lg:h-11 lg:text-sm lg:font-black"
-                            >
-                                {loading ? <Loader2 className="animate-spin" size={18} /> : null}
-                                {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-                            </button>
-                        </form>
-                    ) : otpState ? (
-                        <form onSubmit={handleVerifyOtp} className={authFormClassName}>
-                            <div>
-                                <label htmlFor="register-otp" className="mb-1.5 block text-sm font-bold text-slate-700">Mã OTP</label>
-                                <input
-                                    id="register-otp"
-                                    type="text"
-                                    inputMode="numeric"
-                                    required
-                                    maxLength={6}
-                                    placeholder="Nhập 6 chữ số"
-                                    value={otp}
-                                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-center text-2xl font-black tracking-normal text-[#003B7A] outline-none transition-all placeholder:text-base placeholder:tracking-normal placeholder:text-slate-400 focus:border-[#0B5ED7] focus:ring-4 focus:ring-[rgba(11,94,215,0.12)]"
-                                />
-                            </div>
-                            {otpState?.purpose === 'forgot_password' && (
-                                <>
-                                    <div>
-                                        <label htmlFor="forgot-password-new" className="mb-1.5 block text-sm font-bold text-slate-700">{'M\u1eadt kh\u1ea9u m\u1edbi'}</label>
-                                        {renderPasswordInput('forgot-password-new', recoveryPassword, setRecoveryPassword, showRecoveryPassword, setShowRecoveryPassword, 'Nh\u1eadp m\u1eadt kh\u1ea9u m\u1edbi')}
-                                    </div>
-                                    <div>
-                                        <label htmlFor="forgot-password-confirm" className="mb-1.5 block text-sm font-bold text-slate-700">{'Nh\u1eadp l\u1ea1i m\u1eadt kh\u1ea9u m\u1edbi'}</label>
-                                        {renderPasswordInput('forgot-password-confirm', recoveryConfirm, setRecoveryConfirm, showRecoveryPassword, setShowRecoveryPassword, 'Nh\u1eadp l\u1ea1i m\u1eadt kh\u1ea9u m\u1edbi')}
-                                    </div>
-                                </>
-                            )}
-                            <button
-                                type="submit"
-                                disabled={loading || otp.length !== 6}
-                                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#003B7A] px-4 text-sm font-black text-white shadow-sm transition-colors hover:bg-[#002F61] disabled:cursor-not-allowed disabled:bg-slate-300"
-                            >
-                                {loading ? <Loader2 className="animate-spin" size={18} /> : null}
-                                {otpState?.purpose === 'forgot_password' ? 'C\u1eadp nh\u1eadt m\u1eadt kh\u1ea9u' : 'X\u00e1c nh\u1eadn \u0111\u0103ng k\u00fd'}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleResendOtp}
-                                disabled={loading || otpCooldownRemaining > 0}
-                                className="h-11 w-full rounded-xl border border-slate-200 bg-white text-sm font-bold text-[#003B7A] transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                            >
-                                {otpCooldownRemaining > 0 ? `Gửi lại mã sau ${formatOtpCooldown(otpCooldownRemaining)}` : 'Gửi lại mã OTP'}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setOtpState(null);
-                                    setOtp('');
-                                    setNotice(null);
-                                }}
-                                className="h-11 w-full rounded-xl text-sm font-bold text-slate-500 transition-colors hover:bg-slate-50"
-                            >
-                                {otpState?.purpose === 'forgot_password' ? 'Quay l\u1ea1i \u0111\u0103ng nh\u1eadp' : 'Quay l\u1ea1i ch\u1ec9nh email'}
-                            </button>
-                        </form>
-                    ) : (
-                        <form onSubmit={handleRegister} className={authFormClassName}>
-                            <div>
-                                <label htmlFor="register-email" className="mb-1 block text-[12.5px] font-semibold text-slate-700 lg:text-sm lg:font-bold">Tài khoản</label>
-                                <div className="relative">
-                                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
-                                    <input
-                                        id="register-email"
-                                        type="email"
-                                        required
-                                        placeholder="Nhập Gmail sinh viên HUB"
-                                        value={registerEmail}
-                                        onChange={(e) => setRegisterEmail(e.target.value)}
-                                        className={fieldInputClassName}
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label htmlFor="register-password" className="mb-1 block text-[12.5px] font-semibold text-slate-700 lg:text-sm lg:font-bold">Mật khẩu</label>
-                                {renderPasswordInput('register-password', registerPassword, setRegisterPassword, showRegisterPassword, setShowRegisterPassword)}
-                                <p className="mt-1 text-[11px] font-medium text-slate-500">Tối thiểu 8 ký tự.</p>
-                            </div>
-
-                            <div>
-                                <label htmlFor="register-confirm" className="mb-1 block text-[12.5px] font-semibold text-slate-700 lg:text-sm lg:font-bold">Nhập lại mật khẩu</label>
-                                {renderPasswordInput('register-confirm', registerConfirm, setRegisterConfirm, showRegisterPassword, setShowRegisterPassword, 'Nhập lại mật khẩu')}
-                            </div>
-
-                            <label className="flex cursor-pointer items-start gap-3 text-left">
-                                <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
-                                    <input
-                                        type="checkbox"
-                                        className="peer sr-only"
-                                        checked={agreed}
-                                        onChange={(e) => {
-                                            playClick();
-                                            setAgreed(e.target.checked);
-                                        }}
-                                    />
-                                    <span className="h-5 w-5 rounded-md border-2 border-slate-300 bg-white transition-colors peer-checked:border-[#003B7A] peer-checked:bg-[#003B7A]" />
-                                    <svg className={`pointer-events-none absolute h-3.5 w-3.5 text-white transition-transform ${agreed ? 'scale-100' : 'scale-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                </span>
-                                <span className="text-xs leading-5 text-slate-500">
-                                    Tôi đồng ý với{' '}
-                                    <Link to="/terms" onClick={(e) => e.stopPropagation()} className="font-semibold text-[#003B7A] hover:underline">
-                                        Điều khoản
-                                    </Link>{' '}
-                                    và{' '}
-                                    <Link to="/privacy" onClick={(e) => e.stopPropagation()} className="font-semibold text-[#003B7A] hover:underline">
-                                        Chính sách bảo mật
-                                    </Link>
-                                </span>
-                            </label>
-                            {!agreed && (
-                                <p className="-mt-1 text-[11px] font-medium text-slate-500">
-                                    Cần đồng ý điều khoản để tiếp tục đăng ký.
-                                </p>
-                            )}
-
-                            {renderSecurityCheck('register')}
-
-                            <button
-                                type="submit"
-                                disabled={loading || googleLoading || !agreed}
-                                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#003B7A] px-4 text-[13.5px] font-bold text-white shadow-sm transition-colors hover:bg-[#002F61] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.18)] disabled:cursor-not-allowed disabled:bg-slate-300 lg:h-11 lg:text-sm lg:font-black"
-                            >
-                                {loading ? <Loader2 className="animate-spin" size={18} /> : null}
-                                {loading ? 'Đang gửi OTP...' : 'Đăng ký'}
-                            </button>
-                        </form>
-                    )}
-
-                    {!isRecoveryMode && !otpState && (
-                        <div className="auth-oauth">
-                            <p className="hidden">
-                                {flow === 'register' ? 'Đăng ký nhanh' : 'Đăng nhập nhanh'}
-                            </p>
-                            <div className="auth-divider">
-                                <span className="h-px flex-1 bg-slate-200" />
-                                hoặc
-                                <span className="h-px flex-1 bg-slate-200" />
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={handleGoogleLogin}
-                                disabled={googleLoading || loading || (flow === 'register' && !agreed)}
-                                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-4 text-[13.5px] font-semibold text-slate-900 shadow-[0_4px_12px_rgba(15,23,42,0.06)] transition-colors active:bg-slate-50 hover:border-blue-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(11,94,215,0.14)] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 lg:h-11 lg:rounded-xl lg:text-sm lg:font-bold lg:shadow-sm"
-                            >
-                                {googleLoading ? <Loader2 className="animate-spin" size={18} /> : <GoogleIcon />}
-                                {googleLoading ? 'Đang kết nối...' : flow === 'login' ? 'Đăng nhập bằng Google HUB' : 'Đăng ký bằng Google HUB'}
-                            </button>
-
-                            {flow === 'login' && (
-                                <p className="mt-3 hidden text-center text-xs leading-5 text-slate-500 lg:block">
-                                    Bằng việc đăng nhập, bạn đồng ý với{' '}
-                                    <Link to="/terms" className="font-semibold text-[#003B7A] hover:underline">Điều khoản</Link>
-                                    {' '}và{' '}
-                                    <Link to="/privacy" className="font-semibold text-[#003B7A] hover:underline">Chính sách bảo mật</Link>.
-                                </p>
-                            )}
-                        </div>
-                    )}
-                </section>
-                </div>
-            </main>
-        </div>
-    );
+        navigate('/dashboard', { replace: true });
+      } else if (!otpPending) {
+        const invalid = validatePassword(password, confirm);
+        if (invalid) throw new Error(invalid);
+        await startStudentSignup(identifier, password, token);
+        setOtpPending(true);
+        setNotice('Mã OTP đã được gửi đến email sinh viên của bạn.');
+        resetChallenge();
+      } else {
+        await verifyStudentSignup(identifier, otp, token);
+        setFlow('login'); setOtpPending(false); setOtp(''); setConfirm(''); setPassword('');
+        setNotice('Đăng ký thành công. Bạn có thể đăng nhập bằng MSSV và mật khẩu vừa tạo.');
+        resetChallenge(); resetGoogleChallenge();
+      }
+    } catch (reason) {
+      setError(reason instanceof Error && !(reason as { kind?: unknown }).kind ? reason.message : studentAuthMessage(reason));
+      resetChallenge();
+    } finally { setBusy(null); }
+  };
+
+  const google = async () => {
+    if (!googleToken) return setError('Vui lòng hoàn tất bước xác minh bảo mật cho Google HUB.');
+    if (flow === 'register' && !agreed) return setError('Bạn cần đồng ý Điều khoản trước khi đăng ký.');
+    setBusy('google'); setError(''); playClick();
+    try { window.location.assign(await beginGoogleStudentAuth(flow === 'login' ? 'login' : 'signup', googleToken)); }
+    catch (reason) { setError(studentAuthMessage(reason)); setBusy(null); resetGoogleChallenge(); }
+  };
+
+  const resend = async () => {
+    if (!token) return setError('Vui lòng hoàn tất bước xác minh bảo mật.');
+    setBusy('resend'); setError('');
+    try { await resendStudentSignup(identifier, token); setNotice('Một mã OTP mới đã được gửi.'); setOtp(''); }
+    catch (reason) { setError(studentAuthMessage(reason)); }
+    finally { setBusy(null); resetChallenge(); }
+  };
+
+  const passwordField = (confirmation = false) => (
+    <div className="relative">
+      <Lock className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+      <input
+        type={visible ? 'text' : 'password'} required minLength={12} maxLength={128}
+        autoComplete={confirmation ? 'new-password' : flow === 'login' ? 'current-password' : 'new-password'}
+        value={confirmation ? confirm : password}
+        onChange={(event) => confirmation ? setConfirm(event.target.value) : setPassword(event.target.value)}
+        placeholder={confirmation ? 'Nhập lại mật khẩu' : 'Nhập mật khẩu'}
+        className="auth-input auth-input-password"
+      />
+      <button type="button" onClick={() => setVisible((value) => !value)} aria-label={visible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+        {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="auth-page-root">
+      <button type="button" onClick={() => navigate('/')} className="auth-back-button"><ArrowLeft size={17} /><span>Về trang chủ</span></button>
+      <main className="auth-page"><div className="auth-shell">
+        <section className="auth-mobile-brand">
+          <div className="relative z-10 flex items-center gap-3"><div className="flex h-10 w-10 overflow-hidden rounded-[14px] bg-white"><img src="/logoapp.png" alt="HUB Planner" className="h-full w-full object-cover" /></div><div><p className="text-[14px] font-bold">HUB Planner</p><p className="text-[11.5px] text-blue-100">Tài khoản sinh viên HUB</p></div></div>
+        </section>
+        <section className="auth-visual-panel">
+          <div className="flex items-center gap-3"><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white"><img src="/logo.png" alt="HUB Planner" className="h-9 w-9" /></div><div><p className="text-sm font-black">HUB Planner</p><p className="text-xs font-semibold text-blue-100">Đồng hành cùng sinh viên</p></div></div>
+          <div className="py-5"><h1>Chào mừng bạn đến với<span>HUB Planner</span></h1><p className="onboarding-description">Vui lòng đăng nhập để chúng tôi có thể hỗ trợ hành trình học tập của bạn tốt nhất.</p></div>
+          <div className="rounded-[22px] border border-white/16 bg-white/[0.08] p-4"><div className="mb-3 flex justify-between"><div><p className="text-xs font-bold uppercase text-blue-100">Tuần này</p><p className="mt-1 text-lg font-black">4 việc cần nhớ</p></div><div className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#003B7A]">HK2</div></div><div className="flex items-center gap-3 rounded-2xl bg-white p-3 text-slate-900"><CalendarDays size={18} className="text-[#003B7A]" /><div className="flex-1"><p className="text-sm font-black">Marketing căn bản</p><p className="text-xs text-slate-500">Phòng B203 - 07:00</p></div><Clock3 size={18} className="text-slate-300" /></div><div className="mt-2.5 grid grid-cols-2 gap-2.5"><div className="rounded-2xl bg-white/12 p-3"><Target size={16} /><p className="mt-2 text-xs font-bold">Deadline</p><p className="text-lg font-black">2 bài</p></div><div className="rounded-2xl bg-white/12 p-3"><BookOpen size={16} /><p className="mt-2 text-xs font-bold">HK2</p><p className="text-lg font-black">18 TC</p></div></div></div>
+        </section>
+        <section className="auth-card">
+          <header className="auth-card-header"><div className="auth-card-icon"><Lock size={25} /></div><div><h2>{otpPending ? 'Xác nhận OTP' : flow === 'login' ? 'Đăng nhập' : 'Đăng ký'}</h2><p>{otpPending ? 'Nhập mã xác nhận đã gửi đến email sinh viên.' : flow === 'login' ? 'Dùng MSSV và mật khẩu của bạn' : `Chỉ dành cho sinh viên @${SCHOOL_DOMAIN}`}</p></div></header>
+          {!otpPending && <div className="auth-tabs"><button type="button" onClick={() => switchFlow('login')} className={`auth-tab${flow === 'login' ? ' auth-tab-active' : ''}`}>Đăng nhập</button><button type="button" onClick={() => switchFlow('register')} className={`auth-tab${flow === 'register' ? ' auth-tab-active' : ''}`}>Đăng ký</button></div>}
+          {error && <div role="alert" className="mb-4 flex gap-2 rounded-xl border border-red-100 bg-red-50 p-3 text-sm font-bold text-red-700"><AlertCircle size={18} /><span>{error}</span></div>}
+          {notice && <div role="status" className="mb-4 flex gap-2 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm font-semibold text-[#003B7A]"><Mail size={18} /><span>{notice}</span></div>}
+          <form onSubmit={submit} className="auth-form">
+            <div><label htmlFor="student-identifier" className="mb-1 block text-sm font-bold text-slate-700">Mã số sinh viên</label><div className="relative"><UserRound className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} /><input id="student-identifier" type="text" required inputMode="email" autoComplete="username" value={identifier} onChange={(event) => setIdentifier(event.target.value)} placeholder="Ví dụ: 030841250048" className="auth-input auth-input-with-icon" /></div><p className="mt-1 text-[11px] text-slate-500">Bạn cũng có thể nhập email sinh viên đầy đủ.</p></div>
+            {!otpPending && <><div><label className="mb-1 block text-sm font-bold text-slate-700">Mật khẩu</label>{passwordField()}</div>{flow === 'register' && <div><label className="mb-1 block text-sm font-bold text-slate-700">Nhập lại mật khẩu</label>{passwordField(true)}<p className="mt-1 text-[11px] text-slate-500">Tối thiểu 12 ký tự.</p></div>}</>}
+            {otpPending && <div><label htmlFor="student-otp" className="mb-1 block text-sm font-bold text-slate-700">Mã OTP</label><input id="student-otp" type="text" inputMode="numeric" required maxLength={6} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Nhập 6 chữ số" className="auth-input text-center text-xl font-black tracking-[0.35em]" /></div>}
+            {flow === 'register' && !otpPending && <label className="flex items-start gap-3 text-xs text-slate-500"><input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} className="mt-1" /><span>Tôi đồng ý với <Link to="/terms" className="font-semibold text-[#003B7A]">Điều khoản</Link> và <Link to="/privacy" className="font-semibold text-[#003B7A]">Chính sách bảo mật</Link>.</span></label>}
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3"><div className="mb-2 flex items-center gap-2 text-sm font-bold text-[#003B7A]"><ShieldCheck size={18} />Xác minh bảo mật</div>{siteKey ? <Turnstile key={`${action}-${turnstileKey}`} siteKey={siteKey} options={{ action, appearance: 'interaction-only', language: 'vi' }} onSuccess={setToken} onExpire={() => setToken('')} onError={() => setToken('')} /> : <p className="text-sm font-semibold text-amber-700">Dịch vụ xác minh chưa được cấu hình.</p>}</div>
+            <button type="submit" disabled={busy !== null || !token || !siteKey || (flow === 'register' && !otpPending && !agreed)} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#003B7A] px-4 text-sm font-black text-white disabled:bg-slate-300">{busy === 'form' && <Loader2 className="animate-spin" size={18} />}{otpPending ? 'Xác nhận đăng ký' : flow === 'login' ? 'Đăng nhập' : 'Gửi mã OTP'}</button>
+            {otpPending && <><button type="button" onClick={resend} disabled={busy !== null || !token} className="h-11 rounded-xl border border-slate-200 text-sm font-bold text-[#003B7A]">{busy === 'resend' ? 'Đang gửi…' : 'Gửi lại mã OTP'}</button><button type="button" onClick={() => { setOtpPending(false); setOtp(''); resetChallenge(); }} className="h-10 text-sm font-bold text-slate-500">Quay lại chỉnh MSSV/email</button></>}
+          </form>
+          {!otpPending && <div className="auth-oauth"><div className="auth-divider"><span className="h-px flex-1 bg-slate-200" />hoặc<span className="h-px flex-1 bg-slate-200" /></div>{siteKey && <div className="mb-3"><Turnstile key={`${flow}-google-${googleTurnstileKey}`} siteKey={siteKey} options={{ action: flow === 'login' ? 'google_login' : 'google_signup', appearance: 'interaction-only', language: 'vi' }} onSuccess={setGoogleToken} onExpire={() => setGoogleToken('')} onError={() => setGoogleToken('')} /></div>}<button type="button" onClick={google} disabled={busy !== null || !googleToken || (flow === 'register' && !agreed)} className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-900 disabled:bg-slate-100">{busy === 'google' ? <Loader2 className="animate-spin" size={18} /> : <GoogleIcon />}{flow === 'login' ? 'Đăng nhập bằng Google HUB' : 'Đăng ký bằng Google HUB'}</button>{flow === 'login' && <Link to="/forgot-password" className="mt-4 block text-center text-sm font-bold text-[#003B7A]">Quên mật khẩu?</Link>}</div>}
+        </section>
+      </div></main>
+    </div>
+  );
 };

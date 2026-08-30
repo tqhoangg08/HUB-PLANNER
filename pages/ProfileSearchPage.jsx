@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Search, ShieldAlert, UserRound } from 'lucide-react';
-import { supabase } from '../utils/supabase';
+import { searchPublicProfiles } from '../utils/publicDirectoryApi';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 
 const avatarFallback = (profile) => {
@@ -43,14 +43,7 @@ const ProfileSearchPage = () => {
 
       try {
         const safeQuery = query.replace(/[%,]/g, '').slice(0, 40);
-        const { data, error: searchError } = await supabase
-          .from('public_profiles')
-          .select('id, full_name, student_code, avatar_url, class_name, profile_tags')
-          .or(`student_code.ilike.%${safeQuery}%,full_name.ilike.%${safeQuery}%`)
-          .order('student_code', { ascending: true })
-          .limit(200);
-
-        if (searchError) throw searchError;
+        const data = await searchPublicProfiles(safeQuery, 200);
         if (!cancelled) setResults(data || []);
       } catch (err) {
         if (!cancelled) {

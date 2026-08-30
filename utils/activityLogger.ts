@@ -1,7 +1,15 @@
-import { Session } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { privateApiRequest } from './privateApi';
 
 export type ActivityStatus = 'success' | 'error' | 'warning';
+
+type ActivitySession = {
+  user: {
+    id: string;
+    email?: string | null;
+    app_metadata?: Record<string, unknown>;
+    user_metadata?: Record<string, unknown>;
+  };
+};
 
 export type ActivityAction =
   | 'login'
@@ -23,7 +31,7 @@ type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string
 
 export interface ActivityLogInput {
   action: ActivityAction;
-  session: Session | null;
+  session: ActivitySession | null;
   userRole?: string | null;
   targetTable?: string | null;
   targetId?: string | number | null;
@@ -56,61 +64,15 @@ const toSafeJson = (value: unknown, depth = 0): JsonValue => {
   }, {});
 };
 
-const getDeviceInfo = () => {
-  if (typeof navigator === 'undefined') return null;
-  return navigator.userAgent || null;
-};
-
 const getCurrentPagePath = () => {
   if (typeof window === 'undefined') return null;
   return `${window.location.pathname}${window.location.search}`;
 };
 
-const normalizeAuditRole = (role?: string | null) => {
-  const normalized = String(role || '').trim().toLowerCase();
-  return normalized === 'admin' || normalized === 'auditor' ? normalized : null;
-};
-
-const resolveAuditRole = async (userId: string, email?: string | null) => {
-  const readRole = async (column: 'id' | 'user_id', value: string) => {
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq(column, value)
-      .limit(1)
-      .maybeSingle();
-
-    if (error) return null;
-    return normalizeAuditRole(data?.role as string | undefined);
-  };
-
-  const directRole = await readRole('id', userId);
-  if (directRole) return directRole;
-
-  const userIdRole = await readRole('user_id', userId);
-  if (userIdRole) return userIdRole;
-
-  if (email) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', email)
-      .limit(1)
-      .maybeSingle();
-
-    if (profile?.id) {
-      const profileRole = await readRole('user_id', profile.id as string);
-      if (profileRole) return profileRole;
-    }
-  }
-
-  return null;
-};
-
 export const logActivity = async ({
   action,
   session,
-  userRole,
+  userRole: _userRole,
   targetTable = null,
   targetId = null,
   pagePath = getCurrentPagePath(),
@@ -120,17 +82,8 @@ export const logActivity = async ({
   newData = null,
   errorMessage = null,
 }: ActivityLogInput) => {
-  if (!supabase || !session?.user?.id) return;
+  if (!session?.user?.id) return;
   if (action === 'view_page') return;
-
-  const metadataRole = normalizeAuditRole(
-    (session.user.app_metadata?.role as string | undefined)
-    || (session.user.user_metadata?.role as string | undefined)
-  );
-  const resolvedRole = normalizeAuditRole(userRole)
-    || await resolveAuditRole(session.user.id, session.user.email)
-    || metadataRole;
-  if (!resolvedRole) return;
 
   const safeMetadata = {
     ...(toSafeJson(metadata || {}) as Record<string, JsonValue>),
@@ -138,41 +91,20 @@ export const logActivity = async ({
   };
 
   const row = {
-    user_id: session.user.id,
-    user_email: session.user.email || null,
-    user_role: resolvedRole,
     action,
-    action_label: action,
-    target_table: targetTable,
-    target_id: targetId === null || targetId === undefined ? null : String(targetId),
-    page_path: pagePath,
+    targetTable,
+    targetId: targetId === null || targetId === undefined ? null : String(targetId),
+    pagePath,
     status,
     metadata: safeMetadata,
-    old_data: oldData ? toSafeJson(oldData) : null,
-    new_data: newData ? toSafeJson(newData) : null,
-    details: oldData || newData ? { old: toSafeJson(oldData), new: toSafeJson(newData) } : null,
-    error_message: errorMessage,
-    device_info: getDeviceInfo(),
+    oldData: oldData ? toSafeJson(oldData) : null,
+    newData: newData ? toSafeJson(newData) : null,
+    errorMessage,
   };
-
-  const { error } = await supabase.from('activity_logs').insert(row);
-
-  if (error && (error.code === 'PGRST204' || /column .* does not exist/i.test(error.message || ''))) {
-    await supabase.from('activity_logs').insert({
-      user_id: row.user_id,
-      user_email: row.user_email,
-      action: row.action,
-      target_table: row.target_table,
-      target_id: row.target_id,
-      old_data: row.old_data,
-      new_data: row.new_data,
-      details: row.details,
-      device_info: row.device_info,
-    });
-    return;
-  }
-
-  if (error) throw error;
+  await privateApiRequest('/api/private/v1/activity-log', {
+    method: 'POST',
+    body: JSON.stringify(row),
+  });
 };
 
 export const logActivityQuietly = (input: ActivityLogInput) => {

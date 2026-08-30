@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { supabase } from '../utils/supabase';
 import { User, BookOpen, GraduationCap, Phone, Send, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { notifyModerators } from '../utils/moderatorNotifications';
+import { submitCtvRegistration } from '../utils/protectedSubmit';
 
 interface CTVRegistrationFormProps {
     onSuccess?: () => void;
@@ -31,41 +31,11 @@ export const CTVRegistrationForm: React.FC<CTVRegistrationFormProps> = ({ onSucc
         setLoading(true);
 
         try {
-            if (!supabase) {
-                // Demo Mode Simulation
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                setSuccess(true);
-                setLoading(false);
-                return;
-            }
-
-            // Insert Data (Guest Mode - No user_id required)
-            const { data, error: insertError } = await supabase
-                .from('ctv_requests')
-                .insert([
-                    {
-                        full_name: formData.full_name,
-                        student_batch: formData.student_batch,
-                        major: formData.major,
-                        contact_info: formData.contact_info,
-                        status: 'pending' // Default status
-                        // user_id is omitted as requested
-                    }
-                ])
-                .select('id')
-                .single();
-
-            if (insertError) {
-                // Handle duplicate request or other DB errors
-                if (insertError.code === '23505') { // Unique violation
-                    throw new Error("Thông tin liên hệ này đã được gửi trước đó.");
-                }
-                throw insertError;
-            }
+            const data = await submitCtvRegistration(formData);
 
             // Success
             setSuccess(true);
-            void notifyModerators('ctv_request', data?.id);
+            void notifyModerators('ctv_request', data.id);
             if (onSuccess) onSuccess();
 
         } catch (err: any) {

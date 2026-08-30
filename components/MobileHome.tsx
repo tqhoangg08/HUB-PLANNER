@@ -20,13 +20,12 @@ import {
 import { Link } from 'react-router-dom';
 import { UserData } from '../types';
 import { playClick } from '../utils/audio';
-import { supabase } from '../utils/supabase';
+import { fetchBetterAuthSession } from '../utils/privateApi';
 import { fetchSchoolAnnouncements } from '../utils/announcementsApi';
 import NotificationBell from './NotificationBell';
 import PushNotificationPrompt from '../components/PushNotificationPrompt';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 
-const SCHOOL_ANNOUNCEMENT_COLUMNS = 'id, title, link, date, created_at, is_new';
 const ALL_NEWS_LIMIT = 60;
 
 interface MobileHomeProps {
@@ -58,7 +57,7 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
     useEffect(() => {
         const fetchRealData = async () => {
             try {
-                const { data: { session } } = await supabase.auth.getSession();
+                const session = await fetchBetterAuthSession();
                 if (session?.user) {
                     setCurrentUserId(session.user.id);
                 }
@@ -69,20 +68,6 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
                     console.error('Lỗi truy vấn thông báo:', payload?.error);
                 } else if (payload.data) {
                     setRealNews(payload.data);
-                }
-                return;
-
-                const { data: newsData, error } = await supabase
-                    .from('school_announcements')
-                    .select(SCHOOL_ANNOUNCEMENT_COLUMNS)
-                    .or('is_hidden.eq.false,is_hidden.is.null')
-                    .order('date', { ascending: false })
-                    .limit(4);
-
-                if (error) {
-                    console.error('Lỗi truy vấn Supabase:', error);
-                } else if (newsData) {
-                    setRealNews(newsData);
                 }
             } catch (error) {
                 console.error('Lỗi tải dữ liệu tin tức:', error);
@@ -105,18 +90,6 @@ export const MobileHome: React.FC<MobileHomeProps> = ({
             const payload = await response.json();
             if (response.ok && payload.data) {
                 setAllNews(payload.data);
-            }
-            return;
-
-            const { data: fullNewsData, error } = await supabase
-                .from('school_announcements')
-                .select(SCHOOL_ANNOUNCEMENT_COLUMNS)
-                .or('is_hidden.eq.false,is_hidden.is.null')
-                .order('date', { ascending: false })
-                .range(0, ALL_NEWS_LIMIT - 1);
-
-            if (!error && fullNewsData) {
-                setAllNews(fullNewsData);
             }
         } catch (error) {
             console.error('Lỗi tải toàn bộ tin tức:', error);

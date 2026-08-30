@@ -1,6 +1,3 @@
-import { supabase } from './supabase';
-import { apiUrl } from './api';
-
 export type ModeratorNotificationKind =
   | 'event_pending'
   | 'lost_found_pending'
@@ -15,13 +12,14 @@ export const notifyModerators = async (kind: ModeratorNotificationKind, recordId
   if (!recordId) return;
 
   try {
-    const { data } = await supabase.auth.getSession();
-    await fetch(apiUrl('/moderator-notifications'), {
+    await fetch('/api/submissions/v1/moderator-notifications', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(data.session?.access_token ? { Authorization: `Bearer ${data.session.access_token}` } : {}),
       },
+      credentials: 'include',
+      cache: 'no-store',
+      redirect: 'manual',
       body: JSON.stringify({ kind, recordId }),
     });
   } catch (error) {

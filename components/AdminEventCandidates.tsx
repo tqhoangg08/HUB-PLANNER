@@ -20,12 +20,12 @@ import {
   BadgeInfo,
   ShieldCheck,
 } from 'lucide-react';
-import { supabase } from '../utils/supabase';
 import { formatDate, formatTime } from '../utils/dateUtils';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import { useUserRole } from '../hooks/useUserRole';
-import { apiUrl } from '../utils/api';
+import { fetchAdminEventCandidates } from '../utils/adminLegacyDataApi';
+import { privateApiRequest } from '../utils/privateApi';
 
 type ReviewStatus = 'pending' | 'approved' | 'rejected' | string;
 
@@ -549,7 +549,7 @@ const CandidateDetailModal = ({
 };
 
 export const AdminEventCandidates: React.FC = () => {
-  const { session, isAdmin, isAuditor, loading: roleLoading } = useUserRole();
+  const { isAdmin, isAuditor, loading: roleLoading } = useUserRole();
   const [searchParams, setSearchParams] = useSearchParams();
   const [candidates, setCandidates] = useState<EventCandidate[]>([]);
   const [loading, setLoading] = useState(false);
@@ -572,20 +572,10 @@ export const AdminEventCandidates: React.FC = () => {
   };
 
   const fetchCandidates = async () => {
-    if (!session?.access_token) return;
-
     setLoading(true);
     try {
-      const response = await fetch(apiUrl('/event-candidates?review_status=all&limit=200'), {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'Không tải được candidate');
-
-      setCandidates(payload.candidates || []);
+      const payload = await fetchAdminEventCandidates('all');
+      setCandidates((payload.candidates || []) as unknown as EventCandidate[]);
     } catch (error: any) {
       console.error(error);
       showToast(error?.message || 'Không tải được danh sách candidate', 'error');
@@ -598,7 +588,7 @@ export const AdminEventCandidates: React.FC = () => {
     if (!roleLoading && (isAdmin || isAuditor)) {
       fetchCandidates();
     }
-  }, [roleLoading, isAdmin, isAuditor, session?.access_token]);
+  }, [roleLoading, isAdmin, isAuditor]);
 
   useEffect(() => {
     const candidateId = searchParams.get('id');
@@ -643,13 +633,8 @@ export const AdminEventCandidates: React.FC = () => {
   };
 
   const candidateApi = async (body: Record<string, any>) => {
-    if (!session?.access_token) throw new Error('Thiếu phiên đăng nhập');
-    const response = await fetch(apiUrl('/event-candidates'), {
+    const response = await privateApiRequest('/api/admin/v1/event-candidates', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
       body: JSON.stringify(body),
     });
     const payload = await response.json();
@@ -658,13 +643,9 @@ export const AdminEventCandidates: React.FC = () => {
   };
 
   const analyzeCandidateApi = async (candidateId: string | number) => {
-    if (!session?.access_token) throw new Error('Thiếu phiên đăng nhập');
-    const response = await fetch(apiUrl(`/event-candidates-analyze?id=${candidateId}`), {
+    const response = await privateApiRequest(`/api/admin/v1/event-candidates?id=${encodeURIComponent(String(candidateId))}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
+      body: JSON.stringify({ action: 'analyze' }),
     });
     const responseText = await response.text();
     let payload: any = null;

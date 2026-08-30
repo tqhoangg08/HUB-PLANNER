@@ -1,6 +1,16 @@
 // supabase/functions/auth/index.ts
 import { corsHeaders } from '../_shared/cors.ts'
 import { supabase } from '../_shared/supabase.ts'
+import {
+  logServerError,
+  safeHttpError,
+} from '../_shared/schedule-source-barrier.ts'
+import {
+  callProfileAuthorityInternal,
+  ProfileAuthorityClientError,
+} from '../_shared/profile-authority-client.ts'
+import { callScheduleAuthorityInternal } from '../_shared/schedule-authority-client.ts'
+import { callCourseAuthorityInternal, isCourseD1LifecycleEnabled } from '../_shared/course-authority-client.ts'
 
 const SCHOOL_DOMAIN = 'st.buh.edu.vn'
 const OTP_TTL_MINUTES = 10
@@ -171,25 +181,15 @@ const resolveEmail = async (rawValue: string) => {
     error.statusCode = 400
     throw error
   }
-  const { data, error } = await supabase.from('profiles').select('id').eq('student_code', identifier).maybeSingle()
-  if (error) throw error
-  if (!data?.id) {
-    const notFound: any = new Error('Không tìm thấy MSSV trong hệ thống.')
-    notFound.statusCode = 404
-    throw notFound
-  }
-  const { data: privateProfile, error: privateError } = await supabase
-    .from('profile_private_data')
-    .select('email')
-    .eq('user_id', data.id)
-    .maybeSingle()
-  if (privateError) throw privateError
-  if (!privateProfile?.email) {
-    const notFound: any = new Error('Không tìm thấy email của MSSV này.')
-    notFound.statusCode = 404
-    throw notFound
-  }
-  return normalizeEmail(privateProfile.email)
+  const result = await callProfileAuthorityInternal<{
+    success: true
+    data: { userId: string; email: string }
+  }>({
+    writer: 'auth_edge',
+    operation: 'resolve_student_identity',
+    studentCode: identifier,
+  })
+  return normalizeEmail(result.data.email)
 }
 
 const passwordError = (password: string, confirmPassword?: string) => {
@@ -210,42 +210,35 @@ const getAuthUserByEmail = async (email: string) => {
 }
 
 const getPrivateProfileByEmail = async (email: string) => {
-  const { data, error } = await supabase
-    .from('profile_private_data')
-    .select('user_id, email')
-    .eq('email', email)
-    .maybeSingle()
-  if (error) throw error
-  return data
+  const normalizedEmail = normalizeEmail(email)
+  const studentCode = normalizedEmail.endsWith(`@${SCHOOL_DOMAIN}`)
+    ? normalizedEmail.slice(0, -(`@${SCHOOL_DOMAIN}`).length)
+    : ''
+  if (!studentCode) return null
+  try {
+    const result = await callProfileAuthorityInternal<{
+      success: true
+      data: { userId: string; email: string }
+    }>({
+      writer: 'auth_edge',
+      operation: 'resolve_student_identity',
+      studentCode,
+    })
+    return { user_id: result.data.userId, email: result.data.email }
+  } catch (error) {
+    if (error instanceof ProfileAuthorityClientError && error.status === 404) return null
+    throw error
+  }
 }
 
 const markPasswordProfile = async (userId: string, email: string) => {
-  await supabase.from('profiles').upsert({
-    id: userId,
-    student_code: email.split('@')[0],
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'id' })
-
-  const now = new Date().toISOString()
-  const { data: updated, error: updatePrivateError } = await supabase
-    .from('profile_private_data')
-    .update({
-      email,
-      password_set_at: now,
-      updated_at: now,
-    })
-    .eq('user_id', userId)
-    .select('user_id')
-    .maybeSingle()
-  if (updatePrivateError) throw updatePrivateError
-  if (updated?.user_id) return
-
-  await supabase.from('profile_private_data').insert({
-    user_id: userId,
+  // Password metadata belongs to Auth. Profile creation is an explicit,
+  // idempotent D1 authority operation and carries no password/auth fields.
+  await callProfileAuthorityInternal({
+    writer: 'auth_edge',
+    operation: 'ensure_student_profile',
+    userId,
     email,
-    data: {},
-    password_set_at: now,
-    updated_at: now,
   })
 }
 
@@ -779,8 +772,7 @@ const verifyOtp = async (req: Request, body: any) => {
   if (!profile?.id) throw new Error('Không tìm thấy tài khoản cần đặt lại mật khẩu.')
   const { error: updateError } = await supabase.auth.admin.updateUserById(profile.id, { password })
   if (updateError) throw updateError
-  await supabase.from('profile_private_data').update({ password_set_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('user_id', profile.id)
-  await supabase.from('profiles').update({ password_set_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', profile.id)
+  await markPasswordProfile(profile.id, email)
   return json({ email, passwordUpdated: true })
 }
 
@@ -831,22 +823,41 @@ const deleteAccount = async (req: Request, body: any) => {
   if (!email) return json({ error: 'Tài khoản chưa có email để xác minh.' }, 400)
   if (otp.length !== 6) return json({ error: 'Mã OTP cần đủ 6 chữ số.' }, 400)
   await verifyOtpRecord({ email, purpose: 'delete_data', otp })
-  const userIdHash = await anonymizedUserHash(userId)
-  try {
-    const { data: avatarFiles, error } = await supabase.storage.from('avatars').list(userId)
-    if (!error && avatarFiles?.length) {
-      await supabase.storage.from('avatars').remove(avatarFiles.map((file: any) => `${userId}/${file.name}`))
-    }
-  } catch (error) {
-    console.error('Skip avatar cleanup:', error)
-  }
-  await supabase.rpc('anonymize_deleted_user_logs', {
-    p_user_id: userId,
-    p_user_id_hash: userIdHash,
-    p_reason: 'account_hard_delete',
-  }).then(({ error }) => {
-    if (error) console.error('Skip log anonymization:', error.message)
+  // Private schedules are D1-authoritative. This internal call is signed and
+  // owner-scoped; it replaces the legacy source-table delete without granting
+  // the Auth Edge function arbitrary D1 access.
+  await callScheduleAuthorityInternal({
+    writer: 'auth_edge',
+    operation: 'delete_user_schedules',
+    userId,
   })
+  // Kept behind an explicit server-side lifecycle switch until Stage 2C. Once
+  // course requests are D1-authoritative, this prevents a stale Supabase
+  // cleanup from becoming a second authority during account deletion.
+  const courseD1Lifecycle = isCourseD1LifecycleEnabled()
+  if (courseD1Lifecycle) {
+    await callCourseAuthorityInternal({
+      writer: 'auth_edge',
+      operation: 'delete_user_course_requests',
+      userId,
+    })
+  }
+  const userIdHash = await anonymizedUserHash(userId)
+    try {
+      const { data: avatarFiles, error } = await supabase.storage.from('avatars').list(userId)
+      if (!error && avatarFiles?.length) {
+        await supabase.storage.from('avatars').remove(avatarFiles.map((file: any) => `${userId}/${file.name}`))
+      }
+    } catch (error) {
+      console.error('Skip avatar cleanup:', error)
+    }
+    await supabase.rpc('anonymize_deleted_user_logs', {
+      p_user_id: userId,
+      p_user_id_hash: userIdHash,
+      p_reason: 'account_hard_delete',
+    }).then(({ error }) => {
+      if (error) console.error('Skip log anonymization:', error.message)
+    })
 
   await supabase.from('activity_logs').insert({
     user_id: null,
@@ -881,22 +892,24 @@ const deleteAccount = async (req: Request, body: any) => {
     'event_reports',
     'feedback',
     'lost_found_items',
-    'user_schedules',
     'user_participations',
-    'user_course_requests',
+    ...(courseD1Lifecycle ? [] : ['user_course_requests']),
     'user_roles',
     'notifications',
     'payment_requests',
     'practice_attempts',
     'practice_pro_access',
-    'profile_private_data',
     'push_subscriptions',
     'schedule_reminders',
     'subscriptions',
   ]
   for (const table of userIdTables) await deleteRows(table, 'user_id', userId)
   if (email) await deleteRows('auth_otp_codes', 'email', email)
-  await deleteRows('profiles', 'id', userId)
+  await callProfileAuthorityInternal({
+    writer: 'auth_edge',
+    operation: 'delete_profile',
+    userId,
+  })
   const { error } = await supabase.auth.admin.deleteUser(userId)
   if (error) throw error
   return json({ deleted: true })
@@ -978,10 +991,8 @@ Deno.serve(async (req) => {
     if (action === 'upload-avatar') return await uploadAvatar(req, body)
     return json({ error: 'Thao tác không hợp lệ.' }, 400)
   } catch (error: any) {
-    const statusCode = error?.statusCode || 500
-    const message = error?.message?.includes('already been registered')
-      ? 'Email này đã được đăng ký. Hãy chuyển sang đăng nhập.'
-      : error?.message || 'Không thể xử lý xác thực.'
-    return json({ error: message }, statusCode)
+    const safe = safeHttpError(error, { allowClient4xx: true })
+    if (safe.status >= 500 && safe.status !== 503) logServerError('auth_request', error)
+    return json({ error: safe.message }, safe.status)
   }
 })

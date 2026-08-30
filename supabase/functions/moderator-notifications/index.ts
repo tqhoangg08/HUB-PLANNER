@@ -92,11 +92,9 @@ const getRequestUserId = async (req: Request) => {
 const getModeratorIds = async () => {
   const { data: roleRows, error } = await supabase.from('user_roles').select('id, user_id, role').in('role', MODERATOR_ROLES)
   if (error) throw error
-  const roleIds = [...new Set((roleRows || []).map((row: any) => row.user_id || row.id).filter(Boolean))]
-  if (!roleIds.length) return []
-  const { data: profiles, error: profileError } = await supabase.from('profiles').select('id').in('id', roleIds)
-  if (profileError) throw profileError
-  return (profiles || []).map((profile: any) => profile.id)
+  // Push remains a deferred Supabase domain, but moderator identity must not
+  // depend on the retired Profile authority merely to validate an existing ID.
+  return [...new Set((roleRows || []).map((row: any) => row.user_id || row.id).filter(Boolean))]
 }
 
 const sendPushToModerators = async (receiverIds: string[], payload: any) => {

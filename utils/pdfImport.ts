@@ -1,6 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { apiHeaders, apiUrl } from './api';
+import { requestPdfAi } from './pdfAiApi';
 import { UserData, Semester, Subject } from '../types';
 import {
     extractPageRows,
@@ -199,26 +199,10 @@ QUY TẮC QUAN TRỌNG:
 // ==========================================
 // 📡 PHẦN 3: GỌI API
 // ==========================================
-const extractFullTranscriptWithAI = async (text: string): Promise<any> => {
+const extractFullTranscriptWithAI = async (text: string, turnstileToken: string): Promise<any> => {
     try {
         const fullMessage = `${AI_SYSTEM_PROMPT}\n\nVĂN BẢN ĐẦU VÀO:\n${text}`;
-        
-        const response = await fetch(apiUrl('/chat'), {
-            method: 'POST',
-            headers: apiHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ message: fullMessage })
-        });
-
-        if (!response.ok) {
-            const message = await response.text().catch(() => '');
-            throw new Error(`API Error: ${response.status}${message ? ` - ${message.slice(0, 160)}` : ''}`);
-        }
-        
-        const data = await response.json();
-        const jsonText = data.reply;
-        if (!jsonText) return null;
-
-        return extractJsonObject(jsonText);
+        return extractJsonObject(await requestPdfAi(fullMessage, turnstileToken));
     } catch (error) {
         console.error("AI Full Extraction Error:", error);
         throw error;
@@ -228,7 +212,7 @@ const extractFullTranscriptWithAI = async (text: string): Promise<any> => {
 // ==========================================
 // 🚀 PHẦN 4: HÀM CHÍNH  (MAIN FUNCTION)
 // ==========================================
-export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
+export const parseHubPdf = async (file: File, turnstileToken: string): Promise<ParsedResult> => {
     const result: ParsedResult = {
         studentInfo: {},
         semesters: [],
@@ -299,10 +283,10 @@ export const parseHubPdf = async (file: File): Promise<ParsedResult> => {
     console.log("Đang gửi toàn bộ bảng điểm lên AI...");
     let aiResult: any = null;
     try {
-        result.debug = { ...result.debug, stage: 'calling-chat-api' };
-        aiResult = await extractFullTranscriptWithAI(fullText);
+        result.debug = { ...result.debug, stage: 'calling-pdf-ai-worker' };
+        aiResult = await extractFullTranscriptWithAI(fullText, turnstileToken);
     } catch (error) {
-        result.error = `Lỗi tại bước gọi Groq wrapper (/chat): ${error instanceof Error ? error.message : 'Không gọi được API Groq.'}`;
+        result.error = `Lỗi tại bước gọi dịch vụ phân tích PDF: ${error instanceof Error ? error.message : 'Không gọi được API Groq.'}`;
         saveImportDebug({ ...(result.debug || {}), error: result.error });
         return result;
     }

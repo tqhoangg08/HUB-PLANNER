@@ -318,10 +318,10 @@ test('event participation routes reject unauthenticated requests before reading 
 
   assert.equal(readResponse.status, 401);
   assert.equal(readResponse.headers.get('Cache-Control'), 'no-store');
-  assert.equal(readResponse.headers.get('WWW-Authenticate'), 'Bearer');
+  assert.equal(readResponse.headers.get('WWW-Authenticate'), null);
   assert.equal(writeResponse.status, 401);
   assert.equal(writeResponse.headers.get('Cache-Control'), 'no-store');
-  assert.equal(writeResponse.headers.get('WWW-Authenticate'), 'Bearer');
+  assert.equal(writeResponse.headers.get('WWW-Authenticate'), null);
 });
 
 test('event participation routes expose only their intended methods', async () => {
@@ -351,7 +351,7 @@ test('event participation routes expose only their intended methods', async () =
   assert.equal(detailResponse.headers.get('Allow'), 'PUT, DELETE, OPTIONS');
 });
 
-test('user schedule routes reject unauthenticated requests before touching D1', async () => {
+test('user schedule reads and writes use cookie auth without advertising bearer auth', async () => {
   const env = {
     ALLOWED_ORIGINS: 'https://hotrosinhvienhub.id.vn',
     SUPABASE_URL: 'https://example.supabase.co',
@@ -377,10 +377,10 @@ test('user schedule routes reject unauthenticated requests before touching D1', 
 
   assert.equal(readResponse.status, 401);
   assert.equal(readResponse.headers.get('Cache-Control'), 'no-store');
-  assert.equal(readResponse.headers.get('WWW-Authenticate'), 'Bearer');
+  assert.equal(readResponse.headers.get('WWW-Authenticate'), null);
   assert.equal(writeResponse.status, 401);
   assert.equal(writeResponse.headers.get('Cache-Control'), 'no-store');
-  assert.equal(writeResponse.headers.get('WWW-Authenticate'), 'Bearer');
+  assert.equal(writeResponse.headers.get('WWW-Authenticate'), null);
 });
 
 test('user schedule routes expose only their intended methods', async () => {
@@ -430,7 +430,7 @@ test('user schedule routes expose only their intended methods', async () => {
   assert.equal(replaceResponse.headers.get('Allow'), 'PUT, OPTIONS');
 });
 
-test('private exact ranking rejects unauthenticated requests before reading D1', async () => {
+test('private exact ranking rejects unauthenticated requests without advertising bearer auth', async () => {
   const response = await worker.fetch(
     new Request(
       'https://api.example.com/api/user/v1/rankings/exact?semester=2025-2026_HK1'
@@ -444,7 +444,7 @@ test('private exact ranking rejects unauthenticated requests before reading D1',
 
   assert.equal(response.status, 401);
   assert.equal(response.headers.get('Cache-Control'), 'no-store');
-  assert.equal(response.headers.get('WWW-Authenticate'), 'Bearer');
+  assert.equal(response.headers.get('WWW-Authenticate'), null);
 });
 
 test('public ranking forecast accepts only bounded JSON POST requests', async () => {

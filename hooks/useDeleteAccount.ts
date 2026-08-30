@@ -1,24 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Session } from '@supabase/supabase-js';
+import type { AppSession } from '../utils/privateApi';
 import {
     createEmptyDeleteAccountOtp,
     parseDeleteAccountOtp,
     updateDeleteAccountOtpDigit,
 } from '../features/account/deleteAccountOtp';
-import { apiHeaders, apiUrl } from '../utils/api';
 import { playClick } from '../utils/audio';
 import { clearLocalStoragePreservingDevicePreferences } from '../utils/devicePreferences';
 import { logWebError } from '../utils/logWebError';
+import { privateApiRequest, signOutBetterAuth } from '../utils/privateApi';
 import {
     setActivePushNotificationUser,
     unbindDeviceNotificationsForCurrentUser,
 } from '../utils/pushNotifications';
-import { supabase } from '../utils/supabase';
 
 export type DeleteAccountStep = 1 | 2 | 3 | 4;
 
 interface UseDeleteAccountOptions {
-    session: Session | null;
+    session: AppSession | null;
     onCloseUserMenu: () => void;
     onNavigateToLogin: () => void;
 }
@@ -28,9 +27,7 @@ export const useDeleteAccount = ({
     onCloseUserMenu,
     onNavigateToLogin,
 }: UseDeleteAccountOptions) => {
-    const sessionUserId = session?.user.id || null;
-    const sessionEmail = session?.user.email || '';
-    const sessionAccessToken = session?.access_token || '';
+    const sessionUserId = session?.user?.id || null;
     const isGuest = !sessionUserId;
     const [showResetModal, setShowResetModal] = useState(false);
     const [resetStep, setResetStep] = useState<DeleteAccountStep>(1);
@@ -79,7 +76,7 @@ export const useDeleteAccount = ({
         }
 
         try {
-            await supabase.auth.signOut();
+            await signOutBetterAuth();
         } catch {
             // Local cleanup and navigation must still complete.
         }
@@ -97,21 +94,14 @@ export const useDeleteAccount = ({
         }
 
         try {
-            const response = await fetch(apiUrl('/auth'), {
+            const response = await privateApiRequest('/api/private/v1/account-delete/confirm', {
                 method: 'POST',
-                headers: apiHeaders({
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${sessionAccessToken}`,
-                }),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    action: 'delete-account',
                     otp,
                 }),
             });
-            const payload = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                throw new Error(payload.error || 'Không thể xóa tài khoản.');
-            }
+            await response.json().catch(() => ({}));
 
             setResetStep(4);
             await new Promise(resolve => window.setTimeout(resolve, 3000));
@@ -127,7 +117,7 @@ export const useDeleteAccount = ({
             });
             return false;
         }
-    }, [finishLocalDeletion, isGuest, sessionAccessToken]);
+    }, [finishLocalDeletion, isGuest]);
 
     const requestDeleteAccount = useCallback(() => {
         playClick();
@@ -146,8 +136,20 @@ export const useDeleteAccount = ({
         onCloseUserMenu();
     }, [executeResetData, isGuest, onCloseUserMenu]);
 
-    const continueDeleteAccount = useCallback(() => {
+    const continueDeleteAccount = useCallback(async () => {
         playClick();
+        setOtpError('');
+        try {
+            const response = await privateApiRequest('/api/private/v1/account-delete/preflight');
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || payload.ready !== true) {
+                throw new Error(payload.error || 'Chưa thể kiểm tra an toàn luồng xóa tài khoản.');
+            }
+        } catch (error) {
+            setOtpError(error instanceof Error ? error.message : 'Chưa thể kiểm tra an toàn luồng xóa tài khoản.');
+            setResetStep(2);
+            return;
+        }
         setResetStep(2);
         setDeleteTurnstileToken('');
     }, []);
@@ -172,17 +174,13 @@ export const useDeleteAccount = ({
         setIsSendingOtp(true);
         setOtpError('');
         try {
-            const response = await fetch(apiUrl('/auth'), {
+            const response = await privateApiRequest('/api/private/v1/account-delete/request-otp', {
                 method: 'POST',
-                headers: apiHeaders({
+                headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${sessionAccessToken}`,
-                }),
-                body: JSON.stringify({
-                    action: 'send-otp',
-                    purpose: 'delete_data',
-                    turnstileToken: deleteTurnstileToken,
-                }),
+                    'x-turnstile-token': deleteTurnstileToken,
+                },
+                body: JSON.stringify({}),
             });
             const payload = await response.json().catch(() => ({}));
             const retryAfterSeconds = Number(payload.retryAfterSeconds || 0);
@@ -209,14 +207,13 @@ export const useDeleteAccount = ({
                 error,
                 metadata: {
                     purpose: 'delete_data',
-                    email: sessionEmail,
                 },
             });
             setDeleteTurnstileToken('');
         } finally {
             setIsSendingOtp(false);
         }
-    }, [deleteTurnstileToken, sessionAccessToken, sessionEmail]);
+    }, [deleteTurnstileToken]);
 
     const verifyTurnstileAndSendOtp = useCallback(async () => {
         playClick();

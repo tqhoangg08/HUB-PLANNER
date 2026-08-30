@@ -1,536 +1,199 @@
 import { useState, useCallback, useEffect } from 'react';
-import { supabase } from '../utils/supabase';
-import { getLocalSessionUser } from '../utils/clientSession';
 import { normalizeSemesterId } from '../utils/rankingData';
-import { getBenchmarkRankingTotal } from '../utils/benchmarkRankings';
 import {
-    fetchCloudflareOwnRanking,
-    fetchCloudflareRankingSemesters,
-    forecastCloudflareRankings,
-    RANKINGS_BACKEND_MODE
+  fetchCloudflareOwnRanking,
+  fetchCloudflareRankingSemesters,
+  forecastCloudflareRankings,
 } from '../utils/benchmarkRankingsApi';
 
 interface ForecastRankResult {
-    rank: number;
-    totalStudents: number;
-    topPercent: number;
-    semesterId: string;
-    rankInClass?: number | null;
-    totalInClass?: number | null;
-    classCode?: string | null;
-    rankInMajor?: number | null;
-    totalInMajor?: number | null;
-    major?: string | null;
-}
-
-interface SemesterRankRow {
-    semester_name: string;
-    rank: number;
+  rank: number;
+  totalStudents: number;
+  topPercent: number;
+  semesterId: string;
+  rankInClass?: number | null;
+  totalInClass?: number | null;
+  classCode?: string | null;
+  rankInMajor?: number | null;
+  totalInMajor?: number | null;
+  major?: string | null;
 }
 
 interface RankInputs {
-    gpa: number;
-    credits: number;
-    trainingScore: number;
+  gpa: number;
+  credits: number;
+  trainingScore: number;
 }
 
 interface RankContext {
-    studentCode?: string | null;
-    classCode?: string | null;
-    major?: string | null;
-    currentSemesterId?: string | null;
+  studentCode?: string | null;
+  classCode?: string | null;
+  major?: string | null;
+  currentSemesterId?: string | null;
 }
 
-const toNumberOrNull = (value: unknown): number | null => {
-    if (value === null || value === undefined || value === '') return null;
-    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
+const finiteNumber = (value: unknown): number | null => {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
-const toRankValue = (value: unknown): number => toNumberOrNull(value) ?? -Infinity;
+const normalizeInputs = (inputs: RankInputs): RankInputs => ({
+  gpa: Number.isFinite(inputs.gpa) ? inputs.gpa : 0,
+  credits: Number.isFinite(inputs.credits) ? inputs.credits : 0,
+  trainingScore: Number.isFinite(inputs.trainingScore) ? inputs.trainingScore : 0,
+});
 
-const getCurrentStudentCode = async (): Promise<string | null> => {
-    if (!supabase) return null;
-
-    const user = await getLocalSessionUser();
-    const emailCode = user?.email?.split('@')[0]?.trim();
-    if (emailCode) return emailCode;
-    if (!user?.id) return null;
-
-    const { data } = await supabase
-        .from('profiles')
-        .select('student_code')
-        .eq('id', user.id)
-        .maybeSingle();
-
-    return data?.student_code?.trim() || null;
-};
-
+/**
+ * Forecast rankings are served exclusively from the Public Worker/D1 mirror.
+ * There is intentionally no browser Supabase RPC or table-read fallback.
+ */
 export const useForecastRank = () => {
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [result, setResult] = useState<ForecastRankResult | null>(null);
-    const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
-    const [loadingSemesters, setLoadingSemesters] = useState(false);
-    const [semesterRanks, setSemesterRanks] = useState<Record<string, number>>({});
-    const [loadingSemesterRanks, setLoadingSemesterRanks] = useState(false);
-    const [rankInputs, setRankInputs] = useState<RankInputs | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<ForecastRankResult | null>(null);
+  const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
+  const [loadingSemesters, setLoadingSemesters] = useState(false);
+  const [semesterRanks, setSemesterRanks] = useState<Record<string, number>>({});
+  const [loadingSemesterRanks, setLoadingSemesterRanks] = useState(false);
+  const [rankInputs, setRankInputs] = useState<RankInputs | null>(null);
 
-    const fetchAvailableSemesters = useCallback(async () => {
-        if (!supabase) return;
-        if (availableSemesters.length > 0) return;
+  const fetchAvailableSemesters = useCallback(async () => {
+    if (availableSemesters.length > 0) return;
+    setLoadingSemesters(true);
+    try {
+      const rows = await fetchCloudflareRankingSemesters();
+      setAvailableSemesters(
+        rows
+          .map((item) => item.semester)
+          .filter(Boolean)
+          .sort()
+          .reverse()
+      );
+    } catch {
+      // Ranking controls remain empty until the Worker mirror is available.
+      setAvailableSemesters([]);
+    } finally {
+      setLoadingSemesters(false);
+    }
+  }, [availableSemesters.length]);
 
-        setLoadingSemesters(true);
-        try {
-            if (RANKINGS_BACKEND_MODE === 'cloudflare') {
-                try {
-                    const rows = await fetchCloudflareRankingSemesters();
-                    setAvailableSemesters(
-                        rows
-                            .map((item) => item.semester)
-                            .filter(Boolean)
-                            .sort()
-                            .reverse()
-                    );
-                    return;
-                } catch (cloudflareError) {
-                    console.warn('[ranking-semesters-cloudflare-fallback]', {
-                        message: cloudflareError instanceof Error
-                            ? cloudflareError.message
-                            : 'unknown-error'
-                    });
-                }
-            }
-
-            const { data, error } = await supabase.rpc('get_semesters');
-            if (error) throw error;
-
-            const uniqueSemesters = (data ?? [])
-                .map((item: any) => item.semester)
-                .filter(Boolean)
-                .sort()
-                .reverse();
-
-            setAvailableSemesters(uniqueSemesters);
-
-            if (RANKINGS_BACKEND_MODE === 'shadow') {
-                void fetchCloudflareRankingSemesters()
-                    .then((candidateRows) => {
-                        const candidate = candidateRows
-                            .map((item) => item.semester)
-                            .filter(Boolean)
-                            .sort()
-                            .reverse();
-                        if (JSON.stringify(candidate) !== JSON.stringify(uniqueSemesters)) {
-                            console.warn('[ranking-semesters-shadow-mismatch]', {
-                                sourceCount: uniqueSemesters.length,
-                                candidateCount: candidate.length
-                            });
-                        }
-                    })
-                    .catch((shadowError) => {
-                        console.warn('[ranking-semesters-shadow-failed]', {
-                            message: shadowError instanceof Error
-                                ? shadowError.message
-                                : 'unknown-error'
-                        });
-                    });
-            }
-        } catch (err: any) {
-            console.error('Error fetching semesters:', err);
-        } finally {
-            setLoadingSemesters(false);
+  const fetchSemesterRanks = useCallback(async (
+    semesters: string[],
+    inputs: RankInputs
+  ) => {
+    if (!semesters.length) return;
+    setLoadingSemesterRanks(true);
+    try {
+      const rows = await forecastCloudflareRankings({
+        semesters,
+        ...normalizeInputs(inputs),
+      });
+      setSemesterRanks(rows.reduce<Record<string, number>>((accumulator, row) => {
+        if (row.semester && Number.isFinite(row.rank)) {
+          accumulator[row.semester] = row.rank;
         }
-    }, [availableSemesters.length]);
+        return accumulator;
+      }, {}));
+    } catch {
+      setSemesterRanks({});
+    } finally {
+      setLoadingSemesterRanks(false);
+    }
+  }, []);
 
-    const fetchSemesterRanks = useCallback(async (semesters: string[], inputs: RankInputs) => {
-        if (!supabase || !semesters.length) return;
+  const prepareSemesterRanks = useCallback((gpa: number, credits: number, trainingScore: number) => {
+    setRankInputs({ gpa, credits, trainingScore });
+  }, []);
 
-        setLoadingSemesterRanks(true);
-        try {
-            const normalizedInputs: RankInputs = {
-                gpa: Number.isFinite(inputs.gpa) ? inputs.gpa : 0,
-                credits: Number.isFinite(inputs.credits) ? inputs.credits : 0,
-                trainingScore: Number.isFinite(inputs.trainingScore) ? inputs.trainingScore : 0
-            };
+  const resetSemesterRanks = useCallback(() => {
+    setSemesterRanks({});
+    setRankInputs(null);
+  }, []);
 
-            if (RANKINGS_BACKEND_MODE === 'cloudflare') {
-                try {
-                    const rows = await forecastCloudflareRankings({
-                        semesters,
-                        ...normalizedInputs
-                    });
-                    setSemesterRanks(
-                        rows.reduce<Record<string, number>>((acc, row) => {
-                            if (row.semester && Number.isFinite(row.rank)) {
-                                acc[row.semester] = row.rank;
-                            }
-                            return acc;
-                        }, {})
-                    );
-                    return;
-                } catch (cloudflareError) {
-                    console.warn('[ranking-history-cloudflare-fallback]', {
-                        message: cloudflareError instanceof Error
-                            ? cloudflareError.message
-                            : 'unknown-error'
-                    });
-                }
-            }
+  const fetchRank = useCallback(async (
+    semesterId: string,
+    myGpa: number,
+    myCredits: number,
+    myTrainingScore: number,
+    context?: RankContext
+  ) => {
+    if (!semesterId) {
+      setError('Chưa chọn kỳ dữ liệu.');
+      return;
+    }
 
-            const { data, error } = await supabase.rpc('get_ranks_for_all_semesters', {
-                p_gpa: normalizedInputs.gpa,
-                p_credits: normalizedInputs.credits,
-                p_drl: normalizedInputs.trainingScore,
-                p_semesters: semesters
-            });
+    setLoading(true);
+    setError(null);
+    setResult(null);
 
-            if (error) throw error;
+    try {
+      const selectedSemester = normalizeSemesterId(semesterId) || semesterId;
+      const currentSemester = normalizeSemesterId(context?.currentSemesterId) ||
+        context?.currentSemesterId || null;
+      const isCurrentSemester = Boolean(currentSemester && currentSemester === selectedSemester);
 
-            const mappedRanks = (data as SemesterRankRow[] | null)?.reduce<Record<string, number>>(
-                (acc, row) => {
-                    if (row?.semester_name && Number.isFinite(row.rank)) {
-                        acc[row.semester_name] = row.rank;
-                    }
-                    return acc;
-                },
-                {}
-            ) ?? {};
+      const ownRanking = isCurrentSemester
+        ? await fetchCloudflareOwnRanking(semesterId).catch(() => null)
+        : null;
+      const rows = await forecastCloudflareRankings({
+        semesters: [semesterId],
+        ...normalizeInputs({
+          gpa: myGpa,
+          credits: myCredits,
+          trainingScore: myTrainingScore,
+        }),
+        major: ownRanking?.major || context?.major || null,
+      });
+      const forecast = rows[0];
+      const rank = finiteNumber(ownRanking?.studentRank) ?? finiteNumber(forecast?.rank);
+      const totalStudents = finiteNumber(ownRanking?.totalStudents) ??
+        finiteNumber(forecast?.totalStudents);
 
-            setSemesterRanks(mappedRanks);
+      if (!rank || !totalStudents) {
+        throw new Error('Invalid ranking response');
+      }
 
-            if (RANKINGS_BACKEND_MODE === 'shadow') {
-                void forecastCloudflareRankings({
-                    semesters,
-                    ...normalizedInputs
-                })
-                    .then((candidateRows) => {
-                        const candidateRanks = candidateRows.reduce<Record<string, number>>(
-                            (acc, row) => {
-                                if (row.semester && Number.isFinite(row.rank)) {
-                                    acc[row.semester] = row.rank;
-                                }
-                                return acc;
-                            },
-                            {}
-                        );
-                        if (JSON.stringify(candidateRanks) !== JSON.stringify(mappedRanks)) {
-                            console.warn('[ranking-history-shadow-mismatch]', {
-                                sourceCount: Object.keys(mappedRanks).length,
-                                candidateCount: Object.keys(candidateRanks).length
-                            });
-                        }
-                    })
-                    .catch((shadowError) => {
-                        console.warn('[ranking-history-shadow-failed]', {
-                            message: shadowError instanceof Error
-                                ? shadowError.message
-                                : 'unknown-error'
-                        });
-                    });
-            }
-        } catch (err: any) {
-            console.error('Error fetching semester ranks:', err);
-        } finally {
-            setLoadingSemesterRanks(false);
-        }
-    }, []);
+      setResult({
+        rank,
+        totalStudents,
+        topPercent: (rank / totalStudents) * 100,
+        semesterId,
+        rankInClass: ownRanking?.rankInClass ?? null,
+        totalInClass: ownRanking?.totalInClass ?? null,
+        classCode: ownRanking?.classCode ?? context?.classCode ?? null,
+        rankInMajor: ownRanking?.rankInMajor ?? forecast?.rankInMajor ?? null,
+        totalInMajor: ownRanking?.totalInMajor ?? forecast?.totalInMajor ?? null,
+        major: ownRanking?.major ?? forecast?.major ?? context?.major ?? null,
+      });
+    } catch {
+      setError('Lỗi kết nối máy chủ xếp hạng.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    const prepareSemesterRanks = useCallback((gpa: number, credits: number, trainingScore: number) => {
-        setRankInputs({ gpa, credits, trainingScore });
-    }, []);
+  const resetResult = useCallback(() => {
+    setResult(null);
+    setError(null);
+  }, []);
 
-    const resetSemesterRanks = useCallback(() => {
-        setSemesterRanks({});
-        setRankInputs(null);
-    }, []);
+  useEffect(() => {
+    if (!rankInputs || availableSemesters.length === 0) return;
+    void fetchSemesterRanks(availableSemesters, rankInputs);
+  }, [availableSemesters, fetchSemesterRanks, rankInputs]);
 
-    const fetchRank = useCallback(async (
-        semesterId: string,
-        myGpa: number,
-        myCredits: number,
-        myTrainingScore: number,
-        context?: RankContext
-    ) => {
-        if (!supabase) {
-            setError('Chưa kết nối Database.');
-            return;
-        }
-
-        if (!semesterId) {
-            setError('Chưa chọn kỳ dữ liệu.');
-            return;
-        }
-
-        setLoading(true);
-        setError(null);
-        setResult(null);
-
-        try {
-            const normalizedGpa = Number.isFinite(myGpa) ? myGpa : 0;
-            const normalizedCredits = Number.isFinite(myCredits) ? myCredits : 0;
-            const normalizedTrainingScore = Number.isFinite(myTrainingScore) ? myTrainingScore : 0;
-            const selectedSemesterKey = normalizeSemesterId(semesterId) || semesterId;
-            const currentSemesterKey = normalizeSemesterId(context?.currentSemesterId) || context?.currentSemesterId || null;
-            const isSameSemester = Boolean(currentSemesterKey && selectedSemesterKey && currentSemesterKey === selectedSemesterKey);
-            let studentCode = context?.studentCode?.trim() || null;
-
-            let exactStudentRow: any = null;
-            let rankRow: any = null;
-            let resolvedRank: number | null = null;
-            let resolvedTotal: number | null = null;
-
-            if (isSameSemester && RANKINGS_BACKEND_MODE === 'cloudflare') {
-                try {
-                    const ownRanking = await fetchCloudflareOwnRanking(semesterId);
-                    if (ownRanking) {
-                        exactStudentRow = {
-                            student_rank: ownRanking.studentRank,
-                            rank_in_class: ownRanking.rankInClass,
-                            total_in_class: ownRanking.totalInClass,
-                            class_code: ownRanking.classCode,
-                            rank_in_major: ownRanking.rankInMajor,
-                            total_in_major: ownRanking.totalInMajor,
-                            major: ownRanking.major
-                        };
-                        rankRow = exactStudentRow;
-                        resolvedRank = toNumberOrNull(ownRanking.studentRank);
-                        resolvedTotal = toNumberOrNull(ownRanking.totalStudents);
-                    }
-                } catch (cloudflareError) {
-                    console.warn('[ranking-exact-cloudflare-fallback]', {
-                        message: cloudflareError instanceof Error
-                            ? cloudflareError.message
-                            : 'unknown-error'
-                    });
-                }
-            }
-
-            if (isSameSemester && !exactStudentRow) {
-                studentCode = studentCode || await getCurrentStudentCode();
-            }
-            if (isSameSemester && !exactStudentRow && studentCode) {
-                const { data, error } = await supabase
-                    .from('benchmark_rankings')
-                    .select('student_rank,rank_in_class,total_in_class,class_code,rank_in_major,total_in_major,major')
-                    .eq('semester', semesterId)
-                    .eq('student_code', studentCode)
-                    .maybeSingle();
-
-                if (error) throw error;
-                exactStudentRow = data;
-                if (data) {
-                    rankRow = data;
-                    resolvedRank = toNumberOrNull(data.student_rank);
-                }
-            }
-
-            const lookupStudentCode = isSameSemester ? studentCode : null;
-            const lookupClassCode = exactStudentRow?.class_code || (isSameSemester ? context?.classCode || null : null);
-            const lookupMajor = exactStudentRow?.major || context?.major || null;
-
-            if (
-                (!resolvedRank || !resolvedTotal) &&
-                RANKINGS_BACKEND_MODE === 'cloudflare'
-            ) {
-                try {
-                    const rows = await forecastCloudflareRankings({
-                        semesters: [semesterId],
-                        gpa: normalizedGpa,
-                        credits: normalizedCredits,
-                        trainingScore: normalizedTrainingScore,
-                        major: lookupMajor
-                    });
-                    const candidate = rows[0];
-                    if (candidate) {
-                        resolvedRank = resolvedRank ?? toNumberOrNull(candidate.rank);
-                        resolvedTotal = toNumberOrNull(candidate.totalStudents);
-                        rankRow = {
-                            ...rankRow,
-                            rank: candidate.rank,
-                            total_students: candidate.totalStudents,
-                            rank_in_major:
-                                rankRow?.rank_in_major ?? candidate.rankInMajor,
-                            total_in_major:
-                                rankRow?.total_in_major ?? candidate.totalInMajor,
-                            major: rankRow?.major ?? candidate.major
-                        };
-                    }
-                } catch (cloudflareError) {
-                    console.warn('[ranking-forecast-cloudflare-fallback]', {
-                        message: cloudflareError instanceof Error
-                            ? cloudflareError.message
-                            : 'unknown-error'
-                    });
-                }
-            }
-
-            if (!resolvedRank || !resolvedTotal) {
-                const { data: detailData, error: detailError } = await supabase.rpc(
-                    'get_smart_rank_details',
-                    {
-                        p_semester: semesterId,
-                        p_gpa: normalizedGpa,
-                        p_credits: normalizedCredits,
-                        p_drl: normalizedTrainingScore,
-                        p_student_code: lookupStudentCode,
-                        p_class_code: lookupClassCode,
-                        p_major: lookupMajor
-                    }
-                );
-
-                if (!detailError && detailData) {
-                    const detailRow = Array.isArray(detailData)
-                        ? detailData[0]
-                        : detailData;
-                    rankRow = { ...detailRow, ...rankRow };
-                    resolvedRank =
-                        resolvedRank ?? toNumberOrNull(detailRow?.rank);
-                    resolvedTotal =
-                        resolvedTotal ??
-                        toNumberOrNull(detailRow?.total_students);
-                } else {
-                    const { data: rankData, error: rankError } = await supabase.rpc(
-                        'get_smart_rank',
-                        {
-                            p_semester: semesterId,
-                            p_gpa: normalizedGpa,
-                            p_credits: normalizedCredits,
-                            p_drl: normalizedTrainingScore
-                        }
-                    );
-
-                    if (rankError) throw detailError || rankError;
-                    resolvedRank = resolvedRank ?? (
-                        typeof rankData === 'number'
-                            ? rankData
-                            : Array.isArray(rankData)
-                                ? toNumberOrNull(rankData[0]?.rank)
-                                : toNumberOrNull(
-                                    (rankData as { rank?: number } | null)?.rank
-                                )
-                    );
-                }
-            }
-
-            if (!resolvedTotal) {
-                resolvedTotal = await getBenchmarkRankingTotal(semesterId);
-            }
-
-            if (!resolvedTotal) {
-                setError(`Dữ liệu ${semesterId} đang trống.`);
-                setLoading(false);
-                return;
-            }
-
-            if (exactStudentRow) {
-                resolvedRank = toNumberOrNull(exactStudentRow.student_rank) ?? resolvedRank;
-                rankRow = {
-                    ...rankRow,
-                    rank_in_class: exactStudentRow.rank_in_class ?? rankRow?.rank_in_class ?? null,
-                    total_in_class: exactStudentRow.total_in_class ?? rankRow?.total_in_class ?? null,
-                    class_code: exactStudentRow.class_code ?? rankRow?.class_code ?? null,
-                    rank_in_major: exactStudentRow.rank_in_major ?? rankRow?.rank_in_major ?? null,
-                    total_in_major: exactStudentRow.total_in_major ?? rankRow?.total_in_major ?? null,
-                    major: exactStudentRow.major ?? rankRow?.major ?? null
-                };
-            }
-
-            if (
-                studentCode &&
-                exactStudentRow?.class_code &&
-                (!rankRow?.rank_in_class || !rankRow?.total_in_class)
-            ) {
-                const { data: classRows, error: classError } = await supabase
-                    .from('benchmark_rankings')
-                    .select('student_code,gpa,training_score,credits')
-                    .eq('semester', semesterId)
-                    .eq('class_code', exactStudentRow.class_code);
-
-                if (classError) throw classError;
-
-                const sortedRows = [...(classRows ?? [])].sort((a: any, b: any) => {
-                    const byGpa = toRankValue(b.gpa) - toRankValue(a.gpa);
-                    if (byGpa !== 0) return byGpa;
-                    const byTraining = toRankValue(b.training_score) - toRankValue(a.training_score);
-                    if (byTraining !== 0) return byTraining;
-                    return toRankValue(b.credits) - toRankValue(a.credits);
-                });
-
-                let currentRank = 0;
-                let previousSignature = '';
-                const matchedIndex = sortedRows.findIndex((row: any, index) => {
-                    const signature = `${toRankValue(row.gpa)}|${toRankValue(row.training_score)}|${toRankValue(row.credits)}`;
-                    if (signature !== previousSignature) {
-                        currentRank = index + 1;
-                        previousSignature = signature;
-                    }
-                    if (row.student_code === studentCode) {
-                        rankRow = {
-                            ...rankRow,
-                            rank_in_class: currentRank,
-                            total_in_class: sortedRows.length
-                        };
-                        return true;
-                    }
-                    return false;
-                });
-
-                if (matchedIndex < 0) {
-                    rankRow = {
-                        ...rankRow,
-                        total_in_class: sortedRows.length
-                    };
-                }
-            }
-
-            if (!resolvedRank) {
-                throw new Error('Invalid rank response');
-            }
-
-            setResult({
-                rank: resolvedRank,
-                totalStudents: resolvedTotal,
-                topPercent: (resolvedRank / resolvedTotal) * 100,
-                semesterId,
-                rankInClass: rankRow?.rank_in_class ?? null,
-                totalInClass: rankRow?.total_in_class ?? null,
-                classCode: rankRow?.class_code ?? null,
-                rankInMajor: rankRow?.rank_in_major ?? null,
-                totalInMajor: rankRow?.total_in_major ?? null,
-                major: rankRow?.major ?? context?.major ?? null
-            });
-        } catch (err: any) {
-            console.error('Forecast Rank Error:', err);
-            setError('Lỗi kết nối máy chủ xếp hạng.');
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    const resetResult = useCallback(() => {
-        setResult(null);
-        setError(null);
-    }, []);
-
-    useEffect(() => {
-        if (!rankInputs || availableSemesters.length === 0) return;
-        fetchSemesterRanks(availableSemesters, rankInputs);
-    }, [availableSemesters, fetchSemesterRanks, rankInputs]);
-
-    return {
-        fetchRank,
-        result,
-        loading,
-        error,
-        resetResult,
-        fetchAvailableSemesters,
-        availableSemesters,
-        loadingSemesters,
-        prepareSemesterRanks,
-        resetSemesterRanks,
-        semesterRanks,
-        loadingSemesterRanks
-    };
+  return {
+    fetchRank,
+    result,
+    loading,
+    error,
+    resetResult,
+    fetchAvailableSemesters,
+    availableSemesters,
+    loadingSemesters,
+    prepareSemesterRanks,
+    resetSemesterRanks,
+    semesterRanks,
+    loadingSemesterRanks,
+  };
 };

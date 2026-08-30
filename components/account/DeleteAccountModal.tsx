@@ -96,7 +96,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
                                     <label className="text-sm font-bold text-gray-700 text-center">
                                         Xác minh bảo mật
                                     </label>
-                                    <TurnstileBox token={turnstileToken} onTokenChange={onTurnstileTokenChange} />
+                                    <TurnstileBox token={turnstileToken} onTokenChange={onTurnstileTokenChange} action="account_delete" />
                                 </div>
 
                                 {error && <p className="text-xs text-red-500 text-center font-bold">{error}</p>}
@@ -180,7 +180,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
                                 {resendCountdown <= 0 && (
                                     <div className="w-full flex flex-col gap-2">
                                         <span className="text-xs font-bold text-gray-600 text-center">Xác minh để gửi lại mã</span>
-                                        <TurnstileBox token={turnstileToken} onTokenChange={onTurnstileTokenChange} />
+                                        <TurnstileBox token={turnstileToken} onTokenChange={onTurnstileTokenChange} action="account_delete" />
                                     </div>
                                 )}
                                 <p className="text-sm text-gray-500">

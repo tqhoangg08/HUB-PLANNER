@@ -16,7 +16,7 @@ import {
     Smartphone,
     X,
 } from 'lucide-react';
-import { supabase } from '../utils/supabase';
+import { fetchAdminActivity } from '../utils/adminLegacyDataApi';
 import { playClick } from '../utils/audio';
 
 type JsonRecord = Record<string, unknown>;
@@ -42,17 +42,6 @@ type ActivityLogRow = {
     error_message?: string | null;
     ip_address?: string | null;
     device_info?: string | null;
-};
-
-type UserRoleRow = {
-    id?: string | null;
-    user_id?: string | null;
-    role?: string | null;
-};
-
-type ProfileRoleRow = {
-    id: string;
-    email?: string | null;
 };
 
 interface ActivityLogModalProps {
@@ -299,63 +288,14 @@ export const ActivityLogModal: React.FC<ActivityLogModalProps> = ({ onClose }) =
         setLoading(true);
         setError(null);
         try {
-            let query = supabase
-                .from('activity_logs')
-                .select('id,created_at,user_id,user_email,user_role,action,action_label,target_table,table_name,target_id,record_id,page_path,status,metadata,old_data,new_data,details,error_message,ip_address,device_info', { count: 'exact' })
-                .neq('action', 'view_page')
-                .order('created_at', { ascending: false })
-                .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
-
-            if (dateFilter !== 'all') {
-                const days = dateFilter === '7d' ? 7 : 30;
-                query = query.gte('created_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString());
-            }
-            if (userFilter !== 'all') query = query.eq('user_email', userFilter);
-            if (actionFilter !== 'all') query = query.eq('action', actionFilter);
-            if (statusFilter !== 'all') query = query.eq('status', statusFilter);
-            if (tableFilter !== 'all') query = query.or(`target_table.eq.${tableFilter},table_name.eq.${tableFilter}`);
-
-            const term = sanitizeActivitySearch(search);
-            if (term) {
-                query = query.or(`user_email.ilike.%${term}%,action.ilike.%${term}%,action_label.ilike.%${term}%,target_table.ilike.%${term}%,table_name.ilike.%${term}%,target_id.ilike.%${term}%,record_id.ilike.%${term}%,page_path.ilike.%${term}%,error_message.ilike.%${term}%`);
-            }
-
-            const { data, error: fetchError, count } = await query;
-
-            if (fetchError) throw fetchError;
-            setTotalLogs(count || 0);
-
-            const rawLogs = (data || []) as ActivityLogRow[];
-            const userIds = [...new Set(rawLogs.map(log => log.user_id).filter(Boolean))] as string[];
-            const [{ data: roleRows }, { data: profileRows }] = await Promise.all([
-                userIds.length > 0
-                    ? supabase.from('user_roles').select('id,user_id,role').in('user_id', userIds)
-                    : Promise.resolve({ data: [] }),
-                userIds.length > 0
-                    ? supabase.from('profiles').select('id,email').in('id', userIds)
-                    : Promise.resolve({ data: [] }),
-            ]);
-
-            const roleById = new Map<string, string>();
-            (roleRows || []).forEach((row: UserRoleRow) => {
-                const role = normalizeRoleLabel(row.role);
-                if (!role) return;
-                if (row.id) roleById.set(row.id, role);
-                if (row.user_id) roleById.set(row.user_id, role);
-            });
-
-            const roleByEmail = new Map<string, string>();
-            (profileRows || []).forEach((profile: ProfileRoleRow) => {
-                const role = roleById.get(profile.id);
-                if (profile.email && role) roleByEmail.set(profile.email, role);
-            });
-
+            const response = await fetchAdminActivity((page - 1) * PAGE_SIZE, PAGE_SIZE);
+            setTotalLogs(response.total || 0);
+            const rawLogs = (response.data || []) as ActivityLogRow[];
             setLogs(rawLogs.map(log => ({
                 ...log,
-                user_role: normalizeRoleLabel(log.user_role)
-                    || (log.user_id ? roleById.get(log.user_id) : null)
-                    || (log.user_email ? roleByEmail.get(log.user_email) : null)
-                    || null,
+                // Historical logs keep the role captured at event time. Do not
+                // infer privileges from legacy Profile/user_roles lookups.
+                user_role: normalizeRoleLabel(log.user_role) || null,
             })));
         } catch (err) {
             console.error('Activity logs fetch error:', err);

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Session } from '@supabase/supabase-js';
+import type { AppSession } from '../utils/privateApi';
 import type { UserData } from '../types';
 import {
     ACADEMIC_COHORT_OPTIONS,
@@ -10,18 +10,16 @@ import {
     type Specialization,
 } from '../utils/programs';
 import { fetchDefaultClassName } from '../utils/defaultClassName';
-import { supabase } from '../utils/supabase';
 import { getSafeAvatarColor } from '../utils/avatarColors';
 import { blobToBase64, resizeAvatarImage } from '../utils/avatarImage';
 import { apiUrl } from '../utils/api';
 import { calculateCumulativeStats } from '../utils/calculations';
 import { upsertProfilePrivate } from '../utils/profilePrivate';
-
-const STUDENT_PROFILE_TABLE = 'profiles';
+import { fetchOwnPrivateProfile, updateOwnPrivateProfile } from '../utils/privateProfileApi';
 
 interface UseAccountProfileDraftOptions {
     open: boolean;
-    session: Session | null;
+    session: AppSession | null;
     data: UserData;
     profileFullName: string;
     profileAvatarUrl: string;
@@ -98,9 +96,8 @@ export const useAccountProfileDraft = ({
     const [draftMajor, setDraftMajor] = useState<Major | null>(null);
     const [draftSpecialization, setDraftSpecialization] = useState<Specialization | null>(null);
 
-    const sessionUserId = session?.user.id || null;
-    const sessionEmail = session?.user.email || '';
-    const sessionAccessToken = session?.access_token || '';
+    const sessionUserId = session?.user?.id || null;
+    const sessionEmail = session?.user?.email || '';
     const cohortOptions = draftProgram
         ? ACADEMIC_COHORT_OPTIONS[draftProgram.id] || []
         : [];
@@ -145,11 +142,7 @@ export const useAccountProfileDraft = ({
             if (!sessionUserId) return;
 
             const studentCode = sessionEmail.split('@')[0] || '';
-            const { data: publicProfile } = await supabase
-                .from(STUDENT_PROFILE_TABLE)
-                .select('bio, class_name, profile_tags, public_profile_enabled, show_profile_stats, class_name_overridden')
-                .eq('id', sessionUserId)
-                .maybeSingle();
+            const { publicProfile } = await fetchOwnPrivateProfile();
             const officialClassName = await fetchDefaultClassName(studentCode);
             if (!active) return;
 
@@ -271,34 +264,9 @@ export const useAccountProfileDraft = ({
         let avatarUrlToSave = draftAvatarUrl.trim();
 
         if (draftAvatarFile) {
-            try {
-                const avatarBlob = await resizeAvatarImage(draftAvatarFile);
-                const base64 = await blobToBase64(avatarBlob);
-                const response = await fetch(apiUrl('/auth'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${sessionAccessToken}`,
-                    },
-                    body: JSON.stringify({
-                        action: 'upload-avatar',
-                        contentType: avatarBlob.type || 'image/webp',
-                        size: avatarBlob.size,
-                        base64,
-                    }),
-                });
-                const payload = await response.json().catch(() => ({}));
-                if (!response.ok || !payload.publicUrl) {
-                    throw new Error(payload.error || 'Không thể tải ảnh avatar lên R2.');
-                }
-                avatarUrlToSave = payload.publicUrl;
-            } catch (error: any) {
-                setProfileError(
-                    error.message || 'Không thể tải ảnh lên. Vui lòng thử lại.',
-                );
-                setProfileSaving(false);
-                return;
-            }
+            setProfileError('Tải ảnh đại diện mới đang tạm bảo trì. Bạn vẫn có thể chọn màu đại diện.');
+            setProfileSaving(false);
+            return;
         } else if (avatarUrlToSave.startsWith('#')) {
             avatarUrlToSave = getSafeAvatarColor(avatarUrlToSave);
         }
@@ -343,27 +311,7 @@ export const useAccountProfileDraft = ({
                 ? validPublicSemesters.length
                 : null,
             public_credits: shouldPublishStats ? publicStats.passedCredits : null,
-            updated_at: new Date().toISOString(),
         };
-
-        console.debug('Profile update payload:', profileUpdatePayload);
-
-        const { error } = await supabase
-            .from(STUDENT_PROFILE_TABLE)
-            .update(profileUpdatePayload)
-            .eq('id', sessionUserId);
-
-        if (error) {
-            console.error('Không thể lưu thông tin hồ sơ:', error);
-            setProfileError(
-                [error.message, error.details, error.hint, error.code]
-                    .filter(Boolean)
-                    .join(' | ')
-                || 'Không thể lưu thông tin. Vui lòng thử lại.',
-            );
-            setProfileSaving(false);
-            return;
-        }
 
         setProfileFullName(draftFullName.trim());
         setProfileAvatarUrl(avatarUrlToSave);
@@ -386,11 +334,9 @@ export const useAccountProfileDraft = ({
         };
 
         try {
-            await upsertProfilePrivate({
-                user_id: sessionUserId,
-                email: sessionEmail,
-                data: nextData,
-                updated_at: new Date().toISOString(),
+            await updateOwnPrivateProfile({
+                publicProfile: profileUpdatePayload,
+                privateProfile: { data: nextData },
             });
         } catch (privateError: any) {
             console.error(
@@ -439,7 +385,6 @@ export const useAccountProfileDraft = ({
         draftSpecialization,
         draftStudentName,
         onSaved,
-        sessionAccessToken,
         sessionEmail,
         sessionUserId,
         setProfileAvatarUrl,

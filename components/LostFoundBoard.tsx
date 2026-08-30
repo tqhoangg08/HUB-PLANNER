@@ -1,5 +1,4 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
-import { supabase } from '../utils/supabase';
 import { Search, MapPin, Calendar, User, Phone, Loader2, ImageOff, PlusCircle, RefreshCw, Info, HelpCircle, Tag, Megaphone, X, Camera, UploadCloud, CheckCircle2, AlertCircle, Edit2, Trash2, Shield, Flag } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
@@ -7,10 +6,10 @@ import { createPortal } from 'react-dom';
 import { useUserRole } from '../hooks/useUserRole';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
-import { apiUrl } from '../utils/api';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { fetchPublicLostFound } from '../utils/lostFoundApi';
+import { fetchAdminLostFound, updateAdminLostFound } from '../utils/adminLegacyDataApi';
 
 // --- Types ---
 interface LostFoundItem {
@@ -108,30 +107,13 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!supabase) return;
         playClick();
         setIsSubmitting(true);
 
         try {
             let imageUrl = editingItem?.image_url || null;
 
-            if (imageFile && editingItem) {
-                const fileExt = imageFile.name.split('.').pop();
-                const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-                const filePath = `${fileName}`;
-
-                const { error: uploadError } = await supabase.storage
-                    .from('lost_found_images')
-                    .upload(filePath, imageFile);
-
-                if (uploadError) throw uploadError;
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('lost_found_images')
-                    .getPublicUrl(filePath);
-                
-                imageUrl = publicUrl;
-            }
+            if (imageFile && editingItem) throw new Error('Chưa thể thay ảnh khi chỉnh sửa. Vui lòng giữ ảnh hiện tại.');
 
             const imagePayload = imageFile && !editingItem
                 ? {
@@ -141,18 +123,14 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                 : undefined;
 
             if (editingItem) {
-                const { error } = await supabase
-                    .from('lost_found_items')
-                    .update({
+                await updateAdminLostFound(editingItem.id, {
                         title: formData.title,
                         description: formData.description,
                         location: formData.location,
                         contact_info: formData.contact_info,
                         user_name: formData.user_name,
                         image_url: imageUrl,
-                    })
-                    .eq('id', editingItem.id);
-                if (error) throw error;
+                });
                 onShowToast("Cập nhật thành công!", 'success');
             } else {
                 const data = await protectedSubmit<{ id?: number }>({
@@ -167,7 +145,6 @@ const SubmitModal: React.FC<SubmitModalProps> = ({ isOpen, onClose, type, onShow
                         image_url: imageUrl,
                         image: imagePayload,
                         type,
-                        user_id: currentUserId || null,
                     },
                 });
                 void notifyModerators('lost_found_pending', data?.id);
@@ -351,7 +328,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onShowToast, c
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (!item || !supabase || !reason.trim()) return;
+        if (!item || !reason.trim()) return;
 
         setIsSubmitting(true);
         try {
@@ -510,28 +487,10 @@ export const LostFoundBoard: React.FC = () => {
           return;
       }
 
-      if (!supabase) throw new Error('Chưa cấu hình Supabase.');
-      let query = supabase.from('lost_found_items')
-        .select('id,created_at,type,title,description,location,contact_info,user_name,image_url,status,is_deleted,user_id', { count: 'exact' })
-        .eq('is_deleted', false)
-        .eq('type', activeTab)
-        .order('created_at', { ascending: false });
-      
-      if (isStudent) {
-          query = query.in('status', ['approved', 'resolved']);
-      }
-
-      const term = sanitizeLostFoundSearch(searchTerm);
-      if (term) {
-          query = query.or(`title.ilike.%${term}%,location.ilike.%${term}%,description.ilike.%${term}%`);
-      }
-
       const from = page * LOST_FOUND_PAGE_SIZE;
-      const to = from + LOST_FOUND_PAGE_SIZE - 1;
-      const { data, error, count } = await query.range(from, to);
-      if (error) throw error;
-      if (data) setItems(data as LostFoundItem[]);
-      setTotalItems(count || 0);
+      const payload = await fetchAdminLostFound(activeTab, from, LOST_FOUND_PAGE_SIZE);
+      setItems((payload.data || []) as unknown as LostFoundItem[]);
+      setTotalItems(payload.total || 0);
     } catch (err: any) {
       console.error(err);
       setError('Lỗi: ' + err.message);
@@ -550,19 +509,13 @@ export const LostFoundBoard: React.FC = () => {
 
   useEffect(() => {
     const targetItemId = Number(new URLSearchParams(window.location.search).get('item'));
-    if (!targetItemId || !supabase) return;
+    if (!targetItemId || !canManage) return;
 
     let cancelled = false;
     const openTargetItem = async () => {
-      const { data, error } = await supabase
-        .from('lost_found_items')
-        .select('id,created_at,type,title,description,location,contact_info,user_name,image_url,status,is_deleted,user_id')
-        .eq('id', targetItemId)
-        .eq('is_deleted', false)
-        .maybeSingle();
-
-      if (cancelled || error || !data) return;
-      const item = data as LostFoundItem;
+      const payload = await fetchAdminLostFound('LOST', 0, 1, targetItemId);
+      const item = (payload.data || [])[0] as unknown as LostFoundItem | undefined;
+      if (cancelled || !item) return;
       setActiveTab(item.type);
       setSelectedItem(item);
     };
@@ -577,20 +530,8 @@ export const LostFoundBoard: React.FC = () => {
       if (!canManage) return;
       playClick();
       try {
-          const { data: { session: currentSession } } = await supabase!.auth.getSession();
-          const response = await fetch(apiUrl('/push?resource=announcement-queue'), {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${currentSession?.access_token || ''}`,
-              },
-              body: JSON.stringify({ action: 'approve-lost-found', id }),
-          });
-          const result = await response.json();
-          if (!response.ok) throw new Error(result.error || 'Không thể duyệt tin');
-
-          const suffix = result.alreadySent ? '' : `, đã gửi ${result.sent || 0} thiết bị`;
-          showToast(`Đã duyệt tin thành công${suffix}`, 'success');
+          await updateAdminLostFound(id, { status: 'approved' });
+          showToast('Đã duyệt tin thành công', 'success');
           setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'approved' } : i));
           return;
       } catch (error: any) {
@@ -605,20 +546,16 @@ export const LostFoundBoard: React.FC = () => {
       playClick();
       if (!await showConfirm("Bạn có chắc chắn muốn xóa tin này không?")) return false;
       
-      const { error } = await supabase!
-        .from('lost_found_items')
-        .update({ is_deleted: true })
-        .eq('id', item.id);
-
-      if (error) {
+      try {
+          await updateAdminLostFound(item.id, { is_deleted: true });
+      } catch (error: any) {
           showToast("Lỗi xóa: " + error.message, 'error');
           return false;
-      } else {
-          showToast("Đã xóa tin thành công", 'success');
-          setItems(prev => prev.filter(i => i.id !== item.id));
-          setTotalItems(prev => Math.max(0, prev - 1));
-          return true;
       }
+      showToast("Đã xóa tin thành công", 'success');
+      setItems(prev => prev.filter(i => i.id !== item.id));
+      setTotalItems(prev => Math.max(0, prev - 1));
+      return true;
   };
 
   const handleResolve = async (id: number) => {
@@ -626,15 +563,12 @@ export const LostFoundBoard: React.FC = () => {
       playClick();
       if (!await showConfirm("Bạn xác nhận là đã giải quyết xong (tìm thấy đồ / đã trả lại đồ) cho tin này?")) return;
       
-      const { error } = await supabase!
-        .from('lost_found_items')
-        .update({ status: 'resolved' })
-        .eq('id', id);
-
-      if (error) showToast("Lỗi cập nhật: " + error.message, 'error');
-      else {
+      try {
+          await updateAdminLostFound(id, { status: 'resolved' });
           showToast("Đã đánh dấu thành công! Cảm ơn bạn.", 'success');
           setItems(prev => prev.map(i => i.id === id ? { ...i, status: 'resolved' } : i));
+      } catch (error: any) {
+          showToast("Lỗi cập nhật: " + error.message, 'error');
       }
   };
 

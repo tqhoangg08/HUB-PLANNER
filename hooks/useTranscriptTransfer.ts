@@ -8,7 +8,6 @@ import { playClick } from '../utils/audio';
 import { showAlert } from '../utils/appNotifications';
 import { logWebError } from '../utils/logWebError';
 import { promptSendParserDebugFile } from '../utils/parserDebugTicket';
-import { ProtectedSubmitError, verifyTurnstileOnly } from '../utils/protectedSubmit';
 
 export interface PendingTranscriptImport {
     semesters: Semester[];
@@ -59,10 +58,9 @@ export const useTranscriptTransfer = ({
         setShowImportLoadingToast(true);
 
         try {
-            await verifyTurnstileOnly(gradeImportTurnstileToken);
             setGradeImportTurnstileToken('');
             const { parseHubPdf } = await import('../utils/pdfImport');
-            const result = await parseHubPdf(file);
+            const result = await parseHubPdf(file, gradeImportTurnstileToken);
             const importedSubjectCount = countTranscriptSubjects(result.semesters);
 
             if (importedSubjectCount === 0) {
@@ -112,11 +110,6 @@ export const useTranscriptTransfer = ({
             });
         } catch (error) {
             console.error(error);
-            if (error instanceof ProtectedSubmitError) {
-                alert(error.message);
-                return;
-            }
-
             const errorLogId = await logWebError({
                 source: 'parser',
                 action: 'import_transcript',

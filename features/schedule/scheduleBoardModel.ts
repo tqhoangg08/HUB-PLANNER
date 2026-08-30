@@ -66,6 +66,7 @@ export interface Course {
     phase: string;
     semester: string;
     instructor?: string;
+    revision?: number;
     is_user_added?: boolean;
     user_schedule_id?: string;
     user?: UserProfile;
@@ -86,6 +87,7 @@ export interface CourseRequest {
     user_id?: string;
     user?: UserProfile | null;
     duplicate_course?: Course | null;
+    revision?: number;
 }
 
 export interface CourseRequestPageCache {

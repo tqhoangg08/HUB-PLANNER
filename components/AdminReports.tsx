@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../utils/supabase';
+import { deleteAdminReport, fetchAdminReports, resolveAllAdminReports, updateAdminReportStatus } from '../utils/adminLegacyDataApi';
 import { fetchProfilePrivateMap } from '../utils/profilePrivate';
+import { fetchStaffPublicProfileMap } from '../utils/staffProfilesApi';
 import { Link } from 'react-router-dom';
 import { Loader2, CheckCircle2, CheckCheck, AlertTriangle, Bug, BookOpen, UserPlus, CalendarDays, MessageSquare, Trash2, Calendar, Edit2, ExternalLink, Crown } from 'lucide-react';
 import { playClick } from '../utils/audio';
@@ -8,18 +9,7 @@ import { showAlert, showConfirm } from '../utils/appNotifications';
 
 type TabType = 'course_reports' | 'bug_reports' | 'ctv_requests' | 'event_reports' | 'feedback' | 'canva_pro_requests';
 
-const REPORT_SELECT_COLUMNS: Record<TabType, string> = {
-    course_reports: 'id,user_id,status,created_at,full_name,student_code,email,subject_name,course_code,error_description,suggested_correction',
-    bug_reports: 'id,user_id,status,created_at,full_name,student_code,email,error_location,description',
-    ctv_requests: 'id,user_id,status,created_at,full_name,student_code,email,student_batch,major,contact_info',
-    event_reports: 'id,user_id,status,created_at,full_name,student_code,email,event_id,event_name,organizer,issue_description',
-    feedback: 'id,user_id,status,created_at,full_name,student_code,email,type,content,contact',
-    canva_pro_requests: 'id,user_id,status,created_at,email,full_name,student_batch,major,note,reviewed_at'
-};
 const REPORT_PAGE_SIZE = 30;
-const REPORT_BULK_FETCH_SIZE = 1000;
-const REPORT_BULK_UPDATE_SIZE = 200;
-const RESOLVED_REPORT_STATUSES = ['ok', 'resolved', 'contacted', 'approved', 'rejected'];
 
 const getLostFoundItemUrl = (content?: string | null) => {
     if (!content) return null;
@@ -67,21 +57,11 @@ export const AdminReports: React.FC = () => {
 
     const fetchReports = async () => {
         setLoading(true);
-        if (!supabase) return;
-
         try {
-            // Lấy dữ liệu báo cáo
             const from = page * REPORT_PAGE_SIZE;
-            const to = from + REPORT_PAGE_SIZE - 1;
-            const { data: reportData, error: reportError, count } = await supabase
-                .from(activeTab)
-                .select(REPORT_SELECT_COLUMNS[activeTab], { count: 'exact' })
-                .order('created_at', { ascending: false })
-                .range(from, to);
-
-            if (reportError) throw reportError;
-            setTotalReports(count || 0);
-            const typedReportData = (reportData || []) as unknown as ReportData[];
+            const response = await fetchAdminReports(activeTab, from, REPORT_PAGE_SIZE);
+            setTotalReports(response.total || 0);
+            const typedReportData = (response.data || []) as unknown as ReportData[];
 
             if (typedReportData.length > 0) {
                 // Gom tất cả user_id duy nhất để query profile 1 lần
@@ -90,17 +70,11 @@ export const AdminReports: React.FC = () => {
                 let profilesMap: Record<string, any> = {};
                 
                 if (userIds.length > 0) {
-                    const { data: profilesData } = await supabase
-                        .from('profiles')
-                        .select('id, full_name, student_code')
-                        .in('id', userIds);
+                    const publicMap = await fetchStaffPublicProfileMap(userIds);
                     const privateMap = await fetchProfilePrivateMap(userIds, { mode: 'summary' });
-                        
-                    if (profilesData) {
-                        profilesData.forEach(p => {
-                            profilesMap[p.id] = { ...p, email: privateMap[p.id]?.email };
-                        });
-                    }
+                    Object.values(publicMap).forEach((profile: any) => {
+                        profilesMap[profile.id] = { ...profile, email: privateMap[profile.id]?.email };
+                    });
                 }
 
                 // Ráp dữ liệu report với profile
@@ -130,17 +104,11 @@ export const AdminReports: React.FC = () => {
     }, [activeTab, page]);
 
     const handleUpdateStatus = async (id: any, newStatus: string) => {
-        if (!supabase) return;
         playClick();
         setUpdatingId(id);
         
         try {
-            const { error } = await supabase
-                .from(activeTab)
-                .update({ status: newStatus })
-                .eq('id', id);
-
-            if (error) throw error;
+            await updateAdminReportStatus(activeTab, id, newStatus);
             
             setReports(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
         } catch (error) {
@@ -152,7 +120,6 @@ export const AdminReports: React.FC = () => {
     };
 
     const handleResolveAllInActiveTab = async () => {
-        if (!supabase) return;
         const activeLabel = tabs.find(tab => tab.id === activeTab)?.label || 'mục này';
         const confirmed = await showConfirm({
             title: `Đánh dấu đã xử lý tất cả ${activeLabel}?`,
@@ -167,40 +134,13 @@ export const AdminReports: React.FC = () => {
         setUpdatingAll(true);
         try {
             const resolvedStatus = activeTab === 'canva_pro_requests' ? 'contacted' : 'ok';
-            const unresolvedIds: any[] = [];
-            let offset = 0;
-
-            while (true) {
-                const { data, error } = await (supabase.from(activeTab) as any)
-                    .select('id,status')
-                    .order('id', { ascending: true })
-                    .range(offset, offset + REPORT_BULK_FETCH_SIZE - 1);
-
-                if (error) throw error;
-                const rows = (data || []) as Array<{ id: any; status?: string | null }>;
-                unresolvedIds.push(
-                    ...rows
-                        .filter(row => !RESOLVED_REPORT_STATUSES.includes(String(row.status || '').trim().toLowerCase()))
-                        .map(row => row.id)
-                );
-
-                if (rows.length < REPORT_BULK_FETCH_SIZE) break;
-                offset += rows.length;
-            }
-
-            for (let index = 0; index < unresolvedIds.length; index += REPORT_BULK_UPDATE_SIZE) {
-                const idChunk = unresolvedIds.slice(index, index + REPORT_BULK_UPDATE_SIZE);
-                const { error } = await (supabase.from(activeTab) as any)
-                    .update({ status: resolvedStatus })
-                    .in('id', idChunk);
-                if (error) throw error;
-            }
+            const { updated } = await resolveAllAdminReports(activeTab, resolvedStatus);
 
             await fetchReports();
             await showAlert({
                 title: `Đã xử lý ${activeLabel}`,
-                message: unresolvedIds.length > 0
-                    ? `Đã đánh dấu ${unresolvedIds.length} báo cáo trong mục này là đã xử lý.`
+                message: updated > 0
+                    ? `Đã đánh dấu ${updated} báo cáo trong mục này là đã xử lý.`
                     : 'Mục này không còn báo cáo nào cần xử lý.',
                 variant: 'success',
             });
@@ -219,17 +159,11 @@ export const AdminReports: React.FC = () => {
 
     const handleDelete = async (id: any) => {
         if (!await showConfirm("Bạn có chắc chắn muốn xóa báo cáo này vĩnh viễn?")) return;
-        if (!supabase) return;
         playClick();
         setUpdatingId(id);
         
         try {
-            const { error } = await supabase
-                .from(activeTab)
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
+            await deleteAdminReport(activeTab, id);
             
             setReports(prev => prev.filter(r => r.id !== id));
             setTotalReports(prev => Math.max(0, prev - 1));

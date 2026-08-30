@@ -1,6 +1,5 @@
-import { supabase } from './supabase';
 import { urlBase64ToUint8Array } from './pushHelper';
-import { apiUrl } from './api';
+import { privateApiRequest } from './privateApi';
 
 const ROOT_SCOPE = '/';
 const SERVICE_WORKER_TIMEOUT_MS = 8000;
@@ -74,6 +73,10 @@ export const isPushSupported = () => (
   'PushManager' in window
 );
 
+export const isPushNotificationSyncAvailable = () => (
+  isPushSupported()
+);
+
 const waitForActiveRegistration = async (registration: ServiceWorkerRegistration) => {
   if (registration.active) return registration;
 
@@ -90,7 +93,7 @@ const waitForActiveRegistration = async (registration: ServiceWorkerRegistration
 };
 
 export const getPushRegistration = async () => {
-  if (!isPushSupported()) {
+  if (!isPushNotificationSyncAvailable()) {
     throw new Error('Trình duyệt không hỗ trợ push notification.');
   }
 
@@ -159,14 +162,7 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
     return subscription;
   }
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const resolvedUserId = userId || sessionData.session?.user?.id || null;
-  const sessionUserId = sessionData.session?.user?.id || null;
-
-  if (resolvedUserId !== sessionUserId) {
-    throw new Error('Phiên đăng nhập đã thay đổi, bỏ qua đồng bộ thông báo cũ.');
-  }
-
+  const resolvedUserId = userId;
   assertActivePushUser(resolvedUserId);
 
   if (resolvedUserId) {
@@ -175,23 +171,14 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
     activeSyncController = controller;
     const timeoutId = window.setTimeout(() => controller.abort(), API_SYNC_TIMEOUT_MS);
 
-    const response = await fetch(apiUrl('/push?resource=subscription'), {
+    await privateApiRequest('/api/private/v1/push-subscription', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sessionData.session?.access_token || ''}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ subscription: subscription.toJSON(), bindingStartedAt }),
         signal: controller.signal,
       }).finally(() => {
         window.clearTimeout(timeoutId);
         if (activeSyncController === controller) activeSyncController = null;
       });
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      throw new Error(`Không thể đồng bộ thiết bị nhận thông báo (${response.status}). ${errorText}`);
-    }
 
     markPushSynced(resolvedUserId, subscription.endpoint);
   }
@@ -214,21 +201,10 @@ export const unbindDeviceNotificationsForCurrentUser = async (userId?: string | 
 
   const subscription = await getCurrentPushSubscription();
   if (!subscription) return;
+  if (!userId) return;
 
-  const { data: sessionData } = await supabase.auth.getSession();
-  const sessionUserId = sessionData.session?.user?.id || null;
-  if (!userId || !sessionData.session?.access_token || userId !== sessionUserId) return;
-
-  const response = await fetch(apiUrl('/push?resource=subscription'), {
+  await privateApiRequest('/api/private/v1/push-subscription', {
     method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${sessionData.session.access_token}`,
-      'Content-Type': 'application/json',
-    },
     body: JSON.stringify({ subscription: subscription.toJSON() }),
   });
-
-  if (!response.ok) {
-    throw new Error('Không thể gỡ liên kết thông báo của thiết bị.');
-  }
 };

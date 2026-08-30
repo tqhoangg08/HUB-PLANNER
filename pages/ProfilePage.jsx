@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { supabase } from '../utils/supabase';
+import { fetchPublicProfile } from '../utils/publicDirectoryApi';
+import { fetchOwnPrivateProfile } from '../utils/privateProfileApi';
 import { BookOpen, Calendar, Check, Copy, Edit3, GraduationCap, ShieldAlert, Trophy } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
@@ -20,25 +21,17 @@ const ProfilePage = ({
     const fetchProfile = async () => {
       setLoading(true);
       try {
-        const { data: user, error } = await supabase
-          .from('public_profiles')
-          .select('id, full_name, student_code, avatar_url, created_at, bio, class_name, profile_tags, public_profile_enabled, show_profile_stats, public_gpa, public_completed_semesters, public_credits')
-          .eq('student_code', id)
-          .maybeSingle();
-
-        if (!error && user) {
+        const user = await fetchPublicProfile(id).catch(() => null);
+        if (user) {
           setProfile(user);
           return;
         }
 
         if (currentStudentCode && String(id) === currentStudentCode && currentUserId) {
-          const { data: ownProfile, error: ownError } = await supabase
-            .from('profiles')
-            .select('id, full_name, student_code, avatar_url, created_at, bio, class_name, profile_tags, public_profile_enabled, show_profile_stats, public_gpa, public_completed_semesters, public_credits')
-            .eq('id', currentUserId)
-            .maybeSingle();
+          const own = await fetchOwnPrivateProfile();
+          const ownProfile = own.publicProfile;
 
-          if (!ownError && ownProfile) {
+          if (ownProfile && ownProfile.id === currentUserId) {
             setProfile({ ...ownProfile, isPrivatePreview: true });
             return;
           }
