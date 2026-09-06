@@ -1,5 +1,6 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
@@ -23,7 +24,6 @@ import {
 import { formatDate, formatTime } from '../utils/dateUtils';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
-import { useUserRole } from '../hooks/useUserRole';
 import { fetchAdminEventCandidates } from '../utils/adminLegacyDataApi';
 import { privateApiRequest } from '../utils/privateApi';
 
@@ -67,6 +67,11 @@ interface EventDraft {
   status: string;
   close_on_full: boolean;
   is_manually_closed: boolean;
+}
+
+interface AdminEventCandidatesProps {
+  isAdmin: boolean;
+  isAuditor: boolean;
 }
 
 const EVENT_CATEGORIES = [
@@ -548,8 +553,7 @@ const CandidateDetailModal = ({
   );
 };
 
-export const AdminEventCandidates: React.FC = () => {
-  const { isAdmin, isAuditor, loading: roleLoading } = useUserRole();
+export const AdminEventCandidates: React.FC<AdminEventCandidatesProps> = ({ isAdmin, isAuditor }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [candidates, setCandidates] = useState<EventCandidate[]>([]);
   const [loading, setLoading] = useState(false);
@@ -560,6 +564,7 @@ export const AdminEventCandidates: React.FC = () => {
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [savingAction, setSavingAction] = useState<'approve' | 'reject' | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const approvalRequestIds = useRef(new Map<string, string>());
 
   const selectedCandidate = useMemo(
     () => candidates.find((candidate) => String(candidate.id) === String(selectedId)) || null,
@@ -585,10 +590,10 @@ export const AdminEventCandidates: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!roleLoading && (isAdmin || isAuditor)) {
+    if (isAdmin || isAuditor) {
       fetchCandidates();
     }
-  }, [roleLoading, isAdmin, isAuditor]);
+  }, [isAdmin, isAuditor]);
 
   useEffect(() => {
     const candidateId = searchParams.get('id');
@@ -632,9 +637,10 @@ export const AdminEventCandidates: React.FC = () => {
     setSelectedId(null);
   };
 
-  const candidateApi = async (body: Record<string, any>) => {
+  const candidateApi = async (body: Record<string, any>, headers?: HeadersInit) => {
     const response = await privateApiRequest('/api/admin/v1/event-candidates', {
       method: 'POST',
+      headers,
       body: JSON.stringify(body),
     });
     const payload = await response.json();
@@ -643,9 +649,9 @@ export const AdminEventCandidates: React.FC = () => {
   };
 
   const analyzeCandidateApi = async (candidateId: string | number) => {
-    const response = await privateApiRequest(`/api/admin/v1/event-candidates?id=${encodeURIComponent(String(candidateId))}`, {
+    const response = await privateApiRequest('/api/admin/v1/event-candidates', {
       method: 'POST',
-      body: JSON.stringify({ action: 'analyze' }),
+      body: JSON.stringify({ action: 'analyze', id: candidateId }),
     });
     const responseText = await response.text();
     let payload: any = null;
@@ -708,7 +714,7 @@ export const AdminEventCandidates: React.FC = () => {
   const handleApprove = async () => {
     if (!selectedCandidate) return;
     if (!draft.title.trim()) {
-      showToast('Title là bắt buộc.', 'error');
+      showToast('Vui lòng nhập tiêu đề sự kiện.', 'error');
       return;
     }
     if (!(await showConfirm('Duyệt candidate này và tạo sự kiện chính thức?'))) return;
@@ -716,13 +722,17 @@ export const AdminEventCandidates: React.FC = () => {
     playClick();
     setSavingAction('approve');
     try {
+      const candidateKey = String(selectedCandidate.id);
+      const idempotencyKey = approvalRequestIds.current.get(candidateKey) || crypto.randomUUID();
+      approvalRequestIds.current.set(candidateKey, idempotencyKey);
       const payload = await candidateApi({
         action: 'approve',
         id: selectedCandidate.id,
         draft,
-      });
+      }, { 'Idempotency-Key': idempotencyKey });
 
       if (payload?.candidate) updateCandidateInState(payload.candidate);
+      approvalRequestIds.current.delete(candidateKey);
       showToast('Đã duyệt và tạo sự kiện thành công.', 'success');
       closeCandidate();
     } catch (error: any) {
@@ -732,7 +742,7 @@ export const AdminEventCandidates: React.FC = () => {
     }
   };
 
-  if (!roleLoading && !(isAdmin || isAuditor)) {
+  if (!(isAdmin || isAuditor)) {
     return (
       <div className="p-6">
         <div className="max-w-xl mx-auto bg-white border border-gray-300 rounded-xl p-6">

@@ -14,7 +14,6 @@ import {
 } from '../app/auth/studentAuthClient.ts';
 import {
   normalizeStudentIdentity,
-  shouldRejectGoogleSignupForExistingUser,
 } from '../cloudflare/auth-production-worker/src/auth-production.ts';
 
 const response = (body: object, status = 200) => Response.json(body, { status });
@@ -61,7 +60,10 @@ test('password login reconciles the existing Better Auth identity state before d
   assert.match(login, /!identity\?\.current \|\| !identity\.authenticated/);
   assert.match(roles, /fetchBetterAuthSession\(\)[\s\S]*?setState\(session \? stateForSession\(session\) : anonymousState\)/);
   assert.match(roles, /refreshGenerationRef[\s\S]*?requestGeneration === refreshGenerationRef\.current/);
-  assert.match(roles, /current && !preserveStateOnError/);
+  assert.match(roles, /SessionIdentityUnavailableError[\s\S]*?setState\(stateForSession\(error\.session\)\)/);
+  assert.match(roles, /bootstrapUnavailable/);
+  assert.match(legacyApp, /unavailable=\{bootstrapUnavailable && !session\}/);
+  assert.doesNotMatch(roles, /setState\(anonymousState\)/);
   assert.match(routes, /<LoginScreen onRefreshAuth=\{onRefreshAuth\} \/>/);
   assert.match(legacyApp, /refreshAuth,[\s\S]*?<AppRoutes[\s\S]*?onRefreshAuth=\{refreshAuth\}/);
 });
@@ -76,18 +78,20 @@ test('Google login and signup carry distinct server-signed Better Auth intent re
   await beginGoogleStudentAuth('signup', 'token', fetcher as typeof fetch);
   assert.equal((bodies[0] as { requestSignUp: boolean }).requestSignUp, false);
   assert.equal((bodies[1] as { requestSignUp: boolean }).requestSignUp, true);
-  assert.equal(shouldRejectGoogleSignupForExistingUser(true, false), true);
-  assert.equal(shouldRejectGoogleSignupForExistingUser(true, true), false);
+  for (const body of bodies as Array<{ callbackURL: string; newUserCallbackURL: string }>) {
+    assert.equal(body.callbackURL, '/dashboard');
+    assert.equal(body.newUserCallbackURL, '/complete-registration');
+  }
+  assert.doesNotMatch(
+    readFileSync('cloudflare/auth-production-worker/src/auth-production.ts', 'utf8'),
+    /shouldRejectGoogleSignupForExistingUser/,
+  );
 });
 
-test('Google login missing and Google signup existing produce distinct safe UX outcomes', async () => {
+test('Google login missing produces the safe not-registered UX outcome', async () => {
   await assert.rejects(
     beginGoogleStudentAuth('login', 'token', async () => response({ code: 'SIGN_UP_NOT_ALLOWED' }, 403)),
     (error: unknown) => studentAuthMessage(error).includes('chưa được đăng ký'),
-  );
-  await assert.rejects(
-    beginGoogleStudentAuth('signup', 'token', async () => response({ code: 'ACCOUNT_ALREADY_REGISTERED' }, 409)),
-    (error: unknown) => studentAuthMessage(error).includes('đã được đăng ký'),
   );
 });
 
@@ -128,12 +132,11 @@ test('account linking is constrained to one provider row per Better Auth user', 
   assert.match(worker, /disableImplicitSignUp: true/);
   assert.match(worker, /disableImplicitLinking: false/);
   assert.match(worker, /trustedProviders: \[\]/);
-  assert.match(worker, /oauthState\?\.requestSignUp === true/);
   assert.match(worker, /requireStudentOAuthUser/);
   assert.match(worker, /SELECT email FROM auth_user WHERE id = \? LIMIT 1/);
   assert.match(worker, /oauthState !== null[\s\S]*requireStudentOAuthUser\(account\.userId\)/);
   assert.match(worker, /oauthState !== null[\s\S]*requireStudentOAuthUser\(session\.userId\)/);
-  assert.match(worker, /pendingStudentEmailSignupUserId/);
+  assert.match(worker, /requireLocalEmailVerified: false/);
   assert.match(worker, /email_verified = 0[\s\S]*r\.user_id IS NULL/);
   assert.match(worker, /afterEmailVerification:[\s\S]*INSERT INTO app_auth_identifiers[\s\S]*INSERT INTO app_user_roles/);
 });

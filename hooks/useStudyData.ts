@@ -44,6 +44,8 @@ export const useStudyData = ({
 }: UseStudyDataOptions) => {
     const [data, setData] = useState<UserData>(INITIAL_STUDY_DATA);
     const [isLoaded, setIsLoaded] = useState(false);
+    const [profileLoadError, setProfileLoadError] = useState<string | null>(null);
+    const [profileReloadGeneration, setProfileReloadGeneration] = useState(0);
     const dataRef = useRef<UserData>(INITIAL_STUDY_DATA);
     const dataOwnerIdRef = useRef<string | null>(null);
     const saveTimeoutRef = useRef<number | null>(null);
@@ -101,6 +103,11 @@ export const useStudyData = ({
         dataOwnerIdRef.current = ownerId;
         lastPrivateSaveRef.current = { ownerId: null, signature: null };
     }, [loadDataIntoState]);
+
+    const retryProfileLoad = useCallback(() => {
+        setProfileLoadError(null);
+        setProfileReloadGeneration((generation) => generation + 1);
+    }, []);
 
     useEffect(() => {
         dataRef.current = data;
@@ -175,6 +182,7 @@ export const useStudyData = ({
     useEffect(() => {
         let isActive = true;
         setIsLoaded(false);
+        setProfileLoadError(null);
         if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
         lastPrivateSaveRef.current = { ownerId: null, signature: null };
 
@@ -213,6 +221,12 @@ export const useStudyData = ({
                     privateData = profile.privateProfile?.data;
                 } catch (error) {
                     console.warn('Không thể đọc dữ liệu học tập private:', error);
+                    if (!isActive) return;
+                    // Failure to read an existing profile is not evidence that
+                    // the profile is empty. Do not redirect this user to onboarding.
+                    setProfileLoadError('Không thể tải hồ sơ hiện có. Vui lòng thử lại.');
+                    setIsLoaded(false);
+                    return;
                 }
                 if (!isActive) return;
 
@@ -257,6 +271,7 @@ export const useStudyData = ({
         isAuditor,
         isGuest,
         loadDataIntoState,
+        profileReloadGeneration,
         sessionMetaAvatar,
         sessionMetaName,
         sessionUserId,
@@ -390,6 +405,8 @@ export const useStudyData = ({
     return {
         data,
         isLoaded: isCurrentTargetLoaded,
+        profileLoadError,
+        retryProfileLoad,
         commitDataUpdate,
         resetStudyData,
         saveSemestersNow,

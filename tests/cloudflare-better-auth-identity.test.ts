@@ -10,6 +10,7 @@ import worker from '../cloudflare/worker/src/index.ts';
 
 const USER_ID = 'b42a6f01-a58e-4046-b90c-73ffa2aeee26';
 const COOKIE = 'hubplanner_auth.session_token=opaque-session';
+const VERSION_OVERRIDE = 'hub-planner-public-dev-api="candidate-public", hub-planner-auth-production="candidate-auth"';
 
 const identity = (role: 'user' | 'admin' | 'auditor' = 'user') => ({
   userId: USER_ID,
@@ -49,7 +50,7 @@ test('valid Better Auth cookie returns only authoritative minimal identity', asy
       sessionToken: 'must-not-leak',
       internalMetadata: { provider: 'credential' },
     });
-  });
+  }, { headers: { 'Cloudflare-Workers-Version-Overrides': VERSION_OVERRIDE } });
 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), identity());
@@ -58,6 +59,7 @@ test('valid Better Auth cookie returns only authoritative minimal identity', asy
   assert.equal(internalRequest?.method, 'GET');
   assert.equal(new URL(internalRequest!.url).pathname, '/internal/auth/session');
   assert.equal(internalRequest?.headers.get('Cookie'), COOKIE);
+  assert.equal(internalRequest?.headers.get('Cloudflare-Workers-Version-Overrides'), VERSION_OVERRIDE);
   assert.equal(internalRequest?.headers.get('Authorization'), null);
   assert.equal(internalRequest?.headers.get('x-user-id'), null);
   assert.equal(internalRequest?.headers.get('x-role'), null);

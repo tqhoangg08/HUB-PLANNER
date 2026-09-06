@@ -17,6 +17,7 @@ test('migrated private frontend clients use same-origin Better Auth cookies with
   const importFlow = readFileSync('utils/scheduleImportPreview.ts', 'utf8');
   const mobileProfile = readFileSync('components/MobileProfile.tsx', 'utf8');
   const desktopProfile = readFileSync('pages/ProfilePage.jsx', 'utf8');
+  const profileRoute = readFileSync('utils/profileRouteApi.ts', 'utf8');
   const routes = readFileSync('app/routing/AppRoutes.tsx', 'utf8');
   assert.match(schedules, /fetch\(normalizedPath/);
   assert.match(schedules, /credentials: 'include'/);
@@ -30,7 +31,10 @@ test('migrated private frontend clients use same-origin Better Auth cookies with
   assert.match(mobileProfile, /fetchOwnPrivateProfile\(\)/);
   assert.match(mobileProfile, /signOutBetterAuth\(\)/);
   assert.doesNotMatch(mobileProfile, /supabase\.auth|getSession|Authorization/);
-  assert.match(desktopProfile, /fetchOwnPrivateProfile\(\)/);
+  assert.match(desktopProfile, /fetchProfileForRoute\(id, currentStudentCode, currentUserId/);
+  assert.match(desktopProfile, /fetchOwnProfile: fetchOwnPrivateProfile/);
+  assert.match(profileRoute, /fetchers\.fetchOwnProfile\(\)/);
+  assert.match(profileRoute, /fetchers\.fetchPublicProfile\(routeStudentCode\)/);
   assert.doesNotMatch(desktopProfile, /from\('profiles'\)/);
   assert.match(routes, /path="\/login" element=\{<LoginScreen onRefreshAuth=\{onRefreshAuth\} \/>\}/);
 });

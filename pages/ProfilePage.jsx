@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { fetchPublicProfile } from '../utils/publicDirectoryApi';
 import { fetchOwnPrivateProfile } from '../utils/privateProfileApi';
+import { fetchProfileForRoute } from '../utils/profileRouteApi';
 import { BookOpen, Calendar, Check, Copy, Edit3, GraduationCap, ShieldAlert, Trophy } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
@@ -21,23 +22,10 @@ const ProfilePage = ({
     const fetchProfile = async () => {
       setLoading(true);
       try {
-        const user = await fetchPublicProfile(id).catch(() => null);
-        if (user) {
-          setProfile(user);
-          return;
-        }
-
-        if (currentStudentCode && String(id) === currentStudentCode && currentUserId) {
-          const own = await fetchOwnPrivateProfile();
-          const ownProfile = own.publicProfile;
-
-          if (ownProfile && ownProfile.id === currentUserId) {
-            setProfile({ ...ownProfile, isPrivatePreview: true });
-            return;
-          }
-        }
-
-        throw new Error('User not found');
+        setProfile(await fetchProfileForRoute(id, currentStudentCode, currentUserId, {
+          fetchOwnProfile: fetchOwnPrivateProfile,
+          fetchPublicProfile,
+        }));
       } catch (err) {
         setProfile(null);
       } finally {
@@ -76,7 +64,7 @@ const ProfilePage = ({
   const isColorAvatar = isAllowedAvatarColor(avatarUrl);
   const avatarSeed = (profile.full_name || profile.student_code || 'H').charAt(0).toUpperCase();
   const tags = Array.isArray(profile.profile_tags) ? profile.profile_tags.filter(Boolean) : [];
-  const isOwnProfile = Boolean(currentUserId && profile.id === currentUserId);
+  const isOwnProfile = Boolean(profile.isOwnProfile || (currentUserId && profile.id === currentUserId));
 
   return (
     <div className="max-w-5xl mx-auto px-4 pb-10 animate-fadeIn">

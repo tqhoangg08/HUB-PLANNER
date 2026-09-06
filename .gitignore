@@ -63,3 +63,10 @@ cloudflare/.dev.vars
 .cache/cloudflare/
 .cache/schedule-reconcile/
 .cache/
+
+# Local Cloudflare candidate bundles and browser session profiles
+.candidate-dry-run/
+.auth-candidate-dry-run/
+cloudflare/.candidate-dry-run/
+cloudflare/.auth-candidate-dry-run/
+.hub-session-profile/

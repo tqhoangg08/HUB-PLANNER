@@ -116,7 +116,10 @@ export async function beginGoogleStudentAuth(
     body: JSON.stringify({
       provider: 'google',
       requestSignUp: signup,
-      callbackURL: signup ? '/complete-registration' : '/dashboard',
+      // Better Auth selects newUserCallbackURL only for an account it creates.
+      // An existing exact-email account must land on the dashboard even when
+      // the user started from the Google sign-up CTA.
+      callbackURL: '/dashboard',
       newUserCallbackURL: '/complete-registration',
       errorCallbackURL: `/login?oauth=${signup ? 'signup' : 'login'}-error`,
     }),

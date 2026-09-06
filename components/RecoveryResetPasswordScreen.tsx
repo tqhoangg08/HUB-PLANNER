@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { recoveryAuthMessage, submitRecoveryPasswordReset } from '../app/auth/recoveryAuthClient';
+import { TURNSTILE_SITE_KEY } from '../utils/turnstileConfig';
 
 export const RecoveryResetPasswordScreen = ({ returnTo = '/login?password-reset=success' }: { returnTo?: string }) => {
   const navigate = useNavigate();
@@ -13,7 +14,7 @@ export const RecoveryResetPasswordScreen = ({ returnTo = '/login?password-reset=
   const [widgetKey, setWidgetKey] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const siteKey = String(import.meta.env.VITE_AUTH_TURNSTILE_SITE_KEY || '').trim();
+  const siteKey = TURNSTILE_SITE_KEY;
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();

@@ -2,7 +2,8 @@ import type { Semester, UserData } from '../../types';
 import type { StudyActionsController } from '../../hooks/useStudyActions';
 import type { TranscriptTransferController } from '../../hooks/useTranscriptTransfer';
 import { ActivityLogModal } from '../../components/ActivityLogModal';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { isOwnProfileRoute } from '../../utils/profileRouteApi';
 import {
     AdminEventCandidates,
     AdminReports,
@@ -48,6 +49,47 @@ interface ProtectedAppRoutesProps {
     onInstallApp: () => void;
 }
 
+const MobileProfileRoute = ({
+    sessionStudentCode,
+    sessionUserId,
+    profileRefreshKey,
+    setAccountSettingsOpen,
+    onRequestDeleteAccount,
+    onInstallApp,
+    showInstallButton,
+}: {
+    sessionStudentCode: string;
+    sessionUserId: string | null;
+    profileRefreshKey: number;
+    setAccountSettingsOpen: (open: boolean) => void;
+    onRequestDeleteAccount: () => void;
+    onInstallApp: () => void;
+    showInstallButton: boolean;
+}) => {
+    const { id } = useParams();
+    const MobileProfileComponent = MobileProfile as any;
+
+    if (isOwnProfileRoute(id, sessionStudentCode)) {
+        return (
+            <MobileProfileComponent
+                setShowAccountSettings={setAccountSettingsOpen}
+                handleRequestReset={onRequestDeleteAccount}
+                onInstallApp={onInstallApp}
+                showInstallButton={showInstallButton}
+            />
+        );
+    }
+
+    return (
+        <ProfilePage
+            refreshKey={profileRefreshKey}
+            currentUserId={sessionUserId}
+            currentStudentCode={sessionStudentCode}
+            onEditProfile={() => setAccountSettingsOpen(true)}
+        />
+    );
+};
+
 export const ProtectedAppRoutes = ({
     mobileLayout,
     data,
@@ -72,8 +114,6 @@ export const ProtectedAppRoutes = ({
     onInstallApp,
 }: ProtectedAppRoutesProps) => {
     const isManagementUser = isAdmin || isAuditor;
-    const MobileProfileComponent = MobileProfile as any;
-
     if (mobileLayout) {
         return (
             <Routes>
@@ -132,13 +172,16 @@ export const ProtectedAppRoutes = ({
                 <Route path="/admin/support/:ticketId" element={isManagementUser ? <AdminSupportTickets /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/mobile-home" replace />} />
                 <Route path="/admin/data" element={isAdmin ? <CloudflareDataAdmin /> : <Navigate to="/mobile-home" replace />} />
-                <Route path="/admin/event-candidates" element={isManagementUser ? <AdminEventCandidates /> : <Navigate to="/mobile-home" replace />} />
+                <Route path="/admin/event-candidates" element={isManagementUser ? <AdminEventCandidates isAdmin={isAdmin} isAuditor={isAuditor} /> : <Navigate to="/mobile-home" replace />} />
                 <Route
                     path="/profile/:id"
                     element={(
-                        <MobileProfileComponent
-                            setShowAccountSettings={setAccountSettingsOpen}
-                            handleRequestReset={onRequestDeleteAccount}
+                        <MobileProfileRoute
+                            sessionStudentCode={sessionStudentCode}
+                            sessionUserId={sessionUserId}
+                            profileRefreshKey={profileRefreshKey}
+                            setAccountSettingsOpen={setAccountSettingsOpen}
+                            onRequestDeleteAccount={onRequestDeleteAccount}
                             onInstallApp={onInstallApp}
                             showInstallButton={showInstallButton}
                         />
@@ -206,7 +249,7 @@ export const ProtectedAppRoutes = ({
             <Route path="/admin/support/:ticketId" element={isManagementUser ? <AdminSupportTickets /> : <Navigate to="/dashboard" replace />} />
             <Route path="/admin/activity" element={isAdmin ? <ActivityLogModal /> : <Navigate to="/dashboard" replace />} />
             <Route path="/admin/data" element={isAdmin ? <CloudflareDataAdmin /> : <Navigate to="/dashboard" replace />} />
-            <Route path="/admin/event-candidates" element={isManagementUser ? <AdminEventCandidates /> : <Navigate to="/dashboard" replace />} />
+            <Route path="/admin/event-candidates" element={isManagementUser ? <AdminEventCandidates isAdmin={isAdmin} isAuditor={isAuditor} /> : <Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
     );

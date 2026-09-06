@@ -6,6 +6,7 @@ import {
   recoveryAuthMessage,
 } from '../app/auth/recoveryAuthClient';
 import { requestStudentPasswordReset } from '../app/auth/studentAuthClient';
+import { TURNSTILE_SITE_KEY } from '../utils/turnstileConfig';
 
 export const RecoveryForgotPasswordScreen = () => {
   const [identifier, setIdentifier] = useState('');
@@ -14,7 +15,7 @@ export const RecoveryForgotPasswordScreen = () => {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const siteKey = String(import.meta.env.VITE_AUTH_TURNSTILE_SITE_KEY || '').trim();
+  const siteKey = TURNSTILE_SITE_KEY;
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();

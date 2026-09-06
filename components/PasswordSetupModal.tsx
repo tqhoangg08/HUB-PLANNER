@@ -3,6 +3,7 @@ import { Turnstile } from '@marsidev/react-turnstile';
 import { AlertCircle, Eye, EyeOff, Loader2, Lock, ShieldCheck } from 'lucide-react';
 import { completeGoogleRegistration, studentAuthMessage } from '../app/auth/studentAuthClient';
 import { playClick } from '../utils/audio';
+import { TURNSTILE_SITE_KEY } from '../utils/turnstileConfig';
 
 type PasswordSetupModalProps = { email?: string | null; userId?: string | null; onComplete: () => void };
 
@@ -13,7 +14,7 @@ export const PasswordSetupModal: React.FC<PasswordSetupModalProps> = ({ email, o
   const [token, setToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const siteKey = String(import.meta.env.VITE_AUTH_TURNSTILE_SITE_KEY || '').trim();
+  const siteKey = TURNSTILE_SITE_KEY;
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();

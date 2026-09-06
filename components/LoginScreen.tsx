@@ -6,6 +6,7 @@ import {
   Loader2, Lock, Mail, ShieldCheck, Target, UserRound,
 } from 'lucide-react';
 import { playClick } from '../utils/audio';
+import { TURNSTILE_SITE_KEY } from '../utils/turnstileConfig';
 import type { AuthRefresh } from '../hooks/useUserRole';
 import { getRecoverySession } from '../app/auth/recoveryAuthClient';
 import {
@@ -58,7 +59,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onRefreshAuth }) => {
   const [googleToken, setGoogleToken] = useState('');
   const [turnstileKey, setTurnstileKey] = useState(0);
   const [googleTurnstileKey, setGoogleTurnstileKey] = useState(0);
-  const siteKey = String(import.meta.env.VITE_AUTH_TURNSTILE_SITE_KEY || '').trim();
+  const siteKey = TURNSTILE_SITE_KEY;
   const action = otpPending ? 'verify_email' : flow === 'login' ? 'login' : 'signup';
 
   const resetChallenge = () => {

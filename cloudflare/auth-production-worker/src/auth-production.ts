@@ -434,13 +434,6 @@ export function classifyLoginDispatchIdentifier(value: unknown): LoginDispatchTa
     : "invalid";
 }
 
-export function shouldRejectGoogleSignupForExistingUser(
-  requestSignUp: boolean,
-  userCreatedInCurrentOAuthRequest: boolean,
-): boolean {
-  return requestSignUp && !userCreatedInCurrentOAuthRequest;
-}
-
 export function isAuthEnabled(env: Pick<AuthRuntimeEnv, "AUTH_ENABLED">): boolean {
   return String(env.AUTH_ENABLED) === "true";
 }
@@ -1065,10 +1058,6 @@ export function createAuthForProfile(
 ) {
   const emailConfig = config.email;
   const googleConfig = config.google;
-  // The auth instance is created per request, so this set is request-scoped.
-  // It distinguishes a user created by the current signed OAuth signup state
-  // from an already-existing user attempting to enter through the signup CTA.
-  const oauthUsersCreatedInThisRequest = new Set<string>();
   const requireStudentOAuthUser = async (userId: string): Promise<void> => {
     const row = await env.AUTH_DB.prepare(
       "SELECT email FROM auth_user WHERE id = ? LIMIT 1",
@@ -1120,7 +1109,7 @@ export function createAuthForProfile(
         userAgent: "user_agent",
         userId: "user_id",
       },
-      expiresIn: 30 * 60,
+      expiresIn: 30 * 24 * 60 * 60,
       updateAge: 15 * 60,
       cookieCache: { enabled: false },
     },
@@ -1148,6 +1137,11 @@ export function createAuthForProfile(
         // Signup intent is independently rejected for existing users by the
         // account/session hooks below.
         disableImplicitLinking: false,
+        // Google must still return a verified email (it is not a trusted
+        // provider below), but an older local password row need not already
+        // have its email_verified flag set. Better Auth upgrades that flag
+        // only after it has matched the exact verified Google email.
+        requireLocalEmailVerified: false,
         allowDifferentEmails: false,
         trustedProviders: [],
       },
@@ -1279,14 +1273,6 @@ export function createAuthForProfile(
             }
             return { data: { ...user, email } };
           },
-          after: async (user) => {
-            const oauthState = await getOAuthState().catch(() => null);
-            if (oauthState?.requestSignUp === true) {
-              oauthUsersCreatedInThisRequest.add(user.id);
-            }
-            // Email/password sign-up is activated only after the OTP succeeds;
-            // Google sign-up is activated only after server-side password setup.
-          },
         },
       },
       account: {
@@ -1295,15 +1281,6 @@ export function createAuthForProfile(
             const oauthState = await getOAuthState().catch(() => null);
             if (oauthState !== null) {
               await requireStudentOAuthUser(account.userId);
-            }
-            if (shouldRejectGoogleSignupForExistingUser(
-              oauthState?.requestSignUp === true,
-              oauthUsersCreatedInThisRequest.has(account.userId),
-            )) {
-              throw new APIError("CONFLICT", {
-                code: "ACCOUNT_ALREADY_REGISTERED",
-                message: "account already registered",
-              });
             }
           },
         },
@@ -1315,15 +1292,6 @@ export function createAuthForProfile(
             if (oauthState !== null) {
               await requireStudentOAuthUser(session.userId);
             }
-            if (shouldRejectGoogleSignupForExistingUser(
-              oauthState?.requestSignUp === true,
-              oauthUsersCreatedInThisRequest.has(session.userId),
-            )) {
-              throw new APIError("CONFLICT", {
-                code: "ACCOUNT_ALREADY_REGISTERED",
-                message: "account already registered",
-              });
-            }
           },
         },
       },
@@ -1334,29 +1302,101 @@ export function createAuthForProfile(
 async function betterAuthSession(
   auth: ReturnType<typeof createAuthForProfile>,
   request: Request,
-): Promise<{ user: { id: string; email: string } } | null> {
+): Promise<{ user: { id: string; email: string; emailVerified?: boolean } } | null> {
   return (await auth.api.getSession({ headers: request.headers })) as {
-    user: { id: string; email: string };
+    user: { id: string; email: string; emailVerified?: boolean };
   } | null;
 }
 
-async function handleInternalSession(
+type InternalAuthDecision = {
+  SESSION_FOUND: boolean;
+  USER_RESOLVED: boolean;
+  CANONICAL_USER_RESOLVED: boolean;
+  ROLE_RESOLVED: boolean;
+  DENY_REASON: 'NONE' | 'SESSION_NOT_FOUND' | 'CANONICAL_USER_NOT_FOUND' | 'ROLE_NOT_RESOLVED' | 'STAFF_ROLE_REQUIRED';
+};
+
+const logInternalAuthDecision = (decision: InternalAuthDecision) => {
+  console.log(JSON.stringify({ event: 'private_auth_decision', ...decision }));
+};
+
+async function resolveSessionRole(
+  env: AuthRuntimeEnv,
+  session: { user: { id: string; email: string; emailVerified?: boolean } },
+  requireStaff: boolean,
+): Promise<{ role: EffectiveRole | null; canonicalUserResolved: boolean }> {
+  const canonical = await env.AUTH_DB.prepare(
+    `SELECT email, email_verified
+       FROM auth_user
+      WHERE id = ?1
+      LIMIT 1`,
+  ).bind(session.user.id).first<{ email: string; email_verified: number }>();
+  if (!canonical || normalizeEmail(canonical.email) !== normalizeEmail(session.user.email)) {
+    return { role: null, canonicalUserResolved: false };
+  }
+
+  const storedRole = await roleForUser(env, session.user.id);
+  if (storedRole) return { role: storedRole, canonicalUserResolved: true };
+
+  // A valid, verified HUB student session is still an authenticated ordinary
+  // user when a legacy/imported role row is absent. Resolve only the minimum
+  // role in memory; never create data or infer staff authority.
+  const verifiedStudent = Number(canonical.email_verified) === 1
+    && session.user.emailVerified !== false
+    && isStudentEmail(canonical.email);
+  if (!requireStaff && verifiedStudent) {
+    return { role: 'user', canonicalUserResolved: true };
+  }
+  return { role: null, canonicalUserResolved: true };
+}
+
+export async function handleInternalSession(
   request: Request,
   env: AuthRuntimeEnv,
   auth: ReturnType<typeof createAuthForProfile>,
   requireStaff: boolean,
 ): Promise<Response> {
   const session = await betterAuthSession(auth, request);
-  if (!session?.user?.id) return jsonResponse({ error: "Chưa đăng nhập." }, 401);
+  if (!session?.user?.id) {
+    logInternalAuthDecision({
+      SESSION_FOUND: false,
+      USER_RESOLVED: false,
+      CANONICAL_USER_RESOLVED: false,
+      ROLE_RESOLVED: false,
+      DENY_REASON: 'SESSION_NOT_FOUND',
+    });
+    return jsonResponse({ error: "Chưa đăng nhập." }, 401);
+  }
 
-  const role = await roleForUser(env, session.user.id);
+  const { role, canonicalUserResolved } = await resolveSessionRole(env, session, requireStaff);
   if (!role) {
+    logInternalAuthDecision({
+      SESSION_FOUND: true,
+      USER_RESOLVED: true,
+      CANONICAL_USER_RESOLVED: canonicalUserResolved,
+      ROLE_RESOLVED: false,
+      DENY_REASON: canonicalUserResolved ? 'ROLE_NOT_RESOLVED' : 'CANONICAL_USER_NOT_FOUND',
+    });
     return jsonResponse({ error: "Đăng ký chưa hoàn tất." }, 403);
   }
   if (requireStaff && role !== "admin" && role !== "auditor") {
+    logInternalAuthDecision({
+      SESSION_FOUND: true,
+      USER_RESOLVED: true,
+      CANONICAL_USER_RESOLVED: true,
+      ROLE_RESOLVED: true,
+      DENY_REASON: 'STAFF_ROLE_REQUIRED',
+    });
     return jsonResponse({ error: "Không có quyền truy cập." }, 403);
   }
 
+  logInternalAuthDecision({
+    SESSION_FOUND: true,
+    USER_RESOLVED: true,
+    CANONICAL_USER_RESOLVED: true,
+    ROLE_RESOLVED: true,
+    DENY_REASON: 'NONE',
+  });
   return jsonResponse({ userId: session.user.id, email: session.user.email, role });
 }
 

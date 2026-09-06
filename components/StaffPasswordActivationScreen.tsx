@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { Link } from 'react-router-dom';
 import { GENERIC_PASSWORD_RESET_MESSAGE, recoveryAuthMessage, requestStaffPasswordActivation } from '../app/auth/recoveryAuthClient';
+import { TURNSTILE_SITE_KEY } from '../utils/turnstileConfig';
 
 export const StaffPasswordActivationScreen = () => {
   const [email, setEmail] = useState('');
@@ -10,7 +11,7 @@ export const StaffPasswordActivationScreen = () => {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const siteKey = String(import.meta.env.VITE_AUTH_TURNSTILE_SITE_KEY || '').trim();
+  const siteKey = TURNSTILE_SITE_KEY;
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();

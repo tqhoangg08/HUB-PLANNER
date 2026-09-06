@@ -9,6 +9,7 @@ import {
   signInRecoveryWithEmail,
 } from '../app/auth/recoveryAuthClient';
 import { PASSWORD_RECOVERY_ENABLED } from '../utils/rescueMode';
+import { TURNSTILE_SITE_KEY } from '../utils/turnstileConfig';
 
 const GoogleIcon = () => (
   <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
@@ -32,7 +33,7 @@ export const RecoveryLoginScreen = () => {
   const [error, setError] = useState(
     searchParams.has('error') ? 'Không thể hoàn tất đăng nhập Google. Vui lòng thử lại.' : '',
   );
-  const siteKey = String(import.meta.env.VITE_AUTH_TURNSTILE_SITE_KEY || '').trim();
+  const siteKey = TURNSTILE_SITE_KEY;
 
   useEffect(() => {
     let active = true;

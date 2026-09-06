@@ -1,5 +1,8 @@
 import React from 'react';
 import { Turnstile } from '@marsidev/react-turnstile';
+import { TURNSTILE_SITE_KEY, hasTurnstileSiteKey } from '../utils/turnstileConfig';
+
+export { hasTurnstileSiteKey } from '../utils/turnstileConfig';
 
 type TurnstileBoxProps = {
   token: string;
@@ -7,8 +10,6 @@ type TurnstileBoxProps = {
   className?: string;
   action?: string;
 };
-
-export const hasTurnstileSiteKey = Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
 
 export const TurnstileBox: React.FC<TurnstileBoxProps> = ({ onTokenChange, className = '', action }) => {
   if (!hasTurnstileSiteKey) {
@@ -22,7 +23,7 @@ export const TurnstileBox: React.FC<TurnstileBoxProps> = ({ onTokenChange, class
   return (
     <div className={`flex justify-center ${className}`}>
       <Turnstile
-        siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+        siteKey={TURNSTILE_SITE_KEY}
         options={action ? { action } : undefined}
         onSuccess={onTokenChange}
         onExpire={() => onTokenChange('')}

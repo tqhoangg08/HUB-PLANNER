@@ -3,6 +3,7 @@ import { Turnstile } from '@marsidev/react-turnstile';
 import { AlertCircle, Eye, EyeOff, Loader2, Lock, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { completeGoogleRegistration, getRegistrationStatus, studentAuthMessage } from '../app/auth/studentAuthClient';
+import { TURNSTILE_SITE_KEY } from '../utils/turnstileConfig';
 
 export const RegistrationPasswordScreen = () => {
   const navigate = useNavigate();
@@ -13,7 +14,7 @@ export const RegistrationPasswordScreen = () => {
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const siteKey = String(import.meta.env.VITE_AUTH_TURNSTILE_SITE_KEY || '').trim();
+  const siteKey = TURNSTILE_SITE_KEY;
 
   useEffect(() => {
     getRegistrationStatus().then((status) => {

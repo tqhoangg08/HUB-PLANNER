@@ -31,6 +31,7 @@ const LegacyApp: React.FC = () => {
         isCTV,
         session,
         loading: loadingRole,
+        bootstrapUnavailable,
         refreshAuth,
     } = useUserRole();
     const navigate = useNavigate();
@@ -83,6 +84,8 @@ const LegacyApp: React.FC = () => {
     const {
         data,
         isLoaded,
+        profileLoadError,
+        retryProfileLoad,
         commitDataUpdate,
         resetStudyData,
         saveSemestersNow,
@@ -277,32 +280,52 @@ const LegacyApp: React.FC = () => {
     };
 
     return (
-        <AuthGate loading={loadingRole}>
-            <RouteErrorBoundary resetKey={location.pathname}>
-                <React.Suspense fallback={<RouteLoadingFallback />}>
-                    <AppRoutes
-                        data={data}
-                        isLoaded={isLoaded}
-                        mobileLayout={useMobileLayout}
-                        mobileScreen={isMobileScreen}
-                        canSkipOnboarding={Boolean(
-                            session?.user
-                            && (
-                                isAdmin
-                                || isAuditor
-                                || isCTV
-                                || hasCompleteRequiredStudyProfile(data)
-                            )
-                        )}
-                        onRefreshAuth={refreshAuth}
-                        onCompleteOnboarding={(onboardingData) => {
-                            void completeOnboarding(onboardingData);
-                            navigate(useMobileLayout ? '/mobile-home' : '/dashboard', { replace: true });
-                        }}
-                        protectedApp={renderProtectedApp()}
-                    />
-                </React.Suspense>
-            </RouteErrorBoundary>
+        <AuthGate
+            loading={loadingRole}
+            unavailable={bootstrapUnavailable && !session}
+            onRetry={() => { void refreshAuth(); }}
+        >
+            {session?.user && profileLoadError ? (
+                <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+                    <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+                        <h1 className="text-lg font-semibold text-slate-900">Chưa thể đồng bộ hồ sơ</h1>
+                        <p className="mt-2 text-sm text-slate-600">{profileLoadError}</p>
+                        <button
+                            type="button"
+                            onClick={retryProfileLoad}
+                            className="mt-5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                        >
+                            Thử lại
+                        </button>
+                    </section>
+                </main>
+            ) : (
+                <RouteErrorBoundary resetKey={location.pathname}>
+                    <React.Suspense fallback={<RouteLoadingFallback />}>
+                        <AppRoutes
+                            data={data}
+                            isLoaded={isLoaded}
+                            mobileLayout={useMobileLayout}
+                            mobileScreen={isMobileScreen}
+                            canSkipOnboarding={Boolean(
+                                session?.user
+                                && (
+                                    isAdmin
+                                    || isAuditor
+                                    || isCTV
+                                    || hasCompleteRequiredStudyProfile(data)
+                                )
+                            )}
+                            onRefreshAuth={refreshAuth}
+                            onCompleteOnboarding={(onboardingData) => {
+                                void completeOnboarding(onboardingData);
+                                navigate(useMobileLayout ? '/mobile-home' : '/dashboard', { replace: true });
+                            }}
+                            protectedApp={renderProtectedApp()}
+                        />
+                    </React.Suspense>
+                </RouteErrorBoundary>
+            )}
         </AuthGate>
     );
 };

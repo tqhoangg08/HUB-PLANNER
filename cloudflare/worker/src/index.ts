@@ -1,4 +1,5 @@
 import { handleCourses, syncCourseSchedules } from './courses.ts';
+export { HK1CourseScraperProbeWorkflow, HK1CourseScraperWorkflow } from './workflow-binding-parity.ts';
 import {
   CourseAuthorityError,
   courseAuthorityErrorStatus,
@@ -139,6 +140,7 @@ import {
   userSubmissionErrorStatus,
 } from './user-submissions.ts';
 import { handleWebErrorTelemetry } from './web-error-telemetry.ts';
+import { runNotificationQueueControl } from './notification-cron.ts';
 import { handlePdfAi, PdfAiError, pdfAiErrorStatus, type PdfAiEnv } from './pdf-ai.ts';
 import {
   AdminLegacyDataError,
@@ -174,6 +176,9 @@ import {
 type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv &
   ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & AiAdvisorEnv & PublicDirectoryEnv & {
   AUTH_SERVICE_PROXY_MODE?: string;
+  NOTIFICATION_JOBS_ENABLED?: string;
+  NOTIFICATION_JOBS_MODE?: string;
+  NOTIFICATION_REENABLE_CUTOFF?: string;
 };
 
 interface AnnouncementRow {
@@ -2231,23 +2236,20 @@ const worker = {
     ctx: ExecutionContext
   ) {
     const hourlyCron = controller.cron === '17 * * * *';
+    const notificationControlCron = controller.cron === '* * * * *';
+    const announcementCron = controller.cron === '*/15 * * * *';
+    const pushQueueCron = controller.cron === '7-59/15 * * * *';
     const eventCron = controller.cron === '*/10 * * * *';
     const adminEventCron = controller.cron === '37 19 * * *';
     const lostFoundCron = controller.cron === '*/5 * * * *';
     const runAll =
-      !hourlyCron && !eventCron && !adminEventCron && !lostFoundCron;
+      !hourlyCron && !notificationControlCron && !announcementCron && !pushQueueCron && controller.cron !== '0 * * * *' && !eventCron && !adminEventCron && !lostFoundCron;
     const reconcileCourseDeletes =
       (hourlyCron || runAll) &&
       new Date(controller.scheduledTime).getUTCHours() === 20;
     const jobs: Array<{ failureEvent: string; promise: Promise<unknown> }> = [];
 
     if (hourlyCron || runAll) {
-      jobs.push({
-        failureEvent: 'announcement_sync_failed',
-        promise: syncSchoolAnnouncements(env).then((summary) =>
-          console.log('announcement_sync_complete', summary)
-        ),
-      });
       if (allowsSupabaseCourseSync(env)) {
         jobs.push({
           failureEvent: 'course_sync_failed',
@@ -2258,6 +2260,37 @@ const worker = {
       }
     }
 
+    const notificationMode = String(env.NOTIFICATION_JOBS_MODE || 'disabled');
+    if ((notificationControlCron || runAll) && notificationMode === 'suppress_backlog') {
+      jobs.push({
+        failureEvent: 'notification_backlog_suppression_failed',
+        promise: runNotificationQueueControl(env, 'suppress_backlog').then((summary) =>
+          console.log('notification_backlog_suppression_complete', summary)
+        ),
+      });
+    }
+    if ((notificationControlCron || runAll) && notificationMode === 'test') {
+      jobs.push({
+        failureEvent: 'notification_job_test_failed',
+        promise: syncSchoolAnnouncements(env)
+          .then(async (summary) => ({ announcement: summary, queue: await runNotificationQueueControl(env, 'dry_run') }))
+          .then((summary) => console.log('notification_job_test_complete', summary)),
+      });
+    }
+    if ((announcementCron || runAll) && notificationMode === 'enabled' && env.NOTIFICATION_JOBS_ENABLED === 'true') {
+      jobs.push({
+        failureEvent: 'announcement_sync_failed',
+        promise: syncSchoolAnnouncements(env).then((summary) => console.log('announcement_sync_complete', summary)),
+      });
+    }
+    if ((pushQueueCron || runAll) && notificationMode === 'enabled' && env.NOTIFICATION_JOBS_ENABLED === 'true') {
+      jobs.push({
+        failureEvent: 'push_queue_process_failed',
+        promise: runNotificationQueueControl(env, 'process').then((summary) =>
+          console.log('push_queue_process_complete', { processed: true, summary })
+        ),
+      });
+    }
     if (eventCron || runAll) {
       jobs.push({
         failureEvent: 'event_sync_failed',

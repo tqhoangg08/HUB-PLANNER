@@ -130,6 +130,12 @@ const requireInternalIdentity = async (
 
   const headers = new Headers({ Accept: 'application/json' });
   headers.set('Cookie', cookie);
+  const versionOverrides = request.headers.get('Cloudflare-Workers-Version-Overrides');
+  if (versionOverrides) {
+    // Keep an isolated public/auth candidate pair on the same override during
+    // service-binding canaries. Production requests normally have no header.
+    headers.set('Cloudflare-Workers-Version-Overrides', versionOverrides);
+  }
   const internalRequest = new Request(
     new URL(internalPath, INTERNAL_AUTH_ORIGIN),
     {
