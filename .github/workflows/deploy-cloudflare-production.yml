@@ -1,0 +1,50 @@
+name: Deploy Cloudflare production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: cloudflare-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test-build-deploy:
+    name: Test, build, and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run full test suite
+        run: |
+          npm test
+          node --test scripts/hub-roster-parser.test.mjs tools/hub-devtools-snippets/hk1-course-schedule-audit.test.mjs
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Deploy Auth Worker
+        run: npx wrangler deploy --config cloudflare/wrangler.auth-production.jsonc --keep-vars
+
+      - name: Deploy Public Worker and frontend assets
+        run: npx wrangler deploy --config cloudflare/wrangler.jsonc --keep-vars
