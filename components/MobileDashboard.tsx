@@ -1484,6 +1484,14 @@ const NativeAdminTools = () => {
       visible: isAdmin,
     },
     {
+      to: '/admin/ai-documents',
+      label: 'Kho tài liệu AI',
+      description: 'Quản lý tài liệu dùng bởi trợ lý HUB Planner.',
+      icon: Database,
+      className: 'bg-blue-50 text-blue-700',
+      visible: isAdmin,
+    },
+    {
       to: '/admin-reports',
       label: 'Báo cáo quản trị',
       description: 'Xử lý báo cáo lỗi, CTV và góp ý.',

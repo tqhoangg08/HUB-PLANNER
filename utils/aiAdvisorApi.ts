@@ -9,6 +9,8 @@ export type AiAdvisorSession = {
   title?: string | null;
   is_deleted?: boolean;
   is_pinned?: boolean;
+  document_sources?: Array<{ id?: string | null; documentId?: string | null; title: string; fileName?: string; pageNumber?: number | null }>;
+  document_search_unavailable?: boolean;
 };
 
 export const listAiAdvisorSessions = async () => {
@@ -25,7 +27,12 @@ export const getAiAdvisorSession = async (id: number) => {
 
 export const sendAiAdvisorMessage = async (input: { question: string; history: Array<{ role: string; content: string }>; context: string }) => {
   const response = await privateApiRequest('/api/private/v1/ai-advisor', { method: 'POST', body: JSON.stringify(input) });
-  return response.json() as Promise<{ reply: string; logId?: number | null }>;
+  return response.json() as Promise<{
+    reply: string;
+    logId?: number | null;
+    documentSources?: Array<{ id?: string | null; documentId?: string | null; title: string; fileName?: string; pageNumber?: number | null }>;
+    documentSearchUnavailable?: boolean;
+  }>;
 };
 
 export const updateAiAdvisorSession = async (id: number, patch: Record<string, unknown>) => {

@@ -49,20 +49,19 @@ export type AuthRuntimeEnv = {
   AUTH_TURNSTILE_SECRET?: string;
   AUTH_GOOGLE_CLIENT_SECRET?: string;
   AUTH_RESEND_API_KEY?: string;
-  AUTH_INTEGRATION_SYNTHETIC_USER_ID?: string;
 };
 
 export type AuthProductionEnv = Env & AuthRuntimeEnv;
 
 export type AuthRuntimeProfile = {
-  readonly kind: "production" | "integration-synthetic-credential" | "integration-stage2";
+  readonly kind: "production" | "integration-synthetic-credential";
   readonly appName: string;
   readonly origin: string;
   readonly trustedOrigins: readonly string[];
   readonly cookiePrefix: string;
   readonly serviceName: string;
-  readonly routeSurface: "full" | "integration-synthetic-session-lifecycle" | "integration-stage2";
-  readonly providers: "production" | "email-only" | "none";
+  readonly routeSurface: "full" | "integration-synthetic-session-lifecycle";
+  readonly providers: "production" | "none";
   readonly resetPage: string;
   readonly expectedHostname: string;
   readonly eligibilityPolicy: "production-student" | "integration-synthetic-user";
@@ -227,38 +226,6 @@ export function getRuntimeConfig(
   ];
   const sharedSecretValues = [env.AUTH_TURNSTILE_SECRET, env.AUTH_RESEND_API_KEY];
 
-  if (profile.providers === "email-only") {
-    if (
-      sharedPublicValues.some((value) => !hasConfiguredValue(value)) ||
-      sharedSecretValues.some((value) => !hasConfiguredValue(value)) ||
-      !hasConfiguredValue(env.AUTH_INTEGRATION_SYNTHETIC_USER_ID) ||
-      profile.kind !== "integration-stage2" ||
-      profile.routeSurface !== "integration-stage2" ||
-      profile.eligibilityPolicy !== "integration-synthetic-user" ||
-      env.AUTH_ORIGIN !== profile.origin ||
-      env.AUTH_TURNSTILE_EXPECTED_HOSTNAME !== profile.expectedHostname ||
-      !isUuidV4(env.AUTH_INTEGRATION_SYNTHETIC_USER_ID) ||
-      !env.AUTH_EMAIL_FROM.includes("@") ||
-      parseResetEmailDailyBudget(env.AUTH_RESET_EMAIL_DAILY_BUDGET) !== 1
-    ) {
-      throw new AuthConfigurationError();
-    }
-
-    return {
-      ...coreConfig,
-      syntheticUserId: env.AUTH_INTEGRATION_SYNTHETIC_USER_ID,
-      turnstile: {
-        hostname: env.AUTH_TURNSTILE_EXPECTED_HOSTNAME,
-        secret: env.AUTH_TURNSTILE_SECRET,
-      },
-      email: {
-        resendApiKey: env.AUTH_RESEND_API_KEY,
-        from: env.AUTH_EMAIL_FROM,
-      },
-      resetEmailDailyBudget: 1,
-    };
-  }
-
   if (
     [...sharedPublicValues, env.AUTH_GOOGLE_CLIENT_ID].some((value) => !hasConfiguredValue(value)) ||
     [...sharedSecretValues, env.AUTH_GOOGLE_CLIENT_SECRET].some((value) => !hasConfiguredValue(value)) ||
@@ -288,10 +255,6 @@ export function getRuntimeConfig(
     },
     resetEmailDailyBudget: parseResetEmailDailyBudget(env.AUTH_RESET_EMAIL_DAILY_BUDGET),
   };
-}
-
-function isUuidV4(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function parseResetEmailDailyBudget(value: string | undefined): number {
@@ -339,19 +302,6 @@ export async function allowsIntegrationSyntheticCredentialRequest(
       profile.syntheticSignInEmail &&
       normalizeEmail(body.email) === normalizeEmail(profile.syntheticSignInEmail),
   );
-}
-
-export function allowsIntegrationStage2Request(request: Request): boolean {
-  const { pathname } = new URL(request.url);
-  const method = request.method.toUpperCase();
-  if (method === "GET" && pathname === `${AUTH_BASE_PATH}/get-session`) return true;
-  if (method === "GET" && /^\/api\/auth\/reset-password\/[^/]+$/.test(pathname)) return true;
-  return method === "POST" && new Set([
-    `${AUTH_BASE_PATH}/request-password-reset`,
-    `${AUTH_BASE_PATH}/reset-password`,
-    `${AUTH_BASE_PATH}/sign-in/email`,
-    `${AUTH_BASE_PATH}/sign-out`,
-  ]).has(pathname);
 }
 
 export function isStudentEmail(value: unknown): boolean {
@@ -1956,10 +1906,6 @@ export async function handleAuthRuntimeRequest(
       return jsonResponse({ error: "Not found." }, 404);
     }
   }
-  if (profile.routeSurface === "integration-stage2" && !allowsIntegrationStage2Request(request)) {
-    return jsonResponse({ error: "Not found." }, 404);
-  }
-
   try {
     const config = getRuntimeConfig(env, profile);
     if (
@@ -1985,10 +1931,6 @@ export async function handleAuthRuntimeRequest(
 
     if (profile.routeSurface === "integration-synthetic-session-lifecycle") {
       return withPrivateResponseHeaders(await auth.handler(request));
-    }
-
-    if (profile.routeSurface === "integration-stage2") {
-      return handleAuthRoute(request, env, auth, config, requestSignals);
     }
 
     if (url.pathname === "/health") {

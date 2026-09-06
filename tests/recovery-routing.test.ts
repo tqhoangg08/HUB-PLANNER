@@ -2,13 +2,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-test('re-enabled Production keeps Better Auth recovery routes and mounts the protected shell', () => {
+test('Production keeps Better Auth recovery route wiring and mounts the protected shell', () => {
   const app = readFileSync('App.tsx', 'utf8');
   const bootstrap = readFileSync('index.tsx', 'utf8');
   const routes = readFileSync('app/routing/AppRoutes.tsx', 'utf8');
   const env = readFileSync('.env.production', 'utf8');
   assert.match(env, /^VITE_AUTH_MAINTENANCE_MODE=false$/m);
-  assert.match(env, /^VITE_PASSWORD_RECOVERY_ENABLED=true$/m);
   assert.match(app, /AUTH_MAINTENANCE_MODE && location\.pathname === '\/login'/);
   assert.match(app, /AUTH_MAINTENANCE_MODE && location\.pathname === '\/forgot-password'/);
   assert.match(app, /AUTH_MAINTENANCE_MODE && location\.pathname === '\/reset-password'/);
@@ -56,18 +55,7 @@ test('final Production password recovery release preserves Google and enables St
   assert.doesNotMatch(`${app}\n${login}`, /localStorage|sessionStorage|console\.(?:log|error)/);
 });
 
-test('Production and Integration Preview both enable password recovery for their isolated origins', () => {
-  const productionEnv = readFileSync('.env.production', 'utf8');
-  const previewEnv = readFileSync('.env.integration-preview', 'utf8');
-  assert.match(productionEnv, /^VITE_PASSWORD_RECOVERY_ENABLED=true$/m);
-  assert.match(previewEnv, /^VITE_PASSWORD_RECOVERY_ENABLED=true$/m);
-  assert.match(previewEnv, /^VITE_CLOUDFLARE_PUBLIC_API_BASE_URL=https:\/\/hub-planner-public-dev-api-preview\.tqhoangg2\.workers\.dev$/m);
-  assert.match(previewEnv, /^VITE_AUTH_TURNSTILE_SITE_KEY=0x\S+$/m);
-  assert.doesNotMatch(previewEnv, /CONFIGURE_INTEGRATION/);
-  assert.doesNotMatch(productionEnv, /hub-planner-public-dev-api-preview|CONFIGURE_INTEGRATION/);
-});
-
-test('Stage-2 password screens use fixed Turnstile actions and do not persist reset secrets', () => {
+test('password screens use fixed Turnstile actions and do not persist reset secrets', () => {
   const login = readFileSync('components/RecoveryLoginScreen.tsx', 'utf8');
   const forgot = readFileSync('components/RecoveryForgotPasswordScreen.tsx', 'utf8');
   const reset = readFileSync('components/RecoveryResetPasswordScreen.tsx', 'utf8');

@@ -277,12 +277,6 @@ test("credential uniqueness migration has a duplicate precondition and Better Au
   assert.match(migration, /ON auth_account \(provider_id, account_id\)/);
   assert.doesNotMatch(migration, /DELETE|UPDATE|INSERT/i);
 
-  const betterAuth = readFileSync("node_modules/better-auth/dist/api/routes/password.mjs", "utf8");
-  assert.match(betterAuth, /providerId: "credential"/);
-  assert.match(betterAuth, /accountId: userId/);
-  assert.match(betterAuth, /findAccounts\(userId\)/);
-  assert.match(betterAuth, /deleteUserSessions\(userId\)/);
-
   const production = readFileSync(
     "cloudflare/auth-production-worker/src/auth-production.ts",
     "utf8",

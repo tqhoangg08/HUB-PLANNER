@@ -70,3 +70,14 @@ cloudflare/.dev.vars
 cloudflare/.candidate-dry-run/
 cloudflare/.auth-candidate-dry-run/
 .hub-session-profile/
+
+# Local authentication migration manifests and generated imports
+cloudflare/.env.auth-migration-e2e-local
+cloudflare/auth-migration-manifest/*.csv
+cloudflare/auth-migration-manifest/generated/*.sql
+cloudflare/wrangler.auth-migration-e2e-local.jsonc
+cloudflare/wrangler.auth-migration-local.jsonc
+
+# Generated Wrangler declarations
+cloudflare/*-worker-configuration.d.ts
+cloudflare/worker-configuration.d.ts

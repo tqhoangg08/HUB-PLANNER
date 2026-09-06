@@ -128,6 +128,13 @@ import {
   type AiAdvisorEnv,
 } from './ai-advisor.ts';
 import {
+  aiDocumentsErrorStatus,
+  AiDocumentsError,
+  handleAdminAiDocuments,
+  handleAiDocumentSource,
+  type AiDocumentsEnv,
+} from './ai-documents.ts';
+import {
   handlePrivatePolicyConsent,
   privatePolicyConsentErrorStatus,
   PrivatePolicyConsentError,
@@ -174,8 +181,10 @@ import {
 } from './public-directory.ts';
 
 type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv &
-  ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & AiAdvisorEnv & PublicDirectoryEnv & {
-  AUTH_SERVICE_PROXY_MODE?: string;
+  ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & AiAdvisorEnv & AiDocumentsEnv & PublicDirectoryEnv & {
+  AUTH_SERVICE_PROXY_ENABLED?: string;
+  AUTH_INGRESS_IP_RATE_LIMIT?: RateLimit;
+  ASSETS: Fetcher;
   NOTIFICATION_JOBS_ENABLED?: string;
   NOTIFICATION_JOBS_MODE?: string;
   NOTIFICATION_REENABLE_CUTOFF?: string;
@@ -308,7 +317,6 @@ const isAuthServicePath = (pathname: string) =>
   pathname === '/api/auth' || pathname.startsWith('/api/auth/');
 
 const PRODUCTION_AUTH_HOST = 'hotrosinhvienhub.id.vn';
-const INTEGRATION_PREVIEW_AUTH_HOST = 'hub-planner-public-dev-api-preview.tqhoangg2.workers.dev';
 const RECOVERY_AUTH_ROUTES = new Set([
   'POST /api/auth/sign-in/social',
   'GET /api/auth/callback/google',
@@ -342,37 +350,13 @@ export const isProductionRecoveryAuthRequest = (request: Request) => {
   );
 };
 
-const INTEGRATION_STAGE2_AUTH_ROUTES = new Set([
-  'POST /api/auth/request-password-reset',
-  'POST /api/auth/reset-password',
-  'POST /api/auth/sign-in/email',
-  'GET /api/auth/get-session',
-  'POST /api/auth/sign-out',
-]);
-
-export const isIntegrationPreviewStage2AuthRequest = (request: Request) => {
-  const url = new URL(request.url);
-  return (
-    url.hostname === INTEGRATION_PREVIEW_AUTH_HOST &&
-    (
-      INTEGRATION_STAGE2_AUTH_ROUTES.has(`${request.method.toUpperCase()} ${url.pathname}`) ||
-      isPasswordResetCallback(request.method.toUpperCase(), url.pathname)
-    )
-  );
-};
-
-const isConfiguredAuthProxyRequest = (request: Request, env: WorkerEnv) =>
-  env.AUTH_SERVICE_PROXY_MODE === 'integration-stage2'
-    ? isIntegrationPreviewStage2AuthRequest(request)
-    : isProductionRecoveryAuthRequest(request);
-
 export const proxyAuthServiceIfEnabled = async (
   request: Request,
   env: WorkerEnv
 ): Promise<Response | null> => {
   const url = new URL(request.url);
   if (!isAuthServicePath(url.pathname)) return null;
-  if (!isConfiguredAuthProxyRequest(request, env)) {
+  if (!isProductionRecoveryAuthRequest(request)) {
     return json({ error: 'Không tìm thấy endpoint.' }, 404);
   }
   if (env.AUTH_SERVICE_PROXY_ENABLED !== 'true' || !env.AUTH_SERVICE) {
@@ -1339,6 +1323,51 @@ const worker = {
           ...cors,
           'Cache-Control': 'private, no-store',
         });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/admin/v1/ai-documents') {
+      try {
+        const payload = await handleAdminAiDocuments(request, requestUrl, env);
+        return json(payload, request.method === 'POST' ? 202 : 200, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = aiDocumentsErrorStatus(error);
+        if (!(error instanceof BetterAuthIdentityError) && !(error instanceof AiDocumentsError)) {
+          console.error(JSON.stringify({ event: 'ai_documents_request_failed', status }));
+        }
+        return json({
+          error: status === 401
+            ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+            : status === 403
+              ? 'Không có quyền truy cập.'
+              : status < 500 && error instanceof AiDocumentsError
+                ? error.message
+                : 'Không thể xử lý kho tài liệu AI.',
+        }, status, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    const aiDocumentSourceMatch = requestUrl.pathname.match(/^\/api\/private\/v1\/ai-document-source\/([0-9a-f-]{36})$/i);
+    if (aiDocumentSourceMatch) {
+      try {
+        return json(await handleAiDocumentSource(request, aiDocumentSourceMatch[1], env), 200, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = aiDocumentsErrorStatus(error);
+        return json({
+          error: status === 401
+            ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+            : status === 403
+              ? 'Không có quyền truy cập.'
+              : status < 500 && error instanceof AiDocumentsError
+                ? error.message
+                : 'Không thể mở nguồn tài liệu.',
+        }, status, { ...cors, 'Cache-Control': 'no-store' });
       }
     }
 

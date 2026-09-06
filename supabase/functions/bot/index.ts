@@ -204,7 +204,9 @@ const getAuthenticatedUser = async (req: Request) => {
 }
 
 const normalizeGeminiModel = (model: string | null | undefined) =>
-  model === 'gemini-3.1-flash-lite-preview' ? 'gemini-3.1-flash-lite' : model
+  /^gemini-3\.1-flash-lite/.test(String(model || ''))
+    ? 'gemini-3.5-flash-lite'
+    : model
 
 const fetchSystemKnowledge = async () => {
   const { data, error } = await supabase
@@ -258,7 +260,7 @@ Nguyên tắc:
   return { question, messages }
 }
 
-const callGemini = async (apiKey: string, messages: ChatMessage[], temperature = 0.2) => {
+const callGemini = async (apiKey: string, messages: ChatMessage[]) => {
   const systemMessage = messages.find((message) => message.role === 'system')?.content || ''
   const contents = messages
     .filter((message) => message.role !== 'system')
@@ -267,14 +269,16 @@ const callGemini = async (apiKey: string, messages: ChatMessage[], temperature =
       parts: [{ text: message.content }],
     }))
 
-  const model = normalizeGeminiModel(Deno.env.get('GEMINI_CHAT_MODEL')) || 'gemini-3.1-flash-lite'
+  const model = normalizeGeminiModel(Deno.env.get('GEMINI_CHAT_MODEL')) || 'gemini-3.5-flash-lite'
+  const configuredThinking = String(Deno.env.get('GEMINI_THINKING_LEVEL') || 'minimal').toLowerCase()
+  const thinkingLevel = ['minimal', 'medium', 'high'].includes(configuredThinking) ? configuredThinking : 'minimal'
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       system_instruction: systemMessage ? { parts: [{ text: systemMessage }] } : undefined,
       contents,
-      generationConfig: { temperature },
+      generationConfig: { thinkingConfig: { thinkingLevel } },
     }),
   })
   const payload = await response.json().catch(() => ({}))
@@ -439,7 +443,7 @@ Deno.serve(async (req) => {
     let lastError: any = null
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        const reply = await callGemini(getRandomKey(), messages, 0.2)
+        const reply = await callGemini(getRandomKey(), messages)
         return replyJson(containsSensitiveTechnicalDetails(reply) ? SENSITIVE_TECH_REPLY : reply, {
           sources: schoolAnnouncements.map((item) => ({
             ...item,

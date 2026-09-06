@@ -37,7 +37,9 @@ const MIN_DIRECT_TEXT_LENGTH = 160
 const DEFAULT_MAX_INLINE_OCR_BYTES = 4_500_000
 
 const normalizeGeminiModel = (model: string | null | undefined) =>
-  model === 'gemini-3.1-flash-lite-preview' ? 'gemini-3.1-flash-lite' : model
+  /^gemini-3\.1-flash-lite/.test(String(model || ''))
+    ? 'gemini-3.5-flash-lite'
+    : model
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 

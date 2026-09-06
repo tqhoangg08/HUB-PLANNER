@@ -422,7 +422,7 @@ const sanitizedReadOnlyProbe = async (url: string, headers: HeadersInit, fetcher
   } catch (error) {
     // Fetch errors can include request-target text. Keep only the runtime's
     // typed class/code; neither can contain a session, query value, or HTML.
-    const candidate = error as { name?: unknown; cause?: { code?: unknown } };
+    const candidate = error as { name?: unknown; cause?: { code?: unknown; name?: unknown } };
     return {
       status: null, redirectCount: 0, finalPath: endpointPath(url), contentType: null,
       loginMarkerDetected: false, networkException: true,
@@ -542,7 +542,7 @@ const readOnlyPrefixFetch = async (url: string, endpointKind: ScraperEndpointKin
       records.push({ sequenceIndex, endpointKind, attempt, targetHash, status: response.status, redirectCount: 0, finalPath, contentType, loginMarkerDetected, networkException: false, networkErrorClass: null, networkErrorCode: null, networkErrorCause: null, timeoutTriggered: false, elapsedMs: Date.now() - startedAt, bodyState: 'CONSUMED' });
       return loginMarkerDetected ? null : html;
     } catch (error) {
-      const candidate = error as { name?: unknown; cause?: { code?: unknown } };
+      const candidate = error as { name?: unknown; cause?: { code?: unknown; name?: unknown } };
       records.push({ sequenceIndex, endpointKind, attempt, targetHash, status: null, redirectCount: 0, finalPath: endpointPath(url), contentType: null, loginMarkerDetected: false, networkException: true, networkErrorClass: typeof candidate?.name === 'string' ? candidate.name : 'FetchError', networkErrorCode: typeof candidate?.cause?.code === 'string' ? candidate.cause.code : null, networkErrorCause: typeof candidate?.cause?.name === 'string' ? candidate.cause.name : null, timeoutTriggered: false, elapsedMs: Date.now() - startedAt, bodyState: 'NOT_CONSUMED' });
       if (attempt === maxAttempts) return null;
     }
@@ -786,7 +786,9 @@ export const applyD1ScraperInstructorUpdates = async (
       success: true, changed: Number(existing.updated_count) > 0,
       attempted: Number(existing.attempted_count), updated: Number(existing.updated_count),
       skippedAdmin: Number(existing.skipped_admin_count), conflicts: Number(existing.conflict_count),
-      ...newTransportMetrics(),
+      transportRetryEvents: 0,
+      requestsRecoveredByRetry: 0,
+      requestsExhaustedRetries: 0,
     };
     throw new CourseAuthorityError(409, 'Scraper run is incomplete and requires operator review.');
   }
@@ -806,5 +808,15 @@ export const applyD1ScraperInstructorUpdates = async (
     await env.DB.prepare('UPDATE course_scraper_runs SET status=?,updated_count=?,skipped_admin_count=?,conflict_count=?,error_code=?,completed_at=? WHERE run_id=?').bind('failed', updated, skippedAdmin, conflicts, 'SCRAPER_UPDATE_FAILED', new Date().toISOString(), runId).run();
     throw error;
   }
-  return { success: true, changed: updated > 0, attempted: updates.length, updated, skippedAdmin, conflicts, ...transportMetrics };
+  return {
+    success: true,
+    changed: updated > 0,
+    attempted: updates.length,
+    updated,
+    skippedAdmin,
+    conflicts,
+    transportRetryEvents: transportMetrics.retryEvents,
+    requestsRecoveredByRetry: transportMetrics.requestsRecoveredByRetry,
+    requestsExhaustedRetries: transportMetrics.requestsExhaustedRetries,
+  };
 };

@@ -3,8 +3,13 @@ import {
   requireBetterAuthSession,
   type BetterAuthIdentityEnv,
 } from './better-auth-identity.ts';
+import {
+  answerWithGeminiFileSearch,
+  geminiFileSearchConfigured,
+  type GeminiFileSearchEnv,
+} from './gemini-file-search.ts';
 
-export interface AiAdvisorEnv extends BetterAuthIdentityEnv {
+export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiFileSearchEnv {
   DB?: D1Database;
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
@@ -101,14 +106,26 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
     if (logId) await patchLog(env, userId, logId, { bot_reply: SAFE_TECH_REPLY });
     return { reply: SAFE_TECH_REPLY, logId };
   }
-  const availableKeys = keys(env);
-  if (!availableKeys.length) throw new AiAdvisorError(503, 'Dịch vụ trợ lý tạm thời chưa sẵn sàng.');
   const system = [
     'Bạn là AI Cố vấn học tập HUB Planner. Trả lời bằng tiếng Việt, thân thiện, rõ ràng.',
     'Không tiết lộ thông tin kỹ thuật, bí mật, khóa, token hoặc kiến trúc nội bộ.',
     `Ngữ cảnh sinh viên do ứng dụng cung cấp: ${String(body.context || '').slice(0, 6000)}`,
     `Dữ liệu công khai do máy chủ đọc: ${await d1Context(env)}`,
   ].join('\n');
+  let documentSearchUnavailable = false;
+  if (geminiFileSearchConfigured(env)) {
+    try {
+      const result = await answerWithGeminiFileSearch(env, system, safeHistory(body.history), question);
+      if (result) {
+        if (logId) await patchLog(env, userId, logId, { bot_reply: result.reply, document_sources: result.documentSources, document_search_unavailable: false });
+        return { reply: result.reply, logId, documentSources: result.documentSources, documentSearchUnavailable: false };
+      }
+    } catch {
+      documentSearchUnavailable = true;
+    }
+  }
+  const availableKeys = keys(env);
+  if (!availableKeys.length) throw new AiAdvisorError(503, 'Dịch vụ trợ lý tạm thời chưa sẵn sàng.');
   let lastStatus = 502;
   for (const key of availableKeys.slice(0, 3)) {
     try {
@@ -128,8 +145,8 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
       if (!response.ok) continue;
       const reply = String(payload.choices?.[0]?.message?.content || '').trim();
       if (!reply) continue;
-      if (logId) await patchLog(env, userId, logId, { bot_reply: reply });
-      return { reply, logId };
+      if (logId) await patchLog(env, userId, logId, { bot_reply: reply, document_sources: [], document_search_unavailable: documentSearchUnavailable });
+      return { reply, logId, documentSources: [], documentSearchUnavailable };
     } catch { lastStatus = 502; }
   }
   if (logId) await patchLog(env, userId, logId, { bot_reply: 'Hệ thống AI đang tạm thời không phản hồi.' });
@@ -142,7 +159,7 @@ export const handleAiAdvisor = async (request: Request, url: URL, env: AiAdvisor
   if (request.method === 'GET') {
     const id = Number(url.searchParams.get('id') || 0);
     const select = id > 0
-      ? 'id,user_message,bot_reply,created_at,is_helpful,title,is_deleted,is_pinned'
+      ? 'id,user_message,bot_reply,created_at,is_helpful,title,is_deleted,is_pinned,document_sources,document_search_unavailable'
       : 'id,created_at,is_helpful,title,is_deleted,is_pinned';
     const filter = id > 0 ? `&id=eq.${id}&limit=1` : '&order=created_at.desc&limit=50';
     const response = await source(env, `/rest/v1/ai_chat_logs?user_id=eq.${owner}&select=${select}${filter}`);

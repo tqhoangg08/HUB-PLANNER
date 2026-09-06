@@ -333,10 +333,10 @@ Deno.serve(async (req) => {
 
   try {
     const user = await getRequestUser(req)
+    if (!user?.id) return json({ error: 'Ban can dang nhap de tao bo de.' }, 401)
     const rateHeaders: Record<string, string> = {}
     if (ratelimit) {
-      const limiterKey = user?.id || req.headers.get('x-forwarded-for') || 'anonymous'
-      const { success, limit, remaining } = await ratelimit.limit(`practice-ai:${limiterKey}`)
+      const { success, limit, remaining } = await ratelimit.limit(`practice-ai:${user.id}`)
       rateHeaders['X-RateLimit-Limit'] = String(limit)
       rateHeaders['X-RateLimit-Remaining'] = String(remaining)
       if (!success) return json({ error: 'Ban da tao qua nhieu bo de trong 1 gio. Thu lai sau nhe.' }, 429, rateHeaders)

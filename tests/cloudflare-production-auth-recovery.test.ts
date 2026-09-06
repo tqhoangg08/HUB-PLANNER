@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
-  isIntegrationPreviewStage2AuthRequest,
   isProductionRecoveryAuthRequest,
   proxyAuthServiceIfEnabled,
 } from '../cloudflare/worker/src/index.ts';
@@ -24,11 +23,6 @@ const envWith = (fetcher: (request: Request) => Promise<Response> | Response, li
       limit: async () => ({ success: limiter ? limiter() : true }),
     },
   }) as never;
-
-const previewEnvWith = (fetcher: (request: Request) => Promise<Response> | Response, limiter?: () => boolean) => ({
-  ...envWith(fetcher, limiter),
-  AUTH_SERVICE_PROXY_MODE: 'integration-stage2',
-}) as never;
 
 test('Production allowlist exposes only the Better Auth student and recovery route shapes', () => {
   assert.equal(isProductionRecoveryAuthRequest(request('/api/auth/sign-in/social', 'POST')), true);
@@ -74,54 +68,6 @@ test('exact host gate denies workers.dev and other hosts before service binding'
     assert.equal(response?.status, 404);
   }
   assert.equal(forwarded, 0);
-});
-
-test('Preview Stage-2 policy accepts exactly six route shapes on the exact Preview host', async () => {
-  const host = 'hub-planner-public-dev-api-preview.tqhoangg2.workers.dev';
-  for (const [path, method] of [
-    ['/api/auth/request-password-reset', 'POST'],
-    ['/api/auth/reset-password/opaque?callbackURL=%2Freset-password', 'GET'],
-    ['/api/auth/reset-password', 'POST'],
-    ['/api/auth/sign-in/email', 'POST'],
-    ['/api/auth/get-session', 'GET'],
-    ['/api/auth/sign-out', 'POST'],
-  ]) assert.equal(isIntegrationPreviewStage2AuthRequest(request(path, method, host)), true);
-
-  for (const [path, method] of [
-    ['/api/auth/sign-in/social', 'POST'],
-    ['/api/auth/sign-up/email', 'POST'],
-    ['/api/auth/reset-password/token/extra', 'GET'],
-    ['/api/auth/reset-password/', 'GET'],
-    ['/api/auth/reset-password/token', 'POST'],
-    ['/api/auth/get-session', 'POST'],
-  ]) assert.equal(isIntegrationPreviewStage2AuthRequest(request(path, method, host)), false);
-
-  assert.equal(isIntegrationPreviewStage2AuthRequest(request('/api/auth/get-session', 'GET', 'hotrosinhvienhub.id.vn')), false);
-  let forwarded = 0;
-  const response = await proxyAuthServiceIfEnabled(
-    request('/api/auth/get-session', 'GET', host),
-    previewEnvWith(() => { forwarded += 1; return new Response('ok'); }),
-  );
-  assert.equal(response?.status, 200);
-  assert.equal(forwarded, 1);
-});
-
-test('Preview mode does not alter the default Production host policy', async () => {
-  let productionCalls = 0;
-  const production = await proxyAuthServiceIfEnabled(
-    request('/api/auth/sign-in/social', 'POST'),
-    envWith(() => { productionCalls += 1; return new Response('ok'); }),
-  );
-  assert.equal(production?.status, 200);
-  assert.equal(productionCalls, 1);
-
-  let previewCalls = 0;
-  const denied = await proxyAuthServiceIfEnabled(
-    request('/api/auth/sign-in/social', 'POST', 'hub-planner-public-dev-api-preview.tqhoangg2.workers.dev'),
-    previewEnvWith(() => { previewCalls += 1; return new Response('unexpected'); }),
-  );
-  assert.equal(denied?.status, 404);
-  assert.equal(previewCalls, 0);
 });
 
 test('callback query and original Request are forwarded unchanged', async () => {

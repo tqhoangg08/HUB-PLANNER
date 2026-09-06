@@ -9,6 +9,7 @@ import DOMPurify from 'dompurify';
 import { getAiAdvisorSession, listAiAdvisorSessions, sendAiAdvisorMessage, updateAiAdvisorSession } from '../utils/aiAdvisorApi';
 import { sanitizeAIReply } from '../utils/aiSafety';
 import { CONSENT_POLICIES, recordPolicyConsent } from '../utils/policyConsent';
+import { AIDocumentSources, type AIDocumentSource } from './AIDocumentSources';
 
 interface AIAdvisorProps {
   data: UserData;
@@ -21,6 +22,8 @@ interface ChatMessage {
     logId?: number; 
     rating?: 'up' | 'down' | null; 
     isHistory?: boolean; 
+    documentSources?: AIDocumentSource[];
+    documentSearchUnavailable?: boolean;
 }
 
 interface ChatSessionLog {
@@ -32,6 +35,8 @@ interface ChatSessionLog {
     title?: string | null;
     is_deleted?: boolean;
     is_pinned?: boolean;
+    document_sources?: AIDocumentSource[];
+    document_search_unavailable?: boolean;
 }
 
 export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
@@ -144,7 +149,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       const botReply = sanitizeAIReply(resData.reply || "Xin lỗi, mình không có câu trả lời.");
       const returnedLogId = resData.logId || Date.now(); 
 
-      setChatHistory(prev => [...prev, { role: "assistant", content: botReply, logId: returnedLogId }]);
+      setChatHistory(prev => [...prev, { role: "assistant", content: botReply, logId: returnedLogId, documentSources: resData.documentSources || [], documentSearchUnavailable: Boolean(resData.documentSearchUnavailable) }]);
 
       const newSessionLog: ChatSessionLog = {
           id: returnedLogId,
@@ -153,7 +158,9 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
           created_at: new Date().toISOString(),
           is_helpful: null,
           is_pinned: false,
-          is_deleted: false
+          is_deleted: false,
+          document_sources: resData.documentSources || [],
+          document_search_unavailable: Boolean(resData.documentSearchUnavailable)
       };
       setSavedSessions(prev => [newSessionLog, ...prev]);
 
@@ -220,7 +227,9 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
               content: sanitizeAIReply(fullSession.bot_reply || ''),
               logId: fullSession.id,
               rating: fullSession.is_helpful === true ? 'up' : (fullSession.is_helpful === false ? 'down' : null),
-              isHistory: true
+              isHistory: true,
+              documentSources: fullSession.document_sources || [],
+              documentSearchUnavailable: Boolean(fullSession.document_search_unavailable)
           }
       ]);
       if (window.innerWidth < 768) setShowSidebar(false);
@@ -481,7 +490,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                                         msg.role === 'user' ? 'bg-[#003375] text-white rounded-br-none' : 'bg-gray-50 text-gray-800 border border-gray-100 rounded-bl-none'
                                     }`}>
                                     {msg.role === 'assistant' ? (
-                                        <div className="prose prose-sm max-w-none prose-p:leading-relaxed" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')) }} />
+                                        <><div className="prose prose-sm max-w-none prose-p:leading-relaxed" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')) }} /><AIDocumentSources sources={msg.documentSources} unavailable={msg.documentSearchUnavailable} /></>
                                     ) : ( <p>{msg.content}</p> )}
                                     </div>
                                     {msg.role === 'assistant' && (

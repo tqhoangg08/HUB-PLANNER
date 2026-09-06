@@ -163,7 +163,6 @@ test('recovery island has no Supabase auth or browser token storage', () => {
     'components/RecoveryForgotPasswordScreen.tsx',
     'components/RecoveryResetPasswordScreen.tsx',
     'components/RecoveryAccountScreen.tsx',
-    'components/StaffLoginScreen.tsx',
     'components/StaffPasswordActivationScreen.tsx',
   ];
   const source = files.map((file) => readFileSync(file, 'utf8')).join('\n');

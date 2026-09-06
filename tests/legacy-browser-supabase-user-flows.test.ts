@@ -41,7 +41,7 @@ test('the four affected flows no longer acquire a browser Supabase session', () 
   assert.doesNotMatch(ctv, /utils\/supabase|supabase\.(?:auth|from|rpc|storage)|getSession/);
   assert.match(notifications, /\/api\/submissions\/v1\/moderator-notifications/);
   assert.doesNotMatch(notifications, /utils\/supabase|supabase\.(?:auth|from|rpc|storage)|getSession/);
-  assert.match(transcript, /verifyTurnstileOnly/);
+  assert.match(transcript, /parseHubPdf\(file, gradeImportTurnstileToken\)/);
   assert.doesNotMatch(transcriptParser, /utils\/supabase|supabase\.(?:auth|from|rpc|storage)|getSession/);
   assert.doesNotMatch(scheduleParser, /utils\/supabase|supabase\.(?:auth|from|rpc|storage)|getSession/);
   assert.match(participationApi, /credentials: 'include'/);
@@ -170,14 +170,15 @@ test('CTV registration uses a server allowlist and Better Auth identity when ava
   }
 });
 
-test('lost-and-found new submit uses the protected bridge while legacy edits remain gated', () => {
+test('lost-and-found submissions and edits use Worker bridges without browser Supabase', () => {
   for (const file of ['components/LostFoundBoard.tsx', 'components/MobileLostFound.tsx']) {
     const source = readFileSync(file, 'utf8');
     assert.match(source, /action: 'lost-found'/);
-    assert.match(source, /editingItem && !isBrowserSupabaseConfigured/);
+    assert.match(source, /updateAdminLostFound\(editingItem\.id/);
     assert.match(source, /\} else \{\s+const data = await protectedSubmit<\{ id\?: number \}>\(\{/);
     const protectedCall = source.slice(source.indexOf("action: 'lost-found'") - 100,
       source.indexOf("action: 'lost-found'") + 900);
     assert.doesNotMatch(protectedCall, /supabase\.(?:auth|from|rpc|storage)|getSession|user_id\s*:/);
+    assert.doesNotMatch(source, /utils\/supabase|supabase\.(?:auth|from|rpc|storage)|isBrowserSupabaseConfigured/);
   }
 });
