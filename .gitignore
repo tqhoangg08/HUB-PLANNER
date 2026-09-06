@@ -81,3 +81,5 @@ cloudflare/wrangler.auth-migration-local.jsonc
 # Generated Wrangler declarations
 cloudflare/*-worker-configuration.d.ts
 cloudflare/worker-configuration.d.ts
+
+cloudflare/auth-migration-local/
