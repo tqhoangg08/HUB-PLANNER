@@ -90,6 +90,7 @@
     "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^5.2.0",
     "autoprefixer": "^10.4.23",
+    "playwright-core": "^1.62.1",
     "postcss": "^8.5.15",
     "tailwindcss": "^4.3.0",
     "typescript": "~5.8.2",
