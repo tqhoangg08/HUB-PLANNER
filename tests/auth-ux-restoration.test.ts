@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   beginGoogleStudentAuth,
   completeGoogleRegistration,
+  getRegistrationStatus,
   requestStudentPasswordReset,
   signInWithLoginDispatch,
   signInStudent,
@@ -106,6 +107,37 @@ test('email OTP signup, password completion and MSSV recovery use only fixed sam
     '/api/auth/student/sign-up/start', '/api/auth/student/sign-up/verify',
     '/api/auth/registration/set-password', '/api/auth/mssv/request-password-reset',
   ]);
+});
+
+test('server password state globally gates Google-only sessions before dashboard and survives reload', async () => {
+  let credentials: RequestCredentials | undefined;
+  const status = await getRegistrationStatus(async (_input, init) => {
+    credentials = init?.credentials;
+    return response({
+      complete: false,
+      pending: true,
+      needsPasswordSetup: true,
+      email: '030841250048@st.buh.edu.vn',
+    });
+  });
+  assert.equal(credentials, 'include');
+  assert.equal(status.needsPasswordSetup, true);
+
+  const lifecycle = readFileSync('hooks/useSessionLifecycle.ts', 'utf8');
+  const app = readFileSync('LegacyApp.tsx', 'utf8');
+  const routes = readFileSync('app/routing/AppRoutes.tsx', 'utf8');
+  const completion = readFileSync('components/RegistrationPasswordScreen.tsx', 'utf8');
+  assert.match(lifecycle, /getRegistrationStatus\(\)/);
+  assert.match(lifecycle, /status\.needsPasswordSetup \? null : 'better-auth-managed'/);
+  assert.doesNotMatch(lifecycle, /setPasswordSetAt\(sessionUserId \? 'better-auth-managed'/);
+  assert.match(app, /if \(requiresPasswordSetup\) \{[\s\S]*?<Navigate to="\/complete-registration" replace \/>/);
+  assert.ok(
+    app.indexOf('if (requiresPasswordSetup)') < app.indexOf('if (session && requiresRequiredProfileSetup)'),
+    'password setup must take precedence over profile onboarding',
+  );
+  assert.match(routes, /RegistrationPasswordScreen onComplete=\{onPasswordSetupComplete\}/);
+  assert.match(completion, /await completeGoogleRegistration\(password, token\);[\s\S]*?onComplete\?\.\(\);[\s\S]*?navigate\('\/dashboard'/);
+  assert.doesNotMatch(`${lifecycle}\n${app}`, /localStorage[^\n]*password/i);
 });
 
 test('restored old login presentation has no browser Supabase auth or bearer storage', () => {

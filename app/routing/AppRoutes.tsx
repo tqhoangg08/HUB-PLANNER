@@ -26,6 +26,7 @@ interface AppRoutesProps {
     mobileScreen: boolean;
     canSkipOnboarding: boolean;
     onRefreshAuth: AuthRefresh;
+    onPasswordSetupComplete: () => void;
     onCompleteOnboarding: (data: Partial<UserData>) => void;
     protectedApp: ReactNode;
 }
@@ -37,6 +38,7 @@ export const AppRoutes = ({
     mobileScreen,
     canSkipOnboarding,
     onRefreshAuth,
+    onPasswordSetupComplete,
     onCompleteOnboarding,
     protectedApp,
 }: AppRoutesProps) => {
@@ -63,7 +65,7 @@ export const AppRoutes = ({
                 <Route path="/staff/login" element={<Navigate to="/login" replace />} />
                 <Route path="/staff/activate" element={<StaffPasswordActivationScreen />} />
                 <Route path="/staff/reset-password" element={<RecoveryResetPasswordScreen returnTo="/staff/login?password-reset=success" />} />
-                <Route path="/complete-registration" element={<RegistrationPasswordScreen />} />
+                <Route path="/complete-registration" element={<RegistrationPasswordScreen onComplete={onPasswordSetupComplete} />} />
                 <Route
                     path="/forgot-password"
                     element={PASSWORD_RECOVERY_ENABLED
@@ -111,7 +113,7 @@ export const AppRoutes = ({
                 <Route path="/staff/login" element={<Navigate to="/login" replace />} />
                 <Route path="/staff/activate" element={<StaffPasswordActivationScreen />} />
                 <Route path="/staff/reset-password" element={<RecoveryResetPasswordScreen returnTo="/staff/login?password-reset=success" />} />
-                <Route path="/complete-registration" element={<RegistrationPasswordScreen />} />
+                <Route path="/complete-registration" element={<RegistrationPasswordScreen onComplete={onPasswordSetupComplete} />} />
                 <Route
                     path="/forgot-password"
                     element={PASSWORD_RECOVERY_ENABLED

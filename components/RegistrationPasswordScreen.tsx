@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { completeGoogleRegistration, getRegistrationStatus, studentAuthMessage } from '../app/auth/studentAuthClient';
 import { TURNSTILE_SITE_KEY } from '../utils/turnstileConfig';
 
-export const RegistrationPasswordScreen = () => {
+export const RegistrationPasswordScreen = ({ onComplete }: { onComplete?: () => void }) => {
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -30,7 +30,11 @@ export const RegistrationPasswordScreen = () => {
     if (password !== confirm) return setError('Hai mật khẩu chưa trùng khớp.');
     if (!token) return setError('Vui lòng hoàn tất bước xác minh bảo mật.');
     setBusy(true);
-    try { await completeGoogleRegistration(password, token); navigate('/dashboard', { replace: true }); }
+    try {
+      await completeGoogleRegistration(password, token);
+      onComplete?.();
+      navigate('/dashboard', { replace: true });
+    }
     catch (reason) { setError(studentAuthMessage(reason)); setToken(''); }
     finally { setBusy(false); }
   };

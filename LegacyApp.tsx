@@ -48,6 +48,9 @@ const LegacyApp: React.FC = () => {
         passwordSetAt,
         setPasswordSetAt,
         passwordSetupSchemaMissing,
+        passwordSetupCheckLoading,
+        passwordSetupCheckError,
+        retryPasswordSetupCheck,
     } = useSessionLifecycle({
         session,
         isAdmin,
@@ -174,7 +177,25 @@ const LegacyApp: React.FC = () => {
         const requiresPasswordSetup = Boolean(session?.user && !isPrivilegedUser && passwordSetAt === null);
         const requiresRequiredProfileSetup = Boolean(session?.user && !isPrivilegedUser && !hasCompleteRequiredStudyProfile(data));
 
-        if (!isLoaded) return <RouteLoadingFallback />;
+        if (!isLoaded || passwordSetupCheckLoading) return <RouteLoadingFallback />;
+
+        if (session && !isPrivilegedUser && passwordSetupCheckError) {
+            return (
+                <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+                    <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+                        <h1 className="text-lg font-semibold text-slate-900">Chưa thể kiểm tra trạng thái mật khẩu</h1>
+                        <p className="mt-2 text-sm text-slate-600">Vui lòng thử lại để tiếp tục an toàn.</p>
+                        <button
+                            type="button"
+                            onClick={() => { void retryPasswordSetupCheck(); }}
+                            className="mt-5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                        >
+                            Thử lại
+                        </button>
+                    </section>
+                </main>
+            );
+        }
 
         if (isAccessDenied && !isAdmin && !isAuditor && !isCTV) {
             return (
@@ -183,6 +204,10 @@ const LegacyApp: React.FC = () => {
                     onLogout={handleDeniedAccessLogout}
                 />
             );
+        }
+
+        if (requiresPasswordSetup) {
+            return <Navigate to="/complete-registration" replace />;
         }
 
         if (session && requiresRequiredProfileSetup) {
@@ -317,6 +342,7 @@ const LegacyApp: React.FC = () => {
                                 )
                             )}
                             onRefreshAuth={refreshAuth}
+                            onPasswordSetupComplete={() => setPasswordSetAt(new Date().toISOString())}
                             onCompleteOnboarding={(onboardingData) => {
                                 void completeOnboarding(onboardingData);
                                 navigate(useMobileLayout ? '/mobile-home' : '/dashboard', { replace: true });

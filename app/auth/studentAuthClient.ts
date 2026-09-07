@@ -182,6 +182,7 @@ export async function getRegistrationStatus(fetchImpl: typeof fetch = fetch) {
   return {
     pending: payload.pending === true,
     complete: payload.complete === true,
+    needsPasswordSetup: payload.needsPasswordSetup === true,
     email: typeof payload.email === 'string' ? payload.email : '',
   };
 }

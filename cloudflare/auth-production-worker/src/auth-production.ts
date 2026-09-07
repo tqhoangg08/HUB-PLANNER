@@ -1629,14 +1629,30 @@ async function handleRegistrationStatus(
   if (!session?.user?.id) return jsonResponse({ error: "Chưa đăng nhập." }, 401);
   const identity = normalizeStudentIdentity(session.user.email);
   const state = await registrationState(env, session.user.id);
-  if (!identity || !state || Number(state.unexpected_accounts) !== 0 || Number(state.google_accounts) !== 1) {
+  const credentialAccounts = Number(state?.credential_accounts ?? 0);
+  const googleAccounts = Number(state?.google_accounts ?? 0);
+  const hasKnownProvider = credentialAccounts === 1 || googleAccounts === 1;
+  if (
+    !identity
+    || !state
+    || Number(state.unexpected_accounts) !== 0
+    || credentialAccounts > 1
+    || googleAccounts > 1
+    || !hasKnownProvider
+  ) {
     return jsonResponse({ error: "Không thể hoàn tất đăng ký." }, 403);
   }
-  const complete = state.role === "user" && state.student_code === identity.studentCode && Number(state.credential_accounts) === 1;
+  // Provider rows are the server-side authority for password capability. A
+  // Google-authenticated student without a credential row must finish the
+  // existing password setup flow, including after reload or a later login.
+  // Staff roles use their separately guarded activation/reset path.
+  const privileged = state.role === "admin" || state.role === "auditor";
+  const needsPasswordSetup = !privileged && googleAccounts === 1 && credentialAccounts === 0;
   return jsonResponse({
-    complete,
-    pending: !complete,
-    requiresPassword: !complete,
+    complete: !needsPasswordSetup,
+    pending: needsPasswordSetup,
+    requiresPassword: needsPasswordSetup,
+    needsPasswordSetup,
     email: identity.email,
   });
 }

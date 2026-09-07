@@ -6,6 +6,7 @@ import {
   PRODUCTION_AUTH_PROFILE,
   createAuthForProfile,
   getRuntimeConfig,
+  handleAuthProductionRequest,
   handleInternalSession,
   type AuthProductionEnv,
 } from "../cloudflare/auth-production-worker/src/auth-production.ts";
@@ -73,6 +74,10 @@ const createDatabase = () => {
     );
     CREATE TABLE app_auth_identifiers (user_id TEXT NOT NULL, student_code TEXT UNIQUE, created_at TEXT);
     CREATE TABLE app_user_roles (user_id TEXT PRIMARY KEY, role TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE auth_rate_limit_windows (
+      rate_key TEXT PRIMARY KEY, window_started_at INTEGER NOT NULL,
+      request_count INTEGER NOT NULL, updated_at INTEGER NOT NULL
+    );
   `);
   return database;
 };
@@ -80,6 +85,9 @@ const createDatabase = () => {
 const createEnv = (database: DatabaseSync) => ({
     AUTH_ENABLED: "true",
     AUTH_DB: d1Adapter(database),
+    AUTH_IDENTIFIER_RATE_LIMIT: {
+      limit: async () => ({ success: true }),
+    } as unknown as RateLimit,
     AUTH_BETTER_AUTH_SECRET: "test-better-auth-secret-that-is-long-enough-for-google-linking",
     AUTH_ORIGIN: ORIGIN,
     AUTH_TURNSTILE_EXPECTED_HOSTNAME: "hotrosinhvienhub.id.vn",
@@ -154,6 +162,16 @@ const completeGoogle = async (
     globalThis.fetch = originalFetch;
   }
 };
+
+const productionRequest = (
+  database: DatabaseSync,
+  path: string,
+  init: RequestInit = {},
+) => handleAuthProductionRequest(
+  new Request(`${ORIGIN}${path}`, init),
+  createEnv(database),
+  { waitUntil() {} } as ExecutionContext,
+);
 
 test("verified exact-email Google sign-in links an existing local user once and creates sessions", async () => {
   const database = createDatabase();
@@ -280,6 +298,107 @@ test("verified existing Google session receives least-privilege private identity
     );
     assert.equal(staff.status, 403);
   } finally {
+    database.close();
+  }
+});
+
+test("Google-only HUB user is server-gated until password setup and can then sign in by MSSV", async () => {
+  const database = createDatabase();
+  const originalFetch = globalThis.fetch;
+  try {
+    const now = new Date().toISOString();
+    database.prepare("INSERT INTO auth_user VALUES (?, ?, ?, 1, NULL, ?, ?)")
+      .run("google-only-user", "Google-only student", STUDENT_EMAIL, now, now);
+    database.prepare("INSERT INTO auth_account (id, account_id, provider_id, user_id, created_at, updated_at) VALUES (?, ?, 'google', ?, ?, ?)")
+      .run("google-account", "google-only-subject", "google-only-user", now, now);
+    database.prepare("INSERT INTO app_auth_identifiers VALUES (?, ?, ?)")
+      .run("google-only-user", "030841250048", now);
+    database.prepare("INSERT INTO app_user_roles VALUES (?, 'user', ?, ?)")
+      .run("google-only-user", now, now);
+
+    const auth = createAuth(database);
+    const oauth = await beginGoogle(auth, false);
+    const callback = await completeGoogle(auth, oauth, STUDENT_EMAIL, "google-only-subject");
+    assert.equal(callback.status, 302);
+    assert.equal(new URL(callback.headers.get("location") ?? "", ORIGIN).pathname, "/dashboard");
+    const cookie = callback.headers.getSetCookie().map((value) => value.split(";", 1)[0]).join("; ");
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const status = await productionRequest(database, "/api/auth/registration/status", {
+        headers: { cookie },
+      });
+      assert.equal(status.status, 200);
+      assert.deepEqual(await status.json(), {
+        complete: false,
+        pending: true,
+        requiresPassword: true,
+        needsPasswordSetup: true,
+        email: STUDENT_EMAIL,
+      });
+    }
+
+    globalThis.fetch = async (input) => {
+      assert.equal(new URL(String(input)).hostname, "challenges.cloudflare.com");
+      return Response.json({
+        success: true,
+        action: "signup_password",
+        hostname: "hotrosinhvienhub.id.vn",
+      });
+    };
+    const password = "safe-password-123";
+    const setup = await productionRequest(database, "/api/auth/registration/set-password", {
+      method: "POST",
+      headers: {
+        cookie,
+        origin: ORIGIN,
+        "content-type": "application/json",
+        "x-turnstile-token": "test-turnstile-token",
+      },
+      body: JSON.stringify({ password }),
+    });
+    assert.equal(setup.status, 200);
+    assert.deepEqual(await setup.json(), { ok: true, complete: true });
+
+    const credential = database.prepare(
+      "SELECT password FROM auth_account WHERE user_id = ? AND provider_id = 'credential'",
+    ).get("google-only-user") as { password: string };
+    assert.ok(credential.password);
+    assert.notEqual(credential.password, password);
+
+    const completed = await productionRequest(database, "/api/auth/registration/status", {
+      headers: { cookie },
+    });
+    assert.equal(completed.status, 200);
+    assert.deepEqual(await completed.json(), {
+      complete: true,
+      pending: false,
+      requiresPassword: false,
+      needsPasswordSetup: false,
+      email: STUDENT_EMAIL,
+    });
+
+    globalThis.fetch = async (input) => {
+      assert.equal(new URL(String(input)).hostname, "challenges.cloudflare.com");
+      return Response.json({
+        success: true,
+        action: "login",
+        hostname: "hotrosinhvienhub.id.vn",
+      });
+    };
+    const mssvLogin = await productionRequest(database, "/api/auth/mssv/sign-in", {
+      method: "POST",
+      headers: {
+        origin: ORIGIN,
+        "content-type": "application/json",
+        "x-turnstile-token": "test-turnstile-token",
+      },
+      body: JSON.stringify({ mssv: "030841250048", password, rememberMe: true }),
+    });
+    assert.equal(mssvLogin.status, 200);
+    assert.equal((database.prepare("SELECT COUNT(*) AS count FROM auth_user").get() as { count: number }).count, 1);
+    assert.equal((database.prepare("SELECT COUNT(*) AS count FROM auth_account WHERE user_id = 'google-only-user'").get() as { count: number }).count, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
     database.close();
   }
 });

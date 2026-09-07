@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AppSession } from '../utils/privateApi';
+import { getRegistrationStatus } from '../app/auth/studentAuthClient';
 import { logActivityQuietly } from '../utils/activityLogger';
 import { recordPolicyConsent } from '../utils/policyConsent';
 import { fetchProfilePrivate, updateProfilePrivate, upsertProfilePrivate } from '../utils/profilePrivate';
@@ -47,6 +48,9 @@ export const useSessionLifecycle = ({
     const sessionEmail = session?.user?.email || '';
     const [passwordSetAt, setPasswordSetAt] = useState<string | null | undefined>(undefined);
     const [passwordSetupSchemaMissing, setPasswordSetupSchemaMissing] = useState(false);
+    const [passwordSetupCheckLoading, setPasswordSetupCheckLoading] = useState(false);
+    const [passwordSetupCheckError, setPasswordSetupCheckError] = useState(false);
+    const passwordSetupCheckGenerationRef = useRef(0);
     const lastLoggedUserIdRef = useRef<string | null>(null);
     const lastPushDeviceSyncRef = useRef<{ userId: string | null; syncedAt: number }>({
         userId: null,
@@ -151,14 +155,62 @@ export const useSessionLifecycle = ({
         };
     }, [sessionUserId]);
 
-    useEffect(() => {
+    const refreshPasswordSetupState = useCallback(async () => {
+        const generation = ++passwordSetupCheckGenerationRef.current;
         setPasswordSetupSchemaMissing(false);
-        setPasswordSetAt(sessionUserId ? 'better-auth-managed' : undefined);
-    }, [sessionUserId]);
+        setPasswordSetupCheckError(false);
+
+        if (!sessionUserId) {
+            setPasswordSetupCheckLoading(false);
+            setPasswordSetAt(undefined);
+            return;
+        }
+        if (loadingRole) {
+            setPasswordSetupCheckLoading(true);
+            setPasswordSetAt(undefined);
+            return;
+        }
+        if (isAdmin || isAuditor) {
+            setPasswordSetupCheckLoading(false);
+            setPasswordSetAt('better-auth-managed');
+            return;
+        }
+
+        // Never infer password capability from the presence of a session or
+        // local browser state. The Auth Worker checks the Better Auth account
+        // provider rows and returns only the safe boolean decision.
+        setPasswordSetupCheckLoading(true);
+        setPasswordSetAt(undefined);
+        try {
+            const status = await getRegistrationStatus();
+            if (generation !== passwordSetupCheckGenerationRef.current) return;
+            setPasswordSetAt(status.needsPasswordSetup ? null : 'better-auth-managed');
+        } catch {
+            if (generation !== passwordSetupCheckGenerationRef.current) return;
+            // Fail closed: an unavailable authority must never let a
+            // Google-only account bypass required password setup.
+            setPasswordSetupCheckError(true);
+            setPasswordSetAt(undefined);
+        } finally {
+            if (generation === passwordSetupCheckGenerationRef.current) {
+                setPasswordSetupCheckLoading(false);
+            }
+        }
+    }, [isAdmin, isAuditor, loadingRole, sessionUserId]);
+
+    useEffect(() => {
+        void refreshPasswordSetupState();
+        return () => {
+            passwordSetupCheckGenerationRef.current += 1;
+        };
+    }, [refreshPasswordSetupState]);
 
     return {
         passwordSetAt,
         setPasswordSetAt,
         passwordSetupSchemaMissing,
+        passwordSetupCheckLoading,
+        passwordSetupCheckError,
+        retryPasswordSetupCheck: refreshPasswordSetupState,
     };
 };
