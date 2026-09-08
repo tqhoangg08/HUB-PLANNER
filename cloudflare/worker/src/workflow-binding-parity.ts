@@ -1,5 +1,5 @@
 import type { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
-import { ANNOUNCEMENT_SOURCES, announcementTitleKey, crawlAnnouncementSourceChunk, type Announcement } from './announcement-crawler.ts';
+import { ANNOUNCEMENT_SOURCES, crawlAnnouncementSourceChunk } from './announcement-crawler.ts';
 import { syncCrawledSchoolAnnouncements } from './index.ts';
 
 type DisabledWorkflowEnv = Record<string, unknown>;
@@ -32,7 +32,13 @@ export class HK1CourseScraperProbeWorkflow extends WorkflowEntrypointBase<Disabl
   }
 }
 
-type AnnouncementCrawlerWorkflowParams = { scheduledAt?: number };
+type AnnouncementCrawlerWorkflowParams = {
+  scheduledAt?: number;
+  sourceId: string;
+  startPage?: number;
+  lastPage?: number;
+  lastFingerprint?: string | null;
+};
 
 /**
  * A scheduled Workflow is intentionally the sole upstream crawler authority.
@@ -40,55 +46,35 @@ type AnnouncementCrawlerWorkflowParams = { scheduledAt?: number };
  * not, and retain the crawler's existing source/D1 dedupe contract.
  */
 export class AnnouncementCrawlerWorkflow extends WorkflowEntrypointBase<DisabledWorkflowEnv, AnnouncementCrawlerWorkflowParams> {
-  async run(_event: Readonly<WorkflowEvent<AnnouncementCrawlerWorkflowParams>>, step: WorkflowStep) {
-    const items: Announcement[] = [];
-    const sources: Array<{ id: string; pages: number; rows: number; undated: number; complete: boolean; error: string | null }> = [];
-    for (const source of ANNOUNCEMENT_SOURCES) {
-      const [id] = source;
-      const sourceSummary = { id, pages: 0, rows: 0, undated: 0, complete: false, error: null as string | null };
-      let startPage = 1;
-      let lastPage = 1;
-      let lastFingerprint: string | null = null;
-      while (startPage <= 80 && !sourceSummary.complete && !sourceSummary.error) {
-        const chunkStart = startPage;
-        const chunk = await step.do(
-          `crawl-${id}-pages-${chunkStart}-${Math.min(80, chunkStart + 19)}`,
-          { retries: { limit: 1, delay: '30 seconds', backoff: 'constant' }, timeout: '2 minutes' },
-          () => crawlAnnouncementSourceChunk({
-            source,
-            after: '2026-08-05',
-            startPage: chunkStart,
-            lastPage,
-            maxPages: 80,
-            chunkPages: 20,
-            previousFingerprint: lastFingerprint,
-          }),
-        );
-        items.push(...chunk.items);
-        sourceSummary.pages += chunk.pages;
-        sourceSummary.rows += chunk.items.length;
-        sourceSummary.undated += chunk.undated;
-        sourceSummary.complete = chunk.complete;
-        sourceSummary.error = chunk.error;
-        startPage = chunk.nextPage;
-        lastPage = chunk.lastPage;
-        lastFingerprint = chunk.lastFingerprint;
-      }
-      if (!sourceSummary.complete && !sourceSummary.error) sourceSummary.error = 'PAGINATION_LIMIT_REACHED';
-      if (sourceSummary.undated) { sourceSummary.complete = false; sourceSummary.error = 'SOURCE_DATE_MISSING'; }
-      sources.push(sourceSummary);
-    }
-    const links = new Set<string>();
-    const titles = new Set<string>();
-    const uniqueItems = items.filter((item) => {
-      const title = announcementTitleKey(item.title);
-      if (links.has(item.link) || titles.has(title)) return false;
-      links.add(item.link);
-      titles.add(title);
-      return true;
-    });
+  async run(event: Readonly<WorkflowEvent<AnnouncementCrawlerWorkflowParams>>, step: WorkflowStep) {
+    const params = event.payload;
+    const source = ANNOUNCEMENT_SOURCES.find(([id]) => id === params.sourceId);
+    if (!source) throw new Error('ANNOUNCEMENT_SOURCE_NOT_FOUND');
+    const [id] = source;
+    const startPage = Math.max(1, params.startPage || 1);
+    const chunk = await step.do(
+      `crawl-${id}-pages-${startPage}-${Math.min(80, startPage + 19)}`,
+      { retries: { limit: 1, delay: '30 seconds', backoff: 'constant' }, timeout: '2 minutes' },
+      () => crawlAnnouncementSourceChunk({
+        source,
+        after: '2026-08-05',
+        startPage,
+        lastPage: params.lastPage || 1,
+        maxPages: 80,
+        chunkPages: 20,
+        previousFingerprint: params.lastFingerprint || null,
+      }),
+    );
+    const sourceSummary = {
+      id,
+      pages: chunk.pages,
+      rows: chunk.items.length,
+      undated: chunk.undated,
+      complete: chunk.complete,
+      error: chunk.error || (chunk.undated ? 'SOURCE_DATE_MISSING' : null),
+    };
     const summary = await step.do(
-      'sync-crawled-school-announcements',
+      `sync-${id}-pages-${startPage}-${Math.max(startPage, chunk.nextPage - 1)}`,
       {
         retries: { limit: 1, delay: '2 minutes', backoff: 'constant' },
         timeout: '2 minutes',
@@ -96,7 +82,8 @@ export class AnnouncementCrawlerWorkflow extends WorkflowEntrypointBase<Disabled
       async () => {
         const result = await syncCrawledSchoolAnnouncements(
           this.env as unknown as Parameters<typeof syncCrawledSchoolAnnouncements>[0],
-          { items: uniqueItems, sources, complete: sources.every((source) => source.complete && !source.error) },
+          { items: chunk.items, sources: [sourceSummary], complete: sourceSummary.complete && !sourceSummary.error },
+          { allowIncomplete: true },
         );
         return {
           complete: result.complete,
@@ -107,7 +94,22 @@ export class AnnouncementCrawlerWorkflow extends WorkflowEntrypointBase<Disabled
         };
       },
     );
-    console.log('announcement_crawl_complete', summary);
-    return summary;
+    if (sourceSummary.error) throw new Error(`ANNOUNCEMENT_CRAWL_INCOMPLETE:${id}:${sourceSummary.error}`);
+    let continuationId: string | null = null;
+    if (!chunk.complete) {
+      const continuation = await (this.env as unknown as Env).ANNOUNCEMENT_CRAWLER_WORKFLOW.create({
+        params: {
+          sourceId: id,
+          scheduledAt: params.scheduledAt,
+          startPage: chunk.nextPage,
+          lastPage: chunk.lastPage,
+          lastFingerprint: chunk.lastFingerprint,
+        },
+      });
+      continuationId = continuation.id;
+    }
+    const result = { ...summary, sourceId: id, startPage, nextPage: chunk.nextPage, continuationId };
+    console.log('announcement_crawl_chunk_complete', result);
+    return result;
   }
 }

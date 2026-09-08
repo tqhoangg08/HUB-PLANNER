@@ -3,6 +3,7 @@ import test from 'node:test';
 import {readFileSync} from 'node:fs';
 import worker from '../cloudflare/worker/src/index.ts';
 import {runNotificationQueueControl} from '../cloudflare/worker/src/notification-cron.ts';
+import {ANNOUNCEMENT_SOURCES} from '../cloudflare/worker/src/announcement-crawler.ts';
 
 const env = {SUPABASE_URL:'https://fixture.invalid', SUPABASE_SERVICE_ROLE_KEY:'x'.repeat(40), NOTIFICATION_REENABLE_CUTOFF:'2026-08-31T11:23:39Z', NOTIFICATION_JOBS_ENABLED:'true', NOTIFICATION_JOBS_MODE:'enabled'};
 test('Cloudflare scheduled handler owns crawler cadence while Workflow owns long-running execution', () => {
@@ -34,4 +35,16 @@ test('scheduled push dispatches once, disabled gate dispatches nothing (mock tra
   }
   assert.equal(calls,1);
  } finally {globalThis.fetch=original;}
+});
+test('scheduled crawler fans out one bounded Workflow instance per source', async () => {
+ const sourceIds:string[]=[];
+ const pending:Promise<unknown>[]=[];
+ const workflow={create:async ({params}:{params:{sourceId:string}})=>{sourceIds.push(params.sourceId);return {id:`fixture-${params.sourceId}`};}};
+ await worker.scheduled(
+  {cron:'*/15 * * * *',scheduledTime:0} as never,
+  {...env,ANNOUNCEMENT_CRAWLER_WORKFLOW:workflow} as never,
+  {waitUntil:(promise:Promise<unknown>)=>pending.push(promise)} as never,
+ );
+ await Promise.all(pending);
+ assert.deepEqual(sourceIds.sort(),ANNOUNCEMENT_SOURCES.map(([id])=>id).sort());
 });

@@ -148,7 +148,7 @@ import {
 } from './user-submissions.ts';
 import { handleWebErrorTelemetry } from './web-error-telemetry.ts';
 import { runNotificationQueueControl } from './notification-cron.ts';
-import { crawlAnnouncementSources } from './announcement-crawler.ts';
+import { ANNOUNCEMENT_SOURCES, crawlAnnouncementSources } from './announcement-crawler.ts';
 import { handlePdfAi, PdfAiError, pdfAiErrorStatus, type PdfAiEnv } from './pdf-ai.ts';
 import {
   AdminLegacyDataError,
@@ -680,7 +680,11 @@ const insertUpstreamAnnouncements = async (env: WorkerEnv, rows: UpstreamAnnounc
 // always been upstream -> school_announcements source -> D1 -> public UI.
 type AnnouncementCrawlResult = Awaited<ReturnType<typeof crawlAnnouncementSources>>;
 
-export const syncCrawledSchoolAnnouncements = async (env: WorkerEnv, crawl: AnnouncementCrawlResult) => {
+export const syncCrawledSchoolAnnouncements = async (
+  env: WorkerEnv,
+  crawl: AnnouncementCrawlResult,
+  options: { allowIncomplete?: boolean } = {},
+) => {
   const existingMaxDate = await announcementSourceRequest(env, '/rest/v1/school_announcements', new URLSearchParams({
     select: 'date', order: 'date.desc', limit: '1', date: 'not.is.null',
   })).then(async (response) => (await response.json() as Array<{ date: string }>)[0]?.date || '1970-01-01');
@@ -706,7 +710,7 @@ export const syncCrawledSchoolAnnouncements = async (env: WorkerEnv, crawl: Anno
     'school_announcement_crawler', crawl.items.length, newestUpstreamDate, new Date().toISOString(),
     crawl.items.length, JSON.stringify({ complete: crawl.complete, sources: crawl.sources.map(({ id, pages, rows, complete, error }) => ({ id, pages, rows, complete, error })) }),
   ).run();
-  if (!crawl.complete) {
+  if (!crawl.complete && !options.allowIncomplete) {
     // Preserve the safe partial import and telemetry, but surface an explicit
     // operational failure. A single freshly fetched row must never conceal a
     // pagination or parser regression in another authoritative source.
@@ -2415,9 +2419,11 @@ const worker = {
     if ((announcementCron || runAll) && notificationMode === 'enabled' && env.NOTIFICATION_JOBS_ENABLED === 'true') {
       jobs.push({
         failureEvent: 'announcement_crawl_enqueue_failed',
-        promise: env.ANNOUNCEMENT_CRAWLER_WORKFLOW.create({
-          params: { scheduledAt: controller.scheduledTime },
-        }).then((instance) => console.log('announcement_crawl_enqueued', { instanceId: instance.id })),
+        promise: Promise.all(ANNOUNCEMENT_SOURCES.map(([sourceId]) =>
+          env.ANNOUNCEMENT_CRAWLER_WORKFLOW.create({
+            params: { sourceId, scheduledAt: controller.scheduledTime },
+          }).then((instance) => console.log('announcement_crawl_enqueued', { sourceId, instanceId: instance.id }))
+        )),
       });
     }
     if ((pushQueueCron || runAll) && notificationMode === 'enabled' && env.NOTIFICATION_JOBS_ENABLED === 'true') {
