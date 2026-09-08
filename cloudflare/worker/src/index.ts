@@ -508,19 +508,10 @@ const readSupabaseAnnouncements = async (
 
 const writeAnnouncementRows = async (
   env: WorkerEnv,
-  rows: SupabaseAnnouncementRow[],
-  forceMirror = false,
+  rows: SupabaseAnnouncementRow[]
 ) => {
   if (rows.length === 0) return;
 
-  const changeGuard = forceMirror ? '' : `
-    WHERE school_announcements.title IS NOT excluded.title
-       OR school_announcements.title_search IS NOT excluded.title_search
-       OR school_announcements.link IS NOT excluded.link
-       OR school_announcements.date IS NOT excluded.date
-       OR school_announcements.is_new IS NOT excluded.is_new
-       OR school_announcements.created_at IS NOT excluded.created_at
-       OR school_announcements.is_hidden IS NOT excluded.is_hidden`;
   const statement = `
     INSERT INTO school_announcements
       (id, title, title_search, link, date, is_new, created_at, is_hidden)
@@ -533,7 +524,13 @@ const writeAnnouncementRows = async (
       is_new = excluded.is_new,
       created_at = excluded.created_at,
       is_hidden = excluded.is_hidden
-    ${changeGuard}
+    WHERE school_announcements.title IS NOT excluded.title
+       OR school_announcements.title_search IS NOT excluded.title_search
+       OR school_announcements.link IS NOT excluded.link
+       OR school_announcements.date IS NOT excluded.date
+       OR school_announcements.is_new IS NOT excluded.is_new
+       OR school_announcements.created_at IS NOT excluded.created_at
+       OR school_announcements.is_hidden IS NOT excluded.is_hidden
   `;
 
   for (let index = 0; index < rows.length; index += 100) {
@@ -616,6 +613,27 @@ export const syncSchoolAnnouncements = async (env: WorkerEnv) => {
     visibleRowCount: Number(summary?.visible_row_count || 0),
     syncedAt,
   };
+};
+
+const insertMissingAnnouncementRows = async (env: WorkerEnv, rows: SupabaseAnnouncementRow[]) => {
+  if (rows.length === 0) return;
+  const statement = `
+    INSERT OR IGNORE INTO school_announcements
+      (id, title, title_search, link, date, is_new, created_at, is_hidden)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  for (let index = 0; index < rows.length; index += 100) {
+    await env.DB.batch(rows.slice(index, index + 100).map((row) => env.DB.prepare(statement).bind(
+      Number(row.id),
+      String(row.title || ''),
+      String(row.title || '').toLocaleLowerCase('vi-VN'),
+      String(row.link || ''),
+      row.date || null,
+      row.is_new ? 1 : 0,
+      row.created_at || null,
+      row.is_hidden ? 1 : 0,
+    )));
+  }
 };
 
 type UpstreamAnnouncement = { title: string; link: string; date: string; is_new: boolean };
@@ -716,7 +734,10 @@ export const syncCrawledSchoolAnnouncements = async (
   const inserted = await insertUpstreamAnnouncements(env, candidates);
   const synced = options.directMirror
     ? await readSourceAnnouncementsByLinks(env, crawl.items.map((item) => item.link)).then(async (rows) => {
-        await writeAnnouncementRows(env, rows, true);
+        // The crawler only needs to mirror newly discovered immutable source
+        // rows. INSERT OR IGNORE avoids a D1 read/compare scan and preserves
+        // existing rows while the regular sync remains responsible for flags.
+        await insertMissingAnnouncementRows(env, rows);
         return { insertedOrUpdated: rows.length, recentRowsRefreshed: 0 };
       })
     : await syncSchoolAnnouncements(env);
