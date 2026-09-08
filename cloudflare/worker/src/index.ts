@@ -1,5 +1,5 @@
 import { handleCourses, syncCourseSchedules } from './courses.ts';
-export { HK1CourseScraperProbeWorkflow, HK1CourseScraperWorkflow } from './workflow-binding-parity.ts';
+export { AnnouncementCrawlerWorkflow, HK1CourseScraperProbeWorkflow, HK1CourseScraperWorkflow } from './workflow-binding-parity.ts';
 import {
   CourseAuthorityError,
   courseAuthorityErrorStatus,
@@ -2410,14 +2410,10 @@ const worker = {
     }
     if ((announcementCron || runAll) && notificationMode === 'enabled' && env.NOTIFICATION_JOBS_ENABLED === 'true') {
       jobs.push({
-        failureEvent: 'announcement_crawl_failed',
-        promise: crawlAndSyncSchoolAnnouncements(env).then((summary) => console.log('announcement_crawl_complete', {
-          complete: summary.complete,
-          candidates: summary.candidates,
-          inserted: summary.inserted,
-          newestUpstreamDate: summary.newestUpstreamDate,
-          sourceErrors: summary.sources.filter((source) => source.error).map((source) => source.id),
-        })),
+        failureEvent: 'announcement_crawl_enqueue_failed',
+        promise: env.ANNOUNCEMENT_CRAWLER_WORKFLOW.create({
+          params: { scheduledAt: controller.scheduledTime },
+        }).then((instance) => console.log('announcement_crawl_enqueued', { instanceId: instance.id })),
       });
     }
     if ((pushQueueCron || runAll) && notificationMode === 'enabled' && env.NOTIFICATION_JOBS_ENABLED === 'true') {

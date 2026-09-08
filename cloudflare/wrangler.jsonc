@@ -67,6 +67,11 @@
       "name": "hub-planner-hk1-course-scraper-probe",
       "binding": "HK1_SCRAPER_PROBE_WORKFLOW",
       "class_name": "HK1CourseScraperProbeWorkflow"
+    },
+    {
+      "name": "hub-planner-school-announcement-crawler",
+      "binding": "ANNOUNCEMENT_CRAWLER_WORKFLOW",
+      "class_name": "AnnouncementCrawlerWorkflow"
     }
   ],
   "d1_databases": [

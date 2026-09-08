@@ -5,9 +5,10 @@ import worker from '../cloudflare/worker/src/index.ts';
 import {runNotificationQueueControl} from '../cloudflare/worker/src/notification-cron.ts';
 
 const env = {SUPABASE_URL:'https://fixture.invalid', SUPABASE_SERVICE_ROLE_KEY:'x'.repeat(40), NOTIFICATION_REENABLE_CUTOFF:'2026-08-31T11:23:39Z', NOTIFICATION_JOBS_ENABLED:'true', NOTIFICATION_JOBS_MODE:'enabled'};
-test('configured triggers match the five observed production triggers', () => {
+test('Cloudflare scheduled handler owns crawler cadence while Workflow owns long-running execution', () => {
  const config = JSON.parse(readFileSync('cloudflare/wrangler.jsonc','utf8'));
  assert.deepEqual(config.triggers.crons.sort(), ['*/15 * * * *','7-59/15 * * * *','*/10 * * * *','*/5 * * * *','37 19 * * *'].sort());
+ assert.equal(config.workflows.find((workflow: {binding:string}) => workflow.binding === 'ANNOUNCEMENT_CRAWLER_WORKFLOW')?.class_name, 'AnnouncementCrawlerWorkflow');
  for (const key of ['NOTIFICATION_JOBS_MODE','NOTIFICATION_JOBS_ENABLED','NOTIFICATION_REENABLE_CUTOFF']) assert.equal(config.vars[key],env[key]);
 });
 test('queue adapter preserves server-authenticated action and cutoff without recipient overrides', async () => {
