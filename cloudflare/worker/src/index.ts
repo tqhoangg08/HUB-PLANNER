@@ -148,6 +148,7 @@ import {
 } from './user-submissions.ts';
 import { handleWebErrorTelemetry } from './web-error-telemetry.ts';
 import { runNotificationQueueControl } from './notification-cron.ts';
+import { crawlAnnouncementSources } from './announcement-crawler.ts';
 import { handlePdfAi, PdfAiError, pdfAiErrorStatus, type PdfAiEnv } from './pdf-ai.ts';
 import {
   AdminLegacyDataError,
@@ -188,6 +189,7 @@ type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeE
   NOTIFICATION_JOBS_ENABLED?: string;
   NOTIFICATION_JOBS_MODE?: string;
   NOTIFICATION_REENABLE_CUTOFF?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
 };
 
 interface AnnouncementRow {
@@ -611,6 +613,106 @@ export const syncSchoolAnnouncements = async (env: WorkerEnv) => {
     visibleRowCount: Number(summary?.visible_row_count || 0),
     syncedAt,
   };
+};
+
+type UpstreamAnnouncement = { title: string; link: string; date: string; is_new: boolean };
+
+const announcementSourceRequest = async (
+  env: WorkerEnv,
+  pathname: string,
+  search: URLSearchParams,
+  init: RequestInit = {},
+) => {
+  const serviceKey = String(env.SUPABASE_SERVICE_ROLE_KEY || '');
+  if (!env.SUPABASE_URL || serviceKey.length < 32) {
+    throw new Error('Announcement crawler is missing its server-only source binding.');
+  }
+  const url = new URL(pathname, env.SUPABASE_URL);
+  url.search = search.toString();
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      ...(init.headers || {}),
+    },
+  });
+  if (!response.ok) throw new Error(`Announcement source request failed with status ${response.status}.`);
+  return response;
+};
+
+const sourceExistingAnnouncementKeys = async (env: WorkerEnv, items: Array<{ title: string; link: string }>) => {
+  const links = new Set<string>();
+  const titles = new Set<string>();
+  const uniqueLinks = [...new Set(items.map((item) => item.link))];
+  const uniqueTitles = [...new Set(items.map((item) => item.title.trim()))];
+  for (let index = 0; index < uniqueLinks.length; index += 25) {
+    const params = new URLSearchParams({ select: 'link', link: `in.(${uniqueLinks.slice(index, index + 25).map((v) => JSON.stringify(v)).join(',')})` });
+    const rows = await (await announcementSourceRequest(env, '/rest/v1/school_announcements', params)).json() as Array<{ link: string }>;
+    rows.forEach((row) => links.add(String(row.link)));
+  }
+  // Keep title groups deliberately small: Vietnamese titles can exceed proxy URL limits.
+  for (let index = 0; index < uniqueTitles.length; index += 5) {
+    const params = new URLSearchParams({ select: 'title', title: `in.(${uniqueTitles.slice(index, index + 5).map((v) => JSON.stringify(v)).join(',')})` });
+    const rows = await (await announcementSourceRequest(env, '/rest/v1/school_announcements', params)).json() as Array<{ title: string }>;
+    rows.forEach((row) => titles.add(String(row.title).trim().replace(/\s+/g, ' ').toLocaleLowerCase('vi')));
+  }
+  return { links, titles };
+};
+
+const insertUpstreamAnnouncements = async (env: WorkerEnv, rows: UpstreamAnnouncement[]) => {
+  let inserted = 0;
+  // Keep the source write bounded and idempotent. The source table has a
+  // unique link constraint; an overlapping scheduled invocation therefore
+  // cannot manufacture duplicate announcements or duplicate push work.
+  for (let index = 0; index < rows.length; index += 50) {
+    const response = await announcementSourceRequest(env, '/rest/v1/school_announcements', new URLSearchParams({ on_conflict: 'link' }), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Prefer: 'return=representation,resolution=ignore-duplicates' },
+      body: JSON.stringify(rows.slice(index, index + 50).map((row) => ({ ...row, is_hidden: false }))),
+    });
+    inserted += (await response.json() as unknown[]).length;
+  }
+  return inserted;
+};
+
+// This is deliberately separate from D1 mirroring: the original authority has
+// always been upstream -> school_announcements source -> D1 -> public UI.
+export const crawlAndSyncSchoolAnnouncements = async (env: WorkerEnv) => {
+  const existingMaxDate = await announcementSourceRequest(env, '/rest/v1/school_announcements', new URLSearchParams({
+    select: 'date', order: 'date.desc', limit: '1', date: 'not.is.null',
+  })).then(async (response) => (await response.json() as Array<{ date: string }>)[0]?.date || '1970-01-01');
+  const crawl = await crawlAnnouncementSources({ after: '2026-08-05', maxPages: 80 });
+  const existing = await sourceExistingAnnouncementKeys(env, crawl.items);
+  const now = Date.now();
+  const freshCutoff = now - 3 * 24 * 60 * 60 * 1000;
+  const candidates = crawl.items
+    .filter((item) => !existing.links.has(item.link) && !existing.titles.has(item.title.trim().replace(/\s+/g, ' ').toLocaleLowerCase('vi')))
+    .map((item) => ({
+      ...item,
+      is_new: Date.parse(`${item.date}T00:00:00Z`) >= freshCutoff && Date.parse(`${item.date}T00:00:00Z`) <= now + 24 * 60 * 60 * 1000,
+    }));
+  const inserted = await insertUpstreamAnnouncements(env, candidates);
+  const synced = await syncSchoolAnnouncements(env);
+  const newestUpstreamDate = crawl.items.map((item) => item.date).sort().at(-1) || existingMaxDate;
+  await env.DB.prepare(
+    `INSERT INTO sync_metadata (resource, source_row_count, source_max_created_at, synced_at, visible_row_count, source_cursor)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(resource) DO UPDATE SET
+       source_row_count=excluded.source_row_count, source_max_created_at=excluded.source_max_created_at,
+       synced_at=excluded.synced_at, visible_row_count=excluded.visible_row_count, source_cursor=excluded.source_cursor`
+  ).bind(
+    'school_announcement_crawler', crawl.items.length, newestUpstreamDate, new Date().toISOString(),
+    crawl.items.length, JSON.stringify({ complete: crawl.complete, sources: crawl.sources.map(({ id, pages, rows, complete, error }) => ({ id, pages, rows, complete, error })) }),
+  ).run();
+  if (!crawl.complete) {
+    // Preserve the safe partial import and telemetry, but surface an explicit
+    // operational failure. A single freshly fetched row must never conceal a
+    // pagination or parser regression in another authoritative source.
+    const incompleteSources = crawl.sources.filter((source) => !source.complete || source.error).map((source) => source.id);
+    throw new Error(`ANNOUNCEMENT_CRAWL_INCOMPLETE:${incompleteSources.join(',')}`);
+  }
+  return { ...crawl, candidates: candidates.length, inserted, synced, newestUpstreamDate };
 };
 
 const readAllowedOrigins = (env: WorkerEnv) => {
@@ -2308,8 +2410,14 @@ const worker = {
     }
     if ((announcementCron || runAll) && notificationMode === 'enabled' && env.NOTIFICATION_JOBS_ENABLED === 'true') {
       jobs.push({
-        failureEvent: 'announcement_sync_failed',
-        promise: syncSchoolAnnouncements(env).then((summary) => console.log('announcement_sync_complete', summary)),
+        failureEvent: 'announcement_crawl_failed',
+        promise: crawlAndSyncSchoolAnnouncements(env).then((summary) => console.log('announcement_crawl_complete', {
+          complete: summary.complete,
+          candidates: summary.candidates,
+          inserted: summary.inserted,
+          newestUpstreamDate: summary.newestUpstreamDate,
+          sourceErrors: summary.sources.filter((source) => source.error).map((source) => source.id),
+        })),
       });
     }
     if ((pushQueueCron || runAll) && notificationMode === 'enabled' && env.NOTIFICATION_JOBS_ENABLED === 'true') {
