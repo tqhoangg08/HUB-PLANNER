@@ -678,11 +678,12 @@ const insertUpstreamAnnouncements = async (env: WorkerEnv, rows: UpstreamAnnounc
 
 // This is deliberately separate from D1 mirroring: the original authority has
 // always been upstream -> school_announcements source -> D1 -> public UI.
-export const crawlAndSyncSchoolAnnouncements = async (env: WorkerEnv) => {
+type AnnouncementCrawlResult = Awaited<ReturnType<typeof crawlAnnouncementSources>>;
+
+export const syncCrawledSchoolAnnouncements = async (env: WorkerEnv, crawl: AnnouncementCrawlResult) => {
   const existingMaxDate = await announcementSourceRequest(env, '/rest/v1/school_announcements', new URLSearchParams({
     select: 'date', order: 'date.desc', limit: '1', date: 'not.is.null',
   })).then(async (response) => (await response.json() as Array<{ date: string }>)[0]?.date || '1970-01-01');
-  const crawl = await crawlAnnouncementSources({ after: '2026-08-05', maxPages: 80 });
   const existing = await sourceExistingAnnouncementKeys(env, crawl.items);
   const now = Date.now();
   const freshCutoff = now - 3 * 24 * 60 * 60 * 1000;
@@ -714,6 +715,9 @@ export const crawlAndSyncSchoolAnnouncements = async (env: WorkerEnv) => {
   }
   return { ...crawl, candidates: candidates.length, inserted, synced, newestUpstreamDate };
 };
+
+export const crawlAndSyncSchoolAnnouncements = async (env: WorkerEnv) =>
+  syncCrawledSchoolAnnouncements(env, await crawlAnnouncementSources({ after: '2026-08-05', maxPages: 80 }));
 
 const readAllowedOrigins = (env: WorkerEnv) => {
   const configured = String(env.ALLOWED_ORIGINS || '')

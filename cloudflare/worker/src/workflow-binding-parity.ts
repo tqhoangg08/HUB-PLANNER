@@ -1,5 +1,6 @@
 import type { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
-import { crawlAndSyncSchoolAnnouncements } from './index.ts';
+import { ANNOUNCEMENT_SOURCES, announcementTitleKey, crawlAnnouncementSourceChunk, type Announcement } from './announcement-crawler.ts';
+import { syncCrawledSchoolAnnouncements } from './index.ts';
 
 type DisabledWorkflowEnv = Record<string, unknown>;
 type DisabledWorkflowParams = Record<string, unknown>;
@@ -40,14 +41,63 @@ type AnnouncementCrawlerWorkflowParams = { scheduledAt?: number };
  */
 export class AnnouncementCrawlerWorkflow extends WorkflowEntrypointBase<DisabledWorkflowEnv, AnnouncementCrawlerWorkflowParams> {
   async run(_event: Readonly<WorkflowEvent<AnnouncementCrawlerWorkflowParams>>, step: WorkflowStep) {
+    const items: Announcement[] = [];
+    const sources: Array<{ id: string; pages: number; rows: number; undated: number; complete: boolean; error: string | null }> = [];
+    for (const source of ANNOUNCEMENT_SOURCES) {
+      const [id] = source;
+      const sourceSummary = { id, pages: 0, rows: 0, undated: 0, complete: false, error: null as string | null };
+      let startPage = 1;
+      let lastPage = 1;
+      let lastFingerprint: string | null = null;
+      while (startPage <= 80 && !sourceSummary.complete && !sourceSummary.error) {
+        const chunkStart = startPage;
+        const chunk = await step.do(
+          `crawl-${id}-pages-${chunkStart}-${Math.min(80, chunkStart + 19)}`,
+          { retries: { limit: 1, delay: '30 seconds', backoff: 'constant' }, timeout: '2 minutes' },
+          () => crawlAnnouncementSourceChunk({
+            source,
+            after: '2026-08-05',
+            startPage: chunkStart,
+            lastPage,
+            maxPages: 80,
+            chunkPages: 20,
+            previousFingerprint: lastFingerprint,
+          }),
+        );
+        items.push(...chunk.items);
+        sourceSummary.pages += chunk.pages;
+        sourceSummary.rows += chunk.items.length;
+        sourceSummary.undated += chunk.undated;
+        sourceSummary.complete = chunk.complete;
+        sourceSummary.error = chunk.error;
+        startPage = chunk.nextPage;
+        lastPage = chunk.lastPage;
+        lastFingerprint = chunk.lastFingerprint;
+      }
+      if (!sourceSummary.complete && !sourceSummary.error) sourceSummary.error = 'PAGINATION_LIMIT_REACHED';
+      if (sourceSummary.undated) { sourceSummary.complete = false; sourceSummary.error = 'SOURCE_DATE_MISSING'; }
+      sources.push(sourceSummary);
+    }
+    const links = new Set<string>();
+    const titles = new Set<string>();
+    const uniqueItems = items.filter((item) => {
+      const title = announcementTitleKey(item.title);
+      if (links.has(item.link) || titles.has(title)) return false;
+      links.add(item.link);
+      titles.add(title);
+      return true;
+    });
     const summary = await step.do(
-      'crawl-and-sync-school-announcements',
+      'sync-crawled-school-announcements',
       {
         retries: { limit: 1, delay: '2 minutes', backoff: 'constant' },
-        timeout: '10 minutes',
+        timeout: '2 minutes',
       },
       async () => {
-        const result = await crawlAndSyncSchoolAnnouncements(this.env as unknown as Parameters<typeof crawlAndSyncSchoolAnnouncements>[0]);
+        const result = await syncCrawledSchoolAnnouncements(
+          this.env as unknown as Parameters<typeof syncCrawledSchoolAnnouncements>[0],
+          { items: uniqueItems, sources, complete: sources.every((source) => source.complete && !source.error) },
+        );
         return {
           complete: result.complete,
           candidates: result.candidates,

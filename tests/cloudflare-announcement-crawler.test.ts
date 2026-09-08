@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { crawlAnnouncementSources, parseAnnouncementPage } from '../cloudflare/worker/src/announcement-crawler.ts';
+import { crawlAnnouncementSourceChunk, crawlAnnouncementSources, parseAnnouncementPage } from '../cloudflare/worker/src/announcement-crawler.ts';
 
 const source = 'https://phongdaotao.hub.edu.vn/thong-bao';
 
@@ -51,4 +51,19 @@ test('announcement crawler accepts an advertised empty terminal page without mas
   } finally {
     globalThis.fetch = original;
   }
+});
+
+test('announcement crawler paginates in resumable chunks below the Workflow subrequest ceiling', async () => {
+  const fetched: number[] = [];
+  const fetcher = (async (url: URL | RequestInfo) => {
+    const page = Number(new URL(String(url)).searchParams.get('trang') || '1');
+    fetched.push(page);
+    return new Response(`<article class="notification-item"><div class="date"><span class="day">08</span><span class="month-year">09.2026</span></div><h3 class="news-title"><a href="/thong-bao/${page}.html">Thông báo phân trang số ${page} đủ dài</a></h3></article><a href="/thong-bao?trang=45">45</a>`);
+  }) as typeof fetch;
+  const first = await crawlAnnouncementSourceChunk({ source: ['dbcl', source], after: '2026-08-05', startPage: 1, maxPages: 80, chunkPages: 20, fetcher, delayMs: 0 });
+  const second = await crawlAnnouncementSourceChunk({ source: ['dbcl', source], after: '2026-08-05', startPage: first.nextPage, lastPage: first.lastPage, maxPages: 80, chunkPages: 20, previousFingerprint: first.lastFingerprint, fetcher, delayMs: 0 });
+  const third = await crawlAnnouncementSourceChunk({ source: ['dbcl', source], after: '2026-08-05', startPage: second.nextPage, lastPage: second.lastPage, maxPages: 80, chunkPages: 20, previousFingerprint: second.lastFingerprint, fetcher, delayMs: 0 });
+  assert.deepEqual([first.pages, second.pages, third.pages], [20, 20, 5]);
+  assert.equal(third.complete, true);
+  assert.equal(fetched.length, 45);
 });
