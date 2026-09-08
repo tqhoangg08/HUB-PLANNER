@@ -83,7 +83,7 @@ export class AnnouncementCrawlerWorkflow extends WorkflowEntrypointBase<Disabled
         const result = await syncCrawledSchoolAnnouncements(
           this.env as unknown as Parameters<typeof syncCrawledSchoolAnnouncements>[0],
           { items: chunk.items, sources: [sourceSummary], complete: sourceSummary.complete && !sourceSummary.error },
-          { allowIncomplete: true },
+          { allowIncomplete: true, directMirror: true },
         );
         return {
           complete: result.complete,

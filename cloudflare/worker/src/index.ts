@@ -508,10 +508,19 @@ const readSupabaseAnnouncements = async (
 
 const writeAnnouncementRows = async (
   env: WorkerEnv,
-  rows: SupabaseAnnouncementRow[]
+  rows: SupabaseAnnouncementRow[],
+  forceMirror = false,
 ) => {
   if (rows.length === 0) return;
 
+  const changeGuard = forceMirror ? '' : `
+    WHERE school_announcements.title IS NOT excluded.title
+       OR school_announcements.title_search IS NOT excluded.title_search
+       OR school_announcements.link IS NOT excluded.link
+       OR school_announcements.date IS NOT excluded.date
+       OR school_announcements.is_new IS NOT excluded.is_new
+       OR school_announcements.created_at IS NOT excluded.created_at
+       OR school_announcements.is_hidden IS NOT excluded.is_hidden`;
   const statement = `
     INSERT INTO school_announcements
       (id, title, title_search, link, date, is_new, created_at, is_hidden)
@@ -524,13 +533,7 @@ const writeAnnouncementRows = async (
       is_new = excluded.is_new,
       created_at = excluded.created_at,
       is_hidden = excluded.is_hidden
-    WHERE school_announcements.title IS NOT excluded.title
-       OR school_announcements.title_search IS NOT excluded.title_search
-       OR school_announcements.link IS NOT excluded.link
-       OR school_announcements.date IS NOT excluded.date
-       OR school_announcements.is_new IS NOT excluded.is_new
-       OR school_announcements.created_at IS NOT excluded.created_at
-       OR school_announcements.is_hidden IS NOT excluded.is_hidden
+    ${changeGuard}
   `;
 
   for (let index = 0; index < rows.length; index += 100) {
@@ -676,6 +679,19 @@ const insertUpstreamAnnouncements = async (env: WorkerEnv, rows: UpstreamAnnounc
   return inserted;
 };
 
+const readSourceAnnouncementsByLinks = async (env: WorkerEnv, links: string[]) => {
+  const rows: SupabaseAnnouncementRow[] = [];
+  const uniqueLinks = [...new Set(links)];
+  for (let index = 0; index < uniqueLinks.length; index += 25) {
+    const params = new URLSearchParams({
+      select: 'id,title,link,date,is_new,created_at,is_hidden',
+      link: `in.(${uniqueLinks.slice(index, index + 25).map((value) => JSON.stringify(value)).join(',')})`,
+    });
+    rows.push(...await (await announcementSourceRequest(env, '/rest/v1/school_announcements', params)).json() as SupabaseAnnouncementRow[]);
+  }
+  return rows;
+};
+
 // This is deliberately separate from D1 mirroring: the original authority has
 // always been upstream -> school_announcements source -> D1 -> public UI.
 type AnnouncementCrawlResult = Awaited<ReturnType<typeof crawlAnnouncementSources>>;
@@ -683,7 +699,7 @@ type AnnouncementCrawlResult = Awaited<ReturnType<typeof crawlAnnouncementSource
 export const syncCrawledSchoolAnnouncements = async (
   env: WorkerEnv,
   crawl: AnnouncementCrawlResult,
-  options: { allowIncomplete?: boolean } = {},
+  options: { allowIncomplete?: boolean; directMirror?: boolean } = {},
 ) => {
   const existingMaxDate = await announcementSourceRequest(env, '/rest/v1/school_announcements', new URLSearchParams({
     select: 'date', order: 'date.desc', limit: '1', date: 'not.is.null',
@@ -698,7 +714,12 @@ export const syncCrawledSchoolAnnouncements = async (
       is_new: Date.parse(`${item.date}T00:00:00Z`) >= freshCutoff && Date.parse(`${item.date}T00:00:00Z`) <= now + 24 * 60 * 60 * 1000,
     }));
   const inserted = await insertUpstreamAnnouncements(env, candidates);
-  const synced = await syncSchoolAnnouncements(env);
+  const synced = options.directMirror
+    ? await readSourceAnnouncementsByLinks(env, crawl.items.map((item) => item.link)).then(async (rows) => {
+        await writeAnnouncementRows(env, rows, true);
+        return { insertedOrUpdated: rows.length, recentRowsRefreshed: 0 };
+      })
+    : await syncSchoolAnnouncements(env);
   const newestUpstreamDate = crawl.items.map((item) => item.date).sort().at(-1) || existingMaxDate;
   await env.DB.prepare(
     `INSERT INTO sync_metadata (resource, source_row_count, source_max_created_at, synced_at, visible_row_count, source_cursor)
