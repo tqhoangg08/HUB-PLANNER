@@ -25,6 +25,7 @@ const getSubscriptionBindingStartedAt = (subscription: any) => {
 const isAuthorized = (req: Request, params: URLSearchParams, body: any) => {
   const token = params.get('secret') || body.secret || req.headers.get('x-secret-key')
   const bearer = req.headers.get('authorization')
+  if (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') && bearer === `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`) return true
   if (Deno.env.get('CRON_SECRET') && bearer === `Bearer ${Deno.env.get('CRON_SECRET')}`) return true
   if (Deno.env.get('CRON_SECRET') && token === Deno.env.get('CRON_SECRET')) return true
   return Boolean(Deno.env.get('MY_SECRET_SCRAPER_KEY') && token === Deno.env.get('MY_SECRET_SCRAPER_KEY'))

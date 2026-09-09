@@ -154,6 +154,7 @@ import {
 } from './user-submissions.ts';
 import { handleWebErrorTelemetry } from './web-error-telemetry.ts';
 import { runNotificationQueueControl } from './notification-cron.ts';
+import { runEventPush, type EventPushEnv } from './event-push.ts';
 import { ANNOUNCEMENT_SOURCES, crawlAnnouncementSources } from './announcement-crawler.ts';
 import { handlePdfAi, PdfAiError, pdfAiErrorStatus, type PdfAiEnv } from './pdf-ai.ts';
 import {
@@ -187,7 +188,7 @@ import {
   type PublicDirectoryEnv,
 } from './public-directory.ts';
 
-type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv &
+type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv & EventPushEnv &
   ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & PushTestEnv & AiAdvisorEnv & AiDocumentsEnv & PublicDirectoryEnv & {
   AUTH_SERVICE_PROXY_ENABLED?: string;
   AUTH_INGRESS_IP_RATE_LIMIT?: RateLimit;
@@ -195,6 +196,7 @@ type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeE
   NOTIFICATION_JOBS_ENABLED?: string;
   NOTIFICATION_JOBS_MODE?: string;
   NOTIFICATION_REENABLE_CUTOFF?: string;
+  EVENT_PUSH_CUTOFF?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
 };
 
@@ -2509,9 +2511,19 @@ const worker = {
     if (eventCron || runAll) {
       jobs.push({
         failureEvent: 'event_sync_failed',
-        promise: syncPublicEvents(env).then((summary) =>
-          console.log('event_sync_complete', summary)
-        ),
+        promise: syncPublicEvents(env).then(async (summary) => {
+          console.log('event_sync_complete', summary);
+          if (notificationMode !== 'enabled' || env.NOTIFICATION_JOBS_ENABLED !== 'true') {
+            return { event: summary, push: { state: 'disabled' } };
+          }
+          const push = await runEventPush(env);
+          console.log('event_push_complete', {
+            state: push.state,
+            queued: push.queued,
+            sent: push.sent,
+          });
+          return { event: summary, push };
+        }),
       });
     }
 
