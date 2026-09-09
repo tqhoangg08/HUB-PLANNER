@@ -7,6 +7,7 @@ import {
   getCurrentPushSubscription,
   isPushNotificationSyncAvailable,
   isPushSupported,
+  pushRegistrationErrorMessage,
   requiresIosHomeScreenInstallForPush,
   subscribeToDeviceNotifications,
 } from '../utils/pushNotifications';
@@ -172,7 +173,12 @@ const NotificationBell = ({ currentUserId }) => {
     }
 
     const subscription = await getCurrentPushSubscription().catch(() => null);
-    setIsPushEnabled(Notification.permission === 'granted' && Boolean(subscription));
+    if (Notification.permission !== 'granted' || !subscription || !currentUserId) {
+      setIsPushEnabled(false);
+      return;
+    }
+    const registration = await subscribeToDeviceNotifications(currentUserId).catch(() => null);
+    setIsPushEnabled(registration?.currentDeviceMatched === true);
   };
 
   useEffect(() => {
@@ -324,11 +330,11 @@ const NotificationBell = ({ currentUserId }) => {
         return;
       }
 
-      await subscribeToDeviceNotifications(currentUserId);
+      const registration = await subscribeToDeviceNotifications(currentUserId);
+      if (!registration.currentDeviceMatched) throw new Error('device_mismatch');
       setIsPushEnabled(true);
     } catch (error) {
-      console.error('Push notification toggle failed:', error);
-      alert('Co loi xay ra, vui long thu lai sau.');
+      alert(pushRegistrationErrorMessage(error));
     } finally {
       setIsLoadingPush(false);
     }
@@ -355,15 +361,24 @@ const NotificationBell = ({ currentUserId }) => {
       }
 
       await navigator.serviceWorker.ready;
-      let subscription = await getCurrentPushSubscription();
-      if (!subscription) subscription = await subscribeToDeviceNotifications(currentUserId);
-      else await subscribeToDeviceNotifications(currentUserId);
-      if (!subscription) throw new Error('missing_subscription');
+      let registration = await subscribeToDeviceNotifications(currentUserId);
+      if (!registration.currentDeviceMatched) throw new Error('device_mismatch');
 
-      const response = await privateApiRequest('/api/private/v1/push/test', {
-        method: 'POST',
-        body: '{}',
+      const sendTest = () => privateApiRequest('/api/private/v1/push/test', {
+        method: 'POST', body: '{}',
       });
+      let response;
+      try {
+        response = await sendTest();
+      } catch (error) {
+        // A provider 404 means the locally retained endpoint was cleaned up as
+        // stale. Rebind only this device once, then retry the user-scoped test.
+        if (!(error instanceof PrivateApiError) || error.status !== 404) throw error;
+        setTestPushStatus('Subscription đã hết hạn, đang đăng ký lại thiết bị hiện tại...');
+        registration = await subscribeToDeviceNotifications(currentUserId, { forceRebind: true });
+        if (!registration.currentDeviceMatched) throw new Error('device_mismatch');
+        response = await sendTest();
+      }
       const result = await response.json();
       const sent = Number(result?.sent || 0);
       setIsPushEnabled(true);
@@ -378,7 +393,7 @@ const NotificationBell = ({ currentUserId }) => {
       } else if (error instanceof Error && error.name === 'AbortError') {
         setTestPushStatus('Kết nối đăng ký thiết bị quá lâu. Vui lòng kiểm tra mạng rồi thử lại.');
       } else {
-        setTestPushStatus('Chưa đăng ký được thiết bị hiện tại. Hãy bật lại thông báo rồi thử lại.');
+        setTestPushStatus(pushRegistrationErrorMessage(error));
       }
     } finally {
       setIsSendingTestPush(false);

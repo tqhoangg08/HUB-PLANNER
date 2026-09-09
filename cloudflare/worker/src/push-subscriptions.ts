@@ -105,14 +105,20 @@ export const resolveLegacyPushOwner = async (
     : null;
 };
 
-const findStoredSubscription = async (env: PushSubscriptionEnv, endpoint: string) => {
+const findStoredSubscription = async (env: PushSubscriptionEnv, endpoint: string, owner?: string) => {
+  const ownerFilter = owner ? `&user_id=eq.${encodeURIComponent(owner)}` : '';
   const response = await source(
     env,
-    `/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}&select=id&limit=1`,
+    `/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}${ownerFilter}&select=id&limit=1`,
   );
   const rows = await response.json() as StoredSubscription[];
   const id = typeof rows?.[0]?.id === 'string' ? rows[0].id : '';
   return id;
+};
+
+const endpointFingerprint = async (endpoint: string) => {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(endpoint));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 };
 
 const persistSubscription = async (
@@ -195,7 +201,13 @@ export const handlePushSubscription = async (request: Request, env: PushSubscrip
     : new Date().toISOString();
   const stored = { ...(subscription as Record<string, unknown>), __hubBindingStartedAt: startedAt };
   await persistSubscription(env, resolvedOwner, endpoint, stored);
-  return { success: true };
+  const verifiedId = await findStoredSubscription(env, endpoint, resolvedOwner);
+  if (!verifiedId) throw new PushSubscriptionError(502, 'Máy chủ chưa xác nhận đăng ký thiết bị hiện tại.');
+  return {
+    success: true,
+    currentDeviceMatched: true,
+    fingerprint: await endpointFingerprint(endpoint),
+  };
 };
 
 export const pushSubscriptionErrorStatus = (error: unknown) =>

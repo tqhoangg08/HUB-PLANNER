@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { handlePushTest, PushTestError } from '../cloudflare/worker/src/push-test.ts';
+import {
+  completeCurrentDevicePushRegistration,
+  PushRegistrationError,
+} from '../utils/pushRegistrationFlow.ts';
 
 const read = (path: string) => readFileSync(path, 'utf8');
 
@@ -33,6 +37,7 @@ test('mobile permission UX requires a gesture and explains the iOS Home Screen r
   const mobileEvents = read('components/MobileEvents.tsx');
   assert.match(prompt, /onClick=\{handleAllow\}/);
   assert.match(prompt, /Notification\.requestPermission\(\)/);
+  assert.match(prompt, /registration\?\.currentDeviceMatched/);
   assert.match(prompt, /requiresIosHomeScreenInstallForPush/);
   assert.match(prompt, /Thêm vào Màn hình chính/);
   assert.match(nudge, /requiresIosHomeScreenInstallForPush/);
@@ -48,8 +53,9 @@ test('device subscription is Better Auth-owned, resilient to server cleanup, and
   assert.match(client, /pushManager\.getSubscription\(\)/);
   assert.match(client, /pushManager\.subscribe\(/);
   assert.match(client, /applicationServerKey/);
-  assert.match(client, /privateApiRequest\('\/api\/private\/v1\/push-subscription'\)/);
-  assert.match(client, /await existingSubscription\.unsubscribe\(\)/);
+  assert.match(client, /privateApiRequest\('\/api\/private\/v1\/push-subscription'/);
+  assert.match(client, /forceRebind/);
+  assert.match(client, /currentDeviceMatched/);
   assert.doesNotMatch(client, /hasRecentPushSync|PUSH_SYNC_CACHE/);
   assert.match(bridge, /requireBetterAuthSession\(request, env\)/);
   assert.doesNotMatch(bridge, /on_conflict=endpoint/);
@@ -149,7 +155,79 @@ test('test push UI checks mobile prerequisites and never sends automatically', (
   assert.match(bell, /Phiên đăng nhập đã hết hạn/);
   assert.match(bell, /Thiết bị này chưa được đăng ký nhận thông báo/);
   assert.match(bell, /Máy chủ chưa gửi được thông báo thử/);
+  assert.match(bell, /forceRebind:\s*true/);
+  assert.match(bell, /registration\?\.currentDeviceMatched === true/);
   assert.doesNotMatch(bell, /useEffect\([^]*handleTestPush\(/);
+  const testHandler = bell.slice(bell.indexOf('const handleTestPush'), bell.indexOf('const handleRead'));
+  assert.ok(
+    testHandler.indexOf('subscribeToDeviceNotifications(currentUserId)') < testHandler.indexOf("privateApiRequest('/api/private/v1/push/test'"),
+    'test push must be sent only after current-device registration',
+  );
+  assert.match(testHandler, /forceRebind:\s*true/);
+});
+
+const fakeSubscription = (name: string, unsubscribe = async () => true) => ({
+  endpoint: `https://push.example.invalid/${name}`,
+  toJSON: () => ({ endpoint: `https://push.example.invalid/${name}` }),
+  unsubscribe,
+});
+
+test('permission granted with no local subscription subscribes, persists and confirms the current device', async () => {
+  const created = fakeSubscription('created');
+  let subscribeCalls = 0;
+  let persistedEndpoint = '';
+  const result = await completeCurrentDevicePushRegistration({
+    existingSubscription: null,
+    forceRebind: false,
+    createSubscription: async () => { subscribeCalls += 1; return created; },
+    persistSubscription: async (subscription) => {
+      persistedEndpoint = subscription.endpoint;
+      return { currentDeviceMatched: true, fingerprint: 'server-fingerprint' };
+    },
+  });
+  assert.equal(subscribeCalls, 1);
+  assert.equal(persistedEndpoint, created.endpoint);
+  assert.equal(result.currentDeviceMatched, true);
+  assert.equal(result.created, true);
+});
+
+test('a stale local subscription is unsubscribed and rebound exactly once', async () => {
+  let unsubscribeCalls = 0;
+  let subscribeCalls = 0;
+  const stale = fakeSubscription('stale', async () => { unsubscribeCalls += 1; return true; });
+  const fresh = fakeSubscription('fresh');
+  const result = await completeCurrentDevicePushRegistration({
+    existingSubscription: stale,
+    forceRebind: true,
+    createSubscription: async () => { subscribeCalls += 1; return fresh; },
+    persistSubscription: async () => ({ currentDeviceMatched: true, fingerprint: 'fresh-fingerprint' }),
+  });
+  assert.equal(unsubscribeCalls, 1);
+  assert.equal(subscribeCalls, 1);
+  assert.equal(result.subscription.endpoint, fresh.endpoint);
+  assert.equal(result.rebound, true);
+});
+
+test('persistence failure and current-device mismatch never produce an enabled registration', async () => {
+  const subscription = fakeSubscription('device');
+  await assert.rejects(
+    completeCurrentDevicePushRegistration({
+      existingSubscription: subscription,
+      forceRebind: false,
+      createSubscription: async () => subscription,
+      persistSubscription: async () => { throw new Error('opaque storage failure'); },
+    }),
+    (error: unknown) => error instanceof PushRegistrationError && error.code === 'persist_failed',
+  );
+  await assert.rejects(
+    completeCurrentDevicePushRegistration({
+      existingSubscription: subscription,
+      forceRebind: false,
+      createSubscription: async () => subscription,
+      persistSubscription: async () => ({ currentDeviceMatched: false, fingerprint: 'different-device' }),
+    }),
+    (error: unknown) => error instanceof PushRegistrationError && error.code === 'device_mismatch',
+  );
 });
 
 test('subscription persistence updates an existing endpoint without partial-index upsert', async () => {
@@ -169,7 +247,7 @@ test('subscription persistence updates an existing endpoint without partial-inde
 
   try {
     const { handlePushSubscription } = await import('../cloudflare/worker/src/push-subscriptions.ts');
-    await handlePushSubscription(new Request('https://example.test/api/private/v1/push-subscription', {
+    const result = await handlePushSubscription(new Request('https://example.test/api/private/v1/push-subscription', {
       method: 'POST',
       headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -182,6 +260,9 @@ test('subscription persistence updates an existing endpoint without partial-inde
     });
     assert.equal(calls.some(call => call.method === 'PATCH'), true);
     assert.equal(calls.some(call => call.url.includes('on_conflict=endpoint')), false);
+    assert.equal(result.currentDeviceMatched, true);
+    assert.match(result.fingerprint, /^[a-f0-9]{64}$/);
+    assert.doesNotMatch(JSON.stringify(result), /push\.example\.invalid|p256dh|auth/);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -192,15 +273,19 @@ test('subscription owner bridge uses an exact legacy profile and never accepts a
   const betterAuthId = '11111111-1111-4111-8111-111111111111';
   const legacyId = '22222222-2222-4222-8222-222222222222';
   let storedOwner = '';
+  let stored = false;
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes('/rest/v1/profiles?id=eq.')) return Response.json([]);
     if (url.includes('/rest/v1/profiles?email=eq.')) {
       return Response.json([{ id: legacyId, email: 'member@example.invalid', student_code: null }]);
     }
-    if (url.includes('/rest/v1/push_subscriptions?endpoint=eq.')) return Response.json([]);
+    if (url.includes('/rest/v1/push_subscriptions?endpoint=eq.')) {
+      return Response.json(stored ? [{ id: '33333333-3333-4333-8333-333333333333' }] : []);
+    }
     if (url.endsWith('/rest/v1/push_subscriptions')) {
       storedOwner = String((JSON.parse(String(init?.body)) as { user_id?: unknown }).user_id || '');
+      stored = true;
       return new Response(null, { status: 201 });
     }
     return Response.json([]);

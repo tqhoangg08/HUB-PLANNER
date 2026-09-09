@@ -1,10 +1,29 @@
 import { urlBase64ToUint8Array } from './pushHelper';
 import { privateApiRequest } from './privateApi';
+import {
+  completeCurrentDevicePushRegistration,
+  PushRegistrationError,
+} from './pushRegistrationFlow';
+
+export { completeCurrentDevicePushRegistration, PushRegistrationError } from './pushRegistrationFlow';
 
 const ROOT_SCOPE = '/';
 const SERVICE_WORKER_TIMEOUT_MS = 8000;
 const PUSH_SUBSCRIBE_TIMEOUT_MS = 12000;
 const API_SYNC_TIMEOUT_MS = 12000;
+
+export const pushRegistrationErrorMessage = (error: unknown) => {
+  if (!(error instanceof PushRegistrationError)) {
+    return 'Chưa đăng ký được thiết bị. Vui lòng kiểm tra kết nối rồi thử lại.';
+  }
+  if (error.code === 'permission_denied') return 'Thông báo đang bị chặn trong cài đặt trình duyệt hoặc hệ điều hành.';
+  if (error.code === 'service_worker_unavailable') return 'Service worker chưa sẵn sàng. Hãy tải lại ứng dụng rồi thử lại.';
+  if (error.code === 'push_manager_unsupported') return 'Trình duyệt này không hỗ trợ đăng ký Web Push.';
+  if (error.code === 'vapid_invalid') return 'Cấu hình thông báo của ứng dụng chưa hợp lệ.';
+  if (error.code === 'subscribe_failed') return 'Trình duyệt chưa tạo được đăng ký cho thiết bị hiện tại.';
+  if (error.code === 'persist_failed') return 'Thiết bị đã đăng ký cục bộ nhưng chưa lưu được lên máy chủ.';
+  return 'Máy chủ chưa xác nhận đúng thiết bị hiện tại.';
+};
 
 let activePushUserId: string | null | undefined;
 let activeSyncController: AbortController | null = null;
@@ -76,7 +95,9 @@ const waitForActiveRegistration = async (registration: ServiceWorkerRegistration
   if (registration.active) return registration;
 
   const worker = registration.installing || registration.waiting;
-  if (!worker) return registration;
+  if (!worker) {
+    throw new PushRegistrationError('service_worker_unavailable', 'Service worker chưa sẵn sàng.');
+  }
 
   await withTimeout(new Promise<void>((resolve) => {
     worker.addEventListener('statechange', () => {
@@ -89,7 +110,7 @@ const waitForActiveRegistration = async (registration: ServiceWorkerRegistration
 
 export const getPushRegistration = async () => {
   if (!isPushNotificationSyncAvailable()) {
-    throw new Error('Trình duyệt không hỗ trợ push notification.');
+    throw new PushRegistrationError('push_manager_unsupported', 'Trình duyệt không hỗ trợ push notification.');
   }
 
   const scope = new URL(ROOT_SCOPE, window.location.origin).href;
@@ -97,26 +118,42 @@ export const getPushRegistration = async () => {
   const existing = registrations.find((registration) => registration.scope === scope);
 
   if (existing) {
-    existing.update().catch(() => undefined);
-    return waitForActiveRegistration(existing);
+    await existing.update().catch(() => undefined);
+    const active = await waitForActiveRegistration(existing);
+    if (!active.active) throw new PushRegistrationError('service_worker_unavailable', 'Service worker chưa sẵn sàng.');
+    if (!active.pushManager) throw new PushRegistrationError('push_manager_unsupported', 'PushManager không khả dụng.');
+    return active;
   }
 
   try {
-    return waitForActiveRegistration(
+    const registered = await waitForActiveRegistration(
       await withTimeout(
         navigator.serviceWorker.register('/sw.js', { scope: ROOT_SCOPE }),
         SERVICE_WORKER_TIMEOUT_MS,
         'Không đăng ký được service worker.'
       )
     );
+    const ready = await withTimeout(
+      navigator.serviceWorker.ready,
+      SERVICE_WORKER_TIMEOUT_MS,
+      'Service worker chưa sẵn sàng.',
+    );
+    if (ready.scope !== scope || !ready.active) {
+      throw new PushRegistrationError('service_worker_unavailable', 'Service worker không hoạt động đúng scope.');
+    }
+    return registered.active ? registered : ready;
   } catch {
-    return waitForActiveRegistration(
+    const fallback = await waitForActiveRegistration(
       await withTimeout(
         navigator.serviceWorker.register('/hub-sw.js', { scope: ROOT_SCOPE }),
         SERVICE_WORKER_TIMEOUT_MS,
         'Không đăng ký được service worker thông báo.'
       )
     );
+    if (!fallback.active || !fallback.pushManager) {
+      throw new PushRegistrationError('service_worker_unavailable', 'Service worker thông báo chưa sẵn sàng.');
+    }
+    return fallback;
   }
 };
 
@@ -127,60 +164,67 @@ export const getCurrentPushSubscription = async () => {
   return registration.pushManager.getSubscription();
 };
 
-export const subscribeToDeviceNotifications = async (userId: string | null) => {
+export type CurrentDeviceRegistration = {
+  subscription: PushSubscription;
+  currentDeviceMatched: true;
+  created: boolean;
+  rebound: boolean;
+  fingerprint: string;
+};
+
+const validateApplicationServerKey = (publicKey: string) => {
+  let applicationServerKey: Uint8Array;
+  try {
+    applicationServerKey = urlBase64ToUint8Array(publicKey);
+  } catch {
+    throw new PushRegistrationError('vapid_invalid', 'VAPID public key không hợp lệ.');
+  }
+  if (applicationServerKey.byteLength !== 65 || applicationServerKey[0] !== 4) {
+    throw new PushRegistrationError('vapid_invalid', 'VAPID public key không hợp lệ.');
+  }
+  return applicationServerKey;
+};
+
+export const subscribeToDeviceNotifications = async (
+  userId: string | null,
+  options: { forceRebind?: boolean } = {},
+): Promise<CurrentDeviceRegistration> => {
   const bindingStartedAt = new Date().toISOString();
 
   if (!isPushSupported()) {
-    throw new Error('Trình duyệt không hỗ trợ thông báo đẩy.');
+    throw new PushRegistrationError('push_manager_unsupported', 'Trình duyệt không hỗ trợ thông báo đẩy.');
+  }
+  if (Notification.permission !== 'granted') {
+    throw new PushRegistrationError('permission_denied', 'Quyền thông báo chưa được cấp.');
   }
 
   const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
   if (!publicKey) {
-    throw new Error('Thiếu VITE_VAPID_PUBLIC_KEY.');
+    throw new PushRegistrationError('vapid_invalid', 'Thiếu VITE_VAPID_PUBLIC_KEY.');
   }
+  const applicationServerKey = validateApplicationServerKey(publicKey);
 
   const registration = await getPushRegistration();
   if (userId) assertActivePushUser(userId);
 
-  let existingSubscription = await registration.pushManager.getSubscription();
-
-  // The push service can expire an endpoint and the server removes it after a
-  // 404/410 while a browser briefly retains the old local subscription. Check
-  // the Better Auth-owned server record before reusing it so the next user
-  // gesture can create a fresh endpoint instead of resurrecting a dead one.
-  if (existingSubscription && userId) {
-    try {
-      const response = await privateApiRequest('/api/private/v1/push-subscription');
-      const payload = await response.json().catch(() => null) as { data?: Array<{ endpoint?: string }> } | null;
-      const persisted = payload?.data?.some(row => row.endpoint === existingSubscription?.endpoint) === true;
-      if (!persisted) {
-        await existingSubscription.unsubscribe();
-        existingSubscription = null;
-      }
-    } catch {
-      // A transient status read must not discard a valid browser subscription.
-    }
-  }
-
-  const subscription = existingSubscription || await withTimeout(
-    registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
-    }),
-    PUSH_SUBSCRIBE_TIMEOUT_MS,
-    'Trình duyệt đăng ký push quá lâu.'
-  );
-
   const resolvedUserId = userId;
   assertActivePushUser(resolvedUserId);
 
-  if (resolvedUserId) {
-    activeSyncController?.abort();
-    const controller = new AbortController();
-    activeSyncController = controller;
-    const timeoutId = window.setTimeout(() => controller.abort(), API_SYNC_TIMEOUT_MS);
-
-    await privateApiRequest('/api/private/v1/push-subscription', {
+  const result = await completeCurrentDevicePushRegistration({
+    existingSubscription: await registration.pushManager.getSubscription(),
+    forceRebind: options.forceRebind === true,
+    createSubscription: () => withTimeout(
+      registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey }),
+      PUSH_SUBSCRIBE_TIMEOUT_MS,
+      'Trình duyệt đăng ký push quá lâu.',
+    ),
+    persistSubscription: async (subscription) => {
+      assertActivePushUser(resolvedUserId);
+      activeSyncController?.abort();
+      const controller = new AbortController();
+      activeSyncController = controller;
+      const timeoutId = window.setTimeout(() => controller.abort(), API_SYNC_TIMEOUT_MS);
+      const response = await privateApiRequest('/api/private/v1/push-subscription', {
         method: 'POST',
         body: JSON.stringify({ subscription: subscription.toJSON(), bindingStartedAt }),
         signal: controller.signal,
@@ -188,10 +232,18 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
         window.clearTimeout(timeoutId);
         if (activeSyncController === controller) activeSyncController = null;
       });
+      const payload = await response.json().catch(() => null) as {
+        currentDeviceMatched?: unknown;
+        fingerprint?: unknown;
+      } | null;
+      return {
+        currentDeviceMatched: payload?.currentDeviceMatched === true,
+        fingerprint: typeof payload?.fingerprint === 'string' ? payload.fingerprint : '',
+      };
+    },
+  });
 
-  }
-
-  return subscription;
+  return { ...result, subscription: result.subscription as PushSubscription } as CurrentDeviceRegistration;
 };
 
 export const unsubscribeFromDeviceNotifications = async (userId: string | null) => {

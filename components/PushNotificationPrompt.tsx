@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { BellRing, X, AlertTriangle } from 'lucide-react';
 import {
+  getCurrentPushSubscription,
   isPushNotificationSyncAvailable,
+  pushRegistrationErrorMessage,
   requiresIosHomeScreenInstallForPush,
   subscribeToDeviceNotifications,
 } from '../utils/pushNotifications';
@@ -42,22 +44,33 @@ const PushNotificationPrompt = () => {
   useEffect(() => {
     if (!userId) return;
 
-    const needsIosInstall = requiresIosHomeScreenInstallForPush();
-    setIosInstallRequired(needsIosInstall);
-    if (!needsIosInstall && !isPushNotificationSyncAvailable()) return;
+    let alive = true;
 
-    const permission = 'Notification' in window ? Notification.permission : 'default';
-    if (!needsIosInstall && permission === 'granted') return;
-    setDeniedError(!needsIosInstall && permission === 'denied');
-    
-    const hasDismissed = localStorage.getItem(`push_prompt_dismissed:${userId}`);
-    if (hasDismissed) return;
+    const checkRegistration = async () => {
+      const needsIosInstall = requiresIosHomeScreenInstallForPush();
+      if (alive) setIosInstallRequired(needsIosInstall);
+      if (!needsIosInstall && !isPushNotificationSyncAvailable()) return;
 
-    const timer = setTimeout(() => {
-      setShowPrompt(true);
-    }, 3000);
+      const permission = 'Notification' in window ? Notification.permission : 'default';
+      if (alive) setDeniedError(!needsIosInstall && permission === 'denied');
+      if (!needsIosInstall && permission === 'granted') {
+        const subscription = await getCurrentPushSubscription().catch(() => null);
+        if (!alive) return;
+        if (subscription) {
+          const registration = await subscribeToDeviceNotifications(userId).catch(() => null);
+          if (!alive || registration?.currentDeviceMatched) return;
+        }
+      }
 
-    return () => clearTimeout(timer);
+      const hasDismissed = localStorage.getItem(`push_prompt_dismissed:${userId}`);
+      if (hasDismissed) return;
+      window.setTimeout(() => {
+        if (alive) setShowPrompt(true);
+      }, 3000);
+    };
+
+    void checkRegistration();
+    return () => { alive = false; };
   }, [userId]);
 
   const handleDismiss = () => {
@@ -79,7 +92,8 @@ const PushNotificationPrompt = () => {
       const permission = await Notification.requestPermission();
       
       if (permission === 'granted') {
-        await subscribeToDeviceNotifications(userId);
+        const registration = await subscribeToDeviceNotifications(userId);
+        if (!registration.currentDeviceMatched) throw new Error('device_mismatch');
 
         setShowPrompt(false); // Thành công thì đóng popup
       } 
@@ -92,9 +106,7 @@ const PushNotificationPrompt = () => {
         // Không làm gì cả để họ có thể bấm lại nút "Cài đặt & Nhận thông báo"
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Lỗi không xác định.';
-      setSubscribeError(`Chưa lưu được thiết bị nhận thông báo. ${message}`);
-      console.error('Lỗi khi bật thông báo:', error);
+      setSubscribeError(pushRegistrationErrorMessage(error));
     } finally {
       setIsSubscribing(false);
     }

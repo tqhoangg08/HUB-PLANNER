@@ -4,6 +4,7 @@ import {
   getCurrentPushSubscription,
   isPushNotificationSyncAvailable,
   isPushSupported,
+  pushRegistrationErrorMessage,
   requiresIosHomeScreenInstallForPush,
   subscribeToDeviceNotifications,
 } from '../utils/pushNotifications';
@@ -82,7 +83,13 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
         if (currentPermission === 'granted') {
           const subscription = await getCurrentPushSubscription().catch(() => null);
           if (!alive) return;
-          setVisible(!subscription);
+          if (!subscription) {
+            setVisible(true);
+            return;
+          }
+          const registration = await subscribeToDeviceNotifications(session.user.id).catch(() => null);
+          if (!alive) return;
+          setVisible(registration?.currentDeviceMatched !== true);
           return;
         }
 
@@ -128,10 +135,11 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
       }
 
       const session = await fetchBetterAuthSession();
-      await subscribeToDeviceNotifications(session?.user?.id || null);
+      const registration = await subscribeToDeviceNotifications(session?.user?.id || null);
+      if (!registration.currentDeviceMatched) throw new Error('device_mismatch');
       setVisible(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Chưa bật được thông báo. Thử lại sau vài giây.');
+      setError(pushRegistrationErrorMessage(err));
     } finally {
       setSaving(false);
     }
