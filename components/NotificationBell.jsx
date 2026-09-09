@@ -19,7 +19,7 @@ import {
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 import { setRuntimeStyleRule } from '../utils/runtimeStyles';
 import { FEATURE_SCHEDULE_REMINDERS } from '../utils/featureFlags';
-import { privateApiRequest } from '../utils/privateApi';
+import { PrivateApiError, privateApiRequest } from '../utils/privateApi';
 
 const notificationStreams = new Map();
 const isDev = import.meta.env.DEV;
@@ -368,8 +368,18 @@ const NotificationBell = ({ currentUserId }) => {
       const sent = Number(result?.sent || 0);
       setIsPushEnabled(true);
       setTestPushStatus(`Đã gửi thông báo thử tới ${sent} thiết bị của tài khoản này.`);
-    } catch {
-      setTestPushStatus('Không thể gửi thông báo thử. Vui lòng kiểm tra kết nối và thử lại.');
+    } catch (error) {
+      if (error instanceof PrivateApiError && error.status === 401) {
+        setTestPushStatus('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+      } else if (error instanceof PrivateApiError && error.status === 404) {
+        setTestPushStatus('Thiết bị này chưa được đăng ký nhận thông báo. Hãy bật lại thông báo rồi thử lại.');
+      } else if (error instanceof PrivateApiError && error.status >= 500) {
+        setTestPushStatus('Máy chủ chưa gửi được thông báo thử. Vui lòng thử lại sau.');
+      } else if (error instanceof Error && error.name === 'AbortError') {
+        setTestPushStatus('Kết nối đăng ký thiết bị quá lâu. Vui lòng kiểm tra mạng rồi thử lại.');
+      } else {
+        setTestPushStatus('Chưa đăng ký được thiết bị hiện tại. Hãy bật lại thông báo rồi thử lại.');
+      }
     } finally {
       setIsSendingTestPush(false);
     }

@@ -52,7 +52,9 @@ test('device subscription is Better Auth-owned, resilient to server cleanup, and
   assert.match(client, /await existingSubscription\.unsubscribe\(\)/);
   assert.doesNotMatch(client, /hasRecentPushSync|PUSH_SYNC_CACHE/);
   assert.match(bridge, /requireBetterAuthSession\(request, env\)/);
-  assert.match(bridge, /on_conflict=endpoint/);
+  assert.doesNotMatch(bridge, /on_conflict=endpoint/);
+  assert.match(bridge, /findStoredSubscription/);
+  assert.match(bridge, /method: 'PATCH'/);
   assert.match(delivery, /statusCode === 404 \|\| error\?\.statusCode === 410/);
 });
 
@@ -137,5 +139,42 @@ test('test push UI checks mobile prerequisites and never sends automatically', (
   assert.match(bell, /getCurrentPushSubscription\(\)/);
   assert.match(bell, /subscribeToDeviceNotifications\(currentUserId\)/);
   assert.match(bell, /privateApiRequest\('\/api\/private\/v1\/push\/test'/);
+  assert.match(bell, /Phiên đăng nhập đã hết hạn/);
+  assert.match(bell, /Thiết bị này chưa được đăng ký nhận thông báo/);
+  assert.match(bell, /Máy chủ chưa gửi được thông báo thử/);
   assert.doesNotMatch(bell, /useEffect\([^]*handleTestPush\(/);
+});
+
+test('subscription persistence updates an existing endpoint without partial-index upsert', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{ url: string; method: string }> = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    const method = String(init?.method || 'GET');
+    calls.push({ url, method });
+    if (url.includes('/api/private/v1/me')) {
+      return Response.json({ userId: '11111111-1111-4111-8111-111111111111', email: 'member@example.invalid', role: 'user' });
+    }
+    if (url.includes('select=id')) return Response.json([{ id: '22222222-2222-4222-8222-222222222222' }]);
+    return new Response(null, { status: 204 });
+  };
+
+  try {
+    const { handlePushSubscription } = await import('../cloudflare/worker/src/push-subscriptions.ts');
+    await handlePushSubscription(new Request('https://example.test/api/private/v1/push-subscription', {
+      method: 'POST',
+      headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscription: { endpoint: 'https://push.example.invalid/device', keys: { p256dh: 'opaque', auth: 'opaque' } },
+      }),
+    }), {
+      AUTH_SERVICE: { fetch: async () => Response.json({ userId: '11111111-1111-4111-8111-111111111111', email: 'member@example.invalid', role: 'user' }) },
+      SUPABASE_URL: 'https://project.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'x'.repeat(64),
+    });
+    assert.equal(calls.some(call => call.method === 'PATCH'), true);
+    assert.equal(calls.some(call => call.url.includes('on_conflict=endpoint')), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

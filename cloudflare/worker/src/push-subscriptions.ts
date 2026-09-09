@@ -39,8 +39,82 @@ const source = async (env: PushSubscriptionEnv, path: string, init: RequestInit 
     headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json', ...init.headers },
     signal: AbortSignal.timeout(8_000),
   });
-  if (!response.ok) throw new PushSubscriptionError(502, 'Không thể đồng bộ thiết bị nhận thông báo.');
+  if (!response.ok) {
+    console.error(JSON.stringify({
+      event: 'push_subscription_storage_rejected',
+      method: String(init.method || 'GET').toUpperCase(),
+      status: response.status,
+    }));
+    await response.body?.cancel();
+    throw new PushSubscriptionError(502, 'Không thể đồng bộ thiết bị nhận thông báo.');
+  }
   return response;
+};
+
+type StoredSubscription = { id?: unknown };
+
+const findStoredSubscription = async (env: PushSubscriptionEnv, endpoint: string) => {
+  const response = await source(
+    env,
+    `/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}&select=id&limit=1`,
+  );
+  const rows = await response.json() as StoredSubscription[];
+  const id = typeof rows?.[0]?.id === 'string' ? rows[0].id : '';
+  return id;
+};
+
+const persistSubscription = async (
+  env: PushSubscriptionEnv,
+  owner: string,
+  endpoint: string,
+  subscription: Record<string, unknown>,
+) => {
+  const writeBody = JSON.stringify({ user_id: owner, endpoint, subscription });
+  const existingId = await findStoredSubscription(env, endpoint);
+
+  if (existingId) {
+    const response = await source(env, `/rest/v1/push_subscriptions?id=eq.${encodeURIComponent(existingId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: writeBody,
+    });
+    await response.body?.cancel();
+    return;
+  }
+
+  const { base, key } = config(env);
+  const response = await fetch(`${base}/rest/v1/push_subscriptions`, {
+    method: 'POST',
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: writeBody,
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (response.ok) {
+    await response.body?.cancel();
+    return;
+  }
+
+  // Another tab may have inserted the same endpoint after the lookup. Resolve
+  // that bounded race with one authoritative lookup/update, without relying on
+  // PostgREST ON CONFLICT inference for the table's partial unique index.
+  await response.body?.cancel();
+  const racedId = await findStoredSubscription(env, endpoint);
+  if (!racedId) {
+    console.error(JSON.stringify({ event: 'push_subscription_storage_rejected', method: 'POST', status: response.status }));
+    throw new PushSubscriptionError(502, 'Không thể đồng bộ thiết bị nhận thông báo.');
+  }
+  const retry = await source(env, `/rest/v1/push_subscriptions?id=eq.${encodeURIComponent(racedId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+    body: writeBody,
+  });
+  await retry.body?.cancel();
 };
 
 export const handlePushSubscription = async (request: Request, env: PushSubscriptionEnv) => {
@@ -66,12 +140,7 @@ export const handlePushSubscription = async (request: Request, env: PushSubscrip
     ? new Date(String(body.bindingStartedAt)).toISOString()
     : new Date().toISOString();
   const stored = { ...(subscription as Record<string, unknown>), __hubBindingStartedAt: startedAt };
-  const response = await source(env, '/rest/v1/push_subscriptions?on_conflict=endpoint', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify({ user_id: identity.userId, endpoint, subscription: stored }),
-  });
-  await response.body?.cancel();
+  await persistSubscription(env, identity.userId, endpoint, stored);
   return { success: true };
 };
 
