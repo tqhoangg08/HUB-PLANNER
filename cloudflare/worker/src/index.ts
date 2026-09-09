@@ -1623,7 +1623,12 @@ const worker = {
         });
       } catch (error) {
         const status = pushSubscriptionErrorStatus(error);
-        return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' : status === 403 ? 'Không có quyền truy cập.' : status < 500 && error instanceof PushSubscriptionError ? error.message : 'Không thể đồng bộ thiết bị nhận thông báo.' }, status, { ...cors, 'Cache-Control': 'no-store' });
+        return json({
+          error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' : status === 403 ? 'Không có quyền truy cập.' : status < 500 && error instanceof PushSubscriptionError ? error.message : 'Không thể đồng bộ thiết bị nhận thông báo.',
+          code: error instanceof PushSubscriptionError && /^[A-Z0-9_]{3,64}$/.test(error.code)
+            ? error.code
+            : 'PUSH_SUBSCRIPTION_FAILED',
+        }, status, { ...cors, 'Cache-Control': 'no-store' });
       }
     }
 

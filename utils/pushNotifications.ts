@@ -1,5 +1,5 @@
 import { urlBase64ToUint8Array } from './pushHelper';
-import { privateApiRequest } from './privateApi';
+import { PrivateApiError, privateApiRequest } from './privateApi';
 import {
   completeCurrentDevicePushRegistration,
   PushRegistrationError,
@@ -21,6 +21,9 @@ export const pushRegistrationErrorMessage = (error: unknown) => {
   if (error.code === 'push_manager_unsupported') return 'Trình duyệt này không hỗ trợ đăng ký Web Push.';
   if (error.code === 'vapid_invalid') return 'Cấu hình thông báo của ứng dụng chưa hợp lệ.';
   if (error.code === 'subscribe_failed') return 'Trình duyệt chưa tạo được đăng ký cho thiết bị hiện tại.';
+  if (error.code === 'persist_unauthenticated') return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại rồi bật thông báo.';
+  if (error.code === 'persist_owner_unmapped') return 'Chưa liên kết được thiết bị với tài khoản HUB hiện tại.';
+  if (error.code === 'persist_storage_failed') return 'Máy chủ chưa lưu được thiết bị nhận thông báo. Vui lòng thử lại sau.';
   if (error.code === 'persist_failed') return 'Thiết bị đã đăng ký cục bộ nhưng chưa lưu được lên máy chủ.';
   return 'Máy chủ chưa xác nhận đúng thiết bị hiện tại.';
 };
@@ -224,14 +227,24 @@ export const subscribeToDeviceNotifications = async (
       const controller = new AbortController();
       activeSyncController = controller;
       const timeoutId = window.setTimeout(() => controller.abort(), API_SYNC_TIMEOUT_MS);
-      const response = await privateApiRequest('/api/private/v1/push-subscription', {
-        method: 'POST',
-        body: JSON.stringify({ subscription: subscription.toJSON(), bindingStartedAt }),
-        signal: controller.signal,
-      }).finally(() => {
+      let response: Response;
+      try {
+        response = await privateApiRequest('/api/private/v1/push-subscription', {
+          method: 'POST',
+          body: JSON.stringify({ subscription: subscription.toJSON(), bindingStartedAt }),
+          signal: controller.signal,
+        });
+      } catch (error) {
+        if (error instanceof PrivateApiError) {
+          if (error.status === 401) throw new PushRegistrationError('persist_unauthenticated', error.message);
+          if (error.status === 409) throw new PushRegistrationError('persist_owner_unmapped', error.message);
+          if (error.status >= 500) throw new PushRegistrationError('persist_storage_failed', error.message);
+        }
+        throw error;
+      } finally {
         window.clearTimeout(timeoutId);
         if (activeSyncController === controller) activeSyncController = null;
-      });
+      }
       const payload = await response.json().catch(() => null) as {
         currentDeviceMatched?: unknown;
         fingerprint?: unknown;

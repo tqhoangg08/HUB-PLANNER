@@ -12,7 +12,13 @@ export interface PushSubscriptionEnv extends BetterAuthIdentityEnv {
 
 export class PushSubscriptionError extends Error {
   readonly status: number;
-  constructor(status: number, message: string) { super(message); this.name = 'PushSubscriptionError'; this.status = status; }
+  readonly code: string;
+  constructor(status: number, message: string, code = 'PUSH_SUBSCRIPTION_FAILED') {
+    super(message);
+    this.name = 'PushSubscriptionError';
+    this.status = status;
+    this.code = code;
+  }
 }
 
 const MAX_BODY_BYTES = 16 * 1024;
@@ -55,13 +61,16 @@ const source = async (env: PushSubscriptionEnv, path: string, init: RequestInit 
       status: response.status,
       upstreamCode,
     }));
-    throw new PushSubscriptionError(502, 'Không thể đồng bộ thiết bị nhận thông báo.');
+    throw new PushSubscriptionError(502, 'Không thể đồng bộ thiết bị nhận thông báo.', `PUSH_STORAGE_${upstreamCode}`);
   }
   return response;
 };
 
 type StoredSubscription = { id?: unknown };
 type LegacyPushOwner = { id?: unknown; email?: unknown; student_code?: unknown };
+type LegacyAuthUser = { id?: unknown; email?: unknown };
+type LegacyAuthUserResponse = LegacyAuthUser & { user?: unknown };
+type LegacyAuthUsersResponse = { users?: unknown };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const normalizeEmail = (value: unknown) => String(value || '').trim().toLowerCase();
@@ -71,38 +80,107 @@ const readLegacyOwnerRows = async (env: PushSubscriptionEnv, filter: string) => 
   return await response.json() as LegacyPushOwner[];
 };
 
+const readLegacyAuthUserById = async (env: PushSubscriptionEnv, userId: string) => {
+  const { base, key } = config(env);
+  const response = await fetch(`${base}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    console.error(JSON.stringify({
+      event: 'push_owner_auth_lookup_rejected',
+      operation: 'get_by_id',
+      status: response.status,
+    }));
+    throw new PushSubscriptionError(502, 'Không thể xác định tài khoản nhận thông báo.', 'PUSH_OWNER_LOOKUP_FAILED');
+  }
+  const payload = await response.json().catch(() => null) as LegacyAuthUserResponse | null;
+  if (payload?.user && typeof payload.user === 'object' && !Array.isArray(payload.user)) {
+    return payload.user as LegacyAuthUser;
+  }
+  return payload;
+};
+
+const readLegacyAuthUsersByEmail = async (env: PushSubscriptionEnv, email: string) => {
+  const { base, key } = config(env);
+  const query = new URLSearchParams({ filter: email, page: '1', per_page: '2' });
+  const response = await fetch(`${base}/auth/v1/admin/users?${query}`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (!response.ok) {
+    console.error(JSON.stringify({
+      event: 'push_owner_auth_lookup_rejected',
+      operation: 'get_by_email',
+      status: response.status,
+    }));
+    throw new PushSubscriptionError(502, 'Không thể xác định tài khoản nhận thông báo.', 'PUSH_OWNER_LOOKUP_FAILED');
+  }
+  const payload = await response.json().catch(() => null) as LegacyAuthUsersResponse | null;
+  return Array.isArray(payload?.users) ? payload.users as LegacyAuthUser[] : [];
+};
+
+const exactLegacyAuthOwner = async (
+  env: PushSubscriptionEnv,
+  identity: BetterAuthIdentity,
+  candidateIds: string[],
+) => {
+  const email = normalizeEmail(identity.email);
+  for (const candidateId of [...new Set(candidateIds)]) {
+    const candidate = await readLegacyAuthUserById(env, candidateId);
+    if (
+      candidate
+      && candidate.id === candidateId
+      && normalizeEmail(candidate.email) === email
+    ) return candidateId;
+  }
+
+  const matchingUsers = (await readLegacyAuthUsersByEmail(env, email)).filter((candidate) => (
+    typeof candidate.id === 'string'
+    && UUID_PATTERN.test(candidate.id)
+    && normalizeEmail(candidate.email) === email
+  ));
+  return matchingUsers.length === 1 ? String(matchingUsers[0].id) : null;
+};
+
 // push_subscriptions still references the legacy Supabase auth.users table.
-// Better Auth is authoritative for the browser session, while an exact
-// profile bridge supplies the corresponding legacy owner without trusting a
-// client-provided id or using fuzzy email matching.
+// Better Auth is authoritative for the browser session. A profile match alone
+// is not sufficient because its id is not guaranteed to satisfy that foreign
+// key after the auth migration. Resolve and verify the actual legacy Auth user
+// by exact email, without trusting a client-provided id or fuzzy matching.
 export const resolveLegacyPushOwner = async (
   env: PushSubscriptionEnv,
   identity: BetterAuthIdentity,
 ) => {
+  const candidateIds: string[] = [];
   const byId = await readLegacyOwnerRows(env, `id=eq.${encodeURIComponent(identity.userId)}`);
   const directId = typeof byId[0]?.id === 'string' && UUID_PATTERN.test(byId[0].id)
     ? byId[0].id
     : '';
-  if (directId) return directId;
+  if (directId) candidateIds.push(directId);
 
   const email = normalizeEmail(identity.email);
   const candidates = await readLegacyOwnerRows(env, `email=eq.${encodeURIComponent(email)}`);
   const exact = candidates.filter((row) => normalizeEmail(row.email) === email);
   if (exact.length === 1 && typeof exact[0].id === 'string' && UUID_PATTERN.test(exact[0].id)) {
-    return exact[0].id;
+    candidateIds.push(exact[0].id);
   }
 
   const studentMatch = email.match(/^([^@]+)@st\.buh\.edu\.vn$/);
-  if (!studentMatch) return null;
-  const studentCode = studentMatch[1];
-  const studentCandidates = await readLegacyOwnerRows(
-    env,
-    `student_code=eq.${encodeURIComponent(studentCode)}`,
-  );
-  const exactStudent = studentCandidates.filter((row) => String(row.student_code || '').trim() === studentCode);
-  return exactStudent.length === 1 && typeof exactStudent[0].id === 'string' && UUID_PATTERN.test(exactStudent[0].id)
-    ? exactStudent[0].id
-    : null;
+  if (studentMatch) {
+    const studentCode = studentMatch[1];
+    const studentCandidates = await readLegacyOwnerRows(
+      env,
+      `student_code=eq.${encodeURIComponent(studentCode)}`,
+    );
+    const exactStudent = studentCandidates.filter((row) => String(row.student_code || '').trim() === studentCode);
+    if (exactStudent.length === 1 && typeof exactStudent[0].id === 'string' && UUID_PATTERN.test(exactStudent[0].id)) {
+      candidateIds.push(exactStudent[0].id);
+    }
+  }
+
+  return exactLegacyAuthOwner(env, identity, [identity.userId, ...candidateIds]);
 };
 
 const findStoredSubscription = async (env: PushSubscriptionEnv, endpoint: string, owner?: string) => {
@@ -119,6 +197,31 @@ const findStoredSubscription = async (env: PushSubscriptionEnv, endpoint: string
 const endpointFingerprint = async (endpoint: string) => {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(endpoint));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+};
+
+const readSubscription = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new PushSubscriptionError(400, 'Subscription không hợp lệ.', 'INVALID_PUSH_SUBSCRIPTION');
+  }
+  const subscription = value as Record<string, unknown>;
+  const endpoint = String(subscription.endpoint || '').trim();
+  const keys = subscription.keys;
+  if (!endpoint || endpoint.length > 4096 || !endpoint.startsWith('https://')) {
+    throw new PushSubscriptionError(400, 'Endpoint thông báo không hợp lệ.', 'INVALID_PUSH_ENDPOINT');
+  }
+  if (!keys || typeof keys !== 'object' || Array.isArray(keys)) {
+    throw new PushSubscriptionError(400, 'Khóa đăng ký thông báo không hợp lệ.', 'INVALID_PUSH_KEYS');
+  }
+  const p256dh = String((keys as Record<string, unknown>).p256dh || '');
+  const auth = String((keys as Record<string, unknown>).auth || '');
+  const base64Url = /^[A-Za-z0-9_-]+$/;
+  if (
+    p256dh.length < 40 || p256dh.length > 256 || !base64Url.test(p256dh)
+    || auth.length < 8 || auth.length > 128 || !base64Url.test(auth)
+  ) {
+    throw new PushSubscriptionError(400, 'Khóa đăng ký thông báo không hợp lệ.', 'INVALID_PUSH_KEYS');
+  }
+  return { subscription, endpoint };
 };
 
 const persistSubscription = async (
@@ -165,7 +268,7 @@ const persistSubscription = async (
   const racedId = await findStoredSubscription(env, endpoint);
   if (!racedId) {
     console.error(JSON.stringify({ event: 'push_subscription_storage_rejected', method: 'POST', status: response.status, upstreamCode }));
-    throw new PushSubscriptionError(502, 'Không thể đồng bộ thiết bị nhận thông báo.');
+    throw new PushSubscriptionError(502, 'Không thể đồng bộ thiết bị nhận thông báo.', `PUSH_STORAGE_${upstreamCode}`);
   }
   const retry = await source(env, `/rest/v1/push_subscriptions?id=eq.${encodeURIComponent(racedId)}`, {
     method: 'PATCH',
@@ -178,7 +281,7 @@ const persistSubscription = async (
 export const handlePushSubscription = async (request: Request, env: PushSubscriptionEnv) => {
   const identity = await requireBetterAuthSession(request, env);
   const resolvedOwner = await resolveLegacyPushOwner(env, identity);
-  if (!resolvedOwner) throw new PushSubscriptionError(409, 'Chưa thể liên kết thiết bị với tài khoản hiện tại.');
+  if (!resolvedOwner) throw new PushSubscriptionError(409, 'Chưa thể liên kết thiết bị với tài khoản hiện tại.', 'PUSH_OWNER_NOT_FOUND');
   const owner = encodeURIComponent(resolvedOwner);
   if (request.method === 'GET') {
     const response = await source(env, `/rest/v1/push_subscriptions?user_id=eq.${owner}&select=id,endpoint&limit=50`);
@@ -187,10 +290,7 @@ export const handlePushSubscription = async (request: Request, env: PushSubscrip
   if (request.method !== 'POST' && request.method !== 'DELETE') throw new PushSubscriptionError(405, 'Phương thức không được hỗ trợ.');
   const body = await readBody(request);
   if ('userId' in body || 'user_id' in body || 'role' in body) throw new PushSubscriptionError(400, 'Không cho phép chỉ định chủ sở hữu.');
-  const subscription = body.subscription;
-  if (!subscription || typeof subscription !== 'object' || Array.isArray(subscription)) throw new PushSubscriptionError(400, 'Subscription không hợp lệ.');
-  const endpoint = String((subscription as Record<string, unknown>).endpoint || '').trim();
-  if (!endpoint || endpoint.length > 4096 || !endpoint.startsWith('https://')) throw new PushSubscriptionError(400, 'Endpoint thông báo không hợp lệ.');
+  const { subscription, endpoint } = readSubscription(body.subscription);
   if (request.method === 'DELETE') {
     const response = await source(env, `/rest/v1/push_subscriptions?user_id=eq.${owner}&endpoint=eq.${encodeURIComponent(endpoint)}`, { method: 'DELETE' });
     await response.body?.cancel();
@@ -199,7 +299,7 @@ export const handlePushSubscription = async (request: Request, env: PushSubscrip
   const startedAt = Number.isFinite(Date.parse(String(body.bindingStartedAt || '')))
     ? new Date(String(body.bindingStartedAt)).toISOString()
     : new Date().toISOString();
-  const stored = { ...(subscription as Record<string, unknown>), __hubBindingStartedAt: startedAt };
+  const stored = { ...subscription, __hubBindingStartedAt: startedAt };
   await persistSubscription(env, resolvedOwner, endpoint, stored);
   const verifiedId = await findStoredSubscription(env, endpoint, resolvedOwner);
   if (!verifiedId) throw new PushSubscriptionError(502, 'Máy chủ chưa xác nhận đăng ký thiết bị hiện tại.');

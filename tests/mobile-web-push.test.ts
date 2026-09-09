@@ -76,6 +76,9 @@ test('private test push derives its target from Better Auth and strips provider 
         ? Response.json([])
         : Response.json([{ id: legacyUserId, email: 'member@example.invalid', student_code: null }]);
     }
+    if (url.includes(`/auth/v1/admin/users/${legacyUserId}`)) {
+      return Response.json({ id: legacyUserId, email: 'member@example.invalid' });
+    }
     downstreamBody = JSON.parse(String(init?.body || '{}'));
     return Response.json({
       success: true,
@@ -241,6 +244,9 @@ test('subscription persistence updates an existing endpoint without partial-inde
       return Response.json({ userId: '11111111-1111-4111-8111-111111111111', email: 'member@example.invalid', role: 'user' });
     }
     if (url.includes('/rest/v1/profiles')) return Response.json([{ id: '11111111-1111-4111-8111-111111111111', email: 'member@example.invalid' }]);
+    if (url.includes('/auth/v1/admin/users/11111111-1111-4111-8111-111111111111')) {
+      return Response.json({ user: { id: '11111111-1111-4111-8111-111111111111', email: 'member@example.invalid' } });
+    }
     if (url.includes('select=id')) return Response.json([{ id: '22222222-2222-4222-8222-222222222222' }]);
     return new Response(null, { status: 204 });
   };
@@ -251,7 +257,10 @@ test('subscription persistence updates an existing endpoint without partial-inde
       method: 'POST',
       headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        subscription: { endpoint: 'https://push.example.invalid/device', keys: { p256dh: 'opaque', auth: 'opaque' } },
+        subscription: {
+          endpoint: 'https://push.example.invalid/device',
+          keys: { p256dh: 'A'.repeat(87), auth: 'B'.repeat(22) },
+        },
       }),
     }), {
       AUTH_SERVICE: { fetch: async () => Response.json({ userId: '11111111-1111-4111-8111-111111111111', email: 'member@example.invalid', role: 'user' }) },
@@ -280,6 +289,10 @@ test('subscription owner bridge uses an exact legacy profile and never accepts a
     if (url.includes('/rest/v1/profiles?email=eq.')) {
       return Response.json([{ id: legacyId, email: 'member@example.invalid', student_code: null }]);
     }
+    if (url.includes('/auth/v1/admin/users?')) {
+      return Response.json({ users: [{ id: legacyId, email: 'member@example.invalid' }] });
+    }
+    if (url.includes('/auth/v1/admin/users/')) return new Response(null, { status: 404 });
     if (url.includes('/rest/v1/push_subscriptions?endpoint=eq.')) {
       return Response.json(stored ? [{ id: '33333333-3333-4333-8333-333333333333' }] : []);
     }
@@ -295,7 +308,10 @@ test('subscription owner bridge uses an exact legacy profile and never accepts a
     await handlePushSubscription(new Request('https://example.test/api/private/v1/push-subscription', {
       method: 'POST',
       headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: { endpoint: 'https://push.example.invalid/device' } }),
+      body: JSON.stringify({ subscription: {
+        endpoint: 'https://push.example.invalid/device',
+        keys: { p256dh: 'A'.repeat(87), auth: 'B'.repeat(22) },
+      } }),
     }), {
       AUTH_SERVICE: { fetch: async () => Response.json({ userId: betterAuthId, email: 'member@example.invalid', role: 'user' }) },
       SUPABASE_URL: 'https://project.supabase.co',

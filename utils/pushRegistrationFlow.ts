@@ -4,6 +4,9 @@ export type PushRegistrationFailureCode =
   | 'push_manager_unsupported'
   | 'vapid_invalid'
   | 'subscribe_failed'
+  | 'persist_unauthenticated'
+  | 'persist_owner_unmapped'
+  | 'persist_storage_failed'
   | 'persist_failed'
   | 'device_mismatch';
 
@@ -60,7 +63,8 @@ export const completeCurrentDevicePushRegistration = async <T extends DeviceSubs
   let acknowledgement: { currentDeviceMatched: boolean; fingerprint: string };
   try {
     acknowledgement = await persistSubscription(subscription);
-  } catch {
+  } catch (error) {
+    if (error instanceof PushRegistrationError) throw error;
     throw new PushRegistrationError('persist_failed', 'Không thể lưu đăng ký thiết bị lên máy chủ.');
   }
   if (!acknowledgement.currentDeviceMatched || !acknowledgement.fingerprint) {
