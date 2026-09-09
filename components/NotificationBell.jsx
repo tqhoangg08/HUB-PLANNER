@@ -7,6 +7,7 @@ import {
   getCurrentPushSubscription,
   isPushNotificationSyncAvailable,
   isPushSupported,
+  requiresIosHomeScreenInstallForPush,
   subscribeToDeviceNotifications,
 } from '../utils/pushNotifications';
 import {
@@ -301,6 +302,11 @@ const NotificationBell = ({ currentUserId }) => {
   };
 
   const handleTogglePush = async () => {
+    if (requiresIosHomeScreenInstallForPush()) {
+      alert('Trên iPhone/iPad: bấm Chia sẻ → Thêm vào Màn hình chính, sau đó mở HUB Planner từ biểu tượng vừa cài để bật thông báo.');
+      return;
+    }
+
     if (!isPushSupported() || !isPushNotificationSyncAvailable()) {
       alert('Trình duyệt của bạn không hỗ trợ thông báo.');
       return;

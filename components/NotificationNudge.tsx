@@ -4,6 +4,7 @@ import {
   getCurrentPushSubscription,
   isPushNotificationSyncAvailable,
   isPushSupported,
+  requiresIosHomeScreenInstallForPush,
   subscribeToDeviceNotifications,
 } from '../utils/pushNotifications';
 import { FEATURE_SCHEDULE_REMINDERS } from '../utils/featureFlags';
@@ -43,6 +44,7 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [iosInstallRequired, setIosInstallRequired] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -59,13 +61,19 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
       try {
         setError(null);
 
-        if (!isPushSupported() || !isPushNotificationSyncAvailable()) return;
-
         const session = await fetchBetterAuthSession();
         if (!session?.user?.id) {
           if (alive) setVisible(false);
           return;
         }
+
+        const needsIosInstall = requiresIosHomeScreenInstallForPush();
+        if (alive) setIosInstallRequired(needsIosInstall);
+        if (needsIosInstall) {
+          if (alive) setVisible(true);
+          return;
+        }
+        if (!isPushSupported() || !isPushNotificationSyncAvailable()) return;
 
         const currentPermission = Notification.permission;
         if (!alive) return;
@@ -103,6 +111,11 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
     setError(null);
 
     try {
+      if (iosInstallRequired) {
+        setError('Trên iPhone/iPad: bấm Chia sẻ → Thêm vào Màn hình chính, sau đó mở HUB Planner từ biểu tượng vừa cài để bật thông báo.');
+        return;
+      }
+
       let nextPermission = Notification.permission;
       if (nextPermission === 'default') {
         nextPermission = await Notification.requestPermission();
@@ -126,7 +139,7 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
 
   if (loading || !visible || scheduleRemindersDisabled) return null;
 
-  const blocked = permission === 'denied';
+  const blocked = permission === 'denied' && !iosInstallRequired;
 
   return (
     <div className={`rounded-lg border border-blue-100 bg-white px-3 py-2.5 shadow-sm ${className}`}>
@@ -163,7 +176,7 @@ const NotificationNudge: React.FC<NotificationNudgeProps> = ({ variant, classNam
               className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#003375] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#002855] disabled:cursor-not-allowed disabled:bg-gray-300"
             >
               {saving && <Loader2 size={13} className="animate-spin" />}
-              {blocked ? 'Đang bị chặn' : copy.cta}
+              {iosInstallRequired ? 'Cách cài trên iPhone/iPad' : blocked ? 'Đang bị chặn' : copy.cta}
             </button>
           </div>
         </div>

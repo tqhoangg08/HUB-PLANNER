@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { BellRing, X, AlertTriangle } from 'lucide-react';
-import { isPushNotificationSyncAvailable, subscribeToDeviceNotifications } from '../utils/pushNotifications';
+import {
+  isPushNotificationSyncAvailable,
+  requiresIosHomeScreenInstallForPush,
+  subscribeToDeviceNotifications,
+} from '../utils/pushNotifications';
 import { fetchBetterAuthSession } from '../utils/privateApi';
 
 const PushNotificationPrompt = () => {
@@ -11,6 +15,7 @@ const PushNotificationPrompt = () => {
   
   // ✨ THÊM STATE ĐỂ BẮT LỖI KHI BỊ CHẶN HOẶC TẮT
   const [deniedError, setDeniedError] = useState(false);
+  const [iosInstallRequired, setIosInstallRequired] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -35,8 +40,15 @@ const PushNotificationPrompt = () => {
   }, []);
 
   useEffect(() => {
-    if (!userId || !isPushNotificationSyncAvailable()) return;
-    if (Notification.permission !== 'default') return;
+    if (!userId) return;
+
+    const needsIosInstall = requiresIosHomeScreenInstallForPush();
+    setIosInstallRequired(needsIosInstall);
+    if (!needsIosInstall && !isPushNotificationSyncAvailable()) return;
+
+    const permission = 'Notification' in window ? Notification.permission : 'default';
+    if (!needsIosInstall && permission === 'granted') return;
+    setDeniedError(!needsIosInstall && permission === 'denied');
     
     const hasDismissed = localStorage.getItem(`push_prompt_dismissed:${userId}`);
     if (hasDismissed) return;
@@ -54,6 +66,11 @@ const PushNotificationPrompt = () => {
   };
 
   const handleAllow = async () => {
+    if (iosInstallRequired) {
+      setSubscribeError('Trên iPhone/iPad, hãy bấm Chia sẻ → Thêm vào Màn hình chính, rồi mở HUB Planner từ biểu tượng vừa cài để bật thông báo.');
+      return;
+    }
+
     setIsSubscribing(true);
     setSubscribeError(null);
     setDeniedError(false); // Reset lỗi mỗi lần bấm thử
@@ -109,11 +126,15 @@ const PushNotificationPrompt = () => {
           )}
           
           <h3 className="text-xl font-bold text-gray-900 mb-2">
-            {deniedError ? 'Bạn đã chặn thông báo' : 'Thông báo hệ thống'}
+            {iosInstallRequired ? 'Cài HUB Planner để nhận thông báo' : deniedError ? 'Bạn đã chặn thông báo' : 'Thông báo hệ thống'}
           </h3>
           
           <p className="text-sm text-gray-500 mb-6 px-2">
-            {deniedError ? (
+            {iosInstallRequired ? (
+              <span className="text-[#003375] font-medium">
+                Trên iPhone/iPad, Web Push chỉ hoạt động khi HUB Planner được thêm vào Màn hình chính. Bấm Chia sẻ → Thêm vào Màn hình chính, rồi mở app từ biểu tượng vừa cài.
+              </span>
+            ) : deniedError ? (
               <span className="text-red-500 font-medium">
                 Vui lòng bấm vào <b className="text-gray-800">Biểu tượng 🔒 (Ổ khóa)</b> trên thanh địa chỉ URL của trình duyệt để cho phép nhận thông báo nhé!
               </span>
@@ -131,9 +152,9 @@ const PushNotificationPrompt = () => {
           <div className="flex flex-col gap-3">
             <button 
               onClick={handleAllow}
-              disabled={isSubscribing || deniedError} 
+              disabled={isSubscribing || deniedError}
               className={`w-full py-3.5 text-white font-bold rounded-2xl transition-all flex justify-center items-center shadow-lg ${
-                deniedError 
+                deniedError
                   ? 'bg-gray-400 cursor-not-allowed shadow-none' 
                   : 'bg-[#003375] active:scale-95 shadow-blue-900/20'
               }`}
@@ -141,7 +162,7 @@ const PushNotificationPrompt = () => {
               {isSubscribing ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
               ) : (
-                deniedError ? 'Đang đợi bạn mở quyền...' : 'Bật thông báo'
+                iosInstallRequired ? 'Xem hướng dẫn cài đặt' : deniedError ? 'Đang đợi bạn mở quyền...' : 'Bật thông báo'
               )}
             </button>
             {/* ĐÃ XÓA HOÀN TOÀN NÚT "ĐỂ SAU" Ở ĐÂY */}

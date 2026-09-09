@@ -5,8 +5,6 @@ const ROOT_SCOPE = '/';
 const SERVICE_WORKER_TIMEOUT_MS = 8000;
 const PUSH_SUBSCRIBE_TIMEOUT_MS = 12000;
 const API_SYNC_TIMEOUT_MS = 12000;
-const PUSH_SYNC_CACHE_PREFIX = 'hub_push_subscription_synced';
-const PUSH_SYNC_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 let activePushUserId: string | null | undefined;
 let activeSyncController: AbortController | null = null;
@@ -47,24 +45,21 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, message: 
   }
 };
 
-const pushSyncCacheKey = (userId: string, endpoint: string) => `${PUSH_SYNC_CACHE_PREFIX}:${userId}:${endpoint}`;
+type NavigatorWithStandalone = Navigator & { standalone?: boolean };
 
-const hasRecentPushSync = (userId: string, endpoint: string) => {
-  try {
-    const syncedAt = Number(localStorage.getItem(pushSyncCacheKey(userId, endpoint)) || 0);
-    return Date.now() - syncedAt < PUSH_SYNC_CACHE_TTL_MS;
-  } catch {
-    return false;
-  }
+export const isIosDevice = () => {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 };
 
-const markPushSynced = (userId: string, endpoint: string) => {
-  try {
-    localStorage.setItem(pushSyncCacheKey(userId, endpoint), String(Date.now()));
-  } catch {
-    // Local cache is an optimization only.
-  }
+export const isStandalonePwa = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  return window.matchMedia('(display-mode: standalone)').matches
+    || (navigator as NavigatorWithStandalone).standalone === true;
 };
+
+export const requiresIosHomeScreenInstallForPush = () => isIosDevice() && !isStandalonePwa();
 
 export const isPushSupported = () => (
   typeof window !== 'undefined' &&
@@ -147,7 +142,26 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
   const registration = await getPushRegistration();
   if (userId) assertActivePushUser(userId);
 
-  const existingSubscription = await registration.pushManager.getSubscription();
+  let existingSubscription = await registration.pushManager.getSubscription();
+
+  // The push service can expire an endpoint and the server removes it after a
+  // 404/410 while a browser briefly retains the old local subscription. Check
+  // the Better Auth-owned server record before reusing it so the next user
+  // gesture can create a fresh endpoint instead of resurrecting a dead one.
+  if (existingSubscription && userId) {
+    try {
+      const response = await privateApiRequest('/api/private/v1/push-subscription');
+      const payload = await response.json().catch(() => null) as { data?: Array<{ endpoint?: string }> } | null;
+      const persisted = payload?.data?.some(row => row.endpoint === existingSubscription?.endpoint) === true;
+      if (!persisted) {
+        await existingSubscription.unsubscribe();
+        existingSubscription = null;
+      }
+    } catch {
+      // A transient status read must not discard a valid browser subscription.
+    }
+  }
+
   const subscription = existingSubscription || await withTimeout(
     registration.pushManager.subscribe({
       userVisibleOnly: true,
@@ -156,11 +170,6 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
     PUSH_SUBSCRIBE_TIMEOUT_MS,
     'Trình duyệt đăng ký push quá lâu.'
   );
-
-  if (userId && hasRecentPushSync(userId, subscription.endpoint)) {
-    assertActivePushUser(userId);
-    return subscription;
-  }
 
   const resolvedUserId = userId;
   assertActivePushUser(resolvedUserId);
@@ -180,7 +189,6 @@ export const subscribeToDeviceNotifications = async (userId: string | null) => {
         if (activeSyncController === controller) activeSyncController = null;
       });
 
-    markPushSynced(resolvedUserId, subscription.endpoint);
   }
 
   return subscription;

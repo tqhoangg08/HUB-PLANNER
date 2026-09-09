@@ -1503,6 +1503,7 @@ return (
       </div>
 
       <div className="px-6 pb-8">
+          {!eventId && !isManagementView && <NotificationNudge variant="events" className="mb-3" />}
           {!eventId && (
               <>
                   <div className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#9AA5C0]">Tổng quan</div>

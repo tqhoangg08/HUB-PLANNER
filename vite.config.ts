@@ -141,6 +141,22 @@ const devApiPlugin = (): Plugin => ({
   },
 })
 
+// Always emit a real root service worker. In production, registerSW.js points
+// to /sw.js; serving the SPA fallback there makes registration fail before the
+// notification worker can become active. Workbox may replace this fallback
+// with its generated worker that imports the same /hub-sw.js handlers.
+const pushServiceWorkerFallbackPlugin = (): Plugin => ({
+  name: 'hub-push-service-worker-fallback',
+  apply: 'build',
+  generateBundle() {
+    this.emitFile({
+      type: 'asset',
+      fileName: 'sw.js',
+      source: fs.readFileSync(path.join(process.cwd(), 'public', 'hub-sw.js'), 'utf8'),
+    })
+  },
+})
+
 export default defineConfig(({ mode }) => {
   Object.assign(process.env, loadEnv(mode, process.cwd(), ''))
 
@@ -148,6 +164,7 @@ export default defineConfig(({ mode }) => {
   plugins: [
     devApiPlugin(),
     react(),
+    pushServiceWorkerFallbackPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'script', 
