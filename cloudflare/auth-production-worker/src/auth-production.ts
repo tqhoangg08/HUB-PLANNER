@@ -1372,15 +1372,17 @@ async function handleMssvSignIn(
 
   // MSSV resolves only the canonical student identity. Authorization remains
   // independent and reads app_user_roles after the session is established.
+  // Both unique indexes contribute at most one candidate. Preserve the old
+  // auth_user scan's row order even if legacy identity mappings disagree.
   const row = await env.AUTH_DB.prepare(
-    `SELECT u.email
-       FROM auth_user u
-       LEFT JOIN app_auth_identifiers i ON i.user_id = u.id
-      WHERE i.student_code = ?1 OR u.email = ?2
-      LIMIT 1`,
-  )
-    .bind(studentCode, identity.email)
-    .first<{ email: string }>();
+    `SELECT email FROM auth_user
+      WHERE id IN (
+        SELECT user_id FROM app_auth_identifiers WHERE student_code = ?1
+        UNION
+        SELECT id FROM auth_user WHERE email = ?2
+      )
+      ORDER BY rowid LIMIT 1`,
+  ).bind(studentCode, identity.email).first<{ email: string }>();
   const resolvedEmail = normalizeEmail(row?.email);
   const email = isStudentEmail(resolvedEmail) ? resolvedEmail : "missing-auth-user@invalid.example";
 
@@ -1476,14 +1478,14 @@ async function existingStudentUserId(
   identity: StudentIdentity,
 ): Promise<string | null> {
   const row = await env.AUTH_DB.prepare(
-    `SELECT u.id
-       FROM auth_user u
-       LEFT JOIN app_auth_identifiers i ON i.user_id = u.id
-      WHERE u.email = ?1 OR i.student_code = ?2
-      LIMIT 1`,
-  )
-    .bind(identity.email, identity.studentCode)
-    .first<{ id: string }>();
+    `SELECT id FROM auth_user
+      WHERE id IN (
+        SELECT user_id FROM app_auth_identifiers WHERE student_code = ?2
+        UNION
+        SELECT id FROM auth_user WHERE email = ?1
+      )
+      ORDER BY rowid LIMIT 1`,
+  ).bind(identity.email, identity.studentCode).first<{ id: string }>();
   return typeof row?.id === "string" ? row.id : null;
 }
 

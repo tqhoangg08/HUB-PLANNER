@@ -1138,7 +1138,10 @@ const scheduleEventMirrorRepair = (
 
 const handleAnnouncements = async (requestUrl: URL, env: WorkerEnv) => {
   const query = parseAnnouncementQuery(requestUrl.searchParams);
-  const where = ['COALESCE(is_hidden, 0) = 0'];
+  // is_hidden is NOT NULL with a 0/1 CHECK constraint. Keep this predicate
+  // sargable so the visibility/date/created_at ordering index can serve
+  // the default listing without scanning and sorting the whole table.
+  const where = ['is_hidden = 0'];
   const bindings: Array<string | number> = [];
 
   if (query.search) {

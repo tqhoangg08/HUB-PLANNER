@@ -184,3 +184,62 @@ test('account linking index rejects a second credential for the same Better Auth
     assert.equal((db.prepare('SELECT COUNT(*) AS count FROM auth_account WHERE user_id = ?').get('user-a') as { count: number }).count, 2);
   } finally { db.close(); }
 });
+
+test('student identity lookups use bounded exact indexes instead of LEFT JOIN OR scans', () => {
+  const worker = readFileSync('cloudflare/auth-production-worker/src/auth-production.ts', 'utf8');
+  const signIn = worker.slice(
+    worker.indexOf('async function handleMssvSignIn'),
+    worker.indexOf('async function handleStaffEmailSignIn'),
+  );
+  const signupLookup = worker.slice(
+    worker.indexOf('async function existingStudentUserId'),
+    worker.indexOf('async function pendingStudentEmailSignupUserId'),
+  );
+
+  assert.doesNotMatch(signIn, /LEFT JOIN app_auth_identifiers/);
+  assert.doesNotMatch(signupLookup, /LEFT JOIN app_auth_identifiers/);
+  assert.doesNotMatch(`${signIn}\n${signupLookup}`, /WHERE[^;`]*(?:student_code|email)[^;`]*\sOR\s/i);
+  assert.match(signIn, /FROM app_auth_identifiers[\s\S]*WHERE student_code = \?1/);
+  assert.match(signIn, /FROM auth_user[\s\S]*WHERE id IN/);
+  assert.match(signIn, /FROM auth_user[\s\S]*WHERE email = \?2/);
+  assert.match(signupLookup, /FROM auth_user[\s\S]*WHERE email = \?1/);
+  assert.match(signupLookup, /FROM app_auth_identifiers[\s\S]*WHERE student_code = \?2/);
+
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec(`
+      CREATE TABLE auth_user (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE);
+      CREATE TABLE app_auth_identifiers (
+        student_code TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL UNIQUE REFERENCES auth_user(id)
+      );
+    `);
+    const signInSql = signIn.match(/`(SELECT email FROM auth_user[\s\S]*?)`/)![1];
+    const signupSql = signupLookup.match(/`(SELECT id FROM auth_user[\s\S]*?)`/)![1];
+    const plans = [signInSql, signupSql].map(sql => db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all('student', 'email@example.invalid'));
+    for (const plan of plans) {
+      const details = plan.map((row) => String((row as { detail: string }).detail)).join('\n');
+      assert.match(details, /SEARCH .* USING (?:COVERING )?INDEX|SEARCH .* USING INTEGER PRIMARY KEY/);
+      assert.doesNotMatch(details, /^SCAN /m);
+    }
+    db.exec(`INSERT INTO auth_user VALUES ('first', 'first@st.buh.edu.vn'), ('second', 'second@st.buh.edu.vn');
+      INSERT INTO app_auth_identifiers VALUES ('00000001', 'first'), ('00000002', 'second');`);
+    const oldSignIn = db.prepare(`SELECT u.email FROM auth_user u LEFT JOIN app_auth_identifiers i ON i.user_id=u.id
+      WHERE i.student_code=?1 OR u.email=?2 LIMIT 1`);
+    const oldSignup = db.prepare(`SELECT u.id FROM auth_user u LEFT JOIN app_auth_identifiers i ON i.user_id=u.id
+      WHERE u.email=?1 OR i.student_code=?2 LIMIT 1`);
+    for (const [code, email] of [
+      ['00000001', 'first@st.buh.edu.vn'],
+      ['00000002', 'first@st.buh.edu.vn'],
+      ['00000001', 'second@st.buh.edu.vn'],
+      ['missing', 'second@st.buh.edu.vn'],
+      ['00000002', 'missing@invalid.example'],
+      ['missing', 'missing@invalid.example'],
+    ]) {
+      assert.deepEqual(db.prepare(signInSql).get(code, email), oldSignIn.get(code, email));
+      assert.deepEqual(db.prepare(signupSql).get(email, code), oldSignup.get(email, code));
+    }
+  } finally {
+    db.close();
+  }
+});

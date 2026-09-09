@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import {
   buildPublicCacheKey,
@@ -35,6 +37,56 @@ test('announcement query uses safe defaults', () => {
     startDate: '',
     endDate: '',
   });
+});
+
+test('default announcement listing keeps the visibility/order index usable', () => {
+  const worker = readFileSync(
+    new URL('../cloudflare/worker/src/index.ts', import.meta.url),
+    'utf8'
+  );
+  const handler = worker.slice(
+    worker.indexOf('const handleAnnouncements'),
+    worker.indexOf('const readCachedResponse')
+  );
+  const migration = readFileSync(
+    new URL('../cloudflare/migrations/0001_create_school_announcements.sql', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(handler, /const where = \['is_hidden = 0'\]/);
+  assert.doesNotMatch(handler, /COALESCE\(is_hidden,\s*0\)\s*=\s*0/);
+  assert.match(
+    migration,
+    /school_announcements_visible_date_created_idx[\s\S]*?\(is_hidden, date DESC, created_at DESC\)/
+  );
+
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec(`
+      CREATE TABLE school_announcements (
+        id INTEGER PRIMARY KEY,
+        title TEXT NOT NULL,
+        link TEXT NOT NULL,
+        date TEXT,
+        is_new INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT,
+        is_hidden INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX school_announcements_visible_date_created_idx
+        ON school_announcements (is_hidden, date DESC, created_at DESC);
+    `);
+    const plan = db.prepare(`EXPLAIN QUERY PLAN
+      SELECT id, title, link, is_new, date, created_at
+        FROM school_announcements
+       WHERE is_hidden = 0
+       ORDER BY date DESC, created_at DESC
+       LIMIT ? OFFSET ?`).all(10, 0);
+    const details = plan.map((row) => String((row as { detail: string }).detail)).join('\n');
+    assert.match(details, /SEARCH school_announcements USING INDEX school_announcements_visible_date_created_idx/);
+    assert.doesNotMatch(details, /SCAN school_announcements|USE TEMP B-TREE/);
+  } finally {
+    db.close();
+  }
 });
 
 test('announcement query clamps limit and offset', () => {
