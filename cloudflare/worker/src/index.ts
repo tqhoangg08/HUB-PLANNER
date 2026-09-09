@@ -122,6 +122,12 @@ import {
   type PushSubscriptionEnv,
 } from './push-subscriptions.ts';
 import {
+  handlePushTest,
+  pushTestErrorStatus,
+  PushTestError,
+  type PushTestEnv,
+} from './push-test.ts';
+import {
   aiAdvisorErrorStatus,
   AiAdvisorError,
   handleAiAdvisor,
@@ -182,7 +188,7 @@ import {
 } from './public-directory.ts';
 
 type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv &
-  ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & AiAdvisorEnv & AiDocumentsEnv & PublicDirectoryEnv & {
+  ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & PushTestEnv & AiAdvisorEnv & AiDocumentsEnv & PublicDirectoryEnv & {
   AUTH_SERVICE_PROXY_ENABLED?: string;
   AUTH_INGRESS_IP_RATE_LIMIT?: RateLimit;
   ASSETS: Fetcher;
@@ -1618,6 +1624,25 @@ const worker = {
       } catch (error) {
         const status = pushSubscriptionErrorStatus(error);
         return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' : status === 403 ? 'Không có quyền truy cập.' : status < 500 && error instanceof PushSubscriptionError ? error.message : 'Không thể đồng bộ thiết bị nhận thông báo.' }, status, { ...cors, 'Cache-Control': 'no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/private/v1/push/test') {
+      try {
+        return json(await handlePushTest(request, env), 200, {
+          ...cors, 'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = pushTestErrorStatus(error);
+        return json({
+          error: status === 401
+            ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+            : status === 403
+              ? 'Không có quyền truy cập.'
+              : status < 500 && error instanceof PushTestError
+                ? error.message
+                : 'Không thể gửi thông báo thử.',
+        }, status, { ...cors, 'Cache-Control': 'no-store' });
       }
     }
 

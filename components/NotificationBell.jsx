@@ -19,6 +19,7 @@ import {
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
 import { setRuntimeStyleRule } from '../utils/runtimeStyles';
 import { FEATURE_SCHEDULE_REMINDERS } from '../utils/featureFlags';
+import { privateApiRequest } from '../utils/privateApi';
 
 const notificationStreams = new Map();
 const isDev = import.meta.env.DEV;
@@ -129,6 +130,8 @@ const NotificationBell = ({ currentUserId }) => {
   const [preferences, setPreferences] = useState(defaultPreferences);
   const [isPushEnabled, setIsPushEnabled] = useState(false);
   const [isLoadingPush, setIsLoadingPush] = useState(false);
+  const [isSendingTestPush, setIsSendingTestPush] = useState(false);
+  const [testPushStatus, setTestPushStatus] = useState('');
   const [panelPosition, setPanelPosition] = useState({ top: 96, right: 16 });
 
   const navigate = useNavigate();
@@ -331,6 +334,47 @@ const NotificationBell = ({ currentUserId }) => {
     }
   };
 
+  const handleTestPush = async () => {
+    setTestPushStatus('');
+    if (requiresIosHomeScreenInstallForPush()) {
+      setTestPushStatus('Trên iPhone/iPad, hãy thêm HUB Planner vào Màn hình chính rồi mở từ biểu tượng đã cài.');
+      return;
+    }
+    if (!currentUserId || !isPushSupported() || !isPushNotificationSyncAvailable()) {
+      setTestPushStatus('Trình duyệt hoặc phiên đăng nhập hiện tại chưa hỗ trợ thông báo đẩy.');
+      return;
+    }
+
+    setIsSendingTestPush(true);
+    try {
+      let permission = Notification.permission;
+      if (permission === 'default') permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setTestPushStatus('Hãy bật quyền thông báo trong cài đặt trình duyệt hoặc hệ điều hành.');
+        return;
+      }
+
+      await navigator.serviceWorker.ready;
+      let subscription = await getCurrentPushSubscription();
+      if (!subscription) subscription = await subscribeToDeviceNotifications(currentUserId);
+      else await subscribeToDeviceNotifications(currentUserId);
+      if (!subscription) throw new Error('missing_subscription');
+
+      const response = await privateApiRequest('/api/private/v1/push/test', {
+        method: 'POST',
+        body: '{}',
+      });
+      const result = await response.json();
+      const sent = Number(result?.sent || 0);
+      setIsPushEnabled(true);
+      setTestPushStatus(`Đã gửi thông báo thử tới ${sent} thiết bị của tài khoản này.`);
+    } catch {
+      setTestPushStatus('Không thể gửi thông báo thử. Vui lòng kiểm tra kết nối và thử lại.');
+    } finally {
+      setIsSendingTestPush(false);
+    }
+  };
+
   const handleRead = async (notif) => {
     setIsOpen(false);
 
@@ -461,6 +505,19 @@ const NotificationBell = ({ currentUserId }) => {
                 </div>
               );
             })}
+            <div className="rounded-lg border border-gray-100 px-3 py-2">
+              <button
+                type="button"
+                onClick={handleTestPush}
+                disabled={isSendingTestPush || !currentUserId}
+                className="w-full rounded-lg bg-[#003375] px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-[#00265a] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSendingTestPush ? 'Đang gửi...' : 'Gửi thông báo thử'}
+              </button>
+              {testPushStatus && (
+                <p className="mt-2 text-xs leading-relaxed text-gray-600" role="status">{testPushStatus}</p>
+              )}
+            </div>
           </div>
         </div>
       )}

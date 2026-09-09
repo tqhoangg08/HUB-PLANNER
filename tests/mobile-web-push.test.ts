@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { handlePushTest, PushTestError } from '../cloudflare/worker/src/push-test.ts';
 
 const read = (path: string) => readFileSync(path, 'utf8');
 
@@ -53,4 +54,88 @@ test('device subscription is Better Auth-owned, resilient to server cleanup, and
   assert.match(bridge, /requireBetterAuthSession\(request, env\)/);
   assert.match(bridge, /on_conflict=endpoint/);
   assert.match(delivery, /statusCode === 404 \|\| error\?\.statusCode === 410/);
+});
+
+test('private test push derives its target from Better Auth and strips provider details', async () => {
+  const userId = '11111111-1111-4111-8111-111111111111';
+  let downstreamBody: Record<string, unknown> | null = null;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (_input, init) => {
+    downstreamBody = JSON.parse(String(init?.body || '{}'));
+    return Response.json({
+      success: true,
+      sent: 2,
+      failed: 0,
+      skipped: 0,
+      results: [{ endpoint: 'https://push.invalid/sensitive', id: 123 }],
+    });
+  };
+
+  try {
+    const env = {
+      AUTH_SERVICE: {
+        fetch: async () => Response.json({ userId, email: 'member@example.invalid', role: 'user' }),
+      },
+      SUPABASE_URL: 'https://project.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'x'.repeat(64),
+    };
+    const result = await handlePushTest(new Request('https://example.test/api/private/v1/push/test', {
+      method: 'POST',
+      headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' },
+      body: '{}',
+    }), env);
+
+    assert.equal(downstreamBody?.targetUserId, userId);
+    assert.equal(downstreamBody?.resource, 'send');
+    assert.deepEqual(result, {
+      success: true,
+      sent: 2,
+      failed: 0,
+      skipped: 0,
+      targeted: 2,
+      targeting: 'authenticated_user_active_subscriptions',
+    });
+    assert.doesNotMatch(JSON.stringify(result), /"endpoint"|"p256dh"|"auth"|"results"|11111111/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('private test push rejects client-selected recipients before delivery', async () => {
+  let downstreamCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    downstreamCalls += 1;
+    return Response.json({ success: true, sent: 1 });
+  };
+
+  try {
+    await assert.rejects(
+      handlePushTest(new Request('https://example.test/api/private/v1/push/test', {
+        method: 'POST',
+        headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: 'another-user' }),
+      }), {
+        AUTH_SERVICE: { fetch: async () => Response.json({}) },
+        SUPABASE_URL: 'https://project.supabase.co',
+        SUPABASE_SERVICE_ROLE_KEY: 'x'.repeat(64),
+      }),
+      (error: unknown) => error instanceof PushTestError && error.status === 400,
+    );
+    assert.equal(downstreamCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('test push UI checks mobile prerequisites and never sends automatically', () => {
+  const bell = read('components/NotificationBell.jsx');
+  assert.match(bell, /Gửi thông báo thử/);
+  assert.match(bell, /requiresIosHomeScreenInstallForPush\(\)/);
+  assert.match(bell, /Notification\.permission/);
+  assert.match(bell, /navigator\.serviceWorker\.ready/);
+  assert.match(bell, /getCurrentPushSubscription\(\)/);
+  assert.match(bell, /subscribeToDeviceNotifications\(currentUserId\)/);
+  assert.match(bell, /privateApiRequest\('\/api\/private\/v1\/push\/test'/);
+  assert.doesNotMatch(bell, /useEffect\([^]*handleTestPush\(/);
 });
