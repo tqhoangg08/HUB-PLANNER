@@ -15,6 +15,13 @@ export class PushSubscriptionError extends Error {
 }
 
 const MAX_BODY_BYTES = 16 * 1024;
+const readUpstreamErrorCode = async (response: Response) => {
+  const payload = await response.json().catch(() => null) as { code?: unknown } | null;
+  const code = typeof payload?.code === 'string' && /^[A-Z0-9_]{3,16}$/i.test(payload.code)
+    ? payload.code
+    : 'unknown';
+  return code;
+};
 const readBody = async (request: Request) => {
   const raw = await request.text();
   if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) throw new PushSubscriptionError(413, 'Dữ liệu thiết bị quá lớn.');
@@ -40,12 +47,13 @@ const source = async (env: PushSubscriptionEnv, path: string, init: RequestInit 
     signal: AbortSignal.timeout(8_000),
   });
   if (!response.ok) {
+    const upstreamCode = await readUpstreamErrorCode(response);
     console.error(JSON.stringify({
       event: 'push_subscription_storage_rejected',
       method: String(init.method || 'GET').toUpperCase(),
       status: response.status,
+      upstreamCode,
     }));
-    await response.body?.cancel();
     throw new PushSubscriptionError(502, 'Không thể đồng bộ thiết bị nhận thông báo.');
   }
   return response;
@@ -103,10 +111,10 @@ const persistSubscription = async (
   // Another tab may have inserted the same endpoint after the lookup. Resolve
   // that bounded race with one authoritative lookup/update, without relying on
   // PostgREST ON CONFLICT inference for the table's partial unique index.
-  await response.body?.cancel();
+  const upstreamCode = await readUpstreamErrorCode(response);
   const racedId = await findStoredSubscription(env, endpoint);
   if (!racedId) {
-    console.error(JSON.stringify({ event: 'push_subscription_storage_rejected', method: 'POST', status: response.status }));
+    console.error(JSON.stringify({ event: 'push_subscription_storage_rejected', method: 'POST', status: response.status, upstreamCode }));
     throw new PushSubscriptionError(502, 'Không thể đồng bộ thiết bị nhận thông báo.');
   }
   const retry = await source(env, `/rest/v1/push_subscriptions?id=eq.${encodeURIComponent(racedId)}`, {
