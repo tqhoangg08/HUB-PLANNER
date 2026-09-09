@@ -1,6 +1,7 @@
 import {
   BetterAuthIdentityError,
   requireBetterAuthSession,
+  type BetterAuthIdentity,
   type BetterAuthIdentityEnv,
 } from './better-auth-identity.ts';
 
@@ -60,6 +61,49 @@ const source = async (env: PushSubscriptionEnv, path: string, init: RequestInit 
 };
 
 type StoredSubscription = { id?: unknown };
+type LegacyPushOwner = { id?: unknown; email?: unknown; student_code?: unknown };
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const normalizeEmail = (value: unknown) => String(value || '').trim().toLowerCase();
+
+const readLegacyOwnerRows = async (env: PushSubscriptionEnv, filter: string) => {
+  const response = await source(env, `/rest/v1/profiles?${filter}&select=id,email,student_code&limit=2`);
+  return await response.json() as LegacyPushOwner[];
+};
+
+// push_subscriptions still references the legacy Supabase auth.users table.
+// Better Auth is authoritative for the browser session, while an exact
+// profile bridge supplies the corresponding legacy owner without trusting a
+// client-provided id or using fuzzy email matching.
+export const resolveLegacyPushOwner = async (
+  env: PushSubscriptionEnv,
+  identity: BetterAuthIdentity,
+) => {
+  const byId = await readLegacyOwnerRows(env, `id=eq.${encodeURIComponent(identity.userId)}`);
+  const directId = typeof byId[0]?.id === 'string' && UUID_PATTERN.test(byId[0].id)
+    ? byId[0].id
+    : '';
+  if (directId) return directId;
+
+  const email = normalizeEmail(identity.email);
+  const candidates = await readLegacyOwnerRows(env, `email=eq.${encodeURIComponent(email)}`);
+  const exact = candidates.filter((row) => normalizeEmail(row.email) === email);
+  if (exact.length === 1 && typeof exact[0].id === 'string' && UUID_PATTERN.test(exact[0].id)) {
+    return exact[0].id;
+  }
+
+  const studentMatch = email.match(/^([^@]+)@st\.buh\.edu\.vn$/);
+  if (!studentMatch) return null;
+  const studentCode = studentMatch[1];
+  const studentCandidates = await readLegacyOwnerRows(
+    env,
+    `student_code=eq.${encodeURIComponent(studentCode)}`,
+  );
+  const exactStudent = studentCandidates.filter((row) => String(row.student_code || '').trim() === studentCode);
+  return exactStudent.length === 1 && typeof exactStudent[0].id === 'string' && UUID_PATTERN.test(exactStudent[0].id)
+    ? exactStudent[0].id
+    : null;
+};
 
 const findStoredSubscription = async (env: PushSubscriptionEnv, endpoint: string) => {
   const response = await source(
@@ -127,7 +171,9 @@ const persistSubscription = async (
 
 export const handlePushSubscription = async (request: Request, env: PushSubscriptionEnv) => {
   const identity = await requireBetterAuthSession(request, env);
-  const owner = encodeURIComponent(identity.userId);
+  const resolvedOwner = await resolveLegacyPushOwner(env, identity);
+  if (!resolvedOwner) throw new PushSubscriptionError(409, 'Chưa thể liên kết thiết bị với tài khoản hiện tại.');
+  const owner = encodeURIComponent(resolvedOwner);
   if (request.method === 'GET') {
     const response = await source(env, `/rest/v1/push_subscriptions?user_id=eq.${owner}&select=id,endpoint&limit=50`);
     return { success: true, data: await response.json() };
@@ -148,7 +194,7 @@ export const handlePushSubscription = async (request: Request, env: PushSubscrip
     ? new Date(String(body.bindingStartedAt)).toISOString()
     : new Date().toISOString();
   const stored = { ...(subscription as Record<string, unknown>), __hubBindingStartedAt: startedAt };
-  await persistSubscription(env, identity.userId, endpoint, stored);
+  await persistSubscription(env, resolvedOwner, endpoint, stored);
   return { success: true };
 };
 

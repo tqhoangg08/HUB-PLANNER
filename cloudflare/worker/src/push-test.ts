@@ -3,8 +3,9 @@ import {
   requireBetterAuthSession,
   type BetterAuthIdentityEnv,
 } from './better-auth-identity.ts';
+import { resolveLegacyPushOwner, type PushSubscriptionEnv } from './push-subscriptions.ts';
 
-export interface PushTestEnv extends BetterAuthIdentityEnv {
+export interface PushTestEnv extends BetterAuthIdentityEnv, PushSubscriptionEnv {
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
 }
@@ -51,6 +52,13 @@ export const handlePushTest = async (request: Request, env: PushTestEnv) => {
 
   await readEmptyBody(request);
   const identity = await requireBetterAuthSession(request, env);
+  let owner: string | null;
+  try {
+    owner = await resolveLegacyPushOwner(env, identity);
+  } catch {
+    throw new PushTestError(502, 'Không thể xác định thiết bị của tài khoản hiện tại.');
+  }
+  if (!owner) throw new PushTestError(404, 'Tài khoản chưa có thiết bị nhận thông báo đang hoạt động.');
   const base = String(env.SUPABASE_URL || '').replace(/\/$/, '');
   const serviceKey = String(env.SUPABASE_SERVICE_ROLE_KEY || '');
   if (!base || serviceKey.length < 32) {
@@ -68,7 +76,7 @@ export const handlePushTest = async (request: Request, env: PushTestEnv) => {
       },
       body: JSON.stringify({
         resource: 'send',
-        targetUserId: identity.userId,
+        targetUserId: owner,
         title: 'Thông báo thử từ HUB Planner',
         body: 'Thiết bị của bạn đã nhận Web Push thành công.',
         url: '/dashboard',

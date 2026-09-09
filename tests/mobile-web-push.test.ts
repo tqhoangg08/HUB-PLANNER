@@ -60,9 +60,16 @@ test('device subscription is Better Auth-owned, resilient to server cleanup, and
 
 test('private test push derives its target from Better Auth and strips provider details', async () => {
   const userId = '11111111-1111-4111-8111-111111111111';
+  const legacyUserId = '22222222-2222-4222-8222-222222222222';
   let downstreamBody: Record<string, unknown> | null = null;
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (_input, init) => {
+    const url = String(_input);
+    if (url.includes('/rest/v1/profiles')) {
+      return url.includes('id=eq.')
+        ? Response.json([])
+        : Response.json([{ id: legacyUserId, email: 'member@example.invalid', student_code: null }]);
+    }
     downstreamBody = JSON.parse(String(init?.body || '{}'));
     return Response.json({
       success: true,
@@ -87,7 +94,7 @@ test('private test push derives its target from Better Auth and strips provider 
       body: '{}',
     }), env);
 
-    assert.equal(downstreamBody?.targetUserId, userId);
+    assert.equal(downstreamBody?.targetUserId, legacyUserId);
     assert.equal(downstreamBody?.resource, 'send');
     assert.deepEqual(result, {
       success: true,
@@ -155,6 +162,7 @@ test('subscription persistence updates an existing endpoint without partial-inde
     if (url.includes('/api/private/v1/me')) {
       return Response.json({ userId: '11111111-1111-4111-8111-111111111111', email: 'member@example.invalid', role: 'user' });
     }
+    if (url.includes('/rest/v1/profiles')) return Response.json([{ id: '11111111-1111-4111-8111-111111111111', email: 'member@example.invalid' }]);
     if (url.includes('select=id')) return Response.json([{ id: '22222222-2222-4222-8222-222222222222' }]);
     return new Response(null, { status: 204 });
   };
@@ -174,6 +182,41 @@ test('subscription persistence updates an existing endpoint without partial-inde
     });
     assert.equal(calls.some(call => call.method === 'PATCH'), true);
     assert.equal(calls.some(call => call.url.includes('on_conflict=endpoint')), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('subscription owner bridge uses an exact legacy profile and never accepts a client owner', async () => {
+  const originalFetch = globalThis.fetch;
+  const betterAuthId = '11111111-1111-4111-8111-111111111111';
+  const legacyId = '22222222-2222-4222-8222-222222222222';
+  let storedOwner = '';
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes('/rest/v1/profiles?id=eq.')) return Response.json([]);
+    if (url.includes('/rest/v1/profiles?email=eq.')) {
+      return Response.json([{ id: legacyId, email: 'member@example.invalid', student_code: null }]);
+    }
+    if (url.includes('/rest/v1/push_subscriptions?endpoint=eq.')) return Response.json([]);
+    if (url.endsWith('/rest/v1/push_subscriptions')) {
+      storedOwner = String((JSON.parse(String(init?.body)) as { user_id?: unknown }).user_id || '');
+      return new Response(null, { status: 201 });
+    }
+    return Response.json([]);
+  };
+  try {
+    const { handlePushSubscription } = await import('../cloudflare/worker/src/push-subscriptions.ts');
+    await handlePushSubscription(new Request('https://example.test/api/private/v1/push-subscription', {
+      method: 'POST',
+      headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: { endpoint: 'https://push.example.invalid/device' } }),
+    }), {
+      AUTH_SERVICE: { fetch: async () => Response.json({ userId: betterAuthId, email: 'member@example.invalid', role: 'user' }) },
+      SUPABASE_URL: 'https://project.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'x'.repeat(64),
+    });
+    assert.equal(storedOwner, legacyId);
   } finally {
     globalThis.fetch = originalFetch;
   }
