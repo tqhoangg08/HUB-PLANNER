@@ -16,7 +16,6 @@ import { useUserRole } from '../hooks/useUserRole';
 import { CTVRegistrationForm } from './CTVRegistrationForm';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
-import { apiHeaders, apiUrl } from '../utils/api';
 import {
   createAdminEvent,
   fetchAdminEvents,
@@ -110,35 +109,6 @@ const EventImage = ({ src, alt, className, iconSize = 34 }: { src?: string | nul
             className={className}
         />
     );
-};
-
-const notifyAllUsersAboutEvent = async (event: any) => {
-    if (!event || event.status === 'pending') return;
-
-    try {
-        const eventTitle = event.title || 'Có một sự kiện mới';
-        const criteriaLabel = event.criteria ? ` - Mục ${event.criteria}` : '';
-        const response = await fetch(apiUrl('/push?resource=send'), {
-            method: 'POST',
-            headers: apiHeaders({
-                'Content-Type': 'application/json',
-                // The server resolves the Better Auth session from the cookie.
-            }),
-            body: JSON.stringify({
-                title: 'Sự kiện mới',
-                body: `${eventTitle}${criteriaLabel}`,
-                url: event.id ? `/events/${event.id}` : '/events',
-                category: 'events'
-            })
-        });
-
-        const result = await response.json().catch(() => null);
-        if (!response.ok) {
-            throw new Error(result?.error || result?.message || 'Không gửi được push sự kiện.');
-        }
-    } catch (error) {
-        console.error('Không gửi được push cho sự kiện mới:', error);
-    }
 };
 
 const checkIsOverdue = (evt: HubEvent, currentDay: Date) => {
@@ -785,9 +755,6 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
             if (editingEvent) {
                 mutation = await updateAdminEvent(editingEvent.id, payload);
                 const data = mutation.data;
-                if (editingEvent.status === 'pending' && payload.status !== 'pending' && data?.[0]) {
-                    await notifyAllUsersAboutEvent(data[0]);
-                }
                 if (!data || data.length === 0) {
                     throw new Error("Bảo mật RLS đang chặn bạn sửa! Vui lòng chạy lệnh SQL để cấp quyền Admin.");
                 }
@@ -795,7 +762,6 @@ const ManageEventModal = ({ isOpen, onClose, onShowToast, editingEvent, fetchEve
             } else {
                 mutation = await createAdminEvent(payload);
                 const data = mutation.data;
-                if (data?.[0]) await notifyAllUsersAboutEvent(data[0]);
                 if (!data || data.length === 0) {
                     throw new Error("Bảo mật RLS đang chặn bạn thêm! Vui lòng chạy lệnh SQL để cấp quyền Admin.");
                 }
@@ -1405,9 +1371,7 @@ export const EventsBoard: React.FC<{ viewUserId?: string }> = ({ viewUserId }) =
       if (!showManagementView) {
         const params = new URLSearchParams({ limit: '100' });
         if (options.bypassCache) params.set('refresh', '1');
-        const response = await fetchPublicEvents(`/events?${params.toString()}`, {
-          headers: apiHeaders(),
-        });
+        const response = await fetchPublicEvents(`/events?${params.toString()}`);
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error || 'Không tải được dữ liệu sự kiện');
 

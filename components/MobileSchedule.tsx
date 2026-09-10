@@ -9,7 +9,6 @@ import { useUserRole } from '../hooks/useUserRole';
 import { playClick } from '../utils/audio';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
-import { apiHeaders, apiUrl } from '../utils/api';
 import { fetchPublicCourses } from '../utils/coursesApi';
 import {
   addCloudflareUserSchedule,
@@ -670,9 +669,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
         if (isSuggestionMode) params.set('suggestions', 'true');
         if (term) params.set('search', term);
 
-        const response = await fetchPublicCourses(`/courses?${params.toString()}`, {
-            headers: apiHeaders(),
-        });
+        const response = await fetchPublicCourses(`/courses?${params.toString()}`);
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error || 'Không tải được danh sách môn.');
         const rows = Array.isArray(payload.data) ? payload.data : [];
@@ -689,7 +686,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     } catch (error) {
         console.error("Lỗi tải danh sách môn:", error);
         await logWebError({
-            source: 'supabase',
+            source: 'frontend',
             action: searchTerm.trim() ? 'search_subjects' : 'load_subjects',
             error,
             metadata: {
@@ -729,7 +726,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     } catch (error: any) {
       console.error(error);
       await logWebError({
-        source: 'supabase',
+        source: 'frontend',
         action: 'load_schedule',
         error,
         metadata: {
@@ -765,7 +762,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     } catch (error: any) {
       console.error(error);
       await logWebError({
-        source: 'supabase',
+        source: 'frontend',
         action: 'load_schedule',
         error,
         metadata: {
@@ -800,7 +797,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     } catch (error: any) {
       console.error(error);
       await logWebError({
-        source: 'supabase',
+        source: 'frontend',
         action: 'load_schedule',
         error,
         metadata: {
@@ -837,7 +834,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     } catch (error: any) {
       console.error(error);
       await logWebError({
-        source: 'supabase',
+        source: 'frontend',
         action: 'load_subjects',
         error,
         metadata: {
@@ -955,7 +952,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     } catch (error) {
       console.error("Lỗi kéo TKB:", error);
       await logWebError({
-        source: 'supabase',
+        source: 'frontend',
         action: 'load_schedule',
         error,
         metadata: {
@@ -1028,7 +1025,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     } catch (err) {
       if (isScheduleRevisionConflict(err)) await fetchMySchedule();
       await logWebError({
-        source: 'supabase',
+        source: 'frontend',
         action: 'save_schedule',
         error: err,
         metadata: {
@@ -1055,7 +1052,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
     } catch (err) {
       if (isScheduleRevisionConflict(err)) await fetchMySchedule();
       await logWebError({
-        source: 'supabase',
+        source: 'frontend',
         action: 'remove_subject_from_plan',
         error: err,
         metadata: {
@@ -1322,7 +1319,7 @@ export const MobileSchedule: React.FC<MobileScheduleProps> = ({ viewUserId, mana
       if (isScheduleRevisionConflict(error)) await fetchMySchedule();
       console.error('Không thể xác nhận nhập thời khóa biểu:', error);
       await logWebError({
-        source: 'supabase',
+        source: 'frontend',
         action: 'save_schedule',
         error,
         metadata: {

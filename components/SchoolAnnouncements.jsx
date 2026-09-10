@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Bell, ExternalLink, Search, Calendar, X, ChevronLeft, ChevronRight, Filter, Building } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
-import { apiUrl } from '../utils/api';
 import { fetchSchoolAnnouncements } from '../utils/announcementsApi';
 
 const ITEMS_PER_PAGE = 10;
@@ -199,7 +198,7 @@ const SchoolAnnouncements = () => {
     setAiAnswer(null);
 
     try {
-      const response = await fetch(apiUrl('/hub-notification-chat'), {
+      const response = await fetch('/api/public/v1/announcement-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question }),

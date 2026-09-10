@@ -12,7 +12,6 @@ import {
 import { fetchDefaultClassName } from '../utils/defaultClassName';
 import { getSafeAvatarColor } from '../utils/avatarColors';
 import { blobToBase64, resizeAvatarImage } from '../utils/avatarImage';
-import { apiUrl } from '../utils/api';
 import { calculateCumulativeStats } from '../utils/calculations';
 import { upsertProfilePrivate } from '../utils/profilePrivate';
 import { fetchOwnPrivateProfile, updateOwnPrivateProfile } from '../utils/privateProfileApi';

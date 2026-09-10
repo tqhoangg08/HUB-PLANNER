@@ -1,4 +1,4 @@
-export type WebErrorSource = 'frontend' | 'supabase' | 'parser' | 'otp' | 'auth' | 'unknown';
+export type WebErrorSource = 'frontend' | 'parser' | 'otp' | 'auth' | 'unknown';
 export type WebErrorLevel = 'error' | 'warn';
 
 export type LogWebErrorInput = {

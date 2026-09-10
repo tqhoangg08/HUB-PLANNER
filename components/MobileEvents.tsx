@@ -18,7 +18,6 @@ import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
 import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
-import { apiHeaders, apiUrl } from '../utils/api';
 import {
   createAdminEvent,
   fetchAdminEvents,
@@ -82,29 +81,6 @@ const formatTimeString = (timeStr: string | null): string => {
     const parts = timeStr.split(':');
     if (parts.length >= 2) return `${parts[0]}:${parts[1]}`;
     return timeStr;
-};
-
-const notifyAllUsersAboutEvent = async (event: any) => {
-    if (!event || event.status === 'pending') return;
-    try {
-        const eventTitle = event.title || 'Có một sự kiện mới';
-        const criteriaLabel = event.criteria ? ` - Mục ${event.criteria}` : '';
-        await fetch(apiUrl('/push?resource=send'), {
-            method: 'POST',
-            headers: apiHeaders({
-                'Content-Type': 'application/json',
-            }),
-            credentials: 'include',
-            body: JSON.stringify({
-                title: 'Sự kiện mới',
-                body: `${eventTitle}${criteriaLabel}`,
-                url: event.id ? `/events/${event.id}` : '/events',
-                category: 'events'
-            })
-        });
-    } catch (error) {
-        console.error('Không gửi được push cho sự kiện mới:', error);
-    }
 };
 
 const checkIsOverdue = (evt: HubEvent, currentDay: Date) => {
@@ -820,9 +796,7 @@ const canManage = isAdmin || isAuditor || isCTV;
           return params;
         };
         const fetchEventGroup = async (group: 'open' | 'closed', offset: number, limit: number) => {
-          const response = await fetchPublicEvents(`/events?${buildApiParams(group, offset, limit).toString()}`, {
-            headers: apiHeaders(),
-          });
+          const response = await fetchPublicEvents(`/events?${buildApiParams(group, offset, limit).toString()}`);
           const payload = await response.json();
           if (!response.ok) throw new Error(payload?.error || 'Không tải được sự kiện');
           return payload;
@@ -963,9 +937,7 @@ const canManage = isAdmin || isAuditor || isCTV;
 
   const fetchOpenEventsTotal = async () => {
     try {
-      const response = await fetchPublicEvents('/events?group=open&limit=1', {
-        headers: apiHeaders(),
-      });
+      const response = await fetchPublicEvents('/events?group=open&limit=1');
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error || 'Không thể tải tổng sự kiện mở');
       setOpenEventsTotal(Number(payload?.total || 0));
@@ -1075,9 +1047,6 @@ const canManage = isAdmin || isAuditor || isCTV;
               ? await updateAdminEvent(editingEvent.id, payload)
               : await createAdminEvent(payload);
           const data = mutation.data;
-          if ((!editingEvent || (editingEvent.status === 'pending' && payload.status !== 'pending')) && data?.[0]) {
-              await notifyAllUsersAboutEvent(data[0]);
-          }
           showToast(editingEvent ? 'Cập nhật sự kiện thành công.' : 'Thêm sự kiện thành công.', 'success');
           closeEventEditor();
           await fetchEvents({
@@ -1096,9 +1065,6 @@ const canManage = isAdmin || isAuditor || isCTV;
       playClick();
       try {
           const mutation = await updateAdminEvent(evt.id, patch);
-          if (evt.status === 'pending' && patch.status && patch.status !== 'pending') {
-              await notifyAllUsersAboutEvent({ ...evt, ...patch, title: evt.name, criteria: patch.criteria || evt.category });
-          }
           setEvents(prev => prev.map(item => item.id === evt.id ? { ...item, ...patch } : item));
           if (!mutation.mirrorSynced) void syncAdminEventMirror();
           showToast(successMessage, 'success');

@@ -11,7 +11,6 @@ import { playClick } from '../utils/audio';
 import { showAlert, showConfirm } from '../utils/appNotifications';
 import NotificationNudge from './NotificationNudge';
 import { notifyModerators } from '../utils/moderatorNotifications';
-import { apiHeaders, apiUrl } from '../utils/api';
 import { fetchPublicCourses } from '../utils/coursesApi';
 import {
   addCloudflareUserSchedule,
@@ -947,9 +946,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         if (isSuggestionMode) baseParams.set('suggestions', 'true');
         if (term) baseParams.set('search', term);
 
-        const response = await fetchPublicCourses(`/courses?${baseParams.toString()}`, {
-            headers: apiHeaders(),
-        });
+        const response = await fetchPublicCourses(`/courses?${baseParams.toString()}`);
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error || 'Không tải được danh sách môn.');
 
@@ -967,7 +964,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     } catch (error) { 
         console.error("Lỗi tải danh sách môn:", error); 
         await logWebError({
-            source: 'supabase',
+            source: 'frontend',
             action: searchTerm.trim() ? 'search_subjects' : 'load_subjects',
             error,
             metadata: {
@@ -1014,9 +1011,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         selectedFilterCohorts.forEach(value => params.append('cohort', value));
         selectedFilterPrograms.forEach(value => params.append('academicProgram', value));
 
-        const response = await fetchPublicCourses(`/courses?${params.toString()}`, {
-            headers: apiHeaders(),
-        });
+        const response = await fetchPublicCourses(`/courses?${params.toString()}`);
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error || 'Không tải được bộ lọc môn.');
         const nextOptions = {
@@ -1035,7 +1030,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     } catch (error) {
         console.error('Lỗi tải bộ lọc chuyên ngành/nhóm:', error);
         await logWebError({
-            source: 'supabase',
+            source: 'frontend',
             action: 'filter_subjects',
             error,
             metadata: {
@@ -1094,9 +1089,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     const loadCourseDetail = async () => {
         try {
             const params = new URLSearchParams({ resource: 'course-detail', id: courseId });
-            const response = await fetchPublicCourses(`/courses?${params.toString()}`, {
-                headers: apiHeaders(),
-            });
+            const response = await fetchPublicCourses(`/courses?${params.toString()}`);
             const payload = await response.json();
             if (!response.ok) throw new Error(payload?.error || 'Không tải được chi tiết môn.');
             if (cancelled || !payload?.data) return;
@@ -1108,7 +1101,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         } catch (error) {
             console.error('Lỗi tải chi tiết môn:', error);
             await logWebError({
-                source: 'supabase',
+                source: 'frontend',
                 action: 'view_subject_detail',
                 error,
                 metadata: {
@@ -1563,7 +1556,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     } catch (error) {
       console.error("Lỗi kéo TKB:", error);
       await logWebError({
-        source: 'supabase',
+        source: 'frontend',
         action: 'load_schedule',
         error,
         metadata: {
@@ -1630,9 +1623,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     if (cachedDetail) return { ...course, ...cachedDetail, __detailLoaded: true } as Course;
 
     const params = new URLSearchParams({ resource: 'course-detail', id: course.id });
-    const response = await fetchPublicCourses(`/courses?${params.toString()}`, {
-      headers: apiHeaders(),
-    });
+    const response = await fetchPublicCourses(`/courses?${params.toString()}`);
     const payload = await response.json();
     if (!response.ok) throw new Error(payload?.error || 'Không tải được chi tiết môn.');
     courseDetailCacheRef.current.set(course.id, payload.data);
@@ -1652,7 +1643,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     } catch (error) {
       console.error('Không tải được chi tiết môn trước khi thêm kế hoạch:', error);
       await logWebError({
-        source: 'supabase',
+        source: 'frontend',
         action: 'add_subject_to_plan',
         error,
         metadata: {
@@ -1723,7 +1714,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     } catch (error) {
       console.error('Không tải được chi tiết môn trước khi thêm lịch:', error);
       await logWebError({
-        source: 'supabase',
+        source: 'frontend',
         action: 'add_subject_to_plan',
         error,
         metadata: {
@@ -1749,7 +1740,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     } catch (err) {
         if (isScheduleRevisionConflict(err)) await fetchMySchedule();
         await logWebError({
-          source: 'supabase',
+          source: 'frontend',
           action: 'save_schedule',
           error: err,
           metadata: {
@@ -1776,7 +1767,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     } catch (err) {
       if (isScheduleRevisionConflict(err)) await fetchMySchedule();
       await logWebError({
-        source: 'supabase',
+        source: 'frontend',
         action: 'remove_subject_from_plan',
         error: err,
         metadata: {
@@ -2125,7 +2116,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       if (isScheduleRevisionConflict(error)) await fetchMySchedule();
       console.error('Không thể xác nhận nhập thời khóa biểu:', error);
       await logWebError({
-        source: 'supabase',
+        source: 'frontend',
         action: 'save_schedule',
         error,
         metadata: {

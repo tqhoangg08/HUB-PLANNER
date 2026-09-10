@@ -152,6 +152,12 @@ import {
   UserSubmissionError,
   userSubmissionErrorStatus,
 } from './user-submissions.ts';
+import {
+  accountPasswordCompatErrorStatus,
+  AccountPasswordCompatError,
+  handleAccountPasswordCompat,
+  type AccountPasswordCompatEnv,
+} from './account-password-compat.ts';
 import { handleWebErrorTelemetry } from './web-error-telemetry.ts';
 import { runNotificationQueueControl } from './notification-cron.ts';
 import { runEventPush, type EventPushEnv } from './event-push.ts';
@@ -188,7 +194,7 @@ import {
   type PublicDirectoryEnv,
 } from './public-directory.ts';
 
-type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv & EventPushEnv &
+type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv & EventPushEnv & AccountPasswordCompatEnv &
   ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & PushTestEnv & AiAdvisorEnv & AiDocumentsEnv & PublicDirectoryEnv & {
   AUTH_SERVICE_PROXY_ENABLED?: string;
   AUTH_INGRESS_IP_RATE_LIMIT?: RateLimit;
@@ -1563,6 +1569,41 @@ const worker = {
           ...(error instanceof PdfAiError && error.allow ? { Allow: error.allow } : {}),
           'Cache-Control': 'no-store',
         });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/public/v1/announcement-chat') {
+      if (request.method !== 'POST') {
+        return json({ error: 'Phương thức không được hỗ trợ.' }, 405, {
+          ...cors,
+          Allow: 'POST, OPTIONS',
+          'Cache-Control': 'no-store',
+        });
+      }
+      return json({
+        error: 'hub_notification_chat_disabled',
+        message: 'AI tra cứu nội dung thông báo đã được tắt. Vui lòng mở link nguồn chính thức để xem nội dung.',
+      }, 410, { ...cors, 'Cache-Control': 'no-store' });
+    }
+
+    if (requestUrl.pathname === '/api/private/v1/account-password/otp') {
+      try {
+        return json(await handleAccountPasswordCompat(request, env), 200, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = accountPasswordCompatErrorStatus(error);
+        const payload = error instanceof AccountPasswordCompatError
+          ? error.payload
+          : {
+              error: status === 401
+                ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+                : status === 403
+                  ? 'Không có quyền truy cập.'
+                  : 'Không thể xử lý yêu cầu mật khẩu lúc này.',
+            };
+        return json(payload, status, { ...cors, 'Cache-Control': 'private, no-store' });
       }
     }
 

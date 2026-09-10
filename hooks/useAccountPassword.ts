@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import type { AppSession } from '../utils/privateApi';
 import { playClick } from '../utils/audio';
-import { apiHeaders, apiUrl } from '../utils/api';
 import { logWebError } from '../utils/logWebError';
 import { verifyTurnstileOnly } from '../utils/protectedSubmit';
 
@@ -148,9 +147,10 @@ export const useAccountPassword = ({
 
         try {
             if (isAccountPasswordOtpMode) {
-                const response = await fetch(apiUrl('/auth'), {
+                const response = await fetch('/api/private/v1/account-password/otp', {
                     method: 'POST',
-                    headers: apiHeaders({ 'Content-Type': 'application/json' }),
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({
                         action: 'verify-otp',
                         purpose: 'forgot_password',
@@ -246,9 +246,10 @@ export const useAccountPassword = ({
         playClick();
 
         try {
-            const response = await fetch(apiUrl('/auth'), {
+            const response = await fetch('/api/private/v1/account-password/otp', {
                 method: 'POST',
-                headers: apiHeaders({ 'Content-Type': 'application/json' }),
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     action: 'send-otp',
                     purpose: 'forgot_password',
