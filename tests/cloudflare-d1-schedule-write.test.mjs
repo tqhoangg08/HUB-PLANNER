@@ -217,13 +217,15 @@ const remove = (harness, {
   revision = 0,
   headers = {},
   query = `?semester=${semester}`,
-} = {}) => harness.request(
-  `/api/user/v1/schedules/courses/${courseId}${query}`,
-  {
+  body,
+} = {}) => {
+  const init = {
     method: 'DELETE',
     headers: mutationHeaders(cookie, key, revision, headers),
-  }
-);
+  };
+  if (body !== undefined) init.body = body;
+  return harness.request(`/api/user/v1/schedules/courses/${courseId}${query}`, init);
+};
 
 const updateCustomData = (harness, {
   scheduleId,
@@ -465,7 +467,16 @@ test('D1 delete is self-only with explicit semester scope and deterministic abse
     });
     assert.equal(wrongSemester.status, 409);
 
-    const deleted = await remove(harness, { revision: 1 });
+    const invalidSemester = await remove(harness, {
+      semester: 'invalid/semester',
+      key: 'delete-invalid-semester',
+      revision: 1,
+    });
+    assert.equal(invalidSemester.status, 400);
+
+    // Cloudflare may represent a browser's bodyless DELETE as a non-null,
+    // zero-length stream. It must obey the same validated DELETE contract.
+    const deleted = await remove(harness, { revision: 1, body: '' });
     assert.deepEqual(await deleted.json(), { success: true, changed: true, revision: 2 });
     assert.equal((await harness.query(`
       SELECT COUNT(*) AS count FROM user_schedules

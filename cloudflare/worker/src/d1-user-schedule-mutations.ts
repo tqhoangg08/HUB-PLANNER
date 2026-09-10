@@ -175,7 +175,11 @@ export const parseD1ScheduleMutationRequest = async (request: Request, action: '
     assertOnlyKeys(body, new Set(['semester']));
     semester = parseUserScheduleSemester(body.semester);
   } else {
-    if ([...url.searchParams.keys()].some((key) => key !== 'semester') || request.body !== null) throw new UserScheduleError(400, 'Yêu cầu xóa không hợp lệ.');
+    // Some edge/browser transports expose an empty DELETE payload as a
+    // zero-length ReadableStream. The DELETE contract is entirely expressed by
+    // the route, semester query and concurrency headers, so do not use the
+    // Request.body object's presence as a semantic validation signal.
+    if ([...url.searchParams.keys()].some((key) => key !== 'semester')) throw new UserScheduleError(400, 'Yêu cầu xóa không hợp lệ.');
     semester = parseUserScheduleSemester(url.searchParams.get('semester'));
   }
   const { expectedRevision, idempotencyKey } = parseHeaders(request);
