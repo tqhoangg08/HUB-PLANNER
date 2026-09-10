@@ -60,7 +60,7 @@ test('account password compatibility route requires Better Auth before upstream 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'send-otp', purpose: 'forgot_password', email: 'attacker@example.test' }),
-      }), { SUPABASE_URL: 'https://source.example', SUPABASE_ANON_KEY: 'test-server-key' }),
+      }), { SUPABASE_URL: 'https://source.example', SUPABASE_SERVICE_ROLE_KEY: 'test-server-key' }),
       { name: 'BetterAuthIdentityError', status: 401 },
     );
     assert.equal(upstreamCalls, 0);
@@ -100,7 +100,7 @@ test('account password compatibility route ignores browser email and forwards se
     }), {
       AUTH_SERVICE: { fetch: (input) => globalThis.fetch(input) },
       SUPABASE_URL: 'https://source.example',
-      SUPABASE_ANON_KEY: 'test-server-key',
+      SUPABASE_SERVICE_ROLE_KEY: 'test-server-key',
     });
     assert.equal(result.retryAfterSeconds, 600);
     const upstream = requests.find((request) => request.url === 'https://source.example/functions/v1/auth');

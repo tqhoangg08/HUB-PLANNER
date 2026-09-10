@@ -6,7 +6,7 @@ import {
 
 export interface AccountPasswordCompatEnv extends BetterAuthIdentityEnv {
   SUPABASE_URL?: string;
-  SUPABASE_ANON_KEY?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
 }
 
 type SafePayload = Record<string, unknown>;
@@ -89,8 +89,8 @@ export const handleAccountPasswordCompat = async (
   }
 
   const base = String(env.SUPABASE_URL || '').replace(/\/$/, '');
-  const anonKey = String(env.SUPABASE_ANON_KEY || '');
-  if (!base || !anonKey) {
+  const serviceRoleKey = String(env.SUPABASE_SERVICE_ROLE_KEY || '');
+  if (!base || !serviceRoleKey) {
     throw new AccountPasswordCompatError(503, 'Dịch vụ mật khẩu tạm thời chưa sẵn sàng.');
   }
 
@@ -116,8 +116,8 @@ export const handleAccountPasswordCompat = async (
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
-        apikey: anonKey,
-        Authorization: `Bearer ${anonKey}`,
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
       },
       body: JSON.stringify(upstreamBody),
       signal: AbortSignal.timeout(15_000),
