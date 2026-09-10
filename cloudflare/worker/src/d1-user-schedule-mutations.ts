@@ -228,9 +228,14 @@ const readRevision = async (env: D1UserScheduleMutationEnv, userId: string, seme
 const readScheduleByCourse = (env: D1UserScheduleMutationEnv, userId: string, courseId: string) => env.DB.prepare('SELECT id, semester, custom_data FROM user_schedules WHERE user_id = ? AND course_id = ?').bind(userId, courseId).first<ScheduleRow>();
 const readScheduleById = (env: D1UserScheduleMutationEnv, userId: string, scheduleId: string) => env.DB.prepare('SELECT id, semester, custom_data FROM user_schedules WHERE user_id = ? AND id = ?').bind(userId, scheduleId).first<ScheduleRow>();
 
-const assertOfficialCourse = async (env: D1UserScheduleMutationEnv, courseId: string, semester: string) => {
-  const row = await env.DB.prepare('SELECT id FROM course_schedules WHERE id = ? AND semester = ? AND (is_user_added = 0 OR is_user_added IS NULL)').bind(courseId, semester).first<{ id: string }>();
-  if (!row) throw new UserScheduleError(404, 'Không tìm thấy môn học chính thức.');
+const assertSchedulableCourse = async (env: D1UserScheduleMutationEnv, courseId: string, semester: string) => {
+  // `is_user_added` records provenance, not catalogue visibility. Approved
+  // community contributions are published courses and must remain addable from
+  // the same public catalogue as administrator-imported courses.
+  const row = await env.DB.prepare(
+    "SELECT id FROM course_schedules WHERE id = ? AND semester = ? AND catalogue_visibility = 'published'",
+  ).bind(courseId, semester).first<{ id: string }>();
+  if (!row) throw new UserScheduleError(404, 'Không tìm thấy môn học khả dụng.');
 };
 
 const responseJson = (value: D1ScheduleMutationResponse) => {
@@ -282,7 +287,7 @@ export const mutateD1UserScheduleCourse = async (env: D1UserScheduleMutationEnv,
   if ((input.action !== 'add' && input.action !== 'delete') || !input.courseId) throw new UserScheduleError(400, 'Thao tác lịch không hợp lệ.');
   const receipt = await readReceipt(env, userId, input.idempotencyKey);
   if (receipt) return resolveReceipt(receipt, input.requestHash);
-  if (input.action === 'add') await assertOfficialCourse(env, input.courseId, input.semester);
+  if (input.action === 'add') await assertSchedulableCourse(env, input.courseId, input.semester);
   const existing = await readScheduleByCourse(env, userId, input.courseId);
   if (existing && existing.semester !== input.semester) throw new UserScheduleError(409, 'Môn học thuộc phạm vi học kỳ khác.');
   const changed = input.action === 'add' ? !existing : Boolean(existing);
@@ -371,7 +376,7 @@ export const replaceD1UserScheduleSemester = async (env: D1UserScheduleMutationE
   if ((input.action !== 'replace_all' && input.action !== 'pdf_import') || !input.replacementItems) throw new UserScheduleError(400, 'Dữ liệu thay lịch không hợp lệ.');
   const receipt = await readReceipt(env, userId, input.idempotencyKey);
   if (receipt) return resolveReceipt(receipt, input.requestHash);
-  for (const item of input.replacementItems) if (!item.snapshotKind) await assertOfficialCourse(env, item.courseId, input.semester);
+  for (const item of input.replacementItems) if (!item.snapshotKind) await assertSchedulableCourse(env, item.courseId, input.semester);
   const existing = await env.DB.prepare('SELECT id, course_id, custom_data FROM user_schedules WHERE user_id = ? AND semester = ? ORDER BY id').bind(userId, input.semester).all<{ id: string; course_id: string; custom_data: string | null }>();
   const existingCanonical = serializeCanonicalUserScheduleJson((existing.results || []).map((row) => ({ courseId: row.course_id, customData: row.custom_data })));
   const desiredCanonical = serializeCanonicalUserScheduleJson(input.replacementItems.map((item) => ({ courseId: item.courseId, snapshotKind: item.snapshotKind, snapshotCourse: item.snapshotCourse })));

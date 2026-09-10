@@ -12,6 +12,8 @@ const USER_B = '57768d5d-e2a7-49c3-92a5-3956cd05de69';
 const COURSE_A = '1368d47c-f0cb-47da-aa8a-cb650078b2e2';
 const COURSE_B = '2368d47c-f0cb-47da-aa8a-cb650078b2e2';
 const COURSE_OTHER_SEMESTER = '3368d47c-f0cb-47da-aa8a-cb650078b2e2';
+const COURSE_PUBLISHED_CONTRIBUTION = '4368d47c-f0cb-47da-aa8a-cb650078b2e2';
+const COURSE_RETIRED = '5368d47c-f0cb-47da-aa8a-cb650078b2e2';
 const SEMESTER = 'HK1_2026_2027';
 const OTHER_SEMESTER = 'HK2_2026_2027';
 
@@ -19,7 +21,8 @@ const schema = `
   CREATE TABLE course_schedules (
     id TEXT PRIMARY KEY,
     semester TEXT,
-    is_user_added INTEGER CHECK (is_user_added IN (0, 1))
+    is_user_added INTEGER CHECK (is_user_added IN (0, 1)),
+    catalogue_visibility TEXT NOT NULL DEFAULT 'published'
   );
   CREATE TABLE user_schedules (
     id TEXT PRIMARY KEY,
@@ -71,10 +74,12 @@ const schema = `
     created_at TEXT NOT NULL,
     delivered_at TEXT
   );
-  INSERT INTO course_schedules (id, semester, is_user_added) VALUES
-    ('${COURSE_A}', '${SEMESTER}', 0),
-    ('${COURSE_B}', '${SEMESTER}', NULL),
-    ('${COURSE_OTHER_SEMESTER}', '${OTHER_SEMESTER}', 0);
+  INSERT INTO course_schedules (id, semester, is_user_added, catalogue_visibility) VALUES
+    ('${COURSE_A}', '${SEMESTER}', 0, 'published'),
+    ('${COURSE_B}', '${SEMESTER}', NULL, 'published'),
+    ('${COURSE_OTHER_SEMESTER}', '${OTHER_SEMESTER}', 0, 'published'),
+    ('${COURSE_PUBLISHED_CONTRIBUTION}', '${SEMESTER}', 1, 'published'),
+    ('${COURSE_RETIRED}', '${SEMESTER}', 0, 'retired');
 `;
 
 const createHarness = async () => {
@@ -282,7 +287,7 @@ const state = async (harness) => (await harness.query(`
     (SELECT COUNT(*) FROM user_schedule_transaction_assertions) AS assertions
 `))[0];
 
-test('D1 add validates Better Auth, strict concurrency inputs, and official course scope', async () => {
+test('D1 add validates Better Auth, strict concurrency inputs, semester, and published catalogue scope', async () => {
   const harness = await createHarness();
   try {
     assert.equal((await add(harness, { cookie: '', key: 'auth-missing-0001' })).status, 401);
@@ -327,6 +332,10 @@ test('D1 add validates Better Auth, strict concurrency inputs, and official cour
       courseId: COURSE_OTHER_SEMESTER,
       key: 'course-semester-0001',
     })).status, 404);
+    assert.equal((await add(harness, {
+      courseId: COURSE_RETIRED,
+      key: 'retired-course-0001',
+    })).status, 404);
     assert.deepEqual(await state(harness), {
       schedules: 0,
       revisions: 0,
@@ -334,6 +343,32 @@ test('D1 add validates Better Auth, strict concurrency inputs, and official cour
       receipts: 0,
       assertions: 0,
     });
+  } finally {
+    await harness.dispose();
+  }
+});
+
+test('D1 add accepts an approved published contribution and remains owner-scoped and idempotent', async () => {
+  const harness = await createHarness();
+  try {
+    const first = await add(harness, {
+      courseId: COURSE_PUBLISHED_CONTRIBUTION,
+      key: 'published-contribution-0001',
+    });
+    assert.equal(first.status, 200);
+    assert.deepEqual(await first.json(), { success: true, changed: true, revision: 1 });
+
+    const replay = await add(harness, {
+      courseId: COURSE_PUBLISHED_CONTRIBUTION,
+      key: 'published-contribution-0001',
+    });
+    assert.equal(replay.status, 200);
+    assert.deepEqual(await replay.json(), { success: true, changed: true, revision: 1 });
+
+    const rows = await harness.query(
+      `SELECT user_id, course_id FROM user_schedules WHERE course_id='${COURSE_PUBLISHED_CONTRIBUTION}'`,
+    );
+    assert.deepEqual(rows, [{ user_id: USER_A, course_id: COURSE_PUBLISHED_CONTRIBUTION }]);
   } finally {
     await harness.dispose();
   }
@@ -673,7 +708,7 @@ test('D1 replace and PDF import are atomic, owner-scoped, and keep imported cour
         (SELECT COUNT(*) FROM user_schedule_course_snapshots WHERE user_id='${USER_A}') AS snapshots,
         (SELECT COUNT(*) FROM course_schedules WHERE is_user_added=1) AS public_imports
     `);
-    assert.deepEqual(stateRows[0], { schedules: 1, snapshots: 1, public_imports: 0 });
+    assert.deepEqual(stateRows[0], { schedules: 1, snapshots: 1, public_imports: 1 });
   } finally {
     await harness.dispose();
   }
@@ -731,7 +766,7 @@ test('internal account cleanup is authenticated and removes only private owner s
         (SELECT COUNT(*) FROM user_schedules WHERE user_id='${USER_B}') AS owner_b,
         (SELECT COUNT(*) FROM course_schedules) AS public_courses
     `);
-    assert.deepEqual(rows[0], { owner_a: 0, owner_b: 1, public_courses: 3 });
+    assert.deepEqual(rows[0], { owner_a: 0, owner_b: 1, public_courses: 5 });
   } finally {
     await harness.dispose();
   }
@@ -744,7 +779,7 @@ test('D1 write graph is Better Auth-only and contains no client authority or Sup
   assert.match(moduleSource, /crypto\.randomUUID\(\)/);
   assert.match(moduleSource, /last_operation_id = \?/);
   assert.match(moduleSource, /user_id = \? AND course_id = \?/);
-  assert.match(moduleSource, /FROM course_schedules[\s\S]*is_user_added = 0/);
+  assert.match(moduleSource, /FROM course_schedules[\s\S]*catalogue_visibility = 'published'/);
   assert.match(moduleSource, /Idempotency-Key/);
   assert.match(moduleSource, /If-Match/);
   assert.doesNotMatch(moduleSource, /payload\.userId|payload\.user_id|payload\.role/);
