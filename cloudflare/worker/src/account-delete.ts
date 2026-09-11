@@ -227,7 +227,6 @@ const SOURCE_OWNER_TABLES: readonly SourceOwnerTable[] = [
   ['event_reports', 'user_id'],
   ['feedback', 'user_id'],
   ['lost_found_items', 'user_id'],
-  ['user_participations', 'user_id'],
   ['user_course_requests', 'user_id'],
   ['policy_consents', 'user_id'],
   ['practice_attempts', 'user_id'],

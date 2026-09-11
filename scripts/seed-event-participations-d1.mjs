@@ -4,6 +4,9 @@ import path from 'node:path';
 import process from 'node:process';
 import pg from 'pg';
 
+// Retired at D1 authority cutover: replaying a mirror seed could resurrect leaves.
+throw new Error('PARTICIPATION_SEED_RETIRED: D1 is authoritative; use the read-only parity audit.');
+
 const ROOT = process.cwd();
 const ENV_FILE = path.join(ROOT, '.env.local');
 const CACHE_DIR = path.join(ROOT, '.cache', 'cloudflare');

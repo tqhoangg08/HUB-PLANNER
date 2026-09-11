@@ -29,7 +29,6 @@ import {
   listEventParticipations,
   mutateEventParticipation,
   parseParticipationUserId,
-  syncEventParticipations,
 } from './event-participations.ts';
 import {
   addUserScheduleForBetterAuth,
@@ -54,7 +53,6 @@ import {
   readBearerToken,
   requireAuthenticatedUser,
   requireStaff,
-  requireStaffRole,
   StaffAuthError,
   type StaffAuthEnv,
 } from './auth.ts';
@@ -1793,16 +1791,6 @@ const worker = {
           participationDetailMatch[1],
           request.method === 'PUT'
         );
-        if (!result.mirrorSynced) {
-          ctx.waitUntil(
-            syncEventParticipations(env).catch((error) => {
-              console.error(JSON.stringify({
-                event: 'event_participation_mirror_repair_failed',
-                error: error instanceof Error ? error.message : String(error),
-              }));
-            })
-          );
-        }
         return json(result, 200, {
           ...cors,
           'Cache-Control': 'no-store',
@@ -1829,10 +1817,8 @@ const worker = {
         const targetUserId = requestedUserId
           ? parseParticipationUserId(requestedUserId)
           : identity.userId;
-        if (targetUserId !== identity.userId) {
-          await requireStaffRole(identity, env, {
-            allowedRoles: ['admin', 'auditor'],
-          });
+        if (targetUserId !== identity.userId && identity.role !== 'admin' && identity.role !== 'auditor') {
+          throw new BetterAuthIdentityError(403, 'FORBIDDEN');
         }
         return json(
           await listEventParticipations(env, targetUserId),
@@ -2279,12 +2265,6 @@ const worker = {
           failureEvent: 'admin_event_mutation_cleanup_failed',
           promise: cleanupAdminEventMutations(env).then((deleted) =>
             console.log('admin_event_mutation_cleanup_complete', { deleted })
-          ),
-        },
-        {
-          failureEvent: 'event_participation_sync_failed',
-          promise: syncEventParticipations(env).then((summary) =>
-            console.log('event_participation_sync_complete', summary)
           ),
         }
       );

@@ -116,7 +116,7 @@ test('scheduled user sync freezes permanently while course sync resumes in d1', 
   assert.match(source, /if \(allowsSupabaseCourseSync\(env\)\) \{[\s\S]*syncCourseSchedules\(env, reconcileCourseDeletes\)/);
   assert.match(source, /announcement_crawl_enqueue_failed[\s\S]*ANNOUNCEMENT_CRAWLER_WORKFLOW\.create/);
   assert.match(source, /syncPublicEvents\(env\)/);
-  assert.match(source, /syncEventParticipations\(env\)/);
+  assert.doesNotMatch(source, /syncEventParticipations\(env\)/);
   assert.match(source, /syncPublicLostFound\(env\)/);
 });
 
