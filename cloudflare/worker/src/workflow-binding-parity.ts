@@ -1,6 +1,6 @@
 import type { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 import { ANNOUNCEMENT_SOURCES, crawlAnnouncementSourceChunk } from './announcement-crawler.ts';
-import { syncCrawledSchoolAnnouncements } from './index.ts';
+import { syncCrawledSchoolAnnouncements } from './announcement-store.ts';
 
 type DisabledWorkflowEnv = Record<string, unknown>;
 type DisabledWorkflowParams = Record<string, unknown>;
@@ -83,12 +83,14 @@ export class AnnouncementCrawlerWorkflow extends WorkflowEntrypointBase<Disabled
         const result = await syncCrawledSchoolAnnouncements(
           this.env as unknown as Parameters<typeof syncCrawledSchoolAnnouncements>[0],
           { items: chunk.items, sources: [sourceSummary], complete: sourceSummary.complete && !sourceSummary.error },
-          { allowIncomplete: true, directMirror: true },
+          { allowIncomplete: true },
         );
         return {
           complete: result.complete,
           candidates: result.candidates,
           inserted: result.inserted,
+          updated: result.updated,
+          authority: result.authority,
           newestUpstreamDate: result.newestUpstreamDate,
           sourceErrors: result.sources.filter((source) => source.error).map((source) => source.id),
         };

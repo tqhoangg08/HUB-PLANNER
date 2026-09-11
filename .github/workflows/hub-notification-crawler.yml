@@ -1,42 +1,11 @@
-name: HUB notification crawler
+name: HUB notification crawler (retired)
 
 on:
   workflow_dispatch:
-    inputs:
-      max_items:
-        description: "Maximum notifications to process in this run"
-        required: false
-        default: "8"
-      source:
-        description: "Optional source id, for example hub_main or daotao"
-        required: false
-        default: ""
-      dry_run:
-        description: "Fetch and compare without writing source data"
-        required: false
-        default: "false"
-
-concurrency:
-  group: hub-notification-crawler
-  cancel-in-progress: false
 
 jobs:
-  crawl:
+  retired:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
-    env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      CRAWLER_MAX_ITEMS: ${{ inputs.max_items || '8' }}
-      CRAWLER_SOURCE: ${{ inputs.source || '' }}
-      CRAWLER_DRY_RUN: ${{ inputs.dry_run || 'false' }}
-      ANNOUNCEMENT_PUSH_FRESHNESS_DAYS: "3"
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-
-      - name: Run crawler
-        run: deno run --allow-net --allow-env scripts/hub_notification_crawler.ts
+      - name: Report authoritative crawler
+        run: echo 'Retired. School announcements are crawled by Cloudflare scheduled Workflows and written directly to D1.'

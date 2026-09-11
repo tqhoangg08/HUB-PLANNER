@@ -4,7 +4,6 @@ import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import {
   buildPublicCacheKey,
-  buildSupabaseAnnouncementsUrl,
   formatPostgrestTimestamp,
   normalizeSearch,
   parseAnnouncementQuery,
@@ -114,25 +113,10 @@ test('D1 timestamps preserve time while matching PostgREST formatting', () => {
   );
 });
 
-test('incremental announcement sync only requests rows after the D1 cursor', () => {
-  const url = buildSupabaseAnnouncementsUrl('https://example.supabase.co/', {
-    afterId: 5505,
-  });
-  assert.equal(url.origin, 'https://example.supabase.co');
-  assert.equal(url.pathname, '/rest/v1/school_announcements');
-  assert.equal(url.searchParams.get('id'), 'gt.5505');
-  assert.equal(url.searchParams.get('order'), 'id.asc');
-  assert.equal(url.searchParams.get('limit'), '500');
-  assert.match(url.searchParams.get('select') || '', /is_hidden/);
-});
-
-test('announcement sync refreshes a small recent window for flag changes', () => {
-  const url = buildSupabaseAnnouncementsUrl('https://example.supabase.co', {
-    latestLimit: 200,
-  });
-  assert.equal(url.searchParams.get('id'), null);
-  assert.equal(url.searchParams.get('order'), 'id.desc');
-  assert.equal(url.searchParams.get('limit'), '200');
+test('announcement runtime has no Supabase source or mirror path', () => {
+  const source = readFileSync('cloudflare/worker/src/index.ts', 'utf8');
+  assert.doesNotMatch(source, /rest\/v1\/school_announcements|syncSchoolAnnouncements|buildSupabaseAnnouncementsUrl/);
+  assert.match(source, /announcement-store/);
 });
 
 test('public cache keys are stable across query ordering and isolated by origin', () => {
