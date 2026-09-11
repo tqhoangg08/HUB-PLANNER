@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { handleAdminLegacyData } from '../cloudflare/worker/src/admin-legacy-data.ts';
 import { AdminLegacyDataError } from '../cloudflare/worker/src/admin-legacy-data.ts';
@@ -16,25 +18,57 @@ const candidate = {
   approved_event_id: null,
 };
 
-const env = (role: 'admin' | 'auditor' | 'user') => ({
-  SUPABASE_URL: 'https://source.example.test',
-  SUPABASE_SERVICE_ROLE_KEY: 'server-only',
-  GROQ_API_KEY: 'server-only-ai-key',
-  AUTH_SERVICE: {
-    fetch: async () => Response.json({ userId: ADMIN_ID, email: 'staff@example.test', role }),
-  },
-  DB: {
-    prepare: (_sql: string) => ({
-      first: async () => null,
-      bind: (..._values: unknown[]) => ({
-        run: async () => ({ meta: { changes: 1 } }),
-        first: async () => null,
-        all: async () => ({ results: [] }),
-      }),
-    }),
-    batch: async () => [],
-  },
-}) as never;
+const env = (role: 'admin' | 'auditor' | 'user') => {
+  const sql = new DatabaseSync(':memory:');
+  sql.exec(`CREATE TABLE sync_metadata (
+    resource TEXT PRIMARY KEY, source_row_count INTEGER, source_max_created_at TEXT,
+    synced_at TEXT, visible_row_count INTEGER
+  )`);
+  for (const migration of [
+    '0006_create_public_events.sql', '0008_create_admin_events.sql',
+    '0009_create_admin_event_mutations.sql', '0023_create_event_push_deliveries.sql',
+    '0026_core_events_d1_authority.sql',
+  ]) sql.exec(readFileSync(`cloudflare/migrations/${migration}`, 'utf8'));
+  sql.exec('UPDATE core_event_id_sequence SET next_id = 991 WHERE singleton = 1');
+  const prepare = (query: string) => {
+    let bindings: unknown[] = [];
+    const statement = {
+      query,
+      get bindings() { return bindings; },
+      bind(...values: unknown[]) { bindings = values; return statement; },
+      async first<T>() { return (sql.prepare(query).get(...bindings) || null) as T | null; },
+      async all<T>() { return { results: sql.prepare(query).all(...bindings) as T[] }; },
+      async run() { return { meta: { changes: Number(sql.prepare(query).run(...bindings).changes) } }; },
+    };
+    return statement;
+  };
+  const DB = {
+    prepare,
+    async batch(statements: ReturnType<typeof prepare>[]) {
+      sql.exec('BEGIN');
+      try {
+        const results = statements.map((statement) => {
+          if (/\bRETURNING\b/i.test(statement.query)) {
+            const rows = sql.prepare(statement.query).all(...statement.bindings);
+            return { results: rows, meta: { changes: rows.length } };
+          }
+          const result = sql.prepare(statement.query).run(...statement.bindings);
+          return { results: [], meta: { changes: Number(result.changes) } };
+        });
+        sql.exec('COMMIT');
+        return results;
+      } catch (error) { sql.exec('ROLLBACK'); throw error; }
+    },
+  } as unknown as D1Database;
+  return {
+    SUPABASE_URL: 'https://source.example.test',
+    SUPABASE_SERVICE_ROLE_KEY: 'server-only',
+    GROQ_API_KEY: 'server-only-ai-key',
+    AUTH_SERVICE: { fetch: async () => Response.json({ userId: ADMIN_ID, email: 'staff@example.test', role }) },
+    DB,
+    __sql: sql,
+  } as never;
+};
 
 const request = (roleAction: string, draft: Record<string, unknown> = { title: 'Sự kiện fixture' }) => new Request(`${ORIGIN}/api/admin/v1/event-candidates`, {
   method: 'POST',
@@ -84,7 +118,6 @@ test('auditor can read, approve, and reject through the Event Candidate capabili
     const requestUrl = new URL(typeof input === 'string' ? input : input instanceof URL ? input : input.url);
     const method = init?.method || 'GET';
     if (requestUrl.pathname === '/rest/v1/event_candidates' && method === 'GET') return Response.json([candidate]);
-    if (requestUrl.pathname === '/rest/v1/events' && method === 'POST') return Response.json([{ id: 993, title: 'Sự kiện fixture' }]);
     if (requestUrl.pathname === '/rest/v1/event_candidates' && method === 'PATCH') {
       return Response.json([{ ...candidate, review_status: 'approved', approved_event_id: 993 }]);
     }
@@ -156,7 +189,6 @@ test('admin approval creates one event then links exactly one pending candidate'
     const method = init?.method || 'GET';
     calls.push({ method, path: requestUrl.pathname });
     if (requestUrl.pathname === '/rest/v1/event_candidates' && method === 'GET') return Response.json([candidate]);
-    if (requestUrl.pathname === '/rest/v1/events' && method === 'POST') return Response.json([{ id: 991, title: 'Sự kiện fixture' }]);
     if (requestUrl.pathname === '/rest/v1/event_candidates' && method === 'PATCH') {
       return Response.json([{ ...candidate, review_status: 'approved', approved_event_id: 991 }]);
     }
@@ -169,7 +201,6 @@ test('admin approval creates one event then links exactly one pending candidate'
     assert.equal(result.event.id, 991);
     assert.deepEqual(calls.map((call) => `${call.method} ${call.path}`), [
       'GET /rest/v1/event_candidates',
-      'POST /rest/v1/events',
       'PATCH /rest/v1/event_candidates',
     ]);
   } finally {
@@ -185,9 +216,7 @@ test('a failed candidate link compensates the just-created source event and leav
     const method = init?.method || 'GET';
     calls.push({ method, path: requestUrl.pathname });
     if (requestUrl.pathname === '/rest/v1/event_candidates' && method === 'GET') return Response.json([candidate]);
-    if (requestUrl.pathname === '/rest/v1/events' && method === 'POST') return Response.json([{ id: 992, title: 'Sự kiện fixture' }]);
     if (requestUrl.pathname === '/rest/v1/event_candidates' && method === 'PATCH') return Response.json([]);
-    if (requestUrl.pathname === '/rest/v1/events' && method === 'DELETE') return new Response(null, { status: 204 });
     throw new Error(`unexpected source operation: ${method} ${requestUrl.pathname}`);
   }) as typeof fetch;
   try {
@@ -197,9 +226,7 @@ test('a failed candidate link compensates the just-created source event and leav
     );
     assert.deepEqual(calls.map((call) => `${call.method} ${call.path}`), [
       'GET /rest/v1/event_candidates',
-      'POST /rest/v1/events',
       'PATCH /rest/v1/event_candidates',
-      'DELETE /rest/v1/events',
     ]);
   } finally {
     globalThis.fetch = originalFetch;

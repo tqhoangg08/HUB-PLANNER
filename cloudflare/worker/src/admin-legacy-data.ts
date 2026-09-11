@@ -7,6 +7,7 @@ import { hasEventCandidateCapability, type EventCandidateCapability } from './ev
 import {
   AdminEventMutationError,
   mutateAdminEvent,
+  rollbackD1AdminEventCreate,
   validateAdminEventMutationPayload,
 } from './admin-event-mutations.ts';
 import type { AdminEventsEnv } from './admin-events.ts';
@@ -257,16 +258,9 @@ const rollbackCandidateApprovalEvent = async (
   mutationId: string,
   userId: string,
 ) => {
-  // Approval is source-authoritative. If linking the candidate cannot commit,
-  // remove the just-created source event and its D1 read mirrors/receipt so a
-  // later retry cannot replay a now-rolled-back event.
-  await supabaseRequest(env, `/rest/v1/events?id=eq.${eventId}`, { method: 'DELETE' });
-  await env.DB.batch([
-    env.DB.prepare('DELETE FROM admin_events WHERE id = ?').bind(eventId),
-    env.DB.prepare('DELETE FROM public_events WHERE id = ?').bind(eventId),
-    env.DB.prepare('DELETE FROM admin_event_mutations WHERE mutation_id = ? AND user_id = ? AND event_id = ?')
-      .bind(mutationId, userId, eventId),
-  ]);
+  // Candidate storage remains in Supabase for this phase, but the approved
+  // core event is D1-only. Compensate only the just-created D1 event/receipt.
+  await rollbackD1AdminEventCreate(env, eventId, mutationId, userId);
 };
 
 const approveCandidate = async (

@@ -13,9 +13,9 @@ import {
   handleCourseAuthorityInternal,
   type CourseAuthorityInternalEnv,
 } from './course-authority-internal.ts';
-import { handleEvents, syncPublicEvents } from './events.ts';
+import { handleEvents } from './events.ts';
 import { handleLostFound, syncPublicLostFound } from './lost-found.ts';
-import { handleAdminEvents, syncAdminEvents } from './admin-events.ts';
+import { handleAdminEvents } from './admin-events.ts';
 import {
   AdminEventMutationError,
   assertAdminEventMutationAllowed,
@@ -813,30 +813,6 @@ const scheduleUserScheduleMirrorRepair = (
   );
 };
 
-const scheduleEventMirrorRepair = (
-  env: WorkerEnv,
-  ctx: ExecutionContext,
-  eventId: number
-) => {
-  ctx.waitUntil(
-    Promise.allSettled([
-      syncAdminEvents(env),
-      syncPublicEvents(env),
-    ]).then((results) => {
-      const failed = results.filter(
-        (result) => result.status === 'rejected'
-      ).length;
-      console.log(JSON.stringify({
-        event: failed === 0
-          ? 'admin_event_mirror_repaired'
-          : 'admin_event_mirror_repair_incomplete',
-        eventId,
-        failed,
-      }));
-    })
-  );
-};
-
 const handleAnnouncements = async (requestUrl: URL, env: WorkerEnv) => {
   const query = parseAnnouncementQuery(requestUrl.searchParams);
   // is_hidden is NOT NULL with a 0/1 CHECK constraint. Keep this predicate
@@ -1488,14 +1464,21 @@ const worker = {
 
       try {
         const identity = await requireBetterAuthStaff(request, env);
-        const summary = await syncAdminEvents(env);
+        const summary = await env.DB.prepare(
+          'SELECT COUNT(*) AS source_row_count, MAX(created_at) AS max_created_at FROM admin_events'
+        ).first<{ source_row_count: number; max_created_at: string | null }>();
         console.log(JSON.stringify({
-          event: 'admin_event_sync_complete',
+          event: 'admin_event_d1_authority_confirmed',
           role: identity.role,
-          sourceRowCount: summary.sourceRowCount,
-          deleted: summary.deleted,
+          sourceRowCount: Number(summary?.source_row_count || 0),
         }));
-        return json({ success: true, ...summary }, 200, {
+        return json({
+          success: true,
+          authority: 'd1',
+          sourceRowCount: Number(summary?.source_row_count || 0),
+          deleted: 0,
+          syncedAt: summary?.max_created_at || null,
+        }, 200, {
           ...cors,
           'Cache-Control': 'no-store',
         });
@@ -1541,9 +1524,6 @@ const worker = {
           payload,
           eventId
         );
-        if (!result.mirrorSynced) {
-          scheduleEventMirrorRepair(env, ctx, eventId);
-        }
         console.log(JSON.stringify({
           event: 'admin_event_updated',
           eventId,
@@ -1594,9 +1574,6 @@ const worker = {
             { mutationId, userId: identity.userId }
           );
           const eventId = Number(result.data[0].id);
-          if (!result.mirrorSynced) {
-            scheduleEventMirrorRepair(env, ctx, eventId);
-          }
           console.log(JSON.stringify({
             event: 'admin_event_created',
             eventId,
@@ -2236,31 +2213,22 @@ const worker = {
     }
     if (eventCron || runAll) {
       jobs.push({
-        failureEvent: 'event_sync_failed',
-        promise: syncPublicEvents(env).then(async (summary) => {
-          console.log('event_sync_complete', summary);
-          if (notificationMode !== 'enabled' || env.NOTIFICATION_JOBS_ENABLED !== 'true') {
-            return { event: summary, push: { state: 'disabled' } };
-          }
-          const push = await runEventPush(env);
-          console.log('event_push_complete', {
-            state: push.state,
-            queued: push.queued,
-            sent: push.sent,
-          });
-          return { event: summary, push };
-        }),
+        failureEvent: 'event_push_failed',
+        promise: notificationMode !== 'enabled' || env.NOTIFICATION_JOBS_ENABLED !== 'true'
+          ? Promise.resolve({ state: 'disabled' })
+          : runEventPush(env).then((push) => {
+            console.log('event_push_complete', {
+              state: push.state,
+              queued: push.queued,
+              sent: push.sent,
+            });
+            return push;
+          }),
       });
     }
 
     if (adminEventCron || runAll) {
       jobs.push(
-        {
-          failureEvent: 'admin_event_sync_failed',
-          promise: syncAdminEvents(env).then((summary) =>
-            console.log('admin_event_sync_complete', summary)
-          ),
-        },
         {
           failureEvent: 'admin_event_mutation_cleanup_failed',
           promise: cleanupAdminEventMutations(env).then((deleted) =>

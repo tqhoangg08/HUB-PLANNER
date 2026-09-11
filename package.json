@@ -23,6 +23,7 @@
     "cf:d1:seed:admin-events:local": "node scripts/seed-admin-events-d1.mjs",
     "cf:d1:seed:admin-events:remote": "node scripts/seed-admin-events-d1.mjs --remote",
     "cf:d1:audit:event-participations": "node scripts/audit-participation-cutover.mjs",
+    "cf:d1:cutover:core-events": "node scripts/cutover-core-events-d1.mjs --apply --remote",
     "cf:d1:seed:user-schedules:local": "node scripts/seed-user-schedules-d1.mjs",
     "cf:d1:seed:user-schedules:remote": "node scripts/seed-user-schedules-d1.mjs --remote",
     "cf:d1:seed:rankings:local": "node scripts/seed-benchmark-rankings-d1.mjs",

@@ -1,34 +1,16 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
-import {
-  buildSupabaseAdminEventsUrl,
-  parseAdminEventQuery,
-} from '../cloudflare/worker/src/admin-events.ts';
+import { parseAdminEventQuery } from '../cloudflare/worker/src/admin-events.ts';
 import {
   AdminEventMutationError,
   assertAdminEventMutationAllowed,
-  buildSupabaseAdminEventMutationUrl,
   mutateAdminEvent,
   readAdminEventIdempotencyKey,
   readAdminEventMutationPayload,
   validateAdminEventMutationPayload,
 } from '../cloudflare/worker/src/admin-event-mutations.ts';
-
-test('admin event sync requests every state and all migration columns', () => {
-  const url = buildSupabaseAdminEventsUrl(
-    'https://example.supabase.co/',
-    500
-  );
-  assert.equal(url.pathname, '/rest/v1/events');
-  assert.equal(url.searchParams.get('order'), 'id.asc');
-  assert.equal(url.searchParams.get('limit'), '500');
-  assert.equal(url.searchParams.get('offset'), '500');
-  assert.equal(url.searchParams.get('status'), null);
-  assert.equal(url.searchParams.get('is_deleted'), null);
-  assert.match(url.searchParams.get('select') || '', /contributor_note/);
-  assert.match(url.searchParams.get('select') || '', /registration_start_date/);
-  assert.match(url.searchParams.get('select') || '', /image_url/);
-});
 
 test('admin event query clamps paging and accepts only known filters', () => {
   assert.deepEqual(parseAdminEventQuery(new URLSearchParams()), {
@@ -96,21 +78,6 @@ test('admin event query clamps paging and accepts only known filters', () => {
       sort: 'expiring_soon',
     }
   );
-});
-
-test('admin event mutation URL requests the written row only', () => {
-  const createUrl = buildSupabaseAdminEventMutationUrl(
-    'https://example.supabase.co/'
-  );
-  assert.equal(createUrl.pathname, '/rest/v1/events');
-  assert.equal(createUrl.searchParams.get('id'), null);
-  assert.match(createUrl.searchParams.get('select') || '', /created_at/);
-
-  const updateUrl = buildSupabaseAdminEventMutationUrl(
-    'https://example.supabase.co',
-    42
-  );
-  assert.equal(updateUrl.searchParams.get('id'), 'eq.42');
 });
 
 test('admin event mutation accepts only bounded known fields', () => {
@@ -211,135 +178,100 @@ test('admin event create requires a UUID idempotency key', () => {
   );
 });
 
-test('replaying a create mutation returns the first event without a second Supabase write', async () => {
-  let storedMutation:
-    | {
-        user_id: string;
-        status: 'pending' | 'completed';
-        response_json: string | null;
+const d1Fixture = () => {
+  const sql = new DatabaseSync(':memory:');
+  sql.exec(`CREATE TABLE sync_metadata (
+    resource TEXT PRIMARY KEY, source_row_count INTEGER, source_max_created_at TEXT,
+    synced_at TEXT, visible_row_count INTEGER
+  )`);
+  for (const migration of [
+    '0006_create_public_events.sql',
+    '0008_create_admin_events.sql',
+    '0009_create_admin_event_mutations.sql',
+    '0023_create_event_push_deliveries.sql',
+    '0026_core_events_d1_authority.sql',
+  ]) sql.exec(readFileSync(`cloudflare/migrations/${migration}`, 'utf8'));
+
+  const prepare = (query: string) => {
+    let bindings: unknown[] = [];
+    const statement = {
+      query,
+      get bindings() { return bindings; },
+      bind(...values: unknown[]) { bindings = values; return statement; },
+      async first<T>() { return (sql.prepare(query).get(...bindings) || null) as T | null; },
+      async all<T>() { return { results: sql.prepare(query).all(...bindings) as T[] }; },
+      async run() { return { meta: { changes: Number(sql.prepare(query).run(...bindings).changes) } }; },
+    };
+    return statement;
+  };
+  const DB = {
+    prepare,
+    async batch(statements: ReturnType<typeof prepare>[]) {
+      sql.exec('BEGIN');
+      try {
+        const results = statements.map((statement) => {
+          if (/\bRETURNING\b/i.test(statement.query)) {
+            const rows = sql.prepare(statement.query).all(...statement.bindings);
+            return { results: rows, meta: { changes: rows.length } };
+          }
+          const result = sql.prepare(statement.query).run(...statement.bindings);
+          return { results: [], meta: { changes: Number(result.changes) } };
+        });
+        sql.exec('COMMIT');
+        return results;
+      } catch (error) {
+        sql.exec('ROLLBACK');
+        throw error;
       }
-    | undefined;
-  let supabaseWriteCount = 0;
-
-  const db = {
-    prepare(sql: string) {
-      let bindings: unknown[] = [];
-      const statement = {
-        bind(...values: unknown[]) {
-          bindings = values;
-          return statement;
-        },
-        async run() {
-          if (sql.includes('INSERT OR IGNORE INTO admin_event_mutations')) {
-            if (storedMutation) return { meta: { changes: 0 } };
-            storedMutation = {
-              user_id: String(bindings[1]),
-              status: 'pending',
-              response_json: null,
-            };
-            return { meta: { changes: 1 } };
-          }
-          if (
-            sql.includes('UPDATE admin_event_mutations') &&
-            sql.includes("SET status = 'completed'")
-          ) {
-            storedMutation = {
-              user_id: String(bindings[4]),
-              status: 'completed',
-              response_json: String(bindings[1]),
-            };
-            return { meta: { changes: 1 } };
-          }
-          if (
-            sql.includes('UPDATE admin_event_mutations') &&
-            sql.includes('SET response_json = ?') &&
-            storedMutation
-          ) {
-            storedMutation.response_json = String(bindings[0]);
-            return { meta: { changes: 1 } };
-          }
-          return { meta: { changes: 1 } };
-        },
-        async first() {
-          if (sql.includes('FROM admin_event_mutations')) {
-            return storedMutation || null;
-          }
-          return {
-            row_count: 1,
-            max_created_at: '2026-07-31T00:00:00Z',
-          };
-        },
-      };
-      return statement;
     },
-    async batch(statements: unknown[]) {
-      return statements.map(() => ({ meta: { changes: 1 } }));
-    },
-  };
+  } as unknown as D1Database;
+  return { sql, DB };
+};
 
-  const row = {
-    id: 321,
-    title: 'Sự kiện không bị tạo trùng',
-    organizer: null,
-    category: null,
-    criteria: 'III',
-    points: '5',
-    format: null,
-    deadline: null,
-    deadline_time: null,
-    close_on_full: false,
-    description: null,
-    link: null,
-    classification: null,
-    location_type: 'Trong trường',
-    status: 'Sắp diễn ra',
-    is_manually_closed: false,
-    is_deleted: false,
-    created_at: '2026-07-31T00:00:00Z',
-    event_date: null,
-    event_time: null,
-    registration_start_date: null,
-    registration_start_time: null,
-    image_url: null,
-    contribution_link: null,
-    contributor_note: null,
-    section: null,
-    score: null,
-  };
-  const fetcher: typeof fetch = async (_input, init) => {
-    supabaseWriteCount += 1;
-    assert.equal(init?.method, 'POST');
-    return Response.json([row]);
-  };
-  const env = {
-    DB: db,
-    SUPABASE_URL: 'https://example.supabase.co',
-    SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
-  } as never;
-  const createRequest = {
-    mutationId: 'f475fdb4-39e1-4a0c-a11f-f4c7e71652f3',
-    userId: 'd9428888-122b-4f0f-b88f-1c8f4f762b22',
-  };
+test('D1 core event create/replay/publish/edit/hide/unhide/delete projection is atomic', async () => {
+  const { sql, DB } = d1Fixture();
+  try {
+    const createRequest = {
+      mutationId: 'f475fdb4-39e1-4a0c-a11f-f4c7e71652f3',
+      userId: 'd9428888-122b-4f0f-b88f-1c8f4f762b22',
+    };
+    const created = await mutateAdminEvent(
+      { DB }, 'create', { title: 'Sự kiện D1', status: 'pending' }, undefined, fetch, createRequest
+    );
+    const eventId = Number(created.data[0].id);
+    assert.equal(created.mirrorSynced, true);
+    assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM admin_events').get()?.n, 1);
+    assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM public_events').get()?.n, 0);
 
-  const first = await mutateAdminEvent(
-    env,
-    'create',
-    { title: row.title },
-    undefined,
-    fetcher,
-    createRequest
-  );
-  const replay = await mutateAdminEvent(
-    env,
-    'create',
-    { title: row.title },
-    undefined,
-    fetcher,
-    createRequest
-  );
+    const replay = await mutateAdminEvent(
+      { DB }, 'create', { title: 'Không được tạo lại' }, undefined, fetch, createRequest
+    );
+    assert.equal(replay.replayed, true);
+    assert.equal(replay.data[0].id, eventId);
+    assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM admin_events').get()?.n, 1);
 
-  assert.equal(first.data[0].id, 321);
-  assert.equal(replay.data[0].id, 321);
-  assert.equal(replay.replayed, true);
-  assert.equal(supabaseWriteCount, 1);
+    await mutateAdminEvent({ DB }, 'update', { status: 'published' }, eventId);
+    assert.equal(sql.prepare('SELECT title FROM public_events WHERE id = ?').get(eventId)?.title, 'Sự kiện D1');
+    await mutateAdminEvent({ DB }, 'update', { title: 'Sự kiện D1 đã sửa' }, eventId);
+    assert.equal(sql.prepare('SELECT title FROM public_events WHERE id = ?').get(eventId)?.title, 'Sự kiện D1 đã sửa');
+
+    await mutateAdminEvent({ DB }, 'update', { is_deleted: true }, eventId);
+    assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM public_events').get()?.n, 0);
+    assert.equal(sql.prepare('SELECT is_deleted FROM admin_events WHERE id = ?').get(eventId)?.is_deleted, 1);
+    await mutateAdminEvent({ DB }, 'update', { is_deleted: false }, eventId);
+    assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM public_events').get()?.n, 1);
+  } finally { sql.close(); }
+});
+
+test('core event runtime has no Supabase event read, write, sync, or rollback path', () => {
+  for (const file of [
+    'cloudflare/worker/src/events.ts',
+    'cloudflare/worker/src/admin-events.ts',
+    'cloudflare/worker/src/admin-event-mutations.ts',
+  ]) assert.doesNotMatch(readFileSync(file, 'utf8'), /supabase|rest\/v1\/events/i);
+  const index = readFileSync('cloudflare/worker/src/index.ts', 'utf8');
+  assert.doesNotMatch(index, /syncPublicEvents|syncAdminEvents|event_sync_complete/);
+  const candidateBridge = readFileSync('cloudflare/worker/src/admin-legacy-data.ts', 'utf8');
+  assert.doesNotMatch(candidateBridge, /rest\/v1\/events(?:\?|['"`])/i);
+  assert.match(candidateBridge, /rest\/v1\/event_candidates/i);
 });

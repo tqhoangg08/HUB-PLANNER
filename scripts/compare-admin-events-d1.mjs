@@ -119,6 +119,7 @@ const result = spawnSync(
   {
     cwd: ROOT,
     encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
     env: {
       ...process.env,
       FORCE_COLOR: '0',

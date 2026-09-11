@@ -16,7 +16,6 @@ import {
   parseCourseListPaging,
 } from '../cloudflare/worker/src/courses.ts';
 import {
-  buildSupabaseEventsUrl,
   normalizeEventSearch,
   parseEventIds,
   parseEventQuery,
@@ -228,21 +227,6 @@ test('public event filters normalize search and reject invalid ids', () => {
       ids: null,
     }
   );
-});
-
-test('event sync URL requests only public list columns in bounded pages', () => {
-  const url = buildSupabaseEventsUrl('https://example.supabase.co/', 500);
-  assert.equal(url.pathname, '/rest/v1/events');
-  assert.equal(url.searchParams.get('order'), 'id.asc');
-  assert.equal(url.searchParams.get('limit'), '500');
-  assert.equal(url.searchParams.get('offset'), '500');
-  assert.equal(
-    url.searchParams.get('or'),
-    '(is_deleted.is.false,is_deleted.is.null)'
-  );
-  assert.equal(url.searchParams.get('status'), 'neq.pending');
-  assert.match(url.searchParams.get('select') || '', /registration_start_date/);
-  assert.doesNotMatch(url.searchParams.get('select') || '', /contributor_note/);
 });
 
 test('event and announcement cache keys cannot collide', () => {
