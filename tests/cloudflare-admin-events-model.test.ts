@@ -271,7 +271,6 @@ test('core event runtime has no Supabase event read, write, sync, or rollback pa
   ]) assert.doesNotMatch(readFileSync(file, 'utf8'), /supabase|rest\/v1\/events/i);
   const index = readFileSync('cloudflare/worker/src/index.ts', 'utf8');
   assert.doesNotMatch(index, /syncPublicEvents|syncAdminEvents|event_sync_complete/);
-  const candidateBridge = readFileSync('cloudflare/worker/src/admin-legacy-data.ts', 'utf8');
-  assert.doesNotMatch(candidateBridge, /rest\/v1\/events(?:\?|['"`])/i);
-  assert.match(candidateBridge, /rest\/v1\/event_candidates/i);
+  const candidateAuthority = readFileSync('cloudflare/worker/src/event-candidates.ts', 'utf8');
+  assert.doesNotMatch(candidateAuthority, /supabase|rest\/v1\/events|rest\/v1\/event_candidates/i);
 });

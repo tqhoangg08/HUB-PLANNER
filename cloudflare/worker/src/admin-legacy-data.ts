@@ -3,13 +3,6 @@ import {
   requireBetterAuthStaff,
   type BetterAuthIdentityEnv,
 } from './better-auth-identity.ts';
-import { hasEventCandidateCapability, type EventCandidateCapability } from './event-candidate-permissions.ts';
-import {
-  AdminEventMutationError,
-  mutateAdminEvent,
-  rollbackD1AdminEventCreate,
-  validateAdminEventMutationPayload,
-} from './admin-event-mutations.ts';
 import type { AdminEventsEnv } from './admin-events.ts';
 
 /**
@@ -21,12 +14,6 @@ import type { AdminEventsEnv } from './admin-events.ts';
 export interface AdminLegacyDataEnv extends BetterAuthIdentityEnv, AdminEventsEnv {
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
-  GROQ_API_KEY?: string;
-  GROQ_API_KEY_2?: string;
-  GROQ_API_KEY_3?: string;
-  GROQ_API_KEY_4?: string;
-  GROQ_API_KEY_5?: string;
-  GROQ_MODEL?: string;
 }
 
 type AdminLegacyStatus = 400 | 401 | 403 | 404 | 405 | 409 | 413 | 415 | 502 | 503;
@@ -42,8 +29,6 @@ export class AdminLegacyDataError extends Error {
 }
 
 const MAX_BODY_BYTES = 64 * 1024;
-const EVENT_CANDIDATE_ANALYSIS_TIMEOUT_MS = 20_000;
-const GROQ_COMPLETIONS_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MAX_PAGE_SIZE = 100;
 const ID_PATTERN = /^[a-zA-Z0-9-]{1,128}$/;
 const REPORT_TABLES = new Set([
@@ -66,7 +51,6 @@ const REPORT_COLUMNS: Record<string, string> = {
 
 const ACTIVITY_COLUMNS = 'id,created_at,user_id,user_email,user_role,action,action_label,target_table,table_name,target_id,record_id,page_path,status,metadata,old_data,new_data,details,error_message,ip_address,device_info';
 const LOST_FOUND_COLUMNS = 'id,created_at,type,title,description,location,contact_info,user_name,image_url,status,is_deleted,user_id';
-const CANDIDATE_COLUMNS = 'id,source_name,post_url,raw_content,image_url,submitted_from,client_created_at,review_status,ai_is_event,ai_confidence,ai_reason,ai_result,approved_event_id,reviewed_at,created_at';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -143,187 +127,6 @@ const countFromRange = (value: string | null) => {
   return match ? Number(match[1]) + 1 : 0;
 };
 
-const candidateApprovalMutationId = async (candidateId: string) => {
-  const bytes = new Uint8Array(await crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(`event-candidate-approval:${candidateId}`),
-  ));
-  // This is a deterministic UUID-shaped idempotency key. It contains no
-  // candidate/user value and makes concurrent approval attempts converge on
-  // exactly one server-side event creation reservation.
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = [...bytes].slice(0, 16).map((value) => value.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-};
-
-const eventCandidateRow = async (env: AdminLegacyDataEnv, id: string) => {
-  const response = await supabaseRequest(
-    env,
-    `/rest/v1/event_candidates?select=${CANDIDATE_COLUMNS}&id=eq.${encodeURIComponent(id)}&limit=1`,
-  );
-  const rows = await response.json() as unknown[];
-  return isRecord(rows[0]) ? rows[0] : null;
-};
-
-const eventCandidateGroqKeys = (env: AdminLegacyDataEnv) => [
-  env.GROQ_API_KEY,
-  env.GROQ_API_KEY_2,
-  env.GROQ_API_KEY_3,
-  env.GROQ_API_KEY_4,
-  env.GROQ_API_KEY_5,
-].map((value) => String(value || '').trim()).filter(Boolean);
-
-const boundedCandidateAnalysis = (value: unknown) => {
-  if (!isRecord(value)) return {};
-  const result: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(value)) {
-    if (key.length > 80) continue;
-    if (typeof entry === 'string') result[key] = entry.slice(0, 4_000);
-    else if (typeof entry === 'boolean') result[key] = entry;
-    else if (typeof entry === 'number' && Number.isFinite(entry)) result[key] = entry;
-    else if (entry === null) result[key] = null;
-  }
-  return result;
-};
-
-const analyzeCandidate = async (env: AdminLegacyDataEnv, id: string) => {
-  const candidate = await eventCandidateRow(env, id);
-  if (!candidate) throw new AdminLegacyDataError(404, 'Không tìm thấy candidate.');
-  const rawContent = typeof candidate.raw_content === 'string' ? candidate.raw_content.trim() : '';
-  if (!rawContent) throw new AdminLegacyDataError(400, 'Candidate chưa có nội dung để phân tích.');
-  const keys = eventCandidateGroqKeys(env);
-  if (!keys.length) throw new AdminLegacyDataError(503, 'Dịch vụ phân tích candidate tạm thời chưa sẵn sàng.');
-
-  const prompt = [
-    'Phân tích bài đăng sự kiện sinh viên. Chỉ trả về JSON hợp lệ.',
-    'Không suy đoán. Các trường thiếu phải là null.',
-    'Bao gồm is_event (boolean), confidence (0..1), reason (string ngắn) và các trường sự kiện nếu có.',
-    `Nguồn: ${String(candidate.source_name || '').slice(0, 300)}`,
-    `Nội dung: ${rawContent.slice(0, 12_000)}`,
-  ].join('\n');
-
-  let response: Response | null = null;
-  for (const key of keys.slice(0, 3)) {
-    try {
-      response = await fetch(GROQ_COMPLETIONS_URL, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: String(env.GROQ_MODEL || 'openai/gpt-oss-20b'),
-          messages: [
-            { role: 'system', content: 'Bạn là bộ phân loại sự kiện HUB Planner. Chỉ trả JSON.' },
-            { role: 'user', content: prompt },
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.1,
-          max_completion_tokens: 1_500,
-        }),
-        signal: AbortSignal.timeout(EVENT_CANDIDATE_ANALYSIS_TIMEOUT_MS),
-      });
-      if (response.ok) break;
-    } catch {
-      response = null;
-    }
-  }
-  if (!response?.ok) throw new AdminLegacyDataError(502, 'Dịch vụ phân tích candidate tạm thời không phản hồi.');
-  let payload: { choices?: Array<{ message?: { content?: unknown } }> };
-  try { payload = await response.json() as typeof payload; }
-  catch { throw new AdminLegacyDataError(502, 'Dịch vụ phân tích candidate trả về dữ liệu không hợp lệ.'); }
-  const rawResult = payload.choices?.[0]?.message?.content;
-  let parsed: unknown;
-  try { parsed = typeof rawResult === 'string' ? JSON.parse(rawResult) : rawResult; }
-  catch { throw new AdminLegacyDataError(502, 'Dịch vụ phân tích candidate trả về dữ liệu không hợp lệ.'); }
-  const aiResult = boundedCandidateAnalysis(parsed);
-  const confidence = typeof aiResult.confidence === 'number'
-    ? Math.max(0, Math.min(1, aiResult.confidence))
-    : null;
-  const updateResponse = await supabaseRequest(env, `/rest/v1/event_candidates?id=eq.${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-    body: JSON.stringify({
-      ai_is_event: typeof aiResult.is_event === 'boolean' ? aiResult.is_event : null,
-      ai_confidence: confidence,
-      ai_reason: typeof aiResult.reason === 'string' ? aiResult.reason.slice(0, 1_000) : null,
-      ai_result: aiResult,
-    }),
-  });
-  const rows = await updateResponse.json() as unknown[];
-  return { success: true, candidate: rows[0] || null, ai_result: aiResult };
-};
-
-const rollbackCandidateApprovalEvent = async (
-  env: AdminLegacyDataEnv,
-  eventId: number,
-  mutationId: string,
-  userId: string,
-) => {
-  // Candidate storage remains in Supabase for this phase, but the approved
-  // core event is D1-only. Compensate only the just-created D1 event/receipt.
-  await rollbackD1AdminEventCreate(env, eventId, mutationId, userId);
-};
-
-const approveCandidate = async (
-  env: AdminLegacyDataEnv,
-  staff: Awaited<ReturnType<typeof requireBetterAuthStaff>>,
-  id: string,
-  body: Record<string, unknown>,
-) => {
-  if (!isRecord(body.draft)) {
-    throw new AdminLegacyDataError(400, 'Bản nháp sự kiện không hợp lệ.');
-  }
-
-  let eventPayload;
-  try {
-    eventPayload = validateAdminEventMutationPayload(body.draft, 'create');
-  } catch (error) {
-    if (error instanceof AdminEventMutationError) {
-      console.warn(JSON.stringify({ event: 'event_candidate_approval_validation_rejected', rejection: error.message }));
-      throw new AdminLegacyDataError(error.status, error.message);
-    }
-    throw error;
-  }
-
-  const candidate = await eventCandidateRow(env, id);
-  if (!candidate) throw new AdminLegacyDataError(404, 'Không tìm thấy candidate.');
-  if (String(candidate.review_status || '') === 'approved' && Number.isSafeInteger(Number(candidate.approved_event_id))) {
-    return { success: true, candidate, eventId: Number(candidate.approved_event_id), replayed: true };
-  }
-  if (String(candidate.review_status || 'pending') !== 'pending') {
-    throw new AdminLegacyDataError(409, 'Candidate này đã được xử lý.');
-  }
-
-  const mutationId = await candidateApprovalMutationId(id);
-  const event = await mutateAdminEvent(env, 'create', eventPayload, undefined, fetch, {
-    mutationId,
-    userId: staff.userId,
-  });
-  const eventId = Number(event.data[0]?.id);
-  if (!Number.isSafeInteger(eventId) || eventId <= 0) {
-    throw new AdminLegacyDataError(502, 'Không thể tạo sự kiện chính thức.');
-  }
-
-  const update = await supabaseRequest(env, `/rest/v1/event_candidates?id=eq.${encodeURIComponent(id)}&review_status=eq.pending`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-    body: JSON.stringify({ review_status: 'approved', approved_event_id: eventId, reviewed_at: new Date().toISOString() }),
-  });
-  const rows = await update.json() as unknown[];
-  const updatedCandidate = isRecord(rows[0]) ? rows[0] : null;
-  if (!updatedCandidate) {
-    try {
-      await rollbackCandidateApprovalEvent(env, eventId, mutationId, staff.userId);
-    } catch (error) {
-      console.error(JSON.stringify({
-        event: 'event_candidate_approval_compensation_failed',
-        error: error instanceof Error ? error.message : String(error),
-      }));
-      throw new AdminLegacyDataError(502, 'Không thể hoàn tất duyệt candidate một cách an toàn.');
-    }
-    throw new AdminLegacyDataError(409, 'Candidate này vừa được xử lý bởi một thao tác khác.');
-  }
-  return { success: true, candidate: updatedCandidate, event: event.data[0], replayed: Boolean(event.replayed) };
-};
 
 const requireAdmin = async (request: Request, env: AdminLegacyDataEnv) => {
   const staff = await requireBetterAuthStaff(request, env);
@@ -333,17 +136,6 @@ const requireAdmin = async (request: Request, env: AdminLegacyDataEnv) => {
   return staff;
 };
 
-const requireEventCandidateCapability = async (
-  request: Request,
-  env: AdminLegacyDataEnv,
-  capability: EventCandidateCapability,
-) => {
-  const staff = await requireBetterAuthStaff(request, env);
-  if (!hasEventCandidateCapability(staff.role, capability)) {
-    throw new AdminLegacyDataError(403, 'Không có quyền thực hiện thao tác này.');
-  }
-  return staff;
-};
 
 const reportTable = (value: string | null) => {
   const table = String(value || '').trim();
@@ -497,45 +289,6 @@ export const handleAdminLegacyData = async (
       return { success: true };
     }
     throw new AdminLegacyDataError(405, 'Phương thức không được hỗ trợ.');
-  }
-
-  if (pathname === '/api/admin/v1/event-candidates') {
-    if (request.method === 'POST') {
-      const body = await readBody(request);
-      if (!isRecord(body)) throw new AdminLegacyDataError(400, 'Dữ liệu candidate không hợp lệ.');
-      const action = typeof body.action === 'string' ? body.action : '';
-      const id = typeof body.id === 'string' || typeof body.id === 'number' ? String(body.id) : '';
-      if (!id || !ID_PATTERN.test(id)) throw new AdminLegacyDataError(400, 'Dữ liệu candidate không hợp lệ.');
-      if (action === 'reject') {
-        await requireEventCandidateCapability(request, env, 'reject');
-        const response = await supabaseRequest(env, `/rest/v1/event_candidates?id=eq.${encodeURIComponent(id)}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-          body: JSON.stringify({ review_status: 'rejected', reviewed_at: new Date().toISOString() }),
-        });
-        const rows = await response.json() as unknown[];
-        return { success: true, candidate: rows[0] || null };
-      }
-      if (action === 'approve') {
-        const staff = await requireEventCandidateCapability(request, env, 'approve');
-        return approveCandidate(env, staff, id, body);
-      }
-      if (action === 'analyze') {
-        await requireEventCandidateCapability(request, env, 'analyze');
-        return analyzeCandidate(env, id);
-      }
-      throw new AdminLegacyDataError(400, 'Thao tác candidate chưa được hỗ trợ bởi API quản trị.');
-    }
-    if (request.method !== 'GET') throw new AdminLegacyDataError(405, 'Phương thức không được hỗ trợ.');
-    await requireEventCandidateCapability(request, env, 'read');
-    const query = new URL('/rest/v1/event_candidates', 'https://supabase.invalid');
-    query.searchParams.set('select', CANDIDATE_COLUMNS);
-    query.searchParams.set('order', 'created_at.desc');
-    query.searchParams.set('limit', String(pageSize(url.searchParams.get('limit'), 200)));
-    const status = String(url.searchParams.get('review_status') || 'all').trim();
-    if (status && status !== 'all') query.searchParams.set('review_status', `eq.${encodeURIComponent(status)}`);
-    const response = await supabaseRequest(env, `${query.pathname}${query.search}`);
-    return { success: true, candidates: await response.json() };
   }
 
   throw new AdminLegacyDataError(404, 'Không tìm thấy endpoint quản trị.');

@@ -1,10 +1,59 @@
 import { BetterAuthIdentityError, requireBetterAuthSession, type BetterAuthIdentityEnv } from './better-auth-identity.ts';
 
-interface PrivateNotificationsEnv extends BetterAuthIdentityEnv {
+export interface PrivateNotificationsEnv extends BetterAuthIdentityEnv {
   DB?: D1Database;
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
 }
+
+export const notifyEventCandidateModerators = async (
+  env: PrivateNotificationsEnv,
+  sourceName: string,
+) => {
+  const roles = await sourceRequest(
+    env,
+    '/rest/v1/user_roles?role=in.(admin,auditor)&select=id,user_id',
+  );
+  const receiverIds = [...new Set((Array.isArray(roles) ? roles : []).flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
+    const row = entry as Record<string, unknown>;
+    const receiverId = typeof row.user_id === 'string' && row.user_id
+      ? row.user_id
+      : typeof row.id === 'string' ? row.id : '';
+    return /^[0-9a-f-]{36}$/i.test(receiverId) ? [receiverId] : [];
+  }))];
+  if (!receiverIds.length) return { notified: 0 };
+
+  const content = `${String(sourceName || '').trim().slice(0, 300)} vừa gửi bài mới cần duyệt.`;
+  const link = '/admin/event-candidates';
+  const existing = await sourceRequest(
+    env,
+    `/rest/v1/notifications?receiver_id=in.(${receiverIds.map(encodeURIComponent).join(',')})&type=eq.system_alert&content=eq.${encodeURIComponent(content)}&link=eq.${encodeURIComponent(link)}&select=receiver_id`,
+  );
+  const existingIds = new Set((Array.isArray(existing) ? existing : []).flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
+    const receiverId = (entry as Record<string, unknown>).receiver_id;
+    return typeof receiverId === 'string' ? [receiverId] : [];
+  }));
+  const rows = receiverIds
+    .filter((receiverId) => !existingIds.has(receiverId))
+    .map((receiverId) => ({
+      receiver_id: receiverId,
+      actor_id: null,
+      type: 'system_alert',
+      content,
+      link,
+      is_read: false,
+    }));
+  if (rows.length) {
+    await sourceRequest(env, '/rest/v1/notifications', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify(rows),
+    });
+  }
+  return { notified: rows.length };
+};
 
 const MAX_BODY_BYTES = 16 * 1024;
 const PREFERENCE_FIELDS = ['system', 'events', 'lost_found', 'schedule', 'school'] as const;

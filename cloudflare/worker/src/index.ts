@@ -167,6 +167,13 @@ import {
   handleAdminLegacyData,
   type AdminLegacyDataEnv,
 } from './admin-legacy-data.ts';
+import {
+  EventCandidateError,
+  eventCandidateErrorStatus,
+  handleAdminEventCandidates,
+  handleEventCandidateIngest,
+  type EventCandidatesEnv,
+} from './event-candidates.ts';
 import { handleStaffSchedules, staffSchedulesErrorStatus, type StaffSchedulesEnv } from './staff-schedules.ts';
 import {
   adminSupportErrorStatus,
@@ -192,7 +199,7 @@ import {
   type PublicDirectoryEnv,
 } from './public-directory.ts';
 
-type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv & EventPushEnv & AccountPasswordCompatEnv &
+type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv & EventPushEnv & AccountPasswordCompatEnv & EventCandidatesEnv &
   ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & PushTestEnv & AiAdvisorEnv & AiDocumentsEnv & PublicDirectoryEnv & {
   AUTH_SERVICE_PROXY_ENABLED?: string;
   AUTH_INGRESS_IP_RATE_LIMIT?: RateLimit;
@@ -1146,8 +1153,7 @@ const worker = {
     if (
       requestUrl.pathname === '/api/admin/v1/reports' ||
       requestUrl.pathname === '/api/admin/v1/activity' ||
-      requestUrl.pathname === '/api/admin/v1/lost-found' ||
-      requestUrl.pathname === '/api/admin/v1/event-candidates'
+      requestUrl.pathname === '/api/admin/v1/lost-found'
     ) {
       try {
         return json(await handleAdminLegacyData(request, requestUrl, env), 200, {
@@ -1240,6 +1246,37 @@ const worker = {
           ...(error instanceof PdfAiError && error.allow ? { Allow: error.allow } : {}),
           'Cache-Control': 'no-store',
         });
+      }
+    }
+
+    if (
+      requestUrl.pathname === '/api/admin/v1/event-candidates' ||
+      requestUrl.pathname === '/api/event-candidates'
+    ) {
+      try {
+        if (requestUrl.pathname === '/api/event-candidates') {
+          const result = await handleEventCandidateIngest(request, env, (task) => ctx.waitUntil(task));
+          const { httpStatus, ...payload } = result;
+          return json(payload, httpStatus, { ...cors, 'Cache-Control': 'private, no-store' });
+        }
+        return json(await handleAdminEventCandidates(request, requestUrl, env), 200, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = eventCandidateErrorStatus(error);
+        if (!(error instanceof EventCandidateError) && !(error instanceof BetterAuthIdentityError)) {
+          console.error(JSON.stringify({ event: 'event_candidate_request_failed', status }));
+        }
+        return json({
+          error: status === 401
+            ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+            : status === 403
+              ? 'Không có quyền truy cập.'
+              : status < 500 && error instanceof EventCandidateError
+                ? error.message
+                : 'Không thể xử lý candidate lúc này.',
+        }, status, { ...cors, 'Cache-Control': 'private, no-store' });
       }
     }
 
