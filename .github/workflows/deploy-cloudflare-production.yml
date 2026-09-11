@@ -46,5 +46,8 @@ jobs:
       - name: Deploy Auth Worker
         run: npx wrangler deploy --config cloudflare/wrangler.auth-production.jsonc --keep-vars
 
+      - name: Apply additive Public D1 migrations
+        run: npm run cf:d1:migrate:remote
+
       - name: Deploy Public Worker and frontend assets
         run: npx wrangler deploy --config cloudflare/wrangler.jsonc --keep-vars

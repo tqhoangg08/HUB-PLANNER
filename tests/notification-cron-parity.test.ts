@@ -1,50 +1,70 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {readFileSync} from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { Miniflare } from 'miniflare';
 import worker from '../cloudflare/worker/src/index.ts';
-import {runNotificationQueueControl} from '../cloudflare/worker/src/notification-cron.ts';
-import {ANNOUNCEMENT_SOURCES} from '../cloudflare/worker/src/announcement-crawler.ts';
+import { runNotificationQueueControl } from '../cloudflare/worker/src/notification-cron.ts';
+import { ANNOUNCEMENT_SOURCES } from '../cloudflare/worker/src/announcement-crawler.ts';
 
-const env = {SUPABASE_URL:'https://fixture.invalid', SUPABASE_SERVICE_ROLE_KEY:'x'.repeat(40), NOTIFICATION_REENABLE_CUTOFF:'2026-08-31T11:23:39Z', NOTIFICATION_JOBS_ENABLED:'true', NOTIFICATION_JOBS_MODE:'enabled'};
-test('Cloudflare scheduled handler owns crawler cadence while Workflow owns long-running execution', () => {
- const config = JSON.parse(readFileSync('cloudflare/wrangler.jsonc','utf8'));
- assert.deepEqual(config.triggers.crons.sort(), ['*/15 * * * *','7-59/15 * * * *','*/10 * * * *','*/5 * * * *','37 19 * * *'].sort());
- assert.equal(config.workflows.find((workflow: {binding:string}) => workflow.binding === 'ANNOUNCEMENT_CRAWLER_WORKFLOW')?.class_name, 'AnnouncementCrawlerWorkflow');
- for (const key of ['NOTIFICATION_JOBS_MODE','NOTIFICATION_JOBS_ENABLED','NOTIFICATION_REENABLE_CUTOFF']) assert.equal(config.vars[key],env[key]);
+const configEnv = { NOTIFICATION_REENABLE_CUTOFF: '2026-08-31T11:23:39Z', NOTIFICATION_JOBS_ENABLED: 'true', NOTIFICATION_JOBS_MODE: 'enabled' };
+const createDb = async () => {
+  const mf = new Miniflare({ modules: true, script: 'export default {fetch(){return new Response("ok")}}',
+    compatibilityDate: '2026-07-29', d1Databases: ['DB'] });
+  const db = await mf.getD1Database('DB');
+  await db.exec(`CREATE TABLE school_announcements (id INTEGER PRIMARY KEY, title TEXT, link TEXT, created_at TEXT, is_hidden INTEGER, is_new INTEGER);
+    CREATE TABLE public_lost_found_items (id INTEGER PRIMARY KEY, title TEXT, location TEXT, user_name TEXT, type TEXT, status TEXT, is_deleted INTEGER, created_at TEXT);
+    CREATE TABLE school_announcement_push_queue (id INTEGER PRIMARY KEY, announcement_id INTEGER UNIQUE, title TEXT, link TEXT, scheduled_at TEXT,
+      sent_at TEXT, failed_at TEXT, attempts INTEGER DEFAULT 0, sent_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, last_error TEXT);
+    CREATE TABLE lost_found_push_queue (id INTEGER PRIMARY KEY, lost_found_item_id INTEGER UNIQUE, title TEXT, body TEXT, url TEXT, scheduled_at TEXT,
+      sent_at TEXT, failed_at TEXT, attempts INTEGER DEFAULT 0, sent_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, last_error TEXT);
+    CREATE TABLE push_subscriptions (id TEXT PRIMARY KEY, user_id TEXT, endpoint TEXT, p256dh TEXT, auth TEXT);
+    CREATE TABLE notification_preferences (user_id TEXT PRIMARY KEY, system INTEGER, events INTEGER, lost_found INTEGER, schedule INTEGER, school INTEGER);
+    CREATE TABLE push_delivery_attempts (source_type TEXT, source_id TEXT, subscription_id TEXT, state TEXT, attempts INTEGER, last_status INTEGER,
+      updated_at TEXT, PRIMARY KEY(source_type, source_id, subscription_id));`.replace(/\s+/g, ' '));
+  return { mf, db };
+};
+
+test('Cloudflare scheduled handler preserves crawler and push cadence', () => {
+  const config = JSON.parse(readFileSync('cloudflare/wrangler.jsonc', 'utf8'));
+  assert.deepEqual(config.triggers.crons.sort(), ['*/15 * * * *', '7-59/15 * * * *', '*/10 * * * *', '*/5 * * * *', '37 19 * * *'].sort());
+  assert.equal(config.workflows.find((item: { binding: string }) => item.binding === 'ANNOUNCEMENT_CRAWLER_WORKFLOW')?.class_name, 'AnnouncementCrawlerWorkflow');
+  for (const key of Object.keys(configEnv)) assert.equal(config.vars[key], configEnv[key as keyof typeof configEnv]);
 });
-test('queue adapter preserves server-authenticated action and cutoff without recipient overrides', async () => {
- const original = globalThis.fetch;
- try {
-  globalThis.fetch = async (input,init) => {
-   assert.equal(String(input),'https://fixture.invalid/functions/v1/push');
-   assert.equal(init?.method,'POST');
-   assert.deepEqual(JSON.parse(String(init?.body)),{resource:'announcement-queue',action:'dry_run',notificationCutoff:'2026-08-31T11:23:39.000Z'});
-   return Response.json({success:true});
-  };
-  await runNotificationQueueControl(env,'dry_run');
- } finally { globalThis.fetch=original; }
+
+test('queue control is D1-native and backlog-safe', async () => {
+  const { mf, db } = await createDb();
+  try {
+    const result = await runNotificationQueueControl({ DB: db, ...configEnv }, 'dry_run');
+    assert.equal(result.success, true);
+    assert.deepEqual(result.pending, { announcements: 0, lostFound: 0 });
+    const source = readFileSync('cloudflare/worker/src/notification-cron.ts', 'utf8');
+    assert.doesNotMatch(source, /functions\/v1\/push|SUPABASE/);
+    assert.match(source, /NOTIFICATION_REENABLE_CUTOFF/);
+    assert.match(source, /INSERT OR IGNORE/);
+  } finally { await mf.dispose(); }
 });
-test('scheduled push dispatches once, disabled gate dispatches nothing (mock transport only)',async () => {
- const original=globalThis.fetch; let calls=0;
- try {
-  globalThis.fetch=async (_input,init)=>{calls++;assert.equal(JSON.parse(String(init?.body)).action,'process');return Response.json({success:true});};
-  for(const enabled of ['true','false']) {
-   const pending:Promise<unknown>[]=[];
-   await worker.scheduled({cron:'7-59/15 * * * *',scheduledTime:0} as never,{...env,NOTIFICATION_JOBS_ENABLED:enabled} as never,{waitUntil:(p:Promise<unknown>)=>pending.push(p)} as never);
-   await Promise.all(pending);
-  }
-  assert.equal(calls,1);
- } finally {globalThis.fetch=original;}
+
+test('scheduled push dispatches only when enabled', async () => {
+  const { mf, db } = await createDb();
+  try {
+    for (const enabled of ['true', 'false']) {
+      const pending: Promise<unknown>[] = [];
+      await worker.scheduled({ cron: '7-59/15 * * * *', scheduledTime: 0 } as never,
+        { DB: db, ...configEnv, NOTIFICATION_JOBS_ENABLED: enabled } as never,
+        { waitUntil: (promise: Promise<unknown>) => pending.push(promise) } as never);
+      await Promise.all(pending);
+    }
+    const school = await db.prepare('SELECT COUNT(*) AS count FROM school_announcement_push_queue').first<{ count: number }>();
+    assert.equal(Number(school?.count), 0);
+  } finally { await mf.dispose(); }
 });
+
 test('scheduled crawler fans out one bounded Workflow instance per source', async () => {
- const sourceIds:string[]=[];
- const pending:Promise<unknown>[]=[];
- const workflow={create:async ({params}:{params:{sourceId:string}})=>{sourceIds.push(params.sourceId);return {id:`fixture-${params.sourceId}`};}};
- await worker.scheduled(
-  {cron:'*/15 * * * *',scheduledTime:0} as never,
-  {...env,ANNOUNCEMENT_CRAWLER_WORKFLOW:workflow} as never,
-  {waitUntil:(promise:Promise<unknown>)=>pending.push(promise)} as never,
- );
- await Promise.all(pending);
- assert.deepEqual(sourceIds.sort(),ANNOUNCEMENT_SOURCES.map(([id])=>id).sort());
+  const sourceIds: string[] = []; const pending: Promise<unknown>[] = [];
+  const workflow = { create: async ({ params }: { params: { sourceId: string } }) => { sourceIds.push(params.sourceId); return { id: `fixture-${params.sourceId}` }; } };
+  await worker.scheduled({ cron: '*/15 * * * *', scheduledTime: 0 } as never,
+    { ...configEnv, ANNOUNCEMENT_CRAWLER_WORKFLOW: workflow } as never,
+    { waitUntil: (promise: Promise<unknown>) => pending.push(promise) } as never);
+  await Promise.all(pending);
+  assert.deepEqual(sourceIds.sort(), ANNOUNCEMENT_SOURCES.map(([id]) => id).sort());
 });

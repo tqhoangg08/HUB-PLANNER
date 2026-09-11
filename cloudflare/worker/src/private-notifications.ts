@@ -80,9 +80,19 @@ const readBody = async (request: Request) => {
   }
 };
 
-const firstRow = (value: unknown) => Array.isArray(value) && value[0] && typeof value[0] === 'object'
-  ? value[0] as Record<string, unknown>
-  : null;
+const requireD1 = (env: PrivateNotificationsEnv) => {
+  if (!env.DB) throw new PrivateNotificationsError(503, 'Dịch vụ tùy chọn thông báo tạm thời chưa khả dụng.');
+  return env.DB;
+};
+
+const readD1Preferences = async (env: PrivateNotificationsEnv, userId: string) => {
+  const row = await requireD1(env).prepare(
+    `SELECT system, events, lost_found, schedule, school
+       FROM notification_preferences WHERE user_id = ?`,
+  ).bind(userId).first<Record<string, unknown>>();
+  if (!row) return null;
+  return Object.fromEntries(PREFERENCE_FIELDS.map((field) => [field, Number(row[field]) !== 0]));
+};
 
 const attachD1ActorProfiles = async (
   env: PrivateNotificationsEnv,
@@ -137,7 +147,7 @@ export const handlePrivateNotifications = async (
   const userId = encodeURIComponent(identity.userId);
 
   if (request.method === 'GET') {
-    const [notifications, unreadCount, preferenceRows] = await Promise.all([
+    const [notifications, unreadCount, preferences] = await Promise.all([
       sourceRequest(
         env,
         `/rest/v1/notifications?receiver_id=eq.${userId}&select=id,receiver_id,actor_id,type,content,link,is_read,created_at&order=created_at.desc&limit=20`,
@@ -146,17 +156,14 @@ export const handlePrivateNotifications = async (
         env,
         `/rest/v1/notifications?receiver_id=eq.${userId}&is_read=eq.false&select=id`,
       ),
-      sourceRequest(
-        env,
-        `/rest/v1/notification_preferences?user_id=eq.${userId}&select=system,events,lost_found,schedule,school&limit=1`,
-      ),
+      readD1Preferences(env, identity.userId),
     ]);
     const rows = await attachD1ActorProfiles(env, Array.isArray(notifications) ? notifications : []);
     return {
       success: true,
       notifications: rows,
       unreadCount,
-      preferences: firstRow(preferenceRows),
+      preferences,
     };
   }
 
@@ -170,15 +177,25 @@ export const handlePrivateNotifications = async (
 
   if (body.action === 'preferences') {
     const preferences = readPreferences(body.preferences);
-    await sourceRequest(env, '/rest/v1/notification_preferences?on_conflict=user_id', {
-      method: 'POST',
-      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({
-        user_id: identity.userId,
-        ...preferences,
-        updated_at: new Date().toISOString(),
-      }),
-    });
+    const updatedAt = new Date().toISOString();
+    await requireD1(env).prepare(
+      `INSERT INTO notification_preferences
+         (user_id, system, events, lost_found, schedule, school, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET
+         system = excluded.system, events = excluded.events,
+         lost_found = excluded.lost_found, schedule = excluded.schedule,
+         school = excluded.school, updated_at = excluded.updated_at`,
+    ).bind(
+      identity.userId,
+      preferences.system ? 1 : 0,
+      preferences.events ? 1 : 0,
+      preferences.lost_found ? 1 : 0,
+      preferences.schedule ? 1 : 0,
+      preferences.school ? 1 : 0,
+      updatedAt,
+      updatedAt,
+    ).run();
     return { success: true };
   }
 

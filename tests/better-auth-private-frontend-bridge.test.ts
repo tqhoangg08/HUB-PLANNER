@@ -100,6 +100,7 @@ test('notification private bridge scopes reads and mutations to Better Auth owne
   const env = {
     SUPABASE_URL: 'https://source.example', SUPABASE_SERVICE_ROLE_KEY: 'server-only-key',
     AUTH_SERVICE: { fetch: async () => Response.json({ userId: USER_A, email: 'a@st.buh.edu.vn', role: 'user' }) },
+    DB: { prepare: () => ({ bind: () => ({ first: async () => null, run: async () => ({ meta: { changes: 1 } }) }) }) },
   } as never;
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {

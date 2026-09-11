@@ -1,34 +1,20 @@
 import {
   BetterAuthIdentityError,
   requireBetterAuthSession,
-  type BetterAuthIdentity,
   type BetterAuthIdentityEnv,
 } from './better-auth-identity.ts';
 
-export interface PushSubscriptionEnv extends BetterAuthIdentityEnv {
-  SUPABASE_URL?: string;
-  SUPABASE_SERVICE_ROLE_KEY?: string;
-}
+export interface PushSubscriptionEnv extends BetterAuthIdentityEnv { DB: D1Database; }
 
 export class PushSubscriptionError extends Error {
   readonly status: number;
   readonly code: string;
   constructor(status: number, message: string, code = 'PUSH_SUBSCRIPTION_FAILED') {
-    super(message);
-    this.name = 'PushSubscriptionError';
-    this.status = status;
-    this.code = code;
+    super(message); this.name = 'PushSubscriptionError'; this.status = status; this.code = code;
   }
 }
 
 const MAX_BODY_BYTES = 16 * 1024;
-const readUpstreamErrorCode = async (response: Response) => {
-  const payload = await response.json().catch(() => null) as { code?: unknown } | null;
-  const code = typeof payload?.code === 'string' && /^[A-Z0-9_]{3,16}$/i.test(payload.code)
-    ? payload.code
-    : 'unknown';
-  return code;
-};
 const readBody = async (request: Request) => {
   const raw = await request.text();
   if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) throw new PushSubscriptionError(413, 'Dữ liệu thiết bị quá lớn.');
@@ -37,161 +23,6 @@ const readBody = async (request: Request) => {
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error();
     return body as Record<string, unknown>;
   } catch { throw new PushSubscriptionError(400, 'Dữ liệu thiết bị không hợp lệ.'); }
-};
-
-const config = (env: PushSubscriptionEnv) => {
-  const base = String(env.SUPABASE_URL || '').replace(/\/$/, '');
-  const key = String(env.SUPABASE_SERVICE_ROLE_KEY || '');
-  if (!base || !key) throw new PushSubscriptionError(503, 'Dịch vụ thông báo chưa sẵn sàng.');
-  return { base, key };
-};
-
-const source = async (env: PushSubscriptionEnv, path: string, init: RequestInit = {}) => {
-  const { base, key } = config(env);
-  const response = await fetch(`${base}${path}`, {
-    ...init,
-    headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json', ...init.headers },
-    signal: AbortSignal.timeout(8_000),
-  });
-  if (!response.ok) {
-    const upstreamCode = await readUpstreamErrorCode(response);
-    console.error(JSON.stringify({
-      event: 'push_subscription_storage_rejected',
-      method: String(init.method || 'GET').toUpperCase(),
-      status: response.status,
-      upstreamCode,
-    }));
-    throw new PushSubscriptionError(502, 'Không thể đồng bộ thiết bị nhận thông báo.', `PUSH_STORAGE_${upstreamCode}`);
-  }
-  return response;
-};
-
-type StoredSubscription = { id?: unknown };
-type LegacyPushOwner = { id?: unknown; email?: unknown; student_code?: unknown };
-type LegacyAuthUser = { id?: unknown; email?: unknown };
-type LegacyAuthUserResponse = LegacyAuthUser & { user?: unknown };
-type LegacyAuthUsersResponse = { users?: unknown };
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const normalizeEmail = (value: unknown) => String(value || '').trim().toLowerCase();
-
-const readLegacyOwnerRows = async (env: PushSubscriptionEnv, filter: string) => {
-  const response = await source(env, `/rest/v1/profiles?${filter}&select=id,email,student_code&limit=2`);
-  return await response.json() as LegacyPushOwner[];
-};
-
-const readLegacyAuthUserById = async (env: PushSubscriptionEnv, userId: string) => {
-  const { base, key } = config(env);
-  const response = await fetch(`${base}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
-    headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
-    signal: AbortSignal.timeout(8_000),
-  });
-  if (response.status === 404) return null;
-  if (!response.ok) {
-    console.error(JSON.stringify({
-      event: 'push_owner_auth_lookup_rejected',
-      operation: 'get_by_id',
-      status: response.status,
-    }));
-    throw new PushSubscriptionError(502, 'Không thể xác định tài khoản nhận thông báo.', 'PUSH_OWNER_LOOKUP_FAILED');
-  }
-  const payload = await response.json().catch(() => null) as LegacyAuthUserResponse | null;
-  if (payload?.user && typeof payload.user === 'object' && !Array.isArray(payload.user)) {
-    return payload.user as LegacyAuthUser;
-  }
-  return payload;
-};
-
-const readLegacyAuthUsersByEmail = async (env: PushSubscriptionEnv, email: string) => {
-  const { base, key } = config(env);
-  const query = new URLSearchParams({ filter: email, page: '1', per_page: '2' });
-  const response = await fetch(`${base}/auth/v1/admin/users?${query}`, {
-    headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
-    signal: AbortSignal.timeout(8_000),
-  });
-  if (!response.ok) {
-    console.error(JSON.stringify({
-      event: 'push_owner_auth_lookup_rejected',
-      operation: 'get_by_email',
-      status: response.status,
-    }));
-    throw new PushSubscriptionError(502, 'Không thể xác định tài khoản nhận thông báo.', 'PUSH_OWNER_LOOKUP_FAILED');
-  }
-  const payload = await response.json().catch(() => null) as LegacyAuthUsersResponse | null;
-  return Array.isArray(payload?.users) ? payload.users as LegacyAuthUser[] : [];
-};
-
-const exactLegacyAuthOwner = async (
-  env: PushSubscriptionEnv,
-  identity: BetterAuthIdentity,
-  candidateIds: string[],
-) => {
-  const email = normalizeEmail(identity.email);
-  for (const candidateId of [...new Set(candidateIds)]) {
-    const candidate = await readLegacyAuthUserById(env, candidateId);
-    if (
-      candidate
-      && candidate.id === candidateId
-      && normalizeEmail(candidate.email) === email
-    ) return candidateId;
-  }
-
-  const matchingUsers = (await readLegacyAuthUsersByEmail(env, email)).filter((candidate) => (
-    typeof candidate.id === 'string'
-    && UUID_PATTERN.test(candidate.id)
-    && normalizeEmail(candidate.email) === email
-  ));
-  return matchingUsers.length === 1 ? String(matchingUsers[0].id) : null;
-};
-
-// push_subscriptions still references the legacy Supabase auth.users table.
-// Better Auth is authoritative for the browser session. A profile match alone
-// is not sufficient because its id is not guaranteed to satisfy that foreign
-// key after the auth migration. Resolve and verify the actual legacy Auth user
-// by exact email, without trusting a client-provided id or fuzzy matching.
-export const resolveLegacyPushOwner = async (
-  env: PushSubscriptionEnv,
-  identity: BetterAuthIdentity,
-) => {
-  const candidateIds: string[] = [];
-  const byId = await readLegacyOwnerRows(env, `id=eq.${encodeURIComponent(identity.userId)}`);
-  const directId = typeof byId[0]?.id === 'string' && UUID_PATTERN.test(byId[0].id)
-    ? byId[0].id
-    : '';
-  if (directId) candidateIds.push(directId);
-
-  const email = normalizeEmail(identity.email);
-  const candidates = await readLegacyOwnerRows(env, `email=eq.${encodeURIComponent(email)}`);
-  const exact = candidates.filter((row) => normalizeEmail(row.email) === email);
-  if (exact.length === 1 && typeof exact[0].id === 'string' && UUID_PATTERN.test(exact[0].id)) {
-    candidateIds.push(exact[0].id);
-  }
-
-  const studentMatch = email.match(/^([^@]+)@st\.buh\.edu\.vn$/);
-  if (studentMatch) {
-    const studentCode = studentMatch[1];
-    const studentCandidates = await readLegacyOwnerRows(
-      env,
-      `student_code=eq.${encodeURIComponent(studentCode)}`,
-    );
-    const exactStudent = studentCandidates.filter((row) => String(row.student_code || '').trim() === studentCode);
-    if (exactStudent.length === 1 && typeof exactStudent[0].id === 'string' && UUID_PATTERN.test(exactStudent[0].id)) {
-      candidateIds.push(exactStudent[0].id);
-    }
-  }
-
-  return exactLegacyAuthOwner(env, identity, [identity.userId, ...candidateIds]);
-};
-
-const findStoredSubscription = async (env: PushSubscriptionEnv, endpoint: string, owner?: string) => {
-  const ownerFilter = owner ? `&user_id=eq.${encodeURIComponent(owner)}` : '';
-  const response = await source(
-    env,
-    `/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}${ownerFilter}&select=id&limit=1`,
-  );
-  const rows = await response.json() as StoredSubscription[];
-  const id = typeof rows?.[0]?.id === 'string' ? rows[0].id : '';
-  return id;
 };
 
 const endpointFingerprint = async (endpoint: string) => {
@@ -215,99 +46,47 @@ const readSubscription = (value: unknown) => {
   const p256dh = String((keys as Record<string, unknown>).p256dh || '');
   const auth = String((keys as Record<string, unknown>).auth || '');
   const base64Url = /^[A-Za-z0-9_-]+$/;
-  if (
-    p256dh.length < 40 || p256dh.length > 256 || !base64Url.test(p256dh)
-    || auth.length < 8 || auth.length > 128 || !base64Url.test(auth)
-  ) {
+  if (p256dh.length < 40 || p256dh.length > 256 || !base64Url.test(p256dh)
+    || auth.length < 8 || auth.length > 128 || !base64Url.test(auth)) {
     throw new PushSubscriptionError(400, 'Khóa đăng ký thông báo không hợp lệ.', 'INVALID_PUSH_KEYS');
   }
-  return { subscription, endpoint };
-};
-
-const persistSubscription = async (
-  env: PushSubscriptionEnv,
-  owner: string,
-  endpoint: string,
-  subscription: Record<string, unknown>,
-) => {
-  const writeBody = JSON.stringify({ user_id: owner, endpoint, subscription });
-  const existingId = await findStoredSubscription(env, endpoint);
-
-  if (existingId) {
-    const response = await source(env, `/rest/v1/push_subscriptions?id=eq.${encodeURIComponent(existingId)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: writeBody,
-    });
-    await response.body?.cancel();
-    return;
-  }
-
-  const { base, key } = config(env);
-  const response = await fetch(`${base}/rest/v1/push_subscriptions`, {
-    method: 'POST',
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      Prefer: 'return=minimal',
-    },
-    body: writeBody,
-    signal: AbortSignal.timeout(8_000),
-  });
-  if (response.ok) {
-    await response.body?.cancel();
-    return;
-  }
-
-  // Another tab may have inserted the same endpoint after the lookup. Resolve
-  // that bounded race with one authoritative lookup/update, without relying on
-  // PostgREST ON CONFLICT inference for the table's partial unique index.
-  const upstreamCode = await readUpstreamErrorCode(response);
-  const racedId = await findStoredSubscription(env, endpoint);
-  if (!racedId) {
-    console.error(JSON.stringify({ event: 'push_subscription_storage_rejected', method: 'POST', status: response.status, upstreamCode }));
-    throw new PushSubscriptionError(502, 'Không thể đồng bộ thiết bị nhận thông báo.', `PUSH_STORAGE_${upstreamCode}`);
-  }
-  const retry = await source(env, `/rest/v1/push_subscriptions?id=eq.${encodeURIComponent(racedId)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-    body: writeBody,
-  });
-  await retry.body?.cancel();
+  return { endpoint, p256dh, auth };
 };
 
 export const handlePushSubscription = async (request: Request, env: PushSubscriptionEnv) => {
   const identity = await requireBetterAuthSession(request, env);
-  const resolvedOwner = await resolveLegacyPushOwner(env, identity);
-  if (!resolvedOwner) throw new PushSubscriptionError(409, 'Chưa thể liên kết thiết bị với tài khoản hiện tại.', 'PUSH_OWNER_NOT_FOUND');
-  const owner = encodeURIComponent(resolvedOwner);
   if (request.method === 'GET') {
-    const response = await source(env, `/rest/v1/push_subscriptions?user_id=eq.${owner}&select=id,endpoint&limit=50`);
-    return { success: true, data: await response.json() };
+    const rows = await env.DB.prepare(
+      'SELECT id, endpoint FROM push_subscriptions WHERE user_id = ? ORDER BY updated_at DESC LIMIT 50',
+    ).bind(identity.userId).all<{ id: string; endpoint: string }>();
+    return { success: true, data: rows.results || [] };
   }
   if (request.method !== 'POST' && request.method !== 'DELETE') throw new PushSubscriptionError(405, 'Phương thức không được hỗ trợ.');
   const body = await readBody(request);
   if ('userId' in body || 'user_id' in body || 'role' in body) throw new PushSubscriptionError(400, 'Không cho phép chỉ định chủ sở hữu.');
-  const { subscription, endpoint } = readSubscription(body.subscription);
+  const subscription = readSubscription(body.subscription);
   if (request.method === 'DELETE') {
-    const response = await source(env, `/rest/v1/push_subscriptions?user_id=eq.${owner}&endpoint=eq.${encodeURIComponent(endpoint)}`, { method: 'DELETE' });
-    await response.body?.cancel();
+    await env.DB.prepare('DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?')
+      .bind(identity.userId, subscription.endpoint).run();
     return { success: true };
   }
   const startedAt = Number.isFinite(Date.parse(String(body.bindingStartedAt || '')))
-    ? new Date(String(body.bindingStartedAt)).toISOString()
-    : new Date().toISOString();
-  const stored = { ...subscription, __hubBindingStartedAt: startedAt };
-  await persistSubscription(env, resolvedOwner, endpoint, stored);
-  const verifiedId = await findStoredSubscription(env, endpoint, resolvedOwner);
-  if (!verifiedId) throw new PushSubscriptionError(502, 'Máy chủ chưa xác nhận đăng ký thiết bị hiện tại.');
-  return {
-    success: true,
-    currentDeviceMatched: true,
-    fingerprint: await endpointFingerprint(endpoint),
-  };
+    ? new Date(String(body.bindingStartedAt)).toISOString() : new Date().toISOString();
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth, binding_started_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(endpoint) DO UPDATE SET
+       user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth,
+       binding_started_at = excluded.binding_started_at, updated_at = excluded.updated_at
+     WHERE push_subscriptions.binding_started_at <= excluded.binding_started_at`,
+  ).bind(crypto.randomUUID(), identity.userId, subscription.endpoint, subscription.p256dh,
+    subscription.auth, startedAt, now, now).run();
+  const verified = await env.DB.prepare(
+    'SELECT id FROM push_subscriptions WHERE user_id = ? AND endpoint = ? LIMIT 1',
+  ).bind(identity.userId, subscription.endpoint).first<{ id: string }>();
+  if (!verified?.id) throw new PushSubscriptionError(409, 'Thiết bị đã được liên kết bằng một yêu cầu mới hơn.', 'STALE_PUSH_BINDING');
+  return { success: true, currentDeviceMatched: true, fingerprint: await endpointFingerprint(subscription.endpoint) };
 };
 
 export const pushSubscriptionErrorStatus = (error: unknown) =>

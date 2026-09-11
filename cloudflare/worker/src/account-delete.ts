@@ -229,10 +229,8 @@ const SOURCE_OWNER_TABLES: readonly SourceOwnerTable[] = [
   ['lost_found_items', 'user_id'],
   ['user_participations', 'user_id'],
   ['user_course_requests', 'user_id'],
-  ['notification_preferences', 'user_id'],
   ['policy_consents', 'user_id'],
   ['practice_attempts', 'user_id'],
-  ['push_subscriptions', 'user_id'],
   ['schedule_notification_logs', 'user_id'],
   ['subscriptions', 'user_id'],
   ['auth_trigger_errors', 'user_id'],
@@ -253,6 +251,9 @@ const D1_CLEANUP_TABLES = [
   'admin_event_mutations',
   'public_lost_found_items',
   'admin_export_otps',
+  'push_subscriptions',
+  'notification_preferences',
+  'push_delivery_attempts',
   'support_attachment_uploads',
   'user_profile_private',
   'user_profiles',
@@ -417,6 +418,9 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
     env.DB.prepare('DELETE FROM public_lost_found_items WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM admin_export_otps WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM support_attachment_uploads WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM push_delivery_attempts WHERE subscription_id IN (SELECT id FROM push_subscriptions WHERE user_id = ?)').bind(userId),
+    env.DB.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM notification_preferences WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM user_profile_private WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM user_profiles WHERE user_id = ?').bind(userId),
   ]);
@@ -425,6 +429,8 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
        (SELECT COUNT(*) FROM user_schedules WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM user_course_requests WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM user_profiles WHERE user_id = ?1) +
+       (SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ?1) +
+       (SELECT COUNT(*) FROM notification_preferences WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM support_attachment_uploads WHERE user_id = ?1) AS remaining`,
   ).bind(userId).first<{ remaining: number }>();
   if (!remaining || Number(remaining.remaining) !== 0) throw new AccountDeleteError(500, 'Không thể xác nhận dọn dữ liệu tài khoản.');

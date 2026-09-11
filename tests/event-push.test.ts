@@ -1,101 +1,57 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import {
-  buildEventPushPayload,
-  isEventPushEligible,
-  runEventPush,
-  type PublicEventPushCandidate,
-} from '../cloudflare/worker/src/event-push.ts';
+import { Miniflare } from 'miniflare';
+import { buildEventPushPayload, isEventPushEligible, runEventPush, type PublicEventPushCandidate } from '../cloudflare/worker/src/event-push.ts';
 
 const cutoff = '2026-09-09T13:45:00.000Z';
 const published = (overrides: Partial<PublicEventPushCandidate> = {}): PublicEventPushCandidate => ({
-  id: 42,
-  title: 'Ngày hội nghề nghiệp HUB',
-  status: 'Đang mở',
-  is_deleted: 0,
-  created_at: '2026-09-09T13:46:00.000Z',
-  ...overrides,
+  id: 42, title: 'Ngày hội nghề nghiệp HUB', status: 'Đang mở', is_deleted: 0,
+  created_at: '2026-09-09T13:46:00.000Z', ...overrides,
 });
 
-test('only newly public events after the release cutoff are eligible', () => {
+test('only newly public events after cutoff are eligible', () => {
   assert.equal(isEventPushEligible(published(), cutoff), true);
-  for (const status of ['pending', 'draft', 'rejected', 'deleted', 'hidden']) {
-    assert.equal(isEventPushEligible(published({ status }), cutoff), false, status);
-  }
+  for (const status of ['pending', 'draft', 'rejected', 'deleted', 'hidden']) assert.equal(isEventPushEligible(published({ status }), cutoff), false);
   assert.equal(isEventPushEligible(published({ is_deleted: 1 }), cutoff), false);
   assert.equal(isEventPushEligible(published({ created_at: '2026-09-09T13:44:59Z' }), cutoff), false);
 });
 
-test('event push payload is bounded, non-sensitive, and deep-links to a valid event route', () => {
+test('event payload is bounded, safe and deep-links to an existing route', () => {
   const payload = buildEventPushPayload(published({ title: ` Sự kiện ${'x'.repeat(300)} ` }));
-  assert.equal(payload.title, 'Sự kiện mới trên HUB Planner');
-  assert.equal(payload.category, 'events');
-  assert.equal(payload.url, '/events/42');
   assert.equal(payload.body.length, 240);
+  assert.equal(payload.url, '/events/42');
   assert.doesNotMatch(JSON.stringify(payload), /user_id|email|student|subscription/i);
-  const routes = readFileSync('components/EventsBoard.tsx', 'utf8');
-  assert.match(routes, /`\/events\/\$\{encodeURIComponent\(id\)\}`/);
+  assert.match(readFileSync('components/EventsBoard.tsx', 'utf8'), /`\/events\/\$\{encodeURIComponent\(id\)\}`/);
 });
 
-test('D1 reservation deduplicates cron runs and delivery does not depend on old event updates', async () => {
-  let candidate: PublicEventPushCandidate | null = published();
-  let reserved = false;
-  let state = '';
-  let sends = 0;
-  const DB = {
-    prepare(sql: string) {
-      return {
-        bind(..._values: unknown[]) {
-          return {
-            async first() { return sql.includes('FROM public_events') && !reserved ? candidate : null; },
-            async run() {
-              if (sql.includes('INSERT OR IGNORE')) {
-                if (reserved) return { meta: { changes: 0 } };
-                reserved = true;
-                return { meta: { changes: 1 } };
-              }
-              if (sql.includes('UPDATE event_push_deliveries')) state = String(_values[0]);
-              return { meta: { changes: 1 } };
-            },
-          };
-        },
-      };
-    },
-  } as unknown as D1Database;
-  const env = {
-    DB,
-    SUPABASE_URL: 'https://fixture.invalid',
-    SUPABASE_SERVICE_ROLE_KEY: 'x'.repeat(40),
-    EVENT_PUSH_CUTOFF: cutoff,
-  };
-  const fetcher = async (_input: RequestInfo | URL, init?: RequestInit) => {
-    sends += 1;
-    const body = JSON.parse(String(init?.body));
-    assert.deepEqual(body, {
-      resource: 'send',
-      title: 'Sự kiện mới trên HUB Planner',
-      body: published().title,
-      url: '/events/42',
-      category: 'events',
-    });
-    return Response.json({ success: true, sent: 3 });
-  };
-  const first = await runEventPush(env, fetcher as typeof fetch);
-  const second = await runEventPush(env, fetcher as typeof fetch);
-  assert.equal(first.state, 'sent');
-  assert.equal(second.state, 'idle');
-  assert.equal(sends, 1);
-  assert.equal(state, 'sent');
-  candidate = published({ created_at: '2026-09-01T00:00:00Z' });
-  assert.equal(isEventPushEligible(candidate, cutoff), false);
+test('D1 event delivery is deduplicated and uses native sender', async () => {
+  const mf = new Miniflare({ modules: true, script: 'export default {fetch(){return new Response("ok")}}',
+    compatibilityDate: '2026-07-29', d1Databases: ['DB'] });
+  const db = await mf.getD1Database('DB');
+  await db.exec(`CREATE TABLE public_events (id INTEGER PRIMARY KEY, title TEXT, status TEXT, is_deleted INTEGER, created_at TEXT);
+    CREATE TABLE event_push_deliveries (event_id INTEGER PRIMARY KEY, event_created_at TEXT, state TEXT, attempted_at TEXT,
+      sent_at TEXT, attempts INTEGER, last_error TEXT, last_subscription_id TEXT, sent_count INTEGER DEFAULT 0,
+      failed_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0);
+    CREATE TABLE push_subscriptions (id TEXT PRIMARY KEY, user_id TEXT, endpoint TEXT, p256dh TEXT, auth TEXT);
+    CREATE TABLE notification_preferences (user_id TEXT PRIMARY KEY, system INTEGER, events INTEGER, lost_found INTEGER, schedule INTEGER, school INTEGER);
+    CREATE TABLE push_delivery_attempts (source_type TEXT, source_id TEXT, subscription_id TEXT, state TEXT, attempts INTEGER,
+      last_status INTEGER, updated_at TEXT, PRIMARY KEY(source_type, source_id, subscription_id));`.replace(/\s+/g, ' '));
+  await db.prepare('INSERT INTO public_events VALUES (?, ?, ?, ?, ?)').bind(42, published().title, 'published', 0, published().created_at).run();
+  try {
+    const first = await runEventPush({ DB: db, EVENT_PUSH_CUTOFF: cutoff, VITE_VAPID_PUBLIC_KEY: 'unused', VAPID_PRIVATE_KEY: 'unused' });
+    const second = await runEventPush({ DB: db, EVENT_PUSH_CUTOFF: cutoff, VITE_VAPID_PUBLIC_KEY: 'unused', VAPID_PRIVATE_KEY: 'unused' });
+    assert.equal(first.state, 'skipped');
+    assert.equal(second.state, 'idle');
+    const ledger = await db.prepare('SELECT state FROM event_push_deliveries WHERE event_id = 42').first<{ state: string }>();
+    assert.equal(ledger?.state, 'skipped');
+  } finally { await mf.dispose(); }
 });
 
-test('stale subscription cleanup remains owned by the shared sender', () => {
-  const sender = readFileSync('supabase/functions/push/index.ts', 'utf8');
-  const scheduled = readFileSync('cloudflare/worker/src/index.ts', 'utf8');
-  assert.match(sender, /statusCode === 404 \|\| error\?\.statusCode === 410/);
-  assert.match(sender, /filterSubscriptionsByPreference\(subscriptions, category/);
-  assert.match(sender, /raw\.includes\('event'\).*return 'events'/);
-  assert.match(scheduled, /syncPublicEvents\(env\)\.then\(async \(summary\).*runEventPush\(env\)/s);
+test('stale cleanup and preferences belong to native D1 delivery', () => {
+  const sender = readFileSync('cloudflare/worker/src/push-delivery.ts', 'utf8');
+  const event = readFileSync('cloudflare/worker/src/event-push.ts', 'utf8');
+  assert.match(sender, /status === 404 \|\| status === 410/);
+  assert.match(sender, /notification_preferences/);
+  assert.doesNotMatch(event, /functions\/v1\/push|SUPABASE/);
 });

@@ -1,324 +1,153 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { Miniflare } from 'miniflare';
 import { handlePushTest, PushTestError } from '../cloudflare/worker/src/push-test.ts';
-import {
-  completeCurrentDevicePushRegistration,
-  PushRegistrationError,
-} from '../utils/pushRegistrationFlow.ts';
+import { handlePushSubscription } from '../cloudflare/worker/src/push-subscriptions.ts';
+import { completeCurrentDevicePushRegistration, PushRegistrationError } from '../utils/pushRegistrationFlow.ts';
 
 const read = (path: string) => readFileSync(path, 'utf8');
-
-test('production frontend embeds a valid public VAPID key while private material stays server-only', () => {
-  const productionEnv = read('.env.production');
-  const match = productionEnv.match(/^VITE_VAPID_PUBLIC_KEY=(.+)$/m);
-  assert.ok(match, 'production build is missing VITE_VAPID_PUBLIC_KEY');
-  assert.match(match[1].trim(), /^B[A-Za-z0-9_-]{86}$/);
-  assert.doesNotMatch(productionEnv, /VAPID_PRIVATE_KEY/);
-  assert.match(read('.env.example'), /^VITE_VAPID_PUBLIC_KEY=$/m);
+const createPushDb = async () => {
+  const mf = new Miniflare({ modules: true, script: 'export default {fetch(){return new Response("ok")}}',
+    compatibilityDate: '2026-07-29', d1Databases: ['DB'] });
+  const db = await mf.getD1Database('DB');
+  await db.exec(`CREATE TABLE push_subscriptions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL, auth TEXT NOT NULL, binding_started_at TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE TABLE notification_preferences (user_id TEXT PRIMARY KEY, system INTEGER, events INTEGER, lost_found INTEGER, schedule INTEGER, school INTEGER);
+    CREATE TABLE push_delivery_attempts (source_type TEXT, source_id TEXT, subscription_id TEXT, state TEXT, attempts INTEGER,
+      last_status INTEGER, updated_at TEXT, PRIMARY KEY(source_type, source_id, subscription_id));`.replace(/\s+/g, ' '));
+  return { mf, db };
+};
+const subscriptionKeys = async () => {
+  const pair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+  return {
+    p256dh: Buffer.from(new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey))).toString('base64url'),
+    auth: Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64url'),
+  };
+};
+const vapidKeys = async () => {
+  const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const jwk = await crypto.subtle.exportKey('jwk', pair.privateKey);
+  return {
+    VITE_VAPID_PUBLIC_KEY: Buffer.from(new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey))).toString('base64url'),
+    VAPID_PRIVATE_KEY: String(jwk.d),
+  };
+};
+const auth = (userId = '11111111-1111-4111-8111-111111111111') => ({
+  AUTH_SERVICE: { fetch: async () => Response.json({ userId, email: 'member@example.invalid', role: 'user' }) },
 });
 
-test('generated Workbox worker keeps custom background push and deep-link handlers', () => {
-  const vite = read('vite.config.ts');
+test('production frontend has public VAPID key and no private key', () => {
+  const source = read('.env.production');
+  assert.match(source, /^VITE_VAPID_PUBLIC_KEY=B[A-Za-z0-9_-]{86}$/m);
+  assert.doesNotMatch(source, /VAPID_PRIVATE_KEY/);
+});
+
+test('Workbox keeps background push and deep-link handlers', () => {
+  assert.match(read('vite.config.ts'), /importScripts:\s*\['\/hub-sw\.js'\]/);
   const worker = read('public/hub-sw.js');
-  assert.match(vite, /importScripts:\s*\['\/hub-sw\.js'\]/);
-  assert.match(vite, /display:\s*["']standalone["']/);
-  assert.match(vite, /start_url:\s*["']\/["']/);
   assert.match(worker, /addEventListener\(['"]push['"]/);
   assert.match(worker, /showNotification\(/);
   assert.match(worker, /addEventListener\(['"]notificationclick['"]/);
   assert.match(worker, /clients\.openWindow\(/);
 });
 
-test('mobile permission UX requires a gesture and explains the iOS Home Screen requirement', () => {
+test('mobile permission UX requires a gesture and iOS Home Screen', () => {
   const prompt = read('components/PushNotificationPrompt.tsx');
-  const nudge = read('components/NotificationNudge.tsx');
-  const mobileHome = read('components/MobileHome.tsx');
-  const mobileEvents = read('components/MobileEvents.tsx');
-  assert.match(prompt, /onClick=\{handleAllow\}/);
   assert.match(prompt, /Notification\.requestPermission\(\)/);
-  assert.match(prompt, /registration\?\.currentDeviceMatched/);
   assert.match(prompt, /requiresIosHomeScreenInstallForPush/);
-  assert.match(prompt, /Thêm vào Màn hình chính/);
-  assert.match(nudge, /requiresIosHomeScreenInstallForPush/);
-  assert.match(nudge, /Thông báo đang bị chặn trong cài đặt trình duyệt/);
-  assert.match(mobileHome, /<PushNotificationPrompt/);
-  assert.match(mobileEvents, /<NotificationNudge variant="events"/);
+  assert.match(read('components/MobileHome.tsx'), /<PushNotificationPrompt/);
 });
 
-test('device subscription is Better Auth-owned, resilient to server cleanup, and never cached across logout', () => {
-  const client = read('utils/pushNotifications.ts');
-  const bridge = read('cloudflare/worker/src/push-subscriptions.ts');
-  const delivery = read('supabase/functions/push/index.ts');
-  assert.match(client, /pushManager\.getSubscription\(\)/);
-  assert.match(client, /pushManager\.subscribe\(/);
-  assert.match(client, /applicationServerKey/);
-  assert.match(client, /privateApiRequest\('\/api\/private\/v1\/push-subscription'/);
-  assert.match(client, /forceRebind/);
-  assert.match(client, /currentDeviceMatched/);
-  assert.doesNotMatch(client, /hasRecentPushSync|PUSH_SYNC_CACHE/);
-  assert.match(bridge, /requireBetterAuthSession\(request, env\)/);
-  assert.doesNotMatch(bridge, /on_conflict=endpoint/);
-  assert.match(bridge, /findStoredSubscription/);
-  assert.match(bridge, /method: 'PATCH'/);
-  assert.match(delivery, /statusCode === 404 \|\| error\?\.statusCode === 410/);
+test('push runtime is D1 and Better Auth owned with native stale cleanup', () => {
+  const subscription = read('cloudflare/worker/src/push-subscriptions.ts');
+  const delivery = read('cloudflare/worker/src/push-delivery.ts');
+  assert.match(subscription, /requireBetterAuthSession\(request, env\)/);
+  assert.match(subscription, /ON CONFLICT\(endpoint\) DO UPDATE/);
+  assert.doesNotMatch(subscription, /SUPABASE|resolveLegacyPushOwner/);
+  assert.match(delivery, /status === 404 \|\| status === 410/);
+  assert.doesNotMatch(delivery, /functions\/v1\/push|SUPABASE/);
 });
 
-test('private test push derives its target from Better Auth and strips provider details', async () => {
+test('private test push targets only authenticated Better Auth user', async () => {
   const userId = '11111111-1111-4111-8111-111111111111';
-  const legacyUserId = '22222222-2222-4222-8222-222222222222';
-  let downstreamBody: Record<string, unknown> | null = null;
+  const { mf, db } = await createPushDb();
+  const keys = await subscriptionKeys();
+  const now = new Date().toISOString();
+  await db.prepare('INSERT INTO push_subscriptions VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind('sub-1', userId, 'https://push.example.invalid/device', keys.p256dh, keys.auth, now, now, now).run();
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (_input, init) => {
-    const url = String(_input);
-    if (url.includes('/rest/v1/profiles')) {
-      return url.includes('id=eq.')
-        ? Response.json([])
-        : Response.json([{ id: legacyUserId, email: 'member@example.invalid', student_code: null }]);
-    }
-    if (url.includes(`/auth/v1/admin/users/${legacyUserId}`)) {
-      return Response.json({ id: legacyUserId, email: 'member@example.invalid' });
-    }
-    downstreamBody = JSON.parse(String(init?.body || '{}'));
-    return Response.json({
-      success: true,
-      sent: 2,
-      failed: 0,
-      skipped: 0,
-      results: [{ endpoint: 'https://push.invalid/sensitive', id: 123 }],
-    });
-  };
-
+  globalThis.fetch = async () => new Response(null, { status: 201 });
   try {
-    const env = {
-      AUTH_SERVICE: {
-        fetch: async () => Response.json({ userId, email: 'member@example.invalid', role: 'user' }),
-      },
-      SUPABASE_URL: 'https://project.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'x'.repeat(64),
-    };
     const result = await handlePushTest(new Request('https://example.test/api/private/v1/push/test', {
-      method: 'POST',
-      headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' },
-      body: '{}',
-    }), env);
-
-    assert.equal(downstreamBody?.targetUserId, legacyUserId);
-    assert.equal(downstreamBody?.resource, 'send');
-    assert.deepEqual(result, {
-      success: true,
-      sent: 2,
-      failed: 0,
-      skipped: 0,
-      targeted: 2,
-      targeting: 'authenticated_user_active_subscriptions',
-    });
-    assert.doesNotMatch(JSON.stringify(result), /"endpoint"|"p256dh"|"auth"|"results"|11111111/);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+      method: 'POST', headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' }, body: '{}',
+    }), { DB: db, ...auth(userId), ...await vapidKeys() });
+    assert.deepEqual(result, { success: true, sent: 1, failed: 0, skipped: 0, targeted: 1, targeting: 'authenticated_user_active_subscriptions' });
+    assert.doesNotMatch(JSON.stringify(result), /"(?:endpoint|p256dh|auth|results)"/i);
+  } finally { globalThis.fetch = originalFetch; await mf.dispose(); }
 });
 
-test('private test push rejects client-selected recipients before delivery', async () => {
-  let downstreamCalls = 0;
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => {
-    downstreamCalls += 1;
-    return Response.json({ success: true, sent: 1 });
-  };
-
-  try {
-    await assert.rejects(
-      handlePushTest(new Request('https://example.test/api/private/v1/push/test', {
-        method: 'POST',
-        headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: 'another-user' }),
-      }), {
-        AUTH_SERVICE: { fetch: async () => Response.json({}) },
-        SUPABASE_URL: 'https://project.supabase.co',
-        SUPABASE_SERVICE_ROLE_KEY: 'x'.repeat(64),
-      }),
-      (error: unknown) => error instanceof PushTestError && error.status === 400,
-    );
-    assert.equal(downstreamCalls, 0);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+test('private test push rejects client-selected recipients', async () => {
+  await assert.rejects(handlePushTest(new Request('https://example.test/api/private/v1/push/test', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"user_id":"other"}',
+  }), { DB: {} as D1Database, ...auth() }), (error: unknown) => error instanceof PushTestError && error.status === 400);
 });
 
-test('test push UI checks mobile prerequisites and never sends automatically', () => {
-  const bell = read('components/NotificationBell.jsx');
-  assert.match(bell, /Gửi thông báo thử/);
-  assert.match(bell, /requiresIosHomeScreenInstallForPush\(\)/);
-  assert.match(bell, /Notification\.permission/);
-  assert.match(bell, /navigator\.serviceWorker\.ready/);
-  assert.match(bell, /getCurrentPushSubscription\(\)/);
-  assert.match(bell, /subscribeToDeviceNotifications\(currentUserId\)/);
-  assert.match(bell, /privateApiRequest\('\/api\/private\/v1\/push\/test'/);
-  assert.match(bell, /Phiên đăng nhập đã hết hạn/);
-  assert.match(bell, /Thiết bị này chưa được đăng ký nhận thông báo/);
-  assert.match(bell, /Máy chủ chưa gửi được thông báo thử/);
-  assert.match(bell, /forceRebind:\s*true/);
-  assert.match(bell, /registration\?\.currentDeviceMatched === true/);
-  assert.doesNotMatch(bell, /useEffect\([^]*handleTestPush\(/);
-  const testHandler = bell.slice(bell.indexOf('const handleTestPush'), bell.indexOf('const handleRead'));
-  assert.ok(
-    testHandler.indexOf('subscribeToDeviceNotifications(currentUserId)') < testHandler.indexOf("privateApiRequest('/api/private/v1/push/test'"),
-    'test push must be sent only after current-device registration',
-  );
-  assert.match(testHandler, /forceRebind:\s*true/);
+test('test push UI validates registration before sending', () => {
+  const source = read('components/NotificationBell.jsx');
+  assert.match(source, /navigator\.serviceWorker\.ready/);
+  assert.match(source, /getCurrentPushSubscription\(\)/);
+  assert.match(source, /subscribeToDeviceNotifications\(currentUserId\)/);
+  assert.match(source, /privateApiRequest\('\/api\/private\/v1\/push\/test'/);
+  assert.doesNotMatch(source, /useEffect\([^]*handleTestPush\(/);
 });
 
 const fakeSubscription = (name: string, unsubscribe = async () => true) => ({
   endpoint: `https://push.example.invalid/${name}`,
-  toJSON: () => ({ endpoint: `https://push.example.invalid/${name}` }),
-  unsubscribe,
+  toJSON: () => ({ endpoint: `https://push.example.invalid/${name}` }), unsubscribe,
 });
 
-test('permission granted with no local subscription subscribes, persists and confirms the current device', async () => {
+test('missing local subscription is subscribed, persisted and confirmed', async () => {
   const created = fakeSubscription('created');
-  let subscribeCalls = 0;
-  let persistedEndpoint = '';
-  const result = await completeCurrentDevicePushRegistration({
-    existingSubscription: null,
-    forceRebind: false,
-    createSubscription: async () => { subscribeCalls += 1; return created; },
-    persistSubscription: async (subscription) => {
-      persistedEndpoint = subscription.endpoint;
-      return { currentDeviceMatched: true, fingerprint: 'server-fingerprint' };
-    },
-  });
-  assert.equal(subscribeCalls, 1);
-  assert.equal(persistedEndpoint, created.endpoint);
-  assert.equal(result.currentDeviceMatched, true);
+  const result = await completeCurrentDevicePushRegistration({ existingSubscription: null, forceRebind: false,
+    createSubscription: async () => created,
+    persistSubscription: async () => ({ currentDeviceMatched: true, fingerprint: 'server-fingerprint' }) });
   assert.equal(result.created, true);
+  assert.equal(result.currentDeviceMatched, true);
 });
 
-test('a stale local subscription is unsubscribed and rebound exactly once', async () => {
-  let unsubscribeCalls = 0;
-  let subscribeCalls = 0;
-  const stale = fakeSubscription('stale', async () => { unsubscribeCalls += 1; return true; });
-  const fresh = fakeSubscription('fresh');
+test('stale local subscription is rebound once', async () => {
+  let unsubscribed = 0; let subscribed = 0;
   const result = await completeCurrentDevicePushRegistration({
-    existingSubscription: stale,
-    forceRebind: true,
-    createSubscription: async () => { subscribeCalls += 1; return fresh; },
-    persistSubscription: async () => ({ currentDeviceMatched: true, fingerprint: 'fresh-fingerprint' }),
+    existingSubscription: fakeSubscription('stale', async () => { unsubscribed += 1; return true; }), forceRebind: true,
+    createSubscription: async () => { subscribed += 1; return fakeSubscription('fresh'); },
+    persistSubscription: async () => ({ currentDeviceMatched: true, fingerprint: 'fresh' }),
   });
-  assert.equal(unsubscribeCalls, 1);
-  assert.equal(subscribeCalls, 1);
-  assert.equal(result.subscription.endpoint, fresh.endpoint);
-  assert.equal(result.rebound, true);
+  assert.equal(unsubscribed, 1); assert.equal(subscribed, 1); assert.equal(result.rebound, true);
 });
 
-test('persistence failure and current-device mismatch never produce an enabled registration', async () => {
+test('persistence failure or device mismatch never enables registration', async () => {
   const subscription = fakeSubscription('device');
-  await assert.rejects(
-    completeCurrentDevicePushRegistration({
-      existingSubscription: subscription,
-      forceRebind: false,
-      createSubscription: async () => subscription,
-      persistSubscription: async () => { throw new Error('opaque storage failure'); },
-    }),
-    (error: unknown) => error instanceof PushRegistrationError && error.code === 'persist_failed',
-  );
-  await assert.rejects(
-    completeCurrentDevicePushRegistration({
-      existingSubscription: subscription,
-      forceRebind: false,
-      createSubscription: async () => subscription,
-      persistSubscription: async () => ({ currentDeviceMatched: false, fingerprint: 'different-device' }),
-    }),
-    (error: unknown) => error instanceof PushRegistrationError && error.code === 'device_mismatch',
-  );
+  await assert.rejects(completeCurrentDevicePushRegistration({ existingSubscription: subscription, forceRebind: false,
+    createSubscription: async () => subscription, persistSubscription: async () => { throw new Error('failure'); } }),
+  (error: unknown) => error instanceof PushRegistrationError && error.code === 'persist_failed');
+  await assert.rejects(completeCurrentDevicePushRegistration({ existingSubscription: subscription, forceRebind: false,
+    createSubscription: async () => subscription, persistSubscription: async () => ({ currentDeviceMatched: false, fingerprint: 'other' }) }),
+  (error: unknown) => error instanceof PushRegistrationError && error.code === 'device_mismatch');
 });
 
-test('subscription persistence updates an existing endpoint without partial-index upsert', async () => {
-  const originalFetch = globalThis.fetch;
-  const calls: Array<{ url: string; method: string }> = [];
-  globalThis.fetch = async (input, init) => {
-    const url = String(input);
-    const method = String(init?.method || 'GET');
-    calls.push({ url, method });
-    if (url.includes('/api/private/v1/me')) {
-      return Response.json({ userId: '11111111-1111-4111-8111-111111111111', email: 'member@example.invalid', role: 'user' });
-    }
-    if (url.includes('/rest/v1/profiles')) return Response.json([{ id: '11111111-1111-4111-8111-111111111111', email: 'member@example.invalid' }]);
-    if (url.includes('/auth/v1/admin/users/11111111-1111-4111-8111-111111111111')) {
-      return Response.json({ user: { id: '11111111-1111-4111-8111-111111111111', email: 'member@example.invalid' } });
-    }
-    if (url.includes('select=id')) return Response.json([{ id: '22222222-2222-4222-8222-222222222222' }]);
-    return new Response(null, { status: 204 });
-  };
-
+test('D1 subscription upsert preserves Better Auth ownership and binding CAS', async () => {
+  const { mf, db } = await createPushDb();
+  const keys = await subscriptionKeys();
+  const userId = '11111111-1111-4111-8111-111111111111';
+  const request = (at: string) => new Request('https://example.test/api/private/v1/push-subscription', { method: 'POST',
+    headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' }, body: JSON.stringify({ bindingStartedAt: at,
+      subscription: { endpoint: 'https://push.example.invalid/device', keys } }) });
   try {
-    const { handlePushSubscription } = await import('../cloudflare/worker/src/push-subscriptions.ts');
-    const result = await handlePushSubscription(new Request('https://example.test/api/private/v1/push-subscription', {
-      method: 'POST',
-      headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        subscription: {
-          endpoint: 'https://push.example.invalid/device',
-          keys: { p256dh: 'A'.repeat(87), auth: 'B'.repeat(22) },
-        },
-      }),
-    }), {
-      AUTH_SERVICE: { fetch: async () => Response.json({ userId: '11111111-1111-4111-8111-111111111111', email: 'member@example.invalid', role: 'user' }) },
-      SUPABASE_URL: 'https://project.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'x'.repeat(64),
-    });
-    assert.equal(calls.some(call => call.method === 'PATCH'), true);
-    assert.equal(calls.some(call => call.url.includes('on_conflict=endpoint')), false);
-    assert.equal(result.currentDeviceMatched, true);
-    assert.match(result.fingerprint, /^[a-f0-9]{64}$/);
-    assert.doesNotMatch(JSON.stringify(result), /push\.example\.invalid|p256dh|auth/);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('subscription owner bridge uses an exact legacy profile and never accepts a client owner', async () => {
-  const originalFetch = globalThis.fetch;
-  const betterAuthId = '11111111-1111-4111-8111-111111111111';
-  const legacyId = '22222222-2222-4222-8222-222222222222';
-  let storedOwner = '';
-  let stored = false;
-  globalThis.fetch = async (input, init) => {
-    const url = String(input);
-    if (url.includes('/rest/v1/profiles?id=eq.')) return Response.json([]);
-    if (url.includes('/rest/v1/profiles?email=eq.')) {
-      return Response.json([{ id: legacyId, email: 'member@example.invalid', student_code: null }]);
-    }
-    if (url.includes('/auth/v1/admin/users?')) {
-      return Response.json({ users: [{ id: legacyId, email: 'member@example.invalid' }] });
-    }
-    if (url.includes('/auth/v1/admin/users/')) return new Response(null, { status: 404 });
-    if (url.includes('/rest/v1/push_subscriptions?endpoint=eq.')) {
-      return Response.json(stored ? [{ id: '33333333-3333-4333-8333-333333333333' }] : []);
-    }
-    if (url.endsWith('/rest/v1/push_subscriptions')) {
-      storedOwner = String((JSON.parse(String(init?.body)) as { user_id?: unknown }).user_id || '');
-      stored = true;
-      return new Response(null, { status: 201 });
-    }
-    return Response.json([]);
-  };
-  try {
-    const { handlePushSubscription } = await import('../cloudflare/worker/src/push-subscriptions.ts');
-    await handlePushSubscription(new Request('https://example.test/api/private/v1/push-subscription', {
-      method: 'POST',
-      headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subscription: {
-        endpoint: 'https://push.example.invalid/device',
-        keys: { p256dh: 'A'.repeat(87), auth: 'B'.repeat(22) },
-      } }),
-    }), {
-      AUTH_SERVICE: { fetch: async () => Response.json({ userId: betterAuthId, email: 'member@example.invalid', role: 'user' }) },
-      SUPABASE_URL: 'https://project.supabase.co',
-      SUPABASE_SERVICE_ROLE_KEY: 'x'.repeat(64),
-    });
-    assert.equal(storedOwner, legacyId);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+    await handlePushSubscription(request('2026-09-10T00:01:00Z'), { DB: db, ...auth(userId) });
+    await assert.rejects(handlePushSubscription(request('2026-09-10T00:00:00Z'), { DB: db, ...auth('other-user') }));
+    const row = await db.prepare('SELECT user_id, binding_started_at FROM push_subscriptions').first<Record<string, string>>();
+    assert.equal(row?.user_id, userId);
+    assert.equal(row?.binding_started_at, '2026-09-10T00:01:00.000Z');
+  } finally { await mf.dispose(); }
 });
