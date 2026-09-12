@@ -118,7 +118,7 @@ test('scheduled user sync freezes permanently while course sync resumes in d1', 
   assert.doesNotMatch(source, /syncPublicEvents|syncAdminEvents/);
   assert.match(source, /runEventPush\(env\)/);
   assert.doesNotMatch(source, /syncEventParticipations\(env\)/);
-  assert.match(source, /syncPublicLostFound\(env\)/);
+  assert.doesNotMatch(source, /syncPublicLostFound\(env\)/);
 });
 
 test('migration candidate is additive and contains the write-safety schema only', () => {

@@ -1350,6 +1350,29 @@ export async function handleInternalSession(
   return jsonResponse({ userId: session.user.id, email: session.user.email, role });
 }
 
+async function handleInternalStaffList(
+  request: Request,
+  env: AuthRuntimeEnv,
+): Promise<Response> {
+  if (
+    request.method !== "GET" ||
+    new URL(request.url).hostname !== "auth-service.internal"
+  ) {
+    return jsonResponse({ error: "Not found." }, 404);
+  }
+  const result = await env.AUTH_DB.prepare(
+    `SELECT user_id
+       FROM app_user_roles
+      WHERE role IN ('admin', 'auditor')
+      ORDER BY user_id
+      LIMIT 100`,
+  ).all<{ user_id: string }>();
+  const userIds = (result.results || [])
+    .map((row) => row.user_id)
+    .filter((value) => typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value));
+  return jsonResponse({ userIds });
+}
+
 async function handleMssvSignIn(
   request: Request,
   env: AuthRuntimeEnv,
@@ -1959,6 +1982,9 @@ export async function handleAuthRuntimeRequest(
     }
     if (url.pathname === "/internal/auth/staff" && request.method === "GET") {
       return handleInternalSession(request, env, auth, true);
+    }
+    if (url.pathname === "/internal/auth/staff-list" && request.method === "GET") {
+      return handleInternalStaffList(request, env);
     }
     if (url.pathname === `${AUTH_BASE_PATH}/mssv/sign-in` || url.pathname.startsWith(`${AUTH_BASE_PATH}/`)) {
       return handleAuthRoute(request, env, auth, config, requestSignals);

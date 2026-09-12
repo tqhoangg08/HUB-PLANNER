@@ -22,6 +22,7 @@ type BetterAuthIdentityErrorCode =
 const INTERNAL_AUTH_ORIGIN = 'https://auth-service.internal';
 const INTERNAL_SESSION_PATH = '/internal/auth/session';
 const INTERNAL_STAFF_PATH = '/internal/auth/staff';
+const INTERNAL_STAFF_LIST_PATH = '/internal/auth/staff-list';
 const MAX_COOKIE_BYTES = 16_384;
 const MAX_AUTH_RESPONSE_BYTES = 4_096;
 const AUTH_SERVICE_TIMEOUT_MS = 5_000;
@@ -188,6 +189,42 @@ export const requireBetterAuthStaff = async (
     throw new BetterAuthIdentityError(403, 'FORBIDDEN');
   }
   return identity as BetterAuthIdentity & { role: 'admin' | 'auditor' };
+};
+
+export const listBetterAuthStaffUserIds = async (
+  env: BetterAuthIdentityEnv,
+): Promise<string[]> => {
+  if (!env.AUTH_SERVICE) {
+    throw new BetterAuthIdentityError(503, 'AUTH_SERVICE_UNAVAILABLE');
+  }
+  let response: Response;
+  try {
+    response = await env.AUTH_SERVICE.fetch(new Request(
+      new URL(INTERNAL_STAFF_LIST_PATH, INTERNAL_AUTH_ORIGIN),
+      {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        redirect: 'manual',
+        signal: AbortSignal.timeout(AUTH_SERVICE_TIMEOUT_MS),
+      },
+    ));
+  } catch {
+    throw new BetterAuthIdentityError(503, 'AUTH_SERVICE_UNAVAILABLE');
+  }
+  if (!response.ok) {
+    throw new BetterAuthIdentityError(503, 'AUTH_SERVICE_UNAVAILABLE');
+  }
+  const value = await readBoundedJson(response);
+  if (!isRecord(value) || !Array.isArray(value.userIds)) {
+    throw new BetterAuthIdentityError(503, 'AUTH_SERVICE_RESPONSE_INVALID');
+  }
+  const userIds = value.userIds.filter(
+    (entry): entry is string => typeof entry === 'string' && UUID_PATTERN.test(entry),
+  );
+  if (userIds.length !== value.userIds.length) {
+    throw new BetterAuthIdentityError(503, 'AUTH_SERVICE_RESPONSE_INVALID');
+  }
+  return [...new Set(userIds)].slice(0, 100);
 };
 
 const privateJson = (

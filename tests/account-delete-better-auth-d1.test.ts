@@ -76,7 +76,7 @@ test('owner cleanup covers D1 data without deleting shared public courses', () =
     'user_schedule_course_snapshots', 'user_schedules', 'user_schedule_revisions',
     'user_schedule_mutation_receipts', 'user_schedule_rollback_outbox',
     'user_course_requests', 'user_event_participations', 'benchmark_ranking_users',
-    'public_lost_found_items', 'support_attachment_uploads', 'user_profile_private', 'user_profiles',
+    'lost_found_items', 'public_lost_found_items', 'support_attachment_uploads', 'user_profile_private', 'user_profiles',
   ]) assert.match(worker, new RegExp(`DELETE FROM ${table}`));
   assert.doesNotMatch(worker, /DELETE FROM course_schedules/);
   assert.doesNotMatch(worker, /anonymize_deleted_user_logs/);

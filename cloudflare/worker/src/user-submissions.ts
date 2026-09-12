@@ -1,11 +1,17 @@
 import {
   BetterAuthIdentityError,
+  listBetterAuthStaffUserIds,
   requireBetterAuthSession,
   type BetterAuthIdentity,
   type BetterAuthIdentityEnv,
 } from './better-auth-identity.ts';
+import {
+  LostFoundError,
+  submitLostFound,
+  type LostFoundEnv,
+} from './lost-found.ts';
 
-interface UserSubmissionEnv extends BetterAuthIdentityEnv {
+interface UserSubmissionEnv extends BetterAuthIdentityEnv, LostFoundEnv {
   SUPABASE_URL?: string;
   SUPABASE_ANON_KEY?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
@@ -146,11 +152,38 @@ export const handleProtectedSubmission = async (
     throw new UserSubmissionError(400, 'Hành động không hợp lệ.');
   }
   const identity = await optionalBetterAuthIdentity(request, env);
+  if (action === 'lost-found') {
+    return submitLostFound(request, env, body, identity);
+  }
   return callSupabaseFunction(env, 'auth?resource=protected-submit', {
     action,
     turnstileToken: String(body.turnstileToken || ''),
     payload: cleanPayloadOwner(body.payload, identity),
   });
+};
+
+const notifyLostFoundModerators = async (
+  env: UserSubmissionEnv,
+  recordId: number,
+) => {
+  const item = await env.DB.prepare(
+    `SELECT id, title, type, status FROM lost_found_items WHERE id = ? AND is_deleted = 0`,
+  ).bind(recordId).first<{ id: number; title: string; type: string; status: string }>();
+  if (!item || item.status !== 'pending') throw new UserSubmissionError(404, 'Không tìm thấy nội dung chờ duyệt.');
+  const receiverIds = await listBetterAuthStaffUserIds(env);
+  if (!receiverIds.length) return { success: true, notified: 0 };
+  const content = `Có tin ${item.type === 'FOUND' ? 'nhặt được đồ' : 'báo mất đồ'} cần duyệt: ${text(item.title, 96)}`;
+  const link = '/lost-found';
+  const createdAt = new Date().toISOString();
+  const results = await env.DB.batch(receiverIds.map((receiverId) => env.DB.prepare(
+    `INSERT OR IGNORE INTO lost_found_moderator_notifications
+       (id, receiver_id, lost_found_item_id, type, content, link, is_read, created_at)
+     VALUES (?, ?, ?, 'system_alert', ?, ?, 0, ?)`,
+  ).bind(crypto.randomUUID(), receiverId, recordId, content, link, createdAt)));
+  return {
+    success: true,
+    notified: results.reduce((count, result) => count + Number(result.meta?.changes || 0), 0),
+  };
 };
 
 const text = (value: unknown, max: number) => String(value || '').trim().slice(0, max);
@@ -214,10 +247,11 @@ export const handleModeratorNotification = async (
   if (!MODERATOR_KINDS.has(kind) || !Number.isSafeInteger(recordId) || recordId <= 0) {
     throw new UserSubmissionError(400, 'Thông tin thông báo không hợp lệ.');
   }
+  if (kind === 'lost_found_pending') return notifyLostFoundModerators(env, recordId);
   return callSupabaseFunction(env, 'moderator-notifications', { kind, recordId });
 };
 
 export const userSubmissionErrorStatus = (error: unknown) =>
-  error instanceof BetterAuthIdentityError || error instanceof UserSubmissionError
+  error instanceof BetterAuthIdentityError || error instanceof UserSubmissionError || error instanceof LostFoundError
     ? error.status
     : 500;

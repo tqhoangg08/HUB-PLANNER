@@ -50,7 +50,6 @@ const REPORT_COLUMNS: Record<string, string> = {
 };
 
 const ACTIVITY_COLUMNS = 'id,created_at,user_id,user_email,user_role,action,action_label,target_table,table_name,target_id,record_id,page_path,status,metadata,old_data,new_data,details,error_message,ip_address,device_info';
-const LOST_FOUND_COLUMNS = 'id,created_at,type,title,description,location,contact_info,user_name,image_url,status,is_deleted,user_id';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -222,73 +221,6 @@ export const handleAdminLegacyData = async (
       headers: { Prefer: 'count=exact' },
     });
     return { success: true, data: await response.json(), total: countFromRange(response.headers.get('content-range')) };
-  }
-
-  if (pathname === '/api/admin/v1/lost-found') {
-    const staff = await requireBetterAuthStaff(request, env);
-    if (request.method === 'GET') {
-      const size = pageSize(url.searchParams.get('limit'), 24);
-      const offset = page(url.searchParams.get('offset'));
-      const type = String(url.searchParams.get('type') || '').toUpperCase();
-      const id = Number(url.searchParams.get('id') || 0);
-      const query = new URL('/rest/v1/lost_found_items', 'https://supabase.invalid');
-      query.searchParams.set('select', LOST_FOUND_COLUMNS);
-      query.searchParams.set('is_deleted', 'eq.false');
-      if (type === 'FOUND' || type === 'LOST') query.searchParams.set('type', `eq.${type}`);
-      if (Number.isSafeInteger(id) && id > 0) query.searchParams.set('id', `eq.${id}`);
-      query.searchParams.set('order', 'created_at.desc');
-      query.searchParams.set('limit', String(size));
-      query.searchParams.set('offset', String(offset));
-      const response = await supabaseRequest(env, `${query.pathname}${query.search}`, { headers: { Prefer: 'count=exact' } });
-      return { success: true, data: await response.json(), total: countFromRange(response.headers.get('content-range')), role: staff.role };
-    }
-    await requireAdmin(request, env);
-    if (request.method === 'POST') {
-      const raw = await request.text();
-      if (new TextEncoder().encode(raw).byteLength > 4_300_000) {
-        throw new AdminLegacyDataError(413, 'Ảnh tìm đồ quá lớn.');
-      }
-      let upload: Record<string, unknown>;
-      try { upload = JSON.parse(raw) as Record<string, unknown>; }
-      catch { throw new AdminLegacyDataError(400, 'Dữ liệu ảnh không hợp lệ.'); }
-      if (upload.operation !== 'upload-image') throw new AdminLegacyDataError(400, 'Thao tác tìm đồ không hợp lệ.');
-      const contentType = String(upload.contentType || '').toLowerCase();
-      const base64 = String(upload.base64 || '');
-      if (!/^image\/(jpeg|png|webp|gif)$/.test(contentType) || !base64 || base64.length > 4_200_000) {
-        throw new AdminLegacyDataError(400, 'Dữ liệu ảnh không hợp lệ.');
-      }
-      let bytes: Uint8Array;
-      try { bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0)); }
-      catch { throw new AdminLegacyDataError(400, 'Dữ liệu ảnh không hợp lệ.'); }
-      if (!bytes.length || bytes.length > 3 * 1024 * 1024) throw new AdminLegacyDataError(413, 'Ảnh tìm đồ quá lớn.');
-      const extension = contentType === 'image/jpeg' ? 'jpg' : contentType.split('/')[1];
-      const objectName = `admin-${crypto.randomUUID()}.${extension}`;
-      const response = await supabaseRequest(env, `/storage/v1/object/lost_found_images/${objectName}`, {
-        method: 'POST', headers: { 'Content-Type': contentType, 'x-upsert': 'false' }, body: bytes,
-      });
-      await response.body?.cancel();
-      const { baseUrl } = readConfig(env);
-      return { success: true, publicUrl: `${baseUrl.replace(/\/$/, '')}/storage/v1/object/public/lost_found_images/${objectName}` };
-    }
-    const body = await readBody(request);
-    if (!isRecord(body) || !Number.isSafeInteger(Number(body.id)) || Number(body.id) <= 0) {
-      throw new AdminLegacyDataError(400, 'Dữ liệu tìm đồ không hợp lệ.');
-    }
-    const id = Number(body.id);
-    const patch: Record<string, unknown> = {};
-    if (request.method === 'PATCH') {
-      if (typeof body.status === 'string') patch.status = body.status.trim().slice(0, 32);
-      if (body.is_deleted === true) patch.is_deleted = true;
-      for (const field of ['title', 'description', 'location', 'contact_info', 'user_name', 'image_url']) {
-        if (typeof body[field] === 'string' || body[field] === null) patch[field] = body[field];
-      }
-      if (Object.keys(patch).length === 0) throw new AdminLegacyDataError(400, 'Dữ liệu cập nhật không hợp lệ.');
-      await supabaseRequest(env, `/rest/v1/lost_found_items?id=eq.${id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
-      });
-      return { success: true };
-    }
-    throw new AdminLegacyDataError(405, 'Phương thức không được hỗ trợ.');
   }
 
   throw new AdminLegacyDataError(404, 'Không tìm thấy endpoint quản trị.');

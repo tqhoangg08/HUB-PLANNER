@@ -14,7 +14,14 @@ import {
   type CourseAuthorityInternalEnv,
 } from './course-authority-internal.ts';
 import { handleEvents } from './events.ts';
-import { handleLostFound, syncPublicLostFound } from './lost-found.ts';
+import {
+  handleAdminLostFound,
+  handleLostFound,
+  handleLostFoundImage,
+  lostFoundErrorStatus,
+  LostFoundError,
+  type LostFoundEnv,
+} from './lost-found.ts';
 import { handleAdminEvents } from './admin-events.ts';
 import {
   AdminEventMutationError,
@@ -199,7 +206,7 @@ import {
   type PublicDirectoryEnv,
 } from './public-directory.ts';
 
-type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv & EventPushEnv & AccountPasswordCompatEnv & EventCandidatesEnv &
+type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv & EventPushEnv & AccountPasswordCompatEnv & EventCandidatesEnv & LostFoundEnv &
   ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & PushTestEnv & AiAdvisorEnv & AiDocumentsEnv & PublicDirectoryEnv & {
   AUTH_SERVICE_PROXY_ENABLED?: string;
   AUTH_INGRESS_IP_RATE_LIMIT?: RateLimit;
@@ -1150,10 +1157,42 @@ const worker = {
       }
     }
 
+    const lostFoundImageMatch = requestUrl.pathname.match(/^\/api\/public\/v1\/lost-found-images\/(.+)$/);
+    if (lostFoundImageMatch) {
+      try {
+        const key = lostFoundImageMatch[1].split('/').map(decodeURIComponent).join('/');
+        return await handleLostFoundImage(request, key, env);
+      } catch (error) {
+        const status = lostFoundErrorStatus(error);
+        return json({ error: status === 404 ? 'Không tìm thấy ảnh.' : status === 405 ? 'Phương thức không được hỗ trợ.' : 'Không tải được ảnh.' }, status, {
+          ...cors,
+          ...(status === 405 ? { Allow: 'GET, HEAD' } : {}),
+          'Cache-Control': 'no-store',
+        });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/admin/v1/lost-found') {
+      try {
+        return json(await handleAdminLostFound(request, requestUrl, env), 200, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = lostFoundErrorStatus(error);
+        if (!(error instanceof LostFoundError) && !(error instanceof BetterAuthIdentityError)) {
+          console.error(JSON.stringify({ event: 'lost_found_admin_failed', status }));
+        }
+        return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' : status === 403 ? 'Không có quyền truy cập.' : status < 500 && error instanceof Error ? error.message : 'Không thể xử lý dữ liệu tìm đồ.' }, status, {
+          ...cors,
+          'Cache-Control': 'private, no-store',
+        });
+      }
+    }
+
     if (
       requestUrl.pathname === '/api/admin/v1/reports' ||
-      requestUrl.pathname === '/api/admin/v1/activity' ||
-      requestUrl.pathname === '/api/admin/v1/lost-found'
+      requestUrl.pathname === '/api/admin/v1/activity'
     ) {
       try {
         return json(await handleAdminLegacyData(request, requestUrl, env), 200, {
@@ -2195,9 +2234,8 @@ const worker = {
     const pushQueueCron = controller.cron === '7-59/15 * * * *';
     const eventCron = controller.cron === '*/10 * * * *';
     const adminEventCron = controller.cron === '37 19 * * *';
-    const lostFoundCron = controller.cron === '*/5 * * * *';
     const runAll =
-      !hourlyCron && !notificationControlCron && !announcementCron && !pushQueueCron && controller.cron !== '0 * * * *' && !eventCron && !adminEventCron && !lostFoundCron;
+      !hourlyCron && !notificationControlCron && !announcementCron && !pushQueueCron && controller.cron !== '0 * * * *' && !eventCron && !adminEventCron;
     const reconcileCourseDeletes =
       (hourlyCron || runAll) &&
       new Date(controller.scheduledTime).getUTCHours() === 20;
@@ -2281,15 +2319,6 @@ const worker = {
           ),
         });
       }
-    }
-
-    if (lostFoundCron || runAll) {
-      jobs.push({
-        failureEvent: 'lost_found_sync_failed',
-        promise: syncPublicLostFound(env).then((summary) =>
-          console.log('lost_found_sync_complete', summary)
-        ),
-      });
     }
 
     ctx.waitUntil(

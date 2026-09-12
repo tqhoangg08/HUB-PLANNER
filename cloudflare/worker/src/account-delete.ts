@@ -226,7 +226,6 @@ const SOURCE_OWNER_TABLES: readonly SourceOwnerTable[] = [
   ['ctv_requests', 'user_id'],
   ['event_reports', 'user_id'],
   ['feedback', 'user_id'],
-  ['lost_found_items', 'user_id'],
   ['user_course_requests', 'user_id'],
   ['policy_consents', 'user_id'],
   ['practice_attempts', 'user_id'],
@@ -248,6 +247,7 @@ const D1_CLEANUP_TABLES = [
   'user_event_participations',
   'benchmark_ranking_users',
   'admin_event_mutations',
+  'lost_found_items',
   'public_lost_found_items',
   'admin_export_otps',
   'push_subscriptions',
@@ -402,6 +402,10 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
   const uploadRows = await env.DB.prepare(
     'SELECT file_key FROM support_attachment_uploads WHERE user_id = ?',
   ).bind(userId).all<{ file_key: string }>();
+  const lostFoundImages = await env.DB.prepare(
+    `SELECT image_key FROM lost_found_items
+      WHERE user_id = ? AND image_key LIKE 'lost-found/%'`,
+  ).bind(userId).all<{ image_key: string }>();
   await env.DB.batch([
     env.DB.prepare('DELETE FROM user_schedule_course_snapshots WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM user_schedules WHERE user_id = ?').bind(userId),
@@ -415,6 +419,7 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
     env.DB.prepare('DELETE FROM benchmark_ranking_users WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM admin_event_mutations WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM public_lost_found_items WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM lost_found_items WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM admin_export_otps WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM support_attachment_uploads WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM push_delivery_attempts WHERE subscription_id IN (SELECT id FROM push_subscriptions WHERE user_id = ?)').bind(userId),
@@ -428,13 +433,17 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
        (SELECT COUNT(*) FROM user_schedules WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM user_course_requests WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM user_profiles WHERE user_id = ?1) +
+       (SELECT COUNT(*) FROM lost_found_items WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM notification_preferences WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM support_attachment_uploads WHERE user_id = ?1) AS remaining`,
   ).bind(userId).first<{ remaining: number }>();
   if (!remaining || Number(remaining.remaining) !== 0) throw new AccountDeleteError(500, 'Không thể xác nhận dọn dữ liệu tài khoản.');
   if (env.SUPPORT_ATTACHMENTS_BUCKET) {
-    const keys = (uploadRows.results || []).map((row) => row.file_key).filter(Boolean);
+    const keys = [
+      ...(uploadRows.results || []).map((row) => row.file_key),
+      ...(lostFoundImages.results || []).map((row) => row.image_key),
+    ].filter(Boolean);
     if (keys.length) await env.SUPPORT_ATTACHMENTS_BUCKET.delete(keys);
   }
 };

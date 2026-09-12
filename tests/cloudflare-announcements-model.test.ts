@@ -21,7 +21,6 @@ import {
   parseEventQuery,
 } from '../cloudflare/worker/src/events.ts';
 import {
-  buildSupabaseLostFoundUrl,
   normalizeLostFoundSearch,
   parseLostFoundQuery,
 } from '../cloudflare/worker/src/lost-found.ts';
@@ -260,17 +259,11 @@ test('lost-found query validates type, paging and Vietnamese search', () => {
   assert.equal(parseLostFoundQuery(new URLSearchParams('type=other')).type, null);
 });
 
-test('lost-found sync requests only published non-deleted rows', () => {
-  const url = buildSupabaseLostFoundUrl(
-    'https://example.supabase.co/',
-    500
-  );
-  assert.equal(url.pathname, '/rest/v1/lost_found_items');
-  assert.equal(url.searchParams.get('is_deleted'), 'eq.false');
-  assert.equal(url.searchParams.get('status'), 'in.(approved,resolved)');
-  assert.equal(url.searchParams.get('order'), 'id.asc');
-  assert.equal(url.searchParams.get('limit'), '500');
-  assert.equal(url.searchParams.get('offset'), '500');
+test('lost-found runtime is D1/R2-only and has no source sync transport', () => {
+  const source = readFileSync('cloudflare/worker/src/lost-found.ts', 'utf8');
+  assert.doesNotMatch(source, /supabase|\/rest\/v1|\/storage\/v1|syncPublicLostFound/i);
+  assert.match(source, /public_lost_found_items/);
+  assert.match(source, /SUPPORT_ATTACHMENTS_BUCKET/);
 });
 
 test('lost-found cache keys ignore unrelated parameters and stay isolated', () => {
