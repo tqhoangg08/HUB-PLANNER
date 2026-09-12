@@ -145,13 +145,16 @@ export const handleAdminLostFound = async (request: Request, url: URL, env: Lost
   if (typeof body.status === 'string') { const status = body.status.trim().toLowerCase(); if (!['pending','approved','rejected','resolved'].includes(status)) throw new LostFoundError(400, 'Trạng thái báo cáo không hợp lệ.'); next.status = status as LostFoundStatus; }
   if (typeof body.is_deleted === 'boolean') next.is_deleted = body.is_deleted ? 1 : 0;
   if (typeof body.image_url === 'string' || body.image_url === null) { next.image_url = nullableText(body.image_url, 1_000); next.image_key = keyFromImageUrl(next.image_url); }
-  const oldImageKey = existing.image_key, removeProjection = next.is_deleted !== 0 || !['approved','resolved'].includes(next.status);
+  const oldImageKey = existing.image_key;
+  if (next.is_deleted !== 0) { next.image_url = null; next.image_key = null; }
+  const imageKeyToDelete = oldImageKey && oldImageKey !== next.image_key ? oldImageKey : null;
+  const removeProjection = next.is_deleted !== 0 || !['approved','resolved'].includes(next.status);
   await env.DB.batch([
     env.DB.prepare('UPDATE lost_found_items SET updated_at=?,title=?,description=?,location=?,contact_info=?,user_name=?,image_url=?,image_key=?,status=?,is_deleted=?,title_search=?,location_search=?,description_search=? WHERE id=?').bind(next.updated_at,next.title,next.description,next.location,next.contact_info,next.user_name,next.image_url,next.image_key,next.status,next.is_deleted,normalizeLostFoundSearch(next.title),normalizeLostFoundSearch(next.location),normalizeLostFoundSearch(next.description),id),
     removeProjection ? env.DB.prepare('DELETE FROM public_lost_found_items WHERE id=?').bind(id) : projectionUpsert(env,id),
     removeProjection ? env.DB.prepare('DELETE FROM lost_found_push_queue WHERE lost_found_item_id=? AND sent_at IS NULL').bind(id) : env.DB.prepare('SELECT 1'),
   ]);
-  if (oldImageKey && oldImageKey !== next.image_key) await deleteImage(env, oldImageKey);
+  await deleteImage(env, imageKeyToDelete);
   return { success: true };
 };
 

@@ -115,8 +115,9 @@ test('R2 image route serves immutable content and admin replacement deletes only
   try {
     const response = await handleLostFoundImage(new Request('https://x/api/public/v1/lost-found-images/lost-found/old.png'), 'lost-found/old.png', env);
     assert.equal(response.status, 200); assert.equal(response.headers.get('Content-Type'), 'image/png');
-    await handleAdminLostFound(adminRequest('PATCH', { id: 7, image_url: null, is_deleted: true }), new URL('https://x/api/admin/v1/lost-found'), env);
+    await handleAdminLostFound(adminRequest('PATCH', { id: 7, is_deleted: true }), new URL('https://x/api/admin/v1/lost-found'), env);
     assert.deepEqual(env.__deleted, ['lost-found/old.png']);
+    assert.equal(env.__sql.prepare('SELECT image_url FROM lost_found_items WHERE id=7').get().image_url, null);
   } finally { env.__sql.close(); }
 });
 
