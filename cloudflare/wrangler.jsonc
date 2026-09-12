@@ -88,6 +88,10 @@
     {
       "binding": "SUPPORT_ATTACHMENTS_BUCKET",
       "bucket_name": "hub-planner"
+    },
+    {
+      "binding": "AI_DOCUMENTS_BUCKET",
+      "bucket_name": "hub-planner"
     }
   ],
   "services": [

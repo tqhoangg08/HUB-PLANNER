@@ -30,15 +30,12 @@ Không đưa khóa File Search vào pool chat và không dùng khóa ngẫu nhi�
 4. Script sẽ tìm store có display name `HUB Planner Knowledge Base`; nếu đã có thì tái sử dụng, nếu chưa có mới tạo với embedding model `models/gemini-embedding-2`.
 5. Sao chép đúng dòng `GEMINI_FILE_SEARCH_STORE=fileSearchStores/...` vào môi trường. Script không in API key.
 
-## 4. Cấu hình Supabase
+## 4. D1 và R2 authority
 
-1. Sao lưu database trước khi chạy migration.
-2. Chạy migration `supabase/migrations/20260805190000_create_ai_documents.sql` bằng quy trình migration hiện tại.
-3. Xác nhận bảng `public.ai_documents`, các index, cột nguồn trong `ai_chat_logs` và bucket private `ai-documents` đã được tạo.
-4. Kiểm tra bucket có `public = false`, giới hạn 20 MB và đúng MIME allowlist.
-5. Kiểm tra RLS: người dùng thường chỉ đọc metadata tài liệu hoàn tất/public; chỉ role `admin` upload, sửa và xóa file.
-
-Rollback khẩn cấp nằm tại `supabase/migrations/rollback/20260805190000_create_ai_documents.rollback.sql`. Trước rollback, xóa tài liệu trong Gemini store bằng trang quản trị để tránh index mồ côi.
+- `cloudflare/migrations/0032_ai_documents_chat_d1_r2_authority.sql` tạo metadata `ai_documents` và lịch sử `ai_chat_logs` trong D1.
+- Binding `AI_DOCUMENTS_BUCKET` trỏ tới R2 private bucket `hub-planner`; object chỉ nằm dưới prefix `ai-documents/`.
+- Public Worker xác thực Better Auth server-side trước mọi thao tác. Chỉ admin được upload/retry/delete; file download được stream qua private same-origin route.
+- Gemini external store/document/operation IDs được giữ trong D1. Cutover không tự re-index tài liệu đã có.
 
 ## 5. Biến môi trường local
 
@@ -52,7 +49,6 @@ GEMINI_FILE_SEARCH_ENABLED=true
 GEMINI_FILE_SEARCH_API_KEY=key_of_dedicated_store_project
 GEMINI_FILE_SEARCH_STORE=fileSearchStores/your-store-id
 GEMINI_FILE_SEARCH_EMBEDDING_MODEL=models/gemini-embedding-2
-AI_DOCUMENTS_BUCKET=ai-documents
 AI_DOCUMENT_MAX_SIZE_MB=20
 ```
 
@@ -60,9 +56,9 @@ AI_DOCUMENT_MAX_SIZE_MB=20
 
 ## 6. Cấu hình Cloudflare Worker
 
-AI Documents và Gemini File Search chạy trong Public Cloudflare Worker. Cấu hình các biến không nhạy cảm bằng Wrangler config và đưa `GEMINI_FILE_SEARCH_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` vào Worker secrets; không dùng tiền tố `VITE_`.
+AI Documents và Gemini File Search chạy trong Public Cloudflare Worker. Cấu hình binding D1/R2 bằng Wrangler config và đưa `GEMINI_FILE_SEARCH_API_KEY` vào Worker secret; không dùng tiền tố `VITE_`.
 
-Các route runtime là `/api/private/v1/ai-advisor`, `/api/admin/v1/ai-documents` và `/api/private/v1/ai-document-source/:id`. Mọi route dùng Better Auth cookie server-side; trình duyệt không gọi Supabase Auth/Storage trực tiếp.
+Các route runtime là `/api/private/v1/ai-advisor`, `/api/admin/v1/ai-documents`, `/api/private/v1/ai-document-source/:id` và `/api/private/v1/ai-document-file/:id`. Mọi route dùng Better Auth cookie server-side; AI runtime không gọi Supabase Database/Storage.
 
 Rollback ứng dụng: tắt `GEMINI_FILE_SEARCH_ENABLED=false` trên Worker. Chat vẫn fallback sang provider hiện hành; không cần xóa store hoặc dữ liệu.
 
@@ -112,40 +108,13 @@ Rollback ứng dụng: tắt `GEMINI_FILE_SEARCH_ENABLED=false` trên Worker. Ch
 
 Đối chiếu phương thức mới nhất tại <https://ai.google.dev/gemini-api/docs/file-search>.
 
-## 10. Runbook Supabase Database và Storage
+## 10. Runbook D1 và R2
 
-### Database
-
-1. Mở <https://supabase.com/dashboard>, chọn project HUB Planner.
-2. Vào **SQL Editor** → **New query**.
-3. Mở `supabase/migrations/20260805190000_create_ai_documents.sql`, copy toàn bộ vào editor và bấm **Run**.
-4. Kết quả mong đợi là `Success. No rows returned`, không có lỗi policy/cột.
-5. Vào **Table Editor** → `ai_documents`, kiểm tra các cột `content_hash`, `gemini_*`, `indexing_status`, `visibility`, `uploaded_by`, `deleted_at`.
-6. Vào **Authentication** → **Policies**, xác nhận RLS của `ai_documents` đang bật.
-
-Query xác minh:
-
-```sql
-select tablename, rowsecurity from pg_tables
-where schemaname = 'public' and tablename = 'ai_documents';
-select policyname, cmd, roles from pg_policies
-where schemaname = 'public' and tablename = 'ai_documents'
-order by policyname;
-select column_name, data_type from information_schema.columns
-where table_schema = 'public' and table_name in ('ai_documents','ai_chat_logs')
-order by table_name, ordinal_position;
-```
-
-### Storage
-
-1. Vào **Storage** → `ai-documents`. Migration đã tạo bucket; refresh Dashboard trước khi tạo thủ công.
-2. Mở **Configuration**: bucket phải **Private**, giới hạn `20 MB`, MIME gồm PDF, Word/OpenXML, PPTX, XLSX, TXT, CSV.
-3. Vào **Policies**: chỉ role admin được select/insert/update/delete; object upload phải nằm trong folder UUID của admin.
-4. Đăng nhập user thường và thử upload: phải bị từ chối. Đăng nhập admin, mở `/admin/ai-documents`, upload file nhỏ: phải thành công.
-5. Bấm icon tải tại một dòng: trình duyệt nhận signed URL 60 giây, không phải public URL cố định.
-6. Xóa file thử bằng nút xóa; object biến mất và metadata chuyển `deleted`.
-
-Rollback nằm tại `supabase/migrations/rollback/20260805190000_create_ai_documents.rollback.sql`. Chỉ chạy sau khi sao lưu vì rollback xóa bucket, bảng và dữ liệu nguồn chat mới.
+1. Chạy `npm run cf:d1:migrate:remote` để áp dụng schema additive.
+2. Chạy `npm run cf:d1:audit:ai-domain` để xem counts/hashes đã sanitize.
+3. Chỉ khi audit khớp, chạy `npm run cf:d1:cutover:ai-domain`; script copy object có kiểm tra size/SHA-256, giữ Gemini IDs và upsert metadata/log idempotently.
+4. Xác minh binding `AI_DOCUMENTS_BUCKET`, D1 counts/hash và không có AI runtime call tới Supabase.
+5. Đăng nhập admin, upload file nhỏ, kiểm tra File Search/citation rồi xóa test document.
 
 ## 11. Runbook Cloudflare
 
@@ -159,7 +128,7 @@ Rollback nằm tại `supabase/migrations/rollback/20260805190000_create_ai_docu
 
 1. Mở PowerShell: `cd D:\Projects\HUB-PLANNER`.
 2. Chạy `npm install`.
-3. Copy `.env.example` thành `.env.local`, điền Supabase và Gemini env; không commit `.env.local`.
+3. Copy `.env.example` thành `.env.local`, điền Gemini env; không commit `.env.local`.
 4. Chạy `npm run gemini:create-store` nếu chưa có store, rồi điền store name.
 5. Chạy `npm run typecheck`, `npm run test`, `npm run test:gemini`, `npm run build`.
 6. Chạy `npm run dev`, mở URL Vite trong terminal và đăng nhập admin.
@@ -174,7 +143,7 @@ Rollback nằm tại `supabase/migrations/rollback/20260805190000_create_ai_docu
 
 - [ ] Pull code và chạy `npm install`.
 - [ ] Chạy typecheck, toàn bộ unit test, Gemini test và build.
-- [ ] Sao lưu Supabase, chạy migration, kiểm tra RLS/bucket private.
+- [ ] Áp dụng D1 migration, kiểm tra D1/R2 binding private và parity cutover.
 - [ ] Tạo key File Search trong project chuyên dụng.
 - [ ] Chạy `npm run gemini:create-store`, lưu store name.
 - [ ] Thêm đủ Cloudflare Worker vars/secrets vào candidate và chạy canary.
@@ -195,4 +164,4 @@ Rollback nằm tại `supabase/migrations/rollback/20260805190000_create_ai_docu
 
 ## 15. Chi phí và vòng đời
 
-Theo tài liệu Gemini, File Search không thu phí lưu trữ/truy vấn riêng nhưng việc tạo embedding lúc lập chỉ mục và token model vẫn có thể phát sinh chi phí. File upload tạm thời của Gemini có vòng đời ngắn, còn tài liệu đã nhập vào File Search store tồn tại đến khi xóa. File gốc của HUB Planner vẫn nằm trong Supabase Storage private để quản trị, tải xuống có kiểm soát và phục hồi.
+Theo tài liệu Gemini, File Search không thu phí lưu trữ/truy vấn riêng nhưng việc tạo embedding lúc lập chỉ mục và token model vẫn có thể phát sinh chi phí. File upload tạm thời của Gemini có vòng đời ngắn, còn tài liệu đã nhập vào File Search store tồn tại đến khi xóa. File gốc của HUB Planner nằm trong Cloudflare R2 private và chỉ được đọc qua Worker sau khi xác thực.

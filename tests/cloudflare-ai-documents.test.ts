@@ -5,6 +5,11 @@ import {
   extractGeminiDocumentSources,
   geminiFileSearchConfigured,
 } from '../cloudflare/worker/src/gemini-file-search.ts';
+import {
+  AiDocumentsError,
+  isSafeAiDocumentObjectKey,
+  validateAiDocumentFile,
+} from '../cloudflare/worker/src/ai-documents.ts';
 
 const source = (path: string) => readFileSync(path, 'utf8');
 
@@ -46,4 +51,55 @@ test('Cloudflare Worker owns AI document routes and keeps admin mutation authori
   assert.match(handler, /requireBetterAuthSession/);
   assert.match(handler, /identity\.role !== 'admin'/);
   assert.match(handler, /request\.formData\(\)/);
+});
+
+test('AI document and chat production runtime is D1/R2 authoritative and Supabase-free', () => {
+  const documents = source('cloudflare/worker/src/ai-documents.ts');
+  const advisor = source('cloudflare/worker/src/ai-advisor.ts');
+  const config = source('cloudflare/wrangler.jsonc');
+  const migration = source('cloudflare/migrations/0032_ai_documents_chat_d1_r2_authority.sql');
+  const accountDelete = source('cloudflare/worker/src/account-delete.ts');
+  assert.doesNotMatch(documents, /SUPABASE|rest\/v1|storage\/v1/);
+  assert.doesNotMatch(advisor, /SUPABASE|rest\/v1/);
+  assert.match(documents, /AI_DOCUMENTS_BUCKET/);
+  assert.match(documents, /INSERT INTO ai_documents/);
+  assert.match(advisor, /INSERT INTO ai_chat_logs/);
+  assert.match(advisor, /WHERE id = \?1 AND user_id = \?2/);
+  assert.match(config, /"binding": "AI_DOCUMENTS_BUCKET"/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS ai_documents/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS ai_chat_logs/);
+  assert.doesNotMatch(accountDelete.match(/const SOURCE_OWNER_TABLES[\s\S]*?\];/)?.[0] || '', /ai_chat_logs/);
+  assert.match(accountDelete, /DELETE FROM ai_chat_logs WHERE user_id = \?/);
+});
+
+test('R2 document keys and file signatures fail closed', async () => {
+  assert.equal(isSafeAiDocumentObjectKey('ai-documents/user/id-file.pdf'), true);
+  assert.equal(isSafeAiDocumentObjectKey('ai-documents/../secret.pdf'), false);
+  assert.equal(isSafeAiDocumentObjectKey('support/file.pdf'), false);
+  const valid = new File([new TextEncoder().encode('%PDF-1.7\nfixture')], 'fixture.pdf', { type: 'application/pdf' });
+  assert.equal((await validateAiDocumentFile(valid)).mimeType, 'application/pdf');
+  const invalid = new File([new TextEncoder().encode('not-a-pdf')], 'fixture.pdf', { type: 'application/pdf' });
+  await assert.rejects(
+    () => validateAiDocumentFile(invalid),
+    (error: unknown) => error instanceof AiDocumentsError && error.status === 400,
+  );
+});
+
+test('AI document source resolves to an authenticated same-origin R2 stream route', () => {
+  const worker = source('cloudflare/worker/src/index.ts');
+  const handler = source('cloudflare/worker/src/ai-documents.ts');
+  assert.match(worker, /ai-document-file/);
+  assert.match(handler, /handleAiDocumentFile/);
+  assert.match(handler, /requireBetterAuthSession/);
+  assert.match(handler, /Content-Disposition/);
+  assert.doesNotMatch(handler, /signedURL|publicUrl/);
+});
+
+test('cutover tooling preserves Gemini IDs and never reindexes migrated documents', () => {
+  const script = source('scripts/migrate-ai-domain-d1-r2.mjs');
+  assert.match(script, /gemini_document_name/);
+  assert.match(script, /gemini_operation_name/);
+  assert.match(script, /content_hash/);
+  assert.match(script, /R2 upload failed/);
+  assert.doesNotMatch(script, /uploadToFileSearchStore|interactions\.create/);
 });

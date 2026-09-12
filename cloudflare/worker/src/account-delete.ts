@@ -216,7 +216,6 @@ type SourceOwnerTable = readonly [table: string, column: string];
 // Keep the registry explicit: a missing current table must fail the preflight,
 // before any destructive source cleanup begins.
 const SOURCE_OWNER_TABLES: readonly SourceOwnerTable[] = [
-  ['ai_chat_logs', 'user_id'],
   ['bug_reports', 'user_id'],
   ['canva_pro_requests', 'user_id'],
   ['course_reports', 'user_id'],
@@ -255,6 +254,7 @@ const D1_CLEANUP_TABLES = [
   'support_ticket_messages',
   'support_tickets',
   'support_attachment_uploads',
+  'ai_chat_logs',
   'user_profile_private',
   'user_profiles',
 ] as const;
@@ -400,6 +400,7 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
     env.DB.prepare('DELETE FROM support_ticket_messages WHERE sender_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM support_tickets WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM support_attachment_uploads WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM ai_chat_logs WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM push_delivery_attempts WHERE subscription_id IN (SELECT id FROM push_subscriptions WHERE user_id = ?)').bind(userId),
     env.DB.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM notification_preferences WHERE user_id = ?').bind(userId),
@@ -418,7 +419,8 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
        (SELECT COUNT(*) FROM support_ticket_attachments WHERE uploaded_by = ?1) +
        (SELECT COUNT(*) FROM support_ticket_messages WHERE sender_id = ?1) +
        (SELECT COUNT(*) FROM support_tickets WHERE user_id = ?1) +
-       (SELECT COUNT(*) FROM support_attachment_uploads WHERE user_id = ?1) AS remaining`,
+       (SELECT COUNT(*) FROM support_attachment_uploads WHERE user_id = ?1) +
+       (SELECT COUNT(*) FROM ai_chat_logs WHERE user_id = ?1) AS remaining`,
   ).bind(userId).first<{ remaining: number }>();
   if (!remaining || Number(remaining.remaining) !== 0) throw new AccountDeleteError(500, 'Không thể xác nhận dọn dữ liệu tài khoản.');
   if (env.SUPPORT_ATTACHMENTS_BUCKET) {

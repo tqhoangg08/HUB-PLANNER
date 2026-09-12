@@ -142,6 +142,7 @@ import {
   aiDocumentsErrorStatus,
   AiDocumentsError,
   handleAdminAiDocuments,
+  handleAiDocumentFile,
   handleAiDocumentSource,
   type AiDocumentsEnv,
 } from './ai-documents.ts';
@@ -1305,6 +1306,24 @@ const worker = {
           ...(error instanceof PdfAiError && error.allow ? { Allow: error.allow } : {}),
           'Cache-Control': 'no-store',
         });
+      }
+    }
+
+    const aiDocumentFileMatch = requestUrl.pathname.match(/^\/api\/private\/v1\/ai-document-file\/([0-9a-f-]{36})$/i);
+    if (aiDocumentFileMatch) {
+      try {
+        return await handleAiDocumentFile(request, aiDocumentFileMatch[1], env);
+      } catch (error) {
+        const status = aiDocumentsErrorStatus(error);
+        return json({
+          error: status === 401
+            ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+            : status === 403
+              ? 'Không có quyền truy cập.'
+              : status < 500 && error instanceof AiDocumentsError
+                ? error.message
+                : 'Không thể mở file tài liệu.',
+        }, status, { ...cors, 'Cache-Control': 'no-store' });
       }
     }
 

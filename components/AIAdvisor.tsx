@@ -82,7 +82,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
       return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // Kéo danh sách lịch sử chat từ Supabase khi mở cửa sổ AI
+  // Kéo lịch sử chat D1 qua same-origin private API khi mở cửa sổ AI.
   useEffect(() => {
       const fetchHistorySessions = async () => {
           if (isOpen && userId) {
