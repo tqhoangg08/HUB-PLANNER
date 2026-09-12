@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
+import worker, { corsHeaders } from '../cloudflare/worker/src/index.ts';
 import { EventCandidateError, handleAdminEventCandidates, handleEventCandidateIngest } from '../cloudflare/worker/src/event-candidates.ts';
 
 const ORIGIN = 'https://hotrosinhvienhub.id.vn';
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
 const CANDIDATE_ID = 222;
+const OFFICIAL_EXTENSION_ORIGIN = 'chrome-extension://bakbfjmgpjcmpicoehjadpakiogjikaa';
 
 const makeEnv = (role: 'admin' | 'auditor' | 'user' = 'admin') => {
   const sql = new DatabaseSync(':memory:');
@@ -82,6 +84,68 @@ test('D1 is the sole Event Candidate runtime store', () => {
   const bridge = readFileSync('cloudflare/worker/src/admin-legacy-data.ts', 'utf8');
   assert.doesNotMatch(source, /supabase|\/rest\/v1\/event_candidates/i);
   assert.doesNotMatch(bridge, /event_candidates|event-candidates/i);
+});
+
+test('event candidate CORS permits only the configured official extension origin', async () => {
+  const env = {
+    ALLOWED_ORIGINS: ORIGIN,
+    EVENT_CANDIDATE_EXTENSION_ORIGINS: OFFICIAL_EXTENSION_ORIGIN,
+  } as never;
+  const preflight = (origin: string) => worker.fetch(new Request(`${ORIGIN}/api/event-candidates`, {
+    method: 'OPTIONS',
+    headers: {
+      Origin: origin,
+      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'authorization,content-type',
+    },
+  }), env);
+
+  const official = await preflight(OFFICIAL_EXTENSION_ORIGIN);
+  assert.equal(official.status, 204);
+  assert.equal(official.headers.get('Access-Control-Allow-Origin'), OFFICIAL_EXTENSION_ORIGIN);
+  assert.match(official.headers.get('Access-Control-Allow-Headers') || '', /Authorization/);
+  assert.match(official.headers.get('Access-Control-Allow-Headers') || '', /Content-Type/);
+
+  const productionSite = await preflight(ORIGIN);
+  assert.equal(productionSite.status, 204);
+  assert.equal(productionSite.headers.get('Access-Control-Allow-Origin'), ORIGIN);
+
+  for (const rejectedOrigin of [
+    'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'chrome-extension://bakbfjmgpjcmpicoehjadpakiogjcmkd',
+    'chrome-extension://bakbfjmgpjcmpicoehjadpakiogjikaa/path',
+    'https://random.example',
+  ]) {
+    const response = await preflight(rejectedOrigin);
+    assert.equal(response.status, 403);
+    assert.equal(response.headers.get('Access-Control-Allow-Origin'), null);
+  }
+
+  assert.equal(corsHeaders(new Request(`${ORIGIN}/api/private/v1/me`, {
+    headers: { Origin: OFFICIAL_EXTENSION_ORIGIN },
+  }), env), null);
+});
+
+test('official extension CORS does not bypass candidate ingest authentication', async () => {
+  const response = await worker.fetch(new Request(`${ORIGIN}/api/event-candidates`, {
+    method: 'POST',
+    headers: {
+      Origin: OFFICIAL_EXTENSION_ORIGIN,
+      Authorization: 'Bearer invalid-extension-token',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      source_name: 'fixture',
+      post_url: 'https://facebook.example/post',
+      raw_content: 'fixture',
+    }),
+  }), {
+    ALLOWED_ORIGINS: ORIGIN,
+    EVENT_CANDIDATE_EXTENSION_ORIGINS: OFFICIAL_EXTENSION_ORIGIN,
+    EVENT_CANDIDATE_INGEST_SECRET: 'expected-secret',
+  } as never);
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'), OFFICIAL_EXTENSION_ORIGIN);
 });
 
 test('admin and auditor can list/detail while ordinary users are denied', async () => {

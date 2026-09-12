@@ -209,6 +209,7 @@ import {
 type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv & EventPushEnv & AccountPasswordCompatEnv & EventCandidatesEnv & LostFoundEnv &
   ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & PushTestEnv & AiAdvisorEnv & AiDocumentsEnv & PublicDirectoryEnv & {
   AUTH_SERVICE_PROXY_ENABLED?: string;
+  EVENT_CANDIDATE_EXTENSION_ORIGINS?: string;
   AUTH_INGRESS_IP_RATE_LIMIT?: RateLimit;
   ASSETS: Fetcher;
   NOTIFICATION_JOBS_ENABLED?: string;
@@ -496,10 +497,27 @@ const readAllowedOrigins = (env: WorkerEnv) => {
   return new Set(configured.length > 0 ? configured : DEFAULT_ALLOWED_ORIGINS);
 };
 
-const corsHeaders = (request: Request, env: WorkerEnv): HeadersInit | null => {
+const CHROME_EXTENSION_ORIGIN = /^chrome-extension:\/\/[a-p]{32}$/;
+
+const readEventCandidateExtensionOrigins = (env: WorkerEnv) => new Set(
+  String(env.EVENT_CANDIDATE_EXTENSION_ORIGINS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => CHROME_EXTENSION_ORIGIN.test(value)),
+);
+
+export const corsHeaders = (
+  request: Request,
+  env: WorkerEnv,
+  options: { allowEventCandidateExtension?: boolean } = {},
+): HeadersInit | null => {
   const origin = request.headers.get('Origin');
   if (!origin) return {};
-  if (!readAllowedOrigins(env).has(origin)) return null;
+  const allowed = readAllowedOrigins(env).has(origin) || (
+    options.allowEventCandidateExtension === true &&
+    readEventCandidateExtensionOrigins(env).has(origin)
+  );
+  if (!allowed) return null;
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods':
@@ -1081,7 +1099,9 @@ const worker = {
       return withFrontendAssetHeaders(await env.ASSETS.fetch(request));
     }
 
-    const cors = corsHeaders(request, env);
+    const cors = corsHeaders(request, env, {
+      allowEventCandidateExtension: requestUrl.pathname === '/api/event-candidates',
+    });
     if (cors === null) return json({ error: 'Origin không được phép.' }, 403);
     if (request.method === 'OPTIONS') {
       return new Response(null, {
