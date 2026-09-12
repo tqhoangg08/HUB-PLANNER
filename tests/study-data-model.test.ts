@@ -7,6 +7,7 @@ import {
     hasMeaningfulStudyData,
     INITIAL_STUDY_DATA,
     normalizeLoadedUserData,
+    resolveStudyDataSaveScope,
 } from '../features/study-data/model.ts';
 
 test('initial study data contains one valid empty semester', () => {
@@ -74,4 +75,32 @@ test('next semester progresses from term two into the next academic year', () =>
     ]);
 
     assert.equal(next, 'Học kỳ 1 Năm học 2026-2027');
+});
+
+test('grade saves keep self ownership independent of application role', () => {
+    for (const role of ['user', 'auditor', 'admin'] as const) {
+        assert.equal(resolveStudyDataSaveScope({
+            authenticated: true,
+            role,
+            viewingAnotherUser: false,
+        }), 'self');
+    }
+});
+
+test('auditor cannot turn staff visibility into cross-user grade write authority', () => {
+    assert.equal(resolveStudyDataSaveScope({
+        authenticated: true,
+        role: 'auditor',
+        viewingAnotherUser: true,
+    }), 'denied');
+    assert.equal(resolveStudyDataSaveScope({
+        authenticated: false,
+        role: 'user',
+        viewingAnotherUser: false,
+    }), 'denied');
+    assert.equal(resolveStudyDataSaveScope({
+        authenticated: true,
+        role: 'admin',
+        viewingAnotherUser: true,
+    }), 'admin_managed');
 });

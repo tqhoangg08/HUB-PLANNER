@@ -3,6 +3,23 @@ import type { Semester, UserData } from '../../types.ts';
 export const DEFAULT_TRANSCRIPT_SEMESTER_NAME = 'Học kỳ 1 Năm học 2025-2026';
 export const REMOTE_SAVE_DEBOUNCE_MS = 8_000;
 
+export type StudyDataActorRole = 'user' | 'admin' | 'auditor';
+export type StudyDataSaveScope = 'self' | 'admin_managed' | 'denied';
+
+export const resolveStudyDataSaveScope = ({
+    authenticated,
+    role,
+    viewingAnotherUser,
+}: {
+    authenticated: boolean;
+    role: StudyDataActorRole;
+    viewingAnotherUser: boolean;
+}): StudyDataSaveScope => {
+    if (!authenticated) return 'denied';
+    if (!viewingAnotherUser) return 'self';
+    return role === 'admin' ? 'admin_managed' : 'denied';
+};
+
 const isValidTranscriptSemesterName = (name?: string) =>
     /^Học kỳ (1|2) Năm học \d{4}-\d{4}$/.test((name || '').trim());
 

@@ -7,6 +7,7 @@ import {
     INITIAL_STUDY_DATA,
     normalizeLoadedUserData,
     REMOTE_SAVE_DEBOUNCE_MS,
+    resolveStudyDataSaveScope,
 } from '../features/study-data/model';
 import { fetchProfilePrivate, updateProfilePrivate } from '../utils/profilePrivate';
 import { fetchOwnPrivateProfile, updateOwnPrivateProfile } from '../utils/privateProfileApi';
@@ -137,14 +138,20 @@ export const useStudyData = ({
             return true;
         }
 
-        if (isAdmin && viewingUser) {
+        const saveScope = resolveStudyDataSaveScope({
+            authenticated: Boolean(sessionUserId),
+            role: isAdmin ? 'admin' : isAuditor ? 'auditor' : 'user',
+            viewingAnotherUser: Boolean(viewingUser),
+        });
+
+        if (saveScope === 'admin_managed') {
             // Transitional Profile Stage 4A: privileged legacy browser writes
             // are fail-closed by updateProfilePrivate until a server-side
             // staff profile endpoint is explicitly authorized.
             await updateProfilePrivate(targetUserId, {
                 data: dataToSave,
             });
-        } else if (!isAuditor) {
+        } else if (saveScope === 'self') {
             const nameToSave = profileFullName || sessionMetaName;
             await updateOwnPrivateProfile({
                 publicProfile: {
@@ -346,7 +353,7 @@ export const useStudyData = ({
         loadDataIntoState(nextData);
         let saved = await saveStudyDataToRemote(nextData);
 
-        if (!saved && sessionUserId && !viewingUser && !isAuditor) {
+        if (!saved && sessionUserId && !viewingUser) {
             await updateOwnPrivateProfile({ privateProfile: { data: nextData } });
             saved = true;
         }
@@ -358,7 +365,6 @@ export const useStudyData = ({
         };
         localStorage.removeItem(getStorageDirtyKey(storageKey));
     }, [
-        isAuditor,
         loadDataIntoState,
         saveStudyDataToRemote,
         sessionEmail,
