@@ -216,9 +216,6 @@ type SourceOwnerTable = readonly [table: string, column: string];
 // Keep the registry explicit: a missing current table must fail the preflight,
 // before any destructive source cleanup begins.
 const SOURCE_OWNER_TABLES: readonly SourceOwnerTable[] = [
-  ['support_ticket_attachments', 'uploaded_by'],
-  ['support_ticket_messages', 'sender_id'],
-  ['support_tickets', 'user_id'],
   ['ai_chat_logs', 'user_id'],
   ['bug_reports', 'user_id'],
   ['canva_pro_requests', 'user_id'],
@@ -253,6 +250,10 @@ const D1_CLEANUP_TABLES = [
   'push_subscriptions',
   'notification_preferences',
   'push_delivery_attempts',
+  'support_notifications',
+  'support_ticket_attachments',
+  'support_ticket_messages',
+  'support_tickets',
   'support_attachment_uploads',
   'user_profile_private',
   'user_profiles',
@@ -340,36 +341,10 @@ const patchSourceRows = async (
   });
 };
 
-const readSupportObjectKeys = async (env: AccountDeleteEnv, userId: string) => {
-  return accountDeleteStep('source_read:support_attachment_keys', async () => {
-    const paths = [
-      `/rest/v1/support_ticket_attachments?uploaded_by=eq.${encodeURIComponent(userId)}&select=file_key`,
-      `/rest/v1/support_tickets?user_id=eq.${encodeURIComponent(userId)}&select=attachments:support_ticket_attachments(file_key)`,
-    ];
-    const keys = new Set<string>();
-    for (const path of paths) {
-      const response = await sourceRequest(env, path);
-      const rows = await response.json() as Array<Record<string, unknown>>;
-      for (const row of rows) {
-        if (typeof row.file_key === 'string') keys.add(row.file_key);
-        if (Array.isArray(row.attachments)) {
-          for (const attachment of row.attachments) {
-            if (attachment && typeof attachment === 'object' && typeof (attachment as Record<string, unknown>).file_key === 'string') {
-              keys.add(String((attachment as Record<string, unknown>).file_key));
-            }
-          }
-        }
-      }
-    }
-    return [...keys];
-  });
-};
-
 export const cleanupServerSideUserData = async (env: AccountDeleteEnv, userId: string, telemetry: DeleteStepTelemetry) => {
   // Never begin a source delete until every current authoritative source table
   // used by this pipeline has passed a read-only schema check.
   await preflightServerSideUserData(env, userId);
-  const objectKeys = await readSupportObjectKeys(env, userId);
   // Child/owned resources first. Every deletion is exact-owner scoped and strict.
   for (const [table, column] of SOURCE_OWNER_TABLES) await deleteSourceRows(env, telemetry, table, column, userId);
   await deleteSourceRows(env, telemetry, 'notifications', 'receiver_id', userId, 'source_delete:notifications_receiver');
@@ -390,17 +365,16 @@ export const cleanupServerSideUserData = async (env: AccountDeleteEnv, userId: s
   await deleteSourceRows(env, telemetry, 'profile_private_data', 'user_id', userId);
   await deleteSourceRows(env, telemetry, 'user_roles', 'user_id', userId);
   await deleteSourceRows(env, telemetry, 'profiles', 'id', userId);
-  if (env.SUPPORT_ATTACHMENTS_BUCKET && objectKeys.length) {
-    await persistedDeleteStep(env, telemetry, 'source_r2_delete:support_attachments', 'r2', 'support_attachments', async () => {
-      await env.SUPPORT_ATTACHMENTS_BUCKET!.delete(objectKeys);
-    });
-  }
 };
 
 const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
   await preflightD1UserData(env);
   const uploadRows = await env.DB.prepare(
-    'SELECT file_key FROM support_attachment_uploads WHERE user_id = ?',
+    `SELECT file_key FROM support_attachment_uploads WHERE user_id = ?1
+     UNION
+     SELECT a.file_key FROM support_ticket_attachments a
+       LEFT JOIN support_tickets t ON t.id = a.ticket_id
+      WHERE a.uploaded_by = ?1 OR t.user_id = ?1`,
   ).bind(userId).all<{ file_key: string }>();
   const lostFoundImages = await env.DB.prepare(
     `SELECT image_key FROM lost_found_items
@@ -421,6 +395,10 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
     env.DB.prepare('DELETE FROM public_lost_found_items WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM lost_found_items WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM admin_export_otps WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM support_notifications WHERE receiver_id = ? OR actor_id = ?').bind(userId, userId),
+    env.DB.prepare('DELETE FROM support_ticket_attachments WHERE uploaded_by = ?').bind(userId),
+    env.DB.prepare('DELETE FROM support_ticket_messages WHERE sender_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM support_tickets WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM support_attachment_uploads WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM push_delivery_attempts WHERE subscription_id IN (SELECT id FROM push_subscriptions WHERE user_id = ?)').bind(userId),
     env.DB.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').bind(userId),
@@ -436,6 +414,10 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
        (SELECT COUNT(*) FROM lost_found_items WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM notification_preferences WHERE user_id = ?1) +
+       (SELECT COUNT(*) FROM support_notifications WHERE receiver_id = ?1 OR actor_id = ?1) +
+       (SELECT COUNT(*) FROM support_ticket_attachments WHERE uploaded_by = ?1) +
+       (SELECT COUNT(*) FROM support_ticket_messages WHERE sender_id = ?1) +
+       (SELECT COUNT(*) FROM support_tickets WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM support_attachment_uploads WHERE user_id = ?1) AS remaining`,
   ).bind(userId).first<{ remaining: number }>();
   if (!remaining || Number(remaining.remaining) !== 0) throw new AccountDeleteError(500, 'Không thể xác nhận dọn dữ liệu tài khoản.');

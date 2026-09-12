@@ -189,6 +189,25 @@ const readLostFoundModeratorNotifications = async (
   return { rows: rows.results || [], unread: Number(unread?.total || 0) };
 };
 
+const readSupportNotifications = async (
+  env: PrivateNotificationsEnv,
+  userId: string,
+) => {
+  const rows = await requireD1(env).prepare(
+    `SELECT id, receiver_id, actor_id, type, content, link, is_read, created_at
+       FROM support_notifications
+      WHERE receiver_id = ?
+      ORDER BY created_at DESC
+      LIMIT 20`,
+  ).bind(userId).all<Record<string, unknown>>();
+  const unread = await requireD1(env).prepare(
+    `SELECT COUNT(*) AS total
+       FROM support_notifications
+      WHERE receiver_id = ? AND is_read = 0`,
+  ).bind(userId).first<{ total: number }>();
+  return { rows: rows.results || [], unread: Number(unread?.total || 0) };
+};
+
 const readPreferences = (value: unknown) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new PrivateNotificationsError(400, 'TÃ¹y chá»n thÃ´ng bÃ¡o khÃ´ng há»£p lá»‡.');
@@ -215,7 +234,7 @@ export const handlePrivateNotifications = async (
   const userId = encodeURIComponent(identity.userId);
 
   if (request.method === 'GET') {
-    const [notifications, unreadCount, preferences, lostFoundNotifications] = await Promise.all([
+    const [notifications, unreadCount, preferences, lostFoundNotifications, supportNotifications] = await Promise.all([
       sourceRequest(
         env,
         `/rest/v1/notifications?receiver_id=eq.${userId}&select=id,receiver_id,actor_id,type,content,link,is_read,created_at&order=created_at.desc&limit=20`,
@@ -226,16 +245,18 @@ export const handlePrivateNotifications = async (
       ),
       readD1Preferences(env, identity.userId),
       readLostFoundModeratorNotifications(env, identity.userId),
+      readSupportNotifications(env, identity.userId),
     ]);
     const combined = [
       ...(Array.isArray(notifications) ? notifications : []),
       ...lostFoundNotifications.rows,
+      ...supportNotifications.rows,
     ].sort((left, right) => String((right as Record<string, unknown>).created_at || '').localeCompare(String((left as Record<string, unknown>).created_at || ''))).slice(0, 20);
     const rows = await attachD1ActorProfiles(env, combined);
     return {
       success: true,
       notifications: rows,
-      unreadCount: unreadCount + lostFoundNotifications.unread,
+      unreadCount: unreadCount + lostFoundNotifications.unread + supportNotifications.unread,
       preferences,
     };
   }
@@ -276,12 +297,19 @@ export const handlePrivateNotifications = async (
     if (typeof body.notificationId !== 'string' || !/^[0-9a-f-]{36}$/i.test(body.notificationId)) {
       throw new PrivateNotificationsError(400, 'ThÃ´ng bÃ¡o khÃ´ng há»£p lá»‡.');
     }
-    const d1Result = await requireD1(env).prepare(
-      `UPDATE lost_found_moderator_notifications
-          SET is_read = 1
-        WHERE id = ? AND receiver_id = ?`,
-    ).bind(body.notificationId, identity.userId).run();
-    if (Number(d1Result.meta?.changes || 0) > 0) return { success: true };
+    const [lostFoundResult, supportResult] = await Promise.all([
+      requireD1(env).prepare(
+        `UPDATE lost_found_moderator_notifications
+            SET is_read = 1
+          WHERE id = ? AND receiver_id = ?`,
+      ).bind(body.notificationId, identity.userId).run(),
+      requireD1(env).prepare(
+        `UPDATE support_notifications
+            SET is_read = 1
+          WHERE id = ? AND receiver_id = ?`,
+      ).bind(body.notificationId, identity.userId).run(),
+    ]);
+    if (Number(lostFoundResult.meta?.changes || 0) > 0 || Number(supportResult.meta?.changes || 0) > 0) return { success: true };
     await sourceRequest(
       env,
       `/rest/v1/notifications?id=eq.${encodeURIComponent(body.notificationId)}&receiver_id=eq.${userId}`,
@@ -292,11 +320,18 @@ export const handlePrivateNotifications = async (
 
   if (body.action === 'read-all') {
     await Promise.all([
-      requireD1(env).prepare(
-        `UPDATE lost_found_moderator_notifications
-            SET is_read = 1
-          WHERE receiver_id = ? AND is_read = 0`,
-      ).bind(identity.userId).run(),
+      Promise.all([
+        requireD1(env).prepare(
+          `UPDATE lost_found_moderator_notifications
+              SET is_read = 1
+            WHERE receiver_id = ? AND is_read = 0`,
+        ).bind(identity.userId).run(),
+        requireD1(env).prepare(
+          `UPDATE support_notifications
+              SET is_read = 1
+            WHERE receiver_id = ? AND is_read = 0`,
+        ).bind(identity.userId).run(),
+      ]),
       sourceRequest(
         env,
         `/rest/v1/notifications?receiver_id=eq.${userId}&is_read=eq.false`,

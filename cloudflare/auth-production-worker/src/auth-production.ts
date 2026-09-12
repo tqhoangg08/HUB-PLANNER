@@ -1361,16 +1361,22 @@ async function handleInternalStaffList(
     return jsonResponse({ error: "Not found." }, 404);
   }
   const result = await env.AUTH_DB.prepare(
-    `SELECT user_id
+    `SELECT user_id, role
        FROM app_user_roles
       WHERE role IN ('admin', 'auditor')
       ORDER BY user_id
       LIMIT 100`,
-  ).all<{ user_id: string }>();
+  ).all<{ user_id: string; role: string }>();
   const userIds = (result.results || [])
     .map((row) => row.user_id)
     .filter((value) => typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value));
-  return jsonResponse({ userIds });
+  const staff = (result.results || []).flatMap((row) =>
+    typeof row.user_id === "string" && /^[0-9a-f-]{36}$/i.test(row.user_id) &&
+    (row.role === "admin" || row.role === "auditor")
+      ? [{ userId: row.user_id, role: row.role }]
+      : [],
+  );
+  return jsonResponse({ userIds, staff });
 }
 
 async function handleMssvSignIn(

@@ -12,6 +12,11 @@ export interface BetterAuthIdentityEnv {
   };
 }
 
+export interface BetterAuthStaffEntry {
+  userId: string;
+  role: 'admin' | 'auditor';
+}
+
 type BetterAuthIdentityStatus = 401 | 403 | 503;
 type BetterAuthIdentityErrorCode =
   | 'UNAUTHENTICATED'
@@ -24,7 +29,7 @@ const INTERNAL_SESSION_PATH = '/internal/auth/session';
 const INTERNAL_STAFF_PATH = '/internal/auth/staff';
 const INTERNAL_STAFF_LIST_PATH = '/internal/auth/staff-list';
 const MAX_COOKIE_BYTES = 16_384;
-const MAX_AUTH_RESPONSE_BYTES = 4_096;
+const MAX_AUTH_RESPONSE_BYTES = 16_384;
 const AUTH_SERVICE_TIMEOUT_MS = 5_000;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -191,9 +196,9 @@ export const requireBetterAuthStaff = async (
   return identity as BetterAuthIdentity & { role: 'admin' | 'auditor' };
 };
 
-export const listBetterAuthStaffUserIds = async (
+const readBetterAuthStaffPayload = async (
   env: BetterAuthIdentityEnv,
-): Promise<string[]> => {
+): Promise<Record<string, unknown>> => {
   if (!env.AUTH_SERVICE) {
     throw new BetterAuthIdentityError(503, 'AUTH_SERVICE_UNAVAILABLE');
   }
@@ -215,9 +220,14 @@ export const listBetterAuthStaffUserIds = async (
     throw new BetterAuthIdentityError(503, 'AUTH_SERVICE_UNAVAILABLE');
   }
   const value = await readBoundedJson(response);
-  if (!isRecord(value) || !Array.isArray(value.userIds)) {
+  if (!isRecord(value)) {
     throw new BetterAuthIdentityError(503, 'AUTH_SERVICE_RESPONSE_INVALID');
   }
+  return value;
+};
+
+const parseStaffUserIds = (value: Record<string, unknown>) => {
+  if (!Array.isArray(value.userIds)) throw new BetterAuthIdentityError(503, 'AUTH_SERVICE_RESPONSE_INVALID');
   const userIds = value.userIds.filter(
     (entry): entry is string => typeof entry === 'string' && UUID_PATTERN.test(entry),
   );
@@ -226,6 +236,27 @@ export const listBetterAuthStaffUserIds = async (
   }
   return [...new Set(userIds)].slice(0, 100);
 };
+
+export const listBetterAuthStaff = async (
+  env: BetterAuthIdentityEnv,
+): Promise<BetterAuthStaffEntry[]> => {
+  const value = await readBetterAuthStaffPayload(env);
+  const userIds = parseStaffUserIds(value);
+  if (!Array.isArray(value.staff)) throw new BetterAuthIdentityError(503, 'AUTH_SERVICE_RESPONSE_INVALID');
+  const staff = value.staff.flatMap((entry): BetterAuthStaffEntry[] => {
+    if (!isRecord(entry) || typeof entry.userId !== 'string' || !UUID_PATTERN.test(entry.userId)) return [];
+    if (entry.role !== 'admin' && entry.role !== 'auditor') return [];
+    return [{ userId: entry.userId, role: entry.role }];
+  });
+  if (staff.length !== value.staff.length || staff.some((entry) => !userIds.includes(entry.userId))) {
+    throw new BetterAuthIdentityError(503, 'AUTH_SERVICE_RESPONSE_INVALID');
+  }
+  return staff.slice(0, 100);
+};
+
+export const listBetterAuthStaffUserIds = async (
+  env: BetterAuthIdentityEnv,
+): Promise<string[]> => parseStaffUserIds(await readBetterAuthStaffPayload(env));
 
 const privateJson = (
   payload: unknown,
