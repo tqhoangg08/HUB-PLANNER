@@ -219,7 +219,6 @@ const SOURCE_OWNER_TABLES: readonly SourceOwnerTable[] = [
   ['bug_reports', 'user_id'],
   ['canva_pro_requests', 'user_id'],
   ['course_reports', 'user_id'],
-  ['ctv_requests', 'user_id'],
   ['event_reports', 'user_id'],
   ['feedback', 'user_id'],
   ['user_course_requests', 'user_id'],
@@ -249,6 +248,8 @@ const D1_CLEANUP_TABLES = [
   'notification_preferences',
   'push_delivery_attempts',
   'support_notifications',
+  'protected_submission_moderator_notifications',
+  'protected_submissions',
   'support_ticket_attachments',
   'support_ticket_messages',
   'support_tickets',
@@ -396,6 +397,8 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
     env.DB.prepare('DELETE FROM lost_found_items WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM admin_export_otps WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM support_notifications WHERE receiver_id = ? OR actor_id = ?').bind(userId, userId),
+    env.DB.prepare('DELETE FROM protected_submission_moderator_notifications WHERE receiver_id = ? OR actor_id = ?').bind(userId, userId),
+    env.DB.prepare('DELETE FROM protected_submissions WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM support_ticket_attachments WHERE uploaded_by = ?').bind(userId),
     env.DB.prepare('DELETE FROM support_ticket_messages WHERE sender_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM support_tickets WHERE user_id = ?').bind(userId),
@@ -415,7 +418,9 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
        (SELECT COUNT(*) FROM lost_found_items WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM notification_preferences WHERE user_id = ?1) +
-       (SELECT COUNT(*) FROM support_notifications WHERE receiver_id = ?1 OR actor_id = ?1) +
+        (SELECT COUNT(*) FROM support_notifications WHERE receiver_id = ?1 OR actor_id = ?1) +
+        (SELECT COUNT(*) FROM protected_submission_moderator_notifications WHERE receiver_id = ?1 OR actor_id = ?1) +
+        (SELECT COUNT(*) FROM protected_submissions WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM support_ticket_attachments WHERE uploaded_by = ?1) +
        (SELECT COUNT(*) FROM support_ticket_messages WHERE sender_id = ?1) +
        (SELECT COUNT(*) FROM support_tickets WHERE user_id = ?1) +

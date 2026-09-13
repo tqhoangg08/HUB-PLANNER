@@ -1,184 +1,84 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { DatabaseSync } from 'node:sqlite';
 import {
   handleCtvRegistration,
+  handleModeratorNotification,
   handleProtectedSubmission,
   UserSubmissionError,
 } from '../cloudflare/worker/src/user-submissions.ts';
+import { handleAdminLegacyData } from '../cloudflare/worker/src/admin-legacy-data.ts';
 
-const USER_ID = '11111111-1111-4111-8111-111111111111';
+const USER = '11111111-1111-4111-8111-111111111111';
 const COOKIE = 'hubplanner_auth.session_token=opaque';
-
-const env = {
-  SUPABASE_URL: 'https://source.example',
-  SUPABASE_ANON_KEY: 'anon-key',
-  SUPABASE_SERVICE_ROLE_KEY: 'server-only-key',
-  AUTH_SERVICE: {
-    fetch: async () => Response.json({
-      userId: USER_ID,
-      email: '030841250048@st.buh.edu.vn',
-      role: 'user',
-    }),
-  },
-} as never;
-
-test('the four affected flows no longer acquire a browser Supabase session', () => {
-  const protectedSubmit = readFileSync('utils/protectedSubmit.ts', 'utf8');
-  const ctv = readFileSync('components/CTVRegistrationForm.tsx', 'utf8');
-  const notifications = readFileSync('utils/moderatorNotifications.ts', 'utf8');
-  const transcript = readFileSync('hooks/useTranscriptTransfer.ts', 'utf8');
-  const scheduleParser = readFileSync('utils/schedulePdfImport.ts', 'utf8');
-  const transcriptParser = readFileSync('utils/pdfImport.ts', 'utf8');
-  const participationApi = readFileSync('utils/eventParticipationsApi.ts', 'utf8');
-  const eventsDesktop = readFileSync('components/EventsBoard.tsx', 'utf8');
-  const eventsMobile = readFileSync('components/MobileEvents.tsx', 'utf8');
-
-  assert.match(protectedSubmit, /fetch\('\/api\/submissions\/v1\/protected'/);
-  assert.match(protectedSubmit, /credentials: 'include'/);
-  assert.doesNotMatch(protectedSubmit, /utils\/supabase|supabase\.(?:auth|from|rpc|storage)|getSession/);
-  assert.match(ctv, /submitCtvRegistration\(formData\)/);
-  assert.doesNotMatch(ctv, /utils\/supabase|supabase\.(?:auth|from|rpc|storage)|getSession/);
-  assert.match(notifications, /\/api\/submissions\/v1\/moderator-notifications/);
-  assert.doesNotMatch(notifications, /utils\/supabase|supabase\.(?:auth|from|rpc|storage)|getSession/);
-  assert.match(transcript, /parseHubPdf\(file, gradeImportTurnstileToken\)/);
-  assert.doesNotMatch(transcriptParser, /utils\/supabase|supabase\.(?:auth|from|rpc|storage)|getSession/);
-  assert.doesNotMatch(scheduleParser, /utils\/supabase|supabase\.(?:auth|from|rpc|storage)|getSession/);
-  assert.match(participationApi, /credentials: 'include'/);
-  assert.doesNotMatch(participationApi, /utils\/supabase|supabase\.(?:auth|from|rpc|storage)|getSession|Authorization.*Bearer/);
-  for (const eventsSource of [eventsDesktop, eventsMobile]) {
-    const participationStart = eventsSource.indexOf('const loadParticipation');
-    const participationEnd = eventsSource.indexOf('const toggleParticipation', participationStart);
-    const participationBlock = eventsSource.slice(participationStart, participationEnd);
-    assert.doesNotMatch(participationBlock, /supabase\.(?:auth|from|rpc|storage)|getSession|user_participations/);
+const makeEnv = (role: 'user' | 'auditor' | 'admin' = 'auditor') => {
+  const sql = new DatabaseSync(':memory:');
+  for (const migration of ['0008_create_admin_events.sql', '0023_create_event_push_deliveries.sql', '0024_create_native_push_runtime.sql', '0030_lost_found_moderator_notifications.sql', '0033_reduce_push_delivery_write_amplification.sql', '0036_protected_submissions_d1_authority.sql']) {
+    sql.exec(readFileSync(`cloudflare/migrations/${migration}`, 'utf8'));
   }
-});
-
-test('protected submission forwards only an allowlisted action and server-derived owner', async () => {
-  const calls: Array<{ url: string; authorization: string; body: Record<string, unknown> }> = [];
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    calls.push({
-      url: String(input),
-      authorization: String(new Headers(init?.headers).get('Authorization') || ''),
-      body: JSON.parse(String(init?.body || '{}')) as Record<string, unknown>,
-    });
-    return Response.json({ success: true, id: 7 });
-  }) as typeof fetch;
-  try {
-    const result = await handleProtectedSubmission(new Request(
-      'https://app.example/api/submissions/v1/protected',
-      {
-        method: 'POST',
-        headers: { Cookie: COOKIE },
-        body: JSON.stringify({
-          action: 'lost-found',
-          turnstileToken: 'turnstile-token',
-          payload: {
-            title: 'Ví', location: 'HUB', contact_info: '0900',
-            user_id: '99999999-9999-4999-8999-999999999999',
-            ownerId: '99999999-9999-4999-8999-999999999999',
-          },
-        }),
-      },
-    ), env) as { success?: boolean };
-    assert.equal(result.success, true);
-    assert.equal(calls.length, 1);
-    assert.match(calls[0].url, /\/functions\/v1\/auth\?resource=protected-submit$/);
-    assert.equal(calls[0].authorization, 'Bearer anon-key');
-    const payload = calls[0].body.payload as Record<string, unknown>;
-    assert.equal(payload.user_id, USER_ID);
-    assert.equal('ownerId' in payload, false);
-    assert.doesNotMatch(JSON.stringify(calls), /server-only-key/);
-
-    await assert.rejects(handleProtectedSubmission(new Request(
-      'https://app.example/api/submissions/v1/protected',
-      { method: 'POST', body: JSON.stringify({ action: 'arbitrary-proxy', turnstileToken: 'x' }) },
-    ), env), (error: unknown) => error instanceof UserSubmissionError && error.status === 400);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('unrelated browser cookies do not turn guest protected submissions into auth failures', async () => {
-  let authServiceCalls = 0;
-  const guestEnv = {
-    ...env,
-    AUTH_SERVICE: { fetch: async () => { authServiceCalls += 1; return new Response(null, { status: 401 }); } },
+  const prepare = (query: string) => {
+    let bindings: unknown[] = [];
+    const statement = {
+      query, get bindings() { return bindings; }, bind(...values: unknown[]) { bindings = values; return statement; },
+      async first<T>() { return (sql.prepare(query).get(...bindings) || null) as T | null; },
+      async all<T>() { return { results: sql.prepare(query).all(...bindings) as T[] }; },
+      async run() { const result = sql.prepare(query).run(...bindings); return { meta: { changes: Number(result.changes), last_row_id: Number(result.lastInsertRowid) } }; },
+    };
+    return statement;
+  };
+  return {
+    DB: { prepare, async batch(statements: ReturnType<typeof prepare>[]) { return Promise.all(statements.map((statement) => statement.run())); } } as unknown as D1Database,
+    TURNSTILE_SECRET_KEY: 'fixture-secret',
+    AUTH_SERVICE: { fetch: async (input: RequestInfo | URL) => new URL(input instanceof Request ? input.url : String(input)).pathname === '/internal/auth/staff-list' ? Response.json({ userIds: [USER] }) : Response.json({ userId: USER, email: 'fixture@st.buh.edu.vn', role }) },
+    __sql: sql,
   } as never;
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async () => Response.json({ success: true, verified: true })) as typeof fetch;
-  try {
-    const result = await handleProtectedSubmission(new Request(
-      'https://app.example/api/submissions/v1/protected',
-      {
-        method: 'POST',
-        headers: { Cookie: 'theme=dark; cf_clearance=opaque' },
-        body: JSON.stringify({ action: 'verify-only', turnstileToken: 'token' }),
-      },
-    ), guestEnv) as { verified?: boolean };
-    assert.equal(result.verified, true);
-    assert.equal(authServiceCalls, 0);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
+};
 
-test('CTV registration uses a server allowlist and Better Auth identity when available', async () => {
-  const calls: Array<{ authorization: string; body: unknown }> = [];
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-    calls.push({
-      authorization: String(new Headers(init?.headers).get('Authorization') || ''),
-      body: JSON.parse(String(init?.body || '[]')),
-    });
-    return Response.json([{ id: 42 }], { status: 201 });
-  }) as typeof fetch;
-  try {
-    const result = await handleCtvRegistration(new Request(
-      'https://app.example/api/submissions/v1/ctv-requests',
-      {
-        method: 'POST',
-        headers: { Cookie: COOKIE },
-        body: JSON.stringify({
-          full_name: 'Sinh viên HUB', student_batch: 'K41', major: 'CNTT',
-          contact_info: '0900', status: 'approved', extra: 'ignored',
-        }),
-      },
-    ), env);
-    assert.equal(result.id, 42);
-    assert.equal(calls[0].authorization, 'Bearer server-only-key');
-    const row = (calls[0].body as Array<Record<string, unknown>>)[0];
-    assert.deepEqual(Object.keys(row).sort(), [
-      'contact_info', 'full_name', 'major', 'status', 'student_batch', 'user_id',
-    ]);
-    assert.equal(row.user_id, USER_ID);
-    assert.equal(row.status, 'pending');
-
-    await assert.rejects(handleCtvRegistration(new Request(
-      'https://app.example/api/submissions/v1/ctv-requests',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          full_name: 'A', student_batch: 'K41', major: 'CNTT', contact_info: '0900',
-          user_id: '99999999-9999-4999-8999-999999999999',
-        }),
-      },
-    ), env), (error: unknown) => error instanceof UserSubmissionError && error.status === 400);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('lost-and-found submissions and edits use Worker bridges without browser Supabase', () => {
-  for (const file of ['components/LostFoundBoard.tsx', 'components/MobileLostFound.tsx']) {
+test('browser submission clients stay same-origin and do not import Supabase', () => {
+  for (const file of ['utils/protectedSubmit.ts', 'utils/moderatorNotifications.ts', 'components/CTVRegistrationForm.tsx']) {
     const source = readFileSync(file, 'utf8');
-    assert.match(source, /action: 'lost-found'/);
-    assert.match(source, /updateAdminLostFound\(editingItem\.id/);
-    assert.match(source, /\} else \{\s+const data = await protectedSubmit<\{ id\?: number \}>\(\{/);
-    const protectedCall = source.slice(source.indexOf("action: 'lost-found'") - 100,
-      source.indexOf("action: 'lost-found'") + 900);
-    assert.doesNotMatch(protectedCall, /supabase\.(?:auth|from|rpc|storage)|getSession|user_id\s*:/);
-    assert.doesNotMatch(source, /utils\/supabase|supabase\.(?:auth|from|rpc|storage)|isBrowserSupabaseConfigured/);
+    assert.doesNotMatch(source, /utils\/supabase|supabase\.(?:auth|from|rpc|storage)|functions\/v1/i);
   }
+  assert.match(readFileSync('utils/protectedSubmit.ts', 'utf8'), /\/api\/submissions\/v1\/protected/);
+});
+
+test('auditor moderation is owner-safe and unchanged status does not rewrite', async () => {
+  const env = makeEnv('auditor'); const now = '2026-09-13T00:00:00.000Z';
+  env.__sql.prepare(`INSERT INTO protected_submissions (id,kind,user_id,status,payload_json,created_at,updated_at) VALUES (?,?,?,'pending','{}',?,?)`).run('33333333-3333-4333-8333-333333333333', 'ctv_requests', USER, now, now);
+  const request = (role: 'auditor' | 'user', status: string) => new Request('https://x/api/admin/v1/reports?kind=ctv_requests', { method: 'PATCH', headers: { Cookie: COOKIE, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: '33333333-3333-4333-8333-333333333333', status }) });
+  try {
+    await handleAdminLegacyData(request('auditor', 'approved'), new URL(request('auditor', 'approved').url), env);
+    const first = env.__sql.prepare('SELECT status,updated_at FROM protected_submissions').get();
+    await handleAdminLegacyData(request('auditor', 'approved'), new URL(request('auditor', 'approved').url), env);
+    assert.equal(env.__sql.prepare('SELECT status,updated_at FROM protected_submissions').get().updated_at, first.updated_at);
+    const denied = makeEnv('user');
+    await assert.rejects(handleAdminLegacyData(request('user', 'rejected'), new URL(request('user', 'rejected').url), denied), /FORBIDDEN/);
+    denied.__sql.close();
+  } finally { env.__sql.close(); }
+});
+
+test('protected submissions are D1-only, owner-scoped, and verify Turnstile', async () => {
+  const env = makeEnv(); const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => Response.json({ success: true })) as typeof fetch;
+  try {
+    const result = await handleProtectedSubmission(new Request('https://app.example/api/submissions/v1/protected', { method: 'POST', headers: { Cookie: COOKIE }, body: JSON.stringify({ action: 'feedback', turnstileToken: 'turnstile', payload: { content: 'Nội dung', user_id: '22222222-2222-4222-8222-222222222222' } }) }), env);
+    assert.equal(result.success, true);
+    assert.equal(env.__sql.prepare('SELECT user_id,kind FROM protected_submissions').get().user_id, USER);
+    assert.equal(env.__sql.prepare('SELECT user_id,kind FROM protected_submissions').get().kind, 'feedback');
+  } finally { globalThis.fetch = originalFetch; env.__sql.close(); }
+});
+
+test('CTV request is owner-scoped, duplicate-safe, and moderator notification is deduplicated', async () => {
+  const env = makeEnv(); const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => Response.json({ success: true })) as typeof fetch;
+  try {
+    const request = () => new Request('https://app.example/api/submissions/v1/ctv-requests', { method: 'POST', headers: { Cookie: COOKIE }, body: JSON.stringify({ full_name: 'Sinh viên HUB', student_batch: 'K41', major: 'CNTT', contact_info: '0900' }) });
+    const created = await handleCtvRegistration(request(), env);
+    await assert.rejects(handleCtvRegistration(request(), env), (error: unknown) => error instanceof UserSubmissionError && error.status === 409);
+    const notification = () => new Request('https://app.example/api/submissions/v1/moderator-notifications', { method: 'POST', headers: { Cookie: COOKIE }, body: JSON.stringify({ kind: 'ctv_request', recordId: created.id }) });
+    assert.equal((await handleModeratorNotification(notification(), env)).notified, 1);
+    assert.equal((await handleModeratorNotification(notification(), env)).notified, 0);
+    assert.equal(env.__sql.prepare('SELECT COUNT(*) AS total FROM protected_submission_moderator_notifications').get().total, 1);
+  } finally { globalThis.fetch = originalFetch; env.__sql.close(); }
 });

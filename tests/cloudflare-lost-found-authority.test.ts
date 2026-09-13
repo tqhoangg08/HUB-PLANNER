@@ -144,8 +144,8 @@ test('active Lost & Found Worker runtime contains no Supabase table/storage depe
   const config = readFileSync('cloudflare/wrangler.jsonc', 'utf8');
   assert.doesNotMatch(authority, /supabase|\/rest\/v1|\/storage\/v1/i);
   assert.doesNotMatch(admin, /\/rest\/v1\/lost_found_items|\/storage\/v1\/.*lost_found|lost_found_images/i);
-  assert.ok(submissions.indexOf("if (action === 'lost-found')") < submissions.indexOf("callSupabaseFunction(env, 'auth?resource=protected-submit'"));
-  const lostFoundModerator = submissions.slice(submissions.indexOf('const notifyLostFoundModerators'), submissions.indexOf('const text ='));
+  assert.match(submissions, /if \(action === 'lost-found'\) return submitLostFound/);
+  const lostFoundModerator = submissions.slice(submissions.indexOf('const notifyLostFoundModerators'), submissions.indexOf('const notificationSource'));
   assert.doesNotMatch(lostFoundModerator, /supabase|\/rest\/v1|sourceConfig/i);
   assert.doesNotMatch(worker, /syncPublicLostFound|lost_found_sync/);
   assert.doesNotMatch(config, /"\*\/5 \* \* \* \*"/);
