@@ -76,20 +76,23 @@ test('legacy policy owners map only through exact Better Auth identifiers', () =
     { legacyUserId: CURRENT_A, profileEmail: '', legacyAuthEmail: '', studentCode: '' },
     { legacyUserId: LEGACY_A, profileEmail: 'member@example.invalid', legacyAuthEmail: '', studentCode: '' },
     { legacyUserId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', profileEmail: '', legacyAuthEmail: '', studentCode: '01234567' },
+    { legacyUserId: '99999999-9999-4999-8999-999999999999', profileEmail: '', legacyAuthEmail: '', studentCode: '', googleSubjects: ['google-subject-exact'] },
     { legacyUserId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', profileEmail: 'member@example.invalid', legacyAuthEmail: '', studentCode: '01234567' },
     { legacyUserId: 'ffffffff-ffff-4fff-8fff-ffffffffffff', profileEmail: '', legacyAuthEmail: '', studentCode: '' },
   ], {
     userIds: new Set([CURRENT_A]),
     userByEmail: new Map([['member@example.invalid', CURRENT_A]]),
     userByStudentCode: new Map([['01234567', CURRENT_B]]),
+    userByGoogleSubject: new Map([['google-subject-exact', CURRENT_B]]),
   });
   assert.deepEqual(result.summary, {
-    totalOwners: 5, directMatches: 1, mappedLegacyOwners: 2, unresolvedOwners: 2, mappingConflicts: 1,
+    totalOwners: 6, directMatches: 1, googleMapped: 1, mappedLegacyOwners: 2, unresolvedOwners: 2, mappingConflicts: 1,
   });
   assert.deepEqual(result.mapped, [
     { legacyUserId: CURRENT_A, userId: CURRENT_A },
     { legacyUserId: LEGACY_A, userId: CURRENT_A },
     { legacyUserId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', userId: CURRENT_B },
+    { legacyUserId: '99999999-9999-4999-8999-999999999999', userId: CURRENT_B },
   ]);
 });
 
@@ -103,6 +106,9 @@ test('policy authority has no Supabase runtime path and the operator migration i
   assert.doesNotMatch(sourceCleanup, /policy_consents/);
   assert.match(script, /--apply --remote/);
   assert.match(script, /app_auth_identifiers/);
+  assert.match(script, /provider_id = 'google'/);
+  assert.match(script, /identity_data->>'sub'/);
+  assert.doesNotMatch(script, /POLICY_CONSENT_UNRESOLVED|ownerHash|legacyEmailDomain|isBuhStudentEmail/);
   assert.match(script, /POLICY_CONSENT_OWNER_MAPPING_INCOMPLETE/);
   assert.match(script, /ON CONFLICT\(user_id, policy_type, policy_version, consent_context\)/);
 });

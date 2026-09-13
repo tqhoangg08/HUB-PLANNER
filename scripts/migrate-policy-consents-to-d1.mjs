@@ -10,6 +10,7 @@ import pg from 'pg';
 import {
   mapLegacyPolicyConsentOwners,
   normalizeEmail,
+  normalizeGoogleSubject,
   normalizeStudentCode,
 } from './lib/policy-consent-owner-mapping.mjs';
 
@@ -26,6 +27,9 @@ const CONFIG = 'cloudflare/wrangler.jsonc';
 const DATABASE = 'hub-planner-public-dev';
 const AUTH_CONFIG = 'cloudflare/wrangler.auth-production.jsonc';
 const AUTH_DATABASE = 'hub-planner-auth-production';
+// Keep Windows CLI arguments bounded while avoiding dozens of remote metadata
+// requests during a read-only plan.
+const LOOKUP_BATCH_SIZE = 200;
 try { process.loadEnvFile?.('.env.local'); } catch {}
 if (!process.env.SUPABASE_DATABASE_URL) {
   try {
@@ -66,10 +70,18 @@ let sourceRows;
 try {
   sourceRows = (await source.query(`SELECT pc.user_id::text AS legacy_user_id, pc.policy_type, pc.policy_version,
     pc.consent_context, pc.accepted, pc.source, pc.created_at, p.email AS profile_email,
-    p.student_code, legacy_auth.email AS legacy_auth_email
+    p.student_code, legacy_auth.email AS legacy_auth_email,
+    COALESCE(google_identity.subjects, ARRAY[]::text[]) AS google_subjects
     FROM public.policy_consents pc
     LEFT JOIN public.profiles p ON p.id = pc.user_id
     LEFT JOIN auth.users legacy_auth ON legacy_auth.id = pc.user_id
+    LEFT JOIN LATERAL (
+      SELECT ARRAY_AGG(DISTINCT identity_row.identity_data->>'sub') AS subjects
+      FROM auth.identities identity_row
+      WHERE identity_row.user_id = pc.user_id
+        AND identity_row.provider = 'google'
+        AND NULLIF(BTRIM(identity_row.identity_data->>'sub'), '') IS NOT NULL
+    ) google_identity ON TRUE
     WHERE pc.user_id IS NOT NULL AND pc.accepted IS TRUE
     ORDER BY pc.user_id, pc.policy_type, pc.policy_version, pc.consent_context, pc.created_at DESC`)).rows;
 } finally {
@@ -84,6 +96,7 @@ for (const row of sourceRows) {
     profileEmail: row.profile_email,
     legacyAuthEmail: row.legacy_auth_email,
     studentCode: row.student_code,
+    googleSubjects: Array.isArray(row.google_subjects) ? row.google_subjects : [],
   });
 }
 const owners = [...ownersByLegacyId.values()];
@@ -91,27 +104,33 @@ const lookup = {
   userIds: new Set(),
   userByEmail: new Map(),
   userByStudentCode: new Map(),
+  userByGoogleSubject: new Map(),
 };
 
 // The auth database is the only canonical mapping authority. Every statement
 // is bounded to <=80 legacy owners and uses a primary/unique lookup key.
-for (let offset = 0; offset < owners.length; offset += 80) {
-  const page = owners.slice(offset, offset + 80);
+for (let offset = 0; offset < owners.length; offset += LOOKUP_BATCH_SIZE) {
+  const page = owners.slice(offset, offset + LOOKUP_BATCH_SIZE);
   const ids = page.map((owner) => owner.legacyUserId).filter(Boolean);
   const emails = [...new Set(page.flatMap((owner) => [owner.profileEmail, owner.legacyAuthEmail])
     .map(normalizeEmail).filter(Boolean))];
   const studentCodes = [...new Set(page.map((owner) => normalizeStudentCode(owner.studentCode)).filter(Boolean))];
+  const googleSubjects = [...new Set(page.flatMap((owner) => owner.googleSubjects || [])
+    .map(normalizeGoogleSubject).filter(Boolean))];
   const rows = d1Json(AUTH_CONFIG, AUTH_DATABASE, `SELECT 'id' AS kind, id AS canonical_user_id, id AS lookup_key
       FROM auth_user WHERE id IN (${ids.map(q).join(',') || 'NULL'})
     UNION ALL SELECT 'email' AS kind, id AS canonical_user_id, email AS lookup_key
       FROM auth_user WHERE email IN (${emails.map(q).join(',') || 'NULL'})
     UNION ALL SELECT 'student' AS kind, user_id AS canonical_user_id, student_code AS lookup_key
-      FROM app_auth_identifiers WHERE student_code IN (${studentCodes.map(q).join(',') || 'NULL'})`);
+      FROM app_auth_identifiers WHERE student_code IN (${studentCodes.map(q).join(',') || 'NULL'})
+    UNION ALL SELECT 'google' AS kind, user_id AS canonical_user_id, account_id AS lookup_key
+      FROM auth_account WHERE provider_id = 'google' AND account_id IN (${googleSubjects.map(q).join(',') || 'NULL'})`);
   for (const row of rows) {
     const userId = String(row.canonical_user_id);
     if (row.kind === 'id') lookup.userIds.add(userId);
     if (row.kind === 'email') lookup.userByEmail.set(normalizeEmail(row.lookup_key), userId);
     if (row.kind === 'student') lookup.userByStudentCode.set(normalizeStudentCode(row.lookup_key), userId);
+    if (row.kind === 'google') lookup.userByGoogleSubject.set(normalizeGoogleSubject(row.lookup_key), userId);
   }
 }
 
@@ -137,13 +156,14 @@ const plan = {
   duplicateRowsCollapsed: sourceRows.length - rows.length,
   totalOwners: ownerMapping.summary.totalOwners,
   directMatches: ownerMapping.summary.directMatches,
+  googleMapped: ownerMapping.summary.googleMapped,
   mappedLegacyOwners: ownerMapping.summary.mappedLegacyOwners,
   unresolvedOwners: ownerMapping.summary.unresolvedOwners,
   mappingConflicts: ownerMapping.summary.mappingConflicts,
-  // One indexed auth query per <=80 owners, one bulk SQL file, and one ledger
+  // One indexed auth query per <=200 owners, one bulk SQL file, and one ledger
   // row. No public D1 scan or per-row remote D1 write is used.
-  indexedAuthLookupBatches: Math.ceil(owners.length / 80),
-  estimatedD1RowsReadUpperBound: owners.length * 3,
+  indexedAuthLookupBatches: Math.ceil(owners.length / LOOKUP_BATCH_SIZE),
+  estimatedD1RowsReadUpperBound: owners.length * 4,
   estimatedD1RowsWrittenUpperBound: rows.length + 1,
   fingerprint: fingerprint(rows),
 };
