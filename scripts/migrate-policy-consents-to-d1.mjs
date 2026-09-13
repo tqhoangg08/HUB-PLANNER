@@ -1,12 +1,17 @@
 // Operator-only policy-consent cutover. It is intentionally not a CI command.
-// --plan reads the legacy source only; --apply --remote is required for D1 writes.
-import { createHash } from 'node:crypto';
+// --plan performs only bounded, indexed mapping reads; --apply --remote writes.
+import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import pg from 'pg';
+import {
+  mapLegacyPolicyConsentOwners,
+  normalizeEmail,
+  normalizeStudentCode,
+} from './lib/policy-consent-owner-mapping.mjs';
 
 const PLAN = process.argv.includes('--plan');
 const APPLY = process.argv.includes('--apply');
@@ -19,6 +24,8 @@ const ROOT = new URL('../', import.meta.url);
 const WRANGLER = fileURLToPath(new URL('../node_modules/wrangler/bin/wrangler.js', import.meta.url));
 const CONFIG = 'cloudflare/wrangler.jsonc';
 const DATABASE = 'hub-planner-public-dev';
+const AUTH_CONFIG = 'cloudflare/wrangler.auth-production.jsonc';
+const AUTH_DATABASE = 'hub-planner-auth-production';
 try { process.loadEnvFile?.('.env.local'); } catch {}
 if (!process.env.SUPABASE_DATABASE_URL) {
   try {
@@ -45,9 +52,9 @@ const runWrangler = (args, errorCode, options = {}) => {
     throw new Error(errorCode);
   }
 };
-const d1Json = (command) => {
+const d1Json = (config, database, command) => {
   const output = runWrangler(
-    ['d1', 'execute', DATABASE, '--remote', '--json', '--config', CONFIG, '--command', command],
+    ['d1', 'execute', database, '--remote', '--json', '--config', config, '--command', command],
     'D1_POLICY_CONSENT_METADATA_QUERY_FAILED',
   );
   return JSON.parse(output.slice(output.indexOf('[')))?.[0]?.results || [];
@@ -57,51 +64,92 @@ const source = new pg.Client({ connectionString: process.env.SUPABASE_DATABASE_U
 await source.connect();
 let sourceRows;
 try {
-  sourceRows = (await source.query(`SELECT user_id::text, policy_type, policy_version, consent_context,
-    accepted, source, created_at FROM public.policy_consents
-    WHERE user_id IS NOT NULL AND accepted IS TRUE
-    ORDER BY user_id, policy_type, policy_version, consent_context, created_at DESC`)).rows;
+  sourceRows = (await source.query(`SELECT pc.user_id::text AS legacy_user_id, pc.policy_type, pc.policy_version,
+    pc.consent_context, pc.accepted, pc.source, pc.created_at, p.email AS profile_email,
+    p.student_code, legacy_auth.email AS legacy_auth_email
+    FROM public.policy_consents pc
+    LEFT JOIN public.profiles p ON p.id = pc.user_id
+    LEFT JOIN auth.users legacy_auth ON legacy_auth.id = pc.user_id
+    WHERE pc.user_id IS NOT NULL AND pc.accepted IS TRUE
+    ORDER BY pc.user_id, pc.policy_type, pc.policy_version, pc.consent_context, pc.created_at DESC`)).rows;
 } finally {
   await source.end();
 }
 
-// Legacy rows are append-only. Keep the newest consent for each current key;
-// a repeated acceptance must not become an unbounded D1 history write.
-const canonical = new Map();
+const ownersByLegacyId = new Map();
 for (const row of sourceRows) {
-  const key = canonicalKey(row);
-  if (!canonical.has(key)) canonical.set(key, {
-    ...row, accepted_at: iso(row.created_at), source: 'migration',
+  const legacyUserId = String(row.legacy_user_id);
+  if (!ownersByLegacyId.has(legacyUserId)) ownersByLegacyId.set(legacyUserId, {
+    legacyUserId,
+    profileEmail: row.profile_email,
+    legacyAuthEmail: row.legacy_auth_email,
+    studentCode: row.student_code,
   });
 }
-const rows = [...canonical.values()];
-const owners = [...new Set(rows.map((row) => row.user_id))];
-let missingOwners = 0;
-if (APPLY) {
-  const knownOwners = new Set();
-  for (let offset = 0; offset < owners.length; offset += 80) {
-    const page = owners.slice(offset, offset + 80);
-    for (const row of d1Json('SELECT user_id FROM user_profiles WHERE user_id IN (' + page.map(q).join(',') + ')')) {
-      knownOwners.add(String(row.user_id));
-    }
+const owners = [...ownersByLegacyId.values()];
+const lookup = {
+  userIds: new Set(),
+  userByEmail: new Map(),
+  userByStudentCode: new Map(),
+};
+
+// The auth database is the only canonical mapping authority. Every statement
+// is bounded to <=80 legacy owners and uses a primary/unique lookup key.
+for (let offset = 0; offset < owners.length; offset += 80) {
+  const page = owners.slice(offset, offset + 80);
+  const ids = page.map((owner) => owner.legacyUserId).filter(Boolean);
+  const emails = [...new Set(page.flatMap((owner) => [owner.profileEmail, owner.legacyAuthEmail])
+    .map(normalizeEmail).filter(Boolean))];
+  const studentCodes = [...new Set(page.map((owner) => normalizeStudentCode(owner.studentCode)).filter(Boolean))];
+  const rows = d1Json(AUTH_CONFIG, AUTH_DATABASE, `SELECT 'id' AS kind, id AS canonical_user_id, id AS lookup_key
+      FROM auth_user WHERE id IN (${ids.map(q).join(',') || 'NULL'})
+    UNION ALL SELECT 'email' AS kind, id AS canonical_user_id, email AS lookup_key
+      FROM auth_user WHERE email IN (${emails.map(q).join(',') || 'NULL'})
+    UNION ALL SELECT 'student' AS kind, user_id AS canonical_user_id, student_code AS lookup_key
+      FROM app_auth_identifiers WHERE student_code IN (${studentCodes.map(q).join(',') || 'NULL'})`);
+  for (const row of rows) {
+    const userId = String(row.canonical_user_id);
+    if (row.kind === 'id') lookup.userIds.add(userId);
+    if (row.kind === 'email') lookup.userByEmail.set(normalizeEmail(row.lookup_key), userId);
+    if (row.kind === 'student') lookup.userByStudentCode.set(normalizeStudentCode(row.lookup_key), userId);
   }
-  missingOwners = owners.filter((owner) => !knownOwners.has(owner)).length;
 }
+
+const ownerMapping = mapLegacyPolicyConsentOwners(owners, lookup);
+const ownerByLegacyId = new Map(ownerMapping.mapped.map((row) => [row.legacyUserId, row.userId]));
+
+// Legacy rows are append-only. Only after their owner is canonically resolved
+// do we collapse repeated history; multiple old owners can map to one current
+// Better Auth user without generating duplicate D1 consent rows.
+const canonical = new Map();
+for (const row of sourceRows) {
+  const userId = ownerByLegacyId.get(String(row.legacy_user_id));
+  if (!userId) continue;
+  const migrated = { ...row, user_id: userId, accepted_at: iso(row.created_at), source: 'migration' };
+  const key = canonicalKey(migrated);
+  if (!canonical.has(key)) canonical.set(key, migrated);
+}
+const rows = [...canonical.values()];
 
 const plan = {
   sourceRows: sourceRows.length,
   canonicalRows: rows.length,
   duplicateRowsCollapsed: sourceRows.length - rows.length,
-  owners: owners.length,
-  // Applying uses one indexed D1 point lookup per <=80 owners, one bulk SQL
-  // file, and a single migration ledger row. No full D1 table scan is used.
-  estimatedD1RowsReadUpperBound: APPLY ? Math.ceil(owners.length / 80) * 80 : 'requires_apply_owner_preflight',
+  totalOwners: ownerMapping.summary.totalOwners,
+  directMatches: ownerMapping.summary.directMatches,
+  mappedLegacyOwners: ownerMapping.summary.mappedLegacyOwners,
+  unresolvedOwners: ownerMapping.summary.unresolvedOwners,
+  mappingConflicts: ownerMapping.summary.mappingConflicts,
+  // One indexed auth query per <=80 owners, one bulk SQL file, and one ledger
+  // row. No public D1 scan or per-row remote D1 write is used.
+  indexedAuthLookupBatches: Math.ceil(owners.length / 80),
+  estimatedD1RowsReadUpperBound: owners.length * 3,
   estimatedD1RowsWrittenUpperBound: rows.length + 1,
   fingerprint: fingerprint(rows),
 };
 console.log('POLICY_CONSENT_MIGRATION_PLAN=' + JSON.stringify(plan));
+if (ownerMapping.summary.unresolvedOwners !== 0) throw new Error('POLICY_CONSENT_OWNER_MAPPING_INCOMPLETE');
 if (!APPLY) process.exit(0);
-if (missingOwners !== 0) throw new Error('POLICY_CONSENT_OWNER_MAPPING_INCOMPLETE');
 
 const statements = rows.map((row) => `INSERT INTO policy_consents
   (user_id, policy_type, policy_version, consent_context, accepted, source, metadata_json, accepted_at)
@@ -118,7 +166,7 @@ statements.push(`INSERT INTO policy_consent_migrations (id, source_rows, canonic
     source_fingerprint=excluded.source_fingerprint, completed_at=excluded.completed_at
   WHERE policy_consent_migrations.source_fingerprint IS NOT excluded.source_fingerprint;`);
 
-const file = join(tmpdir(), `hub-policy-consent-migration-${crypto.randomUUID()}.sql`);
+const file = join(tmpdir(), `hub-policy-consent-migration-${randomUUID()}.sql`);
 try {
   writeFileSync(file, statements.join('\n') + '\n', { mode: 0o600 });
   chmodSync(file, 0o600);

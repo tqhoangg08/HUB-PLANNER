@@ -4,6 +4,7 @@ import test from 'node:test';
 import { Miniflare } from 'miniflare';
 import { BetterAuthIdentityError } from '../cloudflare/worker/src/better-auth-identity.ts';
 import { handlePrivatePolicyConsent } from '../cloudflare/worker/src/private-policy-consent.ts';
+import { mapLegacyPolicyConsentOwners } from '../scripts/lib/policy-consent-owner-mapping.mjs';
 
 const USER_A = '11111111-1111-4111-8111-111111111111';
 const USER_B = '22222222-2222-4222-8222-222222222222';
@@ -67,6 +68,31 @@ test('policy consent denies an unauthenticated request and any caller-supplied o
   } finally { await mf.dispose(); }
 });
 
+test('legacy policy owners map only through exact Better Auth identifiers', () => {
+  const LEGACY_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const CURRENT_A = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const CURRENT_B = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const result = mapLegacyPolicyConsentOwners([
+    { legacyUserId: CURRENT_A, profileEmail: '', legacyAuthEmail: '', studentCode: '' },
+    { legacyUserId: LEGACY_A, profileEmail: 'member@example.invalid', legacyAuthEmail: '', studentCode: '' },
+    { legacyUserId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', profileEmail: '', legacyAuthEmail: '', studentCode: '01234567' },
+    { legacyUserId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', profileEmail: 'member@example.invalid', legacyAuthEmail: '', studentCode: '01234567' },
+    { legacyUserId: 'ffffffff-ffff-4fff-8fff-ffffffffffff', profileEmail: '', legacyAuthEmail: '', studentCode: '' },
+  ], {
+    userIds: new Set([CURRENT_A]),
+    userByEmail: new Map([['member@example.invalid', CURRENT_A]]),
+    userByStudentCode: new Map([['01234567', CURRENT_B]]),
+  });
+  assert.deepEqual(result.summary, {
+    totalOwners: 5, directMatches: 1, mappedLegacyOwners: 2, unresolvedOwners: 2, mappingConflicts: 1,
+  });
+  assert.deepEqual(result.mapped, [
+    { legacyUserId: CURRENT_A, userId: CURRENT_A },
+    { legacyUserId: LEGACY_A, userId: CURRENT_A },
+    { legacyUserId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', userId: CURRENT_B },
+  ]);
+});
+
 test('policy authority has no Supabase runtime path and the operator migration is explicit', () => {
   const worker = readFileSync('cloudflare/worker/src/private-policy-consent.ts', 'utf8');
   const sourceAuth = readFileSync('supabase/functions/auth/index.ts', 'utf8');
@@ -76,5 +102,7 @@ test('policy authority has no Supabase runtime path and the operator migration i
   assert.doesNotMatch(sourceAuth, /record-policy-consent|from\('policy_consents'\)/);
   assert.doesNotMatch(sourceCleanup, /policy_consents/);
   assert.match(script, /--apply --remote/);
+  assert.match(script, /app_auth_identifiers/);
+  assert.match(script, /POLICY_CONSENT_OWNER_MAPPING_INCOMPLETE/);
   assert.match(script, /ON CONFLICT\(user_id, policy_type, policy_version, consent_context\)/);
 });
