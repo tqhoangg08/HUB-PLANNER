@@ -13,6 +13,7 @@ import {
   normalizeGoogleSubject,
   normalizeStudentCode,
 } from './lib/policy-consent-owner-mapping.mjs';
+import { canonicalizePolicyConsentOrphans } from './lib/policy-consent-orphan-archive.mjs';
 
 const PLAN = process.argv.includes('--plan');
 const APPLY = process.argv.includes('--apply');
@@ -108,7 +109,7 @@ const lookup = {
 };
 
 // The auth database is the only canonical mapping authority. Every statement
-// is bounded to <=80 legacy owners and uses a primary/unique lookup key.
+// is bounded to <=200 legacy owners and uses a primary/unique lookup key.
 for (let offset = 0; offset < owners.length; offset += LOOKUP_BATCH_SIZE) {
   const page = owners.slice(offset, offset + LOOKUP_BATCH_SIZE);
   const ids = page.map((owner) => owner.legacyUserId).filter(Boolean);
@@ -136,6 +137,15 @@ for (let offset = 0; offset < owners.length; offset += LOOKUP_BATCH_SIZE) {
 
 const ownerMapping = mapLegacyPolicyConsentOwners(owners, lookup);
 const ownerByLegacyId = new Map(ownerMapping.mapped.map((row) => [row.legacyUserId, row.userId]));
+const unresolvedLegacyIds = new Set(owners
+  .map((owner) => String(owner.legacyUserId))
+  .filter((legacyUserId) => !ownerByLegacyId.has(legacyUserId)));
+
+// A single unmapped, non-conflicting owner may be archived without assigning
+// consent to the wrong user. More than one or any disagreement needs a human
+// mapping decision and must never reach D1 writes.
+const mappingRequiresManualRepair = ownerMapping.summary.mappingConflicts > 0
+  || ownerMapping.summary.unresolvedOwners > 1;
 
 // Legacy rows are append-only. Only after their owner is canonically resolved
 // do we collapse repeated history; multiple old owners can map to one current
@@ -149,11 +159,19 @@ for (const row of sourceRows) {
   if (!canonical.has(key)) canonical.set(key, migrated);
 }
 const rows = [...canonical.values()];
+const orphans = canonicalizePolicyConsentOrphans(sourceRows, unresolvedLegacyIds);
+const migrationFingerprint = createHash('sha256').update([
+  fingerprint(rows),
+  ...orphans.canonicalRows.map((row) => row.sourceFingerprint).sort(),
+].join('\n')).digest('hex');
 
 const plan = {
   sourceRows: sourceRows.length,
-  canonicalRows: rows.length,
-  duplicateRowsCollapsed: sourceRows.length - rows.length,
+  canonicalRows: rows.length + orphans.canonicalRows.length,
+  validOwnerCanonicalRows: rows.length,
+  orphanSourceRows: orphans.sourceRows,
+  orphanCanonicalRows: orphans.canonicalRows.length,
+  duplicateRowsCollapsed: sourceRows.length - rows.length - orphans.canonicalRows.length,
   totalOwners: ownerMapping.summary.totalOwners,
   directMatches: ownerMapping.summary.directMatches,
   googleMapped: ownerMapping.summary.googleMapped,
@@ -164,11 +182,11 @@ const plan = {
   // row. No public D1 scan or per-row remote D1 write is used.
   indexedAuthLookupBatches: Math.ceil(owners.length / LOOKUP_BATCH_SIZE),
   estimatedD1RowsReadUpperBound: owners.length * 4,
-  estimatedD1RowsWrittenUpperBound: rows.length + 1,
-  fingerprint: fingerprint(rows),
+  estimatedD1RowsWrittenUpperBound: rows.length + orphans.canonicalRows.length + 1,
+  fingerprint: migrationFingerprint,
 };
 console.log('POLICY_CONSENT_MIGRATION_PLAN=' + JSON.stringify(plan));
-if (ownerMapping.summary.unresolvedOwners !== 0) throw new Error('POLICY_CONSENT_OWNER_MAPPING_INCOMPLETE');
+if (mappingRequiresManualRepair) throw new Error('POLICY_CONSENT_OWNER_MAPPING_INCOMPLETE');
 if (!APPLY) process.exit(0);
 
 const statements = rows.map((row) => `INSERT INTO policy_consents
@@ -180,8 +198,15 @@ const statements = rows.map((row) => `INSERT INTO policy_consents
      OR policy_consents.source IS NOT excluded.source
      OR policy_consents.metadata_json IS NOT excluded.metadata_json
      OR policy_consents.accepted_at IS NOT excluded.accepted_at;`);
+statements.push(...orphans.canonicalRows.map((row) => `INSERT INTO policy_consent_orphan_archive
+  (legacy_owner_hash, policy_type, policy_version, consent_context, accepted_at, source, source_fingerprint, migrated_at)
+  VALUES (${[row.legacyOwnerHash, row.policyType, row.policyVersion, row.consentContext, row.acceptedAt, 'legacy_orphan', row.sourceFingerprint, new Date().toISOString()].map(q).join(',')})
+  ON CONFLICT(legacy_owner_hash, policy_type, policy_version, consent_context) DO UPDATE SET
+    accepted_at=excluded.accepted_at, source_fingerprint=excluded.source_fingerprint, migrated_at=excluded.migrated_at
+  WHERE policy_consent_orphan_archive.accepted_at IS NOT excluded.accepted_at
+     OR policy_consent_orphan_archive.source_fingerprint IS NOT excluded.source_fingerprint;`));
 statements.push(`INSERT INTO policy_consent_migrations (id, source_rows, canonical_rows, source_fingerprint, completed_at)
-  VALUES ('supabase-policy-consents-v1', ${sourceRows.length}, ${rows.length}, ${q(plan.fingerprint)}, ${q(new Date().toISOString())})
+  VALUES ('supabase-policy-consents-v2', ${sourceRows.length}, ${plan.canonicalRows}, ${q(plan.fingerprint)}, ${q(new Date().toISOString())})
   ON CONFLICT(id) DO UPDATE SET source_rows=excluded.source_rows, canonical_rows=excluded.canonical_rows,
     source_fingerprint=excluded.source_fingerprint, completed_at=excluded.completed_at
   WHERE policy_consent_migrations.source_fingerprint IS NOT excluded.source_fingerprint;`);

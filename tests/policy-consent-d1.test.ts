@@ -5,6 +5,7 @@ import { Miniflare } from 'miniflare';
 import { BetterAuthIdentityError } from '../cloudflare/worker/src/better-auth-identity.ts';
 import { handlePrivatePolicyConsent } from '../cloudflare/worker/src/private-policy-consent.ts';
 import { mapLegacyPolicyConsentOwners } from '../scripts/lib/policy-consent-owner-mapping.mjs';
+import { canonicalizePolicyConsentOrphans } from '../scripts/lib/policy-consent-orphan-archive.mjs';
 
 const USER_A = '11111111-1111-4111-8111-111111111111';
 const USER_B = '22222222-2222-4222-8222-222222222222';
@@ -96,11 +97,24 @@ test('legacy policy owners map only through exact Better Auth identifiers', () =
   ]);
 });
 
+test('one orphan owner is archived without raw identity and repeated legacy consent is collapsed', () => {
+  const legacyOwner = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const result = canonicalizePolicyConsentOrphans([
+    { legacy_user_id: legacyOwner, policy_type: 'terms_of_use', policy_version: 'v1', consent_context: 'registration', created_at: '2026-01-01T00:00:00.000Z' },
+    { legacy_user_id: legacyOwner, policy_type: 'terms_of_use', policy_version: 'v1', consent_context: 'registration', created_at: '2026-02-01T00:00:00.000Z' },
+  ], new Set([legacyOwner]));
+  assert.equal(result.sourceRows, 2);
+  assert.equal(result.canonicalRows.length, 1);
+  assert.equal(result.canonicalRows[0].legacyOwnerHash.length, 64);
+  assert.doesNotMatch(JSON.stringify(result.canonicalRows[0]), new RegExp(legacyOwner));
+});
+
 test('policy authority has no Supabase runtime path and the operator migration is explicit', () => {
   const worker = readFileSync('cloudflare/worker/src/private-policy-consent.ts', 'utf8');
   const sourceAuth = readFileSync('supabase/functions/auth/index.ts', 'utf8');
   const script = readFileSync('scripts/migrate-policy-consents-to-d1.mjs', 'utf8');
   const sourceCleanup = readFileSync('supabase/migrations/20260913101500_remove_policy_consents_from_account_delete_preflight.sql', 'utf8');
+  const orphanArchive = readFileSync('cloudflare/migrations/0035_policy_consent_orphan_archive.sql', 'utf8');
   assert.doesNotMatch(worker, /SUPABASE|rest\/v1\/policy_consents/i);
   assert.doesNotMatch(sourceAuth, /record-policy-consent|from\('policy_consents'\)/);
   assert.doesNotMatch(sourceCleanup, /policy_consents/);
@@ -110,5 +124,8 @@ test('policy authority has no Supabase runtime path and the operator migration i
   assert.match(script, /identity_data->>'sub'/);
   assert.doesNotMatch(script, /POLICY_CONSENT_UNRESOLVED|ownerHash|legacyEmailDomain|isBuhStudentEmail/);
   assert.match(script, /POLICY_CONSENT_OWNER_MAPPING_INCOMPLETE/);
+  assert.match(orphanArchive, /policy_consent_orphan_archive/);
+  assert.match(script, /unresolvedOwners > 1/);
   assert.match(script, /ON CONFLICT\(user_id, policy_type, policy_version, consent_context\)/);
+  assert.doesNotMatch(worker, /policy_consent_orphan_archive/);
 });
