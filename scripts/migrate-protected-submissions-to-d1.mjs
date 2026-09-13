@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import pg from 'pg';
 import {
@@ -21,7 +22,9 @@ try { process.loadEnvFile?.('.env.local'); } catch {}
 if (!process.env.SUPABASE_DATABASE_URL) throw new Error('SOURCE_CONFIGURATION_UNAVAILABLE');
 
 const ROOT = new URL('../', import.meta.url);
-const WRANGLER = new URL('../node_modules/wrangler/bin/wrangler.js', import.meta.url).pathname;
+const WRANGLER = fileURLToPath(
+  new URL('../node_modules/wrangler/bin/wrangler.js', import.meta.url)
+);
 const TABLES = ['feedback', 'donations', 'canva_pro_requests', 'bug_reports', 'course_reports', 'event_reports', 'ctv_requests'];
 const D1_KINDS = { feedback: 'feedback', donations: 'donation', canva_pro_requests: 'canva_pro_requests', bug_reports: 'bug_reports', course_reports: 'course_reports', event_reports: 'event_reports', ctv_requests: 'ctv_requests' };
 const q = (value) => value == null ? 'NULL' : `'${String(value).replaceAll("'", "''")}'`;
@@ -69,8 +72,8 @@ const owners = [...new Set(rows.map((row) => row.legacy_user_id).filter(Boolean)
 const ownerMetadata = new Map(legacyOwnerRows.map((row) => [String(row.legacy_user_id), row]));
 const ownerInputs = owners.map((legacyUserId) => ({ legacyUserId: String(legacyUserId), profileEmail: ownerMetadata.get(String(legacyUserId))?.profile_email || null, legacyAuthEmail: ownerMetadata.get(String(legacyUserId))?.legacy_auth_email || null, studentCode: ownerMetadata.get(String(legacyUserId))?.student_code || null, googleSubjects: ownerMetadata.get(String(legacyUserId))?.google_subjects || [] }));
 const lookup = { userIds: new Set(), userByEmail: new Map(), userByStudentCode: new Map(), userByGoogleSubject: new Map() };
-for (let offset = 0; offset < ownerInputs.length; offset += 200) {
-  const page = ownerInputs.slice(offset, offset + 200);
+for (let offset = 0; offset < ownerInputs.length; offset += 80) {
+  const page = ownerInputs.slice(offset, offset + 80);
   const ids = page.map((owner) => owner.legacyUserId);
   const emails = [...new Set(page.flatMap((owner) => [owner.profileEmail, owner.legacyAuthEmail]).map(normalizeEmail).filter(Boolean))];
   const studentCodes = [...new Set(page.map((owner) => normalizeStudentCode(owner.studentCode)).filter(Boolean))];
