@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, UploadToFileSearchStoreOperation } from '@google/genai';
 import {
   BetterAuthIdentityError,
   requireBetterAuthSession,
@@ -145,7 +145,9 @@ const refreshOperation = async (env: AiDocumentsEnv, document: AiDocumentRow) =>
   if (!document.gemini_operation_name || !['uploading', 'processing'].includes(String(document.indexing_status))) return document;
   try {
     const { ai } = aiClient(env);
-    const operation = await ai.operations.get({ operation: { name: String(document.gemini_operation_name) } as never });
+    const persistedOperation = new UploadToFileSearchStoreOperation();
+    persistedOperation.name = String(document.gemini_operation_name);
+    const operation = await ai.operations.get({ operation: persistedOperation });
     if (!operation.done) return document;
     return await updateDocument(env, String(document.id), operation.error
       ? { indexing_status: 'failed', indexing_error: 'Gemini không thể lập chỉ mục tài liệu.' }

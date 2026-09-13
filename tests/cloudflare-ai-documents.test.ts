@@ -103,3 +103,11 @@ test('cutover tooling preserves Gemini IDs and never reindexes migrated document
   assert.match(script, /R2 upload failed/);
   assert.doesNotMatch(script, /uploadToFileSearchStore|interactions\.create/);
 });
+
+test('persisted Gemini upload operations are rehydrated with the SDK operation type before polling', () => {
+  const handler = source('cloudflare/worker/src/ai-documents.ts');
+  assert.match(handler, /new UploadToFileSearchStoreOperation\(\)/);
+  assert.match(handler, /persistedOperation\.name = String\(document\.gemini_operation_name\)/);
+  assert.match(handler, /operations\.get\(\{ operation: persistedOperation \}\)/);
+  assert.doesNotMatch(handler, /operations\.get\(\{ operation: \{ name:/);
+});
