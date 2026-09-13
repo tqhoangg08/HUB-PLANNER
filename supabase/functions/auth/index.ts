@@ -489,52 +489,6 @@ const protectedSubmit = async (req: Request, body: any) => {
   return json({ success: true, ...result })
 }
 
-const recordPolicyConsentForUser = async ({
-  req,
-  userId,
-  policyType,
-  policyVersion,
-  context,
-  metadata = {},
-}: {
-  req: Request
-  userId: string
-  policyType: string
-  policyVersion?: string
-  context?: string
-  metadata?: Record<string, unknown>
-}) => {
-  if (!policyType || !/^[a-z0-9_.:-]{3,80}$/i.test(policyType)) return
-  const clientInfo = getClientInfo(req)
-  const { error } = await supabase.from('policy_consents').insert({
-    user_id: userId,
-    user_id_hash: await anonymizedUserHash(userId),
-    policy_type: policyType,
-    policy_version: String(policyVersion || '2026-06-11').slice(0, 80),
-    consent_context: String(context || 'registration').slice(0, 80),
-    accepted: true,
-    source: 'web',
-    ip_address: clientInfo.ip,
-    device_info: clientInfo.userAgent,
-    metadata,
-  })
-  if (error) console.error('Failed to record policy consent:', error.message)
-}
-
-const recordPolicyConsent = async (req: Request, body: any) => {
-  const auth = await getRequestUser(req)
-  if (!auth) return json({ error: 'Phiên đăng nhập không hợp lệ.' }, 401)
-  await recordPolicyConsentForUser({
-    req,
-    userId: auth.user.id,
-    policyType: String(body?.policyType || ''),
-    policyVersion: body?.policyVersion,
-    context: body?.context || 'manual',
-    metadata: { action: 'record-policy-consent' },
-  })
-  return json({ recorded: true })
-}
-
 const sendEmail = async ({ email, otp, purpose }: { email: string; otp: string; purpose: string }) => {
   const apiKey = env('RESEND_API_KEY')
   const expireTime = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000)
@@ -708,18 +662,6 @@ const verifyOtp = async (req: Request, body: any) => {
       const { error } = await supabase.auth.admin.updateUserById(existingProfile.user_id, { password, user_metadata: { password_set_at: true } })
       if (error) throw error
       await markPasswordProfile(existingProfile.user_id, email)
-      if (Array.isArray(body?.acceptedPolicies)) {
-        for (const policy of body.acceptedPolicies) {
-          await recordPolicyConsentForUser({
-            req,
-            userId: existingProfile.user_id,
-            policyType: String(policy?.type || policy),
-            policyVersion: policy?.version,
-            context: policy?.context || 'registration',
-            metadata: { auth_flow: 'register_existing_profile_password_update' },
-          })
-        }
-      }
       return json({ email, created: false, passwordUpdated: true })
     }
     const { data, error } = await supabase.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { password_set_at: true } })
@@ -733,36 +675,12 @@ const verifyOtp = async (req: Request, body: any) => {
         })
         if (updateError) throw updateError
         await markPasswordProfile(existingUser.id, email)
-        if (Array.isArray(body?.acceptedPolicies)) {
-          for (const policy of body.acceptedPolicies) {
-            await recordPolicyConsentForUser({
-              req,
-              userId: existingUser.id,
-              policyType: String(policy?.type || policy),
-              policyVersion: policy?.version,
-              context: policy?.context || 'registration',
-              metadata: { auth_flow: 'register_existing_auth_password_update' },
-            })
-          }
-        }
         return json({ email, created: false, passwordUpdated: true })
       }
       throw error
     }
     if (data.user?.id) {
       await markPasswordProfile(data.user.id, email)
-      if (Array.isArray(body?.acceptedPolicies)) {
-        for (const policy of body.acceptedPolicies) {
-          await recordPolicyConsentForUser({
-            req,
-            userId: data.user.id,
-            policyType: String(policy?.type || policy),
-            policyVersion: policy?.version,
-            context: policy?.context || 'registration',
-            metadata: { auth_flow: 'register_new_user' },
-          })
-        }
-      }
     }
     return json({ email, created: true })
   }
@@ -985,7 +903,6 @@ Deno.serve(async (req) => {
     if (action === 'verify-otp') return await verifyOtp(req, body)
     if (action === 'send-admin-export-otp') return await sendAdminExportOtp(req)
     if (action === 'verify-admin-export-otp') return await verifyAdminExportOtp(req, body)
-    if (action === 'record-policy-consent') return await recordPolicyConsent(req, body)
     if (action === 'delete-account') return await deleteAccount(req, body)
     if (action === 'create-avatar-upload') return await createAvatarUpload(req, body)
     if (action === 'upload-avatar') return await uploadAvatar(req, body)

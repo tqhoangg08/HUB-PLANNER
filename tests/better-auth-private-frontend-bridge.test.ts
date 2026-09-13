@@ -138,33 +138,26 @@ test('notification private bridge scopes reads and mutations to Better Auth owne
 });
 
 test('policy consent bridge derives identity server-side and rejects caller owner', async () => {
-  const sourceBodies: string[] = [];
+  const statements: Array<{ sql: string; values: unknown[] }> = [];
   const env = {
-    SUPABASE_URL: 'https://source.example', SUPABASE_SERVICE_ROLE_KEY: 'server-only-key',
     AUTH_SERVICE: { fetch: async () => Response.json({ userId: USER_A, email: 'a@st.buh.edu.vn', role: 'user' }) },
+    DB: {
+      prepare: (sql: string) => ({ bind: (...values: unknown[]) => ({
+        run: async () => { statements.push({ sql, values }); return { meta: { changes: 1 } }; },
+      }) }),
+    },
   } as never;
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-    sourceBodies.push(String(init?.body || ''));
-    return new Response(null, { status: 201 });
-  }) as typeof fetch;
-  try {
-    await handlePrivatePolicyConsent(new Request('https://app.example/api/user/v1/policy-consents', {
-      method: 'POST', headers: { Cookie: 'better-auth.session_token=opaque' },
-      body: JSON.stringify({ policyType: 'terms_of_use', policyVersion: '2026-06-11', context: 'oauth_registration' }),
-    }), env);
-    const row = JSON.parse(sourceBodies[0]);
-    assert.equal(row.user_id, USER_A);
-    assert.equal(typeof row.user_id_hash, 'string');
-    assert.equal(row.user_id_hash.length, 64);
-    assert.ok(!sourceBodies[0].includes('server-only-key'));
-    await assert.rejects(handlePrivatePolicyConsent(new Request('https://app.example/api/user/v1/policy-consents', {
-      method: 'POST', headers: { Cookie: 'better-auth.session_token=opaque' },
-      body: JSON.stringify({ userId: COURSE, policyType: 'terms_of_use', policyVersion: '2026-06-11', context: 'registration' }),
-    }), env), (error: unknown) => error instanceof PrivatePolicyConsentError && error.status === 400);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  await handlePrivatePolicyConsent(new Request('https://app.example/api/user/v1/policy-consents', {
+    method: 'POST', headers: { Cookie: 'better-auth.session_token=opaque' },
+    body: JSON.stringify({ policyType: 'terms_of_use', policyVersion: '2026-06-11', context: 'oauth_registration' }),
+  }), env);
+  assert.equal(statements.length, 1);
+  assert.match(statements[0].sql, /INSERT INTO policy_consents/);
+  assert.equal(statements[0].values[0], USER_A);
+  await assert.rejects(handlePrivatePolicyConsent(new Request('https://app.example/api/user/v1/policy-consents', {
+    method: 'POST', headers: { Cookie: 'better-auth.session_token=opaque' },
+    body: JSON.stringify({ userId: COURSE, policyType: 'terms_of_use', policyVersion: '2026-06-11', context: 'registration' }),
+  }), env), (error: unknown) => error instanceof PrivatePolicyConsentError && error.status === 400);
 });
 
 test('legacy Better Auth schedule writes use only the server secret and server-resolved owner', async () => {

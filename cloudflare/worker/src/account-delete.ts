@@ -223,7 +223,6 @@ const SOURCE_OWNER_TABLES: readonly SourceOwnerTable[] = [
   ['event_reports', 'user_id'],
   ['feedback', 'user_id'],
   ['user_course_requests', 'user_id'],
-  ['policy_consents', 'user_id'],
   ['practice_attempts', 'user_id'],
   ['schedule_notification_logs', 'user_id'],
   ['subscriptions', 'user_id'],
@@ -255,6 +254,7 @@ const D1_CLEANUP_TABLES = [
   'support_tickets',
   'support_attachment_uploads',
   'ai_chat_logs',
+  'policy_consents',
   'user_profile_private',
   'user_profiles',
 ] as const;

@@ -1544,9 +1544,9 @@ const worker = {
     }
 
     if (requestUrl.pathname === '/api/user/v1/policy-consents') {
-      if (request.method !== 'POST') {
+      if (request.method !== 'GET' && request.method !== 'POST') {
         return json({ error: 'PhÆ°Æ¡ng thá»©c khÃ´ng Ä‘Æ°á»£c há»— trá»£.' }, 405, {
-          ...cors, Allow: 'POST, OPTIONS', 'Cache-Control': 'no-store',
+          ...cors, Allow: 'GET, POST, OPTIONS', 'Cache-Control': 'no-store',
         });
       }
       try {
