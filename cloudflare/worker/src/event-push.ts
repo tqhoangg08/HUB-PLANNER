@@ -6,6 +6,7 @@ export interface PublicEventPushCandidate {
 }
 
 const BLOCKED_EVENT_STATES = new Set(['pending', 'draft', 'rejected', 'deleted', 'hidden']);
+const CLAIM_LEASE_MS = 9 * 60_000;
 const clean = (value: unknown) => String(value || '').trim();
 
 export const eventPushCutoff = (env: EventPushEnv) => {
@@ -32,34 +33,60 @@ export const buildEventPushPayload = (event: PublicEventPushCandidate) => ({
 
 const readNextCandidate = async (env: EventPushEnv) => {
   const cutoffIso = eventPushCutoff(env);
+  const now = new Date().toISOString();
   const row = await env.DB.prepare(
     `SELECT e.id, e.title, e.status, e.is_deleted, e.created_at
        FROM public_events e
        LEFT JOIN event_push_deliveries d ON d.event_id = e.id
-      WHERE (d.event_id IS NULL OR d.state IN ('sending', 'failed'))
+      WHERE (d.event_id IS NULL
+          OR (d.state = 'sending' AND (d.lease_expires_at IS NULL OR d.lease_expires_at <= ?))
+          OR (d.state = 'failed' AND (d.lease_expires_at IS NULL OR d.lease_expires_at <= ?)
+              AND (d.next_retry_at IS NULL OR d.next_retry_at <= ?)))
         AND e.created_at >= ? AND COALESCE(e.is_deleted, 0) = 0
         AND LOWER(COALESCE(e.status, '')) NOT IN ('pending', 'draft', 'rejected', 'deleted', 'hidden')
       ORDER BY e.created_at, e.id LIMIT 1`,
-  ).bind(cutoffIso).first<PublicEventPushCandidate>();
+  ).bind(now, now, now, cutoffIso).first<PublicEventPushCandidate>();
   return row && isEventPushEligible(row, cutoffIso) ? row : null;
 };
 
 const reserveEvent = async (env: EventPushEnv, event: PublicEventPushCandidate) => {
-  await env.DB.prepare(
+  const now = new Date().toISOString();
+  const leaseExpiresAt = new Date(Date.now() + CLAIM_LEASE_MS).toISOString();
+  const inserted = await env.DB.prepare(
     `INSERT OR IGNORE INTO event_push_deliveries
-       (event_id, event_created_at, state, attempted_at, attempts)
-     VALUES (?, ?, 'sending', ?, 1)`,
-  ).bind(event.id, event.created_at, new Date().toISOString()).run();
-  const row = await env.DB.prepare(
-    `SELECT event_id FROM event_push_deliveries WHERE event_id = ? AND state IN ('sending', 'failed')`,
-  ).bind(event.id).first();
-  return Boolean(row);
+       (event_id, event_created_at, state, attempted_at, attempts, lease_expires_at)
+     VALUES (?, ?, 'sending', ?, 1, ?)`,
+  ).bind(event.id, event.created_at, now, leaseExpiresAt).run();
+  if (Number(inserted.meta?.changes || 0) === 1) return true;
+  const claimed = await env.DB.prepare(
+    `UPDATE event_push_deliveries SET lease_expires_at = ?, attempted_at = ?
+      WHERE event_id = ?
+        AND ((state = 'sending' AND (lease_expires_at IS NULL OR lease_expires_at <= ?))
+          OR (state = 'failed' AND (lease_expires_at IS NULL OR lease_expires_at <= ?)
+              AND (next_retry_at IS NULL OR next_retry_at <= ?)))`,
+  ).bind(leaseExpiresAt, now, event.id, now, now, now).run();
+  return Number(claimed.meta?.changes || 0) === 1;
 };
 
-const completeEvent = async (env: EventPushEnv, eventId: number, state: 'sent' | 'skipped' | 'failed', reason: string | null) => {
+const completeEvent = async (
+  env: EventPushEnv,
+  eventId: number,
+  result: { sent: number; failed: number; skipped: number; hasMore: boolean; retryAt: string | null },
+) => {
+  const now = new Date().toISOString();
+  const terminal = !result.hasMore && !result.retryAt;
+  const state = terminal ? 'complete' : result.retryAt ? 'failed' : 'sending';
   await env.DB.prepare(
-    `UPDATE event_push_deliveries SET state = ?, sent_at = ?, last_error = ? WHERE event_id = ?`,
-  ).bind(state, new Date().toISOString(), reason, eventId).run();
+    `UPDATE event_push_deliveries
+        SET state = CASE WHEN ? = 'complete'
+                           THEN CASE WHEN sent_count + ? > 0 THEN 'sent' ELSE 'skipped' END
+                         ELSE ? END,
+            sent_at = CASE WHEN ? = 'complete' THEN ? ELSE sent_at END,
+            sent_count = sent_count + ?, failed_count = failed_count + ?, skipped_count = skipped_count + ?,
+            last_error = CASE WHEN ? IS NULL THEN NULL ELSE 'DELIVERY_RETRY_PENDING' END,
+            next_retry_at = ?, lease_expires_at = NULL
+      WHERE event_id = ?`,
+  ).bind(state, result.sent, state, state, now, result.sent, result.failed, result.skipped, result.retryAt, result.retryAt, eventId).run();
 };
 
 export const runEventPush = async (env: EventPushEnv, fetcher: typeof fetch = fetch) => {
@@ -70,19 +97,16 @@ export const runEventPush = async (env: EventPushEnv, fetcher: typeof fetch = fe
     const result = await deliverPushBatch(env, buildEventPushPayload(event), {
       deliveryKey: { type: 'event', id: String(event.id) }, limit: 100, fetcher,
     });
-    if (result.hasMore) {
-      await env.DB.prepare(
-        `UPDATE event_push_deliveries SET state = 'sending',
-          sent_count = sent_count + ?, failed_count = failed_count + ?,
-          skipped_count = skipped_count + ?, last_error = 'DELIVERY_RETRY_PENDING'
-          WHERE event_id = ?`,
-      ).bind(result.sent, result.failed, result.skipped, event.id).run();
-      return { success: result.sent > 0, queued: 1, sent: result.sent, state: 'sending' as const };
-    }
-    await completeEvent(env, event.id, result.sent > 0 ? 'sent' : 'skipped', null);
-    return { success: true, queued: 1, sent: result.sent, state: result.sent > 0 ? 'sent' as const : 'skipped' as const };
+    await completeEvent(env, event.id, result);
+    const state = result.hasMore ? 'sending' as const : result.retryAt ? 'failed' as const : result.sent > 0 ? 'sent' as const : 'skipped' as const;
+    return { success: state !== 'failed' || result.sent > 0, queued: 1, sent: result.sent, state };
   } catch {
-    await completeEvent(env, event.id, 'failed', 'PUSH_TRANSPORT_FAILED');
+    await env.DB.prepare(
+      `UPDATE event_push_deliveries
+          SET state = 'failed', next_retry_at = ?, lease_expires_at = NULL,
+              last_error = 'PUSH_TRANSPORT_FAILED'
+        WHERE event_id = ?`,
+    ).bind(new Date(Date.now() + 15 * 60_000).toISOString(), event.id).run();
     return { success: false, queued: 1, sent: 0, state: 'failed' as const };
   }
 };

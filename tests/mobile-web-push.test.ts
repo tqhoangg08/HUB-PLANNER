@@ -15,7 +15,7 @@ const createPushDb = async () => {
     p256dh TEXT NOT NULL, auth TEXT NOT NULL, binding_started_at TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
     CREATE TABLE notification_preferences (user_id TEXT PRIMARY KEY, system INTEGER, events INTEGER, lost_found INTEGER, schedule INTEGER, school INTEGER);
     CREATE TABLE push_delivery_attempts (source_type TEXT, source_id TEXT, subscription_id TEXT, state TEXT, attempts INTEGER,
-      last_status INTEGER, updated_at TEXT, PRIMARY KEY(source_type, source_id, subscription_id));`.replace(/\s+/g, ' '));
+    last_status INTEGER, updated_at TEXT, next_retry_at TEXT, PRIMARY KEY(source_type, source_id, subscription_id));`.replace(/\s+/g, ' '));
   return { mf, db };
 };
 const subscriptionKeys = async () => {

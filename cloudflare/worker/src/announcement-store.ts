@@ -37,17 +37,33 @@ export const syncCrawledSchoolAnnouncements = async (
   const newest = await env.DB.prepare('SELECT date FROM school_announcements ORDER BY date DESC LIMIT 1')
     .first<{date: string}>();
   const newestUpstreamDate = crawl.items.map(item => item.date).sort().at(-1) || newest?.date || null;
-  // Retain the existing operational metadata contract and pagination diagnostics.
-  await env.DB.prepare(`INSERT INTO sync_metadata
-    (resource,source_row_count,source_max_created_at,synced_at,visible_row_count,source_cursor)
-    VALUES (?,?,?,?,?,?) ON CONFLICT(resource) DO UPDATE SET
-    source_row_count=excluded.source_row_count, source_max_created_at=excluded.source_max_created_at,
-    synced_at=excluded.synced_at, visible_row_count=excluded.visible_row_count, source_cursor=excluded.source_cursor`)
-    .bind('school_announcement_crawler', crawl.items.length, newestUpstreamDate, now, crawl.items.length,
-      JSON.stringify({authority:'d1',complete:crawl.complete,sources:crawl.sources.map(({id,pages,rows,complete,error})=>({id,pages,rows,complete,error}))})).run();
+  // This diagnostic row is not the announcement authority. Persist it only
+  // when crawler state actually changes; per-chunk "last run" timestamps
+  // previously produced a D1 write for every no-op crawl.
+  const sourceCursor = JSON.stringify({
+    authority: 'd1', complete: crawl.complete,
+    sources: crawl.sources.map(({ id, complete, error }) => ({ id, complete, error })),
+  });
+  const metadata = inserted || updated || crawl.sources.some((source) => Boolean(source.error))
+    ? await env.DB.prepare(`INSERT INTO sync_metadata
+      (resource,source_row_count,source_max_created_at,synced_at,visible_row_count,source_cursor)
+      VALUES (?,?,?,?,?,?) ON CONFLICT(resource) DO UPDATE SET
+      source_row_count=excluded.source_row_count, source_max_created_at=excluded.source_max_created_at,
+      synced_at=excluded.synced_at, visible_row_count=excluded.visible_row_count, source_cursor=excluded.source_cursor
+      WHERE sync_metadata.source_row_count IS NOT excluded.source_row_count
+         OR sync_metadata.source_max_created_at IS NOT excluded.source_max_created_at
+         OR sync_metadata.visible_row_count IS NOT excluded.visible_row_count
+         OR sync_metadata.source_cursor IS NOT excluded.source_cursor`)
+      .bind('school_announcement_crawler', crawl.items.length, newestUpstreamDate, now, crawl.items.length,
+        sourceCursor).run()
+    : null;
+  // D1's conflict branch deliberately leaves the row untouched when only
+  // volatile timestamps differ. This keeps monitoring data while avoiding
+  // writes from no-op source chunks.
+  const metadataWritten = Number(metadata?.meta?.changes || 0);
   if (!crawl.complete && !options.allowIncomplete) {
     throw new Error(`ANNOUNCEMENT_CRAWL_INCOMPLETE:${crawl.sources.filter(s=>!s.complete||s.error).map(s=>s.id).join(',')}`);
   }
-  return {...crawl, candidates:crawl.items.length, inserted, updated,
+  return {...crawl, candidates:crawl.items.length, inserted, updated, metadataWritten,
     synced:{insertedOrUpdated:inserted+updated,recentRowsRefreshed:0},newestUpstreamDate,authority:'d1' as const};
 };

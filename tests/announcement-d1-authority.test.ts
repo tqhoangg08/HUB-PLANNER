@@ -28,7 +28,9 @@ const item={title:'New announcement',link:'https://example.invalid/new',date:new
 test('direct D1 crawl inserts once and newest date matches upstream',async()=>{
   const {sql,DB}=fixture(); try {
     assert.equal((await syncCrawledSchoolAnnouncements({DB},crawl([item]))).inserted,1);
-    assert.equal((await syncCrawledSchoolAnnouncements({DB},crawl([item,item]))).inserted,0);
+    const repeated = await syncCrawledSchoolAnnouncements({DB},crawl([item,item]));
+    assert.equal(repeated.inserted,0);
+    assert.equal(repeated.metadataWritten,0);
     assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM school_announcements').get()?.n,2);
     assert.equal(sql.prepare('SELECT MAX(date) AS date FROM school_announcements').get()?.date,item.date);
     assert.equal(sql.prepare("SELECT visible_row_count AS n FROM sync_metadata WHERE resource='school_announcements'").get()?.n,1);
@@ -36,8 +38,9 @@ test('direct D1 crawl inserts once and newest date matches upstream',async()=>{
 });
 test('repeat crawl and queue processing do not enqueue a second push',async()=>{
   const {sql,DB}=fixture(); try {
-    sql.exec('CREATE TABLE event_push_deliveries(event_id INTEGER PRIMARY KEY);');
+    sql.exec(readFileSync('cloudflare/migrations/0023_create_event_push_deliveries.sql','utf8'));
     sql.exec(readFileSync('cloudflare/migrations/0024_create_native_push_runtime.sql','utf8'));
+    sql.exec(readFileSync('cloudflare/migrations/0033_reduce_push_delivery_write_amplification.sql','utf8'));
     sql.exec('CREATE TABLE public_lost_found_items(id TEXT,title TEXT,type TEXT,user_name TEXT,location TEXT,status TEXT,is_deleted INTEGER,created_at TEXT);');
     await syncCrawledSchoolAnnouncements({DB},crawl([item]));
     const env={DB,NOTIFICATION_REENABLE_CUTOFF:'2026-01-01T00:00:00Z'};

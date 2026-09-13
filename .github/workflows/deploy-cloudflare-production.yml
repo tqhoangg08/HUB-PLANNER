@@ -43,6 +43,11 @@ jobs:
       - name: Build frontend assets
         run: npm run build
 
+      # Additive D1 schema changes are applied before the compatible Worker
+      # version that uses them; deploy itself does not apply D1 migrations.
+      - name: Apply pending Public D1 migrations
+        run: npx wrangler d1 migrations apply hub-planner-public-dev --remote --config cloudflare/wrangler.jsonc
+
       - name: Deploy Auth Worker
         run: npx wrangler deploy --config cloudflare/wrangler.auth-production.jsonc --keep-vars
 

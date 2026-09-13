@@ -14,19 +14,19 @@ const createDb = async () => {
   await db.exec(`CREATE TABLE school_announcements (id INTEGER PRIMARY KEY, title TEXT, link TEXT, created_at TEXT, is_hidden INTEGER, is_new INTEGER);
     CREATE TABLE public_lost_found_items (id INTEGER PRIMARY KEY, title TEXT, location TEXT, user_name TEXT, type TEXT, status TEXT, is_deleted INTEGER, created_at TEXT);
     CREATE TABLE school_announcement_push_queue (id INTEGER PRIMARY KEY, announcement_id INTEGER UNIQUE, title TEXT, link TEXT, scheduled_at TEXT,
-      sent_at TEXT, failed_at TEXT, attempts INTEGER DEFAULT 0, sent_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, last_error TEXT);
+      sent_at TEXT, failed_at TEXT, attempts INTEGER DEFAULT 0, sent_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, last_error TEXT, lease_expires_at TEXT, next_retry_at TEXT);
     CREATE TABLE lost_found_push_queue (id INTEGER PRIMARY KEY, lost_found_item_id INTEGER UNIQUE, title TEXT, body TEXT, url TEXT, scheduled_at TEXT,
-      sent_at TEXT, failed_at TEXT, attempts INTEGER DEFAULT 0, sent_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, last_error TEXT);
+      sent_at TEXT, failed_at TEXT, attempts INTEGER DEFAULT 0, sent_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, last_error TEXT, lease_expires_at TEXT, next_retry_at TEXT);
     CREATE TABLE push_subscriptions (id TEXT PRIMARY KEY, user_id TEXT, endpoint TEXT, p256dh TEXT, auth TEXT);
     CREATE TABLE notification_preferences (user_id TEXT PRIMARY KEY, system INTEGER, events INTEGER, lost_found INTEGER, schedule INTEGER, school INTEGER);
     CREATE TABLE push_delivery_attempts (source_type TEXT, source_id TEXT, subscription_id TEXT, state TEXT, attempts INTEGER, last_status INTEGER,
-      updated_at TEXT, PRIMARY KEY(source_type, source_id, subscription_id));`.replace(/\s+/g, ' '));
+    updated_at TEXT, next_retry_at TEXT, PRIMARY KEY(source_type, source_id, subscription_id));`.replace(/\s+/g, ' '));
   return { mf, db };
 };
 
 test('Cloudflare scheduled handler preserves crawler and push cadence', () => {
   const config = JSON.parse(readFileSync('cloudflare/wrangler.jsonc', 'utf8'));
-  assert.deepEqual(config.triggers.crons.sort(), ['*/15 * * * *', '7-59/15 * * * *', '*/10 * * * *', '*/5 * * * *', '37 19 * * *'].sort());
+  assert.deepEqual(config.triggers.crons.sort(), ['*/15 * * * *', '7-59/15 * * * *', '*/10 * * * *', '37 19 * * *'].sort());
   assert.equal(config.workflows.find((item: { binding: string }) => item.binding === 'ANNOUNCEMENT_CRAWLER_WORKFLOW')?.class_name, 'AnnouncementCrawlerWorkflow');
   for (const key of Object.keys(configEnv)) assert.equal(config.vars[key], configEnv[key as keyof typeof configEnv]);
 });

@@ -51,6 +51,7 @@ const enqueueRecent = async (env: NotificationCronEnv) => {
 };
 
 type QueueRow = { id: number; source_id: string | number; title: string; body?: string; url: string };
+const CLAIM_LEASE_MS = 14 * 60_000;
 
 const processQueue = async (
   env: NotificationCronEnv,
@@ -59,14 +60,29 @@ const processQueue = async (
   category: 'school' | 'lost_found',
 ) => {
   const bodyExpression = table === 'school_announcement_push_queue' ? 'title AS body' : 'body';
+  const now = new Date().toISOString();
   const row = await env.DB.prepare(
     `SELECT id, ${sourceColumn} AS source_id, title, ${bodyExpression},
             ${table === 'school_announcement_push_queue' ? "COALESCE(link, '/announcements')" : 'url'} AS url
        FROM ${table}
       WHERE sent_at IS NULL AND failed_at IS NULL AND scheduled_at <= ?
+        AND (next_retry_at IS NULL OR next_retry_at <= ?)
+        AND (lease_expires_at IS NULL OR lease_expires_at <= ?)
       ORDER BY scheduled_at, id LIMIT 1`,
-  ).bind(new Date().toISOString()).first<QueueRow>();
+  ).bind(now, now, now).first<QueueRow>();
   if (!row) return { success: true, queued: 0, sent: 0, state: 'idle' };
+  const leaseExpiresAt = new Date(Date.now() + CLAIM_LEASE_MS).toISOString();
+  // The conditional update is the queue's atomic lease. Two scheduled
+  // invocations may observe the same due row, but only one can deliver it.
+  const claimed = await env.DB.prepare(
+    `UPDATE ${table} SET lease_expires_at = ?
+      WHERE id = ? AND sent_at IS NULL AND failed_at IS NULL
+        AND (next_retry_at IS NULL OR next_retry_at <= ?)
+        AND (lease_expires_at IS NULL OR lease_expires_at <= ?)`,
+  ).bind(leaseExpiresAt, row.id, now, now).run();
+  if (Number(claimed.meta?.changes || 0) !== 1) {
+    return { success: true, queued: 0, sent: 0, state: 'claimed' };
+  }
   const payload: PushPayload = {
     title: category === 'school' ? 'Thông báo mới từ HUB Planner' : row.title,
     body: String(row.body || row.title).slice(0, 240), url: row.url, category,
@@ -74,19 +90,19 @@ const processQueue = async (
   const result = await deliverPushBatch(env, payload, {
     deliveryKey: { type: category, id: String(row.source_id) }, limit: 100,
   });
-  const completed = !result.hasMore;
+  const completed = !result.hasMore && !result.retryAt;
   await env.DB.prepare(
     `UPDATE ${table}
         SET sent_count = sent_count + ?, failed_count = failed_count + ?,
-            skipped_count = skipped_count + ?, attempts = attempts + 1,
+            skipped_count = skipped_count + ?,
+            attempts = CASE WHEN ? IS NULL THEN attempts ELSE attempts + 1 END,
             sent_at = CASE WHEN ? THEN ? ELSE sent_at END,
-            failed_at = CASE WHEN attempts + 1 >= 3 AND ? THEN ? ELSE failed_at END,
-            last_error = CASE WHEN ? THEN 'DELIVERY_RETRY_PENDING' ELSE NULL END
+            next_retry_at = ?, lease_expires_at = NULL,
+            last_error = CASE WHEN ? IS NOT NULL THEN 'DELIVERY_RETRY_PENDING' ELSE NULL END
       WHERE id = ?`,
   ).bind(
-    result.sent, result.failed, result.skipped, completed ? 1 : 0,
-    new Date().toISOString(), result.hasMore ? 1 : 0, new Date().toISOString(),
-    result.hasMore ? 1 : 0, row.id,
+    result.sent, result.failed, result.skipped, result.retryAt, completed ? 1 : 0,
+    new Date().toISOString(), result.retryAt, result.retryAt, row.id,
   ).run();
   return { success: completed || result.sent > 0, queued: 1, ...result, state: completed ? 'sent' : 'pending' };
 };
