@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
+  buildGeminiInteractionSteps,
   extractGeminiDocumentSources,
   geminiFileSearchConfigured,
 } from '../cloudflare/worker/src/gemini-file-search.ts';
@@ -22,10 +23,21 @@ test('Gemini File Search is opt-in and requires both server-only bindings', () =
   assert.equal(geminiFileSearchConfigured({ GEMINI_FILE_SEARCH_ENABLED: 'true' }), false);
 });
 
+test('Gemini File Search uses steps-based interactions for current Gemini models', () => {
+  assert.deepEqual(buildGeminiInteractionSteps([
+    { role: 'user', content: 'Previous question' },
+    { role: 'assistant', content: 'Previous answer' },
+  ], 'Current question'), [
+    { type: 'user_input', content: [{ type: 'text', text: 'Previous question' }] },
+    { type: 'model_output', content: [{ type: 'text', text: 'Previous answer' }] },
+    { type: 'user_input', content: [{ type: 'text', text: 'Current question' }] },
+  ]);
+});
+
 test('document citations are deduplicated and expose no session data', () => {
   const interaction = { steps: [{ content: [{ annotations: [
-    { type: 'file_citation', file_name: 'Quy-che.pdf', source: 'fileSearchStores/x/documents/11111111-1111-4111-8111-111111111111', page_number: 4 },
-    { type: 'file_citation', file_name: 'Quy-che.pdf', source: 'fileSearchStores/x/documents/11111111-1111-4111-8111-111111111111', page_number: 4 },
+    { type: 'file_citation', file_name: 'Quy-che.pdf', source: 'fileSearchStores/x/documents/generated-name', custom_metadata: { document_id: '11111111-1111-4111-8111-111111111111' }, page_number: 4 },
+    { type: 'file_citation', file_name: 'Quy-che.pdf', source: 'fileSearchStores/x/documents/generated-name', custom_metadata: { document_id: '11111111-1111-4111-8111-111111111111' }, page_number: 4 },
   ] }] }] };
   assert.deepEqual(extractGeminiDocumentSources(interaction), [{
     documentId: '11111111-1111-4111-8111-111111111111',

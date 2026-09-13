@@ -40,16 +40,36 @@ export const extractGeminiDocumentSources = (interaction: unknown): GeminiDocume
   const seen = new Set<string>();
   return annotations.flatMap((item) => {
     const source = String(item.source || item.document_name || '');
+    const metadata = record(item.custom_metadata);
     const fileName = String(item.file_name || item.filename || '').trim();
     const pageNumber = Number(item.page_number || 0) || null;
     const match = source.match(/\/documents\/([0-9a-f-]{36})(?:$|\/)/i);
-    const documentId = match?.[1] || null;
+    const metadataDocumentId = String(metadata?.document_id || '').trim();
+    const documentId = /^[0-9a-f-]{36}$/i.test(metadataDocumentId) ? metadataDocumentId : match?.[1] || null;
     const key = `${source}|${fileName}|${pageNumber || ''}`;
     if (!fileName || seen.has(key)) return [];
     seen.add(key);
     return [{ documentId, fileName, title: fileName.replace(/\.[^.]+$/, ''), pageNumber }];
   });
 };
+
+export const buildGeminiInteractionSteps = (
+  history: Array<{ role: string; content: string }>,
+  question: string,
+) => [
+  ...history.flatMap((message) => {
+    const text = String(message.content || '').trim();
+    if (!text) return [];
+    return [{
+      type: message.role === 'assistant' ? 'model_output' : 'user_input',
+      content: [{ type: 'text', text }],
+    }];
+  }),
+  {
+    type: 'user_input',
+    content: [{ type: 'text', text: question.trim() }],
+  },
+];
 
 const outputText = (interaction: unknown) => {
   const value = record(interaction);
@@ -79,7 +99,7 @@ export const answerWithGeminiFileSearch = async (
   const interaction = await ai.interactions.create({
     model: String(env.GEMINI_CHAT_MODEL || 'gemini-3.5-flash-lite'),
     system_instruction: system,
-    input: [...history, { role: 'user', content: question }],
+    input: buildGeminiInteractionSteps(history, question),
     generation_config: { thinking_level: thinkingLevel },
     tools: [{
       type: 'file_search',
