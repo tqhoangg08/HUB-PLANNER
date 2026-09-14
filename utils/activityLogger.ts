@@ -91,6 +91,9 @@ export const logActivity = async ({
   };
 
   const row = {
+    // This survives a bounded retry but differs for a distinct user action.
+    // The server owns the actor; the id is only an idempotency key.
+    eventId: crypto.randomUUID(),
     action,
     targetTable,
     targetId: targetId === null || targetId === undefined ? null : String(targetId),

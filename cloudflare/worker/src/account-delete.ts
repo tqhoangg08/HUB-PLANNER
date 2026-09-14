@@ -256,6 +256,7 @@ const D1_CLEANUP_TABLES = [
   'support_attachment_uploads',
   'ai_chat_logs',
   'policy_consents',
+  'activity_logs',
   'user_profile_private',
   'user_profiles',
 ] as const;
@@ -381,6 +382,37 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
     `SELECT image_key FROM lost_found_items
       WHERE user_id = ? AND image_key LIKE 'lost-found/%'`,
   ).bind(userId).all<{ image_key: string }>();
+  // Audit history is intentionally retained but de-identified, matching the
+  // legacy source policy. This is not part of the hard-delete table list.
+  const userHash = Array.from(new Uint8Array(await crypto.subtle.digest(
+    'SHA-256', new TextEncoder().encode(userId),
+  ))).map((part) => part.toString(16).padStart(2, '0')).join('');
+  const now = new Date().toISOString();
+  const anonymizationMetadata = JSON.stringify({
+    anonymized: true,
+    anonymization_reason: 'account_hard_delete',
+    user_id_hash: userHash,
+  });
+  await env.DB.prepare(`UPDATE activity_logs
+    SET user_id=NULL,user_email=NULL,ip_address=NULL,device_info=NULL,location_guess=NULL,
+      old_data_json=NULL,new_data_json=NULL,
+      details_json=?,metadata_json=json_patch(COALESCE(metadata_json,'{}'), ?)
+    WHERE user_id=?`).bind(
+    JSON.stringify({ anonymized: true, anonymization_reason: 'account_hard_delete', user_id_hash: userHash }),
+    anonymizationMetadata,
+    userId,
+  ).run();
+  const deleteLogKey = `account-delete:${userHash}`;
+  const deleteLogHash = Array.from(new Uint8Array(await crypto.subtle.digest(
+    'SHA-256', new TextEncoder().encode(deleteLogKey),
+  ))).map((part) => part.toString(16).padStart(2, '0')).join('');
+  await env.DB.prepare(`INSERT OR IGNORE INTO activity_logs
+    (source_key,canonical_hash,created_at,action,action_label,target_id,record_id,status,metadata_json,details_json)
+    VALUES (?,?,?,?,?,?,?,?,?,?)`).bind(
+    deleteLogKey, deleteLogHash, now, 'delete_account_hard_delete', 'delete_account_hard_delete', userHash, userHash,
+    'success', JSON.stringify({ source: 'account_delete', anonymized: true }),
+    JSON.stringify({ anonymized: true, anonymization_reason: 'account_hard_delete', user_id_hash: userHash }),
+  ).run();
   await env.DB.batch([
     env.DB.prepare('DELETE FROM user_schedule_course_snapshots WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM user_schedules WHERE user_id = ?').bind(userId),

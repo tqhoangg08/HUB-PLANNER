@@ -82,7 +82,8 @@ const D1_REPORT_COLUMNS = `id,user_id,status,created_at,
   json_extract(payload_json,'$.contact') AS contact,
   json_extract(payload_json,'$.note') AS note`;
 
-const ACTIVITY_COLUMNS = 'id,created_at,user_id,user_email,user_role,action,action_label,target_table,table_name,target_id,record_id,page_path,status,metadata,old_data,new_data,details,error_message,ip_address,device_info';
+const ACTIVITY_COLUMNS = `id,created_at,user_id,user_email,user_role,action,action_label,target_table,table_name,target_id,record_id,page_path,status,
+  metadata_json,old_data_json,new_data_json,details_json,error_message,ip_address,device_info`;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -173,6 +174,22 @@ const reportTable = (value: string | null) => {
   const table = String(value || '').trim();
   if (!REPORT_TABLES.has(table)) throw new AdminLegacyDataError(404, 'Không tìm thấy loại báo cáo.');
   return table;
+};
+
+const parseJson = (value: unknown) => {
+  if (typeof value !== 'string') return value ?? null;
+  try { return JSON.parse(value) as unknown; } catch { return null; }
+};
+
+const activityRow = (row: Record<string, unknown>) => {
+  const { metadata_json, old_data_json, new_data_json, details_json, ...rest } = row;
+  return {
+    ...rest,
+    metadata: parseJson(metadata_json),
+    old_data: parseJson(old_data_json),
+    new_data: parseJson(new_data_json),
+    details: parseJson(details_json),
+  };
 };
 
 const isRecordId = (value: unknown) => typeof value === 'string' && ID_PATTERN.test(value);
@@ -296,16 +313,12 @@ export const handleAdminLegacyData = async (
     if (request.method !== 'GET') throw new AdminLegacyDataError(405, 'Phương thức không được hỗ trợ.');
     const size = pageSize(url.searchParams.get('limit'), 25);
     const offset = page(url.searchParams.get('offset'));
-    const query = new URL('/rest/v1/activity_logs', 'https://supabase.invalid');
-    query.searchParams.set('select', ACTIVITY_COLUMNS);
-    query.searchParams.set('action', 'neq.view_page');
-    query.searchParams.set('order', 'created_at.desc');
-    query.searchParams.set('limit', String(size));
-    query.searchParams.set('offset', String(offset));
-    const response = await supabaseRequest(env, `${query.pathname}${query.search}`, {
-      headers: { Prefer: 'count=exact' },
-    });
-    return { success: true, data: await response.json(), total: countFromRange(response.headers.get('content-range')) };
+    const [rows, count] = await Promise.all([
+      env.DB.prepare(`SELECT ${ACTIVITY_COLUMNS} FROM activity_logs
+        WHERE action <> 'view_page' ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`).bind(size, offset).all<Record<string, unknown>>(),
+      env.DB.prepare(`SELECT COUNT(*) AS total FROM activity_logs WHERE action <> 'view_page'`).first<{ total: number }>(),
+    ]);
+    return { success: true, data: (rows.results || []).map(activityRow), total: Number(count?.total || 0) };
   }
 
   throw new AdminLegacyDataError(404, 'Không tìm thấy endpoint quản trị.');

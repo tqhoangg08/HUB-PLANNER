@@ -5,8 +5,7 @@ import {
 } from './better-auth-identity.ts';
 
 export interface ActivityLogEnv extends BetterAuthIdentityEnv {
-  SUPABASE_URL?: string;
-  SUPABASE_SERVICE_ROLE_KEY?: string;
+  DB: D1Database;
 }
 
 export class ActivityLogError extends Error {
@@ -37,6 +36,14 @@ const boundedText = (value: unknown, max: number) => {
   return String(value).trim().slice(0, max) || null;
 };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const encoder = new TextEncoder();
+const digest = async (value: string) => Array.from(new Uint8Array(
+  await crypto.subtle.digest('SHA-256', encoder.encode(value)),
+)).map((part) => part.toString(16).padStart(2, '0')).join('');
+const json = (value: unknown, fallback: string | null) =>
+  value === undefined ? fallback : JSON.stringify(safeValue(value));
+
 const readBody = async (request: Request) => {
   const raw = await request.text();
   if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) throw new ActivityLogError(413, 'Dữ liệu nhật ký quá lớn.');
@@ -55,34 +62,27 @@ export const handleActivityLog = async (request: Request, env: ActivityLogEnv) =
   const body = await readBody(request);
   const action = boundedText(body.action, 100);
   if (!action || action === 'view_page') return { success: true, skipped: true };
-  const base = String(env.SUPABASE_URL || '').replace(/\/$/, '');
-  const key = String(env.SUPABASE_SERVICE_ROLE_KEY || '');
-  if (!base || !key) throw new ActivityLogError(503, 'Dịch vụ nhật ký chưa sẵn sàng.');
-  const row = {
-    user_id: identity.userId,
-    user_email: identity.email,
-    user_role: identity.role,
-    action,
-    action_label: action,
-    target_table: boundedText(body.targetTable, 128),
-    target_id: boundedText(body.targetId, 128),
-    page_path: boundedText(body.pagePath, 500),
-    status: ['success', 'error', 'warning'].includes(String(body.status)) ? body.status : 'success',
-    metadata: safeValue(body.metadata),
-    old_data: safeValue(body.oldData),
-    new_data: safeValue(body.newData),
-    error_message: boundedText(body.errorMessage, 1000),
-    device_info: boundedText(request.headers.get('User-Agent'), 500),
-  };
-  const response = await fetch(`${base}/rest/v1/activity_logs`, {
-    method: 'POST',
-    headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-    body: JSON.stringify(row),
-    signal: AbortSignal.timeout(8_000),
-  });
-  if (!response.ok) throw new ActivityLogError(502, 'Không thể ghi nhật ký hoạt động.');
-  await response.body?.cancel();
-  return { success: true };
+  const eventId = boundedText(body.eventId, 64);
+  if (!eventId || !UUID.test(eventId)) throw new ActivityLogError(400, 'Mã nhật ký không hợp lệ.');
+  const status = ['success', 'error', 'warning'].includes(String(body.status)) ? String(body.status) : 'success';
+  const sourceKey = `runtime:${identity.userId}:${eventId}`;
+  const now = new Date().toISOString();
+  const row = [
+    eventId, sourceKey, await digest(sourceKey), now,
+    identity.userId, identity.email, identity.role, action, action,
+    boundedText(body.targetTable, 128), boundedText(body.targetTable, 128),
+    boundedText(body.targetId, 128), boundedText(body.targetId, 128),
+    boundedText(body.pagePath, 500), status,
+    json(body.metadata, '{}'), json(body.oldData, null), json(body.newData, null),
+    json(body.oldData || body.newData ? { old: safeValue(body.oldData), new: safeValue(body.newData) } : null, null),
+    boundedText(body.errorMessage, 1000), boundedText(request.headers.get('User-Agent'), 500),
+  ];
+  const result = await env.DB.prepare(`INSERT OR IGNORE INTO activity_logs (
+    client_event_id,source_key,canonical_hash,created_at,user_id,user_email,user_role,action,action_label,
+    target_table,table_name,target_id,record_id,page_path,status,metadata_json,old_data_json,new_data_json,
+    details_json,error_message,device_info
+  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(...row).run();
+  return { success: true, skipped: Number(result.meta?.changes || 0) === 0 };
 };
 
 export const activityLogErrorStatus = (error: unknown) =>
