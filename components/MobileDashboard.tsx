@@ -28,6 +28,7 @@ import { searchStaffProfiles, searchStaffProfilesPage } from '../utils/staffProf
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { TargetGpaTipInput } from './TargetGpaTipInput';
 import { AdminStudentExcelExportModal } from './AdminStudentExcelExportModal';
+import { resolveTotalCreditsRequired } from '../utils/programs';
 
 const formatGpaWithoutRounding = (value: number) => {
     return (Math.floor((value + Number.EPSILON) * 100) / 100).toFixed(2);
@@ -2242,7 +2243,7 @@ export const MobileDashboardNative: React.FC<MobileDashboardNativeProps> = ({
                 value={`${Math.round(stats.passedCredits || 0)}`}
                 suffix="TC"
                 subLabel="Mục tiêu"
-                subValue={`${totalCreditsRequired || 125}`}
+                subValue={totalCreditsRequired ? `${totalCreditsRequired}` : 'Chưa cập nhật'}
                 progress={creditsProgress}
                 tone="green"
                 icon={<BookOpen size={15} strokeWidth={2.5} />}
@@ -2795,7 +2796,10 @@ export const MobileDashboard: React.FC<DashboardProps> = ({
     });
 
     const failedCount = failedSubjectsList.length;
-    const totalCreditsRequired = activeData.totalCreditsRequired || 125;
+    const totalCreditsRequired = resolveTotalCreditsRequired({
+        programName: activeData.programName, cohort: activeData.cohort,
+        specializationName: activeData.specializationName, storedCredits: activeData.totalCreditsRequired,
+    });
 
     const requiredAnalysis = calculateRequiredGPA(
         stats.rawGPA4,

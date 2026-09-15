@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Major, Program, Specialization } from '../../utils/programs';
+import { isManualTotalCreditsCohort, type Major, type Program, type Specialization } from '../../utils/programs';
 
 interface AccountAcademicProfileFieldsProps {
     studentName: string;
@@ -15,6 +15,8 @@ interface AccountAcademicProfileFieldsProps {
     onCohortChange: (cohort: string) => void;
     onMajorChange: (majorCode: string) => void;
     onSpecializationChange: (specializationName: string) => void;
+    manualTotalCredits: string;
+    onManualTotalCreditsChange: (value: string) => void;
 }
 
 export const AccountAcademicProfileFields: React.FC<AccountAcademicProfileFieldsProps> = ({
@@ -31,6 +33,8 @@ export const AccountAcademicProfileFields: React.FC<AccountAcademicProfileFields
     onCohortChange,
     onMajorChange,
     onSpecializationChange,
+    manualTotalCredits,
+    onManualTotalCreditsChange,
 }) => (
     <div>
         <h4 className="mb-3 border-b border-gray-100 pb-1 text-xs font-black uppercase tracking-wider text-[#003375]">
@@ -113,10 +117,32 @@ export const AccountAcademicProfileFields: React.FC<AccountAcademicProfileFields
                         <option value="" disabled>Chọn chuyên ngành</option>
                         {selectedMajor.specializations.map(specialization => (
                             <option key={specialization.name} value={specialization.name}>
-                                {specialization.name} ({specialization.credits} TC)
+                                {specialization.name}{specialization.credits ? ` (${specialization.credits} TC)` : ''}
                             </option>
                         ))}
                     </select>
+                </div>
+            )}
+
+            {selectedProgram && isManualTotalCreditsCohort(selectedProgram.id, selectedCohort) && (
+                <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-gray-500">
+                        Tổng số tín chỉ chương trình (nếu biết)
+                    </label>
+                    <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        inputMode="numeric"
+                        value={manualTotalCredits}
+                        onChange={event => {
+                            const value = event.target.value;
+                            if (value !== '' && !/^[1-9]\d*$/.test(value)) return;
+                            onManualTotalCreditsChange(value);
+                        }}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition-shadow focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
+                        placeholder="Có thể để trống"
+                    />
                 </div>
             )}
         </div>

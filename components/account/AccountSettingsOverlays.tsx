@@ -107,6 +107,8 @@ export const AccountSettingsOverlays = ({
                 onCohortChange={profile.selectCohort}
                 onMajorChange={profile.selectMajor}
                 onSpecializationChange={profile.selectSpecialization}
+                manualTotalCredits={profile.draftManualTotalCredits}
+                onManualTotalCreditsChange={profile.setDraftManualTotalCredits}
             />
         </AccountSettingsModal>
 

@@ -235,6 +235,17 @@ export const calculateRequiredGPA = (
     targetGPA: number,
     currentGpaCredits: number = passedCredits
   ) => {
+    // New catalogs may not have an authoritative total yet. Treat that state
+    // as unknown instead of dividing by zero or presenting a made-up target.
+    if (!Number.isFinite(totalCreditsRequired) || totalCreditsRequired <= 0) {
+      return {
+        requiredGPA: 0,
+        remainingCredits: 0,
+        isPossible: false,
+        isTargetAchieved: false,
+        isTotalCreditsKnown: false,
+      };
+    }
     const remainingCredits = Math.max(0, totalCreditsRequired - passedCredits);
 
     // Khi đã hoàn thành đủ/vượt số tín chỉ chương trình, kết quả phụ thuộc
@@ -245,7 +256,8 @@ export const calculateRequiredGPA = (
         requiredGPA: isTargetAchieved ? 0 : Number.POSITIVE_INFINITY,
         remainingCredits,
         isPossible: isTargetAchieved,
-        isTargetAchieved
+        isTargetAchieved,
+        isTotalCreditsKnown: true,
       };
     }
 
@@ -271,6 +283,7 @@ export const calculateRequiredGPA = (
         requiredGPA: Math.max(0, rawRequiredGPA),
         remainingCredits,
         isPossible: rawRequiredGPA <= 4.0,
-        isTargetAchieved
+        isTargetAchieved,
+        isTotalCreditsKnown: true,
     };
   };

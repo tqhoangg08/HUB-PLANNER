@@ -8,6 +8,8 @@ import {
   Program,
   Specialization,
   getMajors,
+  isManualTotalCreditsCohort,
+  normalizeManualTotalCredits,
 } from '../utils/programs';
 import { playClick } from '../utils/audio';
 import { signOutBetterAuth } from '../utils/privateApi';
@@ -69,6 +71,10 @@ const buildInitialFormData = (initialData?: Partial<UserData>) => {
     program,
     major,
     specialization: findSpecializationFromInitialData(major, initialData?.specializationName),
+    manualTotalCredits: program && isManualTotalCreditsCohort(program.id, cohort)
+      && normalizeManualTotalCredits(initialData?.totalCreditsRequired)
+      ? String(normalizeManualTotalCredits(initialData?.totalCreditsRequired))
+      : '',
   };
 };
 
@@ -84,6 +90,10 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
     [formData.program, formData.cohort],
   );
   const specializationOptions = formData.major?.specializations || [];
+  const manualCredits = Boolean(
+    formData.program
+    && isManualTotalCreditsCohort(formData.program.id, formData.cohort),
+  );
 
   const isComplete = Boolean(
     formData.studentName.trim() &&
@@ -102,6 +112,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
       cohort: '',
       major: null,
       specialization: null,
+      manualTotalCredits: '',
     }));
   };
 
@@ -112,6 +123,8 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
       cohort,
       major: null,
       specialization: null,
+      // A value inferred for another cohort must never become a manual value.
+      manualTotalCredits: '',
     }));
   };
 
@@ -144,7 +157,9 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
       programName: formData.program!.name,
       majorName: formData.major!.name,
       specializationName: formData.specialization!.name,
-      totalCreditsRequired: formData.specialization!.credits,
+      totalCreditsRequired: manualCredits
+        ? normalizeManualTotalCredits(formData.manualTotalCredits)
+        : formData.specialization!.credits || 0,
       hasOnboarded: true,
     });
   };
@@ -306,6 +321,28 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialData 
                 <ChevronDown size={18} aria-hidden="true" />
               </div>
             </div>
+
+            {manualCredits && (
+              <div className="onboarding-field">
+                <label htmlFor="onboarding-total-credits">Tổng số tín chỉ chương trình (nếu biết)</label>
+                <div className="onboarding-input-wrap">
+                  <input
+                    id="onboarding-total-credits"
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    value={formData.manualTotalCredits}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (value !== '' && !/^[1-9]\d*$/.test(value)) return;
+                      setFormData((previous) => ({ ...previous, manualTotalCredits: value }));
+                    }}
+                    placeholder="Có thể để trống"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {submitted && !isComplete && (

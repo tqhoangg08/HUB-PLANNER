@@ -28,7 +28,8 @@ export interface UserData {
   semesters: Semester[];
   targetGPA: number;
   // trainingScore: number; // REMOVED: Now calculated from semesters
-  totalCreditsRequired: number; // Based on selection
+  // 0 means the cohort requires a user-entered total that is not known yet.
+  totalCreditsRequired: number;
   
   // App State
   hasOnboarded: boolean;

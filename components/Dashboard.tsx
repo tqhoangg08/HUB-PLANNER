@@ -31,6 +31,7 @@ import { TurnstileBox } from './TurnstileBox';
 import { protectedSubmit } from '../utils/protectedSubmit';
 import { TargetGpaTipInput } from './TargetGpaTipInput';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
+import { resolveTotalCreditsRequired } from '../utils/programs';
 
 const AdminStudentExcelExportModal = React.lazy(() =>
     import('./AdminStudentExcelExportModal').then(module => ({
@@ -2073,7 +2074,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
     });
     
     const failedCount = failedSubjectsList.length;
-    const totalCreditsRequired = activeData.totalCreditsRequired || 125;
+    const totalCreditsRequired = resolveTotalCreditsRequired({
+        programName: activeData.programName, cohort: activeData.cohort,
+        specializationName: activeData.specializationName, storedCredits: activeData.totalCreditsRequired,
+    });
 
     const handleOpenPdfExportModal = () => {
         playClick();

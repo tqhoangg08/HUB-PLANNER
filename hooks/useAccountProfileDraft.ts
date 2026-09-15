@@ -5,6 +5,8 @@ import {
     ACADEMIC_COHORT_OPTIONS,
     ACADEMIC_PROGRAMS,
     getMajors,
+    isManualTotalCreditsCohort,
+    normalizeManualTotalCredits,
     type Major,
     type Program,
     type Specialization,
@@ -94,6 +96,7 @@ export const useAccountProfileDraft = ({
     const [draftCohort, setDraftCohort] = useState('');
     const [draftMajor, setDraftMajor] = useState<Major | null>(null);
     const [draftSpecialization, setDraftSpecialization] = useState<Specialization | null>(null);
+    const [draftManualTotalCredits, setDraftManualTotalCredits] = useState('');
 
     const sessionUserId = session?.user?.id || null;
     const sessionEmail = session?.user?.email || '';
@@ -118,6 +121,10 @@ export const useAccountProfileDraft = ({
         const program = ACADEMIC_PROGRAMS.find(item => item.name === data.programName) || null;
         setDraftProgram(program);
         setDraftCohort(data.cohort || '');
+        const savedManualCredits = program && isManualTotalCreditsCohort(program.id, data.cohort || '')
+            ? normalizeManualTotalCredits(data.totalCreditsRequired)
+            : 0;
+        setDraftManualTotalCredits(savedManualCredits ? String(savedManualCredits) : '');
 
         if (program && data.cohort) {
             const major = findMajorFromSavedProfile(
@@ -211,12 +218,15 @@ export const useAccountProfileDraft = ({
         setDraftCohort('');
         setDraftMajor(null);
         setDraftSpecialization(null);
+        setDraftManualTotalCredits('');
     }, []);
 
     const selectCohort = useCallback((cohort: string) => {
         setDraftCohort(cohort);
         setDraftMajor(null);
         setDraftSpecialization(null);
+        // Do not treat a legacy derived value as input for a new cohort.
+        setDraftManualTotalCredits('');
     }, []);
 
     const selectMajor = useCallback((majorCode: string) => {
@@ -328,8 +338,9 @@ export const useAccountProfileDraft = ({
             majorName: draftMajor.name || data.majorName,
             specializationName:
                 draftSpecialization.name || data.specializationName,
-            totalCreditsRequired:
-                draftSpecialization.credits || data.totalCreditsRequired,
+            totalCreditsRequired: isManualTotalCreditsCohort(draftProgram.id, draftCohort)
+                ? normalizeManualTotalCredits(draftManualTotalCredits)
+                : draftSpecialization.credits || data.totalCreditsRequired,
         };
 
         try {
@@ -358,8 +369,9 @@ export const useAccountProfileDraft = ({
             majorName: draftMajor.name || previousData.majorName,
             specializationName:
                 draftSpecialization.name || previousData.specializationName,
-            totalCreditsRequired:
-                draftSpecialization.credits || previousData.totalCreditsRequired,
+            totalCreditsRequired: isManualTotalCreditsCohort(draftProgram.id, draftCohort)
+                ? normalizeManualTotalCredits(draftManualTotalCredits)
+                : draftSpecialization.credits || previousData.totalCreditsRequired,
         }));
 
         setProfileRefreshKey(previous => previous + 1);
@@ -377,6 +389,7 @@ export const useAccountProfileDraft = ({
         draftCohort,
         draftFullName,
         draftMajor,
+        draftManualTotalCredits,
         draftProfileTags,
         draftProgram,
         draftPublicProfileEnabled,
@@ -422,6 +435,8 @@ export const useAccountProfileDraft = ({
         selectMajor,
         draftSpecialization,
         selectSpecialization,
+        draftManualTotalCredits,
+        setDraftManualTotalCredits,
         programOptions: ACADEMIC_PROGRAMS,
         cohortOptions,
         majorOptions,

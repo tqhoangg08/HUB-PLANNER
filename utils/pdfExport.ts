@@ -10,6 +10,7 @@ import {
     getGradeDetails,
     getSubjectStatus
 } from './calculations';
+import { resolveTotalCreditsRequired } from './programs';
 
 type TranscriptExportScope = 'full' | 'year';
 
@@ -264,7 +265,7 @@ if (subtitleText) {
 
     const summaryCreditText = isYearExport
         ? `Số tín chỉ đạt trong năm: ${stats.passedCredits}/${stats.totalCredits}`
-        : `Số tín chỉ tích lũy: ${stats.passedCredits}/${data.totalCreditsRequired || 125}`;
+        : `Số tín chỉ tích lũy: ${stats.passedCredits}/${resolveTotalCreditsRequired({ programName: data.programName, cohort: data.cohort, specializationName: data.specializationName, storedCredits: data.totalCreditsRequired }) || 'chưa cập nhật'}`;
 
     // --- TỔNG KẾT ---
     doc.setFont('times', 'normal');

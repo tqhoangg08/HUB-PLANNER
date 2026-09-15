@@ -7,6 +7,7 @@ import {
     getDegreeClassification,
     getGradeDetails
 } from './calculations';
+import { resolveTotalCreditsRequired } from './programs';
 
 type TranscriptExportScope = 'full' | 'year';
 
@@ -418,7 +419,10 @@ const buildAnalysisSheet = (data: UserData, semesters: Semester[], includeLogo: 
     const merges: string[] = [];
     const stats = calculateCumulativeStats(semesters);
     const targetGPA = data.targetGPA || 3.2;
-    const totalCreditsRequired = data.totalCreditsRequired || 125;
+    const totalCreditsRequired = resolveTotalCreditsRequired({
+        programName: data.programName, cohort: data.cohort,
+        specializationName: data.specializationName, storedCredits: data.totalCreditsRequired,
+    });
     const semesterRows = semesters
         .map((semester) => {
             const semStats = calculateSemesterStats(semester.subjects);

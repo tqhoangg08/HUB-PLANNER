@@ -19,6 +19,7 @@ import { useSemesterLookback } from '../hooks/useSemesterLookback';
 import { playClick } from '../utils/audio';
 import { FEATURE_FORECAST_TOOLS } from '../utils/featureFlags';
 import { showConfirm } from '../utils/appNotifications';
+import { resolveTotalCreditsRequired } from '../utils/programs';
 
 interface MobileLearningProps {
     data: UserData;
@@ -143,7 +144,10 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
     }).filter(item => item.gpa4 !== null), [validDataSemesters]);
 
     const trendAnalysis = useMemo(() => analyzeTrend(validDataSemesters), [validDataSemesters]);
-    const totalCreditsRequired = activeData.totalCreditsRequired || 125;
+    const totalCreditsRequired = resolveTotalCreditsRequired({
+        programName: activeData.programName, cohort: activeData.cohort,
+        specializationName: activeData.specializationName, storedCredits: activeData.totalCreditsRequired,
+    });
     const targetGPA = activeData.targetGPA || 3.2;
     const requiredAnalysis = useMemo(() => calculateRequiredGPA(
         stats.rawGPA4,
@@ -309,7 +313,7 @@ export const MobileLearning: React.FC<MobileLearningProps> = (props) => {
                     gpa10: stats.gpa10,
                     passedCredits: stats.passedCredits,
                 }}
-                totalCreditsRequired={activeData.totalCreditsRequired || 125}
+                totalCreditsRequired={totalCreditsRequired}
                 isLocked={isLocked}
                 trendData={trendData}
                 semesters={transcriptSemesters}
