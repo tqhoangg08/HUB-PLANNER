@@ -27,7 +27,7 @@ const CONFIG = 'cloudflare/wrangler.jsonc';
 const DATABASE = 'hub-planner-public-dev';
 const AUTH_CONFIG = 'cloudflare/wrangler.auth-production.jsonc';
 const AUTH_DATABASE = 'hub-planner-auth-production';
-const LOOKUP_BATCH_SIZE = 200;
+const LOOKUP_BATCH_SIZE = 80;
 
 try { process.loadEnvFile?.('.env.local'); } catch {}
 if (!process.env.SUPABASE_DATABASE_URL) {
