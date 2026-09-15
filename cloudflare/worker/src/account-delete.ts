@@ -222,7 +222,6 @@ const SOURCE_OWNER_TABLES: readonly SourceOwnerTable[] = [
   ['event_reports', 'user_id'],
   ['feedback', 'user_id'],
   ['user_course_requests', 'user_id'],
-  ['practice_attempts', 'user_id'],
   ['schedule_notification_logs', 'user_id'],
   ['subscriptions', 'user_id'],
   ['auth_trigger_errors', 'user_id'],
@@ -257,11 +256,14 @@ const D1_CLEANUP_TABLES = [
   'ai_chat_logs',
   'policy_consents',
   'activity_logs',
+  'practice_attempts',
+  'practice_pro_access',
+  'practice_sets',
   'user_profile_private',
   'user_profiles',
 ] as const;
 
-const preflightServerSideUserData = async (env: AccountDeleteEnv, userId?: string) => {
+const preflightServerSideUserData = async (env: AccountDeleteEnv) => {
   // This validates binding presence without returning or logging a secret.
   await accountDeleteStep('source_binding', async () => serverSource(env));
   // The source database validates every explicit table/column contract in one
@@ -275,17 +277,8 @@ const preflightServerSideUserData = async (env: AccountDeleteEnv, userId?: strin
     });
     await response.body?.cancel();
   });
-  if (!userId) return;
-
-  // Validate the remaining non-trivial source filter before an OTP can be
-  // requested. Attachment keys are read once immediately before cleanup.
-  await accountDeleteStep('source_preflight:practice_sets_private_visibility', async () => {
-    const practiceResponse = await sourceRequest(
-      env,
-      `/rest/v1/practice_sets?owner_id=eq.${encodeURIComponent(userId)}&visibility=eq.private&select=id&limit=0`,
-    );
-    await practiceResponse.body?.cancel();
-  });
+  // Practice core data is D1-authoritative and is deliberately not preflighted
+  // against Supabase here.
 };
 
 const preflightD1UserData = async (env: AccountDeleteEnv) => {
@@ -312,58 +305,14 @@ const deleteSourceRows = async (
   });
 };
 
-// This table remains a live source-owned access record.  Its narrowly scoped
-// SECURITY DEFINER function avoids the telemetry-proven PostgREST DELETE
-// transport failure without making an obsolete-cleanup exception.
-const deleteSourcePracticeProAccess = async (env: AccountDeleteEnv, telemetry: DeleteStepTelemetry, userId: string) => {
-  await persistedDeleteStep(env, telemetry, 'source_delete:practice_pro_access', 'source', 'practice_pro_access_cleanup_rpc', async () => {
-    const response = await sourceRequest(env, '/rest/v1/rpc/delete_practice_pro_access_for_account_cleanup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({ p_user_id: userId }),
-    });
-    await response.body?.cancel();
-  });
-};
-
-const patchSourceRows = async (
-  env: AccountDeleteEnv,
-  telemetry: DeleteStepTelemetry,
-  path: string,
-  patch: Record<string, unknown>,
-  step: string,
-) => {
-  await persistedDeleteStep(env, telemetry, step, 'source', 'practice_sets', async () => {
-    const response = await sourceRequest(env, path, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify(patch),
-    });
-    await response.body?.cancel();
-  });
-};
-
 export const cleanupServerSideUserData = async (env: AccountDeleteEnv, userId: string, telemetry: DeleteStepTelemetry) => {
   // Never begin a source delete until every current authoritative source table
   // used by this pipeline has passed a read-only schema check.
-  await preflightServerSideUserData(env, userId);
+  await preflightServerSideUserData(env);
   // Child/owned resources first. Every deletion is exact-owner scoped and strict.
   for (const [table, column] of SOURCE_OWNER_TABLES) await deleteSourceRows(env, telemetry, table, column, userId);
   await deleteSourceRows(env, telemetry, 'notifications', 'receiver_id', userId, 'source_delete:notifications_receiver');
   await deleteSourceRows(env, telemetry, 'notifications', 'actor_id', userId, 'source_delete:notifications_actor');
-  await deleteSourcePracticeProAccess(env, telemetry, userId);
-  // Preserve shared/public authored resources while detaching the deleted identity.
-  {
-    await persistedDeleteStep(env, telemetry, 'source_delete:practice_sets_private', 'source', 'practice_sets', async () => {
-      const response = await sourceRequest(
-        env,
-        `/rest/v1/practice_sets?owner_id=eq.${encodeURIComponent(userId)}&visibility=eq.private`,
-        { method: 'DELETE', headers: { Prefer: 'return=minimal' } },
-      );
-      await response.body?.cancel();
-    });
-  }
-  await patchSourceRows(env, telemetry, `/rest/v1/practice_sets?owner_id=eq.${encodeURIComponent(userId)}`, { owner_id: null }, 'source_patch:practice_sets_owner_detach');
   await deleteSourceRows(env, telemetry, 'profile_private_data', 'user_id', userId);
   await deleteSourceRows(env, telemetry, 'user_roles', 'user_id', userId);
   await deleteSourceRows(env, telemetry, 'profiles', 'id', userId);
@@ -436,6 +385,14 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
     env.DB.prepare('DELETE FROM support_tickets WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM support_attachment_uploads WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM ai_chat_logs WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM practice_attempts WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM practice_pro_access WHERE user_id = ?').bind(userId),
+    // Private sets are owner-only data. Shared/public authored sets survive an
+    // account deletion with ownership detached; the NULL predicate prevents a
+    // no-op cleanup from writing an unchanged row.
+    env.DB.prepare("DELETE FROM practice_sets WHERE owner_id = ? AND visibility = 'private'").bind(userId),
+    env.DB.prepare("UPDATE practice_sets SET owner_id = NULL, updated_at = ? WHERE owner_id = ? AND visibility <> 'private' AND owner_id IS NOT NULL")
+      .bind(now, userId),
     env.DB.prepare('DELETE FROM push_delivery_attempts WHERE subscription_id IN (SELECT id FROM push_subscriptions WHERE user_id = ?)').bind(userId),
     env.DB.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').bind(userId),
     env.DB.prepare('DELETE FROM notification_preferences WHERE user_id = ?').bind(userId),
@@ -457,7 +414,10 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
        (SELECT COUNT(*) FROM support_ticket_messages WHERE sender_id = ?1) +
        (SELECT COUNT(*) FROM support_tickets WHERE user_id = ?1) +
        (SELECT COUNT(*) FROM support_attachment_uploads WHERE user_id = ?1) +
-       (SELECT COUNT(*) FROM ai_chat_logs WHERE user_id = ?1) AS remaining`,
+       (SELECT COUNT(*) FROM ai_chat_logs WHERE user_id = ?1) +
+       (SELECT COUNT(*) FROM practice_attempts WHERE user_id = ?1) +
+       (SELECT COUNT(*) FROM practice_pro_access WHERE user_id = ?1) +
+       (SELECT COUNT(*) FROM practice_sets WHERE owner_id = ?1) AS remaining`,
   ).bind(userId).first<{ remaining: number }>();
   if (!remaining || Number(remaining.remaining) !== 0) throw new AccountDeleteError(500, 'Không thể xác nhận dọn dữ liệu tài khoản.');
   if (env.SUPPORT_ATTACHMENTS_BUCKET) {
@@ -576,7 +536,7 @@ export const handleAccountDelete = async (request: Request, url: URL, env: Accou
 
   if (url.pathname === '/api/private/v1/account-delete/preflight') {
     if (request.method !== 'GET') throw new AccountDeleteError(405, 'Phương thức không được hỗ trợ.');
-    await preflightServerSideUserData(env, identity.userId);
+    await preflightServerSideUserData(env);
     await preflightD1UserData(env);
     return { ready: true };
   }

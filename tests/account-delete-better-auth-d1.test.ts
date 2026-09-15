@@ -77,6 +77,7 @@ test('owner cleanup covers D1 data without deleting shared public courses', () =
     'user_schedule_mutation_receipts', 'user_schedule_rollback_outbox',
     'user_course_requests', 'user_event_participations', 'benchmark_ranking_users',
     'lost_found_items', 'public_lost_found_items', 'support_attachment_uploads', 'user_profile_private', 'user_profiles',
+    'practice_attempts', 'practice_pro_access', 'practice_sets',
   ]) assert.match(worker, new RegExp(`DELETE FROM ${table}`));
   assert.doesNotMatch(worker, /DELETE FROM course_schedules/);
   assert.doesNotMatch(worker, /anonymize_deleted_user_logs/);
@@ -86,11 +87,14 @@ test('owner cleanup covers D1 data without deleting shared public courses', () =
   assert.match(worker, /account_delete_step/);
   assert.match(worker, /source_delete:/);
   assert.match(worker, /source_preflight:/);
-  assert.match(worker, /await readSupportObjectKeys\(env, userId\)/);
+  assert.match(worker, /SELECT file_key FROM support_attachment_uploads WHERE user_id = \?/);
   assert.match(worker, /cleanupServerSideUserData\(env, identity\.userId, telemetry\)[\s\S]*d1_cleanup[\s\S]*auth_teardown/);
   assert.match(worker, /account_delete_step_telemetry/);
   assert.match(worker, /persistedDeleteStep\(env, telemetry, step, 'source', table/);
-  assert.match(worker, /delete_practice_pro_access_for_account_cleanup/);
+  assert.doesNotMatch(worker, /delete_practice_pro_access_for_account_cleanup/);
+  assert.doesNotMatch(worker, /source_delete:practice_sets|source_patch:practice_sets|source_preflight:practice_sets/);
+  assert.match(worker, /DELETE FROM practice_sets WHERE owner_id = \? AND visibility = 'private'/);
+  assert.match(worker, /UPDATE practice_sets SET owner_id = NULL/);
   assert.doesNotMatch(worker, /deleteSourceRows\(env, telemetry, 'user_schedules'/);
 });
 
