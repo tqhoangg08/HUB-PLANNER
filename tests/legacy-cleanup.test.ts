@@ -62,19 +62,31 @@ test('public profile directory reads only enabled D1 profiles', async () => {
   assert.ok(statements.every(({ sql }) => /public_profile_enabled = 1/.test(sql)));
 });
 
-test('donation directory keeps Supabase access server-side and returns only response rows', async () => {
-  const originalFetch = globalThis.fetch;
-  let authorization = '';
-  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-    authorization = new Headers(init?.headers).get('Authorization') || '';
-    return Response.json([{ id: 1, name: 'Fixture', amount: 1 }]);
-  }) as typeof fetch;
-  try {
-    const result = await readPublicDonations({ SUPABASE_URL: 'https://source.example', SUPABASE_ANON_KEY: 'server-key' });
-    assert.equal(result.data.length, 1);
-    assert.equal(authorization, 'Bearer server-key');
-    assert.doesNotMatch(JSON.stringify(result), /server-key/);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+test('donation directory reads only the public D1 donation projection in amount-desc order', async () => {
+  let query = '';
+  let bindings: unknown[] = [];
+  const db = {
+    prepare(sql: string) {
+      query = sql;
+      return {
+        bind(...values: unknown[]) { bindings = values; return this; },
+        async all() {
+          return { results: [{
+            id: 'donation-id', name: 'Fixture', amount: 250000, message: 'Cảm ơn',
+            student_id: '12345678', created_at: '2026-09-15T00:00:00.000Z',
+          }] };
+        },
+      };
+    },
+  } as unknown as D1Database;
+  const result = await readPublicDonations({ DB: db });
+  assert.deepEqual(result.data, [{
+    id: 'donation-id', name: 'Fixture', amount: 250000, message: 'Cảm ơn',
+    student_id: '12345678', created_at: '2026-09-15T00:00:00.000Z',
+  }]);
+  assert.match(query, /FROM protected_submissions/);
+  assert.match(query, /WHERE kind = 'donation'/);
+  assert.match(query, /ORDER BY CAST\(json_extract\(payload_json, '\$\.amount'\) AS INTEGER\) DESC/);
+  assert.deepEqual(bindings, [500]);
+  assert.doesNotMatch(query, /\buser_id\b|\bcontact_key\b|\bsource_table\b|\bsource_id\b|AS\s+payload_json\b/i);
 });

@@ -1,7 +1,5 @@
 export interface PublicDirectoryEnv {
   DB?: D1Database;
-  SUPABASE_URL?: string;
-  SUPABASE_ANON_KEY?: string;
 }
 
 export class PublicDirectoryError extends Error {
@@ -70,20 +68,20 @@ export const readPublicProfile = async (studentCode: string, env: PublicDirector
 };
 
 export const readPublicDonations = async (env: PublicDirectoryEnv) => {
-  const baseUrl = String(env.SUPABASE_URL || '').replace(/\/$/, '');
-  const key = String(env.SUPABASE_ANON_KEY || '');
-  if (!baseUrl || !key) throw new PublicDirectoryError(503, 'Dịch vụ danh sách ủng hộ tạm thời chưa sẵn sàng.');
-
-  const url = new URL('/rest/v1/donations', baseUrl);
-  url.searchParams.set('select', 'id,name,amount,message,student_id,created_at');
-  url.searchParams.set('order', 'amount.desc');
-  url.searchParams.set('limit', String(MAX_DONATION_RESULTS));
-  const response = await fetch(url, {
-    headers: { Accept: 'application/json', apikey: key, Authorization: `Bearer ${key}` },
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!response.ok) throw new PublicDirectoryError(502, 'Không thể tải danh sách ủng hộ.');
-  return { data: await response.json() as Record<string, unknown>[] };
+  // Donations are the intentionally-public subset of the Phase 4D protected
+  // submission payload.  The projection never exposes submission ownership,
+  // contact keys, source records, or other moderation metadata.
+  const result = await requireDb(env).prepare(`SELECT id,
+    json_extract(payload_json, '$.name') AS name,
+    CAST(json_extract(payload_json, '$.amount') AS INTEGER) AS amount,
+    json_extract(payload_json, '$.message') AS message,
+    json_extract(payload_json, '$.student_id') AS student_id,
+    created_at
+    FROM protected_submissions
+    WHERE kind = 'donation'
+    ORDER BY CAST(json_extract(payload_json, '$.amount') AS INTEGER) DESC, created_at DESC, id DESC
+    LIMIT ?`).bind(MAX_DONATION_RESULTS).all<Record<string, unknown>>();
+  return { data: result.results || [] };
 };
 
 export const publicDirectoryErrorStatus = (error: unknown) =>
