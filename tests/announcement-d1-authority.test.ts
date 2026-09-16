@@ -9,6 +9,8 @@ function fixture() {
   const sql = new DatabaseSync(':memory:');
   sql.exec(readFileSync('cloudflare/migrations/0001_create_school_announcements.sql','utf8'));
   sql.exec('ALTER TABLE sync_metadata ADD COLUMN visible_row_count INTEGER; ALTER TABLE sync_metadata ADD COLUMN source_cursor TEXT;');
+  sql.exec(`CREATE TABLE school_announcement_push_queue (id INTEGER PRIMARY KEY, announcement_id INTEGER UNIQUE, title TEXT, link TEXT, scheduled_at TEXT, sent_at TEXT, failed_at TEXT, attempts INTEGER DEFAULT 0, sent_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, last_error TEXT);
+    CREATE TABLE lost_found_push_queue (id INTEGER PRIMARY KEY, lost_found_item_id INTEGER UNIQUE, title TEXT, body TEXT, url TEXT, scheduled_at TEXT, sent_at TEXT, failed_at TEXT, attempts INTEGER DEFAULT 0, sent_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, last_error TEXT);`);
   sql.exec("INSERT INTO school_announcements VALUES(900,'Hidden original','hidden original','https://example.invalid/hidden','2026-08-01',0,'2026-08-01T00:00:00Z',1)");
   sql.exec(readFileSync('cloudflare/migrations/0025_announcement_d1_authority.sql','utf8'));
   const DB = {prepare(query: string) {

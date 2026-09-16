@@ -57,7 +57,25 @@
     "PROFILE_D1_SHADOW_INTERNAL_ENABLED": "true"
   },
   "triggers": {
-    "crons": ["*/15 * * * *", "7-59/15 * * * *", "*/10 * * * *", "37 19 * * *"]
+    "crons": ["*/15 * * * *", "7 * * * *", "*/10 * * * *", "37 19 * * *"]
+  },
+  "queues": {
+    "producers": [
+      {
+        "binding": "PUSH_EVENTS_QUEUE",
+        "queue": "hub-planner-push-events"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "hub-planner-push-events",
+        "max_batch_size": 10,
+        "max_batch_timeout": 1,
+        "max_retries": 3,
+        "dead_letter_queue": "hub-planner-push-events-dlq",
+        "max_concurrency": 2
+      }
+    ]
   },
   "workflows": [
     {

@@ -4,8 +4,9 @@ import {
   type BetterAuthIdentity,
   type BetterAuthIdentityEnv,
 } from './better-auth-identity.ts';
+import { enqueueLostFoundPush, type NotificationCronEnv } from './notification-cron.ts';
 
-export interface LostFoundEnv extends BetterAuthIdentityEnv {
+export interface LostFoundEnv extends BetterAuthIdentityEnv, Pick<NotificationCronEnv, 'PUSH_EVENTS_QUEUE'> {
   DB: D1Database;
   SUPPORT_ATTACHMENTS_BUCKET?: R2Bucket;
   TURNSTILE_SECRET_KEY?: string;
@@ -149,11 +150,17 @@ export const handleAdminLostFound = async (request: Request, url: URL, env: Lost
   if (next.is_deleted !== 0) { next.image_url = null; next.image_key = null; }
   const imageKeyToDelete = oldImageKey && oldImageKey !== next.image_key ? oldImageKey : null;
   const removeProjection = next.is_deleted !== 0 || !['approved','resolved'].includes(next.status);
+  const becameApproved = existing.status !== 'approved' && next.status === 'approved' && next.is_deleted === 0;
   await env.DB.batch([
     env.DB.prepare('UPDATE lost_found_items SET updated_at=?,title=?,description=?,location=?,contact_info=?,user_name=?,image_url=?,image_key=?,status=?,is_deleted=?,title_search=?,location_search=?,description_search=? WHERE id=?').bind(next.updated_at,next.title,next.description,next.location,next.contact_info,next.user_name,next.image_url,next.image_key,next.status,next.is_deleted,normalizeLostFoundSearch(next.title),normalizeLostFoundSearch(next.location),normalizeLostFoundSearch(next.description),id),
     removeProjection ? env.DB.prepare('DELETE FROM public_lost_found_items WHERE id=?').bind(id) : projectionUpsert(env,id),
     removeProjection ? env.DB.prepare('DELETE FROM lost_found_push_queue WHERE lost_found_item_id=? AND sent_at IS NULL').bind(id) : env.DB.prepare('SELECT 1'),
   ]);
+  if (becameApproved) {
+    await enqueueLostFoundPush(env, {
+      id, title: next.title, type: next.type, userName: next.user_name, location: next.location,
+    });
+  }
   await deleteImage(env, imageKeyToDelete);
   return { success: true };
 };

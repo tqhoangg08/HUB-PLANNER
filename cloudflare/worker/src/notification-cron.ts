@@ -1,8 +1,14 @@
 import { deliverPushBatch, type PushDeliveryEnv, type PushPayload } from './push-delivery.ts';
 
+export type PushEventType = 'school' | 'lost_found';
+export type PushEventMessage = { v: 1; type: PushEventType; sourceId: string | number };
+
 export interface NotificationCronEnv extends PushDeliveryEnv {
   NOTIFICATION_REENABLE_CUTOFF?: string;
   NOTIFICATION_JOBS_ENABLED?: string;
+  // The Queue is optional only during infrastructure rollout. A durable D1
+  // outbox entry must survive even if its wake-up signal cannot be sent.
+  PUSH_EVENTS_QUEUE?: Queue<PushEventMessage>;
 }
 
 export class NotificationCronError extends Error {
@@ -11,78 +17,103 @@ export class NotificationCronError extends Error {
 }
 
 type QueueAction = 'status' | 'suppress_backlog' | 'dry_run' | 'process';
-const TWO_HOURS = 2 * 60 * 60 * 1000;
-
-const cutoff = (env: NotificationCronEnv) => {
-  const value = String(env.NOTIFICATION_REENABLE_CUTOFF || '');
-  if (!Number.isFinite(Date.parse(value))) throw new NotificationCronError(503, 'Notification cutoff is unavailable.');
-  return new Date(Math.max(Date.parse(value), Date.now() - TWO_HOURS)).toISOString();
-};
-
-const enqueueRecent = async (env: NotificationCronEnv) => {
-  const recent = cutoff(env);
-  const now = Date.now();
-  const announcements = await env.DB.prepare(
-    `INSERT OR IGNORE INTO school_announcement_push_queue
-       (announcement_id, title, link, scheduled_at)
-     SELECT id, title, link,
-            strftime('%Y-%m-%dT%H:%M:%fZ', ?, '+' || ((ROW_NUMBER() OVER (ORDER BY created_at, id) - 1) * 10) || ' minutes')
-       FROM school_announcements
-      WHERE COALESCE(is_hidden, 0) = 0 AND is_new = 1 AND created_at >= ?
-      ORDER BY created_at, id LIMIT 20`,
-  ).bind(new Date(now).toISOString(), recent).run();
-  const lostFound = await env.DB.prepare(
-    `INSERT OR IGNORE INTO lost_found_push_queue
-       (lost_found_item_id, title, body, url, scheduled_at)
-     SELECT id,
-            CASE WHEN UPPER(type) = 'FOUND' THEN 'Có đồ vừa được nhặt' ELSE 'Có bạn vừa báo mất đồ' END,
-            COALESCE(NULLIF(TRIM(user_name), ''), 'Một bạn HUB') ||
-              CASE WHEN UPPER(type) = 'FOUND' THEN ' vừa nhặt được ' ELSE ' vừa làm mất ' END ||
-              COALESCE(NULLIF(TRIM(title), ''), 'một món đồ') || ' ở ' ||
-              COALESCE(NULLIF(TRIM(location), ''), 'khu vực HUB') || '.',
-            '/lost-found',
-            strftime('%Y-%m-%dT%H:%M:%fZ', ?, '+' || ((ROW_NUMBER() OVER (ORDER BY created_at, id) - 1) * 10) || ' minutes')
-       FROM public_lost_found_items
-      WHERE LOWER(COALESCE(status, '')) = 'approved'
-        AND COALESCE(is_deleted, 0) = 0 AND created_at >= ?
-      ORDER BY created_at, id LIMIT 20`,
-  ).bind(new Date(now).toISOString(), recent).run();
-  return { announcements: Number(announcements.meta?.changes || 0), lostFound: Number(lostFound.meta?.changes || 0) };
-};
-
+type OutboxTable = 'school_announcement_push_queue' | 'lost_found_push_queue';
+type SourceColumn = 'announcement_id' | 'lost_found_item_id';
 type QueueRow = { id: number; source_id: string | number; title: string; body?: string; url: string };
+export type OutboxProcessResult = {
+  success: boolean; queued: number; sent: number; state: 'idle' | 'claimed' | 'sent' | 'pending';
+  hasMore?: boolean; retryAt?: string | null;
+};
+
+const tableFor = (type: PushEventType): { table: OutboxTable; sourceColumn: SourceColumn; category: PushEventType } =>
+  type === 'school'
+    ? { table: 'school_announcement_push_queue', sourceColumn: 'announcement_id', category: 'school' }
+    : { table: 'lost_found_push_queue', sourceColumn: 'lost_found_item_id', category: 'lost_found' };
+
+const signal = async (env: NotificationCronEnv, message: PushEventMessage) => {
+  if (!env.PUSH_EVENTS_QUEUE) return false;
+  try {
+    await env.PUSH_EVENTS_QUEUE.send(message);
+    return true;
+  } catch {
+    // Never roll back source content/outbox if Queue transport is unavailable.
+    console.warn('push_event_signal_failed', { type: message.type });
+    return false;
+  }
+};
+
+export const enqueueSchoolAnnouncementPush = async (
+  env: NotificationCronEnv,
+  announcement: { id: string | number; title: string; link: string | null },
+) => {
+  const inserted = await env.DB.prepare(
+    `INSERT OR IGNORE INTO school_announcement_push_queue
+       (announcement_id, title, link, scheduled_at) VALUES (?, ?, ?, ?)`,
+  ).bind(announcement.id, announcement.title, announcement.link, new Date().toISOString()).run();
+  const created = Number(inserted.meta?.changes || 0) === 1;
+  return { inserted: created, signaled: created ? await signal(env, { v: 1, type: 'school', sourceId: announcement.id }) : false };
+};
+
+export const lostFoundPushPayload = (item: { id: string | number; title: string; type: string; userName: string | null; location: string | null }) => ({
+  id: item.id,
+  title: String(item.type).toUpperCase() === 'FOUND' ? 'Có đồ vừa được nhặt' : 'Có bạn vừa báo mất đồ',
+  body: `${String(item.userName || '').trim() || 'Một bạn HUB'}${String(item.type).toUpperCase() === 'FOUND' ? ' vừa nhặt được ' : ' vừa làm mất '}${String(item.title || '').trim() || 'một món đồ'} ở ${String(item.location || '').trim() || 'khu vực HUB'}.`,
+  url: '/lost-found',
+});
+
+export const enqueueLostFoundPush = async (
+  env: NotificationCronEnv,
+  item: { id: string | number; title: string; type: string; userName: string | null; location: string | null },
+) => {
+  const payload = lostFoundPushPayload(item);
+  const inserted = await env.DB.prepare(
+    `INSERT OR IGNORE INTO lost_found_push_queue
+       (lost_found_item_id, title, body, url, scheduled_at) VALUES (?, ?, ?, ?, ?)`,
+  ).bind(payload.id, payload.title, payload.body, payload.url, new Date().toISOString()).run();
+  const created = Number(inserted.meta?.changes || 0) === 1;
+  return { inserted: created, signaled: created ? await signal(env, { v: 1, type: 'lost_found', sourceId: item.id }) : false };
+};
+
 const CLAIM_LEASE_MS = 14 * 60_000;
 
-const processQueue = async (
-  env: NotificationCronEnv,
-  table: 'school_announcement_push_queue' | 'lost_found_push_queue',
-  sourceColumn: 'announcement_id' | 'lost_found_item_id',
-  category: 'school' | 'lost_found',
-) => {
+const findDueRow = async (env: NotificationCronEnv, type: PushEventType, sourceId?: string | number) => {
+  const { table, sourceColumn } = tableFor(type);
   const bodyExpression = table === 'school_announcement_push_queue' ? 'title AS body' : 'body';
   const now = new Date().toISOString();
-  const row = await env.DB.prepare(
+  const exact = sourceId === undefined ? '' : ` AND ${sourceColumn} = ?`;
+  const bindings: Array<string | number> = [now, now, now];
+  if (sourceId !== undefined) bindings.push(sourceId);
+  return env.DB.prepare(
     `SELECT id, ${sourceColumn} AS source_id, title, ${bodyExpression},
             ${table === 'school_announcement_push_queue' ? "COALESCE(link, '/announcements')" : 'url'} AS url
        FROM ${table}
       WHERE sent_at IS NULL AND failed_at IS NULL AND scheduled_at <= ?
         AND (next_retry_at IS NULL OR next_retry_at <= ?)
-        AND (lease_expires_at IS NULL OR lease_expires_at <= ?)
+        AND (lease_expires_at IS NULL OR lease_expires_at <= ?)${exact}
       ORDER BY scheduled_at, id LIMIT 1`,
-  ).bind(now, now, now).first<QueueRow>();
+  ).bind(...bindings).first<QueueRow>();
+};
+
+export const processNotificationOutboxItem = async (
+  env: NotificationCronEnv,
+  type: PushEventType,
+  sourceId?: string | number,
+): Promise<OutboxProcessResult> => {
+  const { table, sourceColumn, category } = tableFor(type);
+  const row = await findDueRow(env, type, sourceId);
   if (!row) return { success: true, queued: 0, sent: 0, state: 'idle' };
+  const now = new Date().toISOString();
   const leaseExpiresAt = new Date(Date.now() + CLAIM_LEASE_MS).toISOString();
-  // The conditional update is the queue's atomic lease. Two scheduled
-  // invocations may observe the same due row, but only one can deliver it.
+  // Shared atomic lease: fallback cron and duplicate Queue messages race
+  // safely, with exactly one winner allowed to deliver this outbox item.
   const claimed = await env.DB.prepare(
     `UPDATE ${table} SET lease_expires_at = ?
-      WHERE id = ? AND sent_at IS NULL AND failed_at IS NULL
+      WHERE id = ? AND ${sourceColumn} = ? AND sent_at IS NULL AND failed_at IS NULL
         AND (next_retry_at IS NULL OR next_retry_at <= ?)
         AND (lease_expires_at IS NULL OR lease_expires_at <= ?)`,
-  ).bind(leaseExpiresAt, row.id, now, now).run();
-  if (Number(claimed.meta?.changes || 0) !== 1) {
-    return { success: true, queued: 0, sent: 0, state: 'claimed' };
-  }
+  ).bind(leaseExpiresAt, row.id, row.source_id, now, now).run();
+  if (Number(claimed.meta?.changes || 0) !== 1) return { success: true, queued: 0, sent: 0, state: 'claimed' };
+
   const payload: PushPayload = {
     title: category === 'school' ? 'Thông báo mới từ HUB Planner' : row.title,
     body: String(row.body || row.title).slice(0, 240), url: row.url, category,
@@ -104,7 +135,10 @@ const processQueue = async (
     result.sent, result.failed, result.skipped, result.retryAt, completed ? 1 : 0,
     new Date().toISOString(), result.retryAt, result.retryAt, row.id,
   ).run();
-  return { success: completed || result.sent > 0, queued: 1, ...result, state: completed ? 'sent' : 'pending' };
+  return {
+    success: completed || result.sent > 0, queued: 1, sent: result.sent,
+    state: completed ? 'sent' : 'pending', hasMore: result.hasMore, retryAt: result.retryAt,
+  };
 };
 
 const status = async (env: NotificationCronEnv) => {
@@ -126,16 +160,17 @@ export const runNotificationQueueControl = async (env: NotificationCronEnv, acti
         SELECT id, title, link, ?, ?, 'PRE_CUTOVER_SUPPRESSED' FROM school_announcements WHERE created_at < ?`).bind(now, now, cutoffIso),
       env.DB.prepare(`INSERT OR IGNORE INTO lost_found_push_queue
         (lost_found_item_id, title, body, url, scheduled_at, sent_at, last_error)
-        SELECT id, 'Thông báo tìm đồ', 'Thông báo lịch sử đã được bỏ qua.', '/lost-found', ?, ?, 'PRE_CUTOVER_SUPPRESSED'
+        SELECT id, 'Thông báo tìm đồ', 'Thông báo lịch sử đã được bỏ qua.', '/lost-found', ?, ?, 'PRE_CUTOVER_SUPP'
         FROM public_lost_found_items WHERE created_at < ?`).bind(now, now, cutoffIso),
     ]);
     return { ...(await status(env)), suppressed: true };
   }
-  const queued = await enqueueRecent(env);
-  if (action === 'dry_run') return { success: true, queued, ...(await status(env)) };
+  if (action === 'dry_run') return { ...(await status(env)), recovery: true };
+  // New content owns enqueue + Queue signal. The cron only recovers pending
+  // outbox records and makes no D1 write on an empty/no-op invocation.
   const [announcements, lostFound] = await Promise.all([
-    processQueue(env, 'school_announcement_push_queue', 'announcement_id', 'school'),
-    processQueue(env, 'lost_found_push_queue', 'lost_found_item_id', 'lost_found'),
+    processNotificationOutboxItem(env, 'school'),
+    processNotificationOutboxItem(env, 'lost_found'),
   ]);
-  return { success: announcements.success && lostFound.success, queued, announcements, lostFound };
+  return { success: announcements.success && lostFound.success, announcements, lostFound, recovery: true };
 };

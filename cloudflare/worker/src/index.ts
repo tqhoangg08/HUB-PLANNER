@@ -165,7 +165,11 @@ import {
   type AccountPasswordCompatEnv,
 } from './account-password-compat.ts';
 import { handleWebErrorTelemetry } from './web-error-telemetry.ts';
-import { runNotificationQueueControl } from './notification-cron.ts';
+import {
+  processNotificationOutboxItem,
+  runNotificationQueueControl,
+  type PushEventMessage,
+} from './notification-cron.ts';
 import { runEventPush, type EventPushEnv } from './event-push.ts';
 import { ANNOUNCEMENT_SOURCES, crawlAnnouncementSources } from './announcement-crawler.ts';
 import { handlePdfAi, PdfAiError, pdfAiErrorStatus, type PdfAiEnv } from './pdf-ai.ts';
@@ -218,6 +222,7 @@ type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeE
   NOTIFICATION_REENABLE_CUTOFF?: string;
   EVENT_PUSH_CUTOFF?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
+  PUSH_EVENTS_QUEUE?: Queue<PushEventMessage>;
 };
 
 interface AnnouncementRow {
@@ -237,6 +242,16 @@ export interface AnnouncementQuery {
   startDate: string;
   endDate: string;
 }
+
+const isPushEventMessage = (value: unknown): value is PushEventMessage => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const message = value as Record<string, unknown>;
+  const sourceId = message.sourceId;
+  const validSourceId = (typeof sourceId === 'number' && Number.isSafeInteger(sourceId) && sourceId > 0) ||
+    (typeof sourceId === 'string' && /^\d{1,20}$/.test(sourceId));
+  return message.v === 1 && (message.type === 'school' || message.type === 'lost_found') &&
+    validSourceId;
+};
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'http://localhost:3000',
@@ -2262,6 +2277,33 @@ const worker = {
     }
   },
 
+  async queue(batch: MessageBatch<PushEventMessage>, env: WorkerEnv) {
+    for (const message of batch.messages) {
+      const body = message.body;
+      if (!isPushEventMessage(body)) { message.ack(); continue; }
+      try {
+        const result = await processNotificationOutboxItem(env, body.type, body.sourceId);
+        if (result.state === 'pending') {
+          // Retain D1 retry state and also let Queues wake the exact item at
+          // its bounded retry time. An exhausted Queue message remains safely
+          // recoverable by the hourly outbox scan.
+          const delaySeconds = result.retryAt
+            ? Math.max(1, Math.min(900, Math.ceil((Date.parse(result.retryAt) - Date.now()) / 1000)))
+            : 1;
+          message.retry({ delaySeconds });
+        } else {
+          // Missing, terminal, invalid, or already leased items are safe to
+          // acknowledge; the D1 state is the sole delivery authority.
+          message.ack();
+        }
+      } catch {
+        // A transient Worker/D1 failure should use Queue retry, never create a
+        // second outbox row or expose message details in logs.
+        message.retry();
+      }
+    }
+  },
+
   async scheduled(
     controller: ScheduledController,
     env: WorkerEnv,
@@ -2270,7 +2312,7 @@ const worker = {
     const hourlyCron = controller.cron === '17 * * * *';
     const notificationControlCron = controller.cron === '* * * * *';
     const announcementCron = controller.cron === '*/15 * * * *';
-    const pushQueueCron = controller.cron === '7-59/15 * * * *';
+    const pushQueueCron = controller.cron === '7 * * * *';
     const eventCron = controller.cron === '*/10 * * * *';
     const adminEventCron = controller.cron === '37 19 * * *';
     const runAll =

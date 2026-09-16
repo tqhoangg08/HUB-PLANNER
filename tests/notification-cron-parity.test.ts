@@ -26,7 +26,11 @@ const createDb = async () => {
 
 test('Cloudflare scheduled handler preserves crawler and push cadence', () => {
   const config = JSON.parse(readFileSync('cloudflare/wrangler.jsonc', 'utf8'));
-  assert.deepEqual(config.triggers.crons.sort(), ['*/15 * * * *', '7-59/15 * * * *', '*/10 * * * *', '37 19 * * *'].sort());
+  assert.deepEqual(config.triggers.crons.sort(), ['*/15 * * * *', '7 * * * *', '*/10 * * * *', '37 19 * * *'].sort());
+  assert.deepEqual(config.queues, {
+    producers: [{ binding: 'PUSH_EVENTS_QUEUE', queue: 'hub-planner-push-events' }],
+    consumers: [{ queue: 'hub-planner-push-events', max_batch_size: 10, max_batch_timeout: 1, max_retries: 3, dead_letter_queue: 'hub-planner-push-events-dlq', max_concurrency: 2 }],
+  });
   assert.equal(config.workflows.find((item: { binding: string }) => item.binding === 'ANNOUNCEMENT_CRAWLER_WORKFLOW')?.class_name, 'AnnouncementCrawlerWorkflow');
   for (const key of Object.keys(configEnv)) assert.equal(config.vars[key], configEnv[key as keyof typeof configEnv]);
 });
@@ -49,7 +53,7 @@ test('scheduled push dispatches only when enabled', async () => {
   try {
     for (const enabled of ['true', 'false']) {
       const pending: Promise<unknown>[] = [];
-      await worker.scheduled({ cron: '7-59/15 * * * *', scheduledTime: 0 } as never,
+      await worker.scheduled({ cron: '7 * * * *', scheduledTime: 0 } as never,
         { DB: db, ...configEnv, NOTIFICATION_JOBS_ENABLED: enabled } as never,
         { waitUntil: (promise: Promise<unknown>) => pending.push(promise) } as never);
       await Promise.all(pending);

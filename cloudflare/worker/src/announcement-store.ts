@@ -1,7 +1,8 @@
 import type { crawlAnnouncementSources } from './announcement-crawler.ts';
+import { enqueueSchoolAnnouncementPush, type NotificationCronEnv } from './notification-cron.ts';
 
 type CrawlResult = Awaited<ReturnType<typeof crawlAnnouncementSources>>;
-export interface AnnouncementStoreEnv { DB: D1Database; }
+export interface AnnouncementStoreEnv extends Pick<NotificationCronEnv, 'DB' | 'PUSH_EVENTS_QUEUE'> { }
 
 export const syncCrawledSchoolAnnouncements = async (
   env: AnnouncementStoreEnv, crawl: CrawlResult,
@@ -32,7 +33,16 @@ export const syncCrawledSchoolAnnouncements = async (
         AND NOT EXISTS (SELECT 1 FROM school_announcements WHERE title_search=?)
       ON CONFLICT(link) DO NOTHING`)
       .bind(item.title, titleSearch, item.link, item.date, isNew ? 1 : 0, now, now, item.link, titleSearch).run();
-    inserted += Number(result.meta?.changes || 0);
+    const created = Number(result.meta?.changes || 0) === 1;
+    inserted += created ? 1 : 0;
+    if (created && isNew) {
+      // The content row is committed before we create/signal its durable
+      // outbox record. Queue transport failure intentionally leaves that
+      // record for the hourly recovery cron.
+      const row = await env.DB.prepare('SELECT id, title, link FROM school_announcements WHERE link = ?')
+        .bind(item.link).first<{ id: number; title: string; link: string | null }>();
+      if (row) await enqueueSchoolAnnouncementPush(env, row);
+    }
   }
   const newest = await env.DB.prepare('SELECT date FROM school_announcements ORDER BY date DESC LIMIT 1')
     .first<{date: string}>();

@@ -7,6 +7,7 @@ interface __BaseEnv_Env {
 	DB: D1Database;
 	AUTH_INGRESS_IP_RATE_LIMIT: RateLimit;
 	ASSETS: Fetcher;
+	PUSH_EVENTS_QUEUE: Queue;
 	ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:5173,https://hotrosinhvienhub.id.vn,https://hub-planner-public-dev-api.tqhoangg2.workers.dev";
 	EVENT_CANDIDATE_EXTENSION_ORIGINS: "chrome-extension://bakbfjmgpjcmpicoehjadpakiogjikaa";
 	SUPABASE_URL: "https://udrlnbmctcxtmxrncmsb.supabase.co";
