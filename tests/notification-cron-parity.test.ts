@@ -6,7 +6,10 @@ import worker from '../cloudflare/worker/src/index.ts';
 import { runNotificationQueueControl } from '../cloudflare/worker/src/notification-cron.ts';
 import { ANNOUNCEMENT_SOURCES } from '../cloudflare/worker/src/announcement-crawler.ts';
 
-const configEnv = { NOTIFICATION_REENABLE_CUTOFF: '2026-08-31T11:23:39Z', NOTIFICATION_JOBS_ENABLED: 'true', NOTIFICATION_JOBS_MODE: 'enabled' };
+const configEnv = {
+  NOTIFICATION_REENABLE_CUTOFF: '2026-08-31T11:23:39Z', NOTIFICATION_JOBS_ENABLED: 'true', NOTIFICATION_JOBS_MODE: 'enabled',
+  EVENT_PUSH_CUTOFF: '2026-09-09T14:30:00Z', SCHEDULE_PUSH_CUTOFF: '2026-09-16T00:00:00Z',
+};
 const createDb = async () => {
   const mf = new Miniflare({ modules: true, script: 'export default {fetch(){return new Response("ok")}}',
     compatibilityDate: '2026-07-29', d1Databases: ['DB'] });
@@ -20,13 +23,20 @@ const createDb = async () => {
     CREATE TABLE push_subscriptions (id TEXT PRIMARY KEY, user_id TEXT, endpoint TEXT, p256dh TEXT, auth TEXT);
     CREATE TABLE notification_preferences (user_id TEXT PRIMARY KEY, system INTEGER, events INTEGER, lost_found INTEGER, schedule INTEGER, school INTEGER);
     CREATE TABLE push_delivery_attempts (source_type TEXT, source_id TEXT, subscription_id TEXT, state TEXT, attempts INTEGER, last_status INTEGER,
-    updated_at TEXT, next_retry_at TEXT, PRIMARY KEY(source_type, source_id, subscription_id));`.replace(/\s+/g, ' '));
+    updated_at TEXT, next_retry_at TEXT, PRIMARY KEY(source_type, source_id, subscription_id));
+    CREATE TABLE public_events (id INTEGER PRIMARY KEY, title TEXT, status TEXT, is_deleted INTEGER, created_at TEXT);
+    CREATE TABLE event_push_deliveries (event_id INTEGER PRIMARY KEY, event_created_at TEXT, state TEXT, attempted_at TEXT, sent_at TEXT,
+      attempts INTEGER, last_error TEXT, last_subscription_id TEXT, sent_count INTEGER DEFAULT 0, failed_count INTEGER DEFAULT 0,
+      skipped_count INTEGER DEFAULT 0, lease_expires_at TEXT, next_retry_at TEXT);
+    CREATE TABLE course_mutation_outbox (id TEXT PRIMARY KEY, event_type TEXT, request_id TEXT, user_id TEXT, status TEXT, attempts INTEGER,
+      created_at TEXT, lease_expires_at TEXT, next_retry_at TEXT, last_error TEXT, delivered_at TEXT);
+    CREATE TABLE user_course_requests (id TEXT PRIMARY KEY, course_code TEXT, subject_name TEXT);`.replace(/\s+/g, ' '));
   return { mf, db };
 };
 
 test('Cloudflare scheduled handler preserves crawler and push cadence', () => {
   const config = JSON.parse(readFileSync('cloudflare/wrangler.jsonc', 'utf8'));
-  assert.deepEqual(config.triggers.crons.sort(), ['*/15 * * * *', '7 * * * *', '*/10 * * * *', '37 19 * * *'].sort());
+  assert.deepEqual(config.triggers.crons.sort(), ['*/15 * * * *', '7 * * * *', '37 19 * * *'].sort());
   assert.deepEqual(config.queues, {
     producers: [{ binding: 'PUSH_EVENTS_QUEUE', queue: 'hub-planner-push-events' }],
     consumers: [{ queue: 'hub-planner-push-events', max_batch_size: 10, max_batch_timeout: 1, max_retries: 3, dead_letter_queue: 'hub-planner-push-events-dlq', max_concurrency: 2 }],

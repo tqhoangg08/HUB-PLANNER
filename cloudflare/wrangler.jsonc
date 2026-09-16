@@ -48,6 +48,7 @@
     "NOTIFICATION_JOBS_MODE": "enabled",
     "NOTIFICATION_REENABLE_CUTOFF": "2026-08-31T11:23:39Z",
     "EVENT_PUSH_CUTOFF": "2026-09-09T14:30:00Z",
+    "SCHEDULE_PUSH_CUTOFF": "2026-09-16T00:00:00Z",
     "COURSE_SUPABASE_TO_D1_SYNC_ENABLED": "false",
     "PROFILE_READ_AUTHORITY": "d1",
     "PROFILE_WRITE_AUTHORITY": "d1",
@@ -57,7 +58,7 @@
     "PROFILE_D1_SHADOW_INTERNAL_ENABLED": "true"
   },
   "triggers": {
-    "crons": ["*/15 * * * *", "7 * * * *", "*/10 * * * *", "37 19 * * *"]
+    "crons": ["*/15 * * * *", "7 * * * *", "37 19 * * *"]
   },
   "queues": {
     "producers": [

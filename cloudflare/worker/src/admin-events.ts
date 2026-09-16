@@ -1,7 +1,10 @@
 import { normalizeEventSearch, parseEventIds } from './events.ts';
+import type { PushEventMessage } from './push-events.ts';
 
 export interface AdminEventsEnv {
   DB: D1Database;
+  EVENT_PUSH_CUTOFF?: string;
+  PUSH_EVENTS_QUEUE?: Queue<PushEventMessage>;
 }
 
 export interface CoreAdminEventRow {

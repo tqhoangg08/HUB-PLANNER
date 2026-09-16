@@ -1,14 +1,11 @@
 import { deliverPushBatch, type PushDeliveryEnv, type PushPayload } from './push-delivery.ts';
+import { publishPushEvent, type PushEventMessage, type PushEventQueueEnv, type PushEventType } from './push-events.ts';
 
-export type PushEventType = 'school' | 'lost_found';
-export type PushEventMessage = { v: 1; type: PushEventType; sourceId: string | number };
+export type { PushEventMessage, PushEventType } from './push-events.ts';
 
-export interface NotificationCronEnv extends PushDeliveryEnv {
+export interface NotificationCronEnv extends PushDeliveryEnv, PushEventQueueEnv {
   NOTIFICATION_REENABLE_CUTOFF?: string;
   NOTIFICATION_JOBS_ENABLED?: string;
-  // The Queue is optional only during infrastructure rollout. A durable D1
-  // outbox entry must survive even if its wake-up signal cannot be sent.
-  PUSH_EVENTS_QUEUE?: Queue<PushEventMessage>;
 }
 
 export class NotificationCronError extends Error {
@@ -25,22 +22,10 @@ export type OutboxProcessResult = {
   hasMore?: boolean; retryAt?: string | null;
 };
 
-const tableFor = (type: PushEventType): { table: OutboxTable; sourceColumn: SourceColumn; category: PushEventType } =>
+const tableFor = (type: Extract<PushEventType, 'school' | 'lost_found'>): { table: OutboxTable; sourceColumn: SourceColumn; category: Extract<PushEventType, 'school' | 'lost_found'> } =>
   type === 'school'
     ? { table: 'school_announcement_push_queue', sourceColumn: 'announcement_id', category: 'school' }
     : { table: 'lost_found_push_queue', sourceColumn: 'lost_found_item_id', category: 'lost_found' };
-
-const signal = async (env: NotificationCronEnv, message: PushEventMessage) => {
-  if (!env.PUSH_EVENTS_QUEUE) return false;
-  try {
-    await env.PUSH_EVENTS_QUEUE.send(message);
-    return true;
-  } catch {
-    // Never roll back source content/outbox if Queue transport is unavailable.
-    console.warn('push_event_signal_failed', { type: message.type });
-    return false;
-  }
-};
 
 export const enqueueSchoolAnnouncementPush = async (
   env: NotificationCronEnv,
@@ -51,7 +36,7 @@ export const enqueueSchoolAnnouncementPush = async (
        (announcement_id, title, link, scheduled_at) VALUES (?, ?, ?, ?)`,
   ).bind(announcement.id, announcement.title, announcement.link, new Date().toISOString()).run();
   const created = Number(inserted.meta?.changes || 0) === 1;
-  return { inserted: created, signaled: created ? await signal(env, { v: 1, type: 'school', sourceId: announcement.id }) : false };
+  return { inserted: created, signaled: created ? await publishPushEvent(env, { v: 1, type: 'school', sourceId: announcement.id }) : false };
 };
 
 export const lostFoundPushPayload = (item: { id: string | number; title: string; type: string; userName: string | null; location: string | null }) => ({
@@ -71,12 +56,12 @@ export const enqueueLostFoundPush = async (
        (lost_found_item_id, title, body, url, scheduled_at) VALUES (?, ?, ?, ?, ?)`,
   ).bind(payload.id, payload.title, payload.body, payload.url, new Date().toISOString()).run();
   const created = Number(inserted.meta?.changes || 0) === 1;
-  return { inserted: created, signaled: created ? await signal(env, { v: 1, type: 'lost_found', sourceId: item.id }) : false };
+  return { inserted: created, signaled: created ? await publishPushEvent(env, { v: 1, type: 'lost_found', sourceId: item.id }) : false };
 };
 
 const CLAIM_LEASE_MS = 14 * 60_000;
 
-const findDueRow = async (env: NotificationCronEnv, type: PushEventType, sourceId?: string | number) => {
+const findDueRow = async (env: NotificationCronEnv, type: Extract<PushEventType, 'school' | 'lost_found'>, sourceId?: string | number) => {
   const { table, sourceColumn } = tableFor(type);
   const bodyExpression = table === 'school_announcement_push_queue' ? 'title AS body' : 'body';
   const now = new Date().toISOString();
@@ -96,7 +81,7 @@ const findDueRow = async (env: NotificationCronEnv, type: PushEventType, sourceI
 
 export const processNotificationOutboxItem = async (
   env: NotificationCronEnv,
-  type: PushEventType,
+  type: Extract<PushEventType, 'school' | 'lost_found'>,
   sourceId?: string | number,
 ): Promise<OutboxProcessResult> => {
   const { table, sourceColumn, category } = tableFor(type);

@@ -3,7 +3,7 @@ import { sendWebPush, WebPushError, type NativeWebPushEnv, type StoredPushSubscr
 export type PushCategory = 'system' | 'events' | 'lost_found' | 'schedule' | 'school';
 export interface PushDeliveryEnv extends NativeWebPushEnv { DB: D1Database; }
 export interface PushPayload { title: string; body: string; url: string; category: PushCategory; }
-export interface PushDeliveryKey { type: 'school' | 'lost_found' | 'event' | 'moderator'; id: string; }
+export interface PushDeliveryKey { type: 'school' | 'lost_found' | 'event' | 'moderator' | 'schedule'; id: string; }
 export interface PushDeliveryResult {
   sent: number; failed: number; skipped: number; staleRemoved: number;
   targeted: number; hasMore: boolean; retryAt: string | null;

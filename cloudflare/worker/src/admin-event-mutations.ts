@@ -5,6 +5,7 @@ import {
 } from './admin-events.ts';
 import { normalizeEventSearch } from './events.ts';
 import type { StaffRole } from './auth.ts';
+import { signalNewPublicEvent, type PublicEventPushCandidate } from './event-push.ts';
 
 type MutationMode = 'create' | 'update';
 type AdminEventMutationValue = string | number | boolean | null;
@@ -142,6 +143,14 @@ const toApiRow = (row: D1StoredAdminEventRow): CoreAdminEventRow => ({
   is_manually_closed: Boolean(row.is_manually_closed),
   is_deleted: Boolean(row.is_deleted),
 });
+
+const toPushCandidate = (row: CoreAdminEventRow): PublicEventPushCandidate => ({
+  id: row.id, title: row.title, status: row.status, is_deleted: row.is_deleted, created_at: row.created_at,
+});
+
+const readPublicPushCandidate = (env: AdminEventsEnv, eventId: number) => env.DB.prepare(
+  'SELECT id,title,status,is_deleted,created_at FROM public_events WHERE id=?',
+).bind(eventId).first<PublicEventPushCandidate>();
 
 export class AdminEventMutationError extends Error {
   readonly status: 400 | 403 | 404 | 409 | 413 | 415 | 502 | 503;
@@ -379,7 +388,11 @@ export const mutateAdminEvent = async (
   }
   if (mode === 'create' && !createRequest) throw new AdminEventMutationError(400, 'Thiếu mã chống tạo trùng cho yêu cầu tạo sự kiện.');
   if (mode === 'update') {
+    const before = await readPublicPushCandidate(env, Number(eventId));
     const row = await updateEvent(env, payload, Number(eventId));
+    // Only a transition from absent/non-eligible public projection may signal
+    // a new-event push. Every edit of an already eligible event stays silent.
+    await signalNewPublicEvent(env, toPushCandidate(row), before);
     return { success: true, data: [row], mirrorSynced: true };
   }
   const request = createRequest!;
@@ -388,6 +401,7 @@ export const mutateAdminEvent = async (
   try {
     const id = await allocateEventId(env);
     const row = await createEvent(env, payload, id, request.mutationId, request.userId);
+    await signalNewPublicEvent(env, toPushCandidate(row));
     return { success: true, data: [row], mirrorSynced: true };
   } catch (error) {
     try { await releaseCreateMutation(env, request.mutationId, request.userId); }

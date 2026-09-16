@@ -5,8 +5,10 @@ import {
   type BetterAuthIdentity,
   type BetterAuthIdentityEnv,
 } from './better-auth-identity.ts';
+import { signalCourseRequestDecision } from './course-notification-push.ts';
+import type { PushEventQueueEnv } from './push-events.ts';
 
-export interface CourseAuthorityEnv extends BetterAuthIdentityEnv {
+export interface CourseAuthorityEnv extends BetterAuthIdentityEnv, PushEventQueueEnv {
   DB: D1Database;
   COURSE_WRITE_AUTHORITY?: string;
 }
@@ -137,9 +139,14 @@ const receipt = async (env: CourseAuthorityEnv, scope: string, actorId: string, 
 const storeReceipt = (env: CourseAuthorityEnv, scope: string, actorId: string, key: string, hash: string, operation: CourseOperation, response: Record<string, unknown>, at: string) =>
   env.DB.prepare('INSERT INTO course_mutation_receipts (actor_scope,actor_id,idempotency_key,request_hash,operation,response_json,created_at) VALUES (?,?,?,?,?,?,?)')
     .bind(scope, actorId, key, hash, operation, json(response), at);
-const outbox = (env: CourseAuthorityEnv, type: string, dedupeKey: string, at: string, details: Record<string, unknown>) =>
-  env.DB.prepare('INSERT OR IGNORE INTO course_mutation_outbox (id,dedupe_key,event_type,course_id,request_id,user_id,payload_json,created_at) VALUES (?,?,?,?,?,?,?,?)')
-    .bind(crypto.randomUUID(), dedupeKey, type, details.courseId || null, details.requestId || null, details.userId || null, json(details), at);
+const outbox = (env: CourseAuthorityEnv, type: string, dedupeKey: string, at: string, details: Record<string, unknown>) => {
+  const id = crypto.randomUUID();
+  return {
+    id,
+    statement: env.DB.prepare('INSERT OR IGNORE INTO course_mutation_outbox (id,dedupe_key,event_type,course_id,request_id,user_id,payload_json,created_at) VALUES (?,?,?,?,?,?,?,?)')
+      .bind(id, dedupeKey, type, details.courseId || null, details.requestId || null, details.userId || null, json(details), at),
+  };
+};
 
 const courseResponse = (id: string, revision: number, changed = true) => ({ success: true, id, revision, changed });
 
@@ -153,7 +160,7 @@ const createCourse = async (env: CourseAuthorityEnv, actor: BetterAuthIdentity, 
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO course_schedules (id,${courseColumns.join(',')},created_at,updated_at,course_code_search,subject_name_search,instructor_search,source_position,catalogue_visibility,revision,source_kind,writer_provenance,content_hash,instructor_provenance) VALUES (${['?'].concat(courseColumns.map(() => '?'), ['?','?','?','?','?','(SELECT COALESCE(MAX(source_position),0)+1 FROM course_schedules)','?','0','?','?','?','?']).join(',')})`).bind(id, ...values, at, at, normalizeCode(String(payload.course_code)), normalizeCode(String(payload.subject_name)), normalizeCode(String(payload.instructor || '')), 'published', 'admin', 'admin', await sha256(payload), 'admin'),
     storeReceipt(env, 'staff', actor.userId, key, hash, 'course_create', response, at),
-    outbox(env, 'course.created', `course.created:${id}`, at, { courseId: id, actorId: actor.userId }),
+    outbox(env, 'course.created', `course.created:${id}`, at, { courseId: id, actorId: actor.userId }).statement,
   ]);
   return response;
 };
@@ -174,7 +181,7 @@ const updateCourse = async (env: CourseAuthorityEnv, actor: BetterAuthIdentity, 
   await env.DB.batch([
     update,
     storeReceipt(env, 'staff', actor.userId, key, hash, retire ? 'course_retire' : 'course_update', response, at),
-    outbox(env, retire ? 'course.retired' : 'course.updated', `${retire ? 'course.retired' : 'course.updated'}:${id}:${next}`, at, { courseId: id, actorId: actor.userId }),
+    outbox(env, retire ? 'course.retired' : 'course.updated', `${retire ? 'course.retired' : 'course.updated'}:${id}:${next}`, at, { courseId: id, actorId: actor.userId }).statement,
   ]);
   return response;
 };
@@ -187,7 +194,7 @@ const createRequest = async (env: CourseAuthorityEnv, actor: BetterAuthIdentity,
   await env.DB.batch([
     env.DB.prepare('INSERT INTO user_course_requests (id,user_id,course_code,subject_name,semester,instructor,request_note,request_hash,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)').bind(id, actor.userId, normalized.courseCode, normalized.subjectName, normalized.semester, normalized.instructor, normalized.note, hash, at, at),
     storeReceipt(env, 'user', actor.userId, key, hash, 'request_create', response, at),
-    outbox(env, 'course_request.created', `course_request.created:${id}`, at, { requestId: id, userId: actor.userId }),
+    outbox(env, 'course_request.created', `course_request.created:${id}`, at, { requestId: id, userId: actor.userId }).statement,
   ]);
   return response;
 };
@@ -218,12 +225,17 @@ const reviewRequest = async (env: CourseAuthorityEnv, actor: BetterAuthIdentity,
     statements.push(env.DB.prepare(`INSERT INTO course_schedules (id,${courseColumns.join(',')},created_at,updated_at,course_code_search,subject_name_search,instructor_search,source_position,catalogue_visibility,revision,source_kind,source_key,writer_provenance,content_hash,instructor_provenance) VALUES (${['?'].concat(courseColumns.map(() => '?'), ['?','?','?','?','?','(SELECT COALESCE(MAX(source_position),0)+1 FROM course_schedules)','?','0','?','?','?','?','?']).join(',')})`).bind(courseId, ...values, at, at, normalizeCode(String(course.course_code)), normalizeCode(String(course.subject_name)), normalizeCode(String(course.instructor || '')), 'published', 'request_approval', `request:${id}`, 'request_approval', await sha256(course), 'request_approval'));
   }
   const response = { success: true, id, revision: next, changed: true, ...(courseId ? { courseId } : {}) };
+  const decisionOutbox = outbox(env, approve ? 'course_request.approved' : 'course_request.rejected', `${approve ? 'course_request.approved' : 'course_request.rejected'}:${id}:${next}`, at, { requestId: id, userId: row.user_id, courseId });
   statements.push(
     env.DB.prepare('UPDATE user_course_requests SET status=?,reviewer_id=?,reviewed_at=?,approved_course_id=?,revision=?,updated_at=? WHERE id=? AND revision=? AND status=?').bind(approve ? 'approved' : 'rejected', actor.userId, at, courseId, next, at, id, revision, 'pending'),
     storeReceipt(env, 'staff', actor.userId, key, hash, approve ? 'request_approve' : 'request_reject', response, at),
-    outbox(env, approve ? 'course_request.approved' : 'course_request.rejected', `${approve ? 'course_request.approved' : 'course_request.rejected'}:${id}:${next}`, at, { requestId: id, userId: row.user_id, courseId }),
+    decisionOutbox.statement,
   );
-  await env.DB.batch(statements); return response;
+  const results = await env.DB.batch(statements);
+  if (Number(results.at(-1)?.meta?.changes || 0) === 1) {
+    await signalCourseRequestDecision(env, decisionOutbox.id);
+  }
+  return response;
 };
 
 export const rebuildD1CourseFacets = async (env: CourseAuthorityEnv) => {

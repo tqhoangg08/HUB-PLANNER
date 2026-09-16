@@ -168,9 +168,10 @@ import { handleWebErrorTelemetry } from './web-error-telemetry.ts';
 import {
   processNotificationOutboxItem,
   runNotificationQueueControl,
-  type PushEventMessage,
 } from './notification-cron.ts';
-import { runEventPush, type EventPushEnv } from './event-push.ts';
+import { processEventPushItem, runEventPush, type EventPushEnv } from './event-push.ts';
+import { processCourseNotificationOutboxItem, runCourseNotificationRecovery } from './course-notification-push.ts';
+import { isPushEventMessage, type PushEventMessage } from './push-events.ts';
 import { ANNOUNCEMENT_SOURCES, crawlAnnouncementSources } from './announcement-crawler.ts';
 import { handlePdfAi, PdfAiError, pdfAiErrorStatus, type PdfAiEnv } from './pdf-ai.ts';
 import {
@@ -221,6 +222,7 @@ type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeE
   NOTIFICATION_JOBS_MODE?: string;
   NOTIFICATION_REENABLE_CUTOFF?: string;
   EVENT_PUSH_CUTOFF?: string;
+  SCHEDULE_PUSH_CUTOFF?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
   PUSH_EVENTS_QUEUE?: Queue<PushEventMessage>;
 };
@@ -242,16 +244,6 @@ export interface AnnouncementQuery {
   startDate: string;
   endDate: string;
 }
-
-const isPushEventMessage = (value: unknown): value is PushEventMessage => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const message = value as Record<string, unknown>;
-  const sourceId = message.sourceId;
-  const validSourceId = (typeof sourceId === 'number' && Number.isSafeInteger(sourceId) && sourceId > 0) ||
-    (typeof sourceId === 'string' && /^\d{1,20}$/.test(sourceId));
-  return message.v === 1 && (message.type === 'school' || message.type === 'lost_found') &&
-    validSourceId;
-};
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'http://localhost:3000',
@@ -2282,13 +2274,18 @@ const worker = {
       const body = message.body;
       if (!isPushEventMessage(body)) { message.ack(); continue; }
       try {
-        const result = await processNotificationOutboxItem(env, body.type, body.sourceId);
-        if (result.state === 'pending') {
+        const result = body.type === 'event'
+          ? await processEventPushItem(env, body.sourceId)
+          : body.type === 'schedule'
+            ? await processCourseNotificationOutboxItem(env, String(body.sourceId))
+            : await processNotificationOutboxItem(env, body.type, body.sourceId);
+        const retryAt = 'retryAt' in result ? result.retryAt : null;
+        if (result.state === 'pending' || (result.state === 'failed' && retryAt)) {
           // Retain D1 retry state and also let Queues wake the exact item at
           // its bounded retry time. An exhausted Queue message remains safely
           // recoverable by the hourly outbox scan.
-          const delaySeconds = result.retryAt
-            ? Math.max(1, Math.min(900, Math.ceil((Date.parse(result.retryAt) - Date.now()) / 1000)))
+          const delaySeconds = retryAt
+            ? Math.max(1, Math.min(900, Math.ceil((Date.parse(retryAt) - Date.now()) / 1000)))
             : 1;
           message.retry({ delaySeconds });
         } else {
@@ -2313,10 +2310,9 @@ const worker = {
     const notificationControlCron = controller.cron === '* * * * *';
     const announcementCron = controller.cron === '*/15 * * * *';
     const pushQueueCron = controller.cron === '7 * * * *';
-    const eventCron = controller.cron === '*/10 * * * *';
     const adminEventCron = controller.cron === '37 19 * * *';
     const runAll =
-      !hourlyCron && !notificationControlCron && !announcementCron && !pushQueueCron && controller.cron !== '0 * * * *' && !eventCron && !adminEventCron;
+      !hourlyCron && !notificationControlCron && !announcementCron && !pushQueueCron && controller.cron !== '0 * * * *' && !adminEventCron;
     const reconcileCourseDeletes =
       (hourlyCron || runAll) &&
       new Date(controller.scheduledTime).getUTCHours() === 20;
@@ -2361,25 +2357,18 @@ const worker = {
     }
     if ((pushQueueCron || runAll) && notificationMode === 'enabled' && env.NOTIFICATION_JOBS_ENABLED === 'true') {
       jobs.push({
-        failureEvent: 'push_queue_process_failed',
+        failureEvent: 'push_outbox_recovery_failed',
         promise: runNotificationQueueControl(env, 'process').then((summary) =>
-          console.log('push_queue_process_complete', { processed: true, summary })
+          console.log('push_outbox_recovery_complete', { processed: true, summary })
         ),
       });
-    }
-    if (eventCron || runAll) {
       jobs.push({
-        failureEvent: 'event_push_failed',
-        promise: notificationMode !== 'enabled' || env.NOTIFICATION_JOBS_ENABLED !== 'true'
-          ? Promise.resolve({ state: 'disabled' })
-          : runEventPush(env).then((push) => {
-            console.log('event_push_complete', {
-              state: push.state,
-              queued: push.queued,
-              sent: push.sent,
-            });
-            return push;
-          }),
+        failureEvent: 'event_push_recovery_failed',
+        promise: runEventPush(env).then((push) => console.log('event_push_recovery_complete', push)),
+      });
+      jobs.push({
+        failureEvent: 'schedule_push_recovery_failed',
+        promise: runCourseNotificationRecovery(env).then((push) => console.log('schedule_push_recovery_complete', push)),
       });
     }
 
@@ -2412,6 +2401,6 @@ const worker = {
       })
     );
   },
-} satisfies ExportedHandler<WorkerEnv>;
+} satisfies ExportedHandler<WorkerEnv, PushEventMessage>;
 
 export default worker;

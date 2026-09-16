@@ -1,6 +1,7 @@
 import { deliverPushBatch, type PushDeliveryEnv } from './push-delivery.ts';
+import { publishPushEvent, type PushEventQueueEnv } from './push-events.ts';
 
-export interface EventPushEnv extends PushDeliveryEnv { EVENT_PUSH_CUTOFF?: string; }
+export interface EventPushEnv extends PushDeliveryEnv, PushEventQueueEnv { EVENT_PUSH_CUTOFF?: string; }
 export interface PublicEventPushCandidate {
   id: number; title: string; status: string | null; is_deleted: number | boolean | null; created_at: string;
 }
@@ -49,6 +50,14 @@ const readNextCandidate = async (env: EventPushEnv) => {
   return row && isEventPushEligible(row, cutoffIso) ? row : null;
 };
 
+const readEventById = async (env: EventPushEnv, eventId: string | number) => {
+  const row = await env.DB.prepare(
+    `SELECT id, title, status, is_deleted, created_at
+       FROM public_events WHERE id = ?`,
+  ).bind(eventId).first<PublicEventPushCandidate>();
+  return row;
+};
+
 const reserveEvent = async (env: EventPushEnv, event: PublicEventPushCandidate) => {
   const now = new Date().toISOString();
   const leaseExpiresAt = new Date(Date.now() + CLAIM_LEASE_MS).toISOString();
@@ -89,9 +98,9 @@ const completeEvent = async (
   ).bind(state, result.sent, state, state, now, result.sent, result.failed, result.skipped, result.retryAt, result.retryAt, eventId).run();
 };
 
-export const runEventPush = async (env: EventPushEnv, fetcher: typeof fetch = fetch) => {
-  const event = await readNextCandidate(env);
-  if (!event) return { success: true, queued: 0, sent: 0, state: 'idle' as const };
+const processEventPushCandidate = async (env: EventPushEnv, event: PublicEventPushCandidate | null, fetcher: typeof fetch = fetch) => {
+  const cutoffIso = eventPushCutoff(env);
+  if (!event || !isEventPushEligible(event, cutoffIso)) return { success: true, queued: 0, sent: 0, state: 'idle' as const, hasMore: false, retryAt: null };
   if (!(await reserveEvent(env, event))) return { success: true, queued: 0, sent: 0, state: 'deduplicated' as const };
   try {
     const result = await deliverPushBatch(env, buildEventPushPayload(event), {
@@ -99,7 +108,7 @@ export const runEventPush = async (env: EventPushEnv, fetcher: typeof fetch = fe
     });
     await completeEvent(env, event.id, result);
     const state = result.hasMore ? 'sending' as const : result.retryAt ? 'failed' as const : result.sent > 0 ? 'sent' as const : 'skipped' as const;
-    return { success: state !== 'failed' || result.sent > 0, queued: 1, sent: result.sent, state };
+    return { success: state !== 'failed' || result.sent > 0, queued: 1, sent: result.sent, state, hasMore: result.hasMore, retryAt: result.retryAt };
   } catch {
     await env.DB.prepare(
       `UPDATE event_push_deliveries
@@ -107,6 +116,34 @@ export const runEventPush = async (env: EventPushEnv, fetcher: typeof fetch = fe
               last_error = 'PUSH_TRANSPORT_FAILED'
         WHERE event_id = ?`,
     ).bind(new Date(Date.now() + 15 * 60_000).toISOString(), event.id).run();
-    return { success: false, queued: 1, sent: 0, state: 'failed' as const };
+    return { success: false, queued: 1, sent: 0, state: 'failed' as const, hasMore: false, retryAt: new Date(Date.now() + 15 * 60_000).toISOString() };
   }
 };
+
+export const processEventPushItem = async (env: EventPushEnv, eventId: string | number, fetcher: typeof fetch = fetch) =>
+  processEventPushCandidate(env, await readEventById(env, eventId), fetcher);
+
+// Queue signal after a durable mutation. The public_events row remains the
+// fallback authority if Queue transport fails, so this function never writes.
+export const signalNewPublicEvent = async (
+  env: Pick<EventPushEnv, 'EVENT_PUSH_CUTOFF' | 'PUSH_EVENTS_QUEUE'>,
+  event: PublicEventPushCandidate,
+  previous?: PublicEventPushCandidate | null,
+) => {
+  if (!env.PUSH_EVENTS_QUEUE) return false;
+  try {
+    const cutoff = eventPushCutoff(env as EventPushEnv);
+    return isEventPushEligible(event, cutoff) && !isEventPushEligible(previous || { ...event, id: 0 }, cutoff)
+      ? publishPushEvent(env, { v: 1, type: 'event', sourceId: event.id })
+      : false;
+  } catch {
+    // A post-commit signal configuration fault must never roll back or report
+    // failure for an otherwise successful event mutation; recovery retains
+    // authority in public_events once the cutoff is repaired.
+    console.warn('event_push_signal_unavailable');
+    return false;
+  }
+};
+
+export const runEventPush = async (env: EventPushEnv, fetcher: typeof fetch = fetch) =>
+  processEventPushCandidate(env, await readNextCandidate(env), fetcher);
