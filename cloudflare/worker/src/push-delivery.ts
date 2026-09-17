@@ -1,4 +1,4 @@
-import { sendWebPush, WebPushError, type NativeWebPushEnv, type StoredPushSubscription } from './web-push.ts';
+import { sendWebPush, WebPushError, type NativeWebPushEnv, type StoredPushSubscription, type WebPushFailureClass } from './web-push.ts';
 
 export type PushCategory = 'system' | 'events' | 'lost_found' | 'schedule' | 'school';
 export interface PushDeliveryEnv extends NativeWebPushEnv { DB: D1Database; }
@@ -7,6 +7,7 @@ export interface PushDeliveryKey { type: 'school' | 'lost_found' | 'event' | 'mo
 export interface PushDeliveryResult {
   sent: number; failed: number; skipped: number; staleRemoved: number;
   targeted: number; hasMore: boolean; retryAt: string | null;
+  failureClasses: Partial<Record<WebPushFailureClass, number>>;
 }
 export interface SourceDeliveryProgress {
   continuation: boolean;
@@ -93,6 +94,7 @@ export const deliverPushBatch = async (
   const batch = candidates.slice(0, limit);
   let sent = 0; let failed = 0; let skipped = 0; let staleRemoved = 0;
   let retryAt: string | null = null;
+  const failureClasses: Partial<Record<WebPushFailureClass, number>> = {};
 
   for (let offset = 0; offset < batch.length; offset += 10) {
     const chunk = batch.slice(offset, offset + 10);
@@ -108,12 +110,20 @@ export const deliverPushBatch = async (
         return { state: 'sent' as const, status, nextRetryAt: null };
       } catch (error) {
         const status = error instanceof WebPushError ? error.statusCode || null : null;
+        const failureClass = error instanceof WebPushError ? error.failureClass : 'transport_network';
         if (status === 404 || status === 410) {
           await env.DB.prepare('DELETE FROM push_subscriptions WHERE id = ?').bind(subscription.id).run();
-          return { state: 'stale' as const, status, nextRetryAt: null };
+          return { state: 'stale' as const, status, nextRetryAt: null, failureClass };
+        }
+        // This can only arise from the subscription's persisted endpoint or
+        // encryption material. It cannot recover through retry, so clean it
+        // up just like provider-confirmed 404/410 staleness.
+        if (failureClass === 'subscription_endpoint_invalid' || failureClass === 'subscription_crypto_invalid') {
+          await env.DB.prepare('DELETE FROM push_subscriptions WHERE id = ?').bind(subscription.id).run();
+          return { state: 'stale' as const, status, nextRetryAt: null, failureClass };
         }
         const delay = RETRY_DELAYS_MS[Math.min(nextAttempt - 1, RETRY_DELAYS_MS.length - 1)];
-        return { state: 'failed' as const, status, nextRetryAt: new Date(now.getTime() + delay).toISOString() };
+        return { state: 'failed' as const, status, nextRetryAt: new Date(now.getTime() + delay).toISOString(), failureClass };
       }
     }));
     if (options.deliveryKey) {
@@ -140,6 +150,9 @@ export const deliverPushBatch = async (
     staleRemoved += results.filter((result) => result.state === 'stale').length;
     failed += results.filter((result) => result.state === 'failed').length;
     for (const result of results) {
+      if (result.state === 'failed' && result.failureClass) {
+        failureClasses[result.failureClass] = (failureClasses[result.failureClass] || 0) + 1;
+      }
       if (result.nextRetryAt && (!retryAt || result.nextRetryAt < retryAt)) retryAt = result.nextRetryAt;
     }
   }
@@ -149,9 +162,16 @@ export const deliverPushBatch = async (
   // unseen/eligible batch, surface the earliest one so the caller can retry.
   const hasMore = candidates.length > limit;
   const deferredRetryAt = hasMore ? null : await nextDeferredRetryAt(env, options.deliveryKey);
+  if (Object.keys(failureClasses).length) {
+    console.warn('web_push_delivery_failures', {
+      source_type: options.deliveryKey?.type || 'direct',
+      failure_classes: failureClasses,
+    });
+  }
   return {
     sent, failed, skipped, staleRemoved, targeted: batch.length,
     hasMore,
     retryAt: hasMore ? null : retryAt || deferredRetryAt,
+    failureClasses,
   };
 };

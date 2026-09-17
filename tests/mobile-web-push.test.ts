@@ -4,6 +4,7 @@ import test from 'node:test';
 import { Miniflare } from 'miniflare';
 import { handlePushTest, PushTestError } from '../cloudflare/worker/src/push-test.ts';
 import { handlePushSubscription } from '../cloudflare/worker/src/push-subscriptions.ts';
+import { sendWebPush, WebPushError } from '../cloudflare/worker/src/web-push.ts';
 import { completeCurrentDevicePushRegistration, PushRegistrationError } from '../utils/pushRegistrationFlow.ts';
 
 const read = (path: string) => readFileSync(path, 'utf8');
@@ -50,6 +51,19 @@ test('Workbox keeps background push and deep-link handlers', () => {
   assert.match(worker, /showNotification\(/);
   assert.match(worker, /addEventListener\(['"]notificationclick['"]/);
   assert.match(worker, /clients\.openWindow\(/);
+});
+
+test('native Web Push classifies transport failures without exposing subscription material', async () => {
+  const keys = await subscriptionKeys();
+  await assert.rejects(
+    sendWebPush({ ...await vapidKeys() }, { id: 'device', user_id: 'user', endpoint: 'https://push.example.invalid/device', ...keys }, { title: 'x' }, async () => {
+      throw new DOMException('timed out', 'TimeoutError');
+    }),
+    (error: unknown) => error instanceof WebPushError
+      && error.statusCode === undefined
+      && error.failureClass === 'transport_timeout'
+      && !/p256dh|endpoint|auth/i.test(error.message),
+  );
 });
 
 test('mobile permission UX requires a gesture and iOS Home Screen', () => {

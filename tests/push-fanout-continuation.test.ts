@@ -55,6 +55,7 @@ test('250 subscriptions drain unseen targets immediately before failed-target ba
     const payload = { title: 'Event', body: 'Event', url: '/events/391', category: 'events' as const };
     const first = await deliverPushBatch({ DB, ...keys }, payload, { deliveryKey: { type: 'event', id: String(eventId) }, sender: senderFor() });
     assert.deepEqual({ targeted: first.targeted, sent: first.sent, failed: first.failed, hasMore: first.hasMore, retryAt: first.retryAt }, { targeted: 100, sent: 50, failed: 50, hasMore: true, retryAt: null });
+    assert.deepEqual(first.failureClasses, { provider_http: 50 });
     const second = await deliverPushBatch({ DB, ...keys }, payload, { deliveryKey: { type: 'event', id: String(eventId) }, sender: senderFor() });
     assert.deepEqual({ targeted: second.targeted, sent: second.sent, hasMore: second.hasMore, retryAt: second.retryAt }, { targeted: 100, sent: 100, hasMore: true, retryAt: null });
     const third = await deliverPushBatch({ DB, ...keys }, payload, { deliveryKey: { type: 'event', id: String(eventId) }, sender: senderFor() });
