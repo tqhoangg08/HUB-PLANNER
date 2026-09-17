@@ -8,6 +8,20 @@ export interface PushDeliveryResult {
   sent: number; failed: number; skipped: number; staleRemoved: number;
   targeted: number; hasMore: boolean; retryAt: string | null;
 }
+export interface SourceDeliveryProgress {
+  continuation: boolean;
+  retryAt: string | null;
+  completed: boolean;
+}
+export interface PushDeliveryOptions {
+  userId?: string;
+  limit?: number;
+  fetcher?: typeof fetch;
+  deliveryKey?: PushDeliveryKey;
+  // Local deterministic tests may replace the transport. Runtime callers
+  // leave this undefined and always use the native VAPID sender.
+  sender?: (subscription: StoredPushSubscription, payload: PushPayload) => Promise<number>;
+}
 
 const MAX_BATCH = 100;
 const RETRY_DELAYS_MS = [5 * 60_000, 15 * 60_000] as const;
@@ -16,15 +30,36 @@ interface SubscriptionWithPreference extends StoredPushSubscription {
   delivery_attempts: number | null;
 }
 
+const nextDeferredRetryAt = async (env: PushDeliveryEnv, deliveryKey?: PushDeliveryKey) => {
+  if (!deliveryKey) return null;
+  const now = new Date().toISOString();
+  const row = await env.DB.prepare(
+    `SELECT MIN(next_retry_at) AS retry_at
+       FROM push_delivery_attempts
+      WHERE source_type = ? AND source_id = ?
+        AND state = 'failed' AND attempts < 3
+        AND next_retry_at IS NOT NULL AND next_retry_at > ?`,
+  ).bind(deliveryKey.type, deliveryKey.id, now).first<{ retry_at: string | null }>();
+  return row?.retry_at || null;
+};
+
 const preferenceColumn = (category: PushCategory) => {
   if (!['system', 'events', 'lost_found', 'schedule', 'school'].includes(category)) throw new Error('Unsupported push category');
   return category;
 };
 
+// Source-level outboxes must not let a single failed target delay the next
+// hundred never-attempted targets. Individual delivery rows retain backoff.
+export const sourceDeliveryProgress = (result: Pick<PushDeliveryResult, 'hasMore' | 'retryAt'>): SourceDeliveryProgress => {
+  const continuation = result.hasMore;
+  const retryAt = continuation ? null : result.retryAt;
+  return { continuation, retryAt, completed: !continuation && !retryAt };
+};
+
 export const deliverPushBatch = async (
   env: PushDeliveryEnv,
   payload: PushPayload,
-  options: { userId?: string; limit?: number; fetcher?: typeof fetch; deliveryKey?: PushDeliveryKey } = {},
+  options: PushDeliveryOptions = {},
 ): Promise<PushDeliveryResult> => {
   const preference = preferenceColumn(payload.category);
   const limit = Math.max(1, Math.min(MAX_BATCH, Math.floor(options.limit || MAX_BATCH)));
@@ -67,7 +102,9 @@ export const deliverPushBatch = async (
         return { state: 'skipped' as const, status: null, nextRetryAt: null };
       }
       try {
-        const status = await sendWebPush(env, subscription, payload, options.fetcher);
+        const status = options.sender
+          ? await options.sender(subscription, payload)
+          : await sendWebPush(env, subscription, payload, options.fetcher);
         return { state: 'sent' as const, status, nextRetryAt: null };
       } catch (error) {
         const status = error instanceof WebPushError ? error.statusCode || null : null;
@@ -80,7 +117,9 @@ export const deliverPushBatch = async (
       }
     }));
     if (options.deliveryKey) {
-      await Promise.all(results.map((result, index) => env.DB.prepare(
+      // Persist each bounded transport chunk atomically to reduce D1 round
+      // trips without changing one-row-per-device dedupe semantics.
+      await env.DB.batch(results.map((result, index) => env.DB.prepare(
         `INSERT INTO push_delivery_attempts
            (source_type, source_id, subscription_id, state, attempts, last_status, updated_at, next_retry_at)
          VALUES (?, ?, ?, ?, 1, ?, ?, ?)
@@ -94,7 +133,7 @@ export const deliverPushBatch = async (
       ).bind(
         options.deliveryKey!.type, options.deliveryKey!.id, chunk[index].id,
         result.state, result.status, nowIso, result.nextRetryAt,
-      ).run()));
+      )));
     }
     sent += results.filter((result) => result.state === 'sent').length;
     skipped += results.filter((result) => result.state === 'skipped').length;
@@ -104,11 +143,15 @@ export const deliverPushBatch = async (
       if (result.nextRetryAt && (!retryAt || result.nextRetryAt < retryAt)) retryAt = result.nextRetryAt;
     }
   }
+  // A continuation must drain subscriptions that have not been attempted yet
+  // before the source-level state is deferred for any individual failure.
+  // Existing failed rows retain their own persisted backoff; after the final
+  // unseen/eligible batch, surface the earliest one so the caller can retry.
+  const hasMore = candidates.length > limit;
+  const deferredRetryAt = hasMore ? null : await nextDeferredRetryAt(env, options.deliveryKey);
   return {
     sent, failed, skipped, staleRemoved, targeted: batch.length,
-    // Failures are retried only at retryAt; they must not make every cron
-    // invocation write another attempt row before that time.
-    hasMore: candidates.length > limit,
-    retryAt,
+    hasMore,
+    retryAt: hasMore ? null : retryAt || deferredRetryAt,
   };
 };

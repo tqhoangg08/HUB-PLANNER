@@ -1,4 +1,4 @@
-import { deliverPushBatch, type PushDeliveryEnv } from './push-delivery.ts';
+import { deliverPushBatch, sourceDeliveryProgress, type PushDeliveryEnv, type PushDeliveryOptions } from './push-delivery.ts';
 import { publishPushEvent, type PushEventQueueEnv } from './push-events.ts';
 
 export interface CourseNotificationPushEnv extends PushDeliveryEnv, PushEventQueueEnv {
@@ -76,6 +76,7 @@ export const processCourseNotificationOutboxItem = async (
   env: CourseNotificationPushEnv,
   outboxId: string,
   fetcher: typeof fetch = fetch,
+  sender?: PushDeliveryOptions['sender'],
 ): Promise<CoursePushProcessResult> => {
   if (!isUsableOutboxId(outboxId)) return { success: true, queued: 0, sent: 0, state: 'terminal' };
   const row = await selectOutbox(env, outboxId);
@@ -88,7 +89,7 @@ export const processCourseNotificationOutboxItem = async (
   const leaseExpiresAt = new Date(Date.now() + CLAIM_LEASE_MS).toISOString();
   const claimed = await env.DB.prepare(
     `UPDATE course_mutation_outbox
-        SET lease_expires_at=?, attempts=attempts+1
+        SET lease_expires_at=?
       WHERE id=? AND event_type IN ${DECISION_TYPES}
         AND (status='pending' OR (status='failed' AND attempts < ${MAX_ATTEMPTS}))
         AND (next_retry_at IS NULL OR next_retry_at <= ?)
@@ -97,27 +98,28 @@ export const processCourseNotificationOutboxItem = async (
   if (Number(claimed.meta?.changes || 0) !== 1) return { success: true, queued: 0, sent: 0, state: 'claimed' };
   try {
     const result = await deliverPushBatch(env, payloadFor(row), {
-      userId: row.user_id, limit: 100, fetcher,
+      userId: row.user_id, limit: 100, fetcher, sender,
       deliveryKey: { type: 'schedule', id: row.id },
     });
-    const complete = !result.hasMore && !result.retryAt;
-    const status = complete ? 'delivered' : result.retryAt ? 'failed' : 'pending';
+    const { continuation, retryAt: effectiveRetryAt, completed: complete } = sourceDeliveryProgress(result);
+    const status = complete ? 'delivered' : effectiveRetryAt ? 'failed' : 'pending';
     await env.DB.prepare(
       `UPDATE course_mutation_outbox
           SET status=?, delivered_at=CASE WHEN ? THEN ? ELSE delivered_at END,
+              attempts=CASE WHEN ? THEN attempts ELSE attempts+1 END,
               next_retry_at=?, lease_expires_at=NULL,
               last_error=CASE WHEN ? IS NULL THEN NULL ELSE 'DELIVERY_RETRY_PENDING' END
         WHERE id=?`,
-    ).bind(status, complete ? 1 : 0, new Date().toISOString(), result.retryAt, result.retryAt, row.id).run();
+    ).bind(status, complete ? 1 : 0, new Date().toISOString(), continuation ? 1 : 0, effectiveRetryAt, effectiveRetryAt, row.id).run();
     return {
       success: complete || result.sent > 0, queued: 1, sent: result.sent,
-      state: complete ? 'sent' : 'pending', hasMore: result.hasMore, retryAt: result.retryAt,
+      state: complete ? 'sent' : 'pending', hasMore: continuation, retryAt: effectiveRetryAt,
     };
   } catch {
     const retryAt = new Date(Date.now() + 15 * 60_000).toISOString();
     await env.DB.prepare(
       `UPDATE course_mutation_outbox
-          SET status='failed', next_retry_at=?, lease_expires_at=NULL, last_error='PUSH_TRANSPORT_FAILED'
+          SET status='failed', attempts=attempts+1, next_retry_at=?, lease_expires_at=NULL, last_error='PUSH_TRANSPORT_FAILED'
         WHERE id=?`,
     ).bind(retryAt, row.id).run();
     return { success: false, queued: 1, sent: 0, state: 'pending', hasMore: false, retryAt };

@@ -1,4 +1,4 @@
-import { deliverPushBatch, type PushDeliveryEnv } from './push-delivery.ts';
+import { deliverPushBatch, sourceDeliveryProgress, type PushDeliveryEnv, type PushDeliveryOptions } from './push-delivery.ts';
 import { publishPushEvent, type PushEventQueueEnv } from './push-events.ts';
 
 export interface EventPushEnv extends PushDeliveryEnv, PushEventQueueEnv { EVENT_PUSH_CUTOFF?: string; }
@@ -83,8 +83,11 @@ const completeEvent = async (
   result: { sent: number; failed: number; skipped: number; hasMore: boolean; retryAt: string | null },
 ) => {
   const now = new Date().toISOString();
-  const terminal = !result.hasMore && !result.retryAt;
-  const state = terminal ? 'complete' : result.retryAt ? 'failed' : 'sending';
+  // Queue continuation always wins over per-subscription retry timing. The
+  // failed subscription rows keep their own backoff while remaining devices
+  // receive this source notification immediately in bounded batches.
+  const { continuation, retryAt: effectiveRetryAt, completed: terminal } = sourceDeliveryProgress(result);
+  const state = terminal ? 'complete' : effectiveRetryAt ? 'failed' : 'sending';
   await env.DB.prepare(
     `UPDATE event_push_deliveries
         SET state = CASE WHEN ? = 'complete'
@@ -95,20 +98,26 @@ const completeEvent = async (
             last_error = CASE WHEN ? IS NULL THEN NULL ELSE 'DELIVERY_RETRY_PENDING' END,
             next_retry_at = ?, lease_expires_at = NULL
       WHERE event_id = ?`,
-  ).bind(state, result.sent, state, state, now, result.sent, result.failed, result.skipped, result.retryAt, result.retryAt, eventId).run();
+  ).bind(state, result.sent, state, state, now, result.sent, result.failed, result.skipped, effectiveRetryAt, effectiveRetryAt, eventId).run();
 };
 
-const processEventPushCandidate = async (env: EventPushEnv, event: PublicEventPushCandidate | null, fetcher: typeof fetch = fetch) => {
+const processEventPushCandidate = async (
+  env: EventPushEnv,
+  event: PublicEventPushCandidate | null,
+  fetcher: typeof fetch = fetch,
+  sender?: PushDeliveryOptions['sender'],
+) => {
   const cutoffIso = eventPushCutoff(env);
   if (!event || !isEventPushEligible(event, cutoffIso)) return { success: true, queued: 0, sent: 0, state: 'idle' as const, hasMore: false, retryAt: null };
   if (!(await reserveEvent(env, event))) return { success: true, queued: 0, sent: 0, state: 'deduplicated' as const };
   try {
     const result = await deliverPushBatch(env, buildEventPushPayload(event), {
-      deliveryKey: { type: 'event', id: String(event.id) }, limit: 100, fetcher,
+      deliveryKey: { type: 'event', id: String(event.id) }, limit: 100, fetcher, sender,
     });
     await completeEvent(env, event.id, result);
-    const state = result.hasMore ? 'sending' as const : result.retryAt ? 'failed' as const : result.sent > 0 ? 'sent' as const : 'skipped' as const;
-    return { success: state !== 'failed' || result.sent > 0, queued: 1, sent: result.sent, state, hasMore: result.hasMore, retryAt: result.retryAt };
+    const { continuation, retryAt: effectiveRetryAt } = sourceDeliveryProgress(result);
+    const state = continuation ? 'sending' as const : effectiveRetryAt ? 'failed' as const : result.sent > 0 ? 'sent' as const : 'skipped' as const;
+    return { success: state !== 'failed' || result.sent > 0, queued: 1, sent: result.sent, state, hasMore: result.hasMore, retryAt: effectiveRetryAt };
   } catch {
     await env.DB.prepare(
       `UPDATE event_push_deliveries
@@ -120,8 +129,12 @@ const processEventPushCandidate = async (env: EventPushEnv, event: PublicEventPu
   }
 };
 
-export const processEventPushItem = async (env: EventPushEnv, eventId: string | number, fetcher: typeof fetch = fetch) =>
-  processEventPushCandidate(env, await readEventById(env, eventId), fetcher);
+export const processEventPushItem = async (
+  env: EventPushEnv,
+  eventId: string | number,
+  fetcher: typeof fetch = fetch,
+  sender?: PushDeliveryOptions['sender'],
+) => processEventPushCandidate(env, await readEventById(env, eventId), fetcher, sender);
 
 // Queue signal after a durable mutation. The public_events row remains the
 // fallback authority if Queue transport fails, so this function never writes.

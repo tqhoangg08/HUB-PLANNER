@@ -2280,11 +2280,12 @@ const worker = {
             ? await processCourseNotificationOutboxItem(env, String(body.sourceId))
             : await processNotificationOutboxItem(env, body.type, body.sourceId);
         const retryAt = 'retryAt' in result ? result.retryAt : null;
-        if (result.state === 'pending' || (result.state === 'failed' && retryAt)) {
+        const hasMore = 'hasMore' in result && result.hasMore === true;
+        if (hasMore || result.state === 'pending' || (result.state === 'failed' && retryAt)) {
           // Retain D1 retry state and also let Queues wake the exact item at
           // its bounded retry time. An exhausted Queue message remains safely
           // recoverable by the hourly outbox scan.
-          const delaySeconds = retryAt
+          const delaySeconds = hasMore ? 1 : retryAt
             ? Math.max(1, Math.min(900, Math.ceil((Date.parse(retryAt) - Date.now()) / 1000)))
             : 1;
           message.retry({ delaySeconds });

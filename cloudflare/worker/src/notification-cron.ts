@@ -1,4 +1,4 @@
-import { deliverPushBatch, type PushDeliveryEnv, type PushPayload } from './push-delivery.ts';
+import { deliverPushBatch, sourceDeliveryProgress, type PushDeliveryEnv, type PushDeliveryOptions, type PushPayload } from './push-delivery.ts';
 import { publishPushEvent, type PushEventMessage, type PushEventQueueEnv, type PushEventType } from './push-events.ts';
 
 export type { PushEventMessage, PushEventType } from './push-events.ts';
@@ -83,6 +83,8 @@ export const processNotificationOutboxItem = async (
   env: NotificationCronEnv,
   type: Extract<PushEventType, 'school' | 'lost_found'>,
   sourceId?: string | number,
+  fetcher: typeof fetch = fetch,
+  sender?: PushDeliveryOptions['sender'],
 ): Promise<OutboxProcessResult> => {
   const { table, sourceColumn, category } = tableFor(type);
   const row = await findDueRow(env, type, sourceId);
@@ -104,9 +106,9 @@ export const processNotificationOutboxItem = async (
     body: String(row.body || row.title).slice(0, 240), url: row.url, category,
   };
   const result = await deliverPushBatch(env, payload, {
-    deliveryKey: { type: category, id: String(row.source_id) }, limit: 100,
+    deliveryKey: { type: category, id: String(row.source_id) }, limit: 100, fetcher, sender,
   });
-  const completed = !result.hasMore && !result.retryAt;
+  const { continuation, retryAt: effectiveRetryAt, completed } = sourceDeliveryProgress(result);
   await env.DB.prepare(
     `UPDATE ${table}
         SET sent_count = sent_count + ?, failed_count = failed_count + ?,
@@ -118,11 +120,11 @@ export const processNotificationOutboxItem = async (
       WHERE id = ?`,
   ).bind(
     result.sent, result.failed, result.skipped, result.retryAt, completed ? 1 : 0,
-    new Date().toISOString(), result.retryAt, result.retryAt, row.id,
+    new Date().toISOString(), effectiveRetryAt, effectiveRetryAt, row.id,
   ).run();
   return {
     success: completed || result.sent > 0, queued: 1, sent: result.sent,
-    state: completed ? 'sent' : 'pending', hasMore: result.hasMore, retryAt: result.retryAt,
+    state: completed ? 'sent' : 'pending', hasMore: continuation, retryAt: effectiveRetryAt,
   };
 };
 
