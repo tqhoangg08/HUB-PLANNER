@@ -5,10 +5,14 @@ export interface PushEventQueueEnv {
   PUSH_EVENTS_QUEUE?: Queue<PushEventMessage>;
 }
 
-export const publishPushEvent = async (env: PushEventQueueEnv, message: PushEventMessage) => {
+export const publishPushEvent = async (
+  env: PushEventQueueEnv,
+  message: PushEventMessage,
+  options?: QueueSendOptions,
+) => {
   if (!env.PUSH_EVENTS_QUEUE) return false;
   try {
-    await env.PUSH_EVENTS_QUEUE.send(message);
+    await env.PUSH_EVENTS_QUEUE.send(message, options);
     return true;
   } catch {
     // D1 is the durable source of truth. A signal transport failure is
@@ -17,6 +21,11 @@ export const publishPushEvent = async (env: PushEventQueueEnv, message: PushEven
     return false;
   }
 };
+
+// A fan-out page is successful normal progress, not a Queue retry. Requeue a
+// fresh message so Cloudflare's max_retries remains reserved for failures.
+export const publishPushContinuation = (env: PushEventQueueEnv, message: PushEventMessage) =>
+  publishPushEvent(env, message, { delaySeconds: 1 });
 
 export const isPushEventMessage = (value: unknown): value is PushEventMessage => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;

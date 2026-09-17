@@ -4,6 +4,7 @@ import test from 'node:test';
 import { Miniflare } from 'miniflare';
 import { deliverPushBatch, sourceDeliveryProgress } from '../cloudflare/worker/src/push-delivery.ts';
 import { WebPushError } from '../cloudflare/worker/src/web-push.ts';
+import { publishPushContinuation, type PushEventMessage } from '../cloudflare/worker/src/push-events.ts';
 
 const now = () => new Date().toISOString();
 const eventId = 391;
@@ -69,7 +70,7 @@ test('250 subscriptions drain unseen targets immediately before failed-target ba
   } finally { await mf.dispose(); }
 });
 
-test('event, school, lost-found and schedule share continuation priority and Queue retries it immediately', () => {
+test('event, school, lost-found and schedule share continuation priority', () => {
   assert.deepEqual(sourceDeliveryProgress({ hasMore: true, retryAt: '2099-01-01T00:00:00.000Z' }), {
     continuation: true, retryAt: null, completed: false,
   });
@@ -84,5 +85,29 @@ test('event, school, lost-found and schedule share continuation priority and Que
     'cloudflare/worker/src/notification-cron.ts',
     'cloudflare/worker/src/course-notification-push.ts',
   ]) assert.match(readFileSync(source, 'utf8'), /sourceDeliveryProgress/);
-  assert.match(readFileSync('cloudflare/worker/src/index.ts', 'utf8'), /const delaySeconds = hasMore \? 1/);
+});
+
+test('965-subscription fanout uses at least ten fresh Queue messages without consuming retry budget', async () => {
+  const messages: Array<{ message: PushEventMessage; options: QueueSendOptions | undefined }> = [];
+  const queue = {
+    send: async (message: PushEventMessage, options?: QueueSendOptions) => { messages.push({ message, options }); return {} as QueueSendResponse; },
+  };
+  const source: PushEventMessage = { v: 1, type: 'event', sourceId: 393 };
+  // 965 subscriptions at the fixed max 100 require ten independent Queue
+  // deliveries. The final page is terminal; the first nine publish fresh work.
+  for (let page = 1; page < 10; page += 1) assert.equal(await publishPushContinuation({ PUSH_EVENTS_QUEUE: queue }, source), true);
+  assert.equal(messages.length, 9);
+  assert.ok(messages.every(({ message, options }) => message === source && options?.delaySeconds === 1));
+  const worker = readFileSync('cloudflare/worker/src/index.ts', 'utf8');
+  assert.match(worker, /if \(hasMore\) \{/);
+  assert.match(worker, /publishPushContinuation\(env, body\)/);
+  assert.match(worker, /message\.ack\(\)/);
+  assert.doesNotMatch(worker, /if \(hasMore \|\| result\.state === 'pending'/);
+});
+
+test('continuation publisher failure is recoverable and only the transport failure may retry', async () => {
+  const source: PushEventMessage = { v: 1, type: 'school', sourceId: 71 };
+  assert.equal(await publishPushContinuation({ PUSH_EVENTS_QUEUE: { send: async () => { throw new Error('unavailable'); } } }, source), false);
+  const worker = readFileSync('cloudflare/worker/src/index.ts', 'utf8');
+  assert.match(worker, /else message\.retry\(\); \/\/ Queue transport fault/);
 });

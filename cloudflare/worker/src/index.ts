@@ -171,7 +171,7 @@ import {
 } from './notification-cron.ts';
 import { processEventPushItem, runEventPush, type EventPushEnv } from './event-push.ts';
 import { processCourseNotificationOutboxItem, runCourseNotificationRecovery } from './course-notification-push.ts';
-import { isPushEventMessage, type PushEventMessage } from './push-events.ts';
+import { isPushEventMessage, publishPushContinuation, type PushEventMessage } from './push-events.ts';
 import { ANNOUNCEMENT_SOURCES, crawlAnnouncementSources } from './announcement-crawler.ts';
 import { handlePdfAi, PdfAiError, pdfAiErrorStatus, type PdfAiEnv } from './pdf-ai.ts';
 import {
@@ -2281,11 +2281,16 @@ const worker = {
             : await processNotificationOutboxItem(env, body.type, body.sourceId);
         const retryAt = 'retryAt' in result ? result.retryAt : null;
         const hasMore = 'hasMore' in result && result.hasMore === true;
-        if (hasMore || result.state === 'pending' || (result.state === 'failed' && retryAt)) {
+        if (hasMore) {
+          // Fan-out pagination is normal progress. Publish a fresh Queue
+          // message then ACK so it never consumes the consumer retry budget.
+          if (await publishPushContinuation(env, body)) message.ack();
+          else message.retry(); // Queue transport fault; D1 outbox remains recoverable.
+        } else if (result.state === 'pending' || (result.state === 'failed' && retryAt)) {
           // Retain D1 retry state and also let Queues wake the exact item at
           // its bounded retry time. An exhausted Queue message remains safely
           // recoverable by the hourly outbox scan.
-          const delaySeconds = hasMore ? 1 : retryAt
+          const delaySeconds = retryAt
             ? Math.max(1, Math.min(900, Math.ceil((Date.parse(retryAt) - Date.now()) / 1000)))
             : 1;
           message.retry({ delaySeconds });
