@@ -12,7 +12,7 @@ const requestId = '11111111-1111-4111-8111-111111111111';
 const courseOutboxId = '22222222-2222-4222-8222-222222222222';
 
 const schema = `
-  CREATE TABLE push_subscriptions (id TEXT PRIMARY KEY, user_id TEXT, endpoint TEXT, p256dh TEXT, auth TEXT);
+  CREATE TABLE push_subscriptions (id TEXT PRIMARY KEY, user_id TEXT, endpoint TEXT, p256dh TEXT, auth TEXT, updated_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00.000Z');
   CREATE TABLE notification_preferences (user_id TEXT PRIMARY KEY, system INTEGER, events INTEGER, lost_found INTEGER, schedule INTEGER, school INTEGER);
   CREATE TABLE push_delivery_attempts (source_type TEXT, source_id TEXT, subscription_id TEXT, state TEXT, attempts INTEGER, last_status INTEGER, updated_at TEXT, next_retry_at TEXT, PRIMARY KEY(source_type, source_id, subscription_id));
   CREATE TABLE public_events (id INTEGER PRIMARY KEY, title TEXT, status TEXT, is_deleted INTEGER, created_at TEXT);
@@ -36,7 +36,7 @@ const fixture = async (count: number) => {
   const subscriptions = [];
   for (let index = 1; index <= count; index += 1) {
     const id = String(index).padStart(3, '0');
-    subscriptions.push(DB.prepare('INSERT INTO push_subscriptions VALUES (?,?,?,?,?)')
+    subscriptions.push(DB.prepare('INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth) VALUES (?,?,?,?,?)')
       .bind(id, 'owner', `https://push.example.invalid/${id}`, p256dh, auth));
   }
   for (let offset = 0; offset < subscriptions.length; offset += 80) await DB.batch(subscriptions.slice(offset, offset + 80));
@@ -68,6 +68,24 @@ test('250 subscriptions drain unseen targets immediately before failed-target ba
     assert.deepEqual({ targeted: waiting.targeted, hasMore: waiting.hasMore, retryAt: waiting.retryAt }, { targeted: 0, hasMore: false, retryAt: third.retryAt });
     assert.deepEqual(await DB.prepare("SELECT attempts,next_retry_at FROM push_delivery_attempts WHERE subscription_id='050'").first(), before);
     assert.equal(Number((await DB.prepare("SELECT COUNT(*) AS count FROM push_delivery_attempts WHERE state='sent'").first<{ count: number }>())?.count), 200);
+  } finally { await mf.dispose(); }
+});
+
+test('a recently confirmed device is included in the first bounded realtime fanout page', async () => {
+  const { mf, DB, ...keys } = await fixture(150);
+  try {
+    await DB.prepare('UPDATE push_subscriptions SET updated_at = ? WHERE id = ?')
+      .bind('2099-01-01T00:00:00.000Z', '150').run();
+    const targeted: string[] = [];
+    const result = await deliverPushBatch({ DB, ...keys }, {
+      title: 'Event', body: 'Event', url: '/events/391', category: 'events',
+    }, {
+      limit: 100,
+      sender: async (subscription) => { targeted.push(subscription.id); return 201; },
+    });
+    assert.equal(result.targeted, 100);
+    assert.equal(targeted[0], '150');
+    assert.ok(targeted.includes('150'));
   } finally { await mf.dispose(); }
 });
 

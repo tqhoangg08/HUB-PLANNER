@@ -92,7 +92,11 @@ export const deliverPushBatch = async (
        LEFT JOIN notification_preferences p ON p.user_id = s.user_id
        ${deliveryJoin}
       ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
-      ORDER BY s.id ASC LIMIT ?`,
+      -- Recently confirmed subscriptions are more likely to be actively
+      -- reachable. Prioritizing them keeps realtime delivery responsive
+      -- without changing the recipient set, delivery key, or bounded batch.
+      -- The matching D1 index is added in migration 0040.
+      ORDER BY s.updated_at DESC, s.id ASC LIMIT ?`,
   ).bind(...joinBindings, ...whereBindings, limit + 1).all<SubscriptionWithPreference>();
   const candidates = rows.results || [];
   const batch = candidates.slice(0, limit);

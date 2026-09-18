@@ -6,7 +6,7 @@ import { runEventPush } from '../cloudflare/worker/src/event-push.ts';
 import { runNotificationQueueControl } from '../cloudflare/worker/src/notification-cron.ts';
 
 const DB_SCHEMA = `
-  CREATE TABLE push_subscriptions (id TEXT PRIMARY KEY, user_id TEXT, endpoint TEXT, p256dh TEXT, auth TEXT);
+  CREATE TABLE push_subscriptions (id TEXT PRIMARY KEY, user_id TEXT, endpoint TEXT, p256dh TEXT, auth TEXT, updated_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00.000Z');
   CREATE TABLE notification_preferences (user_id TEXT PRIMARY KEY, system INTEGER, events INTEGER, lost_found INTEGER, schedule INTEGER, school INTEGER);
   CREATE TABLE push_delivery_attempts (source_type TEXT, source_id TEXT, subscription_id TEXT, state TEXT, attempts INTEGER, last_status INTEGER, updated_at TEXT, next_retry_at TEXT, PRIMARY KEY(source_type, source_id, subscription_id));
   CREATE TABLE public_events (id INTEGER PRIMARY KEY, title TEXT, status TEXT, is_deleted INTEGER, created_at TEXT);
@@ -47,7 +47,7 @@ const failed = async () => new Response(null, { status: 503 });
 
 test('terminal delivery is written once; repeated cron scans make zero additional ledger writes', async () => {
   const { mf, DB } = await fixture(); const keys = await vapid(); const device = await subscription('one');
-  await DB.prepare('INSERT INTO push_subscriptions VALUES (?,?,?,?,?)').bind(device.id, 'user', device.endpoint, device.p256dh, device.auth).run();
+  await DB.prepare('INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth) VALUES (?,?,?,?,?)').bind(device.id, 'user', device.endpoint, device.p256dh, device.auth).run();
   try {
     const first = await deliverPushBatch({ DB, ...keys }, payload, { deliveryKey: { type: 'event', id: '1' }, fetcher: ok });
     const before = await DB.prepare('SELECT attempts,updated_at FROM push_delivery_attempts').first<{ attempts: number; updated_at: string }>();
@@ -60,7 +60,7 @@ test('terminal delivery is written once; repeated cron scans make zero additiona
 
 test('failed delivery is not rewritten before its persisted retry time, then transitions once when eligible', async () => {
   const { mf, DB } = await fixture(); const keys = await vapid(); const device = await subscription('retry');
-  await DB.prepare('INSERT INTO push_subscriptions VALUES (?,?,?,?,?)').bind(device.id, 'user', device.endpoint, device.p256dh, device.auth).run();
+  await DB.prepare('INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth) VALUES (?,?,?,?,?)').bind(device.id, 'user', device.endpoint, device.p256dh, device.auth).run();
   try {
     await deliverPushBatch({ DB, ...keys }, payload, { deliveryKey: { type: 'event', id: '2' }, fetcher: failed });
     const before = await DB.prepare('SELECT attempts,next_retry_at FROM push_delivery_attempts').first<{ attempts: number; next_retry_at: string }>();
@@ -90,7 +90,7 @@ test('event and queue claims admit one concurrent winner without resending a bac
 
 test('multi-device delivery and stale cleanup remain terminal and deduplicated', async () => {
   const { mf, DB } = await fixture(); const keys = await vapid(); const first = await subscription('first'); const stale = await subscription('stale');
-  for (const device of [first, stale]) await DB.prepare('INSERT INTO push_subscriptions VALUES (?,?,?,?,?)').bind(device.id, 'user', device.endpoint, device.p256dh, device.auth).run();
+  for (const device of [first, stale]) await DB.prepare('INSERT INTO push_subscriptions (id, user_id, endpoint, p256dh, auth) VALUES (?,?,?,?,?)').bind(device.id, 'user', device.endpoint, device.p256dh, device.auth).run();
   try {
     const result = await deliverPushBatch({ DB, ...keys }, payload, { deliveryKey: { type: 'school', id: '1' }, fetcher: async (url) => String(url).endsWith('/stale') ? new Response(null, { status: 410 }) : ok() });
     assert.equal(result.sent, 1); assert.equal(result.staleRemoved, 1);

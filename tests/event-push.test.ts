@@ -36,7 +36,7 @@ test('D1 event delivery is deduplicated and uses native sender', async () => {
     CREATE TABLE event_push_deliveries (event_id INTEGER PRIMARY KEY, event_created_at TEXT, state TEXT, attempted_at TEXT,
       sent_at TEXT, attempts INTEGER, last_error TEXT, last_subscription_id TEXT, sent_count INTEGER DEFAULT 0,
       failed_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, lease_expires_at TEXT, next_retry_at TEXT);
-    CREATE TABLE push_subscriptions (id TEXT PRIMARY KEY, user_id TEXT, endpoint TEXT, p256dh TEXT, auth TEXT);
+    CREATE TABLE push_subscriptions (id TEXT PRIMARY KEY, user_id TEXT, endpoint TEXT, p256dh TEXT, auth TEXT, updated_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00.000Z');
     CREATE TABLE notification_preferences (user_id TEXT PRIMARY KEY, system INTEGER, events INTEGER, lost_found INTEGER, schedule INTEGER, school INTEGER);
     CREATE TABLE push_delivery_attempts (source_type TEXT, source_id TEXT, subscription_id TEXT, state TEXT, attempts INTEGER,
       last_status INTEGER, updated_at TEXT, next_retry_at TEXT, PRIMARY KEY(source_type, source_id, subscription_id));`.replace(/\s+/g, ' '));
@@ -59,7 +59,7 @@ test('new eligibility signals the queue once while exact duplicate messages shar
     CREATE TABLE event_push_deliveries (event_id INTEGER PRIMARY KEY, event_created_at TEXT, state TEXT, attempted_at TEXT,
       sent_at TEXT, attempts INTEGER, last_error TEXT, last_subscription_id TEXT, sent_count INTEGER DEFAULT 0,
       failed_count INTEGER DEFAULT 0, skipped_count INTEGER DEFAULT 0, lease_expires_at TEXT, next_retry_at TEXT);
-    CREATE TABLE push_subscriptions (id TEXT PRIMARY KEY, user_id TEXT, endpoint TEXT, p256dh TEXT, auth TEXT);
+    CREATE TABLE push_subscriptions (id TEXT PRIMARY KEY, user_id TEXT, endpoint TEXT, p256dh TEXT, auth TEXT, updated_at TEXT NOT NULL DEFAULT '2026-01-01T00:00:00.000Z');
     CREATE TABLE notification_preferences (user_id TEXT PRIMARY KEY, system INTEGER, events INTEGER, lost_found INTEGER, schedule INTEGER, school INTEGER);
     CREATE TABLE push_delivery_attempts (source_type TEXT, source_id TEXT, subscription_id TEXT, state TEXT, attempts INTEGER,
       last_status INTEGER, updated_at TEXT, next_retry_at TEXT, PRIMARY KEY(source_type, source_id, subscription_id));`.replace(/\s+/g, ' '));
