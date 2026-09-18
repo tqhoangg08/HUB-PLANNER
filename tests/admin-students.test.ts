@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { AdminStudentsError, handleAdminStudents, parseAdminStudentQuery } from '../cloudflare/worker/src/admin-students.ts';
+import { parseAdminStudentCreate } from '../cloudflare/worker/src/admin-student-lifecycle.ts';
 
 test('admin student query is cursor-based, bounded, and rejects unsafe filters', () => {
   assert.deepEqual(parseAdminStudentQuery(new URLSearchParams('limit=999&q=AB')), {
@@ -48,15 +49,29 @@ test('admin list uses a bounded cursor query and redacts internal identity/PII',
   assert.equal(response.data[0].email_masked, 'SV***@st.buh.edu.vn');
 });
 
-test('unsafe account lifecycle operations fail closed instead of orphaning Better Auth identities', async () => {
-  const env = {
-    AUTH_SERVICE: { fetch: async () => Response.json({ userId: '11111111-1111-4111-8111-111111111111', email: 'admin@example.invalid', role: 'admin' }) },
-    DB: { prepare: () => { throw new Error('not needed'); } },
-  } as any;
-  const post = new Request('https://example.invalid/api/admin/students', { method: 'POST', headers: { Cookie: 'better-auth.session=test' } });
-  await assert.rejects(() => handleAdminStudents(post, new URL(post.url), env), (error: unknown) => error instanceof AdminStudentsError && error.status === 409);
-  const del = new Request('https://example.invalid/api/admin/students/SV123456', { method: 'DELETE', headers: { Cookie: 'better-auth.session=test' } });
-  await assert.rejects(() => handleAdminStudents(del, new URL(del.url), env), (error: unknown) => error instanceof AdminStudentsError && error.status === 409);
+test('student lifecycle requires a canonical student email and avoids caller-controlled owner fields', () => {
+  assert.deepEqual(parseAdminStudentCreate({ studentCode: '241100000001', fullName: 'Sinh viên mới' }), {
+    studentCode: '241100000001', fullName: 'Sinh viên mới', className: '', cohort: '', programName: '', majorName: '', specializationName: '',
+  });
+  assert.throws(() => parseAdminStudentCreate({ studentCode: '241100000001', fullName: 'Sinh viên mới', userId: 'attacker-id' }));
+  assert.throws(() => parseAdminStudentCreate({ studentCode: 'x', fullName: 'Sinh viên mới' }));
+});
+
+test('cross-database lifecycle is an idempotent saga with Auth-side confirmation', () => {
+  const publicLifecycle = readFileSync('cloudflare/worker/src/admin-student-lifecycle.ts', 'utf8');
+  const authLifecycle = readFileSync('cloudflare/auth-production-worker/src/auth-production.ts', 'utf8');
+  assert.match(publicLifecycle, /state: 'pending' \| 'auth_done' \| 'profile_done' \| 'completed'/);
+  assert.match(publicLifecycle, /\/internal\/admin-students\/create/);
+  assert.match(publicLifecycle, /\/internal\/admin-students\/invite/);
+  assert.match(publicLifecycle, /\/internal\/admin-students\/delete/);
+  assert.match(publicLifecycle, /cleanupD1UserDataForAdminLifecycle/);
+  assert.match(publicLifecycle, /readRecoverableLifecycle/);
+  assert.match(publicLifecycle, /state<>'completed'/);
+  assert.match(authLifecycle, /handleInternalAdminStudentCreate/);
+  assert.match(authLifecycle, /roleForUser\(env, session\.user\.id\)\) !== "admin"/);
+  assert.match(authLifecycle, /hashPassword\(bootstrapSecret\)/);
+  assert.match(authLifecycle, /request-password-reset/);
+  assert.doesNotMatch(authLifecycle, /console\.(?:log|error)\([^\n]*(?:bootstrapSecret|studentCode|input\.email)/i);
 });
 
 test('student management query exposes no direct PII or wildcard selection', () => {
@@ -87,4 +102,13 @@ test('student export creates a redacted admin audit record', () => {
   assert.match(source, /admin_student_export/);
   assert.match(source, /activity_logs/);
   assert.doesNotMatch(source, /metadata_json\).*email/i);
+});
+
+test('both lifecycle ledgers are additive, indexed, and deliberately not applied by this change', () => {
+  const publicMigration = readFileSync('cloudflare/migrations/0042_admin_student_lifecycle.sql', 'utf8');
+  const authMigration = readFileSync('cloudflare/auth-production-migrations/0003_admin_student_lifecycle.sql', 'utf8');
+  assert.match(publicMigration, /CREATE TABLE IF NOT EXISTS admin_student_lifecycle/);
+  assert.match(publicMigration, /UNIQUE \(actor_user_id, idempotency_key\)/);
+  assert.match(authMigration, /CREATE TABLE IF NOT EXISTS auth_admin_student_lifecycle/);
+  assert.match(authMigration, /auth_admin_student_lifecycle_target_idx/);
 });

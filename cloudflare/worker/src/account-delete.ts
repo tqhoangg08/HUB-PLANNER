@@ -429,6 +429,12 @@ const cleanupD1UserData = async (env: AccountDeleteEnv, userId: string) => {
   }
 };
 
+// Used only by the admin student lifecycle after its authenticated Auth-side
+// delete has been reserved. It reuses the exact-owner cleanup and postcondition
+// checks from the self-service deletion flow; callers must provide their own
+// admin authorization and cross-database saga state.
+export const cleanupD1UserDataForAdminLifecycle = cleanupD1UserData;
+
 const isSyntheticFixture = (env: AccountDeleteEnv, userId: string) =>
   env.ACCOUNT_DELETE_SYNTHETIC_TEST_ENABLED === 'true' &&
   UUID.test(String(env.ACCOUNT_DELETE_SYNTHETIC_TEST_USER_ID || '')) &&

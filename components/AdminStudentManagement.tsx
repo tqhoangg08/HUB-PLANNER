@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Eye, Filter, Loader2, Pencil, Plus, RefreshCw, Search, Trash2, Users, X } from 'lucide-react';
 import { showAlert, showConfirm } from '../utils/appNotifications';
 import {
+  createAdminStudent,
   deleteAdminStudent,
   fetchAdminStudents,
   updateAdminStudent,
   type AdminStudent,
+  type AdminStudentCreateInput,
   type AdminStudentFilters,
   type AdminStudentPage,
 } from '../utils/adminStudentsApi';
@@ -28,7 +30,12 @@ export const AdminStudentManagement = ({ isAdmin, onExport }: { isAdmin: boolean
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<AdminStudent | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createDraft, setCreateDraft] = useState<AdminStudentCreateInput>({ studentCode: '', fullName: '' });
+  const [mutationBusy, setMutationBusy] = useState(false);
   const cache = useRef(new Map<string, AdminStudentPage>());
+  const createIdempotencyKey = useRef<string | null>(null);
+  const deleteIdempotencyKeys = useRef(new Map<string, string>());
 
   const filters = useMemo<AdminStudentFilters>(() => ({
     q: search.trim(), className: className.trim(), major: major.trim(), status, start, end,
@@ -77,20 +84,43 @@ export const AdminStudentManagement = ({ isAdmin, onExport }: { isAdmin: boolean
       setSelected(null); refresh();
     } catch (reason) { await showAlert({ title: 'Không thể lưu', message: reason instanceof Error ? reason.message : 'Vui lòng thử lại.', confirmText: 'Đóng', variant: 'error' }); }
   };
+  const insertCurrentPage = (student: AdminStudent) => {
+    cache.current.clear();
+    setPage(previous => previous ? { ...previous, data: [student, ...previous.data.filter(item => item.student_code !== student.student_code)].slice(0, limit) } : previous);
+  };
   const remove = async (student: AdminStudent) => {
     if (!student.student_code) return;
     const confirmed = await showConfirm({ title: 'Xóa tài khoản sinh viên?', message: 'Thao tác này cần quy trình xóa tài khoản có xác minh. Bạn có muốn tiếp tục kiểm tra quyền?', confirmText: 'Tiếp tục', cancelText: 'Hủy', variant: 'warning' });
     if (!confirmed) return;
-    try { await deleteAdminStudent(student.student_code); refresh(); }
+    setMutationBusy(true);
+    try {
+      const key = deleteIdempotencyKeys.current.get(student.student_code) || crypto.randomUUID();
+      deleteIdempotencyKeys.current.set(student.student_code, key);
+      await deleteAdminStudent(student.student_code, key);
+      cache.current.clear(); setPage(previous => previous ? { ...previous, data: previous.data.filter(item => item.student_code !== student.student_code) } : previous);
+      deleteIdempotencyKeys.current.delete(student.student_code);
+    }
     catch (reason) { await showAlert({ title: 'Không thể xóa', message: reason instanceof Error ? reason.message : 'Vui lòng thử lại.', confirmText: 'Đóng', variant: 'info' }); }
+    finally { setMutationBusy(false); }
   };
-  const add = async () => showAlert({ title: 'Tạo sinh viên', message: 'Tài khoản sinh viên phải được tạo qua luồng đăng ký Better Auth để bảo toàn danh tính và mật khẩu.', confirmText: 'Đã hiểu', variant: 'info' });
+  const add = () => { createIdempotencyKey.current = null; setCreateDraft({ studentCode: '', fullName: '' }); setCreateOpen(true); };
+  const submitCreate = async () => {
+    setMutationBusy(true);
+    try {
+      const key = createIdempotencyKey.current || crypto.randomUUID();
+      createIdempotencyKey.current = key;
+      const result = await createAdminStudent(createDraft, key);
+      insertCurrentPage(result.student); setCreateOpen(false); createIdempotencyKey.current = null;
+      await showAlert({ title: 'Đã tạo sinh viên', message: 'Đã gửi email để sinh viên tự đặt mật khẩu.', confirmText: 'Đã hiểu', variant: 'success' });
+    } catch (reason) { await showAlert({ title: 'Không thể tạo', message: reason instanceof Error ? reason.message : 'Vui lòng thử lại.', confirmText: 'Đóng', variant: 'error' }); }
+    finally { setMutationBusy(false); }
+  };
 
   return <section className="w-full animate-fadeIn space-y-4">
     <header className="flex flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-center lg:justify-between">
       <div><h1 className="text-2xl font-black text-[#003375] sm:text-[28px]">Quản lý sinh viên</h1><p className="mt-1 text-sm text-slate-500">Xem và quản lý thông tin sinh viên toàn trường</p></div>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={add} disabled={!isAdmin} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#0052cc] px-3 text-sm font-bold text-white hover:bg-[#003d99] disabled:cursor-not-allowed disabled:opacity-50"><Plus size={16}/>Thêm sinh viên</button>
+        <button type="button" onClick={add} disabled={!isAdmin || mutationBusy} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#0052cc] px-3 text-sm font-bold text-white hover:bg-[#003d99] disabled:cursor-not-allowed disabled:opacity-50"><Plus size={16}/>Thêm sinh viên</button>
         <button type="button" onClick={onExport} disabled={!isAdmin} className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"><Download size={16}/>Xuất Excel</button>
         <button type="button" onClick={refresh} disabled={loading} title="Làm mới" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50"><RefreshCw size={16} className={loading ? 'animate-spin' : ''}/></button>
       </div>
@@ -105,10 +135,11 @@ export const AdminStudentManagement = ({ isAdmin, onExport }: { isAdmin: boolean
     {search.trim().length === 1 && <p className="text-sm text-amber-700">Nhập ít nhất 2 ký tự để bắt đầu tìm kiếm.</p>}
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto"><table className="min-w-[1120px] w-full text-left text-sm"><thead className="bg-slate-50 text-[11px] font-black uppercase tracking-wide text-slate-500"><tr>{['MSSV','Họ tên','Giới tính','Ngày sinh','Lớp','Khoa / Chuyên ngành','Số điện thoại','Email','Hoạt động gần nhất','Thao tác'].map(column => <th key={column} className="whitespace-nowrap border-b border-slate-200 px-4 py-3">{column}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">
-        {loading && !page ? <tr><td colSpan={10} className="py-14 text-center text-slate-500"><Loader2 className="mx-auto mb-2 animate-spin text-[#0052cc]"/>Đang tải danh sách sinh viên…</td></tr> : error ? <tr><td colSpan={10} className="py-14 text-center text-red-700">{error}</td></tr> : !page?.data.length ? <tr><td colSpan={10} className="py-14 text-center text-slate-500"><Users className="mx-auto mb-2 text-slate-300"/>Không có sinh viên phù hợp.</td></tr> : page.data.map(student => <tr key={student.student_code || student.full_name} className="hover:bg-blue-50/40"><td className="px-4 py-3 font-bold text-[#0052cc]">{student.student_code || '—'}</td><td className="px-4 py-3 font-semibold text-slate-800">{student.full_name || 'Chưa cập nhật'}</td><td className="px-4 py-3 text-slate-500">—</td><td className="px-4 py-3 text-slate-500">—</td><td className="px-4 py-3 text-slate-600">{student.class_name || '—'}</td><td className="px-4 py-3 text-slate-600">{student.specialization_name || student.major_name || '—'}</td><td className="px-4 py-3 text-slate-500">—</td><td className="px-4 py-3 text-slate-600">{student.email_masked || '—'}</td><td className="px-4 py-3"><span className={student.status === 'onboarded' ? 'rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700' : 'rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700'}>{student.status === 'onboarded' ? 'Đã kích hoạt' : 'Chưa hoàn tất'}</span><p className="mt-1 text-xs text-slate-400">{formatDate(student.last_active_at)}</p></td><td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => setSelected(student)} title="Xem" className="rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-[#003375]"><Eye size={16}/></button><button onClick={() => setSelected(student)} disabled={!isAdmin} title="Sửa" className="rounded-md p-2 text-slate-500 hover:bg-blue-50 hover:text-[#0052cc] disabled:opacity-40"><Pencil size={16}/></button><button onClick={() => void remove(student)} disabled={!isAdmin} title="Xóa" className="rounded-md p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"><Trash2 size={16}/></button></div></td></tr>)}
+        {loading && !page ? <tr><td colSpan={10} className="py-14 text-center text-slate-500"><Loader2 className="mx-auto mb-2 animate-spin text-[#0052cc]"/>Đang tải danh sách sinh viên…</td></tr> : error ? <tr><td colSpan={10} className="py-14 text-center text-red-700">{error}</td></tr> : !page?.data.length ? <tr><td colSpan={10} className="py-14 text-center text-slate-500"><Users className="mx-auto mb-2 text-slate-300"/>Không có sinh viên phù hợp.</td></tr> : page.data.map(student => <tr key={student.student_code || student.full_name} className="hover:bg-blue-50/40"><td className="px-4 py-3 font-bold text-[#0052cc]">{student.student_code || '—'}</td><td className="px-4 py-3 font-semibold text-slate-800">{student.full_name || 'Chưa cập nhật'}</td><td className="px-4 py-3 text-slate-500">—</td><td className="px-4 py-3 text-slate-500">—</td><td className="px-4 py-3 text-slate-600">{student.class_name || '—'}</td><td className="px-4 py-3 text-slate-600">{student.specialization_name || student.major_name || '—'}</td><td className="px-4 py-3 text-slate-500">—</td><td className="px-4 py-3 text-slate-600">{student.email_masked || '—'}</td><td className="px-4 py-3"><span className={student.status === 'onboarded' ? 'rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700' : 'rounded-full bg-amber-50 px-2 py-1 text-xs font-bold text-amber-700'}>{student.status === 'onboarded' ? 'Đã kích hoạt' : 'Chưa hoàn tất'}</span><p className="mt-1 text-xs text-slate-400">{formatDate(student.last_active_at)}</p></td><td className="px-4 py-3"><div className="flex gap-1"><button onClick={() => setSelected(student)} title="Xem" className="rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-[#003375]"><Eye size={16}/></button><button onClick={() => setSelected(student)} disabled={!isAdmin || mutationBusy} title="Sửa" className="rounded-md p-2 text-slate-500 hover:bg-blue-50 hover:text-[#0052cc] disabled:opacity-40"><Pencil size={16}/></button><button onClick={() => void remove(student)} disabled={!isAdmin || mutationBusy} title="Xóa" className="rounded-md p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"><Trash2 size={16}/></button></div></td></tr>)}
       </tbody></table></div>
       <footer className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><span className="text-xs text-slate-500">Trang {pageNumber} · {page?.data.length || 0} kết quả trong trang hiện tại</span><div className="flex items-center gap-2"><select value={limit} onChange={event => setLimit(Number(event.target.value))} className="h-8 rounded border border-slate-300 bg-white px-2 text-xs"><option value={10}>10 / trang</option><option value={20}>20 / trang</option><option value={50}>50 / trang</option></select><button onClick={previousPage} disabled={cursorStack.length <= 1 || loading} className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold disabled:opacity-50">Trước</button><button onClick={nextPage} disabled={!page?.has_more || loading} className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold disabled:opacity-50">Sau</button></div></footer>
     </div>
     {selected && <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/45 p-4" onClick={() => setSelected(null)}><section className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl" onClick={event => event.stopPropagation()}><div className="mb-5 flex items-start justify-between"><div><h2 className="text-xl font-black text-[#003375]">Hồ sơ sinh viên</h2><p className="text-sm text-slate-500">Chỉ hiển thị dữ liệu cần thiết cho quản trị.</p></div><button onClick={() => setSelected(null)} className="rounded p-2 text-slate-500 hover:bg-slate-100"><X size={18}/></button></div><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-bold uppercase text-slate-400">MSSV</p><p className="mt-1 text-sm font-semibold text-slate-700">{selected.student_code || '—'}</p></div><div className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-bold uppercase text-slate-400">Email</p><p className="mt-1 text-sm font-semibold text-slate-700">{selected.email_masked || '—'}</p></div>{[['full_name','Họ tên'],['class_name','Lớp'],['cohort','Khóa'],['major_name','Ngành'],['specialization_name','Chuyên ngành']].map(([key,label]) => <label key={key} className="rounded-lg border border-slate-200 bg-slate-50 p-3"><span className="text-xs font-bold uppercase text-slate-400">{label}</span>{isAdmin ? <input value={String(selected[key as keyof AdminStudent] || '')} onChange={event => setSelected(previous => previous ? { ...previous, [key]: event.target.value } : previous)} className="mt-1 w-full border-b border-slate-300 bg-transparent py-1 text-sm font-semibold text-slate-700 outline-none focus:border-[#003375]"/> : <p className="mt-1 text-sm font-semibold text-slate-700">{String(selected[key as keyof AdminStudent] || '—')}</p>}</label>)}</div><div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">Trạng thái: <strong>{selected.status === 'onboarded' ? 'Đã kích hoạt' : 'Chưa hoàn tất'}</strong></div>{isAdmin && <button onClick={() => void edit()} className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-[#0052cc] px-4 text-sm font-bold text-white hover:bg-[#003d99]"><Pencil size={16}/>Lưu thay đổi hồ sơ</button>}</section></div>}
+    {createOpen && <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/45 p-4"><section className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl"><h2 className="text-xl font-black text-[#003375]">Thêm sinh viên</h2><p className="mt-1 text-sm text-slate-500">Hệ thống gửi email để sinh viên tự đặt mật khẩu; quản trị viên không nhập hoặc xem mật khẩu.</p><div className="mt-5 grid gap-3 sm:grid-cols-2">{([['studentCode','MSSV'],['fullName','Họ tên'],['className','Lớp'],['cohort','Khóa'],['majorName','Ngành'],['specializationName','Chuyên ngành']] as const).map(([key,label]) => <label key={key} className="grid gap-1 text-sm font-bold text-slate-600"><span>{label}</span><input value={createDraft[key] || ''} onChange={event => setCreateDraft(previous => ({ ...previous, [key]: event.target.value }))} className="h-10 rounded-lg border border-slate-300 px-3 font-normal outline-none focus:border-[#003375]"/></label>)}</div><div className="mt-6 flex justify-end gap-2"><button disabled={mutationBusy} onClick={() => setCreateOpen(false)} className="h-10 rounded-lg border border-slate-300 px-4 text-sm font-bold text-slate-700">Hủy</button><button disabled={mutationBusy || createDraft.studentCode.trim().length < 3 || createDraft.fullName.trim().length < 2} onClick={() => void submitCreate()} className="h-10 rounded-lg bg-[#0052cc] px-4 text-sm font-bold text-white disabled:opacity-50">{mutationBusy ? 'Đang tạo…' : 'Tạo và gửi lời mời'}</button></div></section></div>}
   </section>;
 };

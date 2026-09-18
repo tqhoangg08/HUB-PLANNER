@@ -5,8 +5,15 @@ import {
   type BetterAuthIdentityEnv,
 } from './better-auth-identity.ts';
 import { writeProfileD1Authority, type ProfileShadowEnv } from './profile-shadow.ts';
+import {
+  AdminStudentLifecycleError,
+  createAdminStudent,
+  deleteAdminStudentLifecycle,
+  parseAdminStudentCreate,
+  type AdminStudentLifecycleEnv,
+} from './admin-student-lifecycle.ts';
 
-export interface AdminStudentsEnv extends BetterAuthIdentityEnv, ProfileShadowEnv {}
+export interface AdminStudentsEnv extends BetterAuthIdentityEnv, ProfileShadowEnv, AdminStudentLifecycleEnv {}
 
 type AdminStudentsStatus = 400 | 401 | 403 | 404 | 405 | 409 | 413 | 422 | 503;
 export class AdminStudentsError extends Error {
@@ -184,9 +191,10 @@ export const handleAdminStudents = async (request: Request, url: URL, env: Admin
   const actor = await requireAdmin(request, env);
   if (url.pathname === '/api/admin/students') {
     if (request.method === 'GET') return readList(url, env);
-    // A profile cannot safely create a Better Auth account. Account creation is
-    // intentionally delegated to the authoritative signup flow.
-    if (request.method === 'POST') throw new AdminStudentsError(409, 'Tạo tài khoản cần thực hiện qua luồng đăng ký được xác thực.');
+    if (request.method === 'POST') {
+      const body = await readBody(request);
+      return createAdminStudent(request, env, actor, requestId(request), parseAdminStudentCreate(body));
+    }
     throw new AdminStudentsError(405, 'Phương thức không được hỗ trợ.');
   }
   const match = url.pathname.match(/^\/api\/admin\/students\/([^/]+)$/);
@@ -194,13 +202,9 @@ export const handleAdminStudents = async (request: Request, url: URL, env: Admin
   const studentCode = decodeURIComponent(match[1]);
   if (!STUDENT_CODE.test(studentCode)) throw new AdminStudentsError(400, 'MSSV không hợp lệ.');
   if (request.method === 'PATCH') return updateStudent(request, studentCode, env, actor);
-  if (request.method === 'DELETE') {
-    // Deleting a profile without deleting its Better Auth account would create
-    // an orphaned identity. Keep the destructive operation in account-delete.
-    throw new AdminStudentsError(409, 'Xóa tài khoản phải dùng quy trình xóa tài khoản có xác minh.');
-  }
+  if (request.method === 'DELETE') return deleteAdminStudentLifecycle(request, env, actor, requestId(request), studentCode);
   throw new AdminStudentsError(405, 'Phương thức không được hỗ trợ.');
 };
 
 export const adminStudentsErrorStatus = (error: unknown) =>
-  error instanceof AdminStudentsError || error instanceof BetterAuthIdentityError ? error.status : 500;
+  error instanceof AdminStudentsError || error instanceof AdminStudentLifecycleError || error instanceof BetterAuthIdentityError ? error.status : 500;

@@ -979,6 +979,168 @@ async function handleInternalAccountDeleteCommit(
   return jsonResponse({ ok: true, deleted: true });
 }
 
+type AdminStudentLifecycleAction = "create" | "invite" | "delete";
+type AdminStudentLifecycleInput = {
+  operationId: string;
+  studentCode: string;
+  email: string;
+  fullName?: string;
+  targetUserId?: string;
+};
+
+const ADMIN_LIFECYCLE_OPERATION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ADMIN_LIFECYCLE_STUDENT_CODE = /^[a-z0-9._-]{3,64}$/i;
+
+const internalAdminRequest = async (
+  request: Request,
+  env: AuthRuntimeEnv,
+  auth: ReturnType<typeof createAuthForProfile>,
+) => {
+  if (request.method !== "POST" || new URL(request.url).hostname !== "auth-service.internal") return null;
+  const session = await betterAuthSession(auth, request);
+  if (!session?.user?.id) return null;
+  if ((await roleForUser(env, session.user.id)) !== "admin") return null;
+  return session.user.id;
+};
+
+const parseAdminStudentLifecycleInput = async (request: Request): Promise<AdminStudentLifecycleInput | null> => {
+  const body = await readBoundedJsonBody(request);
+  if (!body) return null;
+  const operationId = typeof body.operationId === "string" ? body.operationId.toLowerCase() : "";
+  const studentCode = typeof body.studentCode === "string" ? body.studentCode.trim().toUpperCase() : "";
+  const email = normalizeEmail(body.email);
+  const fullName = typeof body.fullName === "string" ? body.fullName.trim().replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 160) : "";
+  const targetUserId = typeof body.targetUserId === "string" ? body.targetUserId.toLowerCase() : "";
+  const identity = normalizeStudentIdentity(email);
+  if (!ADMIN_LIFECYCLE_OPERATION_ID.test(operationId) || !ADMIN_LIFECYCLE_STUDENT_CODE.test(studentCode) || !identity || identity.studentCode !== studentCode) return null;
+  if (targetUserId && !ADMIN_LIFECYCLE_OPERATION_ID.test(targetUserId)) return null;
+  return { operationId, studentCode, email: identity.email, fullName, targetUserId: targetUserId || undefined };
+};
+
+const adminLifecycleRow = async (env: AuthRuntimeEnv, operationId: string) => env.AUTH_DB.prepare(
+  `SELECT operation_id,action,actor_user_id,target_user_id,student_code,email,state
+     FROM auth_admin_student_lifecycle WHERE operation_id=?1 LIMIT 1`,
+).bind(operationId).first<{
+  operation_id: string; action: "create" | "delete"; actor_user_id: string; target_user_id: string;
+  student_code: string; email: string; state: "auth_created" | "invite_sent" | "auth_deleted";
+}>();
+
+async function handleInternalAdminStudentCreate(
+  request: Request,
+  env: AuthRuntimeEnv,
+  auth: ReturnType<typeof createAuthForProfile>,
+): Promise<Response> {
+  const actorUserId = await internalAdminRequest(request, env, auth);
+  const input = await parseAdminStudentLifecycleInput(request);
+  if (!actorUserId || !input || !input.fullName) return jsonResponse({ error: "Not found." }, 404);
+  const existing = await adminLifecycleRow(env, input.operationId);
+  if (existing) {
+    if (existing.action !== "create" || existing.actor_user_id !== actorUserId || existing.student_code !== input.studentCode || existing.email !== input.email) {
+      return jsonResponse({ error: "Yêu cầu tạo tài khoản không hợp lệ." }, 409);
+    }
+    return jsonResponse({ ok: true, userId: existing.target_user_id, state: existing.state });
+  }
+  const conflict = await env.AUTH_DB.prepare(
+    `SELECT 1 AS found FROM auth_user WHERE email=?1
+     UNION ALL SELECT 1 AS found FROM app_auth_identifiers WHERE student_code=?2
+     LIMIT 1`,
+  ).bind(input.email, input.studentCode).first<{ found: number }>();
+  if (conflict) return jsonResponse({ error: "MSSV hoặc email đã tồn tại." }, 409);
+
+  // This secret is generated only to create the initial credential provider.
+  // It is immediately unreachable to every caller; the student receives the
+  // existing Better Auth reset-password email to choose their own password.
+  const bootstrapSecret = `${crypto.randomUUID()}${crypto.randomUUID()}${crypto.randomUUID()}`;
+  const userId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await env.AUTH_DB.batch([
+    env.AUTH_DB.prepare(`INSERT INTO auth_admin_student_lifecycle
+      (operation_id,action,actor_user_id,target_user_id,student_code,email,state,created_at,updated_at)
+      VALUES (?1,'create',?2,?3,?4,?5,'auth_created',?6,?6)`).bind(input.operationId, actorUserId, userId, input.studentCode, input.email, now),
+    env.AUTH_DB.prepare(`INSERT INTO auth_user (id,name,email,email_verified,image,created_at,updated_at)
+      VALUES (?1,?2,?3,0,NULL,?4,?4)`).bind(userId, input.fullName, input.email, now),
+    env.AUTH_DB.prepare(`INSERT INTO app_auth_identifiers (student_code,user_id,created_at) VALUES (?1,?2,?3)`).bind(input.studentCode, userId, now),
+    env.AUTH_DB.prepare(`INSERT INTO app_user_roles (user_id,role,created_at,updated_at) VALUES (?1,'user',?2,?2)`).bind(userId, now),
+    env.AUTH_DB.prepare(`INSERT INTO auth_account (id,account_id,provider_id,user_id,password,created_at,updated_at)
+      VALUES (?1,?2,'credential',?2,?3,?4,?4)`).bind(crypto.randomUUID(), userId, await hashPassword(bootstrapSecret), now),
+  ]);
+  return jsonResponse({ ok: true, userId, state: "auth_created" });
+}
+
+async function handleInternalAdminStudentInvite(
+  request: Request,
+  env: AuthRuntimeEnv,
+  auth: ReturnType<typeof createAuthForProfile>,
+  config: RuntimeConfig,
+  requestSignals: AuthRequestSignals,
+): Promise<Response> {
+  const actorUserId = await internalAdminRequest(request, env, auth);
+  const input = await parseAdminStudentLifecycleInput(request);
+  if (!actorUserId || !input) return jsonResponse({ error: "Not found." }, 404);
+  const operation = await adminLifecycleRow(env, input.operationId);
+  if (!operation || operation.action !== "create" || operation.actor_user_id !== actorUserId || operation.student_code !== input.studentCode || operation.email !== input.email) {
+    return jsonResponse({ error: "Yêu cầu tạo tài khoản không hợp lệ." }, 409);
+  }
+  if (operation.state === "invite_sent") return jsonResponse({ ok: true, userId: operation.target_user_id, invited: true });
+  const resetRequest = new Request(new URL(`${AUTH_BASE_PATH}/request-password-reset`, config.origin), {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+  });
+  requestSignals.passwordResetEmailScheduled = false;
+  const response = await auth.handler(requestWithJsonBody(resetRequest, { email: input.email, redirectTo: config.resetPage }));
+  await response.body?.cancel();
+  if (!response.ok || !requestSignals.passwordResetEmailScheduled) {
+    return jsonResponse({ error: "Không thể gửi lời mời đặt mật khẩu." }, 503);
+  }
+  await env.AUTH_DB.prepare(`UPDATE auth_admin_student_lifecycle
+      SET state='invite_sent',updated_at=?1 WHERE operation_id=?2 AND state='auth_created'`)
+    .bind(new Date().toISOString(), operation.operation_id).run();
+  return jsonResponse({ ok: true, userId: operation.target_user_id, invited: true });
+}
+
+async function handleInternalAdminStudentDelete(
+  request: Request,
+  env: AuthRuntimeEnv,
+  auth: ReturnType<typeof createAuthForProfile>,
+): Promise<Response> {
+  const actorUserId = await internalAdminRequest(request, env, auth);
+  const input = await parseAdminStudentLifecycleInput(request);
+  if (!actorUserId || !input?.targetUserId) return jsonResponse({ error: "Not found." }, 404);
+  const existing = await adminLifecycleRow(env, input.operationId);
+  if (existing) {
+    if (existing.action !== "delete" || existing.actor_user_id !== actorUserId || existing.target_user_id !== input.targetUserId || existing.student_code !== input.studentCode) {
+      return jsonResponse({ error: "Yêu cầu xóa tài khoản không hợp lệ." }, 409);
+    }
+    if (existing.state !== "auth_deleted") {
+      return jsonResponse({ error: "Không thể hoàn tất xóa tài khoản." }, 503);
+    }
+    // The ledger is not proof of a destructive cross-step. Confirm the exact
+    // Auth identity is absent before reporting a retry as successful.
+    const remaining = await env.AUTH_DB.prepare("SELECT 1 AS found FROM auth_user WHERE id=?1 LIMIT 1")
+      .bind(input.targetUserId).first<{ found: number }>();
+    if (remaining) return jsonResponse({ error: "Không thể hoàn tất xóa tài khoản." }, 503);
+    return jsonResponse({ ok: true, deleted: true });
+  }
+  const target = await env.AUTH_DB.prepare(`SELECT id,email FROM auth_user WHERE id=?1 AND email=?2 LIMIT 1`)
+    .bind(input.targetUserId, input.email).first<{ id: string; email: string }>();
+  if (!target) return jsonResponse({ error: "Không tìm thấy tài khoản cần xóa." }, 404);
+  const now = new Date().toISOString();
+  await env.AUTH_DB.batch([
+    env.AUTH_DB.prepare(`INSERT INTO auth_admin_student_lifecycle
+      (operation_id,action,actor_user_id,target_user_id,student_code,email,state,created_at,updated_at)
+      VALUES (?1,'delete',?2,?3,?4,?5,'auth_deleted',?6,?6)`).bind(input.operationId, actorUserId, input.targetUserId, input.studentCode, input.email, now),
+    env.AUTH_DB.prepare("DELETE FROM auth_session WHERE user_id=?1").bind(input.targetUserId),
+    env.AUTH_DB.prepare("DELETE FROM auth_account WHERE user_id=?1").bind(input.targetUserId),
+    env.AUTH_DB.prepare("DELETE FROM app_auth_identifiers WHERE user_id=?1").bind(input.targetUserId),
+    env.AUTH_DB.prepare("DELETE FROM app_user_roles WHERE user_id=?1").bind(input.targetUserId),
+    env.AUTH_DB.prepare("DELETE FROM auth_verification WHERE identifier=?1").bind(input.email),
+    env.AUTH_DB.prepare("DELETE FROM auth_user WHERE id=?1").bind(input.targetUserId),
+  ]);
+  const remaining = await env.AUTH_DB.prepare(`SELECT COUNT(*) AS remaining FROM auth_user WHERE id=?1 LIMIT 1`).bind(input.targetUserId).first<{ remaining: number }>();
+  if (!remaining || Number(remaining.remaining) !== 0) throw new Error("ADMIN_STUDENT_DELETE_AUTH_POSTCONDITION_FAILED");
+  return jsonResponse({ ok: true, deleted: true });
+}
+
 function safeEmailFailureCode(error: unknown): string {
   if (error instanceof Error && /^AUTH_EMAIL_DELIVERY_HTTP_\d{3}$/.test(error.message)) {
     return error.message;
@@ -1973,6 +2135,15 @@ export async function handleAuthRuntimeRequest(
       }
       if (url.pathname === "/internal/account-delete/commit") {
         return handleInternalAccountDeleteCommit(request, env, auth, config);
+      }
+      if (url.pathname === "/internal/admin-students/create") {
+        return handleInternalAdminStudentCreate(request, env, auth);
+      }
+      if (url.pathname === "/internal/admin-students/invite") {
+        return handleInternalAdminStudentInvite(request, env, auth, config, requestSignals);
+      }
+      if (url.pathname === "/internal/admin-students/delete") {
+        return handleInternalAdminStudentDelete(request, env, auth);
       }
     }
 

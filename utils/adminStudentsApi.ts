@@ -18,6 +18,7 @@ export type AdminStudent = {
 
 export type AdminStudentPage = { success: true; data: AdminStudent[]; next_cursor: string | null; has_more: boolean };
 export type AdminStudentFilters = { q?: string; className?: string; major?: string; status?: string; start?: string; end?: string };
+export type AdminStudentCreateInput = { studentCode: string; fullName: string; className?: string; cohort?: string; programName?: string; majorName?: string; specializationName?: string };
 
 const query = (filters: AdminStudentFilters, limit: number, cursor: string | null) => {
   const params = new URLSearchParams({ limit: String(limit) });
@@ -43,9 +44,16 @@ export const updateAdminStudent = async (studentCode: string, patch: Record<stri
   return response.json() as Promise<{ success: boolean; unchanged?: boolean }>;
 };
 
-export const deleteAdminStudent = async (studentCode: string) => {
-  const response = await privateApiRequest(`/api/admin/students/${encodeURIComponent(studentCode)}`, {
-    method: 'DELETE', headers: { 'Idempotency-Key': crypto.randomUUID() }, body: JSON.stringify({}),
+export const createAdminStudent = async (input: AdminStudentCreateInput, idempotencyKey: string) => {
+  const response = await privateApiRequest('/api/admin/students', {
+    method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify(input),
   });
-  return response.json() as Promise<{ success: boolean }>;
+  return response.json() as Promise<{ success: boolean; invited: boolean; student: AdminStudent }>;
+};
+
+export const deleteAdminStudent = async (studentCode: string, idempotencyKey: string) => {
+  const response = await privateApiRequest(`/api/admin/students/${encodeURIComponent(studentCode)}`, {
+    method: 'DELETE', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({}),
+  });
+  return response.json() as Promise<{ success: boolean; deleted: boolean }>;
 };
