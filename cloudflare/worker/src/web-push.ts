@@ -26,6 +26,10 @@ export type WebPushFailureClass =
   | 'subscription_crypto_invalid'
   | 'vapid_configuration';
 
+// This is deliberately provider-level only. It is safe to use in operational
+// diagnostics and test responses without retaining an endpoint URL or token.
+export type WebPushProvider = 'fcm' | 'apple' | 'mozilla' | 'other';
+
 export class WebPushError extends Error {
   readonly statusCode?: number;
   readonly failureClass: WebPushFailureClass;
@@ -41,6 +45,18 @@ const fromBase64Url = (value: string) => {
   const base64 = `${value}${'='.repeat((4 - value.length % 4) % 4)}`.replace(/-/g, '+').replace(/_/g, '/');
   const binary = atob(base64);
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+};
+
+export const classifyWebPushProvider = (endpoint: string): WebPushProvider => {
+  try {
+    const host = new URL(endpoint).hostname.toLowerCase();
+    if (host === 'fcm.googleapis.com') return 'fcm';
+    if (host === 'push.apple.com' || host.endsWith('.push.apple.com')) return 'apple';
+    if (host === 'push.services.mozilla.com' || host.endsWith('.push.services.mozilla.com')) return 'mozilla';
+  } catch {
+    // Invalid endpoints are separately classified by the sender.
+  }
+  return 'other';
 };
 
 const toBase64Url = (bytes: Uint8Array) => {

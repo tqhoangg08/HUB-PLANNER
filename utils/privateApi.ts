@@ -18,11 +18,13 @@ export type AppSession = {
 
 export class PrivateApiError extends Error {
   readonly status: number;
+  readonly code?: string;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = 'PrivateApiError';
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -77,8 +79,9 @@ export const privateApiRequest = async (
   });
   if (!response.ok) {
     let message = safeErrorMessage(response.status);
+    let code: string | undefined;
     try {
-      const payload = await response.json() as { error?: unknown };
+      const payload = await response.json() as { error?: unknown; code?: unknown };
       if (
         mayUseClientSafeMessage(response.status)
         && typeof payload?.error === 'string'
@@ -86,10 +89,11 @@ export const privateApiRequest = async (
       ) {
         message = payload.error;
       }
+      if (typeof payload?.code === 'string' && /^[A-Z0-9_]{3,64}$/.test(payload.code)) code = payload.code;
     } catch {
       // Keep the fixed status-specific message for invalid error bodies.
     }
-    throw new PrivateApiError(response.status, message);
+    throw new PrivateApiError(response.status, message, code);
   }
   return response;
 };

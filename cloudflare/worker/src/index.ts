@@ -1486,6 +1486,9 @@ const worker = {
               : status < 500 && error instanceof PushTestError
                 ? error.message
                 : 'Không thể gửi thông báo thử.',
+          code: error instanceof PushTestError && /^PUSH_[A-Z0-9_]{3,64}$/.test(error.code)
+            ? error.code
+            : 'PUSH_TEST_FAILED',
         }, status, { ...cors, 'Cache-Control': 'no-store' });
       }
     }

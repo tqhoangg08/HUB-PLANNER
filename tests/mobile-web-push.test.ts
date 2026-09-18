@@ -37,6 +37,10 @@ const vapidKeys = async () => {
 const auth = (userId = '11111111-1111-4111-8111-111111111111') => ({
   AUTH_SERVICE: { fetch: async () => Response.json({ userId, email: 'member@example.invalid', role: 'user' }) },
 });
+const endpointFingerprint = async (endpoint: string) => {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(endpoint));
+  return Buffer.from(new Uint8Array(digest)).toString('hex');
+};
 
 test('production frontend has public VAPID key and no private key', () => {
   const source = read('.env.production');
@@ -101,6 +105,58 @@ test('private test push targets only authenticated Better Auth user', async () =
   } finally { globalThis.fetch = originalFetch; await mf.dispose(); }
 });
 
+test('current-device test resolves only the authenticated server-matched fingerprint through the native sender', async () => {
+  const userId = '11111111-1111-4111-8111-111111111111';
+  const { mf, db } = await createPushDb();
+  const keys = await subscriptionKeys();
+  const now = new Date().toISOString();
+  const currentEndpoint = 'https://fcm.googleapis.com/fcm/send/current-device';
+  const otherEndpoint = 'https://fcm.googleapis.com/fcm/send/other-device';
+  await db.prepare('INSERT INTO push_subscriptions VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind('current', userId, currentEndpoint, keys.p256dh, keys.auth, now, now, now).run();
+  await db.prepare('INSERT INTO push_subscriptions VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind('other', userId, otherEndpoint, keys.p256dh, keys.auth, now, now, now).run();
+  const requests: string[] = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    requests.push(String(input));
+    return new Response(null, { status: 201 });
+  };
+  try {
+    const result = await handlePushTest(new Request('https://example.test/api/private/v1/push/test', {
+      method: 'POST', headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentDeviceFingerprint: await endpointFingerprint(currentEndpoint) }),
+    }), { DB: db, ...auth(userId), ...await vapidKeys() });
+    assert.deepEqual(result, {
+      success: true, sent: 1, failed: 0, skipped: 0, targeted: 1,
+      targeting: 'authenticated_user_current_device', provider: 'fcm',
+    });
+    assert.deepEqual(requests, [currentEndpoint]);
+  } finally { globalThis.fetch = originalFetch; await mf.dispose(); }
+});
+
+test('current-device test returns a safe timeout classification without subscription material', async () => {
+  const userId = '11111111-1111-4111-8111-111111111111';
+  const { mf, db } = await createPushDb();
+  const keys = await subscriptionKeys();
+  const now = new Date().toISOString();
+  const endpoint = 'https://fcm.googleapis.com/fcm/send/current-device';
+  await db.prepare('INSERT INTO push_subscriptions VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind('current', userId, endpoint, keys.p256dh, keys.auth, now, now, now).run();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new DOMException('timed out', 'TimeoutError'); };
+  try {
+    await assert.rejects(handlePushTest(new Request('https://example.test/api/private/v1/push/test', {
+      method: 'POST', headers: { Cookie: 'session=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentDeviceFingerprint: await endpointFingerprint(endpoint) }),
+    }), { DB: db, ...auth(userId), ...await vapidKeys() }),
+    (error: unknown) => error instanceof PushTestError
+      && error.status === 502
+      && error.code === 'PUSH_TRANSPORT_TIMEOUT'
+      && !/fcm|endpoint|p256dh|auth/i.test(error.message));
+  } finally { globalThis.fetch = originalFetch; await mf.dispose(); }
+});
+
 test('private test push rejects client-selected recipients', async () => {
   await assert.rejects(handlePushTest(new Request('https://example.test/api/private/v1/push/test', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"user_id":"other"}',
@@ -112,6 +168,7 @@ test('test push UI validates registration before sending', () => {
   assert.match(source, /navigator\.serviceWorker\.ready/);
   assert.match(source, /getCurrentPushSubscription\(\)/);
   assert.match(source, /subscribeToDeviceNotifications\(currentUserId\)/);
+  assert.match(source, /currentDeviceFingerprint: registration\.fingerprint/);
   assert.match(source, /privateApiRequest\('\/api\/private\/v1\/push\/test'/);
   assert.doesNotMatch(source, /useEffect\([^]*handleTestPush\(/);
 });

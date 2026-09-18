@@ -16,6 +16,9 @@ export interface SourceDeliveryProgress {
 }
 export interface PushDeliveryOptions {
   userId?: string;
+  // This is resolved server-side (for example from an authenticated current
+  // device fingerprint), never accepted as a caller-controlled recipient.
+  subscriptionId?: string;
   limit?: number;
   fetcher?: typeof fetch;
   deliveryKey?: PushDeliveryKey;
@@ -80,6 +83,7 @@ export const deliverPushBatch = async (
     whereBindings.push(nowIso);
   }
   if (options.userId) { conditions.push('s.user_id = ?'); whereBindings.push(options.userId); }
+  if (options.subscriptionId) { conditions.push('s.id = ?'); whereBindings.push(options.subscriptionId); }
   const rows = await env.DB.prepare(
     `SELECT s.id, s.user_id, s.endpoint, s.p256dh, s.auth,
             ${options.deliveryKey ? 'a.attempts' : 'NULL'} AS delivery_attempts,

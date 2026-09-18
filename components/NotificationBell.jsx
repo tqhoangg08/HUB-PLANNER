@@ -365,7 +365,7 @@ const NotificationBell = ({ currentUserId }) => {
       if (!registration.currentDeviceMatched) throw new Error('device_mismatch');
 
       const sendTest = () => privateApiRequest('/api/private/v1/push/test', {
-        method: 'POST', body: '{}',
+        method: 'POST', body: JSON.stringify({ currentDeviceFingerprint: registration.fingerprint }),
       });
       let response;
       try {
@@ -389,7 +389,15 @@ const NotificationBell = ({ currentUserId }) => {
       } else if (error instanceof PrivateApiError && error.status === 404) {
         setTestPushStatus('Thiết bị này chưa được đăng ký nhận thông báo. Hãy bật lại thông báo rồi thử lại.');
       } else if (error instanceof PrivateApiError && error.status >= 500) {
-        setTestPushStatus('Máy chủ chưa gửi được thông báo thử. Vui lòng thử lại sau.');
+        if (error.code === 'PUSH_TRANSPORT_TIMEOUT') {
+          setTestPushStatus('Dịch vụ thông báo chưa phản hồi kịp thời cho thiết bị này. Hãy thử lại sau.');
+        } else if (error.code === 'PUSH_TRANSPORT_NETWORK') {
+          setTestPushStatus('Không thể kết nối tới dịch vụ thông báo của thiết bị này. Hãy thử lại sau.');
+        } else if (error.code === 'PUSH_PROVIDER_HTTP') {
+          setTestPushStatus('Dịch vụ thông báo đã từ chối yêu cầu cho thiết bị này. Hãy bật lại thông báo rồi thử lại.');
+        } else {
+          setTestPushStatus('Máy chủ chưa gửi được thông báo thử. Vui lòng thử lại sau.');
+        }
       } else if (error instanceof Error && error.name === 'AbortError') {
         setTestPushStatus('Kết nối đăng ký thiết bị quá lâu. Vui lòng kiểm tra mạng rồi thử lại.');
       } else {
