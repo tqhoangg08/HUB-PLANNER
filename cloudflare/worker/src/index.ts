@@ -196,6 +196,11 @@ import {
 } from './admin-support.ts';
 import { adminExportErrorStatus, handleAdminExport, type AdminExportEnv } from './admin-export.ts';
 import {
+  adminStudentsErrorStatus,
+  handleAdminStudents,
+  type AdminStudentsEnv,
+} from './admin-students.ts';
+import {
   accountDeleteErrorStatus,
   AccountDeleteError,
   handleAccountDelete,
@@ -213,7 +218,7 @@ import {
 } from './public-directory.ts';
 
 type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv & EventPushEnv & AccountPasswordCompatEnv & EventCandidatesEnv & LostFoundEnv &
-  ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & PushTestEnv & AiAdvisorEnv & AiDocumentsEnv & PublicDirectoryEnv & {
+  ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AdminStudentsEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & PushTestEnv & AiAdvisorEnv & AiDocumentsEnv & PublicDirectoryEnv & {
   AUTH_SERVICE_PROXY_ENABLED?: string;
   EVENT_CANDIDATE_EXTENSION_ORIGINS?: string;
   AUTH_INGRESS_IP_RATE_LIMIT?: RateLimit;
@@ -503,6 +508,17 @@ const readAllowedOrigins = (env: WorkerEnv) => {
     .map((value) => value.trim())
     .filter(Boolean);
   return new Set(configured.length > 0 ? configured : DEFAULT_ALLOWED_ORIGINS);
+};
+
+const enforceAdminStudentRateLimit = async (request: Request, env: WorkerEnv) => {
+  const ingressIp = request.headers.get('cf-connecting-ip')?.trim();
+  // Reuse the deployed Workers Rate Limiting namespace. This is deliberately
+  // edge-only: directory lookups must not add a D1 write for throttling.
+  if (!ingressIp || !env.AUTH_INGRESS_IP_RATE_LIMIT) return false;
+  const outcome = await env.AUTH_INGRESS_IP_RATE_LIMIT.limit({
+    key: `admin-students-ip:${ingressIp}`,
+  });
+  return !outcome.success;
 };
 
 const CHROME_EXTENSION_ORIGIN = /^chrome-extension:\/\/[a-p]{32}$/;
@@ -1097,6 +1113,29 @@ const worker = {
       if (exportCors === null) return json({ error: 'Origin không được phép.' }, 403);
       try { return json(await handleAdminExport(request, env), 200, { ...exportCors, 'Cache-Control': 'private, no-store' }); }
       catch (error) { const status = adminExportErrorStatus(error); return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' : status === 403 ? 'Không có quyền truy cập.' : status < 500 && error instanceof Error ? error.message : 'Không thể xử lý yêu cầu xuất dữ liệu.' }, status, { ...exportCors, 'Cache-Control': 'no-store' }); }
+    }
+
+    if (requestUrl.pathname === '/api/admin/students' || /^\/api\/admin\/students\/[^/]+$/.test(requestUrl.pathname)) {
+      const studentCors = corsHeaders(request, env);
+      if (studentCors === null) return json({ error: 'Origin không được phép.' }, 403);
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { ...JSON_SECURITY_HEADERS, ...studentCors, 'Cache-Control': 'no-store' } });
+      if (await enforceAdminStudentRateLimit(request, env)) {
+        return json({ error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' }, 429, { ...studentCors, 'Cache-Control': 'private, no-store' });
+      }
+      try {
+        return json(await handleAdminStudents(request, requestUrl, env), 200, {
+          ...studentCors,
+          'Cache-Control': 'private, no-store',
+        });
+      } catch (error) {
+        const status = adminStudentsErrorStatus(error);
+        if (status >= 500) console.error(JSON.stringify({ event: 'admin_students_request_failed', status }));
+        return json({
+          error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.'
+            : status === 403 ? 'Không có quyền truy cập.'
+              : status < 500 && error instanceof Error ? error.message : 'Không thể xử lý dữ liệu sinh viên.',
+        }, status, { ...studentCors, 'Cache-Control': 'private, no-store' });
+      }
     }
 
     const isLegacyPublicAlias =

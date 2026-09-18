@@ -32,6 +32,7 @@ import { protectedSubmit } from '../utils/protectedSubmit';
 import { TargetGpaTipInput } from './TargetGpaTipInput';
 import { buildManualSupportTicketDraft, openSupportTicketDraft } from '../utils/supportTicketDraft';
 import { resolveTotalCreditsRequired } from '../utils/programs';
+import { AdminStudentManagement } from './AdminStudentManagement';
 
 const AdminStudentExcelExportModal = React.lazy(() =>
     import('./AdminStudentExcelExportModal').then(module => ({
@@ -1503,29 +1504,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [showAdminExcelModal, setShowAdminExcelModal] = useState(false);
     const [isExportingPdf, setIsExportingPdf] = useState(false);
 
-    const showAdminPanel = (isAdmin || isAuditor) && adminMode === 'list';
+    // The cursor-backed panel is deliberately admin-only. Auditor capabilities
+    // remain available through their dedicated moderation surfaces and must not
+    // acquire student-directory access merely by opening /dashboard/admin.
+    const showAdminPanel = isAdmin && adminMode === 'list';
+    // Retained temporarily only so the legacy detail view still type-checks.
+    // It must never perform the former cached, broad staff-profile lookup.
+    const useLegacyAdminStudentList = false;
 
     const adminSearchQuery = adminSearch.trim();
     const hasAdminSearchQuery = adminSearchQuery.length >= 2;
-    const adminSearchCacheKey = (query: string) => `hub_admin_student_search_v1:${query.trim().toLowerCase()}`;
-    const readAdminSearchCache = (query: string) => {
-        try {
-            const raw = sessionStorage.getItem(adminSearchCacheKey(query));
-            if (!raw) return null;
-            const parsed = JSON.parse(raw);
-            if (!parsed?.cachedAt || Date.now() - parsed.cachedAt > 5 * 60 * 1000) return null;
-            return Array.isArray(parsed.users) ? parsed.users : null;
-        } catch {
-            return null;
-        }
-    };
-    const writeAdminSearchCache = (query: string, users: any[]) => {
-        try {
-            sessionStorage.setItem(adminSearchCacheKey(query), JSON.stringify({ cachedAt: Date.now(), users }));
-        } catch {
-            // Cache is an optimization only.
-        }
-    };
+    // Do not persist directory results in browser storage. The retired legacy
+    // path remains type-only until its detail view is removed in a later change.
+    const readAdminSearchCache = (_query: string) => null;
+    const writeAdminSearchCache = (_query: string, _users: any[]) => undefined;
 
     const fetchAdminData = async (searchOverride = adminSearch, options: { force?: boolean } = {}) => {
         const query = searchOverride.trim();
@@ -1580,7 +1572,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     };
 
     useEffect(() => {
-        if (!showAdminPanel) return;
+        if (!useLegacyAdminStudentList || !showAdminPanel) return;
 
         if (!hasAdminSearchQuery) {
             setAdminUsers([]);
@@ -2238,6 +2230,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         )}
 
         {showAdminPanel ? (
+            <AdminStudentManagement
+                isAdmin={isAdmin}
+                onExport={() => setShowAdminExcelModal(true)}
+            />
+        ) : false ? (
             <div className="w-full space-y-3 sm:space-y-4 animate-fadeIn">
                 {/* 1. HEADER & NÚT THAO TÁC */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">

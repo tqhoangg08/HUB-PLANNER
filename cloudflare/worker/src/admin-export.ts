@@ -59,12 +59,28 @@ const exportRows = async (env: AdminExportEnv) => {
   const result = await db(env).prepare(`SELECT p.user_id, p.student_code, p.full_name, p.class_name, q.data_json, q.student_name, q.cohort, q.program_name, q.major_name, q.specialization_name, q.semesters_json, q.updated_at FROM user_profiles p INNER JOIN user_profile_private q ON q.user_id = p.user_id ORDER BY p.user_id LIMIT ?`).bind(MAX_EXPORT_ROWS).all<Record<string, unknown>>();
   return (result.results || []).map((row) => { let data: unknown = null; try { data = typeof row.data_json === 'string' ? JSON.parse(row.data_json) : null; } catch { data = null; } return { ...row, email: null, data, semesters: isRecord(data) && Array.isArray(data.semesters) ? data.semesters : [], data_json: undefined, semesters_json: undefined }; });
 };
+const auditExport = async (env: AdminExportEnv, userId: string) => {
+  const sourceKey = `admin-student-export:${userId}:${crypto.randomUUID()}`;
+  const canonicalHash = bytesToHex(new Uint8Array(await crypto.subtle.digest('SHA-256', textEncoder.encode(sourceKey))));
+  await db(env).prepare(`INSERT INTO activity_logs
+    (source_key,canonical_hash,created_at,user_id,user_role,action,action_label,target_table,status,metadata_json)
+    VALUES (?,?,?,?,?,?,?,?,?,?)`).bind(
+    sourceKey, canonicalHash, new Date().toISOString(), userId, 'admin',
+    'admin_student_export', 'admin_student_export', 'user_profiles', 'success',
+    JSON.stringify({ source: 'admin_export' }),
+  ).run();
+};
 export const handleAdminExport = async (request: Request, env: AdminExportEnv) => {
   if (request.method !== 'POST') throw new AdminExportError(405, 'Phương thức không được hỗ trợ.'); const payload = await readBody(request); const action = typeof payload.action === 'string' ? payload.action : '';
   if (action === 'request-otp') return createChallenge(request, env);
   const identity = await requireExportStaff(request, env);
   if (action === 'verify-otp') { await verify(env, identity.userId, payload.otp); return { success: true, verified: true }; }
-  if (action === 'excel') { await verify(env, identity.userId, payload.otp); return { success: true, rows: await exportRows(env) }; }
+  if (action === 'excel') {
+    await verify(env, identity.userId, payload.otp);
+    const rows = await exportRows(env);
+    await auditExport(env, identity.userId);
+    return { success: true, rows };
+  }
   throw new AdminExportError(400, 'Yêu cầu xuất dữ liệu không hợp lệ.');
 };
 export const adminExportErrorStatus = (error: unknown) => error instanceof AdminExportError || error instanceof BetterAuthIdentityError ? error.status : 500;
