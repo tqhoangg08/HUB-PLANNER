@@ -44,9 +44,43 @@ test('admin list uses a bounded cursor query and redacts internal identity/PII',
   assert.match(statement, /student_code COLLATE NOCASE >= \?/);
   assert.equal(bindings.at(-1), 11);
   assert.equal(response.data[0].student_code, 'SV123456');
+  assert.equal(response.data[0].full_name, 'Sinh vien');
   assert.equal('user_id' in response.data[0], false);
   assert.equal(response.data[0].phone_masked, null);
   assert.equal(response.data[0].email_masked, 'SV***@st.buh.edu.vn');
+});
+
+test('admin list prioritizes the persisted Better Auth display name with one bounded lookup per page', async () => {
+  let canonicalNameRequests = 0;
+  const userId = '22222222-2222-4222-8222-222222222222';
+  const request = new Request('https://example.invalid/api/admin/students?limit=10', { headers: { Cookie: 'better-auth.session=test' } });
+  const env = {
+    AUTH_SERVICE: { fetch: async (input: RequestInfo | URL) => {
+      const internal = new URL(input instanceof Request ? input.url : String(input));
+      if (internal.pathname === '/internal/auth/user-names') {
+        canonicalNameRequests += 1;
+        return Response.json({ names: [{ userId, name: 'Nguyễn Văn An' }] });
+      }
+      return Response.json({ userId: '11111111-1111-4111-8111-111111111111', email: 'admin@example.invalid', role: 'admin' });
+    } },
+    DB: { prepare: () => ({ bind: () => ({ all: async () => ({ results: [{
+      user_id: userId, student_code: 'SV123456', full_name: 'Tên hồ sơ cũ', updated_at: '2026-09-19T00:00:00.000Z', has_onboarded: 1,
+    }] }) }) }) },
+  } as any;
+  const response = await handleAdminStudents(request, new URL(request.url), env);
+  assert.equal(canonicalNameRequests, 1);
+  assert.equal(response.data[0].full_name, 'Nguyễn Văn An');
+});
+
+test('admin list retains the profile fallback and never derives a name from an email local-part', async () => {
+  const source = readFileSync('cloudflare/worker/src/admin-students.ts', 'utf8');
+  const ui = readFileSync('components/AdminStudentManagement.tsx', 'utf8');
+  assert.match(source, /canonicalName\(row\.full_name\) \|\| canonicalName\(row\.student_name\) \|\| null/);
+  assert.match(source, /userIds: ids/);
+  assert.match(source, /MAX_AUTH_NAME_LOOKUP = 50/);
+  assert.doesNotMatch(source, /split\(['"]@['"]\)/);
+  assert.doesNotMatch(source, /googleapis|oauth2\.google/i);
+  assert.match(ui, /student\.full_name \|\| 'Chưa cập nhật'/);
 });
 
 test('student lifecycle requires a canonical student email and avoids caller-controlled owner fields', () => {
@@ -110,6 +144,9 @@ test('student management uses a dense, responsive enterprise table without chang
   assert.match(ui, /aria-label="Trang sau"/);
   assert.match(ui, /fetchAdminStudents\(filters, limit, nextCursor\)/);
   assert.doesNotMatch(ui, /localStorage/);
+  assert.doesNotMatch(ui, /'Giới tính'/);
+  assert.doesNotMatch(ui, /'Ngày sinh'/);
+  assert.doesNotMatch(ui, /'Số điện thoại'/);
 });
 
 test('student export creates a redacted admin audit record', () => {

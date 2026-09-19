@@ -1681,6 +1681,42 @@ async function handleInternalStaffList(
   return jsonResponse({ userIds, staff });
 }
 
+const INTERNAL_USER_NAME_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const safeCanonicalDisplayName = (value: unknown) => typeof value === "string"
+  ? value.trim().replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 160)
+  : "";
+
+// This route is service-binding-only: it exposes the minimum persisted Better
+// Auth display-name data for one already-authorized, bounded admin page. The
+// display name is where Better Auth persists the verified Google profile name.
+async function handleInternalUserNames(
+  request: Request,
+  env: AuthRuntimeEnv,
+): Promise<Response> {
+  const url = new URL(request.url);
+  if (request.method !== "POST" || url.hostname !== "auth-service.internal") {
+    return jsonResponse({ error: "Not found." }, 404);
+  }
+  const body = await readBoundedJsonBody(request);
+  if (!body || Object.keys(body).some((key) => key !== "userIds") || !Array.isArray(body.userIds) || body.userIds.length > 50) {
+    return jsonResponse({ error: "Invalid request." }, 400);
+  }
+  const userIds = [...new Set(body.userIds.map((value) => typeof value === "string" ? value.toLowerCase() : ""))];
+  if (userIds.some((userId) => !INTERNAL_USER_NAME_UUID.test(userId))) {
+    return jsonResponse({ error: "Invalid request." }, 400);
+  }
+  if (!userIds.length) return jsonResponse({ names: [] });
+  const placeholders = userIds.map(() => "?").join(",");
+  const rows = await env.AUTH_DB.prepare(
+    `SELECT id,name FROM auth_user WHERE id IN (${placeholders})`,
+  ).bind(...userIds).all<{ id: string; name: string | null }>();
+  const names = (rows.results || []).flatMap((row) => {
+    const name = safeCanonicalDisplayName(row.name);
+    return INTERNAL_USER_NAME_UUID.test(row.id) && name ? [{ userId: row.id.toLowerCase(), name }] : [];
+  });
+  return jsonResponse({ names });
+}
+
 async function handleMssvSignIn(
   request: Request,
   env: AuthRuntimeEnv,
@@ -2319,6 +2355,9 @@ export async function handleAuthRuntimeRequest(
     }
     if (url.pathname === "/internal/auth/staff-list" && request.method === "GET") {
       return handleInternalStaffList(request, env);
+    }
+    if (url.pathname === "/internal/auth/user-names" && request.method === "POST") {
+      return handleInternalUserNames(request, env);
     }
     if (url.pathname === `${AUTH_BASE_PATH}/mssv/sign-in` || url.pathname.startsWith(`${AUTH_BASE_PATH}/`)) {
       return handleAuthRoute(request, env, auth, config, requestSignals);

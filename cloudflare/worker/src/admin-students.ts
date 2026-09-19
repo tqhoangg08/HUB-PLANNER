@@ -21,10 +21,12 @@ export class AdminStudentsError extends Error {
   constructor(status: AdminStudentsStatus, message: string) { super(message); this.status = status; }
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const STUDENT_CODE = /^[a-z0-9._-]{3,64}$/i;
 const MAX_BODY_BYTES = 32 * 1024;
 const MAX_LIMIT = 50;
+const MAX_AUTH_NAME_LOOKUP = 50;
+const INTERNAL_AUTH_ORIGIN = 'https://auth-service.internal';
 const text = (value: unknown, max = 160) => typeof value === 'string'
   ? value.trim().replace(/[\u0000-\u001f\u007f]/g, '').slice(0, max)
   : '';
@@ -81,9 +83,42 @@ const audit = async (env: AdminStudentsEnv, actor: BetterAuthIdentity, action: s
 };
 
 const maskEmail = (studentCode: string | null) => studentCode ? `${studentCode.slice(0, 2)}***@st.buh.edu.vn` : null;
-const rowResponse = (row: Record<string, unknown>) => ({
+const canonicalName = (value: unknown) => text(value, 160);
+const readCanonicalAuthNames = async (
+  request: Request,
+  env: AdminStudentsEnv,
+  userIds: string[],
+): Promise<Map<string, string>> => {
+  const ids = [...new Set(userIds.filter((userId) => UUID.test(userId)))].slice(0, MAX_AUTH_NAME_LOOKUP);
+  if (!ids.length || !env.AUTH_SERVICE) return new Map();
+  const headers = new Headers({ Accept: 'application/json', 'content-type': 'application/json' });
+  const versionOverrides = request.headers.get('Cloudflare-Workers-Version-Overrides');
+  if (versionOverrides) headers.set('Cloudflare-Workers-Version-Overrides', versionOverrides);
+  try {
+    const response = await env.AUTH_SERVICE.fetch(new Request(
+      new URL('/internal/auth/user-names', INTERNAL_AUTH_ORIGIN),
+      { method: 'POST', headers, body: JSON.stringify({ userIds: ids }), signal: AbortSignal.timeout(5_000) },
+    ));
+    if (!response.ok) return new Map();
+    const payload = await response.json() as { names?: unknown };
+    if (!Array.isArray(payload.names)) return new Map();
+    return new Map(payload.names.flatMap((entry): Array<[string, string]> => {
+      if (!isRecord(entry) || typeof entry.userId !== 'string' || !UUID.test(entry.userId)) return [];
+      const name = canonicalName(entry.name);
+      return name ? [[entry.userId.toLowerCase(), name]] : [];
+    }));
+  } catch {
+    // The profile value remains a safe read-only fallback if this auxiliary
+    // display-name lookup is temporarily unavailable.
+    return new Map();
+  }
+};
+
+const rowResponse = (row: Record<string, unknown>, names: Map<string, string>) => ({
   student_code: row.student_code ?? null,
-  full_name: row.full_name ?? row.student_name ?? null,
+  // Better Auth's persisted user.name is the canonical OAuth/Google display
+  // name. Do not derive a name from an email address.
+  full_name: names.get(String(row.user_id || '').toLowerCase()) || canonicalName(row.full_name) || canonicalName(row.student_name) || null,
   class_name: row.class_name ?? null,
   cohort: row.cohort ?? null,
   program_name: row.program_name ?? null,
@@ -97,7 +132,7 @@ const rowResponse = (row: Record<string, unknown>) => ({
   last_active_at: row.updated_at ?? null,
 });
 
-const readList = async (url: URL, env: AdminStudentsEnv) => {
+const readList = async (request: Request, url: URL, env: AdminStudentsEnv) => {
   const query = parseAdminStudentQuery(url.searchParams);
   const where: string[] = [];
   const values: unknown[] = [];
@@ -129,10 +164,12 @@ const readList = async (url: URL, env: AdminStudentsEnv) => {
       ORDER BY p.updated_at DESC,p.user_id DESC LIMIT ?`).bind(...values, query.limit + 1).all<Record<string, unknown>>();
   const result = rows.results || [];
   const page = result.slice(0, query.limit);
+  // Exactly one bounded Auth Worker lookup per cursor page; never N+1.
+  const names = await readCanonicalAuthNames(request, env, page.map((row) => String(row.user_id || '')));
   const finalRow = page[page.length - 1] as { updated_at: string; user_id: string } | undefined;
   return {
     success: true,
-    data: page.map(rowResponse),
+    data: page.map((row) => rowResponse(row, names)),
     next_cursor: result.length > query.limit && finalRow ? encodeCursor(finalRow) : null,
     has_more: result.length > query.limit,
   };
@@ -190,7 +227,7 @@ const updateStudent = async (request: Request, studentCode: string, env: AdminSt
 export const handleAdminStudents = async (request: Request, url: URL, env: AdminStudentsEnv) => {
   const actor = await requireAdmin(request, env);
   if (url.pathname === '/api/admin/students') {
-    if (request.method === 'GET') return readList(url, env);
+    if (request.method === 'GET') return readList(request, url, env);
     if (request.method === 'POST') {
       const body = await readBody(request);
       return createAdminStudent(request, env, actor, requestId(request), parseAdminStudentCreate(body));
