@@ -97,6 +97,21 @@ test('dashboard mounts the server-paginated student management surface', () => {
   assert.match(ui, /50 \/ trang/);
 });
 
+test('student management uses a dense, responsive enterprise table without changing its cursor data flow', () => {
+  const ui = readFileSync('components/AdminStudentManagement.tsx', 'utf8');
+  assert.match(ui, /aria-label="Bộ lọc sinh viên"/);
+  assert.match(ui, /xl:grid-cols-\[minmax\(245px,1\.45fr\)_minmax\(150px,\.8fr\)/);
+  assert.match(ui, /aria-label="Thao tác quản lý sinh viên"/);
+  assert.match(ui, /overflow-x-auto/);
+  assert.match(ui, /sticky right-0/);
+  assert.match(ui, /student\.cohort/);
+  assert.match(ui, /aria-label="Số kết quả mỗi trang"/);
+  assert.match(ui, /aria-label="Trang trước"/);
+  assert.match(ui, /aria-label="Trang sau"/);
+  assert.match(ui, /fetchAdminStudents\(filters, limit, nextCursor\)/);
+  assert.doesNotMatch(ui, /localStorage/);
+});
+
 test('student export creates a redacted admin audit record', () => {
   const source = readFileSync('cloudflare/worker/src/admin-export.ts', 'utf8');
   assert.match(source, /admin_student_export/);
