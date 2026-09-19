@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, Tag, PanelLeftOpen, SlidersHorizontal, RotateCcw } from 'lucide-react';
+import { Search, Info, Plus, Calendar, MapPin, Clock, X, CheckCircle, Zap, User, AlertTriangle, Send, BookPlus, List, Trash2, CalendarDays, Lock, FileUp, Loader2, ChevronLeft, ChevronRight, ChevronDown, RefreshCw, Settings, Edit, Tag, PanelLeftOpen, SlidersHorizontal, RotateCcw, Download } from 'lucide-react';
 import { parseWeeks } from '../utils/scheduleLogic'; 
 import { ScheduleImportGuideModal } from './ScheduleImportGuideModal';
 import { ScheduleImportPreviewModal } from './ScheduleImportPreviewModal';
@@ -541,6 +541,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
   const [isCourseResultsOpen, setIsCourseResultsOpen] = useState(false);
   const [openSidebarFilterSections, setOpenSidebarFilterSections] = useState<Set<SidebarFilterSection>>(() => new Set(['semester']));
   const [adminScheduleError, setAdminScheduleError] = useState('');
+  const [adminFacultyFilter, setAdminFacultyFilter] = useState('');
+  const [adminStatusFilter, setAdminStatusFilter] = useState('all');
+  const [adminRequestDateFrom, setAdminRequestDateFrom] = useState('');
+  const [adminRequestDateTo, setAdminRequestDateTo] = useState('');
   
   const [selectedSemester, setSelectedSemester] = useState<string>(DEFAULT_SCHEDULE_SEMESTER);
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
@@ -891,6 +895,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             groups: isAdminView ? [] : selectedFilterGroups,
             academicPrograms: isAdminView ? [] : selectedFilterPrograms,
             advancedFilters: isAdminView ? {} : advancedScheduleFilters,
+            managingFaculty: isAdminView ? adminFacultyFilter.trim() : '',
             isAdminView,
             adminTab,
             pageSize: requestPageSize,
@@ -939,6 +944,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
             selectedFilterGroups.forEach(value => baseParams.append('groupName', value));
             selectedFilterPrograms.forEach(value => baseParams.append('academicProgram', value));
             activeAdvancedScheduleFilters.forEach(([key, value]) => baseParams.set(key, String(value).trim()));
+        }
+        // The catalogue endpoint already supports this indexed detail filter. It is
+        // intentionally omitted when empty so the existing default query is unchanged.
+        if (isAdminView && adminFacultyFilter.trim()) {
+            baseParams.set('managingFaculty', adminFacultyFilter.trim());
         }
         if (isAdminView && (adminTab === 'system' || adminTab === 'user')) {
             baseParams.set('isUserAdded', adminTab === 'user' ? 'true' : 'false');
@@ -1451,7 +1461,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       fetchCourses();
     }, 400);
     return () => window.clearTimeout(timeoutId);
-  }, [searchTerm, selectedSemester, selectedPhase, selectedSubjectName, selectedFilterSemesters, selectedFilterPhases, selectedFilterMajors, selectedFilterCohorts, selectedFilterGroups, selectedFilterPrograms, advancedScheduleFilters, coursePage, coursePageSize, isAuthenticated, isAdminView, adminTab]);
+  }, [searchTerm, selectedSemester, selectedPhase, selectedSubjectName, selectedFilterSemesters, selectedFilterPhases, selectedFilterMajors, selectedFilterCohorts, selectedFilterGroups, selectedFilterPrograms, advancedScheduleFilters, coursePage, coursePageSize, isAuthenticated, isAdminView, adminTab, adminFacultyFilter]);
   useEffect(() => {
     if (!isAuthenticated || isAdminView) return;
     fetchCourseFilterOptions();
@@ -2292,6 +2302,36 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
     setSelectedMonthIndex(getInitialSemesterMonthIndex(targetSemester, now));
   };
   
+  const refreshAdminScheduleData = () => {
+      if (adminTab === 'student_schedules') return fetchStudentScheduleSummaries();
+      if (adminTab === 'user_changed') return fetchChangedUserScheduleCourses();
+      if (adminTab === 'requested') {
+          clearCourseRequestCache();
+          return fetchCourseRequests(courseRequestPage, { force: true });
+      }
+      return fetchCourses({ force: true });
+  };
+
+  const adminCourseStatus = (course: Course) => {
+      if (adminTab === 'user_changed') return 'updated';
+      return 'active';
+  };
+  const adminCourseStatusLabel = (course: Course) => (
+      adminCourseStatus(course) === 'updated' ? 'Cập nhật mới' : 'Đang áp dụng'
+  );
+  const adminCourseTypeLabel = (course: Course) => (
+      course.is_user_added ? 'Sinh viên thêm' : 'Hệ thống gốc'
+  );
+  const isWithinAdminRequestDateRange = (value?: string) => {
+      if (!adminRequestDateFrom && !adminRequestDateTo) return true;
+      if (!value) return false;
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return false;
+      const normalized = parsed.toISOString().slice(0, 10);
+      return (!adminRequestDateFrom || normalized >= adminRequestDateFrom)
+          && (!adminRequestDateTo || normalized <= adminRequestDateTo);
+  };
+
   let filteredAdminCourses: Course[] = [];
   if (adminTab === 'system') {
       filteredAdminCourses = availableCourses.filter(c => !c.is_user_added);
@@ -2299,6 +2339,9 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       filteredAdminCourses = availableCourses.filter(c => c.is_user_added);
   } else if (adminTab === 'user_changed') {
       filteredAdminCourses = changedUserScheduleCourses;
+  }
+  if (adminStatusFilter !== 'all') {
+      filteredAdminCourses = filteredAdminCourses.filter(course => adminCourseStatus(course) === adminStatusFilter);
   }
 
   const filteredStudentScheduleSummaries = studentScheduleSummaries.filter(student => {
@@ -2319,6 +2362,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       courseRequestPage * COURSE_REQUEST_PAGE_SIZE,
       courseRequestTotal,
   );
+  const filteredCourseRequests = courseRequests.filter(request => (
+      (adminStatusFilter === 'all' || String(request.status || 'pending') === adminStatusFilter)
+      && isWithinAdminRequestDateRange(request.created_at)
+  ));
   const selectedChangedCourseDiffs = getChangedCourseDiffs(selectedChangedCourse);
   const changedCourseCodeCounts = changedUserScheduleCourses.reduce((map, course) => {
       const key = (course.course_code || '').trim();
@@ -2396,13 +2443,11 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         )}
 
 
-        {isAdminView && <div className="relative md:sticky top-0 z-40 bg-[#F8FAFC] pt-2 pb-1 sm:pb-4 -mt-2 mb-1 sm:mb-4 md:border-b md:border-transparent md:border-gray-300/60">
-            <div className="flex flex-row justify-between items-end gap-3 px-1 overflow-hidden shrink-0">
+        {isAdminView && <div className="relative z-40 -mt-2 mb-5 border-b border-slate-200 bg-[#F8FAFC] pb-4 pt-3">
+            <div className="flex flex-row items-end justify-between gap-3 px-1">
                 <div className="flex flex-col">
-                    <h1 className="text-2xl sm:text-[28px] font-black text-[#003375]">Thời khóa biểu</h1>
-                    <div className="flex items-center gap-1.5 mt-1 sm:mt-2 text-[12px] sm:text-[13px] text-gray-500 overflow-x-auto whitespace-nowrap custom-scrollbar pb-1">
-                        <span className="shrink-0">Quản lý học tập</span><span className="text-gray-300 shrink-0">•</span><span className="font-bold text-gray-700 shrink-0">Lịch học & Thi</span>
-                    </div>
+                    <h1 className="text-[26px] font-black tracking-tight text-[#003375] sm:text-[28px]">Quản lý thời khóa biểu</h1>
+                    <p className="mt-1 text-sm text-slate-500">Tra cứu và quản lý môn học, lịch học của sinh viên</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                     {!isAdminView && (
@@ -2429,23 +2474,31 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
         {!isAdminView && <NotificationNudge variant="schedule" className="mb-4" />}
 
         {isAdminView ? (
-            <div className="w-full bg-white rounded-xl border border-gray-300 overflow-hidden flex flex-col h-[calc(100vh-150px)]">
-                <div className="p-4 border-b border-gray-300 bg-[#f8fafc] flex flex-wrap gap-4 items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-300 outline-none text-sm font-bold text-[#003375] bg-white hover:border-gray-400 transition-colors cursor-pointer">
-                            {SEMESTER_OPTIONS.map(option => (
-                                <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                        </select>
-                        <select value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-300 outline-none text-sm font-bold text-gray-700 bg-white hover:border-gray-400 transition-colors cursor-pointer">
-                            <option value="all">Mọi đợt</option>
-                            <option value="1">Đợt 1</option>
-                            <option value="2">Đợt 2</option>
-                        </select>
-                    </div>
-                    
-                    <div className="flex flex-1 max-w-md items-center gap-2">
-                        <div className="relative flex-1">
+            <div className="w-full space-y-4 animate-fadeIn">
+                <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div role="tablist" aria-label="Danh mục quản lý thời khóa biểu" className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 pt-3 custom-scrollbar sm:px-4">
+                    <button
+                        onClick={() => {
+                            setAdminTab('system');
+                            setAdminStatusFilter('all');
+                            setAvailableCourses([]);
+                            setCourseTotal(0);
+                            setCourseHasMore(false);
+                            setCoursePage(0);
+                        }}
+                        role="tab"
+                        aria-selected={adminTab === 'system'}
+                        className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'system' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}
+                    >Môn hệ thống gốc</button>
+                    <button onClick={() => { setAdminTab('user'); setAdminStatusFilter('all'); }} role="tab" aria-selected={adminTab === 'user'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'user' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên thêm</button>
+                    <button onClick={() => { setAdminTab('requested'); setAdminStatusFilter('all'); setCourseRequestPage(1); }} role="tab" aria-selected={adminTab === 'requested'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'requested' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên yêu cầu thêm</button>
+                    <button onClick={() => { setAdminTab('user_changed'); setAdminStatusFilter('all'); }} role="tab" aria-selected={adminTab === 'user_changed'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'user_changed' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Môn sinh viên thay đổi</button>
+                    <button onClick={() => { setAdminTab('student_schedules'); setAdminStatusFilter('all'); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); if (selectedRouteStudentCode) navigate('/schedule'); }} role="tab" aria-selected={adminTab === 'student_schedules'} className={`shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-bold transition-colors ${adminTab === 'student_schedules' ? 'border-[#0052cc] text-[#0052cc]' : 'border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800'}`}>Quản lý TKB sinh viên</button>
+                </div>
+
+                <section aria-label="Bộ lọc thời khóa biểu" className="border-b border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(245px,1.5fr)_minmax(180px,.9fr)_minmax(170px,.9fr)_minmax(160px,.8fr)_minmax(250px,1fr)]">
+                        <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Tìm kiếm</span><span className="relative">
                             <input
                                 type="text"
                                 placeholder={adminTab === 'student_schedules'
@@ -2464,37 +2517,34 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         setCourseHasMore(false);
                                     }
                                 }}
-                                className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-300 outline-none text-sm transition-all hover:border-gray-400 focus:border-[#003375] focus:ring-1 focus:ring-[#003375]"
+                                className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100"
                             />
-                            <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-                        </div>
-                        <button onClick={() => adminTab === 'student_schedules' ? fetchStudentScheduleSummaries() : adminTab === 'user_changed' ? fetchChangedUserScheduleCourses() : adminTab === 'requested' ? (clearCourseRequestCache(), fetchCourseRequests(courseRequestPage, { force: true })) : fetchCourses({ force: true })} className="p-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"><RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /></button>
-                        {adminTab !== 'user_changed' && adminTab !== 'student_schedules' && adminTab !== 'requested' && (
-                            <button onClick={() => { setActiveCourseRequest(null); setAdminEditData({ is_user_added: adminTab === 'user' }); setIsAdminEditModalOpen(true); }} className="flex items-center gap-1.5 px-4 py-2 bg-[#003375] text-white font-bold rounded-lg hover:bg-[#002855] transition-colors text-sm whitespace-nowrap"><Plus size={16}/> Thêm môn</button>
-                        )}
+                            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        </span></label>
+                        <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Học kỳ</span><select value={selectedSemester} onChange={(e) => setSelectedSemester(e.target.value)} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">
+                            {SEMESTER_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select></label>
+                        <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Khoa phụ trách</span><input value={adminFacultyFilter} onChange={(event) => setAdminFacultyFilter(event.target.value)} placeholder="Tất cả khoa" className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100" /></label>
+                        <label className="grid gap-1.5"><span className="text-[12px] font-bold text-slate-700">Trạng thái</span><select value={adminStatusFilter} onChange={(event) => setAdminStatusFilter(event.target.value)} className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100">
+                            <option value="all">Tất cả</option>
+                            {adminTab === 'requested' ? <><option value="pending">Chờ duyệt</option><option value="approved">Đã duyệt</option><option value="rejected">Đã từ chối</option></> : <><option value="active">Đang áp dụng</option>{adminTab === 'user_changed' && <option value="updated">Cập nhật mới</option>}</>}
+                        </select></label>
+                        <fieldset className="grid gap-1.5"><legend className="text-[12px] font-bold text-slate-700">Khoảng thời gian</legend><div className="grid grid-cols-2 gap-2">
+                            <input value={adminRequestDateFrom} onChange={(event) => setAdminRequestDateFrom(event.target.value)} type="date" aria-label="Từ ngày" disabled={adminTab !== 'requested'} title={adminTab !== 'requested' ? 'Khoảng thời gian áp dụng cho danh sách yêu cầu thêm môn.' : undefined} className="h-10 min-w-0 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" />
+                            <input value={adminRequestDateTo} onChange={(event) => setAdminRequestDateTo(event.target.value)} type="date" aria-label="Đến ngày" disabled={adminTab !== 'requested'} title={adminTab !== 'requested' ? 'Khoảng thời gian áp dụng cho danh sách yêu cầu thêm môn.' : undefined} className="h-10 min-w-0 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none transition focus:border-[#0052cc] focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400" />
+                        </div></fieldset>
                     </div>
+                </section>
+
+                <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-3 sm:px-5" aria-label="Thao tác quản lý thời khóa biểu">
+                    {adminTab !== 'user_changed' && adminTab !== 'student_schedules' && adminTab !== 'requested' && (
+                        <button onClick={() => { setActiveCourseRequest(null); setAdminEditData({ is_user_added: adminTab === 'user' }); setIsAdminEditModalOpen(true); }} className="inline-flex h-10 items-center gap-2 rounded-md bg-[#0052cc] px-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#003d99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052cc]"><Plus size={17}/> Thêm môn</button>
+                    )}
+                    <button type="button" disabled title="Xuất Excel cho danh mục thời khóa biểu chưa được cung cấp bởi API hiện tại." className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 text-sm font-bold text-slate-500 opacity-60"><Download size={17}/> Xuất Excel</button>
+                    <button onClick={() => void refreshAdminScheduleData()} disabled={isLoading} className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 text-sm font-bold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0052cc] disabled:opacity-50"><RefreshCw size={17} className={isLoading ? 'animate-spin' : ''}/> Làm mới</button>
                 </div>
 
-                <div className="px-4 pt-4 border-b border-gray-300 flex gap-6 bg-white shrink-0 overflow-x-auto custom-scrollbar">
-                    <button
-                        onClick={() => {
-                            setAdminTab('system');
-                            setAvailableCourses([]);
-                            setCourseTotal(0);
-                            setCourseHasMore(false);
-                            setCoursePage(0);
-                        }}
-                        className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'system' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}
-                    >
-                        Môn hệ thống gốc
-                    </button>
-                    <button onClick={() => setAdminTab('user')} className={`pb-3 text-sm font-bold transition-colors ${adminTab === 'user' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên thêm</button>
-                    <button onClick={() => { setAdminTab('requested'); setCourseRequestPage(1); }} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'requested' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên yêu cầu thêm</button>
-                    <button onClick={() => setAdminTab('user_changed')} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'user_changed' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Môn sinh viên thay đổi</button>
-                    <button onClick={() => { setAdminTab('student_schedules'); setSelectedStudentSchedule(null); setSelectedStudentCourses([]); if (selectedRouteStudentCode) navigate('/schedule'); }} className={`pb-3 text-sm font-bold transition-colors whitespace-nowrap ${adminTab === 'student_schedules' ? 'border-b-2 border-[#003375] text-[#003375]' : 'text-gray-500 hover:text-gray-800'}`}>Quản lý TKB sinh viên</button>
-                </div>
-
-                <div className="flex-1 overflow-auto custom-scrollbar bg-white">
+                <div className="max-h-[calc(100vh-330px)] min-h-[460px] overflow-auto bg-white custom-scrollbar">
                     {isLoading ? (
                         <div className="flex items-center justify-center h-full text-gray-500 gap-2"><Loader2 className="animate-spin" size={20}/> Đang tải dữ liệu...</div>
                     ) : adminTab === 'student_schedules' ? (
@@ -2610,7 +2660,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 <p className="font-bold">Không tải được yêu cầu thêm môn.</p>
                                 <p className="mt-1 text-sm text-red-500">{adminScheduleError}</p>
                             </div>
-                        ) : courseRequests.length === 0 ? (
+                        ) : filteredCourseRequests.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-gray-500"><Search size={40} className="mb-3 text-gray-300"/><p>Không có yêu cầu thêm môn đang chờ.</p></div>
                         ) : (
                             <div className="min-w-[1080px]">
@@ -2636,7 +2686,7 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {courseRequests.map((request, index) => (
+                                    {filteredCourseRequests.map((request, index) => (
                                         <tr key={request.id} onClick={() => openCourseRequestEditor(request)} className={`border-b border-gray-100 transition-colors ${isAuditor ? '' : 'cursor-pointer hover:bg-emerald-50/40'}`}>
                                             <td className="p-3 text-center font-bold text-gray-500">{(courseRequestPage - 1) * COURSE_REQUEST_PAGE_SIZE + index + 1}</td>
                                             <td className="p-3 font-semibold text-[#003375]">
@@ -2682,8 +2732,10 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                 </tbody>
                             </table>
                             <div className="sticky bottom-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-t border-gray-300 bg-white px-4 py-3">
-                                <p className="text-xs font-medium text-gray-500">
-                                    Hiển thị <span className="font-bold text-gray-700">{courseRequestRangeStart}-{courseRequestRangeEnd}</span> trong <span className="font-bold text-gray-700">{courseRequestTotal}</span> yêu cầu
+                                <p className="text-xs font-medium text-slate-500">
+                                    {(adminStatusFilter !== 'all' || adminRequestDateFrom || adminRequestDateTo)
+                                        ? <>Hiển thị <span className="font-bold text-slate-700">{filteredCourseRequests.length}</span> yêu cầu trên trang hiện tại</>
+                                        : <>Hiển thị <span className="font-bold text-slate-700">{courseRequestRangeStart}-{courseRequestRangeEnd}</span> trong <span className="font-bold text-slate-700">{courseRequestTotal}</span> yêu cầu</>}
                                 </p>
                                 <div className="flex items-center gap-1.5">
                                     <button
@@ -2813,50 +2865,73 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                             </tbody>
                         </table>
                     ) : (
-                        <table className="w-full table-fixed text-left border-collapse text-sm min-w-[960px]">
+                        <>
+                        <table className="w-full table-fixed border-collapse text-left text-[13px] min-w-[1160px]">
                             <colgroup>
-                                <col className="w-14" />
-                                <col className="w-[160px]" />
+                                <col className="w-[145px]" />
                                 <col />
-                                <col className="w-14" />
-                                <col className="w-16" />
-                                <col className="w-[170px]" />
-                                <col className="w-[220px]" />
-                                <col className="w-28" />
+                                <col className="w-[78px]" />
+                                <col className="w-[175px]" />
+                                <col className="w-[140px]" />
+                                <col className="w-[140px]" />
+                                <col className="w-[132px]" />
+                                <col className="w-[128px]" />
+                                <col className="w-[96px]" />
                             </colgroup>
-                            <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
+                            <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] font-extrabold uppercase tracking-wide text-slate-600">
                                 <tr>
-                                    <th className="p-3 border-b border-gray-300 font-bold text-center w-14">STT</th>
-                                    <th className="p-3 border-b border-gray-300 font-bold whitespace-nowrap">Mã Học Phần</th>
-                                    <th className="p-3 border-b border-gray-300 font-bold">Tên Môn Học</th>
-                                    <th className="p-3 border-b border-gray-300 font-bold text-center">TC</th>
-                                    <th className="p-3 border-b border-gray-300 font-bold text-center">Đợt</th>
-                                    <th className="p-3 border-b border-gray-300 font-bold">Giảng Viên</th>
-                                    <th className="p-3 border-b border-gray-300 font-bold">Lịch Học & Phòng</th>
-                                    <th className="p-3 border-b border-gray-300 font-bold text-center w-28">Thao tác</th>
+                                    <th className="border-b border-r border-slate-200 px-4 py-3 whitespace-nowrap">Mã môn</th>
+                                    <th className="border-b border-r border-slate-200 px-4 py-3">Tên môn</th>
+                                    <th className="border-b border-r border-slate-200 px-3 py-3 text-center">Tín chỉ</th>
+                                    <th className="border-b border-r border-slate-200 px-4 py-3">Khoa phụ trách</th>
+                                    <th className="border-b border-r border-slate-200 px-4 py-3">Học kỳ áp dụng</th>
+                                    <th className="border-b border-r border-slate-200 px-4 py-3">Loại môn</th>
+                                    <th className="border-b border-r border-slate-200 px-4 py-3">Trạng thái</th>
+                                    <th className="border-b border-r border-slate-200 px-4 py-3">Cập nhật</th>
+                                    <th className="sticky right-0 z-10 border-b border-slate-200 bg-slate-50 px-3 py-3 text-center">Thao tác</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {filteredAdminCourses.map((c, index) => (
-                                    <tr key={c.id} className="border-b border-gray-100 hover:bg-blue-50/30 transition-colors group">
-                                        <td className="p-3 text-center font-bold text-gray-500">{index + 1}</td>
-                                        <td className="p-3 font-semibold text-[#003375] whitespace-nowrap overflow-hidden text-ellipsis">{c.course_code}</td>
-                                        <td className="p-3 font-bold text-gray-800 overflow-hidden text-ellipsis">{c.subject_name}</td>
-                                        <td className="p-3 text-center font-medium">{c.credits}</td>
-                                        <td className="p-3 text-center"><span className="px-2 py-0.5 bg-gray-100 rounded text-xs font-bold text-gray-600">{c.phase || '1'}</span></td>
-                                        <td className="p-3 text-gray-600 font-medium overflow-hidden text-ellipsis">{c.instructor || '-'}</td>
-                                        <td className="p-3 text-xs text-gray-600 leading-relaxed overflow-hidden text-ellipsis"><span className="font-bold text-gray-800">Thứ {c.day_of_week} ({c.shift})</span> • P.{c.room}<br/>Tuần: {c.weeks}</td>
-                                        <td className="p-3 text-center">
-                                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => { setAdminEditData(c); setIsAdminEditModalOpen(true); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors" title="Chỉnh sửa"><Edit size={16}/></button>
-                                                {!isAuditor && ( <button onClick={() => handleAdminDeleteCourse(c.id)} className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors" title="Xóa vĩnh viễn"><Trash2 size={16}/></button> )}
+                            <tbody className="divide-y divide-slate-200/80">
+                                {filteredAdminCourses.map((c) => (
+                                    <tr key={c.id} className="group hover:bg-blue-50/35 transition-colors">
+                                        <td className="border-r border-slate-200/80 px-4 py-3 font-bold text-[#0052cc] whitespace-nowrap">{c.course_code}</td>
+                                        <td className="border-r border-slate-200/80 px-4 py-3 font-semibold text-slate-800"><div className="truncate" title={c.subject_name}>{c.subject_name}</div><p className="mt-0.5 truncate text-[11px] font-medium text-slate-400">{c.instructor || 'Chưa cập nhật giảng viên'}</p></td>
+                                        <td className="border-r border-slate-200/80 px-3 py-3 text-center font-semibold text-slate-700">{c.credits}</td>
+                                        <td className="border-r border-slate-200/80 px-4 py-3 text-slate-600"><div className="truncate" title={c.managing_faculty || ''}>{c.managing_faculty || '—'}</div></td>
+                                        <td className="border-r border-slate-200/80 px-4 py-3 text-slate-600">{SEMESTER_OPTIONS.find(option => option.value === c.semester)?.label || c.semester || '—'}</td>
+                                        <td className="border-r border-slate-200/80 px-4 py-3"><span className="inline-flex rounded-md bg-blue-50 px-2 py-1 text-[11px] font-bold text-[#0052cc]">{adminCourseTypeLabel(c)}</span></td>
+                                        <td className="border-r border-slate-200/80 px-4 py-3"><span className={adminCourseStatus(c) === 'updated' ? 'inline-flex rounded-md bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700' : 'inline-flex rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700'}>{adminCourseStatusLabel(c)}</span></td>
+                                        <td className="border-r border-slate-200/80 px-4 py-3 text-[12px] text-slate-500">Phiên bản {c.revision ?? 0}</td>
+                                        <td className="sticky right-0 z-[1] bg-white px-3 py-2.5 text-center group-hover:bg-blue-50/35">
+                                            <div className="flex items-center justify-center gap-1">
+                                                <button onClick={() => { setAdminEditData(c); setIsAdminEditModalOpen(true); }} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] transition hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]" title="Chỉnh sửa" aria-label={`Chỉnh sửa ${c.course_code}`}><Edit size={15}/></button>
+                                                {!isAuditor && ( <button onClick={() => handleAdminDeleteCourse(c.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-red-600 transition hover:border-red-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-500" title="Xóa vĩnh viễn" aria-label={`Xóa ${c.course_code}`}><Trash2 size={15}/></button> )}
                                             </div>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
+                        {!isCourseSuggestionMode && courseTotalPages > 1 && (
+                            <footer className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                <span className="text-xs text-slate-500">Trang {coursePage + 1} · Hiển thị {filteredAdminCourses.length} kết quả của trang hiện tại</span>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="mr-1 rounded-md border border-slate-300 bg-white px-2 py-2 text-xs font-medium text-slate-600">{coursePageSize} / trang</span>
+                                    <button type="button" disabled={coursePage === 0 || isLoading} onClick={() => setCoursePage(page => Math.max(0, page - 1))} aria-label="Trang trước" title="Trang trước" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"><ChevronLeft size={16}/></button>
+                                    {coursePaginationPages.map((pageNumber, index) => {
+                                        const previousPage = coursePaginationPages[index - 1];
+                                        return <React.Fragment key={pageNumber}>
+                                            {previousPage && pageNumber - previousPage > 1 && <span className="px-1 text-xs text-slate-400">…</span>}
+                                            <button type="button" onClick={() => setCoursePage(pageNumber - 1)} disabled={isLoading} aria-label={`Trang ${pageNumber}`} aria-current={coursePage + 1 === pageNumber ? 'page' : undefined} className={`inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-xs font-bold transition ${coursePage + 1 === pageNumber ? 'bg-[#0052cc] text-white' : 'border border-slate-300 bg-white text-slate-600 hover:border-slate-400'}`}>{pageNumber}</button>
+                                        </React.Fragment>;
+                                    })}
+                                    <button type="button" disabled={!courseHasMore || isLoading} onClick={() => setCoursePage(page => page + 1)} aria-label="Trang sau" title="Trang sau" className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"><ChevronRight size={16}/></button>
+                                </div>
+                            </footer>
+                        )}
+                        </>
                     )}
+                </div>
                 </div>
             </div>
         ) : (
