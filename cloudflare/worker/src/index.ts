@@ -201,6 +201,11 @@ import {
   type AdminStudentsEnv,
 } from './admin-students.ts';
 import {
+  adminInternalAccountsErrorStatus,
+  handleAdminInternalAccounts,
+  type AdminInternalAccountsEnv,
+} from './admin-internal-accounts.ts';
+import {
   accountDeleteErrorStatus,
   AccountDeleteError,
   handleAccountDelete,
@@ -218,7 +223,7 @@ import {
 } from './public-directory.ts';
 
 type WorkerEnv = Env & StaffAuthEnv & BetterAuthIdentityEnv & ScheduleWriteModeEnv & PdfAiEnv & EventPushEnv & AccountPasswordCompatEnv & EventCandidatesEnv & LostFoundEnv &
-  ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AdminStudentsEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & PushTestEnv & AiAdvisorEnv & AiDocumentsEnv & PublicDirectoryEnv & {
+  ProfileAuthorityInternalEnv & ScheduleAuthorityInternalEnv & CourseAuthorityEnv & CourseAuthorityInternalEnv & StaffProfileEnv & AdminLegacyDataEnv & StaffSchedulesEnv & AdminSupportEnv & AdminExportEnv & AdminStudentsEnv & AdminInternalAccountsEnv & AccountDeleteEnv & ActivityLogEnv & PushSubscriptionEnv & PushTestEnv & AiAdvisorEnv & AiDocumentsEnv & PublicDirectoryEnv & {
   AUTH_SERVICE_PROXY_ENABLED?: string;
   EVENT_CANDIDATE_EXTENSION_ORIGINS?: string;
   AUTH_INGRESS_IP_RATE_LIMIT?: RateLimit;
@@ -1135,6 +1140,19 @@ const worker = {
             : status === 403 ? 'Không có quyền truy cập.'
               : status < 500 && error instanceof Error ? error.message : 'Không thể xử lý dữ liệu sinh viên.',
         }, status, { ...studentCors, 'Cache-Control': 'private, no-store' });
+      }
+    }
+
+    if (requestUrl.pathname === '/api/admin/internal-accounts') {
+      const accountCors = corsHeaders(request, env);
+      if (accountCors === null) return json({ error: 'Origin không được phép.' }, 403);
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { ...JSON_SECURITY_HEADERS, ...accountCors, 'Cache-Control': 'no-store' } });
+      if (await enforceAdminStudentRateLimit(request, env)) return json({ error: 'Quá nhiều yêu cầu. Vui lòng thử lại sau.' }, 429, { ...accountCors, 'Cache-Control': 'private, no-store' });
+      try { return json(await handleAdminInternalAccounts(request, requestUrl, env), 200, { ...accountCors, 'Cache-Control': 'private, no-store' }); }
+      catch (error) {
+        const status = adminInternalAccountsErrorStatus(error);
+        if (status >= 500) console.error(JSON.stringify({ event: 'admin_internal_accounts_request_failed', status }));
+        return json({ error: status === 401 ? 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' : status === 403 ? 'Không có quyền truy cập.' : status < 500 && error instanceof Error ? error.message : 'Không thể xử lý tài khoản nội bộ.' }, status, { ...accountCors, 'Cache-Control': 'private, no-store' });
       }
     }
 

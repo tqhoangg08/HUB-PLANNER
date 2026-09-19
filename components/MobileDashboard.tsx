@@ -1493,6 +1493,14 @@ const NativeAdminTools = () => {
       visible: isAdmin,
     },
     {
+      to: '/admin/internal-accounts',
+      label: 'Tài khoản nội bộ',
+      description: 'Quản lý tài khoản test, demo và QA tách biệt sinh viên.',
+      icon: Users,
+      className: 'bg-violet-50 text-violet-700',
+      visible: isAdmin,
+    },
+    {
       to: '/admin-reports',
       label: 'Báo cáo quản trị',
       description: 'Xử lý báo cáo lỗi, CTV và góp ý.',

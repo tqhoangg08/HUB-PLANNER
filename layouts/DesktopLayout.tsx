@@ -400,6 +400,11 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           </NavLink>
                       )}
                       {isAdmin && (
+                          <NavLink to="/admin/internal-accounts" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
+                              <Users size={16} /> Tài khoản nội bộ
+                          </NavLink>
+                      )}
+                      {isAdmin && (
                           <NavLink to="/admin/activity" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
                               <Clock size={16} /> Theo dõi hoạt động
                           </NavLink>

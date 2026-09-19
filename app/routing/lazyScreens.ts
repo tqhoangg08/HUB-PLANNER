@@ -61,6 +61,9 @@ export const CloudflareDataAdmin = lazy(() =>
 export const AdminAIDocuments = lazy(() =>
     import('../../components/AdminAIDocuments').then(module => ({ default: module.AdminAIDocuments }))
 );
+export const AdminInternalAccounts = lazy(() =>
+    import('../../components/AdminInternalAccounts').then(module => ({ default: module.AdminInternalAccounts }))
+);
 export const SupportTickets = lazy(() =>
     import('../../components/SupportTickets').then(module => ({ default: module.SupportTickets }))
 );

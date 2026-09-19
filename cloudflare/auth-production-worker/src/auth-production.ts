@@ -1141,6 +1141,136 @@ async function handleInternalAdminStudentDelete(
   return jsonResponse({ ok: true, deleted: true });
 }
 
+type InternalAccountRole = "user" | "admin" | "auditor";
+type InternalAccountPurpose = "test" | "demo" | "qa" | "internal";
+const INTERNAL_USERNAME = /^[a-z][a-z0-9._-]{2,47}$/;
+const INTERNAL_ACCOUNT_DOMAIN = "internal.hub-planner.invalid";
+const internalEmailForUsername = (username: string) => `${username}@${INTERNAL_ACCOUNT_DOMAIN}`;
+const internalText = (value: unknown, max: number) => typeof value === "string"
+  ? value.trim().replace(/[\u0000-\u001f\u007f]/g, "").slice(0, max) : "";
+const internalRole = (value: unknown): InternalAccountRole | null =>
+  value === "user" || value === "admin" || value === "auditor" ? value : null;
+const internalPurpose = (value: unknown): InternalAccountPurpose | null =>
+  value === "test" || value === "demo" || value === "qa" || value === "internal" ? value : null;
+const internalExpiry = (value: unknown) => {
+  if (value === null || value === undefined || value === "") return null;
+  const date = typeof value === "string" && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null;
+  return date && Date.parse(date) > Date.now() ? date : null;
+};
+const internalDigest = async (value: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))))
+  .map((part) => part.toString(16).padStart(2, "0")).join("");
+
+const requireInternalAccountAdmin = async (request: Request, env: AuthRuntimeEnv, auth: ReturnType<typeof createAuthForProfile>) => {
+  if (!['GET', 'POST'].includes(request.method) || new URL(request.url).hostname !== "auth-service.internal") return null;
+  const session = await betterAuthSession(auth, request);
+  return session?.user?.id && (await roleForUser(env, session.user.id)) === "admin" ? session.user.id : null;
+};
+
+const internalAccountAudit = (env: AuthRuntimeEnv, actor: string, targetUserId: string | null, username: string, action: string) => env.AUTH_DB.prepare(
+  `INSERT INTO auth_internal_account_audit (id,actor_user_id,target_user_id,target_username,action,created_at)
+   VALUES (?1,?2,?3,?4,?5,?6)`,
+).bind(crypto.randomUUID(), actor, targetUserId, username, action, new Date().toISOString()).run();
+
+const parseInternalAccountBody = async (request: Request) => readBoundedJsonBody(request) as Promise<Record<string, unknown> | null>;
+
+async function handleInternalAccounts(
+  request: Request,
+  env: AuthRuntimeEnv,
+  auth: ReturnType<typeof createAuthForProfile>,
+): Promise<Response> {
+  const actor = await requireInternalAccountAdmin(request, env, auth);
+  if (!actor) return jsonResponse({ error: "Not found." }, 404);
+  if (request.method === "GET") {
+    const url = new URL(request.url);
+    const historyUsername = internalText(url.searchParams.get("history"), 48).toLowerCase();
+    if (historyUsername) {
+      if (!INTERNAL_USERNAME.test(historyUsername)) return jsonResponse({ error: "Username không hợp lệ." }, 400);
+      const history = await env.AUTH_DB.prepare(`SELECT action,created_at FROM auth_internal_account_audit WHERE target_username=?1 ORDER BY created_at DESC LIMIT 100`).bind(historyUsername).all();
+      return jsonResponse({ success: true, data: history.results || [] });
+    }
+    const limit = Math.max(10, Math.min(50, Number(url.searchParams.get("limit") || 20) || 20));
+    const cursor = internalText(url.searchParams.get("cursor"), 200);
+    const rows = await env.AUTH_DB.prepare(
+      `SELECT username,display_name,role,purpose,status,expires_at,updated_at
+         FROM app_internal_accounts
+        WHERE (?1='' OR (updated_at < ?1))
+        ORDER BY updated_at DESC,user_id DESC LIMIT ?2`,
+    ).bind(cursor, limit + 1).all<Record<string, unknown>>();
+    const result = rows.results || [];
+    const page = result.slice(0, limit);
+    return jsonResponse({ success: true, data: page, next_cursor: result.length > limit ? String(page.at(-1)?.updated_at || "") : null, has_more: result.length > limit });
+  }
+  const body = await parseInternalAccountBody(request);
+  const action = internalText(body?.action, 32);
+  const operationId = internalText(body?.operationId, 64).toLowerCase();
+  if (!ADMIN_LIFECYCLE_OPERATION_ID.test(operationId)) return jsonResponse({ error: "Thiếu mã chống gửi lặp." }, 400);
+  const username = internalText(body?.username, 48).toLowerCase();
+  if (!INTERNAL_USERNAME.test(username)) return jsonResponse({ error: "Username không hợp lệ." }, 400);
+  const existing = await env.AUTH_DB.prepare(
+    `SELECT i.user_id,i.username,i.display_name,i.role,i.purpose,i.status,i.expires_at
+       FROM app_internal_accounts i WHERE i.username=?1 LIMIT 1`,
+  ).bind(username).first<{ user_id: string; username: string; display_name: string; role: InternalAccountRole; purpose: InternalAccountPurpose; status: "active" | "disabled"; expires_at: string | null }>();
+
+  if (action === "create") {
+    const displayName = internalText(body?.displayName, 160);
+    const password = typeof body?.password === "string" ? body.password : "";
+    const role = internalRole(body?.role); const purpose = internalPurpose(body?.purpose); const expiresAt = internalExpiry(body?.expiresAt);
+    if (!displayName || password.length < 12 || password.length > 128 || !role || !purpose || (body?.expiresAt && !expiresAt)) return jsonResponse({ error: "Dữ liệu tài khoản nội bộ không hợp lệ." }, 400);
+    const completed = await env.AUTH_DB.prepare(`SELECT target_user_id FROM auth_internal_account_operations WHERE operation_id=?1 AND actor_user_id=?2 AND action='create' LIMIT 1`).bind(operationId, actor).first<{ target_user_id: string }>();
+    if (completed) return jsonResponse({ success: true, userId: completed.target_user_id, idempotent: true });
+    if (existing) return jsonResponse({ error: "Username đã tồn tại." }, 409);
+    const userId = crypto.randomUUID(); const now = new Date().toISOString();
+    await env.AUTH_DB.batch([
+      env.AUTH_DB.prepare(`INSERT INTO auth_user (id,name,email,email_verified,image,created_at,updated_at) VALUES (?,?,?,?,NULL,?,?)`).bind(userId, displayName, internalEmailForUsername(username), 1, now, now),
+      env.AUTH_DB.prepare(`INSERT INTO auth_account (id,account_id,provider_id,user_id,password,created_at,updated_at) VALUES (?1,?2,'credential',?2,?3,?4,?4)`).bind(crypto.randomUUID(), userId, await hashPassword(password), now),
+      env.AUTH_DB.prepare(`INSERT INTO app_user_roles (user_id,role,created_at,updated_at) VALUES (?1,?2,?3,?3)`).bind(userId, role, now),
+      env.AUTH_DB.prepare(`INSERT INTO app_internal_accounts (user_id,username,display_name,role,purpose,status,expires_at,exclude_from_student_stats,receive_broadcast,created_by,created_at,updated_at) VALUES (?,?,?,?,?,'active',?,1,0,?,?,?)`).bind(userId, username, displayName, role, purpose, expiresAt, actor, now, now),
+      env.AUTH_DB.prepare(`INSERT INTO auth_internal_account_operations (operation_id,actor_user_id,action,target_user_id,username,request_hash,completed_at) VALUES (?,?, 'create',?,?,?,?)`).bind(operationId, actor, userId, username, await internalDigest(`create:${username}:${role}:${purpose}:${expiresAt || ''}`), now),
+      env.AUTH_DB.prepare(`INSERT INTO auth_internal_account_audit (id,actor_user_id,target_user_id,target_username,action,created_at) VALUES (?,?,?,?, 'create',?)`).bind(crypto.randomUUID(), actor, userId, username, now),
+    ]);
+    return jsonResponse({ success: true, userId, idempotent: false });
+  }
+  if (!existing) return jsonResponse({ error: "Không tìm thấy tài khoản nội bộ." }, 404);
+  if (action === "reset_password") {
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (password.length < 12 || password.length > 128) return jsonResponse({ error: "Mật khẩu không hợp lệ." }, 400);
+    const revoke = body?.revokeSessions !== false;
+    const statements = [env.AUTH_DB.prepare(`UPDATE auth_account SET password=?1,updated_at=?2 WHERE user_id=?3 AND provider_id='credential'`).bind(await hashPassword(password), new Date().toISOString(), existing.user_id)];
+    if (revoke) statements.push(env.AUTH_DB.prepare("DELETE FROM auth_session WHERE user_id=?1").bind(existing.user_id));
+    await env.AUTH_DB.batch(statements); await internalAccountAudit(env, actor, existing.user_id, username, "password_reset");
+    return jsonResponse({ success: true, sessions_revoked: revoke });
+  }
+  if (action === "update") {
+    const displayName = body?.displayName === undefined ? null : internalText(body.displayName, 160);
+    const role = body?.role === undefined ? existing.role : internalRole(body.role);
+    const status = body?.status === undefined ? existing.status : (body.status === "active" || body.status === "disabled" ? body.status : null);
+    const expiresAt = body?.expiresAt === undefined ? existing.expires_at : internalExpiry(body.expiresAt);
+    if (!role || !status || (body?.expiresAt && !expiresAt) || (body?.displayName !== undefined && !displayName)) return jsonResponse({ error: "Dữ liệu cập nhật không hợp lệ." }, 400);
+    if (role === existing.role && status === existing.status && expiresAt === existing.expires_at && (displayName === null || displayName === existing.display_name)) return jsonResponse({ success: true, unchanged: true });
+    const now = new Date().toISOString();
+    await env.AUTH_DB.batch([
+      env.AUTH_DB.prepare(`UPDATE app_internal_accounts SET display_name=COALESCE(?1,display_name),role=?2,status=?3,expires_at=?4,updated_at=?5 WHERE user_id=?6`).bind(displayName, role, status, expiresAt, now, existing.user_id),
+      env.AUTH_DB.prepare(`UPDATE app_user_roles SET role=?1,updated_at=?2 WHERE user_id=?3`).bind(role, now, existing.user_id),
+      ...(displayName === null ? [] : [env.AUTH_DB.prepare(`UPDATE auth_user SET name=?1,updated_at=?2 WHERE id=?3`).bind(displayName, now, existing.user_id)]),
+    ]);
+    await internalAccountAudit(env, actor, existing.user_id, username, role !== existing.role ? "role_change" : status === "disabled" ? "disable" : status === "active" ? "enable" : "expiration_change");
+    return jsonResponse({ success: true });
+  }
+  if (action === "delete") {
+    const completed = await env.AUTH_DB.prepare(`SELECT operation_id FROM auth_internal_account_operations WHERE operation_id=?1 AND actor_user_id=?2 AND action='delete' LIMIT 1`).bind(operationId, actor).first();
+    if (completed) return jsonResponse({ success: true, deleted: true, idempotent: true });
+    const now = new Date().toISOString();
+    await env.AUTH_DB.batch([
+      env.AUTH_DB.prepare(`INSERT INTO auth_internal_account_operations (operation_id,actor_user_id,action,target_user_id,username,request_hash,completed_at) VALUES (?,?, 'delete',?,?,?,?)`).bind(operationId, actor, existing.user_id, username, await internalDigest(`delete:${username}`), now),
+      env.AUTH_DB.prepare(`INSERT INTO auth_internal_account_audit (id,actor_user_id,target_user_id,target_username,action,created_at) VALUES (?,?,?,?, 'delete',?)`).bind(crypto.randomUUID(), actor, existing.user_id, username, now),
+      env.AUTH_DB.prepare("DELETE FROM auth_session WHERE user_id=?1").bind(existing.user_id),
+      env.AUTH_DB.prepare("DELETE FROM auth_user WHERE id=?1").bind(existing.user_id),
+    ]);
+    return jsonResponse({ success: true, deleted: true });
+  }
+  return jsonResponse({ error: "Thao tác không được hỗ trợ." }, 400);
+}
+
 function safeEmailFailureCode(error: unknown): string {
   if (error instanceof Error && /^AUTH_EMAIL_DELIVERY_HTTP_\d{3}$/.test(error.message)) {
     return error.message;
@@ -1447,6 +1577,16 @@ async function resolveSessionRole(
     return { role: null, canonicalUserResolved: false };
   }
 
+  // Internal identities are intentionally not students.  A disabled or expired
+  // internal account must not keep access merely because an old Better Auth
+  // session cookie still exists.
+  const internal = await env.AUTH_DB.prepare(
+    `SELECT status,expires_at FROM app_internal_accounts WHERE user_id=?1 LIMIT 1`,
+  ).bind(session.user.id).first<{ status: string; expires_at: string | null }>();
+  if (internal && (internal.status !== 'active' || (internal.expires_at && internal.expires_at <= new Date().toISOString()))) {
+    return { role: null, canonicalUserResolved: true };
+  }
+
   const storedRole = await roleForUser(env, session.user.id);
   if (storedRole) return { role: storedRole, canonicalUserResolved: true };
 
@@ -1660,6 +1800,20 @@ async function handleLoginDispatch(
   }
   if (target === "staff") {
     return handleStaffEmailSignIn(request, env, auth, config, { ...body, email: body.identifier });
+  }
+  const username = typeof body.identifier === "string" ? body.identifier.trim().toLowerCase() : "";
+  if (INTERNAL_USERNAME.test(username)) {
+    const internal = await env.AUTH_DB.prepare(
+      `SELECT u.email FROM app_internal_accounts i JOIN auth_user u ON u.id=i.user_id
+        WHERE i.username=?1 AND i.status='active' AND (i.expires_at IS NULL OR i.expires_at>?2) LIMIT 1`,
+    ).bind(username, new Date().toISOString()).first<{ email: string }>();
+    if (internal?.email) {
+      const forwarded = new Request(new URL(`${AUTH_BASE_PATH}/sign-in/email`, request.url), { method: "POST", headers: request.headers });
+      const response = await auth.handler(requestWithJsonBody(forwarded, { email: internal.email, password: body.password, rememberMe: body.rememberMe === true }));
+      if (!response.ok) return jsonResponse(GENERIC_CREDENTIAL_ERROR, 401);
+      const headers = new Headers(); for (const cookie of response.headers.getSetCookie()) headers.append("set-cookie", cookie);
+      return jsonResponse({ ok: true }, 200, headers);
+    }
   }
   return jsonResponse(GENERIC_CREDENTIAL_ERROR, 401);
 }
@@ -2144,6 +2298,9 @@ export async function handleAuthRuntimeRequest(
       }
       if (url.pathname === "/internal/admin-students/delete") {
         return handleInternalAdminStudentDelete(request, env, auth);
+      }
+      if (url.pathname === "/internal/admin-internal-accounts") {
+        return handleInternalAccounts(request, env, auth);
       }
     }
 
