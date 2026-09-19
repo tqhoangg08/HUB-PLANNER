@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { MessageSquare, Sparkles, X, Send, Loader2, ThumbsUp, ThumbsDown, Lock, History, Menu, Plus, MessageCircle, MoreVertical, Pin, PinOff, Edit3, Trash2, Check } from 'lucide-react'; 
 import { Link } from 'react-router-dom';
-import { UserData } from '../types';
-import { calculateCumulativeStats, getDegreeClassification, calculateSubjectAverage } from '../utils/calculations';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
 import DOMPurify from 'dompurify';
@@ -12,7 +10,6 @@ import { CONSENT_POLICIES, recordPolicyConsent } from '../utils/policyConsent';
 import { AIDocumentSources, type AIDocumentSource } from './AIDocumentSources';
 
 interface AIAdvisorProps {
-  data: UserData;
   userId?: string;
 }
 
@@ -39,7 +36,7 @@ interface ChatSessionLog {
     document_search_unavailable?: boolean;
 }
 
-export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
+export const AIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showSidebar, setShowSidebar] = useState(window.innerWidth >= 768); 
   const [loading, setLoading] = useState(false);
@@ -109,24 +106,6 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
     }
   }, [chatHistory, loading]);
 
-  const getStudentContext = () => {
-      const stats = calculateCumulativeStats(data.semesters);
-      const degree = getDegreeClassification(stats.rawGPA4);
-      const failedSubjects = data.semesters.flatMap(sem => sem.subjects)
-        .filter(s => {
-            const avg = calculateSubjectAverage(s);
-            return avg !== null && avg < 4.0 && !s.isNonGPA;
-        }).map(s => s.name);
-
-      return `
-[NGỮ CẢNH SINH VIÊN ĐANG CHAT]
-- Tên: ${data.studentName || "Sinh viên"} | Khóa: ${data.cohort || "Chưa rõ"}
-- Ngành: ${data.majorName || "Chưa cập nhật"}
-- GPA: ${stats.gpa4.toFixed(2)} (${degree})
-- Môn nợ: ${failedSubjects.length > 0 ? failedSubjects.join(', ') : 'Không có'}
-- Mục tiêu GPA: ${data.targetGPA || 3.2}`;
-  };
-
   const handleAdvice = async (isFirstTime = false, presetQuestion = "") => {
     const questionToAsk = presetQuestion || customPrompt;
     if (!questionToAsk.trim() && !isFirstTime) return;
@@ -142,10 +121,8 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
     setLoading(true);
 
     try {
-      const studentContext = getStudentContext();
-      
       const cleanHistoryForAI = chatHistory.map(msg => ({ role: msg.role, content: msg.content }));
-      const resData = await sendAiAdvisorMessage({ question: questionToAsk, history: cleanHistoryForAI, context: studentContext });
+      const resData = await sendAiAdvisorMessage({ question: questionToAsk, history: cleanHistoryForAI });
       const botReply = sanitizeAIReply(resData.reply || "Xin lỗi, mình không có câu trả lời.");
       const returnedLogId = resData.logId || Date.now(); 
 
@@ -459,7 +436,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ data, userId }) => {
                               <div className="bg-blue-50 p-4 rounded-full mb-4">
                                   <MessageSquare size={32} className="text-[#003375]" />
                               </div>
-                              <p className="font-medium text-gray-800 text-base">Chào {data.studentName || 'bạn'}!</p>
+                              <p className="font-medium text-gray-800 text-base">Chào bạn!</p>
                               <p className="text-sm mt-1 max-w-xs text-gray-500">Hôm nay mình có thể giúp gì cho quá trình học tập của bạn tại HUB?</p>
                               
                               <div className="mt-8 flex flex-wrap justify-center gap-2 px-2">

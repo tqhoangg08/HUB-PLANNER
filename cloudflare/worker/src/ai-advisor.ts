@@ -8,6 +8,11 @@ import {
   geminiFileSearchConfigured,
   type GeminiFileSearchEnv,
 } from './gemini-file-search.ts';
+import {
+  calculateCumulativeStats,
+  calculateSubjectAverage,
+} from '../../../shared/academic-grade-calculations.ts';
+import type { Subject } from '../../../types.ts';
 
 export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiFileSearchEnv {
   DB?: D1Database;
@@ -27,6 +32,34 @@ export class AiAdvisorError extends Error {
 const MAX_BODY_BYTES = 48 * 1024;
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const SAFE_TECH_REPLY = 'Mình không thể chia sẻ thông tin kỹ thuật hoặc bảo mật nội bộ của website. HUB Planner được xây dựng để hỗ trợ sinh viên quản lý học tập, theo dõi GPA, lịch học, thông báo, sự kiện và các tiện ích sinh viên thuận tiện hơn.';
+const UNVERIFIED_HUB_REPLY = 'Mình chưa thể xác minh thông tin hiện hành của HUB Planner hoặc BUH từ nguồn chính thức. Bạn có thể hỏi rõ hơn hoặc kiểm tra thông báo/tài liệu chính thức mới nhất.';
+const EMPTY_AUTHORITATIVE_REPLY = 'Mình chưa tìm thấy thông tin này trong dữ liệu hiện hành của HUB Planner.';
+
+export type AdvisorIntent =
+  | 'student_academic'
+  | 'student_schedule'
+  | 'course_catalog'
+  | 'school_announcement'
+  | 'event'
+  | 'lost_found'
+  | 'regulation_document'
+  | 'general';
+
+export type AdvisorSource = {
+  type: 'document' | 'course' | 'announcement' | 'event' | 'lost_found' | 'student_schedule' | 'student_academic';
+  id?: string | number;
+  title: string;
+  url?: string;
+  date?: string;
+};
+
+type AdvisorRetrieval = {
+  intents: AdvisorIntent[];
+  context: Record<string, unknown>;
+  sources: AdvisorSource[];
+  needsAuthoritativeSource: boolean;
+  missingAuthoritativeIntents: AdvisorIntent[];
+};
 
 const requireDb = (env: AiAdvisorEnv) => {
   if (!env.DB) throw new AiAdvisorError(503, 'Dịch vụ trợ lý tạm thời chưa sẵn sàng.');
@@ -54,15 +87,316 @@ const safeHistory = (value: unknown) => Array.isArray(value) ? value.slice(-4).f
   return role && content ? [{ role, content }] : [];
 }) : [];
 
-const d1Context = async (env: AiAdvisorEnv) => {
-  if (!env.DB) return '';
-  const [courses, events, lostFound, announcements] = await Promise.all([
-    env.DB.prepare("SELECT subject_name, course_code, instructor, credits FROM course_schedules WHERE catalogue_visibility = 'published' AND retired_at IS NULL LIMIT 5").all<Record<string, unknown>>(),
-    env.DB.prepare('SELECT title, status, deadline, format, points FROM public_events ORDER BY id DESC LIMIT 8').all<Record<string, unknown>>(),
-    env.DB.prepare('SELECT title, description, location, contact_info FROM public_lost_found_items ORDER BY created_at DESC LIMIT 5').all<Record<string, unknown>>(),
-    env.DB.prepare('SELECT title, date, link FROM school_announcements WHERE is_hidden = 0 ORDER BY date DESC LIMIT 12').all<Record<string, unknown>>(),
-  ]);
-  return JSON.stringify({ courses: courses.results || [], events: events.results || [], lostFound: lostFound.results || [], announcements: announcements.results || [] }).slice(0, 18_000);
+const normalizedQuestion = (value: string) => value
+  .toLocaleLowerCase('vi-VN')
+  .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const matches = (question: string, words: string[]) => words.some((word) => question.includes(word));
+
+const hasPersonalAcademicCue = (question: string) =>
+  matches(question, ['tôi', 'mình', 'của tôi', 'của mình', 'đã tích lũy', 'còn thiếu', 'bảng điểm của']);
+
+export const extractCourseCode = (question: string) => {
+  const match = question.match(/(?:^|[^\p{L}\p{N}])([A-Za-z]{2,12}-?\d{2,}[A-Za-z0-9-]*)(?=$|[^\p{L}\p{N}])/u);
+  return match?.[1]?.toLocaleLowerCase('vi-VN') || null;
+};
+
+export const classifyAdvisorIntents = (question: string): AdvisorIntent[] => {
+  const text = normalizedQuestion(question);
+  const intents = new Set<AdvisorIntent>();
+  const personalAcademic = hasPersonalAcademicCue(text)
+    && matches(text, ['gpa', 'điểm', 'học lực', 'môn nợ', 'tín chỉ', 'tốt nghiệp', 'hồ sơ học tập', 'ngành học']);
+  if (personalAcademic) intents.add('student_academic');
+  if (matches(text, ['lịch học', 'thời khóa biểu', 'tkb', 'phòng học', 'ca học', 'lịch thi'])) intents.add('student_schedule');
+  if (extractCourseCode(question) || matches(text, ['mã môn', 'môn học', 'môn ', 'học phần', 'tiên quyết', 'giảng viên', 'catalog'])) intents.add('course_catalog');
+  if (matches(text, ['thông báo', 'tin trường', 'nhà trường', 'thông báo trường'])) intents.add('school_announcement');
+  if (matches(text, ['sự kiện', 'đrl', 'điểm rèn luyện', 'đăng ký sự kiện'])) intents.add('event');
+  if (matches(text, ['thất lạc', 'tìm đồ', 'nhặt được', 'đồ rơi', 'lost found'])) intents.add('lost_found');
+  if (matches(text, ['quy chế', 'quy định', 'sổ tay', 'handbook', 'chương trình đào tạo', 'hướng dẫn', 'văn bản', 'điều lệ'])) intents.add('regulation_document');
+  return intents.size ? [...intents] : ['general'];
+};
+
+export const shouldUseDocumentSearch = (intents: AdvisorIntent[]) =>
+  intents.includes('regulation_document');
+
+const SEARCH_STOP_WORDS = new Set([
+  'thông', 'báo', 'trường', 'cho', 'với', 'của', 'mình', 'học', 'sinh', 'viên', 'này', 'những',
+  'môn', 'sự', 'kiện', 'tín', 'chỉ', 'có', 'mấy', 'bao', 'nhiêu', 'sắp', 'tới', 'mới', 'nhất',
+  'là', 'gì', 'cho', 'về', 'cần', 'giúp', 'tìm', 'xin', 'hãy', 'được', 'không', 'của', 'theo',
+]);
+
+export const extractSearchTerms = (question: string) => {
+  const words = normalizedQuestion(question).split(' ');
+  return words
+    .filter((word, index) => word.length >= 2 && (
+      !SEARCH_STOP_WORDS.has(word)
+      || (word === 'học' && words[index + 1] === 'phí')
+    ))
+    .slice(0, 3);
+};
+
+const parseJsonArray = (value: unknown) => {
+  try {
+    const parsed = JSON.parse(String(value || '[]')) as unknown;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+};
+
+const boundedValue = (value: unknown, max = 240) => String(value ?? '').trim().slice(0, max);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const validScore = (value: unknown) =>
+  value === null || (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10);
+
+const parseAcademicSubject = (value: unknown): Subject | null => {
+  if (!isRecord(value)) return null;
+  const credits = Number(value.credits);
+  if (!Number.isFinite(credits) || credits <= 0 || credits > 30) return null;
+  if (![value.scoreCC, value.scoreProcess, value.scoreMid, value.scoreFinal].every(validScore)) return null;
+  const name = boundedValue(value.name, 180);
+  if (!name) return null;
+  return {
+    id: boundedValue(value.id, 120) || name,
+    name,
+    credits,
+    scoreCC: value.scoreCC as number | null,
+    scoreProcess: value.scoreProcess as number | null,
+    scoreMid: value.scoreMid as number | null,
+    scoreFinal: value.scoreFinal as number | null,
+    isNonGPA: value.isNonGPA === true,
+  };
+};
+
+const parseAcademicSemesters = (value: unknown) => Array.isArray(value)
+  ? value.slice(-32).flatMap((semester) => {
+    if (!isRecord(semester) || !Array.isArray(semester.subjects)) return [];
+    return [{ subjects: semester.subjects.slice(0, 120).flatMap((subject) => {
+      const parsed = parseAcademicSubject(subject);
+      return parsed ? [parsed] : [];
+    }) }];
+  })
+  : [];
+
+const academicSummary = (semestersValue: unknown, totalCreditsRequired: unknown) => {
+  const semesters = parseAcademicSemesters(semestersValue);
+  const stats = calculateCumulativeStats(semesters);
+  const failedSubjectNames = semesters.flatMap((semester) => semester.subjects)
+    .flatMap((subject) => {
+      const average = calculateSubjectAverage(subject);
+      return !subject.isNonGPA && average !== null && average < 4 ? [subject.name] : [];
+    })
+    .slice(0, 16);
+  const required = Number(totalCreditsRequired);
+  const totalCredits = Number.isInteger(required) && required > 0 ? required : null;
+  return {
+    currentGpa4: stats.hasData ? stats.gpa4 : null,
+    currentGpa10: stats.hasData ? stats.gpa10 : null,
+    gradedCredits: stats.hasData ? stats.totalCredits : 0,
+    passedCredits: stats.passedCredits,
+    accumulatedCredits: stats.passedCredits,
+    totalCreditsRequired: totalCredits,
+    remainingCredits: totalCredits === null ? null : Math.max(0, totalCredits - stats.passedCredits),
+    failedSubjectNames,
+  };
+};
+
+const summarizeSemesters = (value: unknown) => Array.isArray(value)
+  ? value.slice(-8).flatMap((semester) => {
+    if (!semester || typeof semester !== 'object' || Array.isArray(semester)) return [];
+    const row = semester as Record<string, unknown>;
+    const subjects = Array.isArray(row.subjects) ? row.subjects : [];
+    return [{
+      name: boundedValue(row.name || row.semester || row.title, 80),
+      subjectCount: subjects.length,
+      gpa: typeof row.gpa === 'number' ? row.gpa : typeof row.gpa4 === 'number' ? row.gpa4 : null,
+    }];
+  }) : [];
+
+const source = (type: AdvisorSource['type'], row: Record<string, unknown>, title: string, options: Partial<AdvisorSource> = {}): AdvisorSource => ({
+  type,
+  title: boundedValue(row[title], 180) || 'Thông tin HUB Planner',
+  ...options,
+});
+
+const queryRows = async (db: D1Database, sql: string, bindings: unknown[] = []) =>
+  (await db.prepare(sql).bind(...bindings).all<Record<string, unknown>>()).results || [];
+
+const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
+
+// Keep the normal path index-friendly. A bounded contains lookup is reserved for
+// the genuine miss case, where a meaningful phrase occurs after a title prefix.
+const queryPrefixThenContains = async (db: D1Database, sql: string, phrase: string) => {
+  const escaped = escapeLike(phrase);
+  const prefixRows = await queryRows(db, sql, [`${escaped}%`]);
+  return prefixRows.length ? prefixRows : queryRows(db, sql, [`%${escaped}%`]);
+};
+
+const retrieveStudentAcademic = async (db: D1Database, userId: string) => {
+  const row = await db.prepare(
+    `SELECT student_name, cohort, major_name, specialization_name, program_name,
+      target_gpa, total_credits_required, has_onboarded, semesters_json
+     FROM user_profile_private WHERE user_id = ?1 LIMIT 1`,
+  ).bind(userId).first<Record<string, unknown>>();
+  if (!row) return { available: false };
+  const semesters = parseJsonArray(row.semesters_json);
+  return {
+    available: true,
+    summary: academicSummary(semesters, row.total_credits_required),
+    profile: {
+      name: boundedValue(row.student_name, 120),
+      cohort: boundedValue(row.cohort, 80),
+      major: boundedValue(row.major_name, 120),
+      specialization: boundedValue(row.specialization_name, 120),
+      program: boundedValue(row.program_name, 120),
+      targetGpa: row.target_gpa ?? null,
+      totalCreditsRequired: row.total_credits_required ?? null,
+      hasOnboarded: Number(row.has_onboarded || 0) === 1,
+      semesters: summarizeSemesters(semesters),
+    },
+  };
+};
+
+const retrieveStudentSchedule = async (db: D1Database, userId: string) => {
+  const rows = await queryRows(db,
+    `SELECT us.semester, cs.course_code, cs.subject_name, cs.credits, cs.instructor,
+      cs.shift, cs.day_of_week, cs.room, cs.campus
+     FROM user_schedules us
+     LEFT JOIN course_schedules cs ON cs.id = us.course_id
+     WHERE us.user_id = ?1
+     ORDER BY us.semester DESC, us.created_at DESC, us.id DESC
+     LIMIT 24`, [userId]);
+  return rows.map((row) => ({
+    semester: boundedValue(row.semester, 64),
+    courseCode: boundedValue(row.course_code, 64),
+    courseName: boundedValue(row.subject_name, 180),
+    credits: row.credits ?? null,
+    instructor: boundedValue(row.instructor, 120),
+    shift: boundedValue(row.shift, 64),
+    dayOfWeek: boundedValue(row.day_of_week, 64),
+    room: boundedValue(row.room, 80),
+    campus: boundedValue(row.campus, 80),
+  }));
+};
+
+const retrieveCourseCatalog = async (db: D1Database, question: string) => {
+  const code = extractCourseCode(question);
+  const terms = extractSearchTerms(question);
+  const phrase = terms.join(' ');
+  const rows = code
+    ? await queryRows(db,
+      `SELECT id, course_code, subject_name, credits, prerequisite, instructor, semester, managing_faculty
+       FROM course_schedules
+       WHERE catalogue_visibility = 'published' AND retired_at IS NULL AND course_code_search = ?1
+       LIMIT 8`, [code])
+    : phrase
+      ? await queryPrefixThenContains(db,
+        `SELECT id, course_code, subject_name, credits, prerequisite, instructor, semester, managing_faculty
+         FROM course_schedules
+         WHERE catalogue_visibility = 'published' AND retired_at IS NULL
+           AND subject_name_search LIKE ?1 ESCAPE '\\'
+         ORDER BY source_position ASC LIMIT 8`, phrase)
+      : [];
+  return rows;
+};
+
+const retrieveAnnouncements = async (db: D1Database, question: string) => {
+  const phrase = extractSearchTerms(question).join(' ');
+  return phrase
+    ? queryPrefixThenContains(db,
+      `SELECT id, title, link, date FROM school_announcements
+       WHERE is_hidden = 0 AND title_search LIKE ?1 ESCAPE '\\'
+       ORDER BY date DESC, created_at DESC LIMIT 8`, phrase)
+    : queryRows(db,
+      `SELECT id, title, link, date FROM school_announcements
+       WHERE is_hidden = 0 ORDER BY date DESC, created_at DESC LIMIT 8`);
+};
+
+const retrieveEvents = async (db: D1Database, question: string) => {
+  const phrase = extractSearchTerms(question).join(' ');
+  return phrase
+    ? queryPrefixThenContains(db,
+      `SELECT id, title, organizer, deadline, event_date, location_type, status, link
+       FROM public_events
+       WHERE is_deleted = 0 AND COALESCE(status, '') != 'pending'
+         AND title_search LIKE ?1 ESCAPE '\\'
+       ORDER BY created_at DESC LIMIT 8`, phrase)
+    : queryRows(db,
+      `SELECT id, title, organizer, deadline, event_date, location_type, status, link
+       FROM public_events
+       WHERE is_deleted = 0 AND COALESCE(status, '') != 'pending'
+       ORDER BY created_at DESC LIMIT 8`);
+};
+
+const retrieveLostFound = async (db: D1Database, question: string) => {
+  const phrase = extractSearchTerms(question).join(' ');
+  return phrase
+    ? queryPrefixThenContains(db,
+      `SELECT id, title, type, location, created_at FROM public_lost_found_items
+       WHERE is_deleted = 0 AND status IN ('approved', 'resolved')
+         AND title_search LIKE ?1 ESCAPE '\\'
+       ORDER BY created_at DESC LIMIT 8`, phrase)
+    : queryRows(db,
+      `SELECT id, title, type, location, created_at FROM public_lost_found_items
+       WHERE is_deleted = 0 AND status IN ('approved', 'resolved')
+       ORDER BY created_at DESC LIMIT 8`);
+};
+
+export const retrieveAdvisorContext = async (env: AiAdvisorEnv, userId: string, question: string): Promise<AdvisorRetrieval> => {
+  const db = requireDb(env);
+  const intents = classifyAdvisorIntents(question);
+  const context: Record<string, unknown> = {};
+  const sources: AdvisorSource[] = [];
+  const missingAuthoritativeIntents: AdvisorIntent[] = [];
+  if (intents.includes('student_academic')) {
+    const academic = await retrieveStudentAcademic(db, userId);
+    context.studentAcademic = academic;
+    if ((academic as { available?: boolean }).available === true) {
+      sources.push({ type: 'student_academic', title: 'Hồ sơ học tập hiện tại của bạn' });
+    } else {
+      missingAuthoritativeIntents.push('student_academic');
+    }
+  }
+  if (intents.includes('student_schedule')) {
+    const rows = await retrieveStudentSchedule(db, userId);
+    context.studentSchedule = rows;
+    sources.push(...rows.map((row) => ({ type: 'student_schedule' as const, title: row.courseName || row.courseCode || 'Lịch học cá nhân' })));
+    if (!rows.length) missingAuthoritativeIntents.push('student_schedule');
+  }
+  if (intents.includes('course_catalog')) {
+    const rows = await retrieveCourseCatalog(db, question);
+    context.courses = rows;
+    sources.push(...rows.map((row) => source('course', row, 'subject_name', { id: String(row.id || '') || undefined })));
+    if (!rows.length) missingAuthoritativeIntents.push('course_catalog');
+  }
+  if (intents.includes('school_announcement')) {
+    const rows = await retrieveAnnouncements(db, question);
+    context.announcements = rows;
+    sources.push(...rows.map((row) => source('announcement', row, 'title', { id: Number(row.id) || undefined, url: boundedValue(row.link, 500) || undefined, date: boundedValue(row.date, 64) || undefined })));
+    if (!rows.length) missingAuthoritativeIntents.push('school_announcement');
+  }
+  if (intents.includes('event')) {
+    const rows = await retrieveEvents(db, question);
+    context.events = rows;
+    sources.push(...rows.map((row) => source('event', row, 'title', { id: Number(row.id) || undefined, url: boundedValue(row.link, 500) || undefined, date: boundedValue(row.event_date || row.deadline, 64) || undefined })));
+    if (!rows.length) missingAuthoritativeIntents.push('event');
+  }
+  if (intents.includes('lost_found')) {
+    const rows = await retrieveLostFound(db, question);
+    context.lostFound = rows;
+    sources.push(...rows.map((row) => source('lost_found', row, 'title', { id: Number(row.id) || undefined, date: boundedValue(row.created_at, 64) || undefined })));
+    if (!rows.length) missingAuthoritativeIntents.push('lost_found');
+  }
+  return {
+    intents,
+    context,
+    sources: sources.slice(0, 24),
+    needsAuthoritativeSource: intents.some((intent) => !['general', 'regulation_document'].includes(intent)),
+    missingAuthoritativeIntents,
+  };
 };
 
 const createLog = async (env: AiAdvisorEnv, userId: string, question: string) => {
@@ -82,23 +416,17 @@ const patchLog = async (env: AiAdvisorEnv, userId: string, id: number, patch: Re
     ['is_deleted', 'is_deleted'],
     ['is_pinned', 'is_pinned'],
     ['document_sources', 'document_sources_json'],
+    ['answer_sources', 'notice_sources_json'],
     ['document_search_unavailable', 'document_search_unavailable'],
   ]);
   const entries = Object.entries(patch).filter(([key]) => columns.has(key));
   if (!entries.length) return;
   const assignments = entries.map(([key], index) => `${columns.get(key)} = ?${index + 3}`).join(', ');
-  const values = entries.map(([key, value]) => key === 'document_sources'
+  const values = entries.map(([key, value]) => (key === 'document_sources' || key === 'answer_sources')
     ? JSON.stringify(Array.isArray(value) ? value : [])
     : typeof value === 'boolean' ? (value ? 1 : 0) : value);
   await requireDb(env).prepare(`UPDATE ai_chat_logs SET ${assignments} WHERE id = ?1 AND user_id = ?2`)
     .bind(id, userId, ...values).run();
-};
-
-const parseJsonArray = (value: unknown) => {
-  try {
-    const parsed = JSON.parse(String(value || '[]')) as unknown;
-    return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
 };
 
 const publicLog = (row: Record<string, unknown>) => ({
@@ -111,22 +439,29 @@ const publicLog = (row: Record<string, unknown>) => ({
   is_deleted: Number(row.is_deleted || 0) === 1,
   is_pinned: Number(row.is_pinned || 0) === 1,
   ...(row.document_sources_json === undefined ? {} : { document_sources: parseJsonArray(row.document_sources_json) }),
+  ...(row.notice_sources_json === undefined ? {} : { answer_sources: parseJsonArray(row.notice_sources_json) }),
   ...(row.document_search_unavailable === undefined ? {} : { document_search_unavailable: Number(row.document_search_unavailable || 0) === 1 }),
 });
 
 const resolveDocumentSources = async (env: AiAdvisorEnv, sources: Array<Record<string, unknown>>) => {
   const db = requireDb(env);
-  return Promise.all(sources.map(async (source) => {
-    const externalId = String(source.documentId || '');
-    if (!externalId) return source;
-    const row = await db.prepare(
-      `SELECT id, title, original_file_name FROM ai_documents
-        WHERE deleted_at IS NULL
-          AND (id = ?1 OR gemini_document_name = ?2 OR gemini_document_name LIKE ?3)
-        LIMIT 1`,
-    ).bind(externalId, `documents/${externalId}`, `%/documents/${externalId}`).first<{ id: string; title: string; original_file_name: string }>();
-    return row ? { ...source, documentId: row.id, title: row.title, fileName: row.original_file_name } : source;
-  }));
+  const externalIds = [...new Set(sources.map((source) => String(source.documentId || '').trim()).filter(Boolean))].slice(0, 12);
+  if (!externalIds.length) return sources;
+  const rows = await db.prepare(
+    `SELECT id, title, original_file_name, gemini_document_name FROM ai_documents
+      WHERE deleted_at IS NULL
+        AND (id IN (${externalIds.map(() => '?').join(', ')})
+          OR gemini_document_name IN (${externalIds.map(() => '?').join(', ')}))`,
+  ).bind(...externalIds, ...externalIds.map((id) => `documents/${id}`)).all<{ id: string; title: string; original_file_name: string; gemini_document_name: string | null }>();
+  const byExternalId = new Map<string, { id: string; title: string; original_file_name: string }>();
+  for (const row of rows.results || []) {
+    byExternalId.set(row.id, row);
+    if (row.gemini_document_name) byExternalId.set(String(row.gemini_document_name).replace(/^documents\//, ''), row);
+  }
+  return sources.map((entry) => {
+    const row = byExternalId.get(String(entry.documentId || '').trim());
+    return row ? { ...entry, documentId: row.id, title: row.title, fileName: row.original_file_name } : entry;
+  });
 };
 
 const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: string) => {
@@ -138,24 +473,39 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
     if (logId) await patchLog(env, userId, logId, { bot_reply: SAFE_TECH_REPLY });
     return { reply: SAFE_TECH_REPLY, logId };
   }
+  const retrieval = await retrieveAdvisorContext(env, userId, question);
+  const documentIntent = shouldUseDocumentSearch(retrieval.intents);
+  if (retrieval.needsAuthoritativeSource && !retrieval.sources.length && !documentIntent) {
+    if (logId) await patchLog(env, userId, logId, { bot_reply: EMPTY_AUTHORITATIVE_REPLY, answer_sources: [] });
+    return { reply: EMPTY_AUTHORITATIVE_REPLY, logId, documentSources: [], answerSources: [], documentSearchUnavailable: false };
+  }
   const system = [
     'Bạn là AI Cố vấn học tập HUB Planner. Trả lời bằng tiếng Việt, thân thiện, rõ ràng.',
     'Không tiết lộ thông tin kỹ thuật, bí mật, khóa, token hoặc kiến trúc nội bộ.',
-    `Ngữ cảnh sinh viên do ứng dụng cung cấp: ${String(body.context || '').slice(0, 6000)}`,
-    `Dữ liệu công khai do máy chủ đọc: ${await d1Context(env)}`,
+    'Ưu tiên nguồn theo thứ tự: dữ liệu riêng hiện tại của sinh viên đã xác thực, dữ liệu D1 hiện hành, tài liệu chính thức đã truy xuất, rồi mới đến kiến thức tổng quát.',
+    'Không tự khẳng định thông tin riêng của HUB Planner hoặc BUH khi không có dữ liệu nguồn hiện hành. Nếu nguồn chính thức không đủ, hãy nói rõ không thể xác minh.',
+    `Intent đã xác định: ${retrieval.intents.join(', ')}. Dữ liệu mục tiêu từ máy chủ: ${JSON.stringify(retrieval.context).slice(0, 14_000)}`,
+    ...(retrieval.missingAuthoritativeIntents.length
+      ? [`Không tìm thấy nguồn hiện hành cho các phần: ${retrieval.missingAuthoritativeIntents.join(', ')}. Chỉ trả lời phần có nguồn; không suy đoán hoặc bù thêm dữ kiện cho các phần thiếu nguồn.`]
+      : []),
   ].join('\n');
   let documentSearchUnavailable = false;
-  if (geminiFileSearchConfigured(env)) {
+  if (documentIntent && geminiFileSearchConfigured(env)) {
     try {
       const result = await answerWithGeminiFileSearch(env, system, safeHistory(body.history), question);
       if (result) {
         const documentSources = await resolveDocumentSources(env, result.documentSources as unknown as Array<Record<string, unknown>>);
-        if (logId) await patchLog(env, userId, logId, { bot_reply: result.reply, document_sources: documentSources, document_search_unavailable: false });
-        return { reply: result.reply, logId, documentSources, documentSearchUnavailable: false };
+        const answerSources = [...retrieval.sources, ...documentSources.map((document) => ({ type: 'document' as const, title: String(document.title || document.fileName || 'Tài liệu chính thức'), id: document.documentId || undefined }))];
+        if (logId) await patchLog(env, userId, logId, { bot_reply: result.reply, document_sources: documentSources, answer_sources: answerSources, document_search_unavailable: false });
+        return { reply: result.reply, logId, documentSources, answerSources, documentSearchUnavailable: false };
       }
     } catch {
       documentSearchUnavailable = true;
     }
+  }
+  if (documentIntent && (!geminiFileSearchConfigured(env) || documentSearchUnavailable)) {
+    if (logId) await patchLog(env, userId, logId, { bot_reply: UNVERIFIED_HUB_REPLY, answer_sources: retrieval.sources, document_search_unavailable: true });
+    return { reply: UNVERIFIED_HUB_REPLY, logId, documentSources: [], answerSources: retrieval.sources, documentSearchUnavailable: true };
   }
   const availableKeys = keys(env);
   if (!availableKeys.length) throw new AiAdvisorError(503, 'Dịch vụ trợ lý tạm thời chưa sẵn sàng.');
@@ -178,8 +528,8 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
       if (!response.ok) continue;
       const reply = String(payload.choices?.[0]?.message?.content || '').trim();
       if (!reply) continue;
-      if (logId) await patchLog(env, userId, logId, { bot_reply: reply, document_sources: [], document_search_unavailable: documentSearchUnavailable });
-      return { reply, logId, documentSources: [], documentSearchUnavailable };
+      if (logId) await patchLog(env, userId, logId, { bot_reply: reply, document_sources: [], answer_sources: retrieval.sources, document_search_unavailable: documentSearchUnavailable });
+      return { reply, logId, documentSources: [], answerSources: retrieval.sources, documentSearchUnavailable };
     } catch { lastStatus = 502; }
   }
   if (logId) await patchLog(env, userId, logId, { bot_reply: 'Hệ thống AI đang tạm thời không phản hồi.' });
@@ -191,7 +541,7 @@ export const handleAiAdvisor = async (request: Request, url: URL, env: AiAdvisor
   if (request.method === 'GET') {
     const id = Number(url.searchParams.get('id') || 0);
     const select = id > 0
-      ? 'id,user_message,bot_reply,created_at,is_helpful,title,is_deleted,is_pinned,document_sources_json,document_search_unavailable'
+      ? 'id,user_message,bot_reply,created_at,is_helpful,title,is_deleted,is_pinned,document_sources_json,notice_sources_json,document_search_unavailable'
       : 'id,created_at,is_helpful,title,is_deleted,is_pinned';
     if (id > 0) {
       const row = await requireDb(env).prepare(`SELECT ${select} FROM ai_chat_logs WHERE user_id = ? AND id = ? LIMIT 1`)

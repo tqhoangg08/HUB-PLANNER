@@ -25,12 +25,13 @@ export const getAiAdvisorSession = async (id: number) => {
   return payload.data || null;
 };
 
-export const sendAiAdvisorMessage = async (input: { question: string; history: Array<{ role: string; content: string }>; context: string }) => {
+export const sendAiAdvisorMessage = async (input: { question: string; history: Array<{ role: string; content: string }> }) => {
   const response = await privateApiRequest('/api/private/v1/ai-advisor', { method: 'POST', body: JSON.stringify(input) });
   return response.json() as Promise<{
     reply: string;
     logId?: number | null;
     documentSources?: Array<{ id?: string | null; documentId?: string | null; title: string; fileName?: string; pageNumber?: number | null }>;
+    answerSources?: Array<{ type: string; id?: string | number; title: string; url?: string; date?: string }>;
     documentSearchUnavailable?: boolean;
   }>;
 };

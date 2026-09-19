@@ -1,32 +1,15 @@
 import { Subject, GradeStatus, Semester } from '../types';
+import {
+  calculateCumulativeStats,
+  calculateSemesterStats,
+  calculateSubjectAverage,
+  getGradeDetails,
+} from '../shared/academic-grade-calculations.ts';
 
-// HUB Specific Grade Scale based on user provided image
-export const getGradeDetails = (score10: number) => {
-  const score = Math.round((score10 + 0.000001) * 10) / 10;
-
-  if (score >= 9.5) return { scale4: 4.0, letter: 'A+' };
-  if (score >= 9.0) return { scale4: 3.7, letter: 'A' };
-  if (score >= 8.5) return { scale4: 3.4, letter: 'A-' };
-  if (score >= 8.0) return { scale4: 3.2, letter: 'B+' };
-  if (score >= 7.5) return { scale4: 3.0, letter: 'B' };
-  if (score >= 7.0) return { scale4: 2.8, letter: 'B-' };
-  if (score >= 6.5) return { scale4: 2.6, letter: 'C+' };
-  if (score >= 6.0) return { scale4: 2.4, letter: 'C' };
-  if (score >= 5.5) return { scale4: 2.2, letter: 'C-' };
-  if (score >= 5.0) return { scale4: 2.0, letter: 'D+' };
-  if (score >= 4.5) return { scale4: 1.8, letter: 'D' };
-  if (score >= 4.0) return { scale4: 1.6, letter: 'D-' };
-  return { scale4: 0.0, letter: 'F' };
-};
+export { calculateCumulativeStats, calculateSemesterStats, calculateSubjectAverage, getGradeDetails };
 
 export const convertToScale4 = (score10: number): number => {
   return getGradeDetails(score10).scale4;
-};
-
-export const calculateSubjectAverage = (s: Subject): number | null => {
-  if (s.scoreCC === null || s.scoreProcess === null || s.scoreMid === null || s.scoreFinal === null) return null;
-  const avg = (s.scoreCC * 0.1) + (s.scoreProcess * 0.2) + (s.scoreMid * 0.2) + (s.scoreFinal * 0.5);
-  return Math.round((avg + 0.000001) * 10) / 10; 
 };
 
 export const getSubjectStatus = (score10: number | null): GradeStatus => {
@@ -36,61 +19,6 @@ export const getSubjectStatus = (score10: number | null): GradeStatus => {
   return GradeStatus.PASS;
 };
 
-export const calculateSemesterStats = (subjects: Subject[]) => {
-  let totalCredits = 0;
-  let totalScore10 = 0;
-  let totalScore4 = 0;
-  let passedCredits = 0;
-
-  subjects.forEach(sub => {
-    if (sub.isNonGPA) return;
-    
-    const avg10 = calculateSubjectAverage(sub);
-    if (avg10 !== null) {
-      const { scale4 } = getGradeDetails(avg10);
-      totalCredits += sub.credits;
-      totalScore10 += avg10 * sub.credits;
-      totalScore4 += scale4 * sub.credits;
-
-      if (avg10 >= 4.0) {
-        passedCredits += sub.credits;
-      }
-    }
-  });
-
-  // Calculate averages
-  
-  // 1. Calculate RAW (Exact) values for internal calculations (Prediction)
-  // Tính chính xác không làm tròn để dùng cho hàm dự báo
-const rawGPA4 = totalCredits > 0 ? totalScore4 / totalCredits : 0;
-const rawGPA10 = totalCredits > 0 ? totalScore10 / totalCredits : 0;
-
-  // Thêm Number.EPSILON vào các dòng làm tròn
-let gpa10 = 0;
-  let gpa4 = 0;
-  if (totalCredits > 0) {
-      const step1_10 = Math.round((rawGPA10 + 0.000001) * 100) / 100;
-      gpa10 = Math.round((step1_10 + 0.000001) * 10) / 10;
-
-      const step1_4 = Math.round((rawGPA4 + 0.000001) * 100) / 100;
-      gpa4 = Math.round((step1_4 + 0.000001) * 10) / 10;
-  }
-
-  return {
-    gpa10,
-    gpa4,      
-    rawGPA4,
-    rawGPA10,
-    totalCredits,
-    passedCredits,
-    hasData: totalCredits > 0
-  };
-};
-
-export const calculateCumulativeStats = (semesters: { subjects: Subject[] }[]) => {
-  const allSubjects = semesters.flatMap(s => s.subjects);
-  return calculateSemesterStats(allSubjects);
-};
 
 const extractAcademicYearFromSemester = (sem: Semester): string | null => {
     const nameMatch = sem.name.match(/(\d{4})-(\d{4})/);

@@ -1,9 +1,7 @@
-import type { UserData } from '../types';
 import { AIAdvisor } from './AIAdvisor';
 import { MobileAIAdvisor } from './MobileAIAdvisor';
 
 interface AppAiAdvisorOverlayProps {
-    data: UserData;
     userId?: string;
     mobileScreen: boolean;
     mobileLayout: boolean;
@@ -11,7 +9,6 @@ interface AppAiAdvisorOverlayProps {
 }
 
 export const AppAiAdvisorOverlay = ({
-    data,
     userId,
     mobileScreen,
     mobileLayout,
@@ -34,7 +31,7 @@ export const AppAiAdvisorOverlay = ({
         )}
 
         {mobileScreen
-            ? <MobileAIAdvisor data={data} userId={userId} />
-            : <AIAdvisor data={data} userId={userId} />}
+            ? <MobileAIAdvisor userId={userId} />
+            : <AIAdvisor userId={userId} />}
     </>
 );

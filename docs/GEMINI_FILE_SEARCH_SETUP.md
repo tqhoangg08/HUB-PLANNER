@@ -82,7 +82,7 @@ Rollback ứng dụng: tắt `GEMINI_FILE_SEARCH_ENABLED=false` trên Worker. Ch
 - Xác nhận người dùng chỉ nhận signed URL khi bấm nguồn và URL hết hạn nhanh.
 - Xác nhận một khóa chat 429 không gây vòng lặp vô hạn và khóa File Search không xuất hiện trong pool.
 - Theo dõi log Gemini upload operation, lỗi lập chỉ mục và thời gian xử lý tài liệu lớn.
-- Xác nhận dữ liệu cũ (`system_knowledge`, sự kiện, thông báo, đồ thất lạc, môn học) vẫn được đưa vào prompt.
+- Xác nhận AI Advisor chỉ truy xuất nguồn liên quan theo intent: dữ liệu riêng đã xác thực, dữ liệu D1 hiện hành hoặc tài liệu chính thức đã lập chỉ mục; không nạp ngữ cảnh cố định cho mọi câu hỏi.
 
 ## 9. Runbook Google AI Studio
 

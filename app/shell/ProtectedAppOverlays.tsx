@@ -56,7 +56,6 @@ export const ProtectedAppOverlays = ({
 }: ProtectedAppOverlaysProps) => (
     <>
         <AppAiAdvisorOverlay
-            data={data}
             userId={userId}
             mobileScreen={mobileScreen}
             mobileLayout={mobileLayout}
