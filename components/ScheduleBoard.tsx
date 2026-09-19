@@ -2316,9 +2316,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
       if (adminTab === 'user_changed') return 'updated';
       return 'active';
   };
-  const adminCourseStatusLabel = (course: Course) => (
-      adminCourseStatus(course) === 'updated' ? 'Cập nhật mới' : 'Đang áp dụng'
-  );
   const adminCourseTypeLabel = (course: Course) => (
       course.is_user_added ? 'Sinh viên thêm' : 'Hệ thống gốc'
   );
@@ -2866,16 +2863,14 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                         </table>
                     ) : (
                         <>
-                        <table className="w-full table-fixed border-collapse text-left text-[13px] min-w-[1160px]">
+                        <table className="w-full table-fixed border-collapse text-left text-[13px] min-w-[1040px]">
                             <colgroup>
                                 <col className="w-[145px]" />
                                 <col />
                                 <col className="w-[78px]" />
-                                <col className="w-[175px]" />
-                                <col className="w-[140px]" />
-                                <col className="w-[140px]" />
-                                <col className="w-[132px]" />
-                                <col className="w-[128px]" />
+                                <col className="w-[220px]" />
+                                <col className="w-[155px]" />
+                                <col className="w-[135px]" />
                                 <col className="w-[96px]" />
                             </colgroup>
                             <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] font-extrabold uppercase tracking-wide text-slate-600">
@@ -2886,8 +2881,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                     <th className="border-b border-r border-slate-200 px-4 py-3">Khoa phụ trách</th>
                                     <th className="border-b border-r border-slate-200 px-4 py-3">Học kỳ áp dụng</th>
                                     <th className="border-b border-r border-slate-200 px-4 py-3">Loại môn</th>
-                                    <th className="border-b border-r border-slate-200 px-4 py-3">Trạng thái</th>
-                                    <th className="border-b border-r border-slate-200 px-4 py-3">Cập nhật</th>
                                     <th className="sticky right-0 z-10 border-b border-slate-200 bg-slate-50 px-3 py-3 text-center">Thao tác</th>
                                 </tr>
                             </thead>
@@ -2900,8 +2893,6 @@ export default function ScheduleBoard({ viewUserId }: { viewUserId?: string }) {
                                         <td className="border-r border-slate-200/80 px-4 py-3 text-slate-600"><div className="truncate" title={c.managing_faculty || ''}>{c.managing_faculty || '—'}</div></td>
                                         <td className="border-r border-slate-200/80 px-4 py-3 text-slate-600">{SEMESTER_OPTIONS.find(option => option.value === c.semester)?.label || c.semester || '—'}</td>
                                         <td className="border-r border-slate-200/80 px-4 py-3"><span className="inline-flex rounded-md bg-blue-50 px-2 py-1 text-[11px] font-bold text-[#0052cc]">{adminCourseTypeLabel(c)}</span></td>
-                                        <td className="border-r border-slate-200/80 px-4 py-3"><span className={adminCourseStatus(c) === 'updated' ? 'inline-flex rounded-md bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700' : 'inline-flex rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700'}>{adminCourseStatusLabel(c)}</span></td>
-                                        <td className="border-r border-slate-200/80 px-4 py-3 text-[12px] text-slate-500">Phiên bản {c.revision ?? 0}</td>
                                         <td className="sticky right-0 z-[1] bg-white px-3 py-2.5 text-center group-hover:bg-blue-50/35">
                                             <div className="flex items-center justify-center gap-1">
                                                 <button onClick={() => { setAdminEditData(c); setIsAdminEditModalOpen(true); }} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-[#0052cc] transition hover:border-blue-200 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc]" title="Chỉnh sửa" aria-label={`Chỉnh sửa ${c.course_code}`}><Edit size={15}/></button>

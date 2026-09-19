@@ -32,15 +32,21 @@ test('admin timetable uses the student-management filter and action-bar pattern 
 });
 
 test('admin timetable renders a dense responsive enterprise table and reuses course pagination', () => {
+  const tableStart = source.indexOf('<table className="w-full table-fixed border-collapse text-left text-[13px]');
+  const tableEnd = source.indexOf('</table>', tableStart);
+  const table = source.slice(tableStart, tableEnd);
+  assert.ok(tableStart >= 0 && tableEnd > tableStart);
   for (const label of [
-    'Mã môn', 'Tên môn', 'Tín chỉ', 'Khoa phụ trách', 'Học kỳ áp dụng',
-    'Loại môn', 'Trạng thái', 'Cập nhật', 'Thao tác',
-  ]) assert.match(source, new RegExp(label));
-  assert.match(source, /min-w-\[1160px\]/);
+    'Mã môn', 'Tên môn', 'Tín chỉ', 'Khoa phụ trách', 'Học kỳ áp dụng', 'Loại môn', 'Thao tác',
+  ]) assert.match(table, new RegExp(label));
+  assert.doesNotMatch(table, />Trạng thái<|>Cập nhật</);
+  assert.doesNotMatch(table, /adminCourseStatusLabel/);
+  assert.match(source, /min-w-\[1040px\]/);
   assert.match(source, /sticky right-0/);
   assert.match(source, /coursePaginationPages\.map/);
   assert.match(source, /aria-label="Trang trước"/);
   assert.match(source, /aria-label="Trang sau"/);
-  assert.match(source, /adminCourseStatusLabel/);
   assert.match(source, /adminCourseTypeLabel/);
+  assert.match(table, /aria-label=\{`Chỉnh sửa \$\{c\.course_code\}`\}/);
+  assert.match(table, /aria-label=\{`Xóa \$\{c\.course_code\}`\}/);
 });
