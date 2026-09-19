@@ -74,6 +74,23 @@ const createDatabase = () => {
     );
     CREATE TABLE app_auth_identifiers (user_id TEXT NOT NULL, student_code TEXT UNIQUE, created_at TEXT);
     CREATE TABLE app_user_roles (user_id TEXT PRIMARY KEY, role TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    -- Keep this in-memory Auth D1 fixture aligned with migration 0004. Internal
+    -- creator provenance intentionally has no FK because creator accounts can
+    -- later be deleted while audit history must remain durable.
+    CREATE TABLE app_internal_accounts (
+      user_id TEXT PRIMARY KEY REFERENCES auth_user(id) ON DELETE CASCADE,
+      username TEXT NOT NULL COLLATE NOCASE UNIQUE,
+      display_name TEXT NOT NULL,
+      role TEXT NOT NULL CHECK (role IN ('user','admin','auditor')),
+      purpose TEXT NOT NULL CHECK (purpose IN ('test','demo','qa','internal')),
+      status TEXT NOT NULL CHECK (status IN ('active','disabled')) DEFAULT 'active',
+      expires_at TEXT,
+      exclude_from_student_stats INTEGER NOT NULL DEFAULT 1 CHECK (exclude_from_student_stats IN (1)),
+      receive_broadcast INTEGER NOT NULL DEFAULT 0 CHECK (receive_broadcast IN (0,1)),
+      created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
     CREATE TABLE auth_rate_limit_windows (
       rate_key TEXT PRIMARY KEY, window_started_at INTEGER NOT NULL,
       request_count INTEGER NOT NULL, updated_at INTEGER NOT NULL
