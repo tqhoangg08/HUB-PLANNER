@@ -842,7 +842,9 @@
    ========================================================= */
 @media (min-width: 768px) {
   .admin-shell-compact .admin-sidebar {
-    width: 228px !important;
+    width: var(--admin-sidebar-width, 228px) !important;
+    flex: 0 0 var(--admin-sidebar-width, 228px) !important;
+    transition: width 180ms ease, flex-basis 180ms ease, transform 180ms ease;
   }
 
   .admin-shell-compact .admin-sidebar-logo {
@@ -907,6 +909,30 @@
     border-radius: 9px !important;
     padding: 7px 10px !important;
     font-size: 12px !important;
+  }
+
+  /* A collapsed admin sidebar is a true 60px rail, not a full-width sidebar with hidden labels. */
+  .admin-shell-compact .admin-sidebar[data-collapsed='true'] .admin-sidebar-logo {
+    padding-inline: 0 !important;
+    justify-content: center !important;
+  }
+
+  .admin-shell-compact .admin-sidebar[data-collapsed='true'] .admin-sidebar-nav {
+    padding-inline: 8px !important;
+  }
+
+  .admin-shell-compact .admin-sidebar[data-collapsed='true'] .admin-sidebar-nav a {
+    justify-content: center !important;
+    padding-inline: 0 !important;
+  }
+
+  .admin-shell-compact .admin-sidebar[data-collapsed='true'] .admin-sidebar-footer {
+    padding: 8px !important;
+  }
+
+  .admin-shell-compact .admin-sidebar[data-collapsed='true'] .admin-sidebar-footer button {
+    justify-content: center !important;
+    padding-inline: 0 !important;
   }
 
   .admin-shell-compact .admin-sidebar-user {

@@ -325,7 +325,10 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   // ==============================================================================================
   if (isAdmin || isAuditor) {
       return (
-          <div className="admin-shell-compact flex h-[100dvh] w-full bg-[#F8FAFC] overflow-hidden font-sans text-gray-800">
+          <div
+              className="admin-shell-compact flex h-[100dvh] w-full bg-[#F8FAFC] overflow-hidden font-sans text-gray-800"
+              style={{ '--admin-sidebar-width': isAdminSidebarCollapsed ? '60px' : '228px' } as React.CSSProperties}
+          >
               
               {/* Nền đen cho Mobile */}
               <div 
@@ -336,7 +339,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               />
 
               {/* SIDEBAR BÊN TRÁI */}
-              <aside className={`admin-sidebar fixed md:relative top-0 left-0 h-full w-[260px] ${isAdminSidebarCollapsed ? 'md:w-[76px]' : 'md:w-[260px]'} bg-white border-r border-gray-200 flex flex-col shrink-0 z-[101] shadow-2xl md:shadow-none transition-[transform,width] duration-300 ease-in-out md:translate-x-0 ${
+              <aside data-collapsed={isAdminSidebarCollapsed ? 'true' : 'false'} className={`admin-sidebar fixed md:relative top-0 left-0 h-full w-[260px] md:w-[var(--admin-sidebar-width)] md:basis-[var(--admin-sidebar-width)] bg-white border-r border-gray-200 flex flex-col shrink-0 z-[101] shadow-2xl md:shadow-none transition-[transform,width,flex-basis] duration-200 ease-out md:translate-x-0 ${
                   isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
               }`}>
                   
@@ -401,15 +404,15 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   </div>
 
                   {/* NÚT TRỢ GIÚP / ĐĂNG XUẤT MOBILE */}
-                  <div className="admin-sidebar-footer shrink-0 border-t border-gray-100 p-4 flex flex-col gap-1.5 bg-gray-50/50">
+                  <div className={`admin-sidebar-footer shrink-0 border-t border-gray-100 p-4 flex flex-col gap-1.5 bg-gray-50/50 ${isAdminSidebarCollapsed ? 'md:p-2' : ''}`}>
                       <div className={`px-2 pb-1 text-[10px] font-bold tracking-[0.14em] text-slate-400 ${isAdminSidebarCollapsed ? 'md:sr-only' : ''}`}>TRỢ GIÚP</div>
-                      <button onClick={() => { setIsMobileMenuOpen(false); setShowGuide(true); }} className="flex items-center gap-3 px-3 py-2.5 text-[13px] font-semibold text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors">
-                          <HelpCircle size={16} /> Trợ giúp
+                      <button onClick={() => { setIsMobileMenuOpen(false); setShowGuide(true); }} title="Trợ giúp" className={`flex items-center rounded-xl py-2.5 text-[13px] font-semibold text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'}`}>
+                          <HelpCircle size={16} /><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Trợ giúp</span>
                       </button>
                       <button onClick={() => { setIsMobileMenuOpen(false); handleMenuLogout(); }} className="md:hidden flex items-center gap-3 px-3 py-2.5 text-[13px] font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors">
                           <LogOut size={16} /> Đăng xuất
                       </button>
-                      <button type="button" onClick={() => setIsAdminSidebarCollapsed(value => !value)} className={`hidden md:flex min-h-10 items-center rounded-lg text-[13px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-[#0052cc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc] ${isAdminSidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'}`} aria-label={isAdminSidebarCollapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'} title={isAdminSidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}>
+                      <button type="button" onClick={() => setIsAdminSidebarCollapsed(value => !value)} className={`hidden md:flex min-h-10 items-center rounded-lg text-[13px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-[#0052cc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc] ${isAdminSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'}`} aria-label={isAdminSidebarCollapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'} title={isAdminSidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}>
                           {isAdminSidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}<span className={isAdminSidebarCollapsed ? 'sr-only' : ''}>{isAdminSidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}</span>
                       </button>
                   </div>

@@ -54,3 +54,16 @@ test('admin sidebar removes the bottom profile card and retains a sticky collaps
   assert.match(sidebar, /Mở rộng thanh điều hướng/);
   assert.match(sidebar, /border-l border-slate-200/);
 });
+
+test('admin sidebar collapse changes the desktop layout width while keeping the mobile drawer full width', () => {
+  const sidebar = read('layouts/DesktopLayout.tsx');
+  const styles = read('index.css');
+
+  assert.match(sidebar, /'--admin-sidebar-width': isAdminSidebarCollapsed \? '60px' : '228px'/);
+  assert.match(sidebar, /data-collapsed=\{isAdminSidebarCollapsed \? 'true' : 'false'\}/);
+  assert.match(sidebar, /w-\[260px\] md:w-\[var\(--admin-sidebar-width\)\] md:basis-\[var\(--admin-sidebar-width\)\]/);
+  assert.match(sidebar, /transition-\[transform,width,flex-basis\] duration-200/);
+  assert.match(styles, /width: var\(--admin-sidebar-width, 228px\) !important;/);
+  assert.match(styles, /flex: 0 0 var\(--admin-sidebar-width, 228px\) !important;/);
+  assert.match(styles, /\.admin-sidebar\[data-collapsed='true'\] \.admin-sidebar-nav/);
+});
