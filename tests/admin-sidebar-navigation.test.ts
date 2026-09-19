@@ -36,3 +36,21 @@ test('admin sidebar badges are count based and do not alter backend authorizatio
   assert.match(routes, /if \(mobileLayout && !isManagementUser\)/);
   assert.match(shell, /mobileLayout && !isAdmin && !isAuditor/);
 });
+
+test('admin sidebar preserves independently expanded groups and auto-expands the active route group', () => {
+  const sidebar = read('layouts/DesktopLayout.tsx');
+  assert.match(sidebar, /useState<Set<string>>/);
+  assert.match(sidebar, /new Set\(activeGroup \? \[activeGroup\] : \[\]\)/);
+  assert.match(sidebar, /previous\.has\(activeGroup\) \? previous : new Set\(previous\)\.add\(activeGroup\)/);
+  assert.match(sidebar, /const next = new Set\(previous\); if \(next\.has\(id\)\) next\.delete\(id\); else next\.add\(id\)/);
+  assert.match(sidebar, /const expanded = expandedAdminGroups\.has\(id\)/);
+});
+
+test('admin sidebar removes the bottom profile card and retains a sticky collapse control', () => {
+  const sidebar = read('layouts/DesktopLayout.tsx');
+  assert.doesNotMatch(sidebar, /admin-sidebar-user/);
+  assert.match(sidebar, /admin-sidebar-footer shrink-0/);
+  assert.match(sidebar, /Thu gọn thanh điều hướng/);
+  assert.match(sidebar, /Mở rộng thanh điều hướng/);
+  assert.match(sidebar, /border-l border-slate-200/);
+});

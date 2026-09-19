@@ -64,7 +64,10 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       if (pathname.startsWith('/admin/internal-accounts') || pathname.startsWith('/admin/activity')) return 'system';
       return null;
   };
-  const [openAdminGroup, setOpenAdminGroup] = useState<string | null>(() => adminGroupForPath(window.location.pathname));
+  const [expandedAdminGroups, setExpandedAdminGroups] = useState<Set<string>>(() => {
+      const activeGroup = adminGroupForPath(window.location.pathname);
+      return new Set(activeGroup ? [activeGroup] : []);
+  });
   const [isMobileHandbookOpen, setIsMobileHandbookOpen] = useState(false);
   const handbookMenuRef = useRef<HTMLDivElement>(null);
   const profileSearchRef = useRef<HTMLFormElement>(null);
@@ -80,7 +83,10 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   const [isSmallViewport, setIsSmallViewport] = useState(() => window.innerWidth < 640);
 
   useEffect(() => {
-      if (isAdmin || isAuditor) setOpenAdminGroup(adminGroupForPath(location.pathname));
+      if (!(isAdmin || isAuditor)) return;
+      const activeGroup = adminGroupForPath(location.pathname);
+      if (!activeGroup) return;
+      setExpandedAdminGroups(previous => previous.has(activeGroup) ? previous : new Set(previous).add(activeGroup));
   }, [isAdmin, isAuditor, location.pathname]);
 
   const handleProfileSearch = (event: React.FormEvent) => {
@@ -374,9 +380,6 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                               <p className="hub-brand-subtitle text-[9px] text-gray-500 uppercase tracking-widest font-semibold">Hỗ trợ sinh viên</p>
                           </div>
                       </Link>
-                      <button type="button" onClick={() => setIsAdminSidebarCollapsed(value => !value)} className={`rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-[#0052cc] ${isAdminSidebarCollapsed ? 'absolute right-1 top-4' : ''}`} aria-label={isAdminSidebarCollapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'} title={isAdminSidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}>
-                          {isAdminSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-                      </button>
                   </div>
 
                   {/* ADMIN INFORMATION ARCHITECTURE: data only reflects existing routes. */}
@@ -392,13 +395,13 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                           ['operations', 'VẬN HÀNH', ShieldCheck, <div className={`px-3 pt-1 text-[10px] font-bold tracking-[0.12em] text-slate-400 ${isAdminSidebarCollapsed ? 'md:hidden' : ''}`}>KIỂM DUYỆT</div>, <NavLink to="/admin-reports" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Báo cáo & vi phạm" aria-label="Báo cáo & vi phạm" className={({isActive}) => `flex min-h-10 items-center justify-between rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><span className="flex items-center gap-3"><ClipboardList size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Báo cáo & vi phạm</span></span>{pendingReportCount > 0 && <span className="rounded-full bg-[#0052cc] px-1.5 text-[10px] font-bold text-white" aria-label={`${pendingReportCount} báo cáo chờ xử lý`}>{pendingReportCount}</span>}</NavLink>, <div className={`px-3 pt-2 text-[10px] font-bold tracking-[0.12em] text-slate-400 ${isAdminSidebarCollapsed ? 'md:hidden' : ''}`}>HỖ TRỢ</div>, <NavLink to="/admin/support" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Ticket hỗ trợ" aria-label="Ticket hỗ trợ" className={({isActive}) => `flex min-h-10 items-center rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><MessageSquarePlus size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Ticket hỗ trợ</span></NavLink>],
                           ...(isAdmin ? [['data', 'DỮ LIỆU', Database, <NavLink to="/admin/data" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Trung tâm dữ liệu" aria-label="Trung tâm dữ liệu" className={({isActive}) => `flex min-h-10 items-center rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><Database size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Trung tâm dữ liệu</span></NavLink>, <NavLink to="/admin/ai-documents" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Tri thức AI" aria-label="Tri thức AI" className={({isActive}) => `flex min-h-10 items-center rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><BrainCircuit size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Tri thức AI</span></NavLink>], ['system', 'HỆ THỐNG', ShieldCheck, <NavLink to="/admin/internal-accounts" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Tài khoản nội bộ" aria-label="Tài khoản nội bộ" className={({isActive}) => `flex min-h-10 items-center rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><Users size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Tài khoản nội bộ</span></NavLink>, <NavLink to="/admin/activity" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Nhật ký hoạt động" aria-label="Nhật ký hoạt động" className={({isActive}) => `flex min-h-10 items-center rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><Clock size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Nhật ký hoạt động</span></NavLink>]] : [])
                       ] as Array<[string, string, React.ElementType, ...React.ReactNode[]]>).map(([id, label, Icon, ...items]) => {
-                          const expanded = openAdminGroup === id;
-                          return <section key={id} className="mb-2"><button type="button" onClick={() => setOpenAdminGroup(expanded ? null : id)} aria-expanded={expanded} title={label} className={`flex min-h-10 w-full items-center rounded-lg text-left text-[10px] font-bold tracking-[0.12em] text-slate-400 hover:bg-slate-50 ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-2 px-3' : 'justify-between px-3'}`}><span className="flex items-center gap-3"><Icon size={15}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>{label}</span></span><ChevronDown size={15} className={`transition-transform duration-200 ${expanded ? 'rotate-180' : ''} ${isAdminSidebarCollapsed ? 'md:hidden' : ''}`}/></button><div className={`${expanded ? 'block' : 'hidden'} ${isAdminSidebarCollapsed ? 'md:hidden' : ''} mt-1 space-y-1`}>{items}</div></section>;
+                          const expanded = expandedAdminGroups.has(id);
+                          return <section key={id} className="mb-2"><button type="button" onClick={() => setExpandedAdminGroups(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next; })} aria-expanded={expanded} title={label} className={`flex min-h-10 w-full items-center rounded-lg text-left text-[10px] font-bold tracking-[0.12em] text-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc] ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-2 px-3' : 'justify-between px-3'}`}><span className="flex items-center gap-3"><Icon size={15}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>{label}</span></span><ChevronDown size={15} className={`transition-transform duration-200 ${expanded ? 'rotate-180' : ''} ${isAdminSidebarCollapsed ? 'md:hidden' : ''}`}/></button><div className={`${expanded ? 'block' : 'hidden'} ${isAdminSidebarCollapsed ? 'md:hidden' : ''} relative mt-1 space-y-1 border-l border-slate-200 pl-2`}>{items}</div></section>;
                       })}
                   </div>
 
                   {/* NÚT TRỢ GIÚP / ĐĂNG XUẤT MOBILE */}
-                  <div className="admin-sidebar-footer p-4 border-t border-gray-100 flex flex-col gap-1.5 bg-gray-50/50">
+                  <div className="admin-sidebar-footer shrink-0 border-t border-gray-100 p-4 flex flex-col gap-1.5 bg-gray-50/50">
                       <div className={`px-2 pb-1 text-[10px] font-bold tracking-[0.14em] text-slate-400 ${isAdminSidebarCollapsed ? 'md:sr-only' : ''}`}>TRỢ GIÚP</div>
                       <button onClick={() => { setIsMobileMenuOpen(false); setShowGuide(true); }} className="flex items-center gap-3 px-3 py-2.5 text-[13px] font-semibold text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors">
                           <HelpCircle size={16} /> Trợ giúp
@@ -406,29 +409,9 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                       <button onClick={() => { setIsMobileMenuOpen(false); handleMenuLogout(); }} className="md:hidden flex items-center gap-3 px-3 py-2.5 text-[13px] font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors">
                           <LogOut size={16} /> Đăng xuất
                       </button>
-                  </div>
-
-                  {/* AVATAR CHO DESKTOP (VẪN Ở DƯỚI) - ẨN TRÊN MOBILE */}
-                  <div className="admin-sidebar-user hidden md:flex mt-4 items-center gap-3 px-2 pt-3 border-t border-gray-200 relative group cursor-pointer" onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}>
-                      <div className="h-10 w-10 rounded-full bg-[#0052cc] text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0 overflow-hidden">
-                          {isImageAvatar ? (
-                              <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                          ) : (
-                              <span className={`w-full h-full flex items-center justify-center ${safeAvatarColorClass}`}>
-                                  {avatarSeed}
-                              </span>
-                          )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                          <div className="text-sm font-bold text-gray-900 truncate">{displayName}</div>
-                                  <span className="text-[10px] text-gray-400 font-medium leading-none mt-1">{studentId || (isAdmin ? 'Quản trị viên' : 'Kiểm duyệt viên')}</span>
-                      </div>
-                      {isUserMenuOpen && (
-                          <div className="absolute bottom-full left-0 mb-3 w-full bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50 animate-fadeIn">
-                              <button type="button" onClick={() => { setIsMobileMenuOpen(false); const myStudentId = session?.user?.email?.split('@')[0]; if (myStudentId) { navigate(`/profile/${myStudentId}`); } setIsUserMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100">Hồ sơ cá nhân</button>
-                              <button type="button" onClick={() => { setIsMobileMenuOpen(false); handleMenuLogout(); }} className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors">Đăng xuất</button>
-                          </div>
-                      )}
+                      <button type="button" onClick={() => setIsAdminSidebarCollapsed(value => !value)} className={`hidden md:flex min-h-10 items-center rounded-lg text-[13px] font-semibold text-slate-600 hover:bg-slate-100 hover:text-[#0052cc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0052cc] ${isAdminSidebarCollapsed ? 'justify-center px-2' : 'gap-3 px-3'}`} aria-label={isAdminSidebarCollapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'} title={isAdminSidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}>
+                          {isAdminSidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}<span className={isAdminSidebarCollapsed ? 'sr-only' : ''}>{isAdminSidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}</span>
+                      </button>
                   </div>
               </aside>
 
