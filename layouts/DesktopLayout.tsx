@@ -1,6 +1,6 @@
 ﻿import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Book, BrainCircuit, Calendar, ChevronDown, ClipboardList, Database, Headphones, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Menu, X, FileText, ShieldCheck, Sparkles } from 'lucide-react';
+import { Book, BrainCircuit, Calendar, ChevronDown, ClipboardList, Database, Headphones, HelpCircle, LayoutDashboard, LogOut, RotateCcw, Search, User, UserPlus, Zap, Facebook, Phone, Users, Award, MessageSquarePlus, Heart, Info, Clock, RefreshCw, Download, Star, Menu, X, FileText, ShieldCheck, Sparkles, PanelLeftClose, PanelLeftOpen, Megaphone } from 'lucide-react';
 import { playClick } from '../utils/audio';
 import NotificationBell from '../components/NotificationBell';
 import { getAvatarColorClass, isAllowedAvatarColor, isAvatarImageUrl } from '../utils/avatarColors';
@@ -55,6 +55,16 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   
   const [isHandbookMenuOpen, setIsHandbookMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAdminSidebarCollapsed, setIsAdminSidebarCollapsed] = useState(false);
+  const adminGroupForPath = (pathname: string) => {
+      if (pathname === '/admin/students' || pathname.startsWith('/schedule')) return 'management';
+      if (pathname.startsWith('/events') || pathname.startsWith('/lost-found') || pathname.startsWith('/admin/event-candidates')) return 'content';
+      if (pathname.startsWith('/admin-reports') || pathname.startsWith('/admin/support')) return 'operations';
+      if (pathname.startsWith('/admin/data') || pathname.startsWith('/admin/ai-documents')) return 'data';
+      if (pathname.startsWith('/admin/internal-accounts') || pathname.startsWith('/admin/activity')) return 'system';
+      return null;
+  };
+  const [openAdminGroup, setOpenAdminGroup] = useState<string | null>(() => adminGroupForPath(window.location.pathname));
   const [isMobileHandbookOpen, setIsMobileHandbookOpen] = useState(false);
   const handbookMenuRef = useRef<HTMLDivElement>(null);
   const profileSearchRef = useRef<HTMLFormElement>(null);
@@ -68,6 +78,10 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   const [profileSearchSuggestions, setProfileSearchSuggestions] = useState<any[]>([]);
   const [isLoadingProfileSuggestions, setIsLoadingProfileSuggestions] = useState(false);
   const [isSmallViewport, setIsSmallViewport] = useState(() => window.innerWidth < 640);
+
+  useEffect(() => {
+      if (isAdmin || isAuditor) setOpenAdminGroup(adminGroupForPath(location.pathname));
+  }, [isAdmin, isAuditor, location.pathname]);
 
   const handleProfileSearch = (event: React.FormEvent) => {
       event.preventDefault();
@@ -316,7 +330,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
               />
 
               {/* SIDEBAR BÊN TRÁI */}
-              <aside className={`admin-sidebar fixed md:relative top-0 left-0 h-full w-[260px] bg-white border-r border-gray-200 flex flex-col shrink-0 z-[101] shadow-2xl md:shadow-none transition-transform duration-300 ease-in-out md:translate-x-0 ${
+              <aside className={`admin-sidebar fixed md:relative top-0 left-0 h-full w-[260px] ${isAdminSidebarCollapsed ? 'md:w-[76px]' : 'md:w-[260px]'} bg-white border-r border-gray-200 flex flex-col shrink-0 z-[101] shadow-2xl md:shadow-none transition-[transform,width] duration-300 ease-in-out md:translate-x-0 ${
                   isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
               }`}>
                   
@@ -352,75 +366,40 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                   </div>
 
                   {/* HEADER LOGO CHO DESKTOP */}
-                  <div className="admin-sidebar-logo hidden md:flex h-16 items-center justify-between px-6 border-b border-gray-100 shrink-0">
+                  <div className={`admin-sidebar-logo hidden md:flex h-16 items-center border-b border-gray-100 shrink-0 ${isAdminSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-6'}`}>
                       <Link to="/dashboard" className="hub-brand flex items-center gap-3 transition-transform hover:scale-105" onClick={() => { playClick(); setIsMobileMenuOpen(false); }}>
                           <img src="/logo.png" alt="HUB Logo" className="h-8 w-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerHTML = '<div class="h-8 w-8 bg-[#0052cc] rounded flex items-center justify-center text-white font-bold text-xs">HUB</div>'; }} />
-                          <div className="leading-tight">
+                          <div className={`leading-tight ${isAdminSidebarCollapsed ? 'hidden' : ''}`}>
                               <h1 className="hub-brand-title text-[16px] font-extrabold text-[#003375] tracking-tight">HUB PLANNER</h1>
                               <p className="hub-brand-subtitle text-[9px] text-gray-500 uppercase tracking-widest font-semibold">Hỗ trợ sinh viên</p>
                           </div>
                       </Link>
+                      <button type="button" onClick={() => setIsAdminSidebarCollapsed(value => !value)} className={`rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-[#0052cc] ${isAdminSidebarCollapsed ? 'absolute right-1 top-4' : ''}`} aria-label={isAdminSidebarCollapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'} title={isAdminSidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}>
+                          {isAdminSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+                      </button>
                   </div>
 
-                  {/* DANH SÁCH CHỨC NĂNG */}
-                  <div className="admin-sidebar-nav mobile-menu-scroll flex-1 overflow-y-auto py-6 flex flex-col gap-1.5 px-4 custom-scrollbar">
-                      <div className="text-[11px] font-bold text-gray-400 mb-2 px-2 tracking-wider">CHỨC NĂNG</div>
-                      
-                      <NavLink to="/dashboard" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
-                          <LayoutDashboard size={16} /> Tổng quan
+                  {/* ADMIN INFORMATION ARCHITECTURE: data only reflects existing routes. */}
+                  <div className={`admin-sidebar-nav mobile-menu-scroll flex-1 overflow-y-auto py-5 custom-scrollbar ${isAdminSidebarCollapsed ? 'md:px-2' : 'px-4'}`}>
+                      <div className={`mb-4 text-[10px] font-bold tracking-[0.14em] text-slate-400 ${isAdminSidebarCollapsed ? 'md:sr-only px-2' : 'px-2'}`}>TỔNG QUAN</div>
+                      <NavLink to="/dashboard" end onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Tổng quan" aria-label="Tổng quan" className={({isActive}) => `mb-4 flex min-h-10 items-center rounded-lg text-[13px] font-semibold transition-colors ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}>
+                          <LayoutDashboard size={17} /><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Tổng quan</span>
                       </NavLink>
-                      <NavLink to="/schedule" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
-                          <Calendar size={16} /> Thời khóa biểu
-                      </NavLink>
-                      <NavLink to="/events" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
-                          <Star size={16} /> Sự kiện ĐRL
-                      </NavLink>
-                      <NavLink to="/lost-found" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
-                          <Search size={16} /> Tìm đồ thất lạc
-                      </NavLink>
-                      <NavLink to="/admin-reports" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center justify-between px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-50 hover:text-red-600'}`}>
-                          <div className="flex items-center gap-3">
-                              <ClipboardList size={16} /> Xử lý báo cáo
-                          </div>
-                          {pendingReportCount > 0 && (
-                              <div className="w-2 h-2 rounded-full bg-red-500" title={`${pendingReportCount} mục chờ xử lý`}></div>
-                          )}
-                      </NavLink>
-                      <NavLink to="/admin/support" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
-                          <MessageSquarePlus size={16} /> Hỗ trợ ticket
-                      </NavLink>
-                      {isAdmin && (
-                          <NavLink to="/admin/data" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
-                              <Database size={16} /> Trung tâm dữ liệu
-                          </NavLink>
-                      )}
-                      {isAdmin && (
-                          <NavLink to="/admin/ai-documents" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
-                              <BrainCircuit size={16} /> Kho tài liệu AI
-                          </NavLink>
-                      )}
-                      {isAdmin && (
-                          <NavLink to="/admin/internal-accounts" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
-                              <Users size={16} /> Tài khoản nội bộ
-                          </NavLink>
-                      )}
-                      {isAdmin && (
-                          <NavLink to="/admin/activity" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
-                              <Clock size={16} /> Theo dõi hoạt động
-                          </NavLink>
-                      )}
-                      <NavLink to="/admin/event-candidates" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} className={({isActive}) => `flex items-center justify-between px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-gray-600 hover:bg-gray-50 hover:text-[#0052cc]'}`}>
-                          <div className="flex items-center gap-3">
-                              <Sparkles size={16} /> Event candidate
-                          </div>
-                          {pendingCandidateCount > 0 && (
-                              <div className="w-2 h-2 rounded-full bg-red-500" title={`${pendingCandidateCount} candidate chờ duyệt`}></div>
-                          )}
-                      </NavLink>
+
+                      {([
+                          ['management', 'QUẢN LÝ', Users, <>{isAdmin && <NavLink to="/admin/students" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Sinh viên" aria-label="Sinh viên" className={({isActive}) => `flex min-h-10 items-center rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><Users size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Sinh viên</span></NavLink>}<div className={`px-3 pt-2 text-[10px] font-bold tracking-[0.12em] text-slate-400 ${isAdminSidebarCollapsed ? 'md:hidden' : ''}`}>HỌC TẬP</div></>, <NavLink to="/schedule" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Thời khóa biểu" aria-label="Thời khóa biểu" className={({isActive}) => `flex min-h-10 items-center rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><Calendar size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Thời khóa biểu</span></NavLink>],
+                          ['content', 'NỘI DUNG & SỰ KIỆN', FileText, <NavLink to="/events" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Sự kiện ĐRL" aria-label="Sự kiện ĐRL" className={({isActive}) => `flex min-h-10 items-center rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><Star size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Sự kiện ĐRL</span></NavLink>, <NavLink to="/admin/event-candidates" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Duyệt sự kiện" aria-label="Duyệt sự kiện" className={({isActive}) => `flex min-h-10 items-center justify-between rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><span className="flex items-center gap-3"><Sparkles size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Duyệt sự kiện</span></span>{pendingCandidateCount > 0 && <span className="rounded-full bg-[#0052cc] px-1.5 text-[10px] font-bold text-white" aria-label={`${pendingCandidateCount} sự kiện chờ duyệt`}>{pendingCandidateCount}</span>}</NavLink>, <NavLink to="/dashboard#announcements" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Thông báo trường" aria-label="Thông báo trường" className="flex min-h-10 items-center rounded-lg gap-3 px-3 text-[13px] font-semibold text-slate-600 hover:bg-slate-50"><Megaphone size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Thông báo trường</span></NavLink>, <NavLink to="/lost-found" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Đồ thất lạc" aria-label="Đồ thất lạc" className={({isActive}) => `flex min-h-10 items-center rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><Search size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Đồ thất lạc</span></NavLink>],
+                          ['operations', 'VẬN HÀNH', ShieldCheck, <div className={`px-3 pt-1 text-[10px] font-bold tracking-[0.12em] text-slate-400 ${isAdminSidebarCollapsed ? 'md:hidden' : ''}`}>KIỂM DUYỆT</div>, <NavLink to="/admin-reports" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Báo cáo & vi phạm" aria-label="Báo cáo & vi phạm" className={({isActive}) => `flex min-h-10 items-center justify-between rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><span className="flex items-center gap-3"><ClipboardList size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Báo cáo & vi phạm</span></span>{pendingReportCount > 0 && <span className="rounded-full bg-[#0052cc] px-1.5 text-[10px] font-bold text-white" aria-label={`${pendingReportCount} báo cáo chờ xử lý`}>{pendingReportCount}</span>}</NavLink>, <div className={`px-3 pt-2 text-[10px] font-bold tracking-[0.12em] text-slate-400 ${isAdminSidebarCollapsed ? 'md:hidden' : ''}`}>HỖ TRỢ</div>, <NavLink to="/admin/support" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Ticket hỗ trợ" aria-label="Ticket hỗ trợ" className={({isActive}) => `flex min-h-10 items-center rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><MessageSquarePlus size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Ticket hỗ trợ</span></NavLink>],
+                          ...(isAdmin ? [['data', 'DỮ LIỆU', Database, <NavLink to="/admin/data" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Trung tâm dữ liệu" aria-label="Trung tâm dữ liệu" className={({isActive}) => `flex min-h-10 items-center rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><Database size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Trung tâm dữ liệu</span></NavLink>, <NavLink to="/admin/ai-documents" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Tri thức AI" aria-label="Tri thức AI" className={({isActive}) => `flex min-h-10 items-center rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><BrainCircuit size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Tri thức AI</span></NavLink>], ['system', 'HỆ THỐNG', ShieldCheck, <NavLink to="/admin/internal-accounts" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Tài khoản nội bộ" aria-label="Tài khoản nội bộ" className={({isActive}) => `flex min-h-10 items-center rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><Users size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Tài khoản nội bộ</span></NavLink>, <NavLink to="/admin/activity" onClick={() => { playClick(); setIsMobileMenuOpen(false); }} title="Nhật ký hoạt động" aria-label="Nhật ký hoạt động" className={({isActive}) => `flex min-h-10 items-center rounded-lg text-[13px] font-semibold ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-3 px-3' : 'gap-3 px-3'} ${isActive ? 'bg-blue-50 text-[#0052cc]' : 'text-slate-600 hover:bg-slate-50'}`}><Clock size={16}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>Nhật ký hoạt động</span></NavLink>]] : [])
+                      ] as Array<[string, string, React.ElementType, ...React.ReactNode[]]>).map(([id, label, Icon, ...items]) => {
+                          const expanded = openAdminGroup === id;
+                          return <section key={id} className="mb-2"><button type="button" onClick={() => setOpenAdminGroup(expanded ? null : id)} aria-expanded={expanded} title={label} className={`flex min-h-10 w-full items-center rounded-lg text-left text-[10px] font-bold tracking-[0.12em] text-slate-400 hover:bg-slate-50 ${isAdminSidebarCollapsed ? 'md:justify-center md:px-2 gap-2 px-3' : 'justify-between px-3'}`}><span className="flex items-center gap-3"><Icon size={15}/><span className={isAdminSidebarCollapsed ? 'md:sr-only' : ''}>{label}</span></span><ChevronDown size={15} className={`transition-transform duration-200 ${expanded ? 'rotate-180' : ''} ${isAdminSidebarCollapsed ? 'md:hidden' : ''}`}/></button><div className={`${expanded ? 'block' : 'hidden'} ${isAdminSidebarCollapsed ? 'md:hidden' : ''} mt-1 space-y-1`}>{items}</div></section>;
+                      })}
                   </div>
 
                   {/* NÚT TRỢ GIÚP / ĐĂNG XUẤT MOBILE */}
                   <div className="admin-sidebar-footer p-4 border-t border-gray-100 flex flex-col gap-1.5 bg-gray-50/50">
+                      <div className={`px-2 pb-1 text-[10px] font-bold tracking-[0.14em] text-slate-400 ${isAdminSidebarCollapsed ? 'md:sr-only' : ''}`}>TRỢ GIÚP</div>
                       <button onClick={() => { setIsMobileMenuOpen(false); setShowGuide(true); }} className="flex items-center gap-3 px-3 py-2.5 text-[13px] font-semibold text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors">
                           <HelpCircle size={16} /> Trợ giúp
                       </button>
@@ -490,8 +469,10 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                                           ? 'Quản lý Sự kiện'
                                           : location.pathname.includes('schedule')
                                           ? 'Quản lý Lịch học'
+                                          : location.pathname.includes('admin/students')
+                                              ? 'Quản lý sinh viên'
                                           : location.pathname.includes('dashboard')
-                                              ? 'Quản lý Sinh viên'
+                                              ? 'Tổng quan'
                                               : 'Hệ thống'}
                               </span>
                           </div>

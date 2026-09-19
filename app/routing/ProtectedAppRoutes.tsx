@@ -116,7 +116,9 @@ export const ProtectedAppRoutes = ({
     onInstallApp,
 }: ProtectedAppRoutesProps) => {
     const isManagementUser = isAdmin || isAuditor;
-    if (mobileLayout) {
+    // Admin/auditor navigation is rendered by the shared responsive sidebar,
+    // including on a phone. Student-facing mobile routes remain unchanged.
+    if (mobileLayout && !isManagementUser) {
         return (
             <Routes>
                 <Route path="/" element={<Navigate to="/mobile-home" replace />} />
@@ -226,6 +228,30 @@ export const ProtectedAppRoutes = ({
                     </div>
                 )}
             />
+            <Route
+                path="/admin/students/*"
+                element={isAdmin ? (
+                    <Dashboard
+                        data={data}
+                        onSetSemesters={studyActions.setSemesters}
+                        onSaveSemesters={saveSemestersNow}
+                        isGuest={isGuest}
+                        currentUserId={sessionUserId}
+                        onRequireOnboarding={onRequireOnboarding}
+                        onTargetChange={studyActions.setTargetGPA}
+                        showSecurityNotice={!hasSession}
+                        onUpdateSemester={studyActions.updateSemester}
+                        onRemoveSemester={studyActions.removeSemester}
+                        onAddSemester={studyActions.addSemester}
+                        onExportPDF={transcript.exportTranscriptPdf}
+                        onImportPDF={transcript.openImportGuide}
+                        isImporting={transcript.isImporting}
+                        fileInputRef={transcript.fileInputRef}
+                        onFileUpload={transcript.handleFileUpload}
+                    />
+                ) : <Navigate to="/dashboard" replace />}
+            />
+            <Route path="/dashboard/admin/*" element={<Navigate to="/admin/students" replace />} />
             <Route path="/schedule" element={<ScheduleBoard viewUserId={viewingUserId} />} />
             <Route path="/schedule/:studentCode" element={<ScheduleBoard viewUserId={viewingUserId} />} />
             <Route path="/events" element={<EventsBoard viewUserId={viewingUserId} />} />

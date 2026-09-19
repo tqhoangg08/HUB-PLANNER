@@ -79,7 +79,9 @@ export const ProtectedAppShell = ({
     onInstallApp,
     onPasswordSetupComplete,
 }: ProtectedAppShellProps) => {
-    const layout = mobileLayout ? (
+    // Privileged users use the responsive admin drawer on every viewport so
+    // desktop and mobile cannot drift into different administration trees.
+    const layout = mobileLayout && !isAdmin && !isAuditor ? (
         <MobileAppLayout
             session={session}
             displayName={displayName}

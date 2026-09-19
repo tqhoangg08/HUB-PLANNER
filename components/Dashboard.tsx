@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom'; 
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { SubjectRankingModal } from './SubjectRankingModal';
 import { UserData, GradeStatus, Subject, Semester } from '../types';
 import {
@@ -1438,6 +1438,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     currentUserId
 }) => {
     const navigate = useNavigate();
+    const location = useLocation();
 
     useEffect(() => {
         document.title = "Tổng quan | HUB Planner";
@@ -1467,11 +1468,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const [adminSearch, setAdminSearch] = useState('');
     const [adminMode, setAdminMode] = useState<'list' | 'detail'>('list');
     
+    const isStudentManagementRoute = location.pathname === '/admin/students' || location.pathname.startsWith('/admin/students/');
+
     useEffect(() => {
-    if ((isAdmin || isAuditor) && adminMode === 'list') {
-        window.history.replaceState(null, '', '/dashboard/admin');
-    }
-}, [isAdmin, isAuditor, adminMode]);
+        if ((isAdmin || isAuditor) && isStudentManagementRoute && adminMode === 'list' && location.pathname !== '/admin/students') {
+            navigate('/admin/students', { replace: true });
+        }
+    }, [isAdmin, isAuditor, adminMode, isStudentManagementRoute, location.pathname, navigate]);
     
     const [currentPage, setCurrentPage] = useState(1);
     const [pageInput, setPageInput] = useState('1');
@@ -1506,8 +1509,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     // The cursor-backed panel is deliberately admin-only. Auditor capabilities
     // remain available through their dedicated moderation surfaces and must not
-    // acquire student-directory access merely by opening /dashboard/admin.
-    const showAdminPanel = isAdmin && adminMode === 'list';
+    // acquire student-directory access merely by opening /admin/students.
+    const showAdminPanel = isAdmin && adminMode === 'list' && isStudentManagementRoute;
     // Retained temporarily only so the legacy detail view still type-checks.
     // It must never perform the former cached, broad staff-profile lookup.
     const useLegacyAdminStudentList = false;
@@ -1592,7 +1595,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         setSelectedAdminUserId(user.id);
         setSelectedUserOverview(user.data || { ...data, studentName: 'Chưa có data' });
         setAdminMode('detail');
-        window.history.pushState(null, '', `/dashboard/admin/${user.student_code || user.id}`);
+        window.history.pushState(null, '', `/admin/students/${user.student_code || user.id}`);
 
         if (!user.isProfileSummary) return;
 
@@ -2391,7 +2394,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     
                     {(isAdmin || isAuditor) && (
                         <button 
-                            onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('list'); window.history.pushState(null, '', '/dashboard/admin'); }}
+                            onClick={() => { playClick(); setSelectedUserOverview(null); setSelectedAdminUserId(null); setAdminMode('list'); window.history.pushState(null, '', '/admin/students'); }}
                             className="mb-3 flex items-center gap-1 text-sm font-bold text-gray-500 hover:text-[#003375] transition-all w-fit px-3 py-1.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 active:scale-95"
                         >
                             <ChevronLeft size={16} /> Quay lại danh sách
