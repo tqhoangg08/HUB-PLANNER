@@ -18,7 +18,7 @@ import {
   shouldUseDocumentSearch,
   withFileSearchDeadline,
 } from '../cloudflare/worker/src/ai-advisor.ts';
-import { buildDocumentCandidateMetadataFilter, extractGeminiDocumentSources, extractOfficialDocumentApplicability, extractOfficialDocumentLocators, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
+import { buildDocumentCandidateMetadataFilter, extractGenerateContentDocumentSources, extractGeminiDocumentSources, extractOfficialDocumentApplicability, extractOfficialDocumentLocators, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
 import { normalizeAiDocumentCategory } from '../shared/ai-document-categories.ts';
 
 const USER = '11111111-1111-4111-8111-111111111111';
@@ -279,6 +279,13 @@ test('candidate metadata filters reject non-authoritative IDs and never interpol
   assert.equal(buildDocumentCandidateMetadataFilter(['not-a-uuid', '" OR visibility = "admin']), null);
 });
 
+test('production File Search runtime uses GenerateContent, not Interactions', () => {
+  const source = readFileSync('cloudflare/worker/src/gemini-file-search.ts', 'utf8');
+  assert.match(source, /ai\.models\.generateContent/);
+  assert.doesNotMatch(source, /ai\.interactions\.create/);
+  assert.match(source, /maxOutputTokens:\s*FILE_SEARCH_MAX_OUTPUT_TOKENS/);
+});
+
 test('bounded official category compatibility accepts student handbooks but rejects unrelated domains', async () => {
   const fixture = makeDatabase();
   try {
@@ -327,6 +334,49 @@ test('camelCase Gemini citations are extracted then resolved through the same bo
     assert.deepEqual(resolution.sources.map((source) => source.documentId), [DOCUMENT_A]);
     assert.equal(fixture.queries.filter((query) => query.includes('FROM ai_documents')).length, 1);
   } finally { fixture.sql.close(); }
+});
+
+test('GenerateContent camelCase grounding extracts only metadata-backed document sources with locators and scope', async () => {
+  const fixture = makeDatabase();
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const sources = extractGenerateContentDocumentSources({ candidates: [{ groundingMetadata: { groundingChunks: [{
+      retrievedContext: {
+        title: 'Ignored presentation title', pageNumber: 18,
+        customMetadata: [{ key: 'document_id', stringValue: DOCUMENT_A }],
+        text: 'Điều 21. Thang điểm đánh giá học phần\n2. Thang điểm áp dụng:\na) Áp dụng cho khóa tuyển sinh năm 2026.',
+      },
+    }, {
+      retrievedContext: {
+        title: 'Ignored presentation title', pageNumber: 19,
+        customMetadata: [{ key: 'document_id', stringValue: DOCUMENT_A }],
+        text: 'Điều 21. Thang điểm đánh giá học phần\n2. Thang điểm áp dụng:\nb) Áp dụng cho các khóa tuyển sinh từ năm 2027.',
+      },
+    }] } }] });
+    assert.deepEqual(sources.map((source) => source.documentId), [DOCUMENT_A]);
+    assert.deepEqual(sources[0]?.locators, ['Điều 21, khoản 2, điểm a', 'Điều 21, khoản 2, điểm b']);
+    assert.deepEqual(sources[0]?.pageNumbers, [18, 19]);
+    assert.equal(sources[0]?.applicability?.[0]?.cohortYear, 2026);
+    assert.equal(sources[0]?.applicability?.[1]?.fromCohortYear, 2027);
+    const resolution = await resolveDocumentSourcesWithDiagnostics(env(fixture.DB), sources as unknown as Array<Record<string, unknown>>, routeAdvisorDocuments('Quy đổi điểm ở HUB'));
+    assert.equal(resolution.reason, 'SUCCESS');
+  } finally { fixture.sql.close(); }
+});
+
+test('GenerateContent snake_case grounding is supported and never fabricates a document ID', () => {
+  const valid = extractGenerateContentDocumentSources({ candidates: [{ grounding_metadata: { grounding_chunks: [{
+    retrieved_context: {
+      title: 'Ignored', page_number: 7,
+      custom_metadata: [{ key: 'document_id', string_value: DOCUMENT_B }],
+      text: 'Mục 4. Xếp loại kết quả rèn luyện.',
+    },
+  }] } }] });
+  const missing = extractGenerateContentDocumentSources({ candidates: [{ groundingMetadata: { groundingChunks: [{
+    retrievedContext: { title: 'Never an authority', pageNumber: 18, text: 'Điều 21.' },
+  }] } }] });
+  assert.deepEqual(valid.map((source) => source.documentId), [DOCUMENT_B]);
+  assert.deepEqual(valid[0]?.locators, ['Mục 4']);
+  assert.deepEqual(missing, []);
 });
 
 test('formal locators are extracted only from File Search-grounded text, never from pages or unrelated numbers', () => {

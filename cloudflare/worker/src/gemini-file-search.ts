@@ -13,6 +13,8 @@ export interface GeminiDocumentSource {
   fileName: string;
   title: string | null;
   pageNumber: number | null;
+  /** Internal grounding metadata; presentation intentionally hides pages. */
+  pageNumbers?: number[];
   /**
    * Deterministically parsed only from File Search grounding text. These are
    * optional because the SDK does not guarantee retrieved passages.
@@ -68,7 +70,9 @@ export type GeminiFileSearchOptions = {
   timeoutMs?: number;
 };
 
-const DEFAULT_FILE_SEARCH_TIMEOUT_MS = 11_000;
+const DEFAULT_FILE_SEARCH_TIMEOUT_MS = 16_000;
+const DEFAULT_FILE_SEARCH_MODEL = 'gemini-3.1-flash-lite';
+const FILE_SEARCH_MAX_OUTPUT_TOKENS = 2_048;
 const DOCUMENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_DOCUMENT_CANDIDATE_IDS = 12;
 
@@ -296,6 +300,90 @@ export const extractGeminiDocumentSources = (interaction: unknown): GeminiDocume
   return sources;
 };
 
+type GenerateContentGroundingExtraction = {
+  sources: GeminiDocumentSource[];
+  groundingChunkCount: number;
+  documentIdMetadataCount: number;
+  pageNumberCount: number;
+};
+
+const metadataScalar = (value: unknown) => {
+  const entry = record(value);
+  return String(entry?.stringValue ?? entry?.string_value ?? entry?.numericValue ?? entry?.numeric_value ?? entry?.value ?? value ?? '').trim();
+};
+
+const groundedMetadataDocumentId = (value: unknown) => {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const metadata = record(item);
+      const key = String(metadata?.key || metadata?.name || '').trim().toLowerCase();
+      const candidate = metadataScalar(metadata);
+      if (key === 'document_id' && DOCUMENT_ID_PATTERN.test(candidate)) return candidate;
+    }
+    return null;
+  }
+  const metadata = record(value);
+  const candidate = metadataScalar(metadata?.document_id ?? metadata?.documentId);
+  return DOCUMENT_ID_PATTERN.test(candidate) ? candidate : null;
+};
+
+/**
+ * GenerateContent File Search grounding is represented by retrievedContext
+ * chunks, not Interactions' file_citation annotations. A document ID is only
+ * trusted here when its custom metadata supplies the exact UUID; D1 remains
+ * the final authority after this parser returns.
+ */
+const extractGenerateContentGrounding = (response: unknown): GenerateContentGroundingExtraction => {
+  const root = record(response);
+  const candidate = Array.isArray(root?.candidates) ? record(root?.candidates[0]) : null;
+  const grounding = record(candidate?.groundingMetadata) || record(candidate?.grounding_metadata);
+  const chunks = Array.isArray(grounding?.groundingChunks)
+    ? grounding.groundingChunks
+    : Array.isArray(grounding?.grounding_chunks) ? grounding.grounding_chunks : [];
+  const sources: GeminiDocumentSource[] = [];
+  const byDocumentId = new Map<string, number>();
+  let documentIdMetadataCount = 0;
+  let pageNumberCount = 0;
+  for (const chunk of chunks) {
+    const chunkRecord = record(chunk);
+    const context = record(chunkRecord?.retrievedContext) || record(chunkRecord?.retrieved_context);
+    if (!context) continue;
+    const documentId = groundedMetadataDocumentId(context.customMetadata ?? context.custom_metadata);
+    if (!documentId) continue;
+    documentIdMetadataCount += 1;
+    const pageNumber = Number(context.pageNumber ?? context.page_number ?? 0) || null;
+    if (pageNumber) pageNumberCount += 1;
+    // Only retrievedContext.text is evidence for formal locators and scope.
+    const groundedText = typeof context.text === 'string' ? context.text : '';
+    const locators = uniqueLocators(extractOfficialDocumentLocators(groundedText));
+    const applicability = extractOfficialDocumentApplicability(groundedText);
+    const title = String(context.title || '').trim();
+    const existingIndex = byDocumentId.get(documentId);
+    if (existingIndex !== undefined) {
+      const existing = sources[existingIndex];
+      if (locators.length) existing.locators = uniqueLocators([...(existing.locators || []), ...locators]);
+      if (applicability.length) existing.applicability = uniqueApplicability([...(existing.applicability || []), ...applicability]);
+      if (pageNumber) {
+        existing.pageNumbers = [...new Set([...(existing.pageNumbers || (existing.pageNumber ? [existing.pageNumber] : [])), pageNumber])].sort((left, right) => left - right);
+      }
+      continue;
+    }
+    byDocumentId.set(documentId, sources.length);
+    sources.push({
+      documentId,
+      fileName: title,
+      title: title || null,
+      pageNumber,
+      ...(pageNumber ? { pageNumbers: [pageNumber] } : {}),
+      ...(locators.length ? { locators } : {}),
+      ...(applicability.length ? { applicability } : {}),
+    });
+  }
+  return { sources, groundingChunkCount: chunks.length, documentIdMetadataCount, pageNumberCount };
+};
+
+export const extractGenerateContentDocumentSources = (response: unknown) => extractGenerateContentGrounding(response).sources;
+
 export const buildGeminiInteractionSteps = (
   history: Array<{ role: string; content: string }>,
   question: string,
@@ -316,6 +404,7 @@ export const buildGeminiInteractionSteps = (
 
 const outputText = (interaction: unknown) => {
   const value = record(interaction);
+  if (typeof value?.text === 'string') return value.text.trim();
   if (typeof value?.outputText === 'string') return value.outputText.trim();
   if (typeof value?.output_text === 'string') return value.output_text.trim();
   const texts: string[] = [];
@@ -339,28 +428,35 @@ export const answerWithGeminiFileSearch = async (
 ) => {
   if (!geminiFileSearchConfigured(env)) return null;
   const ai = new GoogleGenAI({ apiKey: String(env.GEMINI_FILE_SEARCH_API_KEY) });
-  const model = String(env.GEMINI_CHAT_MODEL || 'gemini-3.5-flash-lite');
+  const model = String(env.GEMINI_CHAT_MODEL || DEFAULT_FILE_SEARCH_MODEL);
   const configuredThinking = String(env.GEMINI_THINKING_LEVEL || 'minimal').toLowerCase();
   const thinkingLevel = ['minimal', 'medium', 'high'].includes(configuredThinking) ? configuredThinking : 'minimal';
   const timeoutMs = Math.max(1_000, Math.min(Number(options.timeoutMs) || DEFAULT_FILE_SEARCH_TIMEOUT_MS, DEFAULT_FILE_SEARCH_TIMEOUT_MS));
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = Date.now();
-  let interaction: unknown;
+  let response: unknown;
   try {
-    interaction = await ai.interactions.create({
+    response = await ai.models.generateContent({
       model,
-      system_instruction: system,
-      input: buildGeminiInteractionSteps(history, question),
-      generation_config: { thinking_level: thinkingLevel },
-      tools: [{
-        type: 'file_search',
-        file_search_store_names: [String(env.GEMINI_FILE_SEARCH_STORE)],
-        metadata_filter: options.metadataFilter || publicDocumentMetadataFilter(),
-      }],
-    } as never, {
-      abortSignal: controller.signal,
-      httpOptions: { timeout: timeoutMs },
+      contents: [
+        ...history.flatMap((message) => {
+          const text = String(message.content || '').trim();
+          return text ? [{ role: message.role === 'assistant' ? 'model' : 'user', parts: [{ text }] }] : [];
+        }),
+        { role: 'user', parts: [{ text: question.trim() }] },
+      ],
+      config: {
+        systemInstruction: system,
+        maxOutputTokens: FILE_SEARCH_MAX_OUTPUT_TOKENS,
+        thinkingConfig: { thinkingLevel: thinkingLevel.toUpperCase() },
+        tools: [{ fileSearch: {
+          fileSearchStoreNames: [String(env.GEMINI_FILE_SEARCH_STORE)],
+          metadataFilter: options.metadataFilter || publicDocumentMetadataFilter(),
+        } }],
+        abortSignal: controller.signal,
+        httpOptions: { timeout: timeoutMs },
+      },
     } as never);
   } catch (error) {
     const durationMs = Math.max(0, Date.now() - startedAt);
@@ -379,7 +475,14 @@ export const answerWithGeminiFileSearch = async (
   } finally {
     clearTimeout(timeout);
   }
-  const reply = outputText(interaction);
+  const reply = outputText(response);
   if (!reply) throw new GeminiFileSearchError('GEMINI_EMPTY_REPLY', { model });
-  return { reply, documentSources: extractGeminiDocumentSources(interaction) };
+  const grounding = extractGenerateContentGrounding(response);
+  return {
+    reply,
+    documentSources: grounding.sources,
+    groundingChunkCount: grounding.groundingChunkCount,
+    documentIdMetadataCount: grounding.documentIdMetadataCount,
+    pageNumberCount: grounding.pageNumberCount,
+  };
 };

@@ -42,8 +42,8 @@ export class AiAdvisorError extends Error {
 }
 
 const MAX_BODY_BYTES = 48 * 1024;
-const FILE_SEARCH_TOTAL_BUDGET_MS = 15_000;
-const FILE_SEARCH_ATTEMPT_TIMEOUT_MS = 11_000;
+const FILE_SEARCH_TOTAL_BUDGET_MS = 16_000;
+const FILE_SEARCH_ATTEMPT_TIMEOUT_MS = 16_000;
 const MAX_DOCUMENT_CANDIDATES = 12;
 const DOCUMENT_CANDIDATE_QUERY_LIMIT = 48;
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
@@ -698,6 +698,7 @@ type ResolvedDocumentSource = {
   fileName: string;
   title: string;
   pageNumber: number | null;
+  pageNumbers?: number[];
   locators?: string[];
   applicability?: GeminiDocumentApplicability[];
   category: string | null;
@@ -742,6 +743,10 @@ const mergeResolvedDocumentSources = (sources: ResolvedDocumentSource[]) => {
     if (locators.length) existing.locators = locators;
     const applicability = mergeGroundedApplicability(existing.applicability, source.applicability);
     if (applicability.length) existing.applicability = applicability;
+    const pageNumbers = [...new Set([...(existing.pageNumbers || (existing.pageNumber ? [existing.pageNumber] : [])), ...(source.pageNumbers || (source.pageNumber ? [source.pageNumber] : []))])]
+      .filter((page) => Number.isInteger(page) && page > 0)
+      .sort((left, right) => left - right);
+    if (pageNumbers.length) existing.pageNumbers = pageNumbers;
   }
   return [...byDocumentId.values()];
 };
@@ -931,6 +936,9 @@ export const resolveDocumentSourcesWithDiagnostics = async (
       title: row.title,
       fileName: row.original_file_name,
       pageNumber: Number(entry.pageNumber || 0) || null,
+      ...(Array.isArray(entry.pageNumbers) ? {
+        pageNumbers: [...new Set(entry.pageNumbers.map((page) => Number(page)).filter((page) => Number.isInteger(page) && page > 0))].sort((left, right) => left - right),
+      } : {}),
       ...(locators.length ? { locators } : {}),
       ...(applicability.length ? { applicability } : {}),
       category: normalizeAiDocumentCategory(row.category),
@@ -971,7 +979,7 @@ const logFileSearchDiagnostic = (
   durationMs: number,
   citationCount: number,
   resolvedCitationCount: number,
-  extra: { errorName?: string; status?: number; model?: string; durationMs?: number } = {},
+  extra: { errorName?: string; status?: number; model?: string; durationMs?: number; groundingChunkCount?: number; documentIdMetadataCount?: number } = {},
 ) => {
   // Deliberately omit the question, document ID/name, store, keys, raw SDK
   // response, and errors. This is enough to locate the failed stage safely.
@@ -979,13 +987,16 @@ const logFileSearchDiagnostic = (
     component: 'ai-file-search',
     reason,
     domain: route.domain || 'general_official_document',
+    apiPath: 'generate_content',
     strategy,
     filterKind,
     candidateCount: Math.max(0, Math.min(MAX_DOCUMENT_CANDIDATES, Math.trunc(candidateCount) || 0)),
+    ...extra,
     durationMs: Math.max(0, Math.round(extra.durationMs ?? durationMs)),
     citationCount,
     resolvedCitationCount,
-    ...extra,
+    groundingChunkCount: Math.max(0, Math.trunc(extra.groundingChunkCount || 0)),
+    documentIdMetadataCount: Math.max(0, Math.trunc(extra.documentIdMetadataCount || 0)),
   }));
 };
 
@@ -1060,7 +1071,7 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
           const result = await withFileSearchDeadline(
             answer(env, system, policyHistory, retrievalQuestion, { metadataFilter, timeoutMs }),
             timeoutMs,
-            String(env.GEMINI_CHAT_MODEL || 'gemini-3.5-flash-lite'),
+            String(env.GEMINI_CHAT_MODEL || 'gemini-3.1-flash-lite'),
           );
           const durationMs = Date.now() - startedAt;
           if (!result) {
@@ -1079,7 +1090,10 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
             logFileSearchDiagnostic(resolution.reason, retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, resolution.citationCount, resolution.resolvedCitationCount);
             return { success: false, reason: resolution.reason };
           }
-          logFileSearchDiagnostic('SUCCESS', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, resolution.citationCount, resolution.resolvedCitationCount);
+          logFileSearchDiagnostic('SUCCESS', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, resolution.citationCount, resolution.resolvedCitationCount, {
+            groundingChunkCount: result.groundingChunkCount,
+            documentIdMetadataCount: result.documentIdMetadataCount,
+          });
           return { success: true, result, documentSources: resolution.sources };
         } catch (error) {
           const fileSearchError = error instanceof GeminiFileSearchError ? error : null;

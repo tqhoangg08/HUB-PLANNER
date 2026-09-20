@@ -127,8 +127,8 @@ test('citation extraction ignores model text and unrelated annotations', () => {
   assert.deepEqual(extractDocumentSources(interaction),[]);
 });
 
-test('repository no longer hard-codes the retired chat model or old Gemini SDK', () => {
-  const files=['cloudflare/worker/src/ai-advisor.ts','cloudflare/worker/src/gemini-file-search.ts','supabase/functions/bot/index.ts','supabase/functions/_shared/hub_notifications.ts','package.json'];
+test('legacy chat surfaces stay decoupled from the File Search model and old Gemini SDK', () => {
+  const files=['supabase/functions/bot/index.ts','supabase/functions/_shared/hub_notifications.ts','package.json'];
   const source=files.map((file)=>fs.readFileSync(file,'utf8')).join('\n');
   assert.doesNotMatch(source,/gemini-3\.1-flash-lite/);
   assert.doesNotMatch(source,/@google\/generative-ai|GoogleGenerativeAI/);
