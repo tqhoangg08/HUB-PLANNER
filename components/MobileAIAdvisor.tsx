@@ -7,10 +7,12 @@ import DOMPurify from 'dompurify';
 import { createPortal } from 'react-dom';
 import { usePlatform } from '../hooks/usePlatform';
 import {
-  getAiAdvisorSession,
+  getAiAdvisorConversation,
   listAiAdvisorSessions,
   sendAiAdvisorMessage,
-  updateAiAdvisorSession,
+  updateAiAdvisorConversation,
+  updateAiAdvisorTurn,
+  type AiAdvisorConversation,
 } from '../utils/aiAdvisorApi';
 import { sanitizeAIReply } from '../utils/aiSafety';
 import { setRuntimeStyleRule } from '../utils/runtimeStyles';
@@ -31,19 +33,6 @@ interface ChatMessage {
     documentSearchUnavailable?: boolean;
 }
 
-interface ChatSessionLog {
-    id: number;
-    user_message?: string;
-    bot_reply?: string;
-    created_at: string;
-    is_helpful: boolean | null;
-    title?: string | null;
-    is_deleted?: boolean;
-    is_pinned?: boolean;
-    document_sources?: AIDocumentSource[];
-    document_search_unavailable?: boolean;
-}
-
 export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
   const platform = usePlatform();
   const isIOS = platform === 'ios';
@@ -51,14 +40,15 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
   const [showHistory, setShowHistory] = useState(false); 
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [loadingSessionId, setLoadingSessionId] = useState<number | null>(null);
+  const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null);
   const [hasAIConsent, setHasAIConsent] = useState(false);
   
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [savedSessions, setSavedSessions] = useState<ChatSessionLog[]>([]); 
+  const [savedSessions, setSavedSessions] = useState<AiAdvisorConversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   
-  const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
-  const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
 
   const [customPrompt, setCustomPrompt] = useState("");
@@ -208,24 +198,28 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
       const resData = await sendAiAdvisorMessage({
             question: questionToAsk,
             history: cleanHistoryForAI,
+            conversationId: activeConversationId || undefined,
       });
       const botReply = sanitizeAIReply(resData.reply || "Xin lỗi, mình không có câu trả lời.");
       const returnedLogId = resData.logId || Date.now(); 
 
       setChatHistory(prev => [...prev, { role: "assistant", content: botReply, logId: returnedLogId, documentSources: resData.documentSources || [], documentSearchUnavailable: Boolean(resData.documentSearchUnavailable) }]);
 
-      const newSessionLog: ChatSessionLog = {
-          id: returnedLogId,
-          user_message: questionToAsk,
-          bot_reply: botReply,
-          created_at: new Date().toISOString(),
-          is_helpful: null,
-          is_pinned: false,
-          is_deleted: false,
-          document_sources: resData.documentSources || [],
-          document_search_unavailable: Boolean(resData.documentSearchUnavailable)
-      };
-      setSavedSessions(prev => [newSessionLog, ...prev]);
+      const conversationId = resData.conversationId;
+      setActiveConversationId(conversationId);
+      setSavedSessions(prev => {
+          const existing = prev.find(item => item.conversationId === conversationId);
+          const now = new Date().toISOString();
+          const conversation: AiAdvisorConversation = {
+              conversationId,
+              title: existing?.title || questionToAsk.trim().slice(0, 160),
+              createdAt: existing?.createdAt || now,
+              updatedAt: now,
+              isPinned: existing?.isPinned || false,
+              messageCount: (existing?.messageCount || 0) + 1,
+          };
+          return [conversation, ...prev.filter(item => item.conversationId !== conversationId)];
+      });
 
     } catch (error: any) {
       console.error(error);
@@ -245,8 +239,7 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
 
       if (msg.logId) {
         try {
-            await updateAiAdvisorSession(msg.logId, { is_helpful: isHelpful });
-            setSavedSessions(prev => prev.map(s => s.id === msg.logId ? { ...s, is_helpful: isHelpful } : s));
+            await updateAiAdvisorTurn(msg.logId, isHelpful);
         } catch (err) {}
       }
   };
@@ -254,47 +247,35 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
   const clearHistory = () => {
       playClick();
       setChatHistory([]);
+      setActiveConversationId(null);
       setShowHistory(false);
   }
 
-  const getSessionLabel = (session: ChatSessionLog) => (
+  const getSessionLabel = (session: AiAdvisorConversation) => (
       session.title
-      || session.user_message
-      || `Cuộc trò chuyện ${new Date(session.created_at).toLocaleDateString('vi-VN')}`
+      || `Cuộc trò chuyện ${new Date(session.createdAt).toLocaleDateString('vi-VN')}`
   );
 
-  const loadPastSession = async (session: ChatSessionLog) => {
+  const loadPastSession = async (session: AiAdvisorConversation) => {
       playClick();
-      setLoadingSessionId(session.id);
+      setLoadingSessionId(session.conversationId);
 
       try {
-          let fullSession = session;
-          const hasFullContent = typeof session.user_message === 'string' && typeof session.bot_reply === 'string';
-
-          if (!hasFullContent) {
-              const data = await getAiAdvisorSession(session.id);
-              if (!data) throw new Error('Không tìm thấy cuộc trò chuyện này.');
-
-              fullSession = {
-                  ...session,
-                  ...data,
-                  bot_reply: sanitizeAIReply(data.bot_reply || ''),
-              };
-              setSavedSessions(prev => prev.map(item => item.id === session.id ? fullSession : item));
-          }
-
-      setChatHistory([
-          { role: 'user', content: fullSession.user_message || '', isHistory: true },
-          {
-              role: 'assistant',
-              content: sanitizeAIReply(fullSession.bot_reply || ''),
-              logId: fullSession.id,
-              rating: fullSession.is_helpful === true ? 'up' : (fullSession.is_helpful === false ? 'down' : null),
-              isHistory: true,
-              documentSources: fullSession.document_sources || [],
-              documentSearchUnavailable: Boolean(fullSession.document_search_unavailable)
-          }
-      ]);
+          const data = await getAiAdvisorConversation(session.conversationId);
+          if (!data) throw new Error('Không tìm thấy cuộc trò chuyện này.');
+          setActiveConversationId(data.conversationId);
+          setChatHistory(data.turns.flatMap((turn) => [
+              { role: 'user' as const, content: turn.user_message || '', isHistory: true },
+              {
+                  role: 'assistant' as const,
+                  content: sanitizeAIReply(turn.bot_reply || ''),
+                  logId: turn.id,
+                  rating: turn.is_helpful === true ? 'up' as const : (turn.is_helpful === false ? 'down' as const : null),
+                  isHistory: true,
+                  documentSources: turn.document_sources || [],
+                  documentSearchUnavailable: Boolean(turn.document_search_unavailable),
+              },
+          ]));
       setShowHistory(false);
       } catch (err) {
           console.error("Lỗi tải chi tiết lịch sử chat:", err);
@@ -303,45 +284,44 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
       }
   };
 
-  const togglePin = async (session: ChatSessionLog) => {
+  const togglePin = async (session: AiAdvisorConversation) => {
       playClick();
-      const newPinStatus = !session.is_pinned;
-      setSavedSessions(prev => prev.map(s => s.id === session.id ? { ...s, is_pinned: newPinStatus } : s));
+      const newPinStatus = !session.isPinned;
+      setSavedSessions(prev => prev.map(s => s.conversationId === session.conversationId ? { ...s, isPinned: newPinStatus } : s));
       setActiveDropdown(null);
-      await updateAiAdvisorSession(session.id, { is_pinned: newPinStatus });
+      await updateAiAdvisorConversation(session.conversationId, { is_pinned: newPinStatus });
   };
 
-  const deleteSession = async (id: number) => {
+  const deleteSession = async (conversationId: string) => {
       playClick();
       if(!await showConfirm("Xóa cuộc trò chuyện này khỏi danh sách?")) return;
-      setSavedSessions(prev => prev.map(s => s.id === id ? { ...s, is_deleted: true } : s));
+      setSavedSessions(prev => prev.filter(s => s.conversationId !== conversationId));
       setActiveDropdown(null);
-      if (chatHistory.length > 0 && chatHistory.some(m => m.logId === id)) setChatHistory([]);
-      await updateAiAdvisorSession(id, { is_deleted: true });
+      if (activeConversationId === conversationId) { setChatHistory([]); setActiveConversationId(null); }
+      await updateAiAdvisorConversation(conversationId, { is_deleted: true });
   };
 
-  const startRename = (session: ChatSessionLog) => {
+  const startRename = (session: AiAdvisorConversation) => {
       playClick();
-      setEditingSessionId(session.id);
+      setEditingSessionId(session.conversationId);
       setEditingTitle(getSessionLabel(session));
       setActiveDropdown(null);
   };
 
-  const saveRename = async (id: number) => {
+  const saveRename = async (conversationId: string) => {
       playClick();
       const finalTitle = editingTitle.trim();
-      setSavedSessions(prev => prev.map(s => s.id === id ? { ...s, title: finalTitle } : s));
+      setSavedSessions(prev => prev.map(s => s.conversationId === conversationId ? { ...s, title: finalTitle } : s));
       setEditingSessionId(null);
-      if (finalTitle) await updateAiAdvisorSession(id, { title: finalTitle });
+      if (finalTitle) await updateAiAdvisorConversation(conversationId, { title: finalTitle });
   };
 
   const sortedSessions = useMemo(() => {
       return savedSessions
-          .filter(s => !s.is_deleted)
           .sort((a, b) => {
-              if (a.is_pinned && !b.is_pinned) return -1;
-              if (!a.is_pinned && b.is_pinned) return 1;
-              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+              if (a.isPinned && !b.isPinned) return -1;
+              if (!a.isPinned && b.isPinned) return 1;
+              return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
           });
   }, [savedSessions]);
 
@@ -487,40 +467,40 @@ export const MobileAIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
                         </div>
                     ) : (
                         sortedSessions.map(session => (
-                            <div key={session.id} className="relative group flex items-center justify-between w-full bg-white border border-gray-100 rounded-xl shadow-sm hover:border-blue-200 transition-colors overflow-visible">
-                                {editingSessionId === session.id ? (
+                            <div key={session.conversationId} className="relative group flex items-center justify-between w-full bg-white border border-gray-100 rounded-xl shadow-sm hover:border-blue-200 transition-colors overflow-visible">
+                                {editingSessionId === session.conversationId ? (
                                     <div className="flex-1 flex items-center px-3 py-2 gap-2 bg-white rounded-xl">
                                         <input 
                                             autoFocus type="text" value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)}
-                                            onKeyDown={(e) => { if (e.key === 'Enter') saveRename(session.id); else if (e.key === 'Escape') setEditingSessionId(null); }}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') saveRename(session.conversationId); else if (e.key === 'Escape') setEditingSessionId(null); }}
                                             className="flex-1 text-sm bg-gray-50 border border-blue-300 rounded px-2 py-1 outline-none font-medium text-[#003375]"
                                         />
-                                        <button onClick={() => saveRename(session.id)} className="p-1.5 text-green-600 bg-green-50 rounded-md"><Check size={16}/></button>
+                                        <button onClick={() => saveRename(session.conversationId)} className="p-1.5 text-green-600 bg-green-50 rounded-md"><Check size={16}/></button>
                                         <button onClick={() => setEditingSessionId(null)} className="p-1.5 text-gray-500 bg-gray-100 rounded-md"><X size={16}/></button>
                                     </div>
                                 ) : (
                                     <>
                                         <button 
                                             onClick={() => loadPastSession(session)} 
-                                            className={`flex-1 text-left px-4 py-3.5 text-sm flex items-start gap-2.5 truncate rounded-l-xl transition-colors ${chatHistory.length > 0 && chatHistory[1]?.logId === session.id ? 'bg-blue-50 text-[#003375]' : 'text-gray-700'}`}
+                                            className={`flex-1 text-left px-4 py-3.5 text-sm flex items-start gap-2.5 truncate rounded-l-xl transition-colors ${activeConversationId === session.conversationId ? 'bg-blue-50 text-[#003375]' : 'text-gray-700'}`}
                                         >
-                                            {loadingSessionId === session.id ? <Loader2 size={16} className="shrink-0 mt-0.5 animate-spin text-[#003375]" /> : session.is_pinned ? <Pin size={16} className="shrink-0 mt-0.5 text-[#003375] fill-[#003375]/20" /> : <MessageCircle size={16} className="shrink-0 mt-0.5 text-gray-400" />}
+                                            {loadingSessionId === session.conversationId ? <Loader2 size={16} className="shrink-0 mt-0.5 animate-spin text-[#003375]" /> : session.isPinned ? <Pin size={16} className="shrink-0 mt-0.5 text-[#003375] fill-[#003375]/20" /> : <MessageCircle size={16} className="shrink-0 mt-0.5 text-gray-400" />}
                                             <span className="truncate flex-1 font-semibold leading-snug">{getSessionLabel(session)}</span>
                                         </button>
                                         
-                                        <button onClick={(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === session.id ? null : session.id); }} className="p-3 text-gray-400 hover:text-[#003375] active:bg-gray-50 rounded-r-xl">
+                                        <button onClick={(e) => { e.stopPropagation(); setActiveDropdown(activeDropdown === session.conversationId ? null : session.conversationId); }} className="p-3 text-gray-400 hover:text-[#003375] active:bg-gray-50 rounded-r-xl">
                                             <MoreVertical size={16}/>
                                         </button>
 
-                                        {activeDropdown === session.id && (
+                                        {activeDropdown === session.conversationId && (
                                             <div className="absolute right-8 top-8 w-40 bg-white border border-gray-200 shadow-xl rounded-xl overflow-hidden z-[100] py-1 text-sm font-medium">
                                                 <button onClick={(e) => { e.stopPropagation(); togglePin(session); }} className="w-full text-left px-4 py-3 active:bg-gray-50 flex items-center gap-2 text-gray-700">
-                                                    {session.is_pinned ? <><PinOff size={16}/> Bỏ ghim</> : <><Pin size={16}/> Ghim</>}
+                                                    {session.isPinned ? <><PinOff size={16}/> Bỏ ghim</> : <><Pin size={16}/> Ghim</>}
                                                 </button>
                                                 <button onClick={(e) => { e.stopPropagation(); startRename(session); }} className="w-full text-left px-4 py-3 active:bg-gray-50 flex items-center gap-2 text-gray-700">
                                                     <Edit3 size={16}/> Đổi tên
                                                 </button>
-                                                <button onClick={(e) => { e.stopPropagation(); deleteSession(session.id); }} className="w-full text-left px-4 py-3 active:bg-red-50 flex items-center gap-2 text-red-600 border-t border-gray-100">
+                                                <button onClick={(e) => { e.stopPropagation(); deleteSession(session.conversationId); }} className="w-full text-left px-4 py-3 active:bg-red-50 flex items-center gap-2 text-red-600 border-t border-gray-100">
                                                     <Trash2 size={16}/> Xóa
                                                 </button>
                                             </div>

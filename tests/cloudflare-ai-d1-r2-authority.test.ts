@@ -24,6 +24,7 @@ const makeEnv = (userId = USER, role: 'user' | 'admin' = 'user') => {
     CREATE TABLE public_lost_found_items (title TEXT, description TEXT, location TEXT, contact_info TEXT, created_at TEXT);
     CREATE TABLE school_announcements (title TEXT, date TEXT, link TEXT, is_hidden INTEGER);`);
   sql.exec(readFileSync('cloudflare/migrations/0032_ai_documents_chat_d1_r2_authority.sql', 'utf8'));
+  sql.exec(readFileSync('cloudflare/migrations/0043_ai_chat_conversations.sql', 'utf8'));
   sql.prepare('INSERT INTO user_profile_private VALUES (?,?,?,?)').run(USER, 'Công nghệ thông tin', null, '{}');
   const prepare = (query: string) => {
     let bindings: unknown[] = [];

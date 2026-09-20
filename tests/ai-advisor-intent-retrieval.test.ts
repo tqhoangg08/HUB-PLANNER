@@ -43,6 +43,7 @@ const makeDatabase = () => {
     );
   `);
   sql.exec(readFileSync('cloudflare/migrations/0032_ai_documents_chat_d1_r2_authority.sql', 'utf8'));
+  sql.exec(readFileSync('cloudflare/migrations/0043_ai_chat_conversations.sql', 'utf8'));
   const prepare = (query: string) => {
     let bindings: unknown[] = [];
     const statement = {
