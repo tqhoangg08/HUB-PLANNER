@@ -19,7 +19,7 @@ import {
   calculateSubjectAverage,
 } from '../../../shared/academic-grade-calculations.ts';
 import type { Subject } from '../../../types.ts';
-import { normalizeAiDocumentCategory } from '../../../shared/ai-document-categories.ts';
+import { normalizeAiDocumentCategory, type AiDocumentCategory } from '../../../shared/ai-document-categories.ts';
 
 export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiFileSearchEnv {
   DB?: D1Database;
@@ -721,23 +721,59 @@ type DocumentSourceResolution = {
   resolvedCitationCount: number;
 };
 
+const sourceCoversRequestedScope = (source: Pick<ResolvedDocumentSource, 'applicability' | 'academicYear'>, scope: AdvisorPolicyScope) => {
+  const hasScope = Boolean(scope.cohortYear || scope.fromCohortYear || scope.academicYear);
+  if (!hasScope) return true;
+  const applicability = source.applicability || [];
+  if (scope.cohortYear) {
+    return applicability.some((item) => item.cohortYear === scope.cohortYear
+      || (typeof item.fromCohortYear === 'number' && item.fromCohortYear <= scope.cohortYear!));
+  }
+  if (scope.fromCohortYear) {
+    return applicability.some((item) => typeof item.fromCohortYear === 'number'
+      && item.fromCohortYear <= scope.fromCohortYear!);
+  }
+  // D1 metadata may confirm an academic year, but it must never be treated as
+  // evidence of an intake/cohort year.
+  return applicability.some((item) => item.academicYear === scope.academicYear)
+    || source.academicYear === scope.academicYear;
+};
+
+export { sourceCoversRequestedScope };
+
 const documentPrecedence = (route: AdvisorDocumentRoute, left: ResolvedDocumentSource, right: ResolvedDocumentSource) => {
-  const domain = route.domain || '';
-  const categoryScore = (source: ResolvedDocumentSource) => Number(normalizeAiDocumentCategory(source.category) === domain);
-  const yearScore = (source: ResolvedDocumentSource) => Number(Boolean(route.academicYear) && source.academicYear === route.academicYear);
-  return yearScore(right) - yearScore(left)
+  const categoryScore = (source: ResolvedDocumentSource) => {
+    if (!route.domain || route.domain === 'general_official_document') return 0;
+    const categories = OFFICIAL_CATEGORY_COMPATIBILITY[route.domain];
+    const index = categories.indexOf(normalizeAiDocumentCategory(source.category));
+    return index < 0 ? 0 : categories.length - index;
+  };
+  const scopeScore = (source: ResolvedDocumentSource) => Number(sourceCoversRequestedScope(source, route.scope));
+  const academicYearScore = (source: ResolvedDocumentSource) => Number(Boolean(route.academicYear) && source.academicYear === route.academicYear);
+  return scopeScore(right) - scopeScore(left)
+    || academicYearScore(right) - academicYearScore(left)
     || categoryScore(right) - categoryScore(left)
     || right.version - left.version
     || String(right.updatedAt).localeCompare(String(left.updatedAt))
     || String(right.createdAt).localeCompare(String(left.createdAt));
 };
 
+const OFFICIAL_CATEGORY_COMPATIBILITY: Readonly<Record<Exclude<AdvisorDocumentDomain, 'general_official_document'>, readonly AiDocumentCategory[]>> = {
+  grading: ['grading', 'training_regulation', 'student_handbook', 'general'],
+  scholarship: ['scholarship', 'student_handbook', 'general'],
+  graduation: ['graduation', 'training_regulation', 'student_handbook', 'general'],
+  course_registration: ['course_registration', 'training_regulation', 'student_handbook', 'general'],
+  academic_warning: ['academic_warning', 'training_regulation', 'student_handbook', 'general'],
+  tuition: ['tuition', 'student_handbook', 'general'],
+  discipline: ['discipline', 'student_handbook', 'general'],
+  student_handbook: ['student_handbook', 'general'],
+  training_regulation: ['training_regulation', 'student_handbook', 'general'],
+};
+
 const compatibleDocumentCategory = (route: AdvisorDocumentRoute, category: string | null) => {
   if (!route.domain || route.domain === 'general_official_document') return true;
   const normalized = normalizeAiDocumentCategory(category);
-  // Legacy documents were often uploaded as general; keep them searchable in
-  // the broad fallback, but never accept an explicitly unrelated category.
-  return !normalized || ['general', 'training_regulation', route.domain].includes(normalized);
+  return OFFICIAL_CATEGORY_COMPATIBILITY[route.domain].includes(normalized);
 };
 
 /** D1, not model output, is the authority for every official citation. */
@@ -923,13 +959,24 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
       // valid narrowed result so File Search can ground multiple applicable
       // ranges. This is bounded to two interactions per user turn.
       let shouldSearchBroadly = true;
-      if (narrowed?.success === true) shouldSearchBroadly = retrieval.documentRoute.coverageMode;
+      let narrowedCoversRequestedScope = false;
+      if (narrowed?.success === true) {
+        const explicitScope = retrieval.documentRoute.scope;
+        narrowedCoversRequestedScope = narrowed.documentSources.some((source) => sourceCoversRequestedScope(source, explicitScope));
+        shouldSearchBroadly = retrieval.documentRoute.coverageMode || !narrowedCoversRequestedScope;
+      }
       else if (narrowed) shouldSearchBroadly = (narrowed as Extract<DocumentSearchOutcome, { success: false }>).reason !== 'GEMINI_REQUEST_FAILED';
       const broad = shouldSearchBroadly
         ? await search(publicDocumentMetadataFilter(), false)
         : null;
       const narrowedSuccess = narrowed?.success ? narrowed : null;
       const broadSuccess = broad?.success ? broad : null;
+      const hasExplicitScope = Boolean(
+        retrieval.documentRoute.scope.cohortYear
+        || retrieval.documentRoute.scope.fromCohortYear
+        || retrieval.documentRoute.scope.academicYear,
+      );
+      const scopedNarrowMiss = Boolean(narrowedSuccess) && hasExplicitScope && !narrowedCoversRequestedScope;
       const grounded = retrieval.documentRoute.coverageMode && narrowedSuccess && broadSuccess
         ? {
             success: true as const,
@@ -938,7 +985,11 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
             result: broadSuccess.result,
             documentSources: mergeResolvedDocumentSources([...narrowedSuccess.documentSources, ...broadSuccess.documentSources]),
           }
-        : narrowedSuccess || broadSuccess;
+        : broadSuccess && (!narrowedSuccess || !narrowedCoversRequestedScope)
+          ? broadSuccess
+          : scopedNarrowMiss
+            ? null
+            : narrowedSuccess || broadSuccess;
       if (grounded) {
         const { result, documentSources } = grounded;
         // Current FileCitation annotations expose identifiers and byte spans but

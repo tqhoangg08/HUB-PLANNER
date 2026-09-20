@@ -12,6 +12,7 @@ import {
   resolveDocumentSourcesWithDiagnostics,
   retrieveAdvisorContext,
   routeAdvisorDocuments,
+  sourceCoversRequestedScope,
   shouldUseDocumentSearch,
 } from '../cloudflare/worker/src/ai-advisor.ts';
 import { extractGeminiDocumentSources, extractOfficialDocumentApplicability, extractOfficialDocumentLocators, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
@@ -214,25 +215,36 @@ test('canonical categories normalize legacy labels without an online migration',
   assert.equal(normalizeAiDocumentCategory('unclassified legacy text'), 'general');
 });
 
-test('grading and graduation accept regulation parents but reject unrelated canonical categories', async () => {
+test('bounded official category compatibility accepts student handbooks but rejects unrelated domains', async () => {
   const fixture = makeDatabase();
   try {
     const regulation = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
     const general = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
     const tuition = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    const handbook = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+    const scholarship = '12121212-1212-4121-8121-121212121212';
+    const directGrading = '34343434-3434-4343-8343-343434343434';
     insertOfficialDocument(fixture, { id: regulation, title: 'Quy chế', category: 'Quy chế' });
     insertOfficialDocument(fixture, { id: general, title: 'Khác', category: 'general' });
     insertOfficialDocument(fixture, { id: tuition, title: 'Học phí', category: 'tuition' });
+    insertOfficialDocument(fixture, { id: handbook, title: 'Cẩm nang', category: 'student_handbook' });
+    insertOfficialDocument(fixture, { id: scholarship, title: 'Học bổng', category: 'scholarship' });
+    insertOfficialDocument(fixture, { id: directGrading, title: 'Thang điểm', category: 'grading' });
     const cited = [
       { documentId: regulation, fileName: 'regulation.pdf' },
       { documentId: general, fileName: 'general.pdf' },
       { documentId: tuition, fileName: 'tuition.pdf' },
+      { documentId: handbook, fileName: 'handbook.pdf' },
+      { documentId: scholarship, fileName: 'scholarship.pdf' },
+      { documentId: directGrading, fileName: 'grading.pdf' },
     ];
     const grading = await resolveDocumentSourcesWithDiagnostics(env(fixture.DB), cited, routeAdvisorDocuments('Quy đổi điểm ở HUB'));
     const graduation = await resolveDocumentSourcesWithDiagnostics(env(fixture.DB), cited, routeAdvisorDocuments('Điều kiện tốt nghiệp ở HUB'));
-    assert.deepEqual(grading.sources.map((source) => source.documentId), [regulation, general]);
-    assert.deepEqual(graduation.sources.map((source) => source.documentId), [regulation, general]);
-    assert.equal(grading.sources[0]?.category, 'training_regulation');
+    const scholarships = await resolveDocumentSourcesWithDiagnostics(env(fixture.DB), cited, routeAdvisorDocuments('các loại học bổng ở HUB?'));
+    assert.deepEqual(grading.sources.map((source) => source.documentId), [directGrading, regulation, handbook, general]);
+    assert.deepEqual(graduation.sources.map((source) => source.documentId), [regulation, handbook, general]);
+    assert.deepEqual(scholarships.sources.map((source) => source.documentId), [scholarship, handbook, general]);
+    assert.equal(grading.sources[0]?.category, 'grading');
   } finally { fixture.sql.close(); }
 });
 
@@ -413,6 +425,68 @@ test('coverage-mode grading uses at most two File Search calls and persists grou
     assert.equal(result.documentSources[1]?.applicability?.[0]?.fromCohortYear, 2027);
     const persisted = fixture.sql.prepare('SELECT document_sources_json FROM ai_chat_logs ORDER BY id DESC LIMIT 1').get() as { document_sources_json: string };
     assert.equal(JSON.parse(persisted.document_sources_json)[1]?.applicability?.[0]?.fromCohortYear, 2027);
+  } finally { fixture.sql.close(); }
+});
+
+test('scoped grading follow-up falls back from an uncovered 2026 regulation to a compatible 2025-2026 handbook', async () => {
+  const fixture = makeDatabase();
+  const filters: string[] = [];
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế 2026', category: 'grading' });
+    insertOfficialDocument(fixture, { id: DOCUMENT_B, title: 'Cẩm nang 2025-2026', category: 'student_handbook', academicYear: '2025-2026' });
+    const history = [{ role: 'user', content: 'quy đổi điểm ở HUB như nào?' }];
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'còn khóa 2025 thì sao?', history }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+        filters.push(String(options.metadataFilter));
+        return filters.length === 1
+          ? {
+              reply: 'Áp dụng cho khóa tuyển sinh năm 2026.',
+              documentSources: [{ documentId: DOCUMENT_A, fileName: 'quy-che-2026.pdf', applicability: [{ cohortYear: 2026, rawLabel: 'Khóa tuyển sinh năm 2026' }] }],
+            }
+          : {
+              reply: 'Cẩm nang Sinh viên năm học 2025-2026 công bố bảng quy đổi điểm.',
+              documentSources: [{ documentId: DOCUMENT_B, fileName: 'cam-nang.pdf', applicability: [{ academicYear: '2025-2026', rawLabel: 'Năm học 2025-2026' }] }],
+            };
+      },
+    }) as { reply: string; documentSources: Array<{ documentId: string; applicability?: Array<{ cohortYear?: number; academicYear?: string; rawLabel: string }> }> };
+    const route = routeAdvisorDocuments('còn khóa 2025 thì sao?', history);
+    assert.equal(route.domain, 'grading');
+    assert.equal(route.scope.cohortYear, 2025);
+    assert.equal(sourceCoversRequestedScope({ applicability: [{ cohortYear: 2026, rawLabel: 'Khóa tuyển sinh năm 2026' }], academicYear: null }, route.scope), false);
+    assert.deepEqual(filters, ['visibility = "public" AND category = "grading"', 'visibility = "public"']);
+    assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_B]);
+    assert.match(result.reply, /năm học 2025-2026/i);
+    assert.doesNotMatch(result.reply, /khóa tuyển sinh 2025/i);
+  } finally { fixture.sql.close(); }
+});
+
+test('a confirmed from-2027 applicability skips the scoped broad fallback', async () => {
+  const fixture = makeDatabase();
+  const filters: string[] = [];
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế từ 2027', category: 'grading' });
+    const history = [{ role: 'user', content: 'quy đổi điểm ở HUB như nào?' }];
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'khóa 2027?', history }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+        filters.push(String(options.metadataFilter));
+        return {
+          reply: 'Áp dụng cho các khóa tuyển sinh từ năm 2027.',
+          documentSources: [{ documentId: DOCUMENT_A, fileName: 'quy-che-2027.pdf', applicability: [{ fromCohortYear: 2027, rawLabel: 'Từ khóa tuyển sinh năm 2027' }] }],
+        };
+      },
+    }) as { documentSources: Array<{ documentId: string }> };
+    assert.deepEqual(filters, ['visibility = "public" AND category = "grading"']);
+    assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
   } finally { fixture.sql.close(); }
 });
 
