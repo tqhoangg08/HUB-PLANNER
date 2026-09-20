@@ -5,6 +5,7 @@ import {
   type BetterAuthIdentity,
   type BetterAuthIdentityEnv,
 } from './better-auth-identity.ts';
+import { normalizeAiDocumentCategory } from '../../../shared/ai-document-categories.ts';
 
 export interface AiDocumentsEnv extends BetterAuthIdentityEnv {
   DB?: D1Database;
@@ -140,7 +141,9 @@ const UPDATE_FIELDS = new Set([
 
 export const updateAiDocument = async (env: AiDocumentsEnv, id: string, patch: Record<string, unknown>) => {
   const { db } = requireStorage(env);
-  const entries = Object.entries(patch).filter(([key]) => UPDATE_FIELDS.has(key));
+  const entries = Object.entries(patch)
+    .filter(([key]) => UPDATE_FIELDS.has(key))
+    .map(([key, value]) => [key, key === 'category' ? normalizeAiDocumentCategory(value) : value] as const);
   if (!entries.length) return findAiDocument(env, id, true);
   const assignments = entries.map(([key], index) => `${key} = ?${index + 2}`).join(', ');
   await db.prepare(`UPDATE ai_documents SET ${assignments}, updated_at = ?${entries.length + 2} WHERE id = ?1`)
@@ -211,7 +214,7 @@ const geminiMetadata = (document: AiDocumentRow) => [
   { key: 'document_id', stringValue: String(document.id) },
   { key: 'visibility', stringValue: String(document.visibility || 'public') },
   { key: 'program_code', stringValue: String(document.program_code || 'all') },
-  { key: 'category', stringValue: String(document.category || 'general') },
+  { key: 'category', stringValue: normalizeAiDocumentCategory(document.category) },
   { key: 'academic_year', stringValue: String(document.academic_year || 'all') },
   { key: 'version', stringValue: String(document.version || 1) },
   { key: 'source_kind', stringValue: String(document.index_source_kind || 'original') },
@@ -269,7 +272,7 @@ const indexDocument = async (request: Request, env: AiDocumentsEnv, identity: Be
       mime_type: validated.mimeType,
       file_size: file.size,
       content_hash: contentHash,
-      category: String(form.get('category') || '') || null,
+      category: normalizeAiDocumentCategory(form.get('category')),
       academic_year: String(form.get('academicYear') || '') || null,
       program_code: String(form.get('programCode') || 'all').trim() || 'all',
       visibility: ['public', 'program', 'admin'].includes(String(form.get('visibility'))) ? String(form.get('visibility')) : 'public',

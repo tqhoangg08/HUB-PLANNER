@@ -14,6 +14,7 @@ import {
   shouldUseDocumentSearch,
 } from '../cloudflare/worker/src/ai-advisor.ts';
 import { extractGeminiDocumentSources, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
+import { normalizeAiDocumentCategory } from '../shared/ai-document-categories.ts';
 
 const USER = '11111111-1111-4111-8111-111111111111';
 const DOCUMENT_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -167,7 +168,39 @@ test('D1 citation resolution classifies unknown, inactive, and category-incompat
     assert.equal(notFound.reason, 'D1_CITATION_NOT_FOUND');
     assert.equal(notActive.reason, 'D1_CITATION_NOT_ACTIVE');
     assert.equal(categoryRejected.reason, 'D1_CITATION_CATEGORY_REJECTED');
-    assert.equal(fixture.queries.some((query) => /^\s*(INSERT|UPDATE|DELETE)\b/i.test(query)), false);
+    assert.equal(fixture.queries.some((query) => /^\s*(INSERT|UPDATE|DELETE)\b/i.test(query) && !/ai_chat_logs/i.test(query)), false);
+  } finally { fixture.sql.close(); }
+});
+
+test('canonical categories normalize legacy labels without an online migration', () => {
+  assert.equal(normalizeAiDocumentCategory('Quy chế'), 'training_regulation');
+  assert.equal(normalizeAiDocumentCategory('quy định'), 'training_regulation');
+  assert.equal(normalizeAiDocumentCategory('quy dinh'), 'training_regulation');
+  assert.equal(normalizeAiDocumentCategory('Quy đổi điểm'), 'grading');
+  assert.equal(normalizeAiDocumentCategory('Học phí'), 'tuition');
+  assert.equal(normalizeAiDocumentCategory('grading'), 'grading');
+  assert.equal(normalizeAiDocumentCategory('unclassified legacy text'), 'general');
+});
+
+test('grading and graduation accept regulation parents but reject unrelated canonical categories', async () => {
+  const fixture = makeDatabase();
+  try {
+    const regulation = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const general = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    const tuition = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    insertOfficialDocument(fixture, { id: regulation, title: 'Quy chế', category: 'Quy chế' });
+    insertOfficialDocument(fixture, { id: general, title: 'Khác', category: 'general' });
+    insertOfficialDocument(fixture, { id: tuition, title: 'Học phí', category: 'tuition' });
+    const cited = [
+      { documentId: regulation, fileName: 'regulation.pdf' },
+      { documentId: general, fileName: 'general.pdf' },
+      { documentId: tuition, fileName: 'tuition.pdf' },
+    ];
+    const grading = await resolveDocumentSourcesWithDiagnostics(env(fixture.DB), cited, routeAdvisorDocuments('Quy đổi điểm ở HUB'));
+    const graduation = await resolveDocumentSourcesWithDiagnostics(env(fixture.DB), cited, routeAdvisorDocuments('Điều kiện tốt nghiệp ở HUB'));
+    assert.deepEqual(grading.sources.map((source) => source.documentId), [regulation, general]);
+    assert.deepEqual(graduation.sources.map((source) => source.documentId), [regulation, general]);
+    assert.equal(grading.sources[0]?.category, 'training_regulation');
   } finally { fixture.sql.close(); }
 });
 
@@ -278,6 +311,33 @@ test('legacy general-category documents remain reachable through one bounded pub
     assert.equal(result.reply, 'Theo quy chế chính thức.');
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
     assert.deepEqual(filters, ['visibility = "public" AND category = "grading"', 'visibility = "public"']);
+  } finally { fixture.sql.close(); }
+});
+
+test('a current legacy Quy chế document is accepted after broad fallback without reindexing', async () => {
+  const fixture = makeDatabase();
+  const filters: string[] = [];
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo hiện hành', category: 'Quy chế' });
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'quy đổi điểm thang 4 HUB khóa 2026 là gì?' }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key',
+      GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+        filters.push(String(options.metadataFilter));
+        return filters.length === 1
+          ? { reply: 'Không tìm được category hẹp.', documentSources: [] }
+          : { reply: 'Theo quy chế hiện hành.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy-che.pdf' }] };
+      },
+    }) as { reply: string; documentSources: Array<{ documentId: string; category: string }> };
+    assert.equal(result.reply, 'Theo quy chế hiện hành.');
+    assert.deepEqual(filters, ['visibility = "public" AND category = "grading"', 'visibility = "public"']);
+    assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
+    assert.equal(result.documentSources[0]?.category, 'training_regulation');
+    assert.equal(fixture.queries.some((query) => /^\s*(INSERT|UPDATE|DELETE)\b/i.test(query) && !/ai_chat_logs/i.test(query)), false);
   } finally { fixture.sql.close(); }
 });
 

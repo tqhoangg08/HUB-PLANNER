@@ -16,6 +16,7 @@ import {
   calculateSubjectAverage,
 } from '../../../shared/academic-grade-calculations.ts';
 import type { Subject } from '../../../types.ts';
+import { normalizeAiDocumentCategory } from '../../../shared/ai-document-categories.ts';
 
 export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiFileSearchEnv {
   DB?: D1Database;
@@ -613,7 +614,7 @@ type DocumentSourceResolution = {
 
 const documentPrecedence = (route: AdvisorDocumentRoute, left: ResolvedDocumentSource, right: ResolvedDocumentSource) => {
   const domain = route.domain || '';
-  const categoryScore = (source: ResolvedDocumentSource) => Number(String(source.category || '').toLowerCase() === domain);
+  const categoryScore = (source: ResolvedDocumentSource) => Number(normalizeAiDocumentCategory(source.category) === domain);
   const yearScore = (source: ResolvedDocumentSource) => Number(Boolean(route.academicYear) && source.academicYear === route.academicYear);
   return yearScore(right) - yearScore(left)
     || categoryScore(right) - categoryScore(left)
@@ -624,7 +625,7 @@ const documentPrecedence = (route: AdvisorDocumentRoute, left: ResolvedDocumentS
 
 const compatibleDocumentCategory = (route: AdvisorDocumentRoute, category: string | null) => {
   if (!route.domain || route.domain === 'general_official_document') return true;
-  const normalized = String(category || '').trim().toLowerCase();
+  const normalized = normalizeAiDocumentCategory(category);
   // Legacy documents were often uploaded as general; keep them searchable in
   // the broad fallback, but never accept an explicitly unrelated category.
   return !normalized || ['general', 'training_regulation', route.domain].includes(normalized);
@@ -673,7 +674,7 @@ export const resolveDocumentSourcesWithDiagnostics = async (
       title: row.title,
       fileName: row.original_file_name,
       pageNumber: Number(entry.pageNumber || 0) || null,
-      category: row.category || null,
+      category: normalizeAiDocumentCategory(row.category),
       academicYear: row.academic_year || null,
       programCode: String(row.program_code || 'all'),
       version: Number(row.version || 1),

@@ -34,6 +34,15 @@ test('Gemini File Search uses steps-based interactions for current Gemini models
   ]);
 });
 
+test('AI document admin UI uses a canonical category select instead of a free-form legacy label', () => {
+  const frontend = source('components/AdminAIDocuments.tsx');
+  const worker = source('cloudflare/worker/src/ai-documents.ts');
+  assert.match(frontend, /AI_DOCUMENT_CATEGORY_OPTIONS/);
+  assert.match(frontend, /<select[\s\S]*value=\{category\}/);
+  assert.match(worker, /normalizeAiDocumentCategory\(form\.get\('category'\)\)/);
+  assert.match(worker, /normalizeAiDocumentCategory\(document\.category\)/);
+});
+
 test('document citations are deduplicated and expose no session data', () => {
   const interaction = { steps: [{ content: [{ annotations: [
     { type: 'file_citation', file_name: 'Quy-che.pdf', source: 'fileSearchStores/x/documents/generated-name', custom_metadata: { document_id: '11111111-1111-4111-8111-111111111111' }, page_number: 4 },

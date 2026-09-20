@@ -14,6 +14,7 @@ import {
 import { privateApiRequest } from '../utils/privateApi';
 import { showConfirm } from '../utils/appNotifications';
 import { inspectPdfTextLayer, runPdfOcrInBrowser } from '../utils/aiDocumentOcr';
+import { aiDocumentCategoryLabel, AI_DOCUMENT_CATEGORY_OPTIONS } from '../shared/ai-document-categories';
 
 type AIDocument = {
   id: string;
@@ -64,7 +65,7 @@ export const AdminAIDocuments: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('Quy chế');
+  const [category, setCategory] = useState('training_regulation');
   const [academicYear, setAcademicYear] = useState('');
   const [programCode, setProgramCode] = useState('all');
   const [visibility, setVisibility] = useState<'public' | 'program' | 'admin'>('public');
@@ -287,7 +288,7 @@ export const AdminAIDocuments: React.FC = () => {
                     <div className="truncate font-bold">{item.title}</div>
                     <div className="truncate text-xs text-slate-500">
                       {item.original_file_name} · {(item.file_size / 1024 / 1024).toFixed(1)} MB ·{' '}
-                      {item.category || 'Chưa phân loại'}
+                      {aiDocumentCategoryLabel(item.category)}
                     </div>
                     {item.indexing_error && (
                       <div className="mt-1 text-xs text-red-600">{item.indexing_error}</div>
@@ -437,11 +438,15 @@ export const AdminAIDocuments: React.FC = () => {
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="text-sm font-bold">
                   Danh mục
-                  <input
+                  <select
                     value={category}
                     onChange={(event) => setCategory(event.target.value)}
                     className="mt-1 h-11 w-full rounded-lg border px-3 font-normal"
-                  />
+                  >
+                    {AI_DOCUMENT_CATEGORY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
                 </label>
                 <label className="text-sm font-bold">
                   Năm học
