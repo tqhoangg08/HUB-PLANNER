@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   BrainCircuit,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { privateApiRequest } from '../utils/privateApi';
 import { showConfirm } from '../utils/appNotifications';
+import { inspectPdfTextLayer, runPdfOcrInBrowser } from '../utils/aiDocumentOcr';
 
 type AIDocument = {
   id: string;
@@ -26,6 +27,9 @@ type AIDocument = {
   visibility: 'public' | 'program' | 'admin';
   indexing_status: string;
   indexing_error: string | null;
+  ocr_status?: string;
+  ocr_page_count?: number | null;
+  ocr_used?: number;
   uploaded_by: string;
   created_at: string;
 };
@@ -38,6 +42,14 @@ const statusLabels: Record<string, string> = {
   failed: 'Thất bại',
   deleting: 'Đang xóa',
   deleted: 'Đã xóa',
+};
+
+const ocrStatusLabels: Record<string, string> = {
+  not_checked: 'Chưa kiểm tra',
+  not_applicable: 'Không cần OCR',
+  processing: 'Đang nhận dạng',
+  completed: 'OCR hoàn tất',
+  failed: 'OCR lỗi',
 };
 
 export const AdminAIDocuments: React.FC = () => {
@@ -56,6 +68,8 @@ export const AdminAIDocuments: React.FC = () => {
   const [academicYear, setAcademicYear] = useState('');
   const [programCode, setProgramCode] = useState('all');
   const [visibility, setVisibility] = useState<'public' | 'program' | 'admin'>('public');
+  const [ocrProgress, setOcrProgress] = useState<{ current: number; total: number; percent: number; stage: 'analyzing' | 'ocr' | 'upload' } | null>(null);
+  const ocrAbortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,9 +119,24 @@ export const AdminAIDocuments: React.FC = () => {
       return;
     }
 
+    const ocrAbort = new AbortController();
+    ocrAbortRef.current = ocrAbort;
     setBusy(true);
     setError('');
     try {
+      let ocr: { text: string; pageCount: number } | null = null;
+      if (file.type === 'application/pdf') {
+        setOcrProgress({ current: 0, total: 0, percent: 0, stage: 'analyzing' });
+        const inspection = await inspectPdfTextLayer(file, ocrAbort.signal);
+        if (!inspection.hasUsableText) {
+          setOcrProgress({ current: 0, total: inspection.pageCount, percent: 0, stage: 'ocr' });
+          const result = await runPdfOcrInBrowser(file, (current, total, percent) => {
+            setOcrProgress({ current, total, percent, stage: 'ocr' });
+          }, ocrAbort.signal);
+          ocr = { text: result.text, pageCount: result.pageCount };
+        }
+      }
+      setOcrProgress({ current: 0, total: 0, percent: 100, stage: 'upload' });
       const form = new FormData();
       form.set('file', file);
       form.set('title', title.trim() || file.name);
@@ -115,6 +144,11 @@ export const AdminAIDocuments: React.FC = () => {
       form.set('academicYear', academicYear);
       form.set('programCode', programCode.trim() || 'all');
       form.set('visibility', visibility);
+      if (ocr) {
+        form.set('ocrText', ocr.text);
+        form.set('ocrPageCount', String(ocr.pageCount));
+        form.set('ocrUsed', 'true');
+      }
       const response = await privateApiRequest('/api/admin/v1/ai-documents', {
         method: 'POST',
         body: form,
@@ -127,8 +161,10 @@ export const AdminAIDocuments: React.FC = () => {
       setPage(1);
       await load();
     } catch (cause: any) {
-      setError(cause.message);
+      setError(cause?.name === 'AbortError' ? 'Đã hủy nhận dạng văn bản trên thiết bị.' : cause.message);
     } finally {
+      ocrAbortRef.current = null;
+      setOcrProgress(null);
       setBusy(false);
     }
   };
@@ -256,6 +292,9 @@ export const AdminAIDocuments: React.FC = () => {
                     {item.indexing_error && (
                       <div className="mt-1 text-xs text-red-600">{item.indexing_error}</div>
                     )}
+                    {item.ocr_used === 1 && item.ocr_page_count && (
+                      <div className="mt-1 text-xs text-slate-500">{item.ocr_page_count} trang · OCR tiếng Việt + Anh</div>
+                    )}
                   </div>
                   <div className="text-xs text-slate-500">
                     {item.academic_year || 'Mọi năm'}
@@ -283,6 +322,9 @@ export const AdminAIDocuments: React.FC = () => {
                     }`}
                   >
                     {statusLabels[item.indexing_status] || item.indexing_status}
+                    {item.ocr_status && item.ocr_status !== 'not_applicable' && (
+                      <span className="block pt-1 font-medium opacity-80">{ocrStatusLabels[item.ocr_status] || item.ocr_status}</span>
+                    )}
                   </span>
                   <div className="flex">
                     <button
@@ -355,7 +397,7 @@ export const AdminAIDocuments: React.FC = () => {
                   PDF, DOC, DOCX, PPTX, XLSX, TXT, CSV · tối đa 20 MB
                 </p>
               </div>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Đóng">
+              <button type="button" onClick={() => { ocrAbortRef.current?.abort(); setOpen(false); }} aria-label="Đóng">
                 <X />
               </button>
             </div>
@@ -377,6 +419,11 @@ export const AdminAIDocuments: React.FC = () => {
                   }}
                   className="mt-1 block w-full rounded-lg border p-3 font-normal"
                 />
+                {file?.type === 'application/pdf' && (
+                  <small className="mt-2 block font-normal text-slate-500">
+                    PDF scan sẽ được nhận dạng chữ trực tiếp trên thiết bị của quản trị viên trước khi tải lên.
+                  </small>
+                )}
               </label>
               <label className="block text-sm font-bold">
                 Tiêu đề
@@ -434,12 +481,21 @@ export const AdminAIDocuments: React.FC = () => {
               </label>
             </div>
             <div className="flex justify-end gap-2 border-t p-4">
+              {ocrProgress && (
+                <div className="mr-auto self-center text-xs text-slate-600" aria-live="polite">
+                  {ocrProgress.stage === 'analyzing'
+                    ? 'Đang phân tích PDF...'
+                    : ocrProgress.stage === 'ocr'
+                      ? `Đang OCR trang ${ocrProgress.current}/${ocrProgress.total} · ${ocrProgress.percent}%`
+                      : 'Đang tải tài liệu và lập chỉ mục AI...'}
+                </div>
+              )}
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={() => { ocrAbortRef.current?.abort(); setOpen(false); }}
                 className="h-10 rounded-lg border px-4 font-bold"
               >
-                Hủy
+                {busy && ocrProgress?.stage === 'ocr' ? 'Hủy OCR' : 'Hủy'}
               </button>
               <button
                 disabled={busy || !file}

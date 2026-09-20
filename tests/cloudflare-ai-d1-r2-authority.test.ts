@@ -6,9 +6,13 @@ import test from 'node:test';
 import { handleAiAdvisor } from '../cloudflare/worker/src/ai-advisor.ts';
 import {
   AiDocumentsError,
+  aiDocumentIndexingFailurePatch,
   handleAdminAiDocuments,
   handleAiDocumentFile,
   handleAiDocumentSource,
+  parseAiDocumentOcrPayload,
+  sha256AiDocumentBlob,
+  uploadAiDocumentStorage,
 } from '../cloudflare/worker/src/ai-documents.ts';
 
 const USER = '11111111-1111-4111-8111-111111111111';
@@ -25,6 +29,7 @@ const makeEnv = (userId = USER, role: 'user' | 'admin' = 'user') => {
     CREATE TABLE school_announcements (title TEXT, date TEXT, link TEXT, is_hidden INTEGER);`);
   sql.exec(readFileSync('cloudflare/migrations/0032_ai_documents_chat_d1_r2_authority.sql', 'utf8'));
   sql.exec(readFileSync('cloudflare/migrations/0043_ai_chat_conversations.sql', 'utf8'));
+  sql.exec(readFileSync('cloudflare/migrations/0044_ai_document_ocr_ingestion.sql', 'utf8'));
   sql.prepare('INSERT INTO user_profile_private VALUES (?,?,?,?)').run(USER, 'Công nghệ thông tin', null, '{}');
   const prepare = (query: string) => {
     let bindings: unknown[] = [];
@@ -40,11 +45,11 @@ const makeEnv = (userId = USER, role: 'user' | 'admin' = 'user') => {
     };
     return statement;
   };
-  const objects = new Map<string, { bytes: Uint8Array; type: string }>();
+  const objects = new Map<string, { bytes: Uint8Array; type: string; sha256?: string }>();
   const bucket = {
-    async put(key: string, value: ReadableStream | Uint8Array, options: { httpMetadata?: { contentType?: string } }) {
+    async put(key: string, value: ReadableStream | Uint8Array, options: { httpMetadata?: { contentType?: string }; customMetadata?: { sha256?: string } }) {
       const bytes = value instanceof Uint8Array ? value : new Uint8Array(await new Response(value).arrayBuffer());
-      objects.set(key, { bytes, type: options.httpMetadata?.contentType || 'application/octet-stream' });
+      objects.set(key, { bytes, type: options.httpMetadata?.contentType || 'application/octet-stream', sha256: options.customMetadata?.sha256 });
     },
     async head(key: string) { const value = objects.get(key); return value ? { size: value.bytes.length } : null; },
     async get(key: string) {
@@ -136,5 +141,65 @@ test('non-admin AI document mutation is denied before D1/R2 write', async () => 
     const upload = request('/api/admin/v1/ai-documents', { method: 'POST', body: form });
     await assert.rejects(() => handleAdminAiDocuments(upload, new URL(upload.url), env), (error: unknown) => error instanceof AiDocumentsError && error.status === 403);
     assert.equal(env.__objects.size, 0);
+  } finally { env.__sql.close(); }
+});
+
+test('OCR payload is accepted only for bounded PDF text and never for another file type', () => {
+  const form = new FormData();
+  form.set('ocrText', 'Văn bản nhận dạng tiếng Việt và English');
+  form.set('ocrPageCount', '2');
+  form.set('ocrUsed', 'true');
+  assert.deepEqual(parseAiDocumentOcrPayload(form, 'application/pdf'), {
+    text: 'Văn bản nhận dạng tiếng Việt và English', length: new TextEncoder().encode('Văn bản nhận dạng tiếng Việt và English').byteLength, pageCount: 2,
+  });
+  assert.throws(() => parseAiDocumentOcrPayload(form, 'text/plain'), AiDocumentsError);
+  form.set('ocrPageCount', '41');
+  assert.throws(() => parseAiDocumentOcrPayload(form, 'application/pdf'), AiDocumentsError);
+});
+
+test('private extracted text has its own R2 SHA-256 rather than the original PDF hash', async () => {
+  const env = makeEnv(ADMIN, 'admin');
+  try {
+    const original = new Blob(['%PDF-1.7 original bytes'], { type: 'application/pdf' });
+    const derivative = new Blob(['Văn bản OCR tiếng Việt'], { type: 'text/plain;charset=utf-8' });
+    const originalHash = await sha256AiDocumentBlob(original);
+    const derivativeHash = await sha256AiDocumentBlob(derivative);
+    const key = 'ai-documents/55555555-5555-4555-8555-555555555555/extracted.txt';
+    await uploadAiDocumentStorage(env, key, derivative, derivativeHash);
+    assert.notEqual(originalHash, derivativeHash);
+    assert.equal(env.__objects.get(key)?.sha256, derivativeHash);
+  } finally { env.__sql.close(); }
+});
+
+test('a Gemini-only failure never downgrades completed OCR, while derivative storage failure does', () => {
+  assert.deepEqual(aiDocumentIndexingFailurePatch(true, true), {
+    indexing_status: 'failed', indexing_error: 'Không thể lập chỉ mục tài liệu.',
+  });
+  assert.deepEqual(aiDocumentIndexingFailurePatch(true, false), {
+    indexing_status: 'failed', indexing_error: 'Không thể lập chỉ mục tài liệu.', ocr_status: 'failed',
+  });
+  assert.deepEqual(aiDocumentIndexingFailurePatch(false, false), {
+    indexing_status: 'failed', indexing_error: 'Không thể lập chỉ mục tài liệu.',
+  });
+});
+
+test('AI document delete removes the private OCR derivative while source download remains original-only', async () => {
+  const env = makeEnv(ADMIN, 'admin');
+  try {
+    const id = '55555555-5555-4555-8555-555555555555';
+    const original = `ai-documents/${ADMIN}/${id}-scan.pdf`;
+    const extracted = `ai-documents/${id}/extracted.txt`;
+    const pdf = new TextEncoder().encode('%PDF-1.7\nscan');
+    env.__objects.set(original, { bytes: pdf, type: 'application/pdf' });
+    env.__objects.set(extracted, { bytes: new TextEncoder().encode('Văn bản OCR'), type: 'text/plain;charset=utf-8' });
+    env.__sql.prepare(`INSERT INTO ai_documents (id,title,original_file_name,storage_path,mime_type,file_size,content_hash,program_code,visibility,indexing_status,uploaded_by,created_at,updated_at,ocr_status,ocr_text_path,ocr_text_length,ocr_page_count,ocr_engine,ocr_used,ocr_completed_at,index_source_kind)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+      id, 'Scan', 'scan.pdf', original, 'application/pdf', pdf.length, createHash('sha256').update(pdf).digest('hex'), 'all', 'public', 'completed', ADMIN,
+      new Date().toISOString(), new Date().toISOString(), 'completed', extracted, 14, 1, 'tesseract.js', 1, new Date().toISOString(), 'ocr_text',
+    );
+    const remove = request(`/api/admin/v1/ai-documents?id=${id}`, { method: 'DELETE' });
+    assert.deepEqual(await handleAdminAiDocuments(remove, new URL(remove.url), env), { success: true });
+    assert.equal(env.__objects.has(original), false);
+    assert.equal(env.__objects.has(extracted), false);
   } finally { env.__sql.close(); }
 });
