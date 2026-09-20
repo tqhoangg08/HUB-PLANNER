@@ -12,17 +12,25 @@ import {
   resolveDocumentSourcesWithDiagnostics,
   retrieveAdvisorContext,
   routeAdvisorDocuments,
+  selectAdvisorDocumentCandidates,
   selectDocumentSearchStrategy,
   sourceCoversRequestedScope,
   shouldUseDocumentSearch,
   withFileSearchDeadline,
 } from '../cloudflare/worker/src/ai-advisor.ts';
-import { extractGeminiDocumentSources, extractOfficialDocumentApplicability, extractOfficialDocumentLocators, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
+import { buildDocumentCandidateMetadataFilter, extractGeminiDocumentSources, extractOfficialDocumentApplicability, extractOfficialDocumentLocators, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
 import { normalizeAiDocumentCategory } from '../shared/ai-document-categories.ts';
 
 const USER = '11111111-1111-4111-8111-111111111111';
 const DOCUMENT_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const DOCUMENT_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const DOCUMENT_C = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const DOCUMENT_D = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+
+const assertCandidateFilter = (filter: string | undefined, ids: string[]) => {
+  assert.match(String(filter), /^visibility = "public" AND \(/);
+  for (const id of ids) assert.match(String(filter), new RegExp(`document_id = "${id}"`));
+};
 
 const makeDatabase = () => {
   const sql = new DatabaseSync(':memory:');
@@ -231,6 +239,46 @@ test('canonical categories normalize legacy labels without an online migration',
   assert.equal(normalizeAiDocumentCategory('unclassified legacy text'), 'general');
 });
 
+test('D1 candidate selection is bounded, normalized, and excludes unrelated official categories', async () => {
+  const fixture = makeDatabase();
+  try {
+    const training = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const handbook = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    const tuition = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Thang điểm', category: 'grading' });
+    insertOfficialDocument(fixture, { id: training, title: 'Quy chế', category: 'Quy chế' });
+    insertOfficialDocument(fixture, { id: handbook, title: 'Cẩm nang', category: 'student_handbook' });
+    insertOfficialDocument(fixture, { id: tuition, title: 'Học phí', category: 'tuition' });
+    const grading = await selectAdvisorDocumentCandidates(env(fixture.DB), routeAdvisorDocuments('quy đổi điểm ở HUB như nào?'));
+    assert.deepEqual(new Set(grading.map((candidate) => candidate.id)), new Set([DOCUMENT_A, training, handbook]));
+    assert.equal(grading.some((candidate) => candidate.id === tuition), false);
+    assert.equal(grading.find((candidate) => candidate.id === training)?.category, 'training_regulation');
+    assertCandidateFilter(buildDocumentCandidateMetadataFilter(grading.map((candidate) => candidate.id)) || '', [DOCUMENT_A, training, handbook]);
+    assert.equal(fixture.queries.filter((query) => query.includes('FROM ai_documents')).length, 1);
+  } finally { fixture.sql.close(); }
+});
+
+test('scholarship candidates include only its bounded official category set', async () => {
+  const fixture = makeDatabase();
+  try {
+    const handbook = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const general = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    const grading = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    const tuition = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Học bổng', category: 'scholarship' });
+    insertOfficialDocument(fixture, { id: handbook, title: 'Cẩm nang', category: 'student_handbook' });
+    insertOfficialDocument(fixture, { id: general, title: 'Khác', category: 'general' });
+    insertOfficialDocument(fixture, { id: grading, title: 'Thang điểm', category: 'grading' });
+    insertOfficialDocument(fixture, { id: tuition, title: 'Học phí', category: 'tuition' });
+    const candidates = await selectAdvisorDocumentCandidates(env(fixture.DB), routeAdvisorDocuments('các loại học bổng ở HUB?'));
+    assert.deepEqual(new Set(candidates.map((candidate) => candidate.id)), new Set([DOCUMENT_A, handbook, general]));
+  } finally { fixture.sql.close(); }
+});
+
+test('candidate metadata filters reject non-authoritative IDs and never interpolate arbitrary text', () => {
+  assert.equal(buildDocumentCandidateMetadataFilter(['not-a-uuid', '" OR visibility = "admin']), null);
+});
+
 test('bounded official category compatibility accepts student handbooks but rejects unrelated domains', async () => {
   const fixture = makeDatabase();
   try {
@@ -386,6 +434,7 @@ test('empty or invalid Gemini citations block HUB policy answers without a Groq 
     throw new Error(`Unexpected provider call: ${target}`);
   };
   try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
     const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
       method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
       body: JSON.stringify({ question: 'Quy đổi điểm ở BUH như thế nào?' }),
@@ -411,6 +460,8 @@ test('coverage-mode grading uses one broad File Search call and persists grounde
   try {
     insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo 2026', category: 'grading' });
     insertOfficialDocument(fixture, { id: DOCUMENT_B, title: 'Quy chế đào tạo từ 2027', category: 'grading', version: 2 });
+    insertOfficialDocument(fixture, { id: DOCUMENT_C, title: 'Cẩm nang sinh viên', category: 'student_handbook' });
+    insertOfficialDocument(fixture, { id: DOCUMENT_D, title: 'Thông báo học phí', category: 'tuition' });
     const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
       method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
       body: JSON.stringify({ question: 'quy đổi điểm thang 4 HUB như nào?' }),
@@ -429,7 +480,8 @@ test('coverage-mode grading uses one broad File Search call and persists grounde
       },
     }) as { reply: string; documentSources: Array<{ documentId: string; applicability?: Array<{ cohortYear?: number; fromCohortYear?: number }> }> };
     assert.equal(filters.length, 1);
-    assert.deepEqual(filters, ['visibility = "public"']);
+    assertCandidateFilter(filters[0], [DOCUMENT_A, DOCUMENT_B, DOCUMENT_C]);
+    assert.doesNotMatch(String(filters[0]), new RegExp(`document_id = "${DOCUMENT_D}"`));
     assert.match(result.reply, /2026/);
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_B, DOCUMENT_A]);
     assert.equal(result.documentSources[0]?.applicability?.[0]?.fromCohortYear, 2027);
@@ -468,7 +520,7 @@ test('scoped grading follow-up starts broad and retrieves a compatible 2025-2026
     assert.equal(route.domain, 'grading');
     assert.equal(route.scope.cohortYear, 2025);
     assert.equal(sourceCoversRequestedScope({ applicability: [{ cohortYear: 2026, rawLabel: 'Khóa tuyển sinh năm 2026' }], academicYear: null }, route.scope), false);
-    assert.deepEqual(filters, ['visibility = "public"']);
+    assertCandidateFilter(filters[0], [DOCUMENT_A, DOCUMENT_B]);
     assert.equal(policyHistories[0]?.every((item) => item.role === 'user'), true);
     assert.match(String(retrievalQueries[0]), /miền tài liệu chính thức=grading/);
     assert.match(String(retrievalQueries[0]), /khóa tuyển sinh=2025/);
@@ -498,7 +550,7 @@ test('a scoped 2027 follow-up uses one broad search and preserves its confirmed 
         };
       },
     }) as { documentSources: Array<{ documentId: string }> };
-    assert.deepEqual(filters, ['visibility = "public"']);
+    assertCandidateFilter(filters[0], [DOCUMENT_A]);
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
   } finally { fixture.sql.close(); }
 });
@@ -549,7 +601,7 @@ test('legacy general-category documents remain reachable through one broad-first
     }) as { reply: string; documentSources: Array<{ documentId: string }> };
     assert.equal(result.reply, 'Theo quy chế chính thức.');
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
-    assert.deepEqual(filters, ['visibility = "public"']);
+    assertCandidateFilter(filters[0], [DOCUMENT_A]);
   } finally { fixture.sql.close(); }
 });
 
@@ -571,7 +623,7 @@ test('a scoped current legacy Quy chế document is accepted by broad-first sear
       },
     }) as { reply: string; documentSources: Array<{ documentId: string; category: string }> };
     assert.equal(result.reply, 'Theo quy chế hiện hành.');
-    assert.deepEqual(filters, ['visibility = "public"']);
+    assertCandidateFilter(filters[0], [DOCUMENT_A]);
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
     assert.equal(result.documentSources[0]?.category, 'training_regulation');
     assert.equal(fixture.queries.some((query) => /^\s*(INSERT|UPDATE|DELETE)\b/i.test(query) && !/ai_chat_logs/i.test(query)), false);
@@ -601,7 +653,9 @@ test('a focused narrow File Search miss is diagnosed and the broad public fallba
       },
     }) as { reply: string };
     assert.equal(result.reply, 'Theo quy chế chính thức.');
-    assert.deepEqual(filters, ['visibility = "public" AND category = "grading"', 'visibility = "public"']);
+    assert.equal(filters.length, 2);
+    assertCandidateFilter(filters[0], [DOCUMENT_A]);
+    assert.equal(filters[1], 'visibility = "public"');
     assert.equal(warnings.some((warning) => warning.includes('GEMINI_NO_FILE_CITATION')), true);
   } finally {
     console.warn = previousWarn;
@@ -615,6 +669,7 @@ test('Gemini request errors are classified server-side and remain safe to the po
   const warnings: string[] = [];
   console.warn = (message: unknown) => { warnings.push(String(message)); };
   try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
     const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
       method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
       body: JSON.stringify({ question: 'Quy đổi điểm ở HUB như nào?' }),
@@ -640,12 +695,14 @@ test('a timed-out policy File Search returns the safe response without Groq fall
   const warnings: string[] = [];
   const originalFetch = globalThis.fetch;
   let groqCalls = 0;
+  let fileSearchCalls = 0;
   console.warn = (message: unknown) => { warnings.push(String(message)); };
   globalThis.fetch = async (input) => {
     if (String(input).includes('api.groq.com')) groqCalls += 1;
     throw new Error('No provider fallback expected');
   };
   try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
     const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
       method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
       body: JSON.stringify({ question: 'điểm F ở HUB là gì?' }),
@@ -653,18 +710,41 @@ test('a timed-out policy File Search returns the safe response without Groq fall
     const result = await handleAiAdvisor(request, new URL(request.url), {
       ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
       GROQ_API_KEY: 'test-key', fileSearchTimeoutMs: 10,
-      fileSearchAnswer: async () => new Promise<never>(() => undefined),
+      fileSearchAnswer: async () => {
+        fileSearchCalls += 1;
+        return new Promise<never>(() => undefined);
+      },
     }) as { reply: string; documentSearchUnavailable: boolean };
     assert.match(result.reply, /chưa thể xác minh/i);
     assert.equal(result.documentSearchUnavailable, true);
     assert.equal(groqCalls, 0);
-    assert.equal(warnings.some((warning) => warning.includes('GEMINI_REQUEST_TIMEOUT') && warning.includes('durationMs') && warning.includes('narrow_first')), true);
+    assert.equal(fileSearchCalls, 1);
+    assert.equal(warnings.some((warning) => warning.includes('GEMINI_REQUEST_TIMEOUT') && warning.includes('durationMs') && warning.includes('candidate_ids')), true);
     assert.equal(warnings.some((warning) => warning.includes('test-key')), false);
   } finally {
     console.warn = previousWarn;
     globalThis.fetch = originalFetch;
     fixture.sql.close();
   }
+});
+
+test('an empty D1-authoritative candidate set returns safely without a broad store search', async () => {
+  const fixture = makeDatabase();
+  let fileSearchCalls = 0;
+  try {
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'quy đổi điểm ở HUB như nào?' }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => { fileSearchCalls += 1; return null; },
+    }) as { reply: string; documentSearchUnavailable: boolean };
+    assert.match(result.reply, /chưa thể xác minh/i);
+    assert.equal(result.documentSearchUnavailable, true);
+    assert.equal(fileSearchCalls, 0);
+    assert.equal(fixture.queries.filter((query) => query.includes('FROM ai_documents')).length, 1);
+  } finally { fixture.sql.close(); }
 });
 
 test('a focused valid narrow result returns immediately without optional fallback work', async () => {
@@ -684,7 +764,7 @@ test('a focused valid narrow result returns immediately without optional fallbac
       },
     }) as { reply: string };
     assert.equal(result.reply, 'Theo quy chế chính thức.');
-    assert.deepEqual(filters, ['visibility = "public" AND category = "grading"']);
+    assertCandidateFilter(filters[0], [DOCUMENT_A]);
   } finally { fixture.sql.close(); }
 });
 

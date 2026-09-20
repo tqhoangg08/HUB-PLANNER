@@ -68,7 +68,9 @@ export type GeminiFileSearchOptions = {
   timeoutMs?: number;
 };
 
-const DEFAULT_FILE_SEARCH_TIMEOUT_MS = 14_000;
+const DEFAULT_FILE_SEARCH_TIMEOUT_MS = 11_000;
+const DOCUMENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_DOCUMENT_CANDIDATE_IDS = 12;
 
 const record = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -83,6 +85,18 @@ export const publicDocumentMetadataFilter = (category?: string | null) => {
   return normalizedCategory && /^[a-z_]{2,64}$/.test(normalizedCategory)
     ? `visibility = "public" AND category = "${normalizedCategory}"`
     : 'visibility = "public"';
+};
+
+/**
+ * Builds an AIP-160 filter exclusively from D1-authoritative UUIDs. It is
+ * deliberately separate from user search text so File Search never receives
+ * interpolated client input as filter syntax.
+ */
+export const buildDocumentCandidateMetadataFilter = (ids: readonly string[]) => {
+  const validIds = [...new Set(ids.map((id) => String(id || '').trim()).filter((id) => DOCUMENT_ID_PATTERN.test(id)))]
+    .slice(0, MAX_DOCUMENT_CANDIDATE_IDS);
+  if (!validIds.length) return null;
+  return `visibility = "public" AND (${validIds.map((id) => `document_id = "${id}"`).join(' OR ')})`;
 };
 
 const MAX_LOCATORS_PER_SOURCE = 3;

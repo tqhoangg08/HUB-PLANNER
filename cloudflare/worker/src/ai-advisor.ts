@@ -5,6 +5,7 @@ import {
 } from './better-auth-identity.ts';
 import {
   answerWithGeminiFileSearch,
+  buildDocumentCandidateMetadataFilter,
   extractOfficialDocumentApplicability,
   extractOfficialDocumentLocators,
   GeminiFileSearchError,
@@ -41,8 +42,10 @@ export class AiAdvisorError extends Error {
 }
 
 const MAX_BODY_BYTES = 48 * 1024;
-const FILE_SEARCH_TOTAL_BUDGET_MS = 20_000;
-const FILE_SEARCH_ATTEMPT_TIMEOUT_MS = 14_000;
+const FILE_SEARCH_TOTAL_BUDGET_MS = 15_000;
+const FILE_SEARCH_ATTEMPT_TIMEOUT_MS = 11_000;
+const MAX_DOCUMENT_CANDIDATES = 12;
+const DOCUMENT_CANDIDATE_QUERY_LIMIT = 48;
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const SAFE_TECH_REPLY = 'Mình không thể chia sẻ thông tin kỹ thuật hoặc bảo mật nội bộ của website. HUB Planner được xây dựng để hỗ trợ sinh viên quản lý học tập, theo dõi GPA, lịch học, thông báo, sự kiện và các tiện ích sinh viên thuận tiện hơn.';
 const UNVERIFIED_HUB_REPLY = 'Mình chưa thể xác minh thông tin hiện hành của HUB Planner hoặc BUH từ nguồn chính thức. Bạn có thể hỏi rõ hơn hoặc kiểm tra thông báo/tài liệu chính thức mới nhất.';
@@ -788,17 +791,11 @@ const sourceCoversRequestedScope = (source: Pick<ResolvedDocumentSource, 'applic
 export { sourceCoversRequestedScope };
 
 const documentPrecedence = (route: AdvisorDocumentRoute, left: ResolvedDocumentSource, right: ResolvedDocumentSource) => {
-  const categoryScore = (source: ResolvedDocumentSource) => {
-    if (!route.domain || route.domain === 'general_official_document') return 0;
-    const categories = OFFICIAL_CATEGORY_COMPATIBILITY[route.domain];
-    const index = categories.indexOf(normalizeAiDocumentCategory(source.category));
-    return index < 0 ? 0 : categories.length - index;
-  };
   const scopeScore = (source: ResolvedDocumentSource) => Number(sourceCoversRequestedScope(source, route.scope));
   const academicYearScore = (source: ResolvedDocumentSource) => Number(Boolean(route.academicYear) && source.academicYear === route.academicYear);
   return scopeScore(right) - scopeScore(left)
     || academicYearScore(right) - academicYearScore(left)
-    || categoryScore(right) - categoryScore(left)
+    || documentCategoryPriority(route, right.category) - documentCategoryPriority(route, left.category)
     || right.version - left.version
     || String(right.updatedAt).localeCompare(String(left.updatedAt))
     || String(right.createdAt).localeCompare(String(left.createdAt));
@@ -820,6 +817,73 @@ const compatibleDocumentCategory = (route: AdvisorDocumentRoute, category: strin
   if (!route.domain || route.domain === 'general_official_document') return true;
   const normalized = normalizeAiDocumentCategory(category);
   return OFFICIAL_CATEGORY_COMPATIBILITY[route.domain].includes(normalized);
+};
+
+const documentCategoryPriority = (route: AdvisorDocumentRoute, category: string | null) => {
+  if (!route.domain || route.domain === 'general_official_document') return 1;
+  const categories = OFFICIAL_CATEGORY_COMPATIBILITY[route.domain];
+  const index = categories.indexOf(normalizeAiDocumentCategory(category));
+  return index < 0 ? 0 : categories.length - index;
+};
+
+type DocumentCandidateRow = Pick<DocumentCitationRow,
+  'id' | 'category' | 'academic_year' | 'program_code' | 'version' | 'updated_at' | 'created_at'>;
+
+export type AdvisorDocumentCandidate = {
+  id: string;
+  category: AiDocumentCategory;
+  academicYear: string | null;
+  programCode: string | null;
+  version: number;
+  updatedAt: string;
+  createdAt: string;
+};
+
+const candidateScopeScore = (candidate: AdvisorDocumentCandidate, scope: AdvisorPolicyScope) => {
+  // D1's academic_year is useful only for an academic-year request. It is
+  // intentionally never converted into a cohort/intake year.
+  return Number(Boolean(scope.academicYear) && candidate.academicYear === scope.academicYear);
+};
+
+const candidatePrecedence = (route: AdvisorDocumentRoute, left: AdvisorDocumentCandidate, right: AdvisorDocumentCandidate) =>
+  candidateScopeScore(right, route.scope) - candidateScopeScore(left, route.scope)
+  || documentCategoryPriority(route, right.category) - documentCategoryPriority(route, left.category)
+  || right.version - left.version
+  || String(right.updatedAt).localeCompare(String(left.updatedAt))
+  || String(right.createdAt).localeCompare(String(left.createdAt))
+  || left.id.localeCompare(right.id);
+
+/**
+ * One bounded metadata read selects the small, D1-authoritative File Search
+ * set. Category compatibility is evaluated after legacy normalization so old
+ * Vietnamese labels remain usable without reindexing.
+ */
+export const selectAdvisorDocumentCandidates = async (env: AiAdvisorEnv, route: AdvisorDocumentRoute) => {
+  const db = requireDb(env);
+  const rows = await db.prepare(
+    `SELECT id, category, academic_year, program_code, version, updated_at, created_at
+       FROM ai_documents
+      WHERE deleted_at IS NULL
+        AND indexing_status = 'completed'
+        AND visibility = 'public'
+      -- Reuse ai_documents_visibility_created_idx; final deterministic
+      -- precedence (including updated_at) is applied only to this bounded set.
+      ORDER BY created_at DESC
+      LIMIT ${DOCUMENT_CANDIDATE_QUERY_LIMIT}`,
+  ).all<DocumentCandidateRow>();
+  return (rows.results || [])
+    .map((row) => ({
+      id: String(row.id),
+      category: normalizeAiDocumentCategory(row.category),
+      academicYear: row.academic_year || null,
+      programCode: row.program_code || null,
+      version: Number(row.version || 1),
+      updatedAt: String(row.updated_at || ''),
+      createdAt: String(row.created_at || ''),
+    }))
+    .filter((candidate) => compatibleDocumentCategory(route, candidate.category))
+    .sort((left, right) => candidatePrecedence(route, left, right))
+    .slice(0, MAX_DOCUMENT_CANDIDATES);
 };
 
 /** D1, not model output, is the authority for every official citation. */
@@ -901,7 +965,9 @@ export const resolveDocumentSources = async (
 const logFileSearchDiagnostic = (
   reason: GeminiFileSearchFailureReason,
   route: AdvisorDocumentRoute,
-  strategy: 'broad_first' | 'narrow_first' | 'broad_fallback',
+  strategy: 'candidate_ids' | 'visibility_fallback',
+  filterKind: 'document_ids' | 'visibility_fallback',
+  candidateCount: number,
   durationMs: number,
   citationCount: number,
   resolvedCitationCount: number,
@@ -914,6 +980,8 @@ const logFileSearchDiagnostic = (
     reason,
     domain: route.domain || 'general_official_document',
     strategy,
+    filterKind,
+    candidateCount: Math.max(0, Math.min(MAX_DOCUMENT_CANDIDATES, Math.trunc(candidateCount) || 0)),
     durationMs: Math.max(0, Math.round(extra.durationMs ?? durationMs)),
     citationCount,
     resolvedCitationCount,
@@ -964,7 +1032,7 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
   let documentSearchUnavailable = false;
   if (documentIntent) {
     if (!geminiFileSearchConfigured(env)) {
-      logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, selectDocumentSearchStrategy(retrieval.documentRoute), 0, 0, 0);
+      logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, 'candidate_ids', 'document_ids', 0, 0, 0, 0);
       documentSearchUnavailable = true;
     } else {
       type DocumentSearchOutcome =
@@ -975,14 +1043,16 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
       const searchStartedAt = Date.now();
       const search = async (
         metadataFilter: string,
-        strategy: 'broad_first' | 'narrow_first' | 'broad_fallback',
+        strategy: 'candidate_ids' | 'visibility_fallback',
+        filterKind: 'document_ids' | 'visibility_fallback',
+        candidateCount: number,
       ): Promise<DocumentSearchOutcome> => {
         const answer = env.fileSearchAnswer || answerWithGeminiFileSearch;
         const elapsed = Date.now() - searchStartedAt;
         const configuredTimeout = Number(env.fileSearchTimeoutMs) || FILE_SEARCH_ATTEMPT_TIMEOUT_MS;
         const timeoutMs = Math.min(Math.max(1, configuredTimeout), FILE_SEARCH_ATTEMPT_TIMEOUT_MS, FILE_SEARCH_TOTAL_BUDGET_MS - elapsed);
         if (timeoutMs <= 0) {
-          logFileSearchDiagnostic('GEMINI_REQUEST_TIMEOUT', retrieval.documentRoute, strategy, elapsed, 0, 0);
+          logFileSearchDiagnostic('GEMINI_REQUEST_TIMEOUT', retrieval.documentRoute, strategy, filterKind, candidateCount, elapsed, 0, 0);
           return { success: false, reason: 'GEMINI_REQUEST_TIMEOUT' };
         }
         const startedAt = Date.now();
@@ -994,72 +1064,78 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
           );
           const durationMs = Date.now() - startedAt;
           if (!result) {
-            logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, strategy, durationMs, 0, 0);
+            logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, 0, 0);
             return { success: false, reason: 'CONFIG_DISABLED' };
           }
           const citations = Array.isArray(result.documentSources)
             ? result.documentSources as unknown as Array<Record<string, unknown>>
             : [];
           if (!citations.length) {
-            logFileSearchDiagnostic('GEMINI_NO_FILE_CITATION', retrieval.documentRoute, strategy, durationMs, 0, 0);
+            logFileSearchDiagnostic('GEMINI_NO_FILE_CITATION', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, 0, 0);
             return { success: false, reason: 'GEMINI_NO_FILE_CITATION' };
           }
           const resolution = await resolveDocumentSourcesWithDiagnostics(env, citations, retrieval.documentRoute);
           if (!resolution.sources.length) {
-            logFileSearchDiagnostic(resolution.reason, retrieval.documentRoute, strategy, durationMs, resolution.citationCount, resolution.resolvedCitationCount);
+            logFileSearchDiagnostic(resolution.reason, retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, resolution.citationCount, resolution.resolvedCitationCount);
             return { success: false, reason: resolution.reason };
           }
+          logFileSearchDiagnostic('SUCCESS', retrieval.documentRoute, strategy, filterKind, candidateCount, durationMs, resolution.citationCount, resolution.resolvedCitationCount);
           return { success: true, result, documentSources: resolution.sources };
         } catch (error) {
           const fileSearchError = error instanceof GeminiFileSearchError ? error : null;
           const reason = fileSearchError?.reason || 'GEMINI_REQUEST_FAILED';
-          logFileSearchDiagnostic(reason, retrieval.documentRoute, strategy, Date.now() - startedAt, 0, 0, fileSearchError?.diagnostics);
+          logFileSearchDiagnostic(reason, retrieval.documentRoute, strategy, filterKind, candidateCount, Date.now() - startedAt, 0, 0, fileSearchError?.diagnostics);
           return { success: false, reason };
         }
       };
-      const domain = retrieval.documentRoute.domain;
-      const strategy = selectDocumentSearchStrategy(retrieval.documentRoute);
-      const first = strategy === 'broad_first'
-        ? await search(publicDocumentMetadataFilter(), 'broad_first')
-        : domain && domain !== 'general_official_document'
-          ? await search(publicDocumentMetadataFilter(domain), 'narrow_first')
-          : await search(publicDocumentMetadataFilter(), 'broad_first');
-      // A valid broad-first result is complete enough to return immediately.
-      // Only focused domain searches may pay for a second, public fallback.
-      const firstFailure = !first.success
-        ? first as Extract<DocumentSearchOutcome, { success: false }>
-        : null;
-      const broadFallback = strategy === 'narrow_first' && firstFailure
-        && firstFailure.reason !== 'GEMINI_REQUEST_FAILED' && firstFailure.reason !== 'GEMINI_REQUEST_TIMEOUT'
-        ? await search(publicDocumentMetadataFilter(), 'broad_fallback')
-        : null;
-      const grounded = first.success ? first : broadFallback?.success ? broadFallback : null;
-      if (grounded) {
-        const { result, documentSources } = grounded;
-        // Current FileCitation annotations expose identifiers and byte spans but
-        // not a guaranteed retrieved passage. When exactly one D1-authorized
-        // document grounds the answer, parse an explicit locator from that
-        // grounded answer only; never infer from title, filename, or page.
-        const replyLocators = documentSources.length === 1 && !(documentSources[0]?.locators?.length)
-          ? extractOfficialDocumentLocators(result.reply)
-          : [];
-        const replyApplicability = documentSources.length === 1 && !(documentSources[0]?.applicability?.length)
-          ? extractOfficialDocumentApplicability(result.reply)
-          : [];
-        const sourcesWithGrounding = documentSources.map((document) => {
-          const locators = mergeGroundedLocators(document.locators, replyLocators);
-          const applicability = mergeGroundedApplicability(document.applicability, replyApplicability);
-          return {
-            ...document,
-            ...(locators.length ? { locators } : {}),
-            ...(applicability.length ? { applicability } : {}),
-          };
-        });
-        const answerSources = [...retrieval.sources, ...sourcesWithGrounding.map((document) => ({ type: 'document' as const, title: String(document.title || document.fileName || 'Tài liệu chính thức'), id: document.documentId || undefined }))];
-        if (logId) await patchTurnLog(env, userId, logId, { bot_reply: result.reply, document_sources: sourcesWithGrounding, answer_sources: answerSources, document_search_unavailable: false });
-        return { reply: result.reply, logId, conversationId, documentSources: sourcesWithGrounding, answerSources, documentSearchUnavailable: false };
+      // D1 is the authority for the candidate set. This one bounded query
+      // replaces expensive visibility-only searches over the entire store.
+      const candidates = await selectAdvisorDocumentCandidates(env, retrieval.documentRoute);
+      const candidateFilter = buildDocumentCandidateMetadataFilter(candidates.map((candidate) => candidate.id));
+      if (!candidateFilter) {
+        logFileSearchDiagnostic('D1_CITATION_NOT_FOUND', retrieval.documentRoute, 'candidate_ids', 'document_ids', 0, 0, 0, 0);
+        documentSearchUnavailable = true;
+      } else {
+        const first = await search(candidateFilter, 'candidate_ids', 'document_ids', candidates.length);
+        const firstFailure = !first.success
+          ? first as Extract<DocumentSearchOutcome, { success: false }>
+          : null;
+        // A broad search is strictly a short, secondary recovery path for a
+        // candidate result without usable citations. A timeout never starts a
+        // second full-store request and cannot exceed the total turn budget.
+        const broadFallback = firstFailure
+          && firstFailure.reason !== 'GEMINI_REQUEST_FAILED'
+          && firstFailure.reason !== 'GEMINI_REQUEST_TIMEOUT'
+          ? await search(publicDocumentMetadataFilter(), 'visibility_fallback', 'visibility_fallback', candidates.length)
+          : null;
+        const grounded = first.success ? first : broadFallback?.success ? broadFallback : null;
+        if (grounded) {
+          const { result, documentSources } = grounded;
+          // Current FileCitation annotations expose identifiers and byte spans but
+          // not a guaranteed retrieved passage. When exactly one D1-authorized
+          // document grounds the answer, parse an explicit locator from that
+          // grounded answer only; never infer from title, filename, or page.
+          const replyLocators = documentSources.length === 1 && !(documentSources[0]?.locators?.length)
+            ? extractOfficialDocumentLocators(result.reply)
+            : [];
+          const replyApplicability = documentSources.length === 1 && !(documentSources[0]?.applicability?.length)
+            ? extractOfficialDocumentApplicability(result.reply)
+            : [];
+          const sourcesWithGrounding = documentSources.map((document) => {
+            const locators = mergeGroundedLocators(document.locators, replyLocators);
+            const applicability = mergeGroundedApplicability(document.applicability, replyApplicability);
+            return {
+              ...document,
+              ...(locators.length ? { locators } : {}),
+              ...(applicability.length ? { applicability } : {}),
+            };
+          });
+          const answerSources = [...retrieval.sources, ...sourcesWithGrounding.map((document) => ({ type: 'document' as const, title: String(document.title || document.fileName || 'Tài liệu chính thức'), id: document.documentId || undefined }))];
+          if (logId) await patchTurnLog(env, userId, logId, { bot_reply: result.reply, document_sources: sourcesWithGrounding, answer_sources: answerSources, document_search_unavailable: false });
+          return { reply: result.reply, logId, conversationId, documentSources: sourcesWithGrounding, answerSources, documentSearchUnavailable: false };
+        }
+        documentSearchUnavailable = true;
       }
-      documentSearchUnavailable = true;
     }
   }
   if (documentIntent) {
