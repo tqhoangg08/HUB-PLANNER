@@ -5,8 +5,10 @@ import {
 } from './better-auth-identity.ts';
 import {
   answerWithGeminiFileSearch,
+  GeminiFileSearchError,
   geminiFileSearchConfigured,
   publicDocumentMetadataFilter,
+  type GeminiFileSearchFailureReason,
   type GeminiFileSearchEnv,
 } from './gemini-file-search.ts';
 import {
@@ -596,6 +598,17 @@ type DocumentCitationRow = {
   version: number | null;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
+  indexing_status: string;
+  visibility: string;
+};
+
+type DocumentSourceResolution = {
+  sources: ResolvedDocumentSource[];
+  reason: Extract<GeminiFileSearchFailureReason,
+    'D1_CITATION_NOT_FOUND' | 'D1_CITATION_NOT_ACTIVE' | 'D1_CITATION_CATEGORY_REJECTED' | 'SUCCESS'>;
+  citationCount: number;
+  resolvedCitationCount: number;
 };
 
 const documentPrecedence = (route: AdvisorDocumentRoute, left: ResolvedDocumentSource, right: ResolvedDocumentSource) => {
@@ -618,22 +631,21 @@ const compatibleDocumentCategory = (route: AdvisorDocumentRoute, category: strin
 };
 
 /** D1, not model output, is the authority for every official citation. */
-export const resolveDocumentSources = async (
+export const resolveDocumentSourcesWithDiagnostics = async (
   env: AiAdvisorEnv,
   sources: Array<Record<string, unknown>>,
   route: AdvisorDocumentRoute,
-): Promise<ResolvedDocumentSource[]> => {
+): Promise<DocumentSourceResolution> => {
   const db = requireDb(env);
   const externalIds = [...new Set(sources.map((source) => String(source.documentId || '').trim()).filter(Boolean))].slice(0, 12);
-  if (!externalIds.length) return [];
+  if (!externalIds.length) {
+    return { sources: [], reason: 'D1_CITATION_NOT_FOUND', citationCount: sources.length, resolvedCitationCount: 0 };
+  }
   const rows = await db.prepare(
     `SELECT id, title, original_file_name, gemini_document_name, category, academic_year,
-       program_code, version, created_at, updated_at
+       program_code, version, created_at, updated_at, deleted_at, indexing_status, visibility
      FROM ai_documents
-      WHERE deleted_at IS NULL
-        AND indexing_status = 'completed'
-        AND visibility = 'public'
-        AND (id IN (${externalIds.map(() => '?').join(', ')})
+      WHERE (id IN (${externalIds.map(() => '?').join(', ')})
           OR gemini_document_name IN (${externalIds.map(() => '?').join(', ')}))`,
   ).bind(...externalIds, ...externalIds.map((id) => `documents/${id}`)).all<DocumentCitationRow>();
   const byExternalId = new Map<string, DocumentCitationRow>();
@@ -641,9 +653,21 @@ export const resolveDocumentSources = async (
     byExternalId.set(row.id, row);
     if (row.gemini_document_name) byExternalId.set(String(row.gemini_document_name).replace(/^documents\//, ''), row);
   }
-  return sources.flatMap((entry) => {
+  let found = 0;
+  let inactive = 0;
+  let categoryRejected = 0;
+  const resolved = sources.flatMap((entry) => {
     const row = byExternalId.get(String(entry.documentId || '').trim());
-    if (!row || !compatibleDocumentCategory(route, row.category)) return [];
+    if (!row) return [];
+    found += 1;
+    if (row.deleted_at || row.indexing_status !== 'completed' || row.visibility !== 'public') {
+      inactive += 1;
+      return [];
+    }
+    if (!compatibleDocumentCategory(route, row.category)) {
+      categoryRejected += 1;
+      return [];
+    }
     return [{
       documentId: row.id,
       title: row.title,
@@ -658,6 +682,45 @@ export const resolveDocumentSources = async (
       inferredCurrent: true as const,
     }];
   }).sort((left, right) => documentPrecedence(route, left, right));
+  const deduplicated = resolved.filter((item, index, values) => values.findIndex((candidate) => candidate.documentId === item.documentId && candidate.pageNumber === item.pageNumber) === index);
+  const reason: DocumentSourceResolution['reason'] = deduplicated.length
+    ? 'SUCCESS'
+    : categoryRejected > 0
+      ? 'D1_CITATION_CATEGORY_REJECTED'
+      : inactive > 0
+        ? 'D1_CITATION_NOT_ACTIVE'
+        : found > 0
+          ? 'D1_CITATION_NOT_ACTIVE'
+          : 'D1_CITATION_NOT_FOUND';
+  return { sources: deduplicated, reason, citationCount: sources.length, resolvedCitationCount: deduplicated.length };
+};
+
+/** Compatibility helper for focused D1 authority tests and other callers. */
+export const resolveDocumentSources = async (
+  env: AiAdvisorEnv,
+  sources: Array<Record<string, unknown>>,
+  route: AdvisorDocumentRoute,
+) => (await resolveDocumentSourcesWithDiagnostics(env, sources, route)).sources;
+
+const logFileSearchDiagnostic = (
+  reason: GeminiFileSearchFailureReason,
+  route: AdvisorDocumentRoute,
+  narrowed: boolean,
+  citationCount: number,
+  resolvedCitationCount: number,
+  extra: { errorName?: string; status?: number; model?: string } = {},
+) => {
+  // Deliberately omit the question, document ID/name, store, keys, raw SDK
+  // response, and errors. This is enough to locate the failed stage safely.
+  console.warn(JSON.stringify({
+    component: 'ai-file-search',
+    reason,
+    domain: route.domain || 'general_official_document',
+    narrowed,
+    citationCount,
+    resolvedCitationCount,
+    ...extra,
+  }));
 };
 
 const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: string) => {
@@ -692,34 +755,62 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
       : []),
   ].join('\n');
   let documentSearchUnavailable = false;
-  if (documentIntent && geminiFileSearchConfigured(env)) {
-    try {
-      const search = async (metadataFilter: string) => {
+  if (documentIntent) {
+    if (!geminiFileSearchConfigured(env)) {
+      logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, false, 0, 0);
+      documentSearchUnavailable = true;
+    } else {
+      type DocumentSearchOutcome =
+        | { success: true; result: NonNullable<Awaited<ReturnType<typeof answerWithGeminiFileSearch>>>; documentSources: ResolvedDocumentSource[] }
+        | { success: false; reason: GeminiFileSearchFailureReason };
+      const search = async (metadataFilter: string, narrowed: boolean): Promise<DocumentSearchOutcome> => {
         const answer = env.fileSearchAnswer || answerWithGeminiFileSearch;
-        const result = await answer(env, system, safeHistory(body.history), question, { metadataFilter });
-        if (!result) return null;
-        const documentSources = await resolveDocumentSources(
-          env,
-          result.documentSources as unknown as Array<Record<string, unknown>>,
-          retrieval.documentRoute,
-        );
-        return documentSources.length ? { result, documentSources } : null;
+        try {
+          const result = await answer(env, system, safeHistory(body.history), question, { metadataFilter });
+          if (!result) {
+            logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, narrowed, 0, 0);
+            return { success: false, reason: 'CONFIG_DISABLED' };
+          }
+          const citations = Array.isArray(result.documentSources)
+            ? result.documentSources as unknown as Array<Record<string, unknown>>
+            : [];
+          if (!citations.length) {
+            logFileSearchDiagnostic('GEMINI_NO_FILE_CITATION', retrieval.documentRoute, narrowed, 0, 0);
+            return { success: false, reason: 'GEMINI_NO_FILE_CITATION' };
+          }
+          const resolution = await resolveDocumentSourcesWithDiagnostics(env, citations, retrieval.documentRoute);
+          if (!resolution.sources.length) {
+            logFileSearchDiagnostic(resolution.reason, retrieval.documentRoute, narrowed, resolution.citationCount, resolution.resolvedCitationCount);
+            return { success: false, reason: resolution.reason };
+          }
+          return { success: true, result, documentSources: resolution.sources };
+        } catch (error) {
+          const fileSearchError = error instanceof GeminiFileSearchError ? error : null;
+          const reason = fileSearchError?.reason || 'GEMINI_REQUEST_FAILED';
+          logFileSearchDiagnostic(reason, retrieval.documentRoute, narrowed, 0, 0, fileSearchError?.diagnostics);
+          return { success: false, reason };
+        }
       };
       const domain = retrieval.documentRoute.domain;
       const narrowed = domain && domain !== 'general_official_document'
-        ? await search(publicDocumentMetadataFilter(domain))
+        ? await search(publicDocumentMetadataFilter(domain), true)
         : null;
-      // Legacy documents can have missing or non-standardized categories. A
-      // second, still-public search preserves recall without bypassing D1.
-      const grounded = narrowed || await search(publicDocumentMetadataFilter());
+      // A metadata/category miss must not exclude legacy documents. An actual
+      // Gemini transport/API failure is fundamentally unavailable, so a broad
+      // retry would not provide a meaningful recovery path.
+      let shouldSearchBroadly = true;
+      if (narrowed?.success === true) shouldSearchBroadly = false;
+      else if (narrowed) shouldSearchBroadly = (narrowed as Extract<DocumentSearchOutcome, { success: false }>).reason !== 'GEMINI_REQUEST_FAILED';
+      const broad = shouldSearchBroadly
+        ? await search(publicDocumentMetadataFilter(), false)
+        : null;
+      const grounded = narrowed?.success ? narrowed : broad?.success ? broad : null;
       if (grounded) {
         const { result, documentSources } = grounded;
         const answerSources = [...retrieval.sources, ...documentSources.map((document) => ({ type: 'document' as const, title: String(document.title || document.fileName || 'Tài liệu chính thức'), id: document.documentId || undefined }))];
         if (logId) await patchTurnLog(env, userId, logId, { bot_reply: result.reply, document_sources: documentSources, answer_sources: answerSources, document_search_unavailable: false });
         return { reply: result.reply, logId, conversationId, documentSources, answerSources, documentSearchUnavailable: false };
       }
-      documentSearchUnavailable = true;
-    } catch {
       documentSearchUnavailable = true;
     }
   }

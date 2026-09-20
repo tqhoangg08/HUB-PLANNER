@@ -8,10 +8,12 @@ import {
   extractSearchTerms,
   handleAiAdvisor,
   resolveDocumentSources,
+  resolveDocumentSourcesWithDiagnostics,
   retrieveAdvisorContext,
   routeAdvisorDocuments,
   shouldUseDocumentSearch,
 } from '../cloudflare/worker/src/ai-advisor.ts';
+import { extractGeminiDocumentSources, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
 
 const USER = '11111111-1111-4111-8111-111111111111';
 const DOCUMENT_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -145,6 +147,47 @@ test('deleted, non-completed and non-public Gemini citations are rejected by D1'
   } finally { fixture.sql.close(); }
 });
 
+test('D1 citation resolution classifies unknown, inactive, and category-incompatible citations without writes', async () => {
+  const fixture = makeDatabase();
+  try {
+    const inactive = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const unrelated = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    insertOfficialDocument(fixture, { id: inactive, title: 'Đã xóa', deletedAt: '2026-09-20T00:00:00.000Z' });
+    insertOfficialDocument(fixture, { id: unrelated, title: 'Học phí', category: 'tuition' });
+    const route = routeAdvisorDocuments('Quy đổi điểm ở HUB');
+    const notFound = await resolveDocumentSourcesWithDiagnostics(env(fixture.DB), [
+      { documentId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', fileName: 'missing.pdf' },
+    ], route);
+    const notActive = await resolveDocumentSourcesWithDiagnostics(env(fixture.DB), [
+      { documentId: inactive, fileName: 'deleted.pdf' },
+    ], route);
+    const categoryRejected = await resolveDocumentSourcesWithDiagnostics(env(fixture.DB), [
+      { documentId: unrelated, fileName: 'tuition.pdf' },
+    ], route);
+    assert.equal(notFound.reason, 'D1_CITATION_NOT_FOUND');
+    assert.equal(notActive.reason, 'D1_CITATION_NOT_ACTIVE');
+    assert.equal(categoryRejected.reason, 'D1_CITATION_CATEGORY_REJECTED');
+    assert.equal(fixture.queries.some((query) => /^\s*(INSERT|UPDATE|DELETE)\b/i.test(query)), false);
+  } finally { fixture.sql.close(); }
+});
+
+test('camelCase Gemini citations are extracted then resolved through the same bounded D1 authority lookup', async () => {
+  const fixture = makeDatabase();
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const citations = extractGeminiDocumentSources({ modelOutput: { content: [{ type: 'text', annotations: [{
+      type: 'file_citation', fileName: 'ignored-by-D1.pdf', pageNumber: 18,
+      customMetadata: { document_id: DOCUMENT_A },
+    }] }] } });
+    const resolution = await resolveDocumentSourcesWithDiagnostics(
+      env(fixture.DB), citations as unknown as Array<Record<string, unknown>>, routeAdvisorDocuments('Quy đổi điểm ở HUB'),
+    );
+    assert.equal(resolution.reason, 'SUCCESS');
+    assert.deepEqual(resolution.sources.map((source) => source.documentId), [DOCUMENT_A]);
+    assert.equal(fixture.queries.filter((query) => query.includes('FROM ai_documents')).length, 1);
+  } finally { fixture.sql.close(); }
+});
+
 test('grading policy question is grounded in a D1-validated Gemini citation and never calls Groq', async () => {
   const fixture = makeDatabase();
   const originalFetch = globalThis.fetch;
@@ -236,6 +279,62 @@ test('legacy general-category documents remain reachable through one bounded pub
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
     assert.deepEqual(filters, ['visibility = "public" AND category = "grading"', 'visibility = "public"']);
   } finally { fixture.sql.close(); }
+});
+
+test('a narrowed File Search failure is diagnosed and the broad public fallback still runs', async () => {
+  const fixture = makeDatabase();
+  const previousWarn = console.warn;
+  const warnings: string[] = [];
+  console.warn = (message: unknown) => { warnings.push(String(message)); };
+  const filters: string[] = [];
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'Quy đổi điểm ở HUB như nào?' }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key',
+      GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+        filters.push(String(options.metadataFilter));
+        return filters.length === 1
+          ? { reply: 'Không có citation.', documentSources: [] }
+          : { reply: 'Theo quy chế chính thức.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy-che.pdf' }] };
+      },
+    }) as { reply: string };
+    assert.equal(result.reply, 'Theo quy chế chính thức.');
+    assert.deepEqual(filters, ['visibility = "public" AND category = "grading"', 'visibility = "public"']);
+    assert.equal(warnings.some((warning) => warning.includes('GEMINI_NO_FILE_CITATION')), true);
+  } finally {
+    console.warn = previousWarn;
+    fixture.sql.close();
+  }
+});
+
+test('Gemini request errors are classified server-side and remain safe to the policy user', async () => {
+  const fixture = makeDatabase();
+  const previousWarn = console.warn;
+  const warnings: string[] = [];
+  console.warn = (message: unknown) => { warnings.push(String(message)); };
+  try {
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'Quy đổi điểm ở HUB như nào?' }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key',
+      GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async () => { throw new GeminiFileSearchError('GEMINI_REQUEST_FAILED', { model: 'gemini-3.5-flash-lite', errorName: 'ApiError', status: 503 }); },
+    }) as { reply: string; documentSearchUnavailable: boolean };
+    assert.match(result.reply, /chưa thể xác minh/i);
+    assert.equal(result.documentSearchUnavailable, true);
+    assert.equal(warnings.some((warning) => warning.includes('GEMINI_REQUEST_FAILED')), true);
+    assert.equal(warnings.some((warning) => warning.includes('test-key')), false);
+  } finally {
+    console.warn = previousWarn;
+    fixture.sql.close();
+  }
 });
 
 test('course retrieval is targeted and does not query unrelated event or lost-found tables', async () => {

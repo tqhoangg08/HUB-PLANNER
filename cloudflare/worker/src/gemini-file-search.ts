@@ -15,6 +15,35 @@ export interface GeminiDocumentSource {
   pageNumber: number | null;
 }
 
+/**
+ * Internal-only stage labels. These intentionally contain no request, source,
+ * document-content, credential, or storage-path data.
+ */
+export type GeminiFileSearchFailureReason =
+  | 'CONFIG_DISABLED'
+  | 'GEMINI_REQUEST_FAILED'
+  | 'GEMINI_EMPTY_REPLY'
+  | 'GEMINI_NO_FILE_CITATION'
+  | 'D1_CITATION_NOT_FOUND'
+  | 'D1_CITATION_NOT_ACTIVE'
+  | 'D1_CITATION_CATEGORY_REJECTED'
+  | 'SUCCESS';
+
+export class GeminiFileSearchError extends Error {
+  readonly reason: Extract<GeminiFileSearchFailureReason, 'GEMINI_REQUEST_FAILED' | 'GEMINI_EMPTY_REPLY'>;
+  readonly diagnostics: { model: string; errorName?: string; status?: number };
+
+  constructor(
+    reason: Extract<GeminiFileSearchFailureReason, 'GEMINI_REQUEST_FAILED' | 'GEMINI_EMPTY_REPLY'>,
+    diagnostics: { model: string; errorName?: string; status?: number },
+  ) {
+    super(reason);
+    this.name = 'GeminiFileSearchError';
+    this.reason = reason;
+    this.diagnostics = diagnostics;
+  }
+}
+
 export type GeminiFileSearchOptions = {
   /** A server-selected public-document filter; never derived directly from user input. */
   metadataFilter?: string;
@@ -42,7 +71,7 @@ const walk = (value: unknown, annotations: Record<string, unknown>[]) => {
   }
   const item = record(value);
   if (!item) return;
-  if (item.type === 'file_citation') annotations.push(item);
+  if (item.type === 'file_citation' || item.type === 'fileCitation') annotations.push(item);
   for (const child of Object.values(item)) walk(child, annotations);
 };
 
@@ -51,17 +80,25 @@ export const extractGeminiDocumentSources = (interaction: unknown): GeminiDocume
   walk(interaction, annotations);
   const seen = new Set<string>();
   return annotations.flatMap((item) => {
-    const source = String(item.source || item.document_name || '');
-    const metadata = record(item.custom_metadata);
-    const fileName = String(item.file_name || item.filename || '').trim();
-    const pageNumber = Number(item.page_number || 0) || null;
-    const match = source.match(/\/documents\/([0-9a-f-]{36})(?:$|\/)/i);
-    const metadataDocumentId = String(metadata?.document_id || '').trim();
-    const documentId = /^[0-9a-f-]{36}$/i.test(metadataDocumentId) ? metadataDocumentId : match?.[1] || null;
-    const key = `${source}|${fileName}|${pageNumber || ''}`;
-    if (!fileName || seen.has(key)) return [];
+    // @google/genai's JavaScript objects use camelCase, while stored/mocked
+    // interaction payloads can use the REST API's snake_case. Normalize both
+    // before D1 performs the actual authority check.
+    const source = String(item.documentUri || item.document_uri || item.source || item.documentName || item.document_name || '').trim();
+    const metadata = record(item.customMetadata) || record(item.custom_metadata);
+    const fileName = String(item.fileName || item.file_name || item.filename || '').trim();
+    const pageNumber = Number(item.pageNumber ?? item.page_number ?? 0) || null;
+    const match = source.match(/(?:\/documents\/|\b)([0-9a-f-]{36})(?:$|[\/?#])/i);
+    const documentNameMatch = source.match(/\/documents\/([A-Za-z0-9._-]{1,256})(?:$|[\/?#])/);
+    const metadataDocumentId = String(metadata?.document_id || metadata?.documentId || '').trim();
+    const documentId = /^[0-9a-f-]{36}$/i.test(metadataDocumentId)
+      ? metadataDocumentId
+      : match?.[1] || documentNameMatch?.[1] || null;
+    const key = `${documentId || source}|${fileName}|${pageNumber || ''}`;
+    // A citation with a D1 identifier remains useful even if Gemini omits its
+    // presentation filename: the authoritative D1 row supplies that later.
+    if ((!fileName && !documentId) || seen.has(key)) return [];
     seen.add(key);
-    return [{ documentId, fileName, title: fileName.replace(/\.[^.]+$/, ''), pageNumber }];
+    return [{ documentId, fileName, title: fileName ? fileName.replace(/\.[^.]+$/, '') : null, pageNumber }];
   });
 };
 
@@ -85,6 +122,7 @@ export const buildGeminiInteractionSteps = (
 
 const outputText = (interaction: unknown) => {
   const value = record(interaction);
+  if (typeof value?.outputText === 'string') return value.outputText.trim();
   if (typeof value?.output_text === 'string') return value.output_text.trim();
   const texts: string[] = [];
   const collect = (node: unknown) => {
@@ -107,20 +145,34 @@ export const answerWithGeminiFileSearch = async (
 ) => {
   if (!geminiFileSearchConfigured(env)) return null;
   const ai = new GoogleGenAI({ apiKey: String(env.GEMINI_FILE_SEARCH_API_KEY) });
+  const model = String(env.GEMINI_CHAT_MODEL || 'gemini-3.5-flash-lite');
   const configuredThinking = String(env.GEMINI_THINKING_LEVEL || 'minimal').toLowerCase();
   const thinkingLevel = ['minimal', 'medium', 'high'].includes(configuredThinking) ? configuredThinking : 'minimal';
-  const interaction = await ai.interactions.create({
-    model: String(env.GEMINI_CHAT_MODEL || 'gemini-3.5-flash-lite'),
-    system_instruction: system,
-    input: buildGeminiInteractionSteps(history, question),
-    generation_config: { thinking_level: thinkingLevel },
-    tools: [{
-      type: 'file_search',
-      file_search_store_names: [String(env.GEMINI_FILE_SEARCH_STORE)],
-      metadata_filter: options.metadataFilter || publicDocumentMetadataFilter(),
-    }],
-  } as never);
+  let interaction: unknown;
+  try {
+    interaction = await ai.interactions.create({
+      model,
+      system_instruction: system,
+      input: buildGeminiInteractionSteps(history, question),
+      generation_config: { thinking_level: thinkingLevel },
+      tools: [{
+        type: 'file_search',
+        file_search_store_names: [String(env.GEMINI_FILE_SEARCH_STORE)],
+        metadata_filter: options.metadataFilter || publicDocumentMetadataFilter(),
+      }],
+    } as never);
+  } catch (error) {
+    const candidate = record(error);
+    const response = record(candidate?.response);
+    const statusValue = candidate?.status ?? candidate?.statusCode ?? response?.status;
+    const parsedStatus = Number(statusValue);
+    const status = Number.isInteger(parsedStatus) && parsedStatus >= 100 && parsedStatus <= 599
+      ? parsedStatus
+      : undefined;
+    const errorName = typeof candidate?.name === 'string' ? candidate.name.slice(0, 80) : undefined;
+    throw new GeminiFileSearchError('GEMINI_REQUEST_FAILED', { model, errorName, status });
+  }
   const reply = outputText(interaction);
-  if (!reply) throw new Error('Empty Gemini File Search response');
+  if (!reply) throw new GeminiFileSearchError('GEMINI_EMPTY_REPLY', { model });
   return { reply, documentSources: extractGeminiDocumentSources(interaction) };
 };

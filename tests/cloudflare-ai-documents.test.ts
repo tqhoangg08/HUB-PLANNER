@@ -65,6 +65,24 @@ test('Cloudflare Worker owns AI document routes and keeps admin mutation authori
   assert.match(handler, /request\.formData\(\)/);
 });
 
+test('Gemini JavaScript camelCase file citations normalize to the same safe source shape', () => {
+  const interaction = { modelOutput: { content: [{ type: 'text', text: 'Theo tài liệu.', annotations: [
+    {
+      type: 'file_citation',
+      fileName: 'Quy-che-2026.pdf',
+      documentUri: 'fileSearchStores/x/documents/generated-name',
+      customMetadata: { document_id: '22222222-2222-4222-8222-222222222222' },
+      pageNumber: 18,
+    },
+  ] }] } };
+  assert.deepEqual(extractGeminiDocumentSources(interaction), [{
+    documentId: '22222222-2222-4222-8222-222222222222',
+    fileName: 'Quy-che-2026.pdf',
+    title: 'Quy-che-2026',
+    pageNumber: 18,
+  }]);
+});
+
 test('AI document and chat production runtime is D1/R2 authoritative and Supabase-free', () => {
   const documents = source('cloudflare/worker/src/ai-documents.ts');
   const advisor = source('cloudflare/worker/src/ai-advisor.ts');
