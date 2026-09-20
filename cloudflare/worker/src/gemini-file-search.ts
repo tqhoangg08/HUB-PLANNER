@@ -38,6 +38,7 @@ export interface GeminiDocumentApplicability {
 export type GeminiFileSearchFailureReason =
   | 'CONFIG_DISABLED'
   | 'GEMINI_REQUEST_FAILED'
+  | 'GEMINI_REQUEST_TIMEOUT'
   | 'GEMINI_EMPTY_REPLY'
   | 'GEMINI_NO_FILE_CITATION'
   | 'D1_CITATION_NOT_FOUND'
@@ -46,12 +47,12 @@ export type GeminiFileSearchFailureReason =
   | 'SUCCESS';
 
 export class GeminiFileSearchError extends Error {
-  readonly reason: Extract<GeminiFileSearchFailureReason, 'GEMINI_REQUEST_FAILED' | 'GEMINI_EMPTY_REPLY'>;
-  readonly diagnostics: { model: string; errorName?: string; status?: number };
+  readonly reason: Extract<GeminiFileSearchFailureReason, 'GEMINI_REQUEST_FAILED' | 'GEMINI_REQUEST_TIMEOUT' | 'GEMINI_EMPTY_REPLY'>;
+  readonly diagnostics: { model: string; errorName?: string; status?: number; durationMs?: number };
 
   constructor(
-    reason: Extract<GeminiFileSearchFailureReason, 'GEMINI_REQUEST_FAILED' | 'GEMINI_EMPTY_REPLY'>,
-    diagnostics: { model: string; errorName?: string; status?: number },
+    reason: Extract<GeminiFileSearchFailureReason, 'GEMINI_REQUEST_FAILED' | 'GEMINI_REQUEST_TIMEOUT' | 'GEMINI_EMPTY_REPLY'>,
+    diagnostics: { model: string; errorName?: string; status?: number; durationMs?: number },
   ) {
     super(reason);
     this.name = 'GeminiFileSearchError';
@@ -63,7 +64,11 @@ export class GeminiFileSearchError extends Error {
 export type GeminiFileSearchOptions = {
   /** A server-selected public-document filter; never derived directly from user input. */
   metadataFilter?: string;
+  /** A server-selected per-request bound; never client-controlled. */
+  timeoutMs?: number;
 };
+
+const DEFAULT_FILE_SEARCH_TIMEOUT_MS = 14_000;
 
 const record = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -323,6 +328,10 @@ export const answerWithGeminiFileSearch = async (
   const model = String(env.GEMINI_CHAT_MODEL || 'gemini-3.5-flash-lite');
   const configuredThinking = String(env.GEMINI_THINKING_LEVEL || 'minimal').toLowerCase();
   const thinkingLevel = ['minimal', 'medium', 'high'].includes(configuredThinking) ? configuredThinking : 'minimal';
+  const timeoutMs = Math.max(1_000, Math.min(Number(options.timeoutMs) || DEFAULT_FILE_SEARCH_TIMEOUT_MS, DEFAULT_FILE_SEARCH_TIMEOUT_MS));
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const startedAt = Date.now();
   let interaction: unknown;
   try {
     interaction = await ai.interactions.create({
@@ -335,8 +344,12 @@ export const answerWithGeminiFileSearch = async (
         file_search_store_names: [String(env.GEMINI_FILE_SEARCH_STORE)],
         metadata_filter: options.metadataFilter || publicDocumentMetadataFilter(),
       }],
+    } as never, {
+      abortSignal: controller.signal,
+      httpOptions: { timeout: timeoutMs },
     } as never);
   } catch (error) {
+    const durationMs = Math.max(0, Date.now() - startedAt);
     const candidate = record(error);
     const response = record(candidate?.response);
     const statusValue = candidate?.status ?? candidate?.statusCode ?? response?.status;
@@ -345,7 +358,12 @@ export const answerWithGeminiFileSearch = async (
       ? parsedStatus
       : undefined;
     const errorName = typeof candidate?.name === 'string' ? candidate.name.slice(0, 80) : undefined;
-    throw new GeminiFileSearchError('GEMINI_REQUEST_FAILED', { model, errorName, status });
+    const timedOut = controller.signal.aborted || errorName === 'AbortError' || durationMs >= timeoutMs;
+    throw new GeminiFileSearchError(timedOut ? 'GEMINI_REQUEST_TIMEOUT' : 'GEMINI_REQUEST_FAILED', {
+      model, errorName, status, durationMs,
+    });
+  } finally {
+    clearTimeout(timeout);
   }
   const reply = outputText(interaction);
   if (!reply) throw new GeminiFileSearchError('GEMINI_EMPTY_REPLY', { model });

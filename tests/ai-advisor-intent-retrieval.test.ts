@@ -12,8 +12,10 @@ import {
   resolveDocumentSourcesWithDiagnostics,
   retrieveAdvisorContext,
   routeAdvisorDocuments,
+  selectDocumentSearchStrategy,
   sourceCoversRequestedScope,
   shouldUseDocumentSearch,
+  withFileSearchDeadline,
 } from '../cloudflare/worker/src/ai-advisor.ts';
 import { extractGeminiDocumentSources, extractOfficialDocumentApplicability, extractOfficialDocumentLocators, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
 import { normalizeAiDocumentCategory } from '../shared/ai-document-categories.ts';
@@ -126,6 +128,20 @@ test('policy scope keeps academic year distinct from intake/cohort year', () => 
   assert.deepEqual(extractAdvisorPolicyScope('Cẩm nang sinh viên năm học 2025-2026'), {
     academicYear: '2025-2026', cohortYear: null, fromCohortYear: null,
   });
+});
+
+test('document search strategy is broad-first for coverage or scope and narrow-first for focused policy questions', () => {
+  assert.equal(selectDocumentSearchStrategy(routeAdvisorDocuments('quy đổi điểm ở HUB như nào?')), 'broad_first');
+  assert.equal(selectDocumentSearchStrategy(routeAdvisorDocuments('2027 thì sao?', [{ role: 'user', content: 'quy đổi điểm ở HUB như nào?' }])), 'broad_first');
+  assert.equal(selectDocumentSearchStrategy(routeAdvisorDocuments('điểm F ở HUB là gì?')), 'narrow_first');
+  assert.equal(selectDocumentSearchStrategy(routeAdvisorDocuments('học bổng tài năng là gì?')), 'narrow_first');
+});
+
+test('File Search deadline is bounded and classified without waiting indefinitely', async () => {
+  await assert.rejects(
+    withFileSearchDeadline(new Promise<never>(() => undefined), 10, 'test-model'),
+    (error: unknown) => error instanceof GeminiFileSearchError && error.reason === 'GEMINI_REQUEST_TIMEOUT',
+  );
 });
 
 const insertOfficialDocument = (fixture: ReturnType<typeof makeDatabase>, input: {
@@ -348,7 +364,7 @@ test('grading policy question is grounded in a D1-validated Gemini citation and 
     assert.deepEqual(result.documentSources[0]?.locators, ['Điều 21, khoản 2, điểm a']);
     assert.equal(result.answerSources.some((source) => source.type === 'document'), true);
     assert.equal(groqCalls, 0);
-    assert.equal(fileSearchCalls, 2);
+    assert.equal(fileSearchCalls, 1);
     const persisted = fixture.sql.prepare('SELECT document_sources_json FROM ai_chat_logs ORDER BY id DESC LIMIT 1').get() as { document_sources_json: string };
     assert.deepEqual(JSON.parse(persisted.document_sources_json)[0]?.locators, ['Điều 21, khoản 2, điểm a']);
   } finally {
@@ -389,7 +405,7 @@ test('empty or invalid Gemini citations block HUB policy answers without a Groq 
   }
 });
 
-test('coverage-mode grading uses at most two File Search calls and persists grounded applicability per source', async () => {
+test('coverage-mode grading uses one broad File Search call and persists grounded applicability per source', async () => {
   const fixture = makeDatabase();
   const filters: string[] = [];
   try {
@@ -403,34 +419,31 @@ test('coverage-mode grading uses at most two File Search calls and persists grou
       ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
       fileSearchAnswer: async (_env, _system, _history, _question, options) => {
         filters.push(String(options.metadataFilter));
-        return filters.length === 1
-          ? {
-              reply: 'Áp dụng cho khóa tuyển sinh năm 2026.',
-              documentSources: [{ documentId: DOCUMENT_A, fileName: 'quy-che-2026.pdf', applicability: [{ rawLabel: 'Khóa tuyển sinh năm 2026', cohortYear: 2026 }] }],
-            }
-          : {
-              reply: 'Có bảng riêng áp dụng cho khóa tuyển sinh năm 2026 và các khóa tuyển sinh từ năm 2027.',
-              documentSources: [
-                { documentId: DOCUMENT_A, fileName: 'quy-che-2026.pdf', applicability: [{ rawLabel: 'Khóa tuyển sinh năm 2026', cohortYear: 2026 }] },
-                { documentId: DOCUMENT_B, fileName: 'quy-che-2027.pdf', applicability: [{ rawLabel: 'Từ khóa tuyển sinh năm 2027', fromCohortYear: 2027 }] },
-              ],
-            };
+        return {
+          reply: 'Có bảng riêng áp dụng cho khóa tuyển sinh năm 2026 và các khóa tuyển sinh từ năm 2027.',
+          documentSources: [
+            { documentId: DOCUMENT_A, fileName: 'quy-che-2026.pdf', applicability: [{ rawLabel: 'Khóa tuyển sinh năm 2026', cohortYear: 2026 }] },
+            { documentId: DOCUMENT_B, fileName: 'quy-che-2027.pdf', applicability: [{ rawLabel: 'Từ khóa tuyển sinh năm 2027', fromCohortYear: 2027 }] },
+          ],
+        };
       },
     }) as { reply: string; documentSources: Array<{ documentId: string; applicability?: Array<{ cohortYear?: number; fromCohortYear?: number }> }> };
-    assert.equal(filters.length, 2);
-    assert.deepEqual(filters, ['visibility = "public" AND category = "grading"', 'visibility = "public"']);
+    assert.equal(filters.length, 1);
+    assert.deepEqual(filters, ['visibility = "public"']);
     assert.match(result.reply, /2026/);
-    assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A, DOCUMENT_B]);
-    assert.equal(result.documentSources[0]?.applicability?.[0]?.cohortYear, 2026);
-    assert.equal(result.documentSources[1]?.applicability?.[0]?.fromCohortYear, 2027);
+    assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_B, DOCUMENT_A]);
+    assert.equal(result.documentSources[0]?.applicability?.[0]?.fromCohortYear, 2027);
+    assert.equal(result.documentSources[1]?.applicability?.[0]?.cohortYear, 2026);
     const persisted = fixture.sql.prepare('SELECT document_sources_json FROM ai_chat_logs ORDER BY id DESC LIMIT 1').get() as { document_sources_json: string };
-    assert.equal(JSON.parse(persisted.document_sources_json)[1]?.applicability?.[0]?.fromCohortYear, 2027);
+    assert.equal(JSON.parse(persisted.document_sources_json)[0]?.applicability?.[0]?.fromCohortYear, 2027);
   } finally { fixture.sql.close(); }
 });
 
-test('scoped grading follow-up falls back from an uncovered 2026 regulation to a compatible 2025-2026 handbook', async () => {
+test('scoped grading follow-up starts broad and retrieves a compatible 2025-2026 handbook', async () => {
   const fixture = makeDatabase();
   const filters: string[] = [];
+  const policyHistories: Array<Array<{ role: string; content: string }>> = [];
+  const retrievalQueries: string[] = [];
   try {
     insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế 2026', category: 'grading' });
     insertOfficialDocument(fixture, { id: DOCUMENT_B, title: 'Cẩm nang 2025-2026', category: 'student_handbook', academicYear: '2025-2026' });
@@ -441,31 +454,31 @@ test('scoped grading follow-up falls back from an uncovered 2026 regulation to a
     });
     const result = await handleAiAdvisor(request, new URL(request.url), {
       ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
-      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+      fileSearchAnswer: async (_env, _system, historyForSearch, retrievalQuestion, options) => {
         filters.push(String(options.metadataFilter));
-        return filters.length === 1
-          ? {
-              reply: 'Áp dụng cho khóa tuyển sinh năm 2026.',
-              documentSources: [{ documentId: DOCUMENT_A, fileName: 'quy-che-2026.pdf', applicability: [{ cohortYear: 2026, rawLabel: 'Khóa tuyển sinh năm 2026' }] }],
-            }
-          : {
-              reply: 'Cẩm nang Sinh viên năm học 2025-2026 công bố bảng quy đổi điểm.',
-              documentSources: [{ documentId: DOCUMENT_B, fileName: 'cam-nang.pdf', applicability: [{ academicYear: '2025-2026', rawLabel: 'Năm học 2025-2026' }] }],
-            };
+        policyHistories.push(historyForSearch);
+        retrievalQueries.push(retrievalQuestion);
+        return {
+          reply: 'Cẩm nang Sinh viên năm học 2025-2026 công bố bảng quy đổi điểm.',
+          documentSources: [{ documentId: DOCUMENT_B, fileName: 'cam-nang.pdf', applicability: [{ academicYear: '2025-2026', rawLabel: 'Năm học 2025-2026' }] }],
+        };
       },
     }) as { reply: string; documentSources: Array<{ documentId: string; applicability?: Array<{ cohortYear?: number; academicYear?: string; rawLabel: string }> }> };
     const route = routeAdvisorDocuments('còn khóa 2025 thì sao?', history);
     assert.equal(route.domain, 'grading');
     assert.equal(route.scope.cohortYear, 2025);
     assert.equal(sourceCoversRequestedScope({ applicability: [{ cohortYear: 2026, rawLabel: 'Khóa tuyển sinh năm 2026' }], academicYear: null }, route.scope), false);
-    assert.deepEqual(filters, ['visibility = "public" AND category = "grading"', 'visibility = "public"']);
+    assert.deepEqual(filters, ['visibility = "public"']);
+    assert.equal(policyHistories[0]?.every((item) => item.role === 'user'), true);
+    assert.match(String(retrievalQueries[0]), /miền tài liệu chính thức=grading/);
+    assert.match(String(retrievalQueries[0]), /khóa tuyển sinh=2025/);
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_B]);
     assert.match(result.reply, /năm học 2025-2026/i);
     assert.doesNotMatch(result.reply, /khóa tuyển sinh 2025/i);
   } finally { fixture.sql.close(); }
 });
 
-test('a confirmed from-2027 applicability skips the scoped broad fallback', async () => {
+test('a scoped 2027 follow-up uses one broad search and preserves its confirmed range', async () => {
   const fixture = makeDatabase();
   const filters: string[] = [];
   try {
@@ -485,7 +498,7 @@ test('a confirmed from-2027 applicability skips the scoped broad fallback', asyn
         };
       },
     }) as { documentSources: Array<{ documentId: string }> };
-    assert.deepEqual(filters, ['visibility = "public" AND category = "grading"']);
+    assert.deepEqual(filters, ['visibility = "public"']);
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
   } finally { fixture.sql.close(); }
 });
@@ -510,14 +523,14 @@ test('scholarship overview routes to official documents without hardcoded schola
     }) as { reply: string; documentSources: Array<{ documentId: string }> };
     assert.equal(routeAdvisorDocuments('các loại học bổng ở HUB?').domain, 'scholarship');
     assert.equal(routeAdvisorDocuments('các loại học bổng ở HUB?').coverageMode, true);
-    assert.equal(filters.length, 2);
+    assert.equal(filters.length, 1);
     assert.equal(result.reply, groundedReply);
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
     assert.doesNotMatch(workerSource, /Học bổng Ngân hàng|Học bổng Tương hỗ|Học bổng Quốc tế/u);
   } finally { fixture.sql.close(); }
 });
 
-test('legacy general-category documents remain reachable through one bounded public fallback', async () => {
+test('legacy general-category documents remain reachable through one broad-first public search', async () => {
   const fixture = makeDatabase();
   const filters: string[] = [];
   try {
@@ -531,18 +544,16 @@ test('legacy general-category documents remain reachable through one bounded pub
       GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
       fileSearchAnswer: async (_env, _system, _history, _question, options) => {
         filters.push(String(options.metadataFilter));
-        return filters.length === 1
-          ? { reply: 'Không có citation hẹp.', documentSources: [] }
-          : { reply: 'Theo quy chế chính thức.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy chế đào tạo.pdf', title: null, pageNumber: 1 }] };
+        return { reply: 'Theo quy chế chính thức.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy chế đào tạo.pdf', title: null, pageNumber: 1 }] };
       },
     }) as { reply: string; documentSources: Array<{ documentId: string }> };
     assert.equal(result.reply, 'Theo quy chế chính thức.');
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
-    assert.deepEqual(filters, ['visibility = "public" AND category = "grading"', 'visibility = "public"']);
+    assert.deepEqual(filters, ['visibility = "public"']);
   } finally { fixture.sql.close(); }
 });
 
-test('a current legacy Quy chế document is accepted after broad fallback without reindexing', async () => {
+test('a scoped current legacy Quy chế document is accepted by broad-first search without reindexing', async () => {
   const fixture = makeDatabase();
   const filters: string[] = [];
   try {
@@ -556,20 +567,18 @@ test('a current legacy Quy chế document is accepted after broad fallback witho
       GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
       fileSearchAnswer: async (_env, _system, _history, _question, options) => {
         filters.push(String(options.metadataFilter));
-        return filters.length === 1
-          ? { reply: 'Không tìm được category hẹp.', documentSources: [] }
-          : { reply: 'Theo quy chế hiện hành.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy-che.pdf' }] };
+        return { reply: 'Theo quy chế hiện hành.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy-che.pdf' }] };
       },
     }) as { reply: string; documentSources: Array<{ documentId: string; category: string }> };
     assert.equal(result.reply, 'Theo quy chế hiện hành.');
-    assert.deepEqual(filters, ['visibility = "public" AND category = "grading"', 'visibility = "public"']);
+    assert.deepEqual(filters, ['visibility = "public"']);
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
     assert.equal(result.documentSources[0]?.category, 'training_regulation');
     assert.equal(fixture.queries.some((query) => /^\s*(INSERT|UPDATE|DELETE)\b/i.test(query) && !/ai_chat_logs/i.test(query)), false);
   } finally { fixture.sql.close(); }
 });
 
-test('a narrowed File Search failure is diagnosed and the broad public fallback still runs', async () => {
+test('a focused narrow File Search miss is diagnosed and the broad public fallback runs', async () => {
   const fixture = makeDatabase();
   const previousWarn = console.warn;
   const warnings: string[] = [];
@@ -579,7 +588,7 @@ test('a narrowed File Search failure is diagnosed and the broad public fallback 
     insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
     const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
       method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: 'Quy đổi điểm ở HUB như nào?' }),
+      body: JSON.stringify({ question: 'điểm F ở HUB là gì?' }),
     });
     const result = await handleAiAdvisor(request, new URL(request.url), {
       ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key',
@@ -623,6 +632,60 @@ test('Gemini request errors are classified server-side and remain safe to the po
     console.warn = previousWarn;
     fixture.sql.close();
   }
+});
+
+test('a timed-out policy File Search returns the safe response without Groq fallback and logs timing safely', async () => {
+  const fixture = makeDatabase();
+  const previousWarn = console.warn;
+  const warnings: string[] = [];
+  const originalFetch = globalThis.fetch;
+  let groqCalls = 0;
+  console.warn = (message: unknown) => { warnings.push(String(message)); };
+  globalThis.fetch = async (input) => {
+    if (String(input).includes('api.groq.com')) groqCalls += 1;
+    throw new Error('No provider fallback expected');
+  };
+  try {
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'điểm F ở HUB là gì?' }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      GROQ_API_KEY: 'test-key', fileSearchTimeoutMs: 10,
+      fileSearchAnswer: async () => new Promise<never>(() => undefined),
+    }) as { reply: string; documentSearchUnavailable: boolean };
+    assert.match(result.reply, /chưa thể xác minh/i);
+    assert.equal(result.documentSearchUnavailable, true);
+    assert.equal(groqCalls, 0);
+    assert.equal(warnings.some((warning) => warning.includes('GEMINI_REQUEST_TIMEOUT') && warning.includes('durationMs') && warning.includes('narrow_first')), true);
+    assert.equal(warnings.some((warning) => warning.includes('test-key')), false);
+  } finally {
+    console.warn = previousWarn;
+    globalThis.fetch = originalFetch;
+    fixture.sql.close();
+  }
+});
+
+test('a focused valid narrow result returns immediately without optional fallback work', async () => {
+  const fixture = makeDatabase();
+  const filters: string[] = [];
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'điểm F ở HUB là gì?' }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+        filters.push(String(options.metadataFilter));
+        return { reply: 'Theo quy chế chính thức.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'quy-che.pdf' }] };
+      },
+    }) as { reply: string };
+    assert.equal(result.reply, 'Theo quy chế chính thức.');
+    assert.deepEqual(filters, ['visibility = "public" AND category = "grading"']);
+  } finally { fixture.sql.close(); }
 });
 
 test('course retrieval is targeted and does not query unrelated event or lost-found tables', async () => {

@@ -31,6 +31,8 @@ export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiFileSearchEnv
   GROQ_MODEL?: string;
   /** Dependency seam for deterministic Worker tests; production leaves this unset. */
   fileSearchAnswer?: typeof answerWithGeminiFileSearch;
+  /** Dependency seam for deterministic Worker timeout tests; never configured in production. */
+  fileSearchTimeoutMs?: number;
 }
 
 export class AiAdvisorError extends Error {
@@ -39,6 +41,8 @@ export class AiAdvisorError extends Error {
 }
 
 const MAX_BODY_BYTES = 48 * 1024;
+const FILE_SEARCH_TOTAL_BUDGET_MS = 20_000;
+const FILE_SEARCH_ATTEMPT_TIMEOUT_MS = 14_000;
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const SAFE_TECH_REPLY = 'Mình không thể chia sẻ thông tin kỹ thuật hoặc bảo mật nội bộ của website. HUB Planner được xây dựng để hỗ trợ sinh viên quản lý học tập, theo dõi GPA, lịch học, thông báo, sự kiện và các tiện ích sinh viên thuận tiện hơn.';
 const UNVERIFIED_HUB_REPLY = 'Mình chưa thể xác minh thông tin hiện hành của HUB Planner hoặc BUH từ nguồn chính thức. Bạn có thể hỏi rõ hơn hoặc kiểm tra thông báo/tài liệu chính thức mới nhất.';
@@ -81,6 +85,8 @@ export type AdvisorPolicyScope = {
   cohortYear: number | null;
   fromCohortYear: number | null;
 };
+
+export type DocumentSearchStrategy = 'broad_first' | 'narrow_first';
 
 export type AdvisorSource = {
   type: 'document' | 'course' | 'announcement' | 'event' | 'lost_found' | 'student_schedule' | 'student_academic';
@@ -161,10 +167,12 @@ const academicYearFromQuestion = (question: string) =>
 const documentDomainForText = (text: string) =>
   POLICY_DOMAIN_CUES.find(([, cues]) => matches(text, cues))?.[0] || null;
 
-const recentUserQuestions = (history: unknown) => safeHistory(history)
-  .filter((entry) => entry.role === 'user')
-  .slice(-3)
-  .map((entry) => entry.content);
+const recentUserQuestions = (history: unknown) => Array.isArray(history) ? history.slice(-8).flatMap((entry) => {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
+  const row = entry as Record<string, unknown>;
+  const content = row.role === 'user' ? String(row.content || '').trim().slice(0, 1000) : '';
+  return content ? [content] : [];
+}).slice(-3) : [];
 
 const isEllipticalDocumentFollowup = (text: string) => text.length <= 100 && (
   /(?:^|\s)(?:còn|vậy|thế|sao|nữa|khóa|khoá|k20\d{2}|tuyển sinh|từ năm|20\d{2})(?:\s|$)/iu.test(text)
@@ -199,6 +207,44 @@ const isCoverageQuestion = (text: string, domain: AdvisorDocumentDomain | null, 
   if (domain === 'scholarship') return matches(text, ['các loại học bổng', 'học bổng gì', 'có học bổng nào', 'các học bổng']);
   if (domain === 'graduation') return matches(text, ['điều kiện tốt nghiệp', 'xét tốt nghiệp']);
   return matches(text, ['quy chế', 'quy định', 'hướng dẫn']);
+};
+
+export const hasExplicitAdvisorPolicyScope = (scope: AdvisorPolicyScope) => Boolean(
+  scope.cohortYear || scope.fromCohortYear || scope.academicYear,
+);
+
+/** Coverage and scoped policy questions need cross-category evidence first. */
+export const selectDocumentSearchStrategy = (route: AdvisorDocumentRoute): DocumentSearchStrategy => {
+  if (route.coverageMode || hasExplicitAdvisorPolicyScope(route.scope)) return 'broad_first';
+  if (!route.domain || route.domain === 'general_official_document') return 'broad_first';
+  return 'narrow_first';
+};
+
+/**
+ * Keeps the original question intact for storage while making an elliptical
+ * policy follow-up searchable without inventing policy facts or filenames.
+ */
+export const buildResolvedDocumentRetrievalQuestion = (question: string, route: AdvisorDocumentRoute) => {
+  const qualifiers = [
+    `miền tài liệu chính thức=${route.domain || 'general_official_document'}`,
+    route.scope.cohortYear ? `khóa tuyển sinh=${route.scope.cohortYear}` : '',
+    route.scope.fromCohortYear ? `từ khóa tuyển sinh=${route.scope.fromCohortYear}` : '',
+    route.scope.academicYear ? `năm học=${route.scope.academicYear}` : '',
+  ].filter(Boolean);
+  return qualifiers.length ? `${question.trim()}\n[${qualifiers.join('; ')}]` : question.trim();
+};
+
+/** Bounds both production SDK calls and deterministic test seams. */
+export const withFileSearchDeadline = async <T>(operation: Promise<T>, timeoutMs: number, model: string): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new GeminiFileSearchError('GEMINI_REQUEST_TIMEOUT', { model, durationMs: timeoutMs })), timeoutMs);
+    });
+    return await Promise.race([operation, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 };
 
 /**
@@ -855,10 +901,11 @@ export const resolveDocumentSources = async (
 const logFileSearchDiagnostic = (
   reason: GeminiFileSearchFailureReason,
   route: AdvisorDocumentRoute,
-  narrowed: boolean,
+  strategy: 'broad_first' | 'narrow_first' | 'broad_fallback',
+  durationMs: number,
   citationCount: number,
   resolvedCitationCount: number,
-  extra: { errorName?: string; status?: number; model?: string } = {},
+  extra: { errorName?: string; status?: number; model?: string; durationMs?: number } = {},
 ) => {
   // Deliberately omit the question, document ID/name, store, keys, raw SDK
   // response, and errors. This is enough to locate the failed stage safely.
@@ -866,7 +913,8 @@ const logFileSearchDiagnostic = (
     component: 'ai-file-search',
     reason,
     domain: route.domain || 'general_official_document',
-    narrowed,
+    strategy,
+    durationMs: Math.max(0, Math.round(extra.durationMs ?? durationMs)),
     citationCount,
     resolvedCitationCount,
     ...extra,
@@ -916,80 +964,76 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
   let documentSearchUnavailable = false;
   if (documentIntent) {
     if (!geminiFileSearchConfigured(env)) {
-      logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, false, 0, 0);
+      logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, selectDocumentSearchStrategy(retrieval.documentRoute), 0, 0, 0);
       documentSearchUnavailable = true;
     } else {
       type DocumentSearchOutcome =
         | { success: true; result: NonNullable<Awaited<ReturnType<typeof answerWithGeminiFileSearch>>>; documentSources: ResolvedDocumentSource[] }
         | { success: false; reason: GeminiFileSearchFailureReason };
-      const search = async (metadataFilter: string, narrowed: boolean): Promise<DocumentSearchOutcome> => {
+      const policyHistory = recentUserQuestions(body.history).map((content) => ({ role: 'user', content }));
+      const retrievalQuestion = buildResolvedDocumentRetrievalQuestion(question, retrieval.documentRoute);
+      const searchStartedAt = Date.now();
+      const search = async (
+        metadataFilter: string,
+        strategy: 'broad_first' | 'narrow_first' | 'broad_fallback',
+      ): Promise<DocumentSearchOutcome> => {
         const answer = env.fileSearchAnswer || answerWithGeminiFileSearch;
+        const elapsed = Date.now() - searchStartedAt;
+        const configuredTimeout = Number(env.fileSearchTimeoutMs) || FILE_SEARCH_ATTEMPT_TIMEOUT_MS;
+        const timeoutMs = Math.min(Math.max(1, configuredTimeout), FILE_SEARCH_ATTEMPT_TIMEOUT_MS, FILE_SEARCH_TOTAL_BUDGET_MS - elapsed);
+        if (timeoutMs <= 0) {
+          logFileSearchDiagnostic('GEMINI_REQUEST_TIMEOUT', retrieval.documentRoute, strategy, elapsed, 0, 0);
+          return { success: false, reason: 'GEMINI_REQUEST_TIMEOUT' };
+        }
+        const startedAt = Date.now();
         try {
-          const result = await answer(env, system, safeHistory(body.history), question, { metadataFilter });
+          const result = await withFileSearchDeadline(
+            answer(env, system, policyHistory, retrievalQuestion, { metadataFilter, timeoutMs }),
+            timeoutMs,
+            String(env.GEMINI_CHAT_MODEL || 'gemini-3.5-flash-lite'),
+          );
+          const durationMs = Date.now() - startedAt;
           if (!result) {
-            logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, narrowed, 0, 0);
+            logFileSearchDiagnostic('CONFIG_DISABLED', retrieval.documentRoute, strategy, durationMs, 0, 0);
             return { success: false, reason: 'CONFIG_DISABLED' };
           }
           const citations = Array.isArray(result.documentSources)
             ? result.documentSources as unknown as Array<Record<string, unknown>>
             : [];
           if (!citations.length) {
-            logFileSearchDiagnostic('GEMINI_NO_FILE_CITATION', retrieval.documentRoute, narrowed, 0, 0);
+            logFileSearchDiagnostic('GEMINI_NO_FILE_CITATION', retrieval.documentRoute, strategy, durationMs, 0, 0);
             return { success: false, reason: 'GEMINI_NO_FILE_CITATION' };
           }
           const resolution = await resolveDocumentSourcesWithDiagnostics(env, citations, retrieval.documentRoute);
           if (!resolution.sources.length) {
-            logFileSearchDiagnostic(resolution.reason, retrieval.documentRoute, narrowed, resolution.citationCount, resolution.resolvedCitationCount);
+            logFileSearchDiagnostic(resolution.reason, retrieval.documentRoute, strategy, durationMs, resolution.citationCount, resolution.resolvedCitationCount);
             return { success: false, reason: resolution.reason };
           }
           return { success: true, result, documentSources: resolution.sources };
         } catch (error) {
           const fileSearchError = error instanceof GeminiFileSearchError ? error : null;
           const reason = fileSearchError?.reason || 'GEMINI_REQUEST_FAILED';
-          logFileSearchDiagnostic(reason, retrieval.documentRoute, narrowed, 0, 0, fileSearchError?.diagnostics);
+          logFileSearchDiagnostic(reason, retrieval.documentRoute, strategy, Date.now() - startedAt, 0, 0, fileSearchError?.diagnostics);
           return { success: false, reason };
         }
       };
       const domain = retrieval.documentRoute.domain;
-      const narrowed = domain && domain !== 'general_official_document'
-        ? await search(publicDocumentMetadataFilter(domain), true)
+      const strategy = selectDocumentSearchStrategy(retrieval.documentRoute);
+      const first = strategy === 'broad_first'
+        ? await search(publicDocumentMetadataFilter(), 'broad_first')
+        : domain && domain !== 'general_official_document'
+          ? await search(publicDocumentMetadataFilter(domain), 'narrow_first')
+          : await search(publicDocumentMetadataFilter(), 'broad_first');
+      // A valid broad-first result is complete enough to return immediately.
+      // Only focused domain searches may pay for a second, public fallback.
+      const firstFailure = !first.success
+        ? first as Extract<DocumentSearchOutcome, { success: false }>
         : null;
-      // A metadata/category miss must not exclude legacy documents. Coverage
-      // questions intentionally use one broad follow-up search even after a
-      // valid narrowed result so File Search can ground multiple applicable
-      // ranges. This is bounded to two interactions per user turn.
-      let shouldSearchBroadly = true;
-      let narrowedCoversRequestedScope = false;
-      if (narrowed?.success === true) {
-        const explicitScope = retrieval.documentRoute.scope;
-        narrowedCoversRequestedScope = narrowed.documentSources.some((source) => sourceCoversRequestedScope(source, explicitScope));
-        shouldSearchBroadly = retrieval.documentRoute.coverageMode || !narrowedCoversRequestedScope;
-      }
-      else if (narrowed) shouldSearchBroadly = (narrowed as Extract<DocumentSearchOutcome, { success: false }>).reason !== 'GEMINI_REQUEST_FAILED';
-      const broad = shouldSearchBroadly
-        ? await search(publicDocumentMetadataFilter(), false)
+      const broadFallback = strategy === 'narrow_first' && firstFailure
+        && firstFailure.reason !== 'GEMINI_REQUEST_FAILED' && firstFailure.reason !== 'GEMINI_REQUEST_TIMEOUT'
+        ? await search(publicDocumentMetadataFilter(), 'broad_fallback')
         : null;
-      const narrowedSuccess = narrowed?.success ? narrowed : null;
-      const broadSuccess = broad?.success ? broad : null;
-      const hasExplicitScope = Boolean(
-        retrieval.documentRoute.scope.cohortYear
-        || retrieval.documentRoute.scope.fromCohortYear
-        || retrieval.documentRoute.scope.academicYear,
-      );
-      const scopedNarrowMiss = Boolean(narrowedSuccess) && hasExplicitScope && !narrowedCoversRequestedScope;
-      const grounded = retrieval.documentRoute.coverageMode && narrowedSuccess && broadSuccess
-        ? {
-            success: true as const,
-            // The broad interaction receives the same coverage instruction and
-            // is the answer candidate; sources are merged from both searches.
-            result: broadSuccess.result,
-            documentSources: mergeResolvedDocumentSources([...narrowedSuccess.documentSources, ...broadSuccess.documentSources]),
-          }
-        : broadSuccess && (!narrowedSuccess || !narrowedCoversRequestedScope)
-          ? broadSuccess
-          : scopedNarrowMiss
-            ? null
-            : narrowedSuccess || broadSuccess;
+      const grounded = first.success ? first : broadFallback?.success ? broadFallback : null;
       if (grounded) {
         const { result, documentSources } = grounded;
         // Current FileCitation annotations expose identifiers and byte spans but
