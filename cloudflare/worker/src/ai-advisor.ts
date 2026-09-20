@@ -6,6 +6,7 @@ import {
 import {
   answerWithGeminiFileSearch,
   geminiFileSearchConfigured,
+  publicDocumentMetadataFilter,
   type GeminiFileSearchEnv,
 } from './gemini-file-search.ts';
 import {
@@ -22,6 +23,8 @@ export interface AiAdvisorEnv extends BetterAuthIdentityEnv, GeminiFileSearchEnv
   GROQ_API_KEY_4?: string;
   GROQ_API_KEY_5?: string;
   GROQ_MODEL?: string;
+  /** Dependency seam for deterministic Worker tests; production leaves this unset. */
+  fileSearchAnswer?: typeof answerWithGeminiFileSearch;
 }
 
 export class AiAdvisorError extends Error {
@@ -46,6 +49,24 @@ export type AdvisorIntent =
   | 'regulation_document'
   | 'general';
 
+export type AdvisorDocumentDomain =
+  | 'training_regulation'
+  | 'grading'
+  | 'graduation'
+  | 'course_registration'
+  | 'academic_warning'
+  | 'tuition'
+  | 'scholarship'
+  | 'student_handbook'
+  | 'discipline'
+  | 'general_official_document';
+
+export type AdvisorDocumentRoute = {
+  documentSearch: boolean;
+  domain: AdvisorDocumentDomain | null;
+  academicYear: string | null;
+};
+
 export type AdvisorSource = {
   type: 'document' | 'course' | 'announcement' | 'event' | 'lost_found' | 'student_schedule' | 'student_academic';
   id?: string | number;
@@ -60,6 +81,7 @@ type AdvisorRetrieval = {
   sources: AdvisorSource[];
   needsAuthoritativeSource: boolean;
   missingAuthoritativeIntents: AdvisorIntent[];
+  documentRoute: AdvisorDocumentRoute;
 };
 
 const requireDb = (env: AiAdvisorEnv) => {
@@ -99,6 +121,46 @@ const matches = (question: string, words: string[]) => words.some((word) => ques
 const hasPersonalAcademicCue = (question: string) =>
   matches(question, ['tôi', 'mình', 'của tôi', 'của mình', 'đã tích lũy', 'còn thiếu', 'bảng điểm của']);
 
+const POLICY_DOCUMENT_CUES = [
+  'quy chế', 'quy định', 'văn bản', 'hướng dẫn', 'sổ tay', 'điều lệ',
+];
+
+const POLICY_DOMAIN_CUES: Array<[AdvisorDocumentDomain, string[]]> = [
+  ['grading', [
+    'quy đổi điểm', 'thang điểm', 'điểm chữ', 'hệ 4', 'hệ 10', 'điểm f', 'điểm i', 'điểm r', 'điểm p',
+    'xếp loại học lực', 'xếp loại tốt nghiệp', 'học lại', 'cải thiện điểm',
+  ]],
+  ['graduation', ['điều kiện tốt nghiệp', 'xét tốt nghiệp', 'khóa luận tốt nghiệp', 'thực tập cuối khóa']],
+  ['course_registration', ['đăng ký học phần', 'rút học phần', 'bảo lưu', 'nghỉ học tạm thời', 'học hai chương trình', 'song ngành', 'chuyển ngành', 'chuyển trường']],
+  ['academic_warning', ['cảnh báo học vụ', 'buộc thôi học']],
+  ['tuition', ['học phí']],
+  ['scholarship', ['học bổng']],
+  ['discipline', ['kỷ luật', 'vi phạm']],
+  ['student_handbook', ['sổ tay sinh viên', 'student handbook']],
+  ['training_regulation', ['chương trình đào tạo', 'quy định tín chỉ']],
+];
+
+const academicYearFromQuestion = (question: string) =>
+  normalizedQuestion(question).match(/\b(20\d{2}\s*-\s*20\d{2})\b/u)?.[1]?.replace(/\s+/g, '') || null;
+
+/**
+ * This router picks a policy domain, not a document. Gemini File Search and
+ * document metadata select the actual document, so new official documents do
+ * not require a code change.
+ */
+export const routeAdvisorDocuments = (question: string): AdvisorDocumentRoute => {
+  const text = normalizedQuestion(question);
+  const domain = POLICY_DOMAIN_CUES.find(([, cues]) => matches(text, cues))?.[0] || null;
+  const hasOfficialCue = matches(text, POLICY_DOCUMENT_CUES);
+  const hasInstitutionCue = matches(text, ['hub', 'buh', 'trường mình', 'nhà trường']);
+  const documentSearch = Boolean(domain || hasOfficialCue);
+  return {
+    documentSearch,
+    domain: domain || (hasOfficialCue || hasInstitutionCue ? 'general_official_document' : null),
+    academicYear: academicYearFromQuestion(question),
+  };
+};
+
 export const extractCourseCode = (question: string) => {
   const match = question.match(/(?:^|[^\p{L}\p{N}])([A-Za-z]{2,12}-?\d{2,}[A-Za-z0-9-]*)(?=$|[^\p{L}\p{N}])/u);
   return match?.[1]?.toLocaleLowerCase('vi-VN') || null;
@@ -107,6 +169,7 @@ export const extractCourseCode = (question: string) => {
 export const classifyAdvisorIntents = (question: string): AdvisorIntent[] => {
   const text = normalizedQuestion(question);
   const intents = new Set<AdvisorIntent>();
+  const documentRoute = routeAdvisorDocuments(question);
   const personalAcademic = hasPersonalAcademicCue(text)
     && matches(text, ['gpa', 'điểm', 'học lực', 'môn nợ', 'tín chỉ', 'tốt nghiệp', 'hồ sơ học tập', 'ngành học']);
   if (personalAcademic) intents.add('student_academic');
@@ -115,7 +178,7 @@ export const classifyAdvisorIntents = (question: string): AdvisorIntent[] => {
   if (matches(text, ['thông báo', 'tin trường', 'nhà trường', 'thông báo trường'])) intents.add('school_announcement');
   if (matches(text, ['sự kiện', 'đrl', 'điểm rèn luyện', 'đăng ký sự kiện'])) intents.add('event');
   if (matches(text, ['thất lạc', 'tìm đồ', 'nhặt được', 'đồ rơi', 'lost found'])) intents.add('lost_found');
-  if (matches(text, ['quy chế', 'quy định', 'sổ tay', 'handbook', 'chương trình đào tạo', 'hướng dẫn', 'văn bản', 'điều lệ'])) intents.add('regulation_document');
+  if (documentRoute.documentSearch) intents.add('regulation_document');
   return intents.size ? [...intents] : ['general'];
 };
 
@@ -349,6 +412,7 @@ const retrieveLostFound = async (db: D1Database, question: string) => {
 export const retrieveAdvisorContext = async (env: AiAdvisorEnv, userId: string, question: string): Promise<AdvisorRetrieval> => {
   const db = requireDb(env);
   const intents = classifyAdvisorIntents(question);
+  const documentRoute = routeAdvisorDocuments(question);
   const context: Record<string, unknown> = {};
   const sources: AdvisorSource[] = [];
   const missingAuthoritativeIntents: AdvisorIntent[] = [];
@@ -397,6 +461,7 @@ export const retrieveAdvisorContext = async (env: AiAdvisorEnv, userId: string, 
     sources: sources.slice(0, 24),
     needsAuthoritativeSource: intents.some((intent) => !['general', 'regulation_document'].includes(intent)),
     missingAuthoritativeIntents,
+    documentRoute,
   };
 };
 
@@ -506,25 +571,93 @@ const patchConversation = async (env: AiAdvisorEnv, userId: string, conversation
   ).bind(...assignmentValues, userId, conversationId, ...comparisonValues).run();
 };
 
-const resolveDocumentSources = async (env: AiAdvisorEnv, sources: Array<Record<string, unknown>>) => {
+type ResolvedDocumentSource = {
+  documentId: string;
+  fileName: string;
+  title: string;
+  pageNumber: number | null;
+  category: string | null;
+  academicYear: string | null;
+  programCode: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  inferredCurrent: true;
+};
+
+type DocumentCitationRow = {
+  id: string;
+  title: string;
+  original_file_name: string;
+  gemini_document_name: string | null;
+  category: string | null;
+  academic_year: string | null;
+  program_code: string | null;
+  version: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+const documentPrecedence = (route: AdvisorDocumentRoute, left: ResolvedDocumentSource, right: ResolvedDocumentSource) => {
+  const domain = route.domain || '';
+  const categoryScore = (source: ResolvedDocumentSource) => Number(String(source.category || '').toLowerCase() === domain);
+  const yearScore = (source: ResolvedDocumentSource) => Number(Boolean(route.academicYear) && source.academicYear === route.academicYear);
+  return yearScore(right) - yearScore(left)
+    || categoryScore(right) - categoryScore(left)
+    || right.version - left.version
+    || String(right.updatedAt).localeCompare(String(left.updatedAt))
+    || String(right.createdAt).localeCompare(String(left.createdAt));
+};
+
+const compatibleDocumentCategory = (route: AdvisorDocumentRoute, category: string | null) => {
+  if (!route.domain || route.domain === 'general_official_document') return true;
+  const normalized = String(category || '').trim().toLowerCase();
+  // Legacy documents were often uploaded as general; keep them searchable in
+  // the broad fallback, but never accept an explicitly unrelated category.
+  return !normalized || ['general', 'training_regulation', route.domain].includes(normalized);
+};
+
+/** D1, not model output, is the authority for every official citation. */
+export const resolveDocumentSources = async (
+  env: AiAdvisorEnv,
+  sources: Array<Record<string, unknown>>,
+  route: AdvisorDocumentRoute,
+): Promise<ResolvedDocumentSource[]> => {
   const db = requireDb(env);
   const externalIds = [...new Set(sources.map((source) => String(source.documentId || '').trim()).filter(Boolean))].slice(0, 12);
-  if (!externalIds.length) return sources;
+  if (!externalIds.length) return [];
   const rows = await db.prepare(
-    `SELECT id, title, original_file_name, gemini_document_name FROM ai_documents
+    `SELECT id, title, original_file_name, gemini_document_name, category, academic_year,
+       program_code, version, created_at, updated_at
+     FROM ai_documents
       WHERE deleted_at IS NULL
+        AND indexing_status = 'completed'
+        AND visibility = 'public'
         AND (id IN (${externalIds.map(() => '?').join(', ')})
           OR gemini_document_name IN (${externalIds.map(() => '?').join(', ')}))`,
-  ).bind(...externalIds, ...externalIds.map((id) => `documents/${id}`)).all<{ id: string; title: string; original_file_name: string; gemini_document_name: string | null }>();
-  const byExternalId = new Map<string, { id: string; title: string; original_file_name: string }>();
+  ).bind(...externalIds, ...externalIds.map((id) => `documents/${id}`)).all<DocumentCitationRow>();
+  const byExternalId = new Map<string, DocumentCitationRow>();
   for (const row of rows.results || []) {
     byExternalId.set(row.id, row);
     if (row.gemini_document_name) byExternalId.set(String(row.gemini_document_name).replace(/^documents\//, ''), row);
   }
-  return sources.map((entry) => {
+  return sources.flatMap((entry) => {
     const row = byExternalId.get(String(entry.documentId || '').trim());
-    return row ? { ...entry, documentId: row.id, title: row.title, fileName: row.original_file_name } : entry;
-  });
+    if (!row || !compatibleDocumentCategory(route, row.category)) return [];
+    return [{
+      documentId: row.id,
+      title: row.title,
+      fileName: row.original_file_name,
+      pageNumber: Number(entry.pageNumber || 0) || null,
+      category: row.category || null,
+      academicYear: row.academic_year || null,
+      programCode: String(row.program_code || 'all'),
+      version: Number(row.version || 1),
+      createdAt: String(row.created_at || ''),
+      updatedAt: String(row.updated_at || ''),
+      inferredCurrent: true as const,
+    }];
+  }).sort((left, right) => documentPrecedence(route, left, right));
 };
 
 const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: string) => {
@@ -538,7 +671,7 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
     return { reply: SAFE_TECH_REPLY, logId, conversationId };
   }
   const retrieval = await retrieveAdvisorContext(env, userId, question);
-  const documentIntent = shouldUseDocumentSearch(retrieval.intents);
+  const documentIntent = retrieval.documentRoute.documentSearch;
   if (retrieval.needsAuthoritativeSource && !retrieval.sources.length && !documentIntent) {
     if (logId) await patchTurnLog(env, userId, logId, { bot_reply: EMPTY_AUTHORITATIVE_REPLY, answer_sources: [] });
     return { reply: EMPTY_AUTHORITATIVE_REPLY, logId, conversationId, documentSources: [], answerSources: [], documentSearchUnavailable: false };
@@ -549,6 +682,11 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
     'Ưu tiên nguồn theo thứ tự: dữ liệu riêng hiện tại của sinh viên đã xác thực, dữ liệu D1 hiện hành, tài liệu chính thức đã truy xuất, rồi mới đến kiến thức tổng quát.',
     'Không tự khẳng định thông tin riêng của HUB Planner hoặc BUH khi không có dữ liệu nguồn hiện hành. Nếu nguồn chính thức không đủ, hãy nói rõ không thể xác minh.',
     `Intent đã xác định: ${retrieval.intents.join(', ')}. Dữ liệu mục tiêu từ máy chủ: ${JSON.stringify(retrieval.context).slice(0, 14_000)}`,
+    ...(documentIntent ? [
+      `Câu hỏi cần tài liệu chính thức thuộc miền: ${retrieval.documentRoute.domain || 'general_official_document'}.`,
+      'Chỉ trả lời quy định HUB/BUH dựa trên tài liệu đã truy xuất và được trích dẫn. Không thay bằng kiến thức đại học phổ biến, không tự tạo bảng quy đổi, và nói rõ khi nguồn chưa đủ.',
+      'Khi tài liệu có phạm vi khóa hoặc năm học khác nhau, hãy nêu rõ phạm vi áp dụng; không gộp các phiên bản thành một quy định duy nhất.',
+    ] : []),
     ...(retrieval.missingAuthoritativeIntents.length
       ? [`Không tìm thấy nguồn hiện hành cho các phần: ${retrieval.missingAuthoritativeIntents.join(', ')}. Chỉ trả lời phần có nguồn; không suy đoán hoặc bù thêm dữ kiện cho các phần thiếu nguồn.`]
       : []),
@@ -556,18 +694,36 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
   let documentSearchUnavailable = false;
   if (documentIntent && geminiFileSearchConfigured(env)) {
     try {
-      const result = await answerWithGeminiFileSearch(env, system, safeHistory(body.history), question);
-      if (result) {
-        const documentSources = await resolveDocumentSources(env, result.documentSources as unknown as Array<Record<string, unknown>>);
+      const search = async (metadataFilter: string) => {
+        const answer = env.fileSearchAnswer || answerWithGeminiFileSearch;
+        const result = await answer(env, system, safeHistory(body.history), question, { metadataFilter });
+        if (!result) return null;
+        const documentSources = await resolveDocumentSources(
+          env,
+          result.documentSources as unknown as Array<Record<string, unknown>>,
+          retrieval.documentRoute,
+        );
+        return documentSources.length ? { result, documentSources } : null;
+      };
+      const domain = retrieval.documentRoute.domain;
+      const narrowed = domain && domain !== 'general_official_document'
+        ? await search(publicDocumentMetadataFilter(domain))
+        : null;
+      // Legacy documents can have missing or non-standardized categories. A
+      // second, still-public search preserves recall without bypassing D1.
+      const grounded = narrowed || await search(publicDocumentMetadataFilter());
+      if (grounded) {
+        const { result, documentSources } = grounded;
         const answerSources = [...retrieval.sources, ...documentSources.map((document) => ({ type: 'document' as const, title: String(document.title || document.fileName || 'Tài liệu chính thức'), id: document.documentId || undefined }))];
         if (logId) await patchTurnLog(env, userId, logId, { bot_reply: result.reply, document_sources: documentSources, answer_sources: answerSources, document_search_unavailable: false });
         return { reply: result.reply, logId, conversationId, documentSources, answerSources, documentSearchUnavailable: false };
       }
+      documentSearchUnavailable = true;
     } catch {
       documentSearchUnavailable = true;
     }
   }
-  if (documentIntent && (!geminiFileSearchConfigured(env) || documentSearchUnavailable)) {
+  if (documentIntent) {
     if (logId) await patchTurnLog(env, userId, logId, { bot_reply: UNVERIFIED_HUB_REPLY, answer_sources: retrieval.sources, document_search_unavailable: true });
     return { reply: UNVERIFIED_HUB_REPLY, logId, conversationId, documentSources: [], answerSources: retrieval.sources, documentSearchUnavailable: true };
   }

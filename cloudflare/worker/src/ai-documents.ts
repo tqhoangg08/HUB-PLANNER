@@ -213,6 +213,7 @@ const geminiMetadata = (document: AiDocumentRow) => [
   { key: 'program_code', stringValue: String(document.program_code || 'all') },
   { key: 'category', stringValue: String(document.category || 'general') },
   { key: 'academic_year', stringValue: String(document.academic_year || 'all') },
+  { key: 'version', stringValue: String(document.version || 1) },
   { key: 'source_kind', stringValue: String(document.index_source_kind || 'original') },
 ];
 

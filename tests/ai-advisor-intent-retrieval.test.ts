@@ -7,11 +7,15 @@ import {
   extractCourseCode,
   extractSearchTerms,
   handleAiAdvisor,
+  resolveDocumentSources,
   retrieveAdvisorContext,
+  routeAdvisorDocuments,
   shouldUseDocumentSearch,
 } from '../cloudflare/worker/src/ai-advisor.ts';
 
 const USER = '11111111-1111-4111-8111-111111111111';
+const DOCUMENT_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const DOCUMENT_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 const makeDatabase = () => {
   const sql = new DatabaseSync(':memory:');
@@ -81,6 +85,157 @@ test('intent routing is deterministic and document retrieval is reserved for off
   assert.deepEqual(classifyAdvisorIntents('Sự kiện ĐRL và thông báo trường mới nhất'), ['school_announcement', 'event']);
   assert.equal(shouldUseDocumentSearch(classifyAdvisorIntents('Quy chế tốt nghiệp hiện hành')), true);
   assert.equal(shouldUseDocumentSearch(classifyAdvisorIntents('Lịch học của mình')), false);
+  assert.deepEqual(routeAdvisorDocuments('hi bạn biết quy đổi điểm ở hub như nào không?'), {
+    documentSearch: true, domain: 'grading', academicYear: null,
+  });
+  assert.deepEqual(classifyAdvisorIntents('GPA của tôi 3.5 thì theo quy chế HUB xếp loại học lực gì?'), ['student_academic', 'regulation_document']);
+  assert.equal(routeAdvisorDocuments('Điểm môn này là bao nhiêu?').documentSearch, false);
+});
+
+const insertOfficialDocument = (fixture: ReturnType<typeof makeDatabase>, input: {
+  id: string; title: string; category?: string | null; academicYear?: string | null;
+  version?: number; indexingStatus?: string; visibility?: string; deletedAt?: string | null;
+  updatedAt?: string;
+}) => {
+  const now = input.updatedAt || '2026-09-20T00:00:00.000Z';
+  fixture.sql.prepare(`INSERT INTO ai_documents (
+    id,title,original_file_name,storage_path,mime_type,file_size,content_hash,
+    category,academic_year,program_code,visibility,version,indexing_status,uploaded_by,
+    created_at,updated_at,deleted_at
+  ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    input.id, input.title, `${input.title}.pdf`, `ai-documents/${input.id}.pdf`, 'application/pdf', 100,
+    input.id.replace(/-/g, '').slice(0, 64).padEnd(64, '0'), input.category ?? 'grading', input.academicYear ?? null,
+    'all', input.visibility || 'public', input.version || 1, input.indexingStatus || 'completed', USER,
+    '2026-01-01T00:00:00.000Z', now, input.deletedAt ?? null,
+  );
+};
+
+test('document citations are D1-validated and ordered by applicable academic-year then version', async () => {
+  const fixture = makeDatabase();
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế 2026', academicYear: '2026-2027', version: 1 });
+    insertOfficialDocument(fixture, { id: DOCUMENT_B, title: 'Quy chế 2027', academicYear: '2027-2028', version: 2 });
+    const route = routeAdvisorDocuments('Quy đổi điểm cho năm học 2026-2027');
+    const result = await resolveDocumentSources(env(fixture.DB), [
+      { documentId: DOCUMENT_B, fileName: 'Quy chế 2027.pdf', pageNumber: 3 },
+      { documentId: DOCUMENT_A, fileName: 'Quy chế 2026.pdf', pageNumber: 2 },
+      { documentId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', fileName: 'Không tồn tại.pdf' },
+    ], route);
+    assert.deepEqual(result.map((source) => source.documentId), [DOCUMENT_A, DOCUMENT_B]);
+    assert.equal(result[0]?.title, 'Quy chế 2026');
+    assert.equal(result.every((source) => source.inferredCurrent), true);
+  } finally { fixture.sql.close(); }
+});
+
+test('deleted, non-completed and non-public Gemini citations are rejected by D1', async () => {
+  const fixture = makeDatabase();
+  try {
+    const deleted = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const processing = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    const adminOnly = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    insertOfficialDocument(fixture, { id: deleted, title: 'Đã xóa', deletedAt: '2026-09-20T00:00:00.000Z' });
+    insertOfficialDocument(fixture, { id: processing, title: 'Đang lập chỉ mục', indexingStatus: 'processing' });
+    insertOfficialDocument(fixture, { id: adminOnly, title: 'Nội bộ', visibility: 'admin' });
+    const result = await resolveDocumentSources(env(fixture.DB), [
+      { documentId: deleted, fileName: 'deleted.pdf' },
+      { documentId: processing, fileName: 'processing.pdf' },
+      { documentId: adminOnly, fileName: 'admin.pdf' },
+    ], routeAdvisorDocuments('Quy đổi điểm ở HUB'));
+    assert.deepEqual(result, []);
+  } finally { fixture.sql.close(); }
+});
+
+test('grading policy question is grounded in a D1-validated Gemini citation and never calls Groq', async () => {
+  const fixture = makeDatabase();
+  const originalFetch = globalThis.fetch;
+  let groqCalls = 0;
+  globalThis.fetch = async (input) => {
+    const target = String(input);
+    if (target.includes('api.groq.com')) {
+      groqCalls += 1;
+      return Response.json({ choices: [{ message: { content: 'Không được phép trả lời bằng Groq.' } }] });
+    }
+    throw new Error(`Unexpected provider call: ${target}`);
+  };
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'hi bạn biết quy đổi điểm ở hub như nào không?' }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key',
+      GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test', GROQ_API_KEY: 'test-key',
+      fileSearchAnswer: async () => ({
+        reply: 'Quy đổi điểm được nêu trong quy chế chính thức.',
+        documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy chế đào tạo.pdf', title: 'Quy chế đào tạo', pageNumber: 1 }],
+      }),
+    }) as { reply: string; documentSources: Array<{ documentId: string }>; answerSources: Array<{ type: string }> };
+    assert.equal(result.reply, 'Quy đổi điểm được nêu trong quy chế chính thức.');
+    assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
+    assert.equal(result.answerSources.some((source) => source.type === 'document'), true);
+    assert.equal(groqCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    fixture.sql.close();
+  }
+});
+
+test('empty or invalid Gemini citations block HUB policy answers without a Groq fallback', async () => {
+  const fixture = makeDatabase();
+  const originalFetch = globalThis.fetch;
+  let groqCalls = 0;
+  globalThis.fetch = async (input) => {
+    const target = String(input);
+    if (target.includes('api.groq.com')) {
+      groqCalls += 1;
+      return Response.json({ choices: [{ message: { content: 'Không được dùng.' } }] });
+    }
+    throw new Error(`Unexpected provider call: ${target}`);
+  };
+  try {
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'Quy đổi điểm ở BUH như thế nào?' }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key',
+      GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test', GROQ_API_KEY: 'test-key',
+      fileSearchAnswer: async () => ({ reply: 'HUB dùng hệ điểm 4.', documentSources: [] }),
+    }) as { reply: string; documentSources: unknown[]; answerSources: unknown[] };
+    assert.match(result.reply, /chưa thể xác minh/i);
+    assert.deepEqual(result.documentSources, []);
+    assert.deepEqual(result.answerSources, []);
+    assert.equal(groqCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    fixture.sql.close();
+  }
+});
+
+test('legacy general-category documents remain reachable through one bounded public fallback', async () => {
+  const fixture = makeDatabase();
+  const filters: string[] = [];
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo cũ', category: 'general' });
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'Quy đổi điểm ở HUB như nào?' }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key',
+      GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+        filters.push(String(options.metadataFilter));
+        return filters.length === 1
+          ? { reply: 'Không có citation hẹp.', documentSources: [] }
+          : { reply: 'Theo quy chế chính thức.', documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy chế đào tạo.pdf', title: null, pageNumber: 1 }] };
+      },
+    }) as { reply: string; documentSources: Array<{ documentId: string }> };
+    assert.equal(result.reply, 'Theo quy chế chính thức.');
+    assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
+    assert.deepEqual(filters, ['visibility = "public" AND category = "grading"', 'visibility = "public"']);
+  } finally { fixture.sql.close(); }
 });
 
 test('course retrieval is targeted and does not query unrelated event or lost-found tables', async () => {

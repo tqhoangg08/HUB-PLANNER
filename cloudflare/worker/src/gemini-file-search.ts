@@ -15,6 +15,11 @@ export interface GeminiDocumentSource {
   pageNumber: number | null;
 }
 
+export type GeminiFileSearchOptions = {
+  /** A server-selected public-document filter; never derived directly from user input. */
+  metadataFilter?: string;
+};
+
 const record = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
 
@@ -22,6 +27,13 @@ export const geminiFileSearchConfigured = (env: GeminiFileSearchEnv) =>
   env.GEMINI_FILE_SEARCH_ENABLED === 'true'
   && Boolean(String(env.GEMINI_FILE_SEARCH_API_KEY || '').trim())
   && Boolean(String(env.GEMINI_FILE_SEARCH_STORE || '').trim());
+
+export const publicDocumentMetadataFilter = (category?: string | null) => {
+  const normalizedCategory = String(category || '').trim().toLowerCase();
+  return normalizedCategory && /^[a-z_]{2,64}$/.test(normalizedCategory)
+    ? `visibility = "public" AND category = "${normalizedCategory}"`
+    : 'visibility = "public"';
+};
 
 const walk = (value: unknown, annotations: Record<string, unknown>[]) => {
   if (Array.isArray(value)) {
@@ -91,6 +103,7 @@ export const answerWithGeminiFileSearch = async (
   system: string,
   history: Array<{ role: string; content: string }>,
   question: string,
+  options: GeminiFileSearchOptions = {},
 ) => {
   if (!geminiFileSearchConfigured(env)) return null;
   const ai = new GoogleGenAI({ apiKey: String(env.GEMINI_FILE_SEARCH_API_KEY) });
@@ -104,7 +117,7 @@ export const answerWithGeminiFileSearch = async (
     tools: [{
       type: 'file_search',
       file_search_store_names: [String(env.GEMINI_FILE_SEARCH_STORE)],
-      metadata_filter: 'visibility = "public"',
+      metadata_filter: options.metadataFilter || publicDocumentMetadataFilter(),
     }],
   } as never);
   const reply = outputText(interaction);
