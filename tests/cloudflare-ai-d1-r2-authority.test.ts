@@ -92,8 +92,8 @@ test('AI chat history writes, patches and reloads from owner-scoped D1', async (
   } finally { env.__sql.close(); }
 });
 
-test('R2 document source is owner-authenticated, private and keeps canonical metadata', async () => {
- const env = makeEnv();
+test('R2 document source and file downloads are admin-only, private and keep canonical metadata', async () => {
+ const env = makeEnv(ADMIN, 'admin');
   try {
     const id = '33333333-3333-4333-8333-333333333333';
     const key = `ai-documents/${ADMIN}/${id}-fixture.pdf`;
@@ -108,6 +108,16 @@ test('R2 document source is owner-authenticated, private and keeps canonical met
     assert.equal(fileResponse.status, 200);
     assert.equal(fileResponse.headers.get('cache-control'), 'private, no-store');
     assert.deepEqual(new Uint8Array(await fileResponse.arrayBuffer()), bytes);
+    const studentEnv = makeEnv(USER, 'user');
+    await assert.rejects(
+      () => handleAiDocumentSource(request(`/api/private/v1/ai-document-source/${id}`), id, studentEnv),
+      (error: unknown) => error instanceof AiDocumentsError && error.status === 403,
+    );
+    await assert.rejects(
+      () => handleAiDocumentFile(request(`/api/private/v1/ai-document-file/${id}`), id, studentEnv),
+      (error: unknown) => error instanceof AiDocumentsError && error.status === 403,
+    );
+    studentEnv.__sql.close();
   } finally { env.__sql.close(); }
 });
 

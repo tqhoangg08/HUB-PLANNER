@@ -3,7 +3,6 @@ import { MessageSquare, Sparkles, X, Send, Loader2, ThumbsUp, ThumbsDown, Lock, 
 import { Link } from 'react-router-dom';
 import { playClick } from '../utils/audio';
 import { showConfirm } from '../utils/appNotifications';
-import DOMPurify from 'dompurify';
 import {
   getAiAdvisorConversation,
   listAiAdvisorSessions,
@@ -15,6 +14,7 @@ import {
 import { sanitizeAIReply } from '../utils/aiSafety';
 import { CONSENT_POLICIES, recordPolicyConsent } from '../utils/policyConsent';
 import { AIDocumentSources, type AIDocumentSource } from './AIDocumentSources';
+import { AIMessageContent } from './AIMessageContent';
 
 interface AIAdvisorProps {
   userId?: string;
@@ -449,7 +449,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ userId }) => {
                                         msg.role === 'user' ? 'bg-[#003375] text-white rounded-br-none' : 'bg-gray-50 text-gray-800 border border-gray-100 rounded-bl-none'
                                     }`}>
                                     {msg.role === 'assistant' ? (
-                                        <><div className="prose prose-sm max-w-none prose-p:leading-relaxed" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.content.replace(/\n/g, '<br />').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')) }} /><AIDocumentSources sources={msg.documentSources} unavailable={msg.documentSearchUnavailable} /></>
+                                        <><AIMessageContent content={msg.content} /><AIDocumentSources sources={msg.documentSources} unavailable={msg.documentSearchUnavailable} /></>
                                     ) : ( <p>{msg.content}</p> )}
                                     </div>
                                     {msg.role === 'assistant' && (

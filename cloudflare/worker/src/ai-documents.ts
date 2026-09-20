@@ -349,24 +349,11 @@ export const handleAdminAiDocuments = async (request: Request, url: URL, env: Ai
   throw new AiDocumentsError(405, 'Phương thức không được hỗ trợ.');
 };
 
-const userProgram = async (env: AiDocumentsEnv, userId: string) => {
-  const { db } = requireStorage(env);
-  const profile = await db.prepare('SELECT major_name, program_name, data_json FROM user_profile_private WHERE user_id = ? LIMIT 1')
-    .bind(userId).first<{ major_name?: string | null; program_name?: string | null; data_json?: string | null }>();
-  let data: Record<string, unknown> = {};
-  try { data = JSON.parse(String(profile?.data_json || '{}')) as Record<string, unknown>; } catch { /* Invalid legacy JSON has no authorization value. */ }
-  return String(profile?.major_name || profile?.program_name || data.majorName || data.programName || '').trim().toLowerCase();
-};
-
 const readableDocument = async (request: Request, documentId: string, env: AiDocumentsEnv) => {
   const identity = await requireBetterAuthSession(request, env);
+  if (identity.role !== 'admin') throw new AiDocumentsError(403, 'Chỉ quản trị viên được tải tài liệu nguồn AI.');
   const document = await findAiDocument(env, documentId);
-  if (!document || document.indexing_status !== 'completed' || document.visibility === 'admin') throw new AiDocumentsError(404, 'Không tìm thấy tài liệu.');
-  if (document.visibility === 'program') {
-    const program = await userProgram(env, identity.userId);
-    const allowed = String(document.program_code || '').trim().toLowerCase();
-    if (!program || !allowed || (allowed !== 'all' && allowed !== program)) throw new AiDocumentsError(403, 'Bạn không có quyền xem tài liệu này.');
-  }
+  if (!document || document.indexing_status !== 'completed') throw new AiDocumentsError(404, 'Không tìm thấy tài liệu.');
   return document;
 };
 
