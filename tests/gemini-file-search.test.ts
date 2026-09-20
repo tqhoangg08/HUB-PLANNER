@@ -136,7 +136,7 @@ test('repository no longer hard-codes the retired chat model or old Gemini SDK',
 
 test('Cloudflare AI response and history persist document-source metadata', () => {
   const source=fs.readFileSync('cloudflare/worker/src/ai-advisor.ts','utf8');
-  assert.match(source,/sourcesWithLocators/);
+  assert.match(source,/sourcesWithGrounding/);
   assert.match(source,/documentSearchUnavailable/);
   assert.match(source,/document_sources:\s*(?:result\.documentSources|\[\])/);
 });

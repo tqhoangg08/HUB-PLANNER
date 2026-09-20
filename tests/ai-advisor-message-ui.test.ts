@@ -28,6 +28,27 @@ test('student sources are read-only labels and never render page numbers or down
   assert.match(component, /formatLocator/);
 });
 
+test('student-facing source UI preserves grounded applicability without exposing pages or downloads', () => {
+  const sources = deduplicateAiDocumentSources([
+    {
+      documentId: 'a', title: 'Quy chế đào tạo',
+      applicability: [{ cohortYear: 2026, rawLabel: 'Khóa tuyển sinh năm 2026' }],
+    },
+    {
+      documentId: 'a', title: 'Quy chế đào tạo',
+      applicability: [{ fromCohortYear: 2027, rawLabel: 'Từ khóa tuyển sinh năm 2027' }],
+    },
+  ]);
+  assert.equal(sources.length, 1);
+  assert.deepEqual(sources[0]?.applicability?.map((item) => item.rawLabel), [
+    'Khóa tuyển sinh năm 2026', 'Từ khóa tuyển sinh năm 2027',
+  ]);
+  const component = source('components/AIDocumentSources.tsx');
+  assert.match(component, /Áp dụng:/);
+  assert.match(component, /source\.applicability/);
+  assert.doesNotMatch(component, /pageNumber|window\.open|<button/);
+});
+
 test('desktop and mobile advisor share safe GFM Markdown rendering', () => {
   const renderer = source('components/AIMessageContent.tsx');
   const desktop = source('components/AIAdvisor.tsx');

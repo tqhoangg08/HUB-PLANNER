@@ -44,6 +44,11 @@ export const AIDocumentSources: React.FC<{
                       {formatLocator(locator)}
                     </p>
                   ))}
+                  {source.applicability?.slice(0, 3).map((scope, scopeIndex) => (
+                    <p key={`${scope.rawLabel}-${scopeIndex}`} className="mt-0.5 text-[10px] font-normal text-slate-500">
+                      Áp dụng: {scope.rawLabel}
+                    </p>
+                  ))}
                 </div>
               </div>
             ))}

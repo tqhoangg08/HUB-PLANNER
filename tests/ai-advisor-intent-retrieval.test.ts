@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   classifyAdvisorIntents,
   extractCourseCode,
+  extractAdvisorPolicyScope,
   extractSearchTerms,
   handleAiAdvisor,
   resolveDocumentSources,
@@ -13,7 +14,7 @@ import {
   routeAdvisorDocuments,
   shouldUseDocumentSearch,
 } from '../cloudflare/worker/src/ai-advisor.ts';
-import { extractGeminiDocumentSources, extractOfficialDocumentLocators, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
+import { extractGeminiDocumentSources, extractOfficialDocumentApplicability, extractOfficialDocumentLocators, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
 import { normalizeAiDocumentCategory } from '../shared/ai-document-categories.ts';
 
 const USER = '11111111-1111-4111-8111-111111111111';
@@ -89,10 +90,41 @@ test('intent routing is deterministic and document retrieval is reserved for off
   assert.equal(shouldUseDocumentSearch(classifyAdvisorIntents('Quy chế tốt nghiệp hiện hành')), true);
   assert.equal(shouldUseDocumentSearch(classifyAdvisorIntents('Lịch học của mình')), false);
   assert.deepEqual(routeAdvisorDocuments('hi bạn biết quy đổi điểm ở hub như nào không?'), {
-    documentSearch: true, domain: 'grading', academicYear: null,
+    documentSearch: true,
+    domain: 'grading',
+    scope: { academicYear: null, cohortYear: null, fromCohortYear: null },
+    coverageMode: true,
+    academicYear: null,
   });
   assert.deepEqual(classifyAdvisorIntents('GPA của tôi 3.5 thì theo quy chế HUB xếp loại học lực gì?'), ['student_academic', 'regulation_document']);
   assert.equal(routeAdvisorDocuments('Điểm môn này là bao nhiêu?').documentSearch, false);
+});
+
+test('document routing carries only bounded prior user context for short policy follow-ups', () => {
+  const history = [
+    { role: 'user', content: 'quy đổi điểm thang 4 HUB như nào?' },
+    { role: 'assistant', content: 'Một câu trả lời không phải authority.' },
+  ];
+  const followup2025 = routeAdvisorDocuments('còn khóa 2025 thì sao?', history);
+  const followup2027 = routeAdvisorDocuments('2027 thì sao?', [...history, { role: 'user', content: 'còn khóa 2025 thì sao?' }]);
+  assert.equal(followup2025.documentSearch, true);
+  assert.equal(followup2025.domain, 'grading');
+  assert.equal(followup2025.scope.cohortYear, 2025);
+  assert.equal(followup2027.documentSearch, true);
+  assert.equal(followup2027.domain, 'grading');
+  assert.equal(followup2027.scope.cohortYear, 2027);
+});
+
+test('policy scope keeps academic year distinct from intake/cohort year', () => {
+  assert.deepEqual(extractAdvisorPolicyScope('khóa tuyển sinh năm 2026'), {
+    academicYear: null, cohortYear: 2026, fromCohortYear: null,
+  });
+  assert.deepEqual(extractAdvisorPolicyScope('từ khóa 2027'), {
+    academicYear: null, cohortYear: null, fromCohortYear: 2027,
+  });
+  assert.deepEqual(extractAdvisorPolicyScope('Cẩm nang sinh viên năm học 2025-2026'), {
+    academicYear: '2025-2026', cohortYear: null, fromCohortYear: null,
+  });
 });
 
 const insertOfficialDocument = (fixture: ReturnType<typeof makeDatabase>, input: {
@@ -230,6 +262,19 @@ test('formal locators are extracted only from File Search-grounded text, never f
   assert.deepEqual(extractOfficialDocumentLocators('Áp dụng cho năm 2026, trang 18.'), []);
 });
 
+test('grounded applicability extraction distinguishes intake years from academic years', () => {
+  assert.deepEqual(extractOfficialDocumentApplicability('Áp dụng cho khóa tuyển sinh năm 2026.'), [{
+    cohortYear: 2026, rawLabel: 'Khóa tuyển sinh năm 2026',
+  }]);
+  assert.deepEqual(extractOfficialDocumentApplicability('Áp dụng cho các khóa tuyển sinh từ năm 2027.'), [{
+    fromCohortYear: 2027, rawLabel: 'Từ khóa tuyển sinh năm 2027',
+  }]);
+  assert.deepEqual(extractOfficialDocumentApplicability('Cẩm nang sinh viên năm học 2025-2026.'), [{
+    academicYear: '2025-2026', rawLabel: 'Năm học 2025-2026',
+  }]);
+  assert.deepEqual(extractOfficialDocumentApplicability('Trang 18, năm 2026.'), []);
+});
+
 test('Gemini citations use grounded snippets or attributed output spans for locator metadata', async () => {
   const fixture = makeDatabase();
   try {
@@ -291,7 +336,7 @@ test('grading policy question is grounded in a D1-validated Gemini citation and 
     assert.deepEqual(result.documentSources[0]?.locators, ['Điều 21, khoản 2, điểm a']);
     assert.equal(result.answerSources.some((source) => source.type === 'document'), true);
     assert.equal(groqCalls, 0);
-    assert.equal(fileSearchCalls, 1);
+    assert.equal(fileSearchCalls, 2);
     const persisted = fixture.sql.prepare('SELECT document_sources_json FROM ai_chat_logs ORDER BY id DESC LIMIT 1').get() as { document_sources_json: string };
     assert.deepEqual(JSON.parse(persisted.document_sources_json)[0]?.locators, ['Điều 21, khoản 2, điểm a']);
   } finally {
@@ -330,6 +375,72 @@ test('empty or invalid Gemini citations block HUB policy answers without a Groq 
     globalThis.fetch = originalFetch;
     fixture.sql.close();
   }
+});
+
+test('coverage-mode grading uses at most two File Search calls and persists grounded applicability per source', async () => {
+  const fixture = makeDatabase();
+  const filters: string[] = [];
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo 2026', category: 'grading' });
+    insertOfficialDocument(fixture, { id: DOCUMENT_B, title: 'Quy chế đào tạo từ 2027', category: 'grading', version: 2 });
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'quy đổi điểm thang 4 HUB như nào?' }),
+    });
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+        filters.push(String(options.metadataFilter));
+        return filters.length === 1
+          ? {
+              reply: 'Áp dụng cho khóa tuyển sinh năm 2026.',
+              documentSources: [{ documentId: DOCUMENT_A, fileName: 'quy-che-2026.pdf', applicability: [{ rawLabel: 'Khóa tuyển sinh năm 2026', cohortYear: 2026 }] }],
+            }
+          : {
+              reply: 'Có bảng riêng áp dụng cho khóa tuyển sinh năm 2026 và các khóa tuyển sinh từ năm 2027.',
+              documentSources: [
+                { documentId: DOCUMENT_A, fileName: 'quy-che-2026.pdf', applicability: [{ rawLabel: 'Khóa tuyển sinh năm 2026', cohortYear: 2026 }] },
+                { documentId: DOCUMENT_B, fileName: 'quy-che-2027.pdf', applicability: [{ rawLabel: 'Từ khóa tuyển sinh năm 2027', fromCohortYear: 2027 }] },
+              ],
+            };
+      },
+    }) as { reply: string; documentSources: Array<{ documentId: string; applicability?: Array<{ cohortYear?: number; fromCohortYear?: number }> }> };
+    assert.equal(filters.length, 2);
+    assert.deepEqual(filters, ['visibility = "public" AND category = "grading"', 'visibility = "public"']);
+    assert.match(result.reply, /2026/);
+    assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A, DOCUMENT_B]);
+    assert.equal(result.documentSources[0]?.applicability?.[0]?.cohortYear, 2026);
+    assert.equal(result.documentSources[1]?.applicability?.[0]?.fromCohortYear, 2027);
+    const persisted = fixture.sql.prepare('SELECT document_sources_json FROM ai_chat_logs ORDER BY id DESC LIMIT 1').get() as { document_sources_json: string };
+    assert.equal(JSON.parse(persisted.document_sources_json)[1]?.applicability?.[0]?.fromCohortYear, 2027);
+  } finally { fixture.sql.close(); }
+});
+
+test('scholarship overview routes to official documents without hardcoded scholarship content', async () => {
+  const fixture = makeDatabase();
+  const filters: string[] = [];
+  const workerSource = readFileSync('cloudflare/worker/src/ai-advisor.ts', 'utf8');
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế học bổng', category: 'scholarship' });
+    const request = new Request('https://hotrosinhvienhub.id.vn/api/private/v1/ai-advisor', {
+      method: 'POST', headers: { Cookie: 'hubplanner_auth.session_token=opaque', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: 'các loại học bổng ở HUB?' }),
+    });
+    const groundedReply = 'Điều 2 nêu Học bổng Khuyến khích học tập, Học bổng Ngân hàng và Học bổng xã hội gồm Tương hỗ, Tài năng, Quốc tế, học bổng khác.';
+    const result = await handleAiAdvisor(request, new URL(request.url), {
+      ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key', GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test',
+      fileSearchAnswer: async (_env, _system, _history, _question, options) => {
+        filters.push(String(options.metadataFilter));
+        return { reply: groundedReply, documentSources: [{ documentId: DOCUMENT_A, fileName: 'hoc-bong.pdf' }] };
+      },
+    }) as { reply: string; documentSources: Array<{ documentId: string }> };
+    assert.equal(routeAdvisorDocuments('các loại học bổng ở HUB?').domain, 'scholarship');
+    assert.equal(routeAdvisorDocuments('các loại học bổng ở HUB?').coverageMode, true);
+    assert.equal(filters.length, 2);
+    assert.equal(result.reply, groundedReply);
+    assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
+    assert.doesNotMatch(workerSource, /Học bổng Ngân hàng|Học bổng Tương hỗ|Học bổng Quốc tế/u);
+  } finally { fixture.sql.close(); }
 });
 
 test('legacy general-category documents remain reachable through one bounded public fallback', async () => {

@@ -1,5 +1,13 @@
 import { privateApiRequest } from './privateApi';
 
+type AiDocumentApplicability = {
+  cohortYear?: number;
+  fromCohortYear?: number;
+  academicYear?: string;
+  effectiveFrom?: string;
+  rawLabel: string;
+};
+
 export type AiAdvisorTurn = {
   id: number;
   conversationId: string;
@@ -7,7 +15,7 @@ export type AiAdvisorTurn = {
   bot_reply?: string;
   created_at: string;
   is_helpful: boolean | null;
-  document_sources?: Array<{ id?: string | null; documentId?: string | null; title: string; fileName?: string; pageNumber?: number | null; locators?: string[] }>;
+  document_sources?: Array<{ id?: string | null; documentId?: string | null; title: string; fileName?: string; pageNumber?: number | null; locators?: string[]; applicability?: AiDocumentApplicability[] }>;
   document_search_unavailable?: boolean;
 };
 
@@ -38,7 +46,7 @@ export const sendAiAdvisorMessage = async (input: { question: string; history: A
     reply: string;
     logId?: number | null;
     conversationId: string;
-    documentSources?: Array<{ id?: string | null; documentId?: string | null; title: string; fileName?: string; pageNumber?: number | null; locators?: string[] }>;
+    documentSources?: Array<{ id?: string | null; documentId?: string | null; title: string; fileName?: string; pageNumber?: number | null; locators?: string[]; applicability?: AiDocumentApplicability[] }>;
     answerSources?: Array<{ type: string; id?: string | number; title: string; url?: string; date?: string }>;
     documentSearchUnavailable?: boolean;
   }>;

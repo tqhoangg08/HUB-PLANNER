@@ -5,12 +5,14 @@ import {
 } from './better-auth-identity.ts';
 import {
   answerWithGeminiFileSearch,
+  extractOfficialDocumentApplicability,
   extractOfficialDocumentLocators,
   GeminiFileSearchError,
   geminiFileSearchConfigured,
   publicDocumentMetadataFilter,
   type GeminiFileSearchFailureReason,
   type GeminiFileSearchEnv,
+  type GeminiDocumentApplicability,
 } from './gemini-file-search.ts';
 import {
   calculateCumulativeStats,
@@ -68,7 +70,16 @@ export type AdvisorDocumentDomain =
 export type AdvisorDocumentRoute = {
   documentSearch: boolean;
   domain: AdvisorDocumentDomain | null;
+  scope: AdvisorPolicyScope;
+  coverageMode: boolean;
+  /** @deprecated Prefer scope.academicYear. Kept for precedence compatibility. */
   academicYear: string | null;
+};
+
+export type AdvisorPolicyScope = {
+  academicYear: string | null;
+  cohortYear: number | null;
+  fromCohortYear: number | null;
 };
 
 export type AdvisorSource = {
@@ -147,21 +158,74 @@ const POLICY_DOMAIN_CUES: Array<[AdvisorDocumentDomain, string[]]> = [
 const academicYearFromQuestion = (question: string) =>
   normalizedQuestion(question).match(/\b(20\d{2}\s*-\s*20\d{2})\b/u)?.[1]?.replace(/\s+/g, '') || null;
 
+const documentDomainForText = (text: string) =>
+  POLICY_DOMAIN_CUES.find(([, cues]) => matches(text, cues))?.[0] || null;
+
+const recentUserQuestions = (history: unknown) => safeHistory(history)
+  .filter((entry) => entry.role === 'user')
+  .slice(-3)
+  .map((entry) => entry.content);
+
+const isEllipticalDocumentFollowup = (text: string) => text.length <= 100 && (
+  /(?:^|\s)(?:còn|vậy|thế|sao|nữa|khóa|khoá|k20\d{2}|tuyển sinh|từ năm|20\d{2})(?:\s|$)/iu.test(text)
+);
+
+/**
+ * Scope comes only from the user's current wording. A bare year is resolved
+ * as an intake year solely for an elliptical follow-up whose prior user turn
+ * already established an official-policy domain. Academic years stay distinct.
+ */
+export const extractAdvisorPolicyScope = (question: string, allowImplicitCohort = false): AdvisorPolicyScope => {
+  const text = normalizedQuestion(question);
+  const academicYear = academicYearFromQuestion(question);
+  const fromMatch = text.match(/(?:từ\s+(?:các\s+)?khóa(?:\s+tuyển\s+sinh)?(?:\s+năm)?|từ\s+năm)\s*(20\d{2})\b/iu)
+    || text.match(/(?:các\s+)?khóa\s+tuyển\s+sinh\s+từ\s+(?:năm\s*)?(20\d{2})\b/iu);
+  const cohortMatch = text.match(/(?:khóa|khoá)(?:\s+tuyển\s+sinh)?(?:\s+năm)?\s*(20\d{2})\b/iu)
+    || text.match(/\bk\s*(20\d{2})\b/iu)
+    || text.match(/tuyển\s+sinh(?:\s+năm)?\s*(20\d{2})\b/iu);
+  const bareYear = allowImplicitCohort && !academicYear
+    ? text.match(/(?:^|\s)(20\d{2})(?:\s|$)/u)?.[1]
+    : undefined;
+  return {
+    academicYear,
+    cohortYear: fromMatch ? null : Number(cohortMatch?.[1] || bareYear || 0) || null,
+    fromCohortYear: Number(fromMatch?.[1] || 0) || null,
+  };
+};
+
+const isCoverageQuestion = (text: string, domain: AdvisorDocumentDomain | null, scope: AdvisorPolicyScope) => {
+  if (!domain || scope.cohortYear || scope.fromCohortYear || scope.academicYear) return false;
+  if (domain === 'grading') return matches(text, ['quy đổi điểm', 'thang điểm', 'điểm chữ', 'hệ 4', 'hệ 10']);
+  if (domain === 'scholarship') return matches(text, ['các loại học bổng', 'học bổng gì', 'có học bổng nào', 'các học bổng']);
+  if (domain === 'graduation') return matches(text, ['điều kiện tốt nghiệp', 'xét tốt nghiệp']);
+  return matches(text, ['quy chế', 'quy định', 'hướng dẫn']);
+};
+
 /**
  * This router picks a policy domain, not a document. Gemini File Search and
  * document metadata select the actual document, so new official documents do
  * not require a code change.
  */
-export const routeAdvisorDocuments = (question: string): AdvisorDocumentRoute => {
+export const routeAdvisorDocuments = (question: string, history: unknown = []): AdvisorDocumentRoute => {
   const text = normalizedQuestion(question);
-  const domain = POLICY_DOMAIN_CUES.find(([, cues]) => matches(text, cues))?.[0] || null;
+  const domain = documentDomainForText(text);
   const hasOfficialCue = matches(text, POLICY_DOCUMENT_CUES);
   const hasInstitutionCue = matches(text, ['hub', 'buh', 'trường mình', 'nhà trường']);
-  const documentSearch = Boolean(domain || hasOfficialCue);
+  const followup = isEllipticalDocumentFollowup(text);
+  // Assistant messages are deliberately excluded: they are not an authority
+  // for routing a policy question. Recent user turns only resolve ellipsis.
+  const inheritedDomain = followup
+    ? [...recentUserQuestions(history)].reverse().map((item) => documentDomainForText(normalizedQuestion(item))).find(Boolean) || null
+    : null;
+  const resolvedDomain = domain || inheritedDomain;
+  const documentSearch = Boolean(resolvedDomain || hasOfficialCue);
+  const scope = extractAdvisorPolicyScope(question, Boolean(inheritedDomain));
   return {
     documentSearch,
-    domain: domain || (hasOfficialCue || hasInstitutionCue ? 'general_official_document' : null),
-    academicYear: academicYearFromQuestion(question),
+    domain: resolvedDomain || (hasOfficialCue || hasInstitutionCue ? 'general_official_document' : null),
+    scope,
+    coverageMode: isCoverageQuestion(text, resolvedDomain, scope),
+    academicYear: scope.academicYear,
   };
 };
 
@@ -170,10 +234,10 @@ export const extractCourseCode = (question: string) => {
   return match?.[1]?.toLocaleLowerCase('vi-VN') || null;
 };
 
-export const classifyAdvisorIntents = (question: string): AdvisorIntent[] => {
+export const classifyAdvisorIntents = (question: string, history: unknown = []): AdvisorIntent[] => {
   const text = normalizedQuestion(question);
   const intents = new Set<AdvisorIntent>();
-  const documentRoute = routeAdvisorDocuments(question);
+  const documentRoute = routeAdvisorDocuments(question, history);
   const personalAcademic = hasPersonalAcademicCue(text)
     && matches(text, ['gpa', 'điểm', 'học lực', 'môn nợ', 'tín chỉ', 'tốt nghiệp', 'hồ sơ học tập', 'ngành học']);
   if (personalAcademic) intents.add('student_academic');
@@ -413,10 +477,15 @@ const retrieveLostFound = async (db: D1Database, question: string) => {
        ORDER BY created_at DESC LIMIT 8`);
 };
 
-export const retrieveAdvisorContext = async (env: AiAdvisorEnv, userId: string, question: string): Promise<AdvisorRetrieval> => {
+export const retrieveAdvisorContext = async (
+  env: AiAdvisorEnv,
+  userId: string,
+  question: string,
+  history: unknown = [],
+): Promise<AdvisorRetrieval> => {
   const db = requireDb(env);
-  const intents = classifyAdvisorIntents(question);
-  const documentRoute = routeAdvisorDocuments(question);
+  const intents = classifyAdvisorIntents(question, history);
+  const documentRoute = routeAdvisorDocuments(question, history);
   const context: Record<string, unknown> = {};
   const sources: AdvisorSource[] = [];
   const missingAuthoritativeIntents: AdvisorIntent[] = [];
@@ -581,6 +650,7 @@ type ResolvedDocumentSource = {
   title: string;
   pageNumber: number | null;
   locators?: string[];
+  applicability?: GeminiDocumentApplicability[];
   category: string | null;
   academicYear: string | null;
   programCode: string;
@@ -594,6 +664,23 @@ const mergeGroundedLocators = (...values: unknown[]) => [...new Set(values.flatM
   ? value.flatMap((locator) => extractOfficialDocumentLocators(locator))
   : []))].slice(0, 3);
 
+/** Re-parse only grounded raw labels before persisting/returning scope metadata. */
+const mergeGroundedApplicability = (...values: unknown[]) => {
+  const byKey = new Map<string, GeminiDocumentApplicability>();
+  for (const value of values) {
+    if (!Array.isArray(value)) continue;
+    for (const candidate of value) {
+      if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue;
+      const rawLabel = String((candidate as Record<string, unknown>).rawLabel || '').trim();
+      for (const extracted of extractOfficialDocumentApplicability(rawLabel)) {
+        const key = [extracted.cohortYear || '', extracted.fromCohortYear || '', extracted.academicYear || '', extracted.effectiveFrom || '', extracted.rawLabel].join('|');
+        if (!byKey.has(key)) byKey.set(key, extracted);
+      }
+    }
+  }
+  return [...byKey.values()].slice(0, 3);
+};
+
 const mergeResolvedDocumentSources = (sources: ResolvedDocumentSource[]) => {
   const byDocumentId = new Map<string, ResolvedDocumentSource>();
   for (const source of sources) {
@@ -604,6 +691,8 @@ const mergeResolvedDocumentSources = (sources: ResolvedDocumentSource[]) => {
     }
     const locators = mergeGroundedLocators(existing.locators, source.locators);
     if (locators.length) existing.locators = locators;
+    const applicability = mergeGroundedApplicability(existing.applicability, source.applicability);
+    if (applicability.length) existing.applicability = applicability;
   }
   return [...byDocumentId.values()];
 };
@@ -690,12 +779,14 @@ export const resolveDocumentSourcesWithDiagnostics = async (
       return [];
     }
     const locators = mergeGroundedLocators(entry.locators);
+    const applicability = mergeGroundedApplicability(entry.applicability);
     return [{
       documentId: row.id,
       title: row.title,
       fileName: row.original_file_name,
       pageNumber: Number(entry.pageNumber || 0) || null,
       ...(locators.length ? { locators } : {}),
+      ...(applicability.length ? { applicability } : {}),
       category: normalizeAiDocumentCategory(row.category),
       academicYear: row.academic_year || null,
       programCode: String(row.program_code || 'all'),
@@ -756,7 +847,10 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
     if (logId) await patchTurnLog(env, userId, logId, { bot_reply: SAFE_TECH_REPLY });
     return { reply: SAFE_TECH_REPLY, logId, conversationId };
   }
-  const retrieval = await retrieveAdvisorContext(env, userId, question);
+  // Routing sees a strictly bounded set of prior user turns so short follow-up
+  // questions retain their policy domain without treating model output as fact.
+  const routingHistory = recentUserQuestions(body.history).map((content) => ({ role: 'user', content }));
+  const retrieval = await retrieveAdvisorContext(env, userId, question, routingHistory);
   const documentIntent = retrieval.documentRoute.documentSearch;
   if (retrieval.needsAuthoritativeSource && !retrieval.sources.length && !documentIntent) {
     if (logId) await patchTurnLog(env, userId, logId, { bot_reply: EMPTY_AUTHORITATIVE_REPLY, answer_sources: [] });
@@ -770,9 +864,14 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
     `Intent đã xác định: ${retrieval.intents.join(', ')}. Dữ liệu mục tiêu từ máy chủ: ${JSON.stringify(retrieval.context).slice(0, 14_000)}`,
     ...(documentIntent ? [
       `Câu hỏi cần tài liệu chính thức thuộc miền: ${retrieval.documentRoute.domain || 'general_official_document'}.`,
+      `Phạm vi người dùng hỏi (chưa phải kết luận): ${JSON.stringify(retrieval.documentRoute.scope)}.`,
       'Chỉ trả lời quy định HUB/BUH dựa trên tài liệu đã truy xuất và được trích dẫn. Không thay bằng kiến thức đại học phổ biến, không tự tạo bảng quy đổi, và nói rõ khi nguồn chưa đủ.',
       'Khi đoạn tài liệu được truy xuất nêu rõ Phần/Chương/Mục/Điều/Khoản/Điểm/Tiểu mục, hãy nêu chính xác locator đó. Không suy ra locator từ số trang, tên tệp, tiêu đề hoặc câu hỏi.',
       'Khi tài liệu có phạm vi khóa hoặc năm học khác nhau, hãy nêu rõ phạm vi áp dụng; không gộp các phiên bản thành một quy định duy nhất.',
+      ...(retrieval.documentRoute.coverageMode ? [
+        'Đây là câu hỏi tổng quan. Hãy trả lời trực tiếp trước, rồi trình bày đầy đủ các trường hợp/phân loại có trong các tài liệu truy xuất. Nếu văn bản chia theo khóa tuyển sinh, năm học, chương trình hoặc thời điểm hiệu lực, phải tách rõ từng phạm vi và không bỏ qua một phạm vi chỉ vì câu hỏi ngắn.',
+        'Không suy diễn khóa tuyển sinh từ năm học hoặc tên tài liệu. Khi nguồn có số liệu/bảng cụ thể, nêu rõ các số liệu/bảng đó; nếu một phạm vi không được nguồn nêu rõ thì nói rõ giới hạn này.',
+      ] : []),
     ] : []),
     ...(retrieval.missingAuthoritativeIntents.length
       ? [`Không tìm thấy nguồn hiện hành cho các phần: ${retrieval.missingAuthoritativeIntents.join(', ')}. Chỉ trả lời phần có nguồn; không suy đoán hoặc bù thêm dữ kiện cho các phần thiếu nguồn.`]
@@ -819,16 +918,27 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
       const narrowed = domain && domain !== 'general_official_document'
         ? await search(publicDocumentMetadataFilter(domain), true)
         : null;
-      // A metadata/category miss must not exclude legacy documents. An actual
-      // Gemini transport/API failure is fundamentally unavailable, so a broad
-      // retry would not provide a meaningful recovery path.
+      // A metadata/category miss must not exclude legacy documents. Coverage
+      // questions intentionally use one broad follow-up search even after a
+      // valid narrowed result so File Search can ground multiple applicable
+      // ranges. This is bounded to two interactions per user turn.
       let shouldSearchBroadly = true;
-      if (narrowed?.success === true) shouldSearchBroadly = false;
+      if (narrowed?.success === true) shouldSearchBroadly = retrieval.documentRoute.coverageMode;
       else if (narrowed) shouldSearchBroadly = (narrowed as Extract<DocumentSearchOutcome, { success: false }>).reason !== 'GEMINI_REQUEST_FAILED';
       const broad = shouldSearchBroadly
         ? await search(publicDocumentMetadataFilter(), false)
         : null;
-      const grounded = narrowed?.success ? narrowed : broad?.success ? broad : null;
+      const narrowedSuccess = narrowed?.success ? narrowed : null;
+      const broadSuccess = broad?.success ? broad : null;
+      const grounded = retrieval.documentRoute.coverageMode && narrowedSuccess && broadSuccess
+        ? {
+            success: true as const,
+            // The broad interaction receives the same coverage instruction and
+            // is the answer candidate; sources are merged from both searches.
+            result: broadSuccess.result,
+            documentSources: mergeResolvedDocumentSources([...narrowedSuccess.documentSources, ...broadSuccess.documentSources]),
+          }
+        : narrowedSuccess || broadSuccess;
       if (grounded) {
         const { result, documentSources } = grounded;
         // Current FileCitation annotations expose identifiers and byte spans but
@@ -838,13 +948,21 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
         const replyLocators = documentSources.length === 1 && !(documentSources[0]?.locators?.length)
           ? extractOfficialDocumentLocators(result.reply)
           : [];
-        const sourcesWithLocators = documentSources.map((document) => {
+        const replyApplicability = documentSources.length === 1 && !(documentSources[0]?.applicability?.length)
+          ? extractOfficialDocumentApplicability(result.reply)
+          : [];
+        const sourcesWithGrounding = documentSources.map((document) => {
           const locators = mergeGroundedLocators(document.locators, replyLocators);
-          return locators.length ? { ...document, locators } : document;
+          const applicability = mergeGroundedApplicability(document.applicability, replyApplicability);
+          return {
+            ...document,
+            ...(locators.length ? { locators } : {}),
+            ...(applicability.length ? { applicability } : {}),
+          };
         });
-        const answerSources = [...retrieval.sources, ...sourcesWithLocators.map((document) => ({ type: 'document' as const, title: String(document.title || document.fileName || 'Tài liệu chính thức'), id: document.documentId || undefined }))];
-        if (logId) await patchTurnLog(env, userId, logId, { bot_reply: result.reply, document_sources: sourcesWithLocators, answer_sources: answerSources, document_search_unavailable: false });
-        return { reply: result.reply, logId, conversationId, documentSources: sourcesWithLocators, answerSources, documentSearchUnavailable: false };
+        const answerSources = [...retrieval.sources, ...sourcesWithGrounding.map((document) => ({ type: 'document' as const, title: String(document.title || document.fileName || 'Tài liệu chính thức'), id: document.documentId || undefined }))];
+        if (logId) await patchTurnLog(env, userId, logId, { bot_reply: result.reply, document_sources: sourcesWithGrounding, answer_sources: answerSources, document_search_unavailable: false });
+        return { reply: result.reply, logId, conversationId, documentSources: sourcesWithGrounding, answerSources, documentSearchUnavailable: false };
       }
       documentSearchUnavailable = true;
     }

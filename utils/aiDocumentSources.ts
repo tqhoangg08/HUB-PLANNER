@@ -5,6 +5,14 @@ export type AIDocumentSource = {
   fileName?: string;
   pageNumber?: number | null;
   locators?: string[];
+  applicability?: Array<{
+    cohortYear?: number;
+    fromCohortYear?: number;
+    academicYear?: string;
+    effectiveFrom?: string;
+    /** Grounded wording only; the UI never infers a scope. */
+    rawLabel: string;
+  }>;
 };
 
 const normalizedTitle = (value: string) => value
@@ -23,13 +31,26 @@ export const deduplicateAiDocumentSources = (sources: AIDocumentSource[]) => {
     const key = id ? `id:${id}` : `title:${normalizedTitle(title) || index}`;
     const locators = [...new Set((Array.isArray(source.locators) ? source.locators : [])
       .map((locator) => String(locator || '').trim()).filter(Boolean))].slice(0, 3);
+    const applicability = (Array.isArray(source.applicability) ? source.applicability : [])
+      .filter((item) => item && typeof item.rawLabel === 'string' && item.rawLabel.trim())
+      .map((item) => ({ ...item, rawLabel: item.rawLabel.trim().slice(0, 180) }))
+      .filter((item, itemIndex, items) => items.findIndex((other) => other.rawLabel === item.rawLabel) === itemIndex)
+      .slice(0, 3);
     const existing = byKey.get(key);
     if (!existing) {
-      byKey.set(key, locators.length ? { ...source, locators } : source);
+      byKey.set(key, {
+        ...source,
+        ...(locators.length ? { locators } : {}),
+        ...(applicability.length ? { applicability } : {}),
+      });
       continue;
     }
     const merged = [...new Set([...(existing.locators || []), ...locators])].slice(0, 3);
     if (merged.length) existing.locators = merged;
+    const mergedApplicability = [...(existing.applicability || []), ...applicability]
+      .filter((item, itemIndex, items) => items.findIndex((other) => other.rawLabel === item.rawLabel) === itemIndex)
+      .slice(0, 3);
+    if (mergedApplicability.length) existing.applicability = mergedApplicability;
   }
   return [...byKey.values()];
 };

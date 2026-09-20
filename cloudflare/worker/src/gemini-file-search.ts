@@ -18,6 +18,17 @@ export interface GeminiDocumentSource {
    * optional because the SDK does not guarantee retrieved passages.
    */
   locators?: string[];
+  /** Multiple grounded applicability ranges can belong to one cited document. */
+  applicability?: GeminiDocumentApplicability[];
+}
+
+export interface GeminiDocumentApplicability {
+  cohortYear?: number;
+  fromCohortYear?: number;
+  academicYear?: string;
+  effectiveFrom?: string;
+  /** Exact bounded wording found in retrieved text; never derived from a title or page. */
+  rawLabel: string;
 }
 
 /**
@@ -111,6 +122,57 @@ export const extractOfficialDocumentLocators = (value: unknown): string[] => {
   return components.length ? [components.join(', ')] : [];
 };
 
+const applicabilityKey = (value: GeminiDocumentApplicability) => [
+  value.cohortYear || '', value.fromCohortYear || '', value.academicYear || '', value.effectiveFrom || '', value.rawLabel,
+].join('|');
+
+const uniqueApplicability = (values: GeminiDocumentApplicability[]) => {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const key = applicabilityKey(value);
+    if (!value.rawLabel || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, MAX_LOCATORS_PER_SOURCE);
+};
+
+/**
+ * Reads applicability only from retrieved/attributed content. A year in a
+ * filename, citation page, or the user's question is intentionally ignored.
+ */
+export const extractOfficialDocumentApplicability = (value: unknown): GeminiDocumentApplicability[] => {
+  const text = typeof value === 'string' ? value.slice(0, 4_000) : '';
+  if (!text) return [];
+  const matches: GeminiDocumentApplicability[] = [];
+  const add = (applicability: Omit<GeminiDocumentApplicability, 'rawLabel'>, rawLabel: string) => {
+    const label = rawLabel.replace(/\s+/g, ' ').trim().slice(0, 180);
+    if (label) matches.push({ ...applicability, rawLabel: label });
+  };
+
+  for (const match of text.matchAll(/(?:áp\s+dụng[^\n.;]{0,100}?)?(?:các\s+)?khóa\s+tuyển\s+sinh\s+từ\s+(?:năm\s*)?(20\d{2})\b/giu)) {
+    add({ fromCohortYear: Number(match[1]) }, `Từ khóa tuyển sinh năm ${match[1]}`);
+  }
+  // Also recognize the safe, normalized label that this helper itself emits
+  // when sources are deduplicated later in the Worker.
+  for (const match of text.matchAll(/(?:^|[^\p{L}\p{N}])từ\s+khóa\s+tuyển\s+sinh\s+(?:năm\s*)?(20\d{2})\b/giu)) {
+    add({ fromCohortYear: Number(match[1]) }, `Từ khóa tuyển sinh năm ${match[1]}`);
+  }
+  for (const match of text.matchAll(/(?:áp\s+dụng[^\n.;]{0,100}?)?khóa\s+tuyển\s+sinh(?:\s+năm)?\s+(20\d{2})\b/giu)) {
+    // "từ năm" belongs to the range above, never a single-cohort rule.
+    const source = match[0];
+    if (/\btừ\s+(?:năm\s*)?20\d{2}\b/iu.test(source)) continue;
+    add({ cohortYear: Number(match[1]) }, `Khóa tuyển sinh năm ${match[1]}`);
+  }
+  for (const match of text.matchAll(/\bnăm\s+học\s*(20\d{2})\s*[-–]\s*(20\d{2})\b/giu)) {
+    add({ academicYear: `${match[1]}-${match[2]}` }, `Năm học ${match[1]}-${match[2]}`);
+  }
+  for (const match of text.matchAll(/\bcó\s+hiệu\s+lực\s+kể\s+từ\s+(?:ngày\s+)?([^\n.;]{2,96})/giu)) {
+    const effectiveFrom = match[1].replace(/\s+/g, ' ').trim();
+    add({ effectiveFrom }, `Có hiệu lực kể từ ${effectiveFrom}`);
+  }
+  return uniqueApplicability(matches);
+};
+
 const textValue = (value: unknown) => typeof value === 'string' ? value.trim() : '';
 
 const nestedTextValue = (value: unknown) => {
@@ -192,11 +254,14 @@ export const extractGeminiDocumentSources = (interaction: unknown): GeminiDocume
     if (!fileName && !documentId) continue;
     // Snippet/quote takes precedence. If unavailable, FileCitation's byte
     // offsets identify the grounded portion of the model answer.
-    const locators = uniqueLocators(extractOfficialDocumentLocators(citationSnippet(item) || citedTextSlice(annotation.text, item)));
+    const groundedText = citationSnippet(item) || citedTextSlice(annotation.text, item);
+    const locators = uniqueLocators(extractOfficialDocumentLocators(groundedText));
+    const applicability = extractOfficialDocumentApplicability(groundedText);
     const existingIndex = byKey.get(key);
     if (existingIndex !== undefined) {
       const existing = sources[existingIndex];
       if (locators.length) existing.locators = uniqueLocators([...(existing.locators || []), ...locators]);
+      if (applicability.length) existing.applicability = uniqueApplicability([...(existing.applicability || []), ...applicability]);
       continue;
     }
     byKey.set(key, sources.length);
@@ -206,6 +271,7 @@ export const extractGeminiDocumentSources = (interaction: unknown): GeminiDocume
       title: fileName ? fileName.replace(/\.[^.]+$/, '') : null,
       pageNumber,
       ...(locators.length ? { locators } : {}),
+      ...(applicability.length ? { applicability } : {}),
     });
   }
   return sources;
