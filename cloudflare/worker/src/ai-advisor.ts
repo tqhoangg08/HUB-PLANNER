@@ -5,6 +5,7 @@ import {
 } from './better-auth-identity.ts';
 import {
   answerWithGeminiFileSearch,
+  extractOfficialDocumentLocators,
   GeminiFileSearchError,
   geminiFileSearchConfigured,
   publicDocumentMetadataFilter,
@@ -579,6 +580,7 @@ type ResolvedDocumentSource = {
   fileName: string;
   title: string;
   pageNumber: number | null;
+  locators?: string[];
   category: string | null;
   academicYear: string | null;
   programCode: string;
@@ -586,6 +588,24 @@ type ResolvedDocumentSource = {
   createdAt: string;
   updatedAt: string;
   inferredCurrent: true;
+};
+
+const mergeGroundedLocators = (...values: unknown[]) => [...new Set(values.flatMap((value) => Array.isArray(value)
+  ? value.flatMap((locator) => extractOfficialDocumentLocators(locator))
+  : []))].slice(0, 3);
+
+const mergeResolvedDocumentSources = (sources: ResolvedDocumentSource[]) => {
+  const byDocumentId = new Map<string, ResolvedDocumentSource>();
+  for (const source of sources) {
+    const existing = byDocumentId.get(source.documentId);
+    if (!existing) {
+      byDocumentId.set(source.documentId, source);
+      continue;
+    }
+    const locators = mergeGroundedLocators(existing.locators, source.locators);
+    if (locators.length) existing.locators = locators;
+  }
+  return [...byDocumentId.values()];
 };
 
 type DocumentCitationRow = {
@@ -669,11 +689,13 @@ export const resolveDocumentSourcesWithDiagnostics = async (
       categoryRejected += 1;
       return [];
     }
+    const locators = mergeGroundedLocators(entry.locators);
     return [{
       documentId: row.id,
       title: row.title,
       fileName: row.original_file_name,
       pageNumber: Number(entry.pageNumber || 0) || null,
+      ...(locators.length ? { locators } : {}),
       category: normalizeAiDocumentCategory(row.category),
       academicYear: row.academic_year || null,
       programCode: String(row.program_code || 'all'),
@@ -683,7 +705,7 @@ export const resolveDocumentSourcesWithDiagnostics = async (
       inferredCurrent: true as const,
     }];
   }).sort((left, right) => documentPrecedence(route, left, right));
-  const deduplicated = resolved.filter((item, index, values) => values.findIndex((candidate) => candidate.documentId === item.documentId && candidate.pageNumber === item.pageNumber) === index);
+  const deduplicated = mergeResolvedDocumentSources(resolved);
   const reason: DocumentSourceResolution['reason'] = deduplicated.length
     ? 'SUCCESS'
     : categoryRejected > 0
@@ -749,6 +771,7 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
     ...(documentIntent ? [
       `Câu hỏi cần tài liệu chính thức thuộc miền: ${retrieval.documentRoute.domain || 'general_official_document'}.`,
       'Chỉ trả lời quy định HUB/BUH dựa trên tài liệu đã truy xuất và được trích dẫn. Không thay bằng kiến thức đại học phổ biến, không tự tạo bảng quy đổi, và nói rõ khi nguồn chưa đủ.',
+      'Khi đoạn tài liệu được truy xuất nêu rõ Phần/Chương/Mục/Điều/Khoản/Điểm/Tiểu mục, hãy nêu chính xác locator đó. Không suy ra locator từ số trang, tên tệp, tiêu đề hoặc câu hỏi.',
       'Khi tài liệu có phạm vi khóa hoặc năm học khác nhau, hãy nêu rõ phạm vi áp dụng; không gộp các phiên bản thành một quy định duy nhất.',
     ] : []),
     ...(retrieval.missingAuthoritativeIntents.length
@@ -808,9 +831,20 @@ const chat = async (env: AiAdvisorEnv, body: Record<string, unknown>, userId: st
       const grounded = narrowed?.success ? narrowed : broad?.success ? broad : null;
       if (grounded) {
         const { result, documentSources } = grounded;
-        const answerSources = [...retrieval.sources, ...documentSources.map((document) => ({ type: 'document' as const, title: String(document.title || document.fileName || 'Tài liệu chính thức'), id: document.documentId || undefined }))];
-        if (logId) await patchTurnLog(env, userId, logId, { bot_reply: result.reply, document_sources: documentSources, answer_sources: answerSources, document_search_unavailable: false });
-        return { reply: result.reply, logId, conversationId, documentSources, answerSources, documentSearchUnavailable: false };
+        // Current FileCitation annotations expose identifiers and byte spans but
+        // not a guaranteed retrieved passage. When exactly one D1-authorized
+        // document grounds the answer, parse an explicit locator from that
+        // grounded answer only; never infer from title, filename, or page.
+        const replyLocators = documentSources.length === 1 && !(documentSources[0]?.locators?.length)
+          ? extractOfficialDocumentLocators(result.reply)
+          : [];
+        const sourcesWithLocators = documentSources.map((document) => {
+          const locators = mergeGroundedLocators(document.locators, replyLocators);
+          return locators.length ? { ...document, locators } : document;
+        });
+        const answerSources = [...retrieval.sources, ...sourcesWithLocators.map((document) => ({ type: 'document' as const, title: String(document.title || document.fileName || 'Tài liệu chính thức'), id: document.documentId || undefined }))];
+        if (logId) await patchTurnLog(env, userId, logId, { bot_reply: result.reply, document_sources: sourcesWithLocators, answer_sources: answerSources, document_search_unavailable: false });
+        return { reply: result.reply, logId, conversationId, documentSources: sourcesWithLocators, answerSources, documentSearchUnavailable: false };
       }
       documentSearchUnavailable = true;
     }

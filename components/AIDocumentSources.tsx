@@ -4,6 +4,11 @@ import { deduplicateAiDocumentSources, type AIDocumentSource } from '../utils/ai
 
 export { deduplicateAiDocumentSources, type AIDocumentSource } from '../utils/aiDocumentSources';
 
+const formatLocator = (locator: string) => locator.split(',').map((part) => {
+  const value = part.trim();
+  return value ? `${value[0].toUpperCase()}${value.slice(1)}` : '';
+}).filter(Boolean).join(' · ');
+
 export const AIDocumentSources: React.FC<{
   sources?: AIDocumentSource[];
   unavailable?: boolean;
@@ -25,14 +30,21 @@ export const AIDocumentSources: React.FC<{
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
             Nguồn tham khảo{visibleSources.length > 1 ? ` (${visibleSources.length})` : ''}
           </p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="space-y-1.5">
             {visibleSources.map((source, index) => (
               <div
                 key={String(source.id || source.documentId || `${source.title}-${index}`)}
-                className="flex max-w-full items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-left text-[10px] font-semibold text-slate-700"
+                className="flex max-w-full items-start gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-left text-slate-700"
               >
-                <FileText size={11} aria-hidden="true" />
-                <span className="truncate">{source.title || source.fileName || 'Tài liệu chính thức'}</span>
+                <FileText size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="truncate text-[10px] font-semibold">{source.title || source.fileName || 'Tài liệu chính thức'}</p>
+                  {source.locators?.slice(0, 3).map((locator, locatorIndex) => (
+                    <p key={`${locator}-${locatorIndex}`} className="mt-0.5 text-[10px] font-normal text-slate-500">
+                      {formatLocator(locator)}
+                    </p>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

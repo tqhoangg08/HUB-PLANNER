@@ -13,6 +13,11 @@ export interface GeminiDocumentSource {
   fileName: string;
   title: string | null;
   pageNumber: number | null;
+  /**
+   * Deterministically parsed only from File Search grounding text. These are
+   * optional because the SDK does not guarantee retrieved passages.
+   */
+  locators?: string[];
 }
 
 /**
@@ -64,22 +69,110 @@ export const publicDocumentMetadataFilter = (category?: string | null) => {
     : 'visibility = "public"';
 };
 
-const walk = (value: unknown, annotations: Record<string, unknown>[]) => {
+const MAX_LOCATORS_PER_SOURCE = 3;
+
+const uniqueLocators = (locators: string[]) => [...new Set(locators.map((locator) => locator.trim()).filter(Boolean))]
+  .slice(0, MAX_LOCATORS_PER_SOURCE);
+
+/**
+ * Extracts formal Vietnamese document locators from text that File Search has
+ * grounded. It deliberately does not use filenames, questions, or pages.
+ */
+export const extractOfficialDocumentLocators = (value: unknown): string[] => {
+  const text = typeof value === 'string' ? value.slice(0, 4_000) : '';
+  if (!text) return [];
+  // Headings use a line boundary so "học phần 2" cannot become "Phần 2".
+  const part = text.match(/(?:^|\n)\s*phần\s+([ivxlcdm]+|\d{1,3})\b/imu)?.[1];
+  const chapter = text.match(/(?:^|[^\p{L}\p{N}])chương\s+([ivxlcdm]+|\d{1,3})\b/iu)?.[1];
+  const section = text.match(/(?:^|[^\p{L}\p{N}])mục\s+(\d{1,3}[a-z]?)\b/iu)?.[1];
+  const article = text.match(/(?:^|[^\p{L}\p{N}])điều\s+(\d{1,3}[a-z]?)\b/iu)?.[1];
+  const explicitClause = text.match(/(?:^|[^\p{L}\p{N}])khoản\s+(\d{1,3})\b/iu)?.[1];
+  // A bare "2." is a clause only in an excerpt that already names an article.
+  const numberedClause = article
+    ? text.match(/(?:^|\n)\s*(\d{1,3})\s*[.)](?=\s*[^\n\d][^\n]{0,180})/u)?.[1]
+    : undefined;
+  const clause = explicitClause || numberedClause;
+  const explicitPoint = text.match(/(?:^|[^\p{L}\p{N}])điểm\s+([a-zđ])\b/iu)?.[1];
+  // Likewise, a bare "a)" becomes a point only with article + clause context.
+  const letterPoint = article && clause
+    ? text.match(/(?:^|\n)\s*([a-zđ])\)(?=\s*\S)/iu)?.[1]
+    : undefined;
+  const point = explicitPoint || letterPoint;
+  const subitem = text.match(/(?:^|[^\p{L}\p{N}])tiểu\s*mục\s+(\d{1,3}[a-z]?)\b/iu)?.[1];
+
+  const components: string[] = [];
+  if (part) components.push(`Phần ${part.toUpperCase()}`);
+  if (chapter) components.push(`Chương ${chapter.toUpperCase()}`);
+  if (section) components.push(`Mục ${section}`);
+  if (article) components.push(`Điều ${article}`);
+  if (clause) components.push(`khoản ${clause}`);
+  if (point) components.push(`điểm ${point.toLowerCase()}`);
+  if (subitem) components.push(`tiểu mục ${subitem}`);
+  return components.length ? [components.join(', ')] : [];
+};
+
+const textValue = (value: unknown) => typeof value === 'string' ? value.trim() : '';
+
+const nestedTextValue = (value: unknown) => {
+  const item = record(value);
+  if (!item) return '';
+  return textValue(item.text) || textValue(item.content) || textValue(item.value);
+};
+
+/** FileCitation has no snippet in the current SDK type, but retain safe support for API variants. */
+const citationSnippet = (item: Record<string, unknown>) => {
+  const candidates = [
+    item.snippet, item.quote, item.text, item.content, item.context, item.passage,
+    nestedTextValue(item.content), nestedTextValue(item.grounding), nestedTextValue(item.retrievedContext),
+  ];
+  return candidates.map((candidate) => textValue(candidate)).find(Boolean) || '';
+};
+
+const citedTextSlice = (text: string | null, item: Record<string, unknown>) => {
+  if (!text) return '';
+  const start = Number(item.startIndex ?? item.start_index);
+  const end = Number(item.endIndex ?? item.end_index);
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end <= start) return '';
+  const bytes = new TextEncoder().encode(text);
+  if (end > bytes.byteLength) return '';
+  return new TextDecoder().decode(bytes.slice(start, end)).trim();
+};
+
+type GroundedAnnotation = { item: Record<string, unknown>; text: string | null };
+
+const walk = (value: unknown, annotations: GroundedAnnotation[], inheritedText: string | null = null) => {
   if (Array.isArray(value)) {
-    for (const item of value) walk(item, annotations);
+    for (const item of value) walk(item, annotations, inheritedText);
     return;
   }
   const item = record(value);
   if (!item) return;
-  if (item.type === 'file_citation' || item.type === 'fileCitation') annotations.push(item);
-  for (const child of Object.values(item)) walk(child, annotations);
+  const text = typeof item.text === 'string' ? item.text : inheritedText;
+  if (item.type === 'file_citation' || item.type === 'fileCitation') annotations.push({ item, text });
+  const attached = Array.isArray(item.annotations) ? item.annotations : [];
+  if (typeof item.text === 'string') {
+    for (const annotation of attached) {
+      const candidate = record(annotation);
+      if (candidate && (candidate.type === 'file_citation' || candidate.type === 'fileCitation')) {
+        annotations.push({ item: candidate, text: item.text });
+      }
+    }
+  }
+  for (const [key, child] of Object.entries(item)) {
+    // Citations on this exact text block were already collected with their
+    // attributed text above. Avoid a duplicate without citation context.
+    if (key === 'annotations' && typeof item.text === 'string') continue;
+    walk(child, annotations, text);
+  }
 };
 
 export const extractGeminiDocumentSources = (interaction: unknown): GeminiDocumentSource[] => {
-  const annotations: Record<string, unknown>[] = [];
+  const annotations: GroundedAnnotation[] = [];
   walk(interaction, annotations);
-  const seen = new Set<string>();
-  return annotations.flatMap((item) => {
+  const sources: GeminiDocumentSource[] = [];
+  const byKey = new Map<string, number>();
+  for (const annotation of annotations) {
+    const item = annotation.item;
     // @google/genai's JavaScript objects use camelCase, while stored/mocked
     // interaction payloads can use the REST API's snake_case. Normalize both
     // before D1 performs the actual authority check.
@@ -96,10 +189,26 @@ export const extractGeminiDocumentSources = (interaction: unknown): GeminiDocume
     const key = `${documentId || source}|${fileName}|${pageNumber || ''}`;
     // A citation with a D1 identifier remains useful even if Gemini omits its
     // presentation filename: the authoritative D1 row supplies that later.
-    if ((!fileName && !documentId) || seen.has(key)) return [];
-    seen.add(key);
-    return [{ documentId, fileName, title: fileName ? fileName.replace(/\.[^.]+$/, '') : null, pageNumber }];
-  });
+    if (!fileName && !documentId) continue;
+    // Snippet/quote takes precedence. If unavailable, FileCitation's byte
+    // offsets identify the grounded portion of the model answer.
+    const locators = uniqueLocators(extractOfficialDocumentLocators(citationSnippet(item) || citedTextSlice(annotation.text, item)));
+    const existingIndex = byKey.get(key);
+    if (existingIndex !== undefined) {
+      const existing = sources[existingIndex];
+      if (locators.length) existing.locators = uniqueLocators([...(existing.locators || []), ...locators]);
+      continue;
+    }
+    byKey.set(key, sources.length);
+    sources.push({
+      documentId,
+      fileName,
+      title: fileName ? fileName.replace(/\.[^.]+$/, '') : null,
+      pageNumber,
+      ...(locators.length ? { locators } : {}),
+    });
+  }
+  return sources;
 };
 
 export const buildGeminiInteractionSteps = (

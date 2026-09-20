@@ -13,7 +13,7 @@ import {
   routeAdvisorDocuments,
   shouldUseDocumentSearch,
 } from '../cloudflare/worker/src/ai-advisor.ts';
-import { extractGeminiDocumentSources, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
+import { extractGeminiDocumentSources, extractOfficialDocumentLocators, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
 import { normalizeAiDocumentCategory } from '../shared/ai-document-categories.ts';
 
 const USER = '11111111-1111-4111-8111-111111111111';
@@ -140,7 +140,7 @@ test('deleted, non-completed and non-public Gemini citations are rejected by D1'
     insertOfficialDocument(fixture, { id: processing, title: 'Đang lập chỉ mục', indexingStatus: 'processing' });
     insertOfficialDocument(fixture, { id: adminOnly, title: 'Nội bộ', visibility: 'admin' });
     const result = await resolveDocumentSources(env(fixture.DB), [
-      { documentId: deleted, fileName: 'deleted.pdf' },
+      { documentId: deleted, fileName: 'deleted.pdf', locators: ['Điều 21, khoản 2, điểm a'] },
       { documentId: processing, fileName: 'processing.pdf' },
       { documentId: adminOnly, fileName: 'admin.pdf' },
     ], routeAdvisorDocuments('Quy đổi điểm ở HUB'));
@@ -221,10 +221,46 @@ test('camelCase Gemini citations are extracted then resolved through the same bo
   } finally { fixture.sql.close(); }
 });
 
+test('formal locators are extracted only from File Search-grounded text, never from pages or unrelated numbers', () => {
+  assert.deepEqual(extractOfficialDocumentLocators(`Điều 21. Thang điểm đánh giá học phần\n2. Thang điểm áp dụng:\na) Áp dụng cho khóa tuyển sinh năm 2026`), [
+    'Điều 21, khoản 2, điểm a',
+  ]);
+  assert.deepEqual(extractOfficialDocumentLocators('Chương IV\nĐiều 21. Quy định chung'), ['Chương IV, Điều 21']);
+  assert.deepEqual(extractOfficialDocumentLocators('Mục 4. Xếp loại kết quả rèn luyện'), ['Mục 4']);
+  assert.deepEqual(extractOfficialDocumentLocators('Áp dụng cho năm 2026, trang 18.'), []);
+});
+
+test('Gemini citations use grounded snippets or attributed output spans for locator metadata', async () => {
+  const fixture = makeDatabase();
+  try {
+    insertOfficialDocument(fixture, { id: DOCUMENT_A, title: 'Quy chế đào tạo', category: 'grading' });
+    const reply = 'Theo Điều 21, khoản 2, điểm a, quy định này áp dụng cho khóa tuyển sinh năm 2026.';
+    const citations = extractGeminiDocumentSources({ modelOutput: { content: [{ type: 'text', text: reply, annotations: [{
+      type: 'file_citation',
+      customMetadata: { document_id: DOCUMENT_A },
+      fileName: 'quy-che.pdf',
+      startIndex: 0,
+      endIndex: new TextEncoder().encode(reply).byteLength,
+      pageNumber: 18,
+    }] }] } });
+    assert.deepEqual(citations[0]?.locators, ['Điều 21, khoản 2, điểm a']);
+    const snippetCitation = extractGeminiDocumentSources({ annotations: [{
+      type: 'file_citation', customMetadata: { document_id: DOCUMENT_A }, fileName: 'quy-che.pdf',
+      snippet: 'Điều 21.\n2. Thang điểm đánh giá học phần.\na) Áp dụng cho khóa tuyển sinh năm 2026.',
+    }] });
+    assert.deepEqual(snippetCitation[0]?.locators, ['Điều 21, khoản 2, điểm a']);
+    const resolution = await resolveDocumentSourcesWithDiagnostics(
+      env(fixture.DB), citations as unknown as Array<Record<string, unknown>>, routeAdvisorDocuments('Quy đổi điểm ở HUB'),
+    );
+    assert.deepEqual(resolution.sources[0]?.locators, ['Điều 21, khoản 2, điểm a']);
+  } finally { fixture.sql.close(); }
+});
+
 test('grading policy question is grounded in a D1-validated Gemini citation and never calls Groq', async () => {
   const fixture = makeDatabase();
   const originalFetch = globalThis.fetch;
   let groqCalls = 0;
+  let fileSearchCalls = 0;
   globalThis.fetch = async (input) => {
     const target = String(input);
     if (target.includes('api.groq.com')) {
@@ -242,15 +278,22 @@ test('grading policy question is grounded in a D1-validated Gemini citation and 
     const result = await handleAiAdvisor(request, new URL(request.url), {
       ...env(fixture.DB), GEMINI_FILE_SEARCH_ENABLED: 'true', GEMINI_FILE_SEARCH_API_KEY: 'test-key',
       GEMINI_FILE_SEARCH_STORE: 'fileSearchStores/test', GROQ_API_KEY: 'test-key',
-      fileSearchAnswer: async () => ({
-        reply: 'Quy đổi điểm được nêu trong quy chế chính thức.',
+      fileSearchAnswer: async () => {
+        fileSearchCalls += 1;
+        return {
+        reply: 'Theo Điều 21, khoản 2, điểm a của quy chế chính thức.',
         documentSources: [{ documentId: DOCUMENT_A, fileName: 'Quy chế đào tạo.pdf', title: 'Quy chế đào tạo', pageNumber: 1 }],
-      }),
-    }) as { reply: string; documentSources: Array<{ documentId: string }>; answerSources: Array<{ type: string }> };
-    assert.equal(result.reply, 'Quy đổi điểm được nêu trong quy chế chính thức.');
+        };
+      },
+    }) as { reply: string; documentSources: Array<{ documentId: string; locators?: string[] }>; answerSources: Array<{ type: string }> };
+    assert.equal(result.reply, 'Theo Điều 21, khoản 2, điểm a của quy chế chính thức.');
     assert.deepEqual(result.documentSources.map((source) => source.documentId), [DOCUMENT_A]);
+    assert.deepEqual(result.documentSources[0]?.locators, ['Điều 21, khoản 2, điểm a']);
     assert.equal(result.answerSources.some((source) => source.type === 'document'), true);
     assert.equal(groqCalls, 0);
+    assert.equal(fileSearchCalls, 1);
+    const persisted = fixture.sql.prepare('SELECT document_sources_json FROM ai_chat_logs ORDER BY id DESC LIMIT 1').get() as { document_sources_json: string };
+    assert.deepEqual(JSON.parse(persisted.document_sources_json)[0]?.locators, ['Điều 21, khoản 2, điểm a']);
   } finally {
     globalThis.fetch = originalFetch;
     fixture.sql.close();
