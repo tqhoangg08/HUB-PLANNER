@@ -21,7 +21,18 @@ import {
   shouldUseDocumentSearch,
   withFileSearchDeadline,
 } from '../cloudflare/worker/src/ai-advisor.ts';
-import { buildDocumentCandidateMetadataFilter, buildGeminiPolicyContents, extractGenerateContentDocumentSources, extractGeminiDocumentSources, extractOfficialDocumentApplicability, extractOfficialDocumentLocators, GeminiFileSearchError } from '../cloudflare/worker/src/gemini-file-search.ts';
+import {
+  buildDocumentCandidateMetadataFilter,
+  buildGeminiPolicyContents,
+  buildGeminiRequestShapeDiagnostic,
+  classifyGeminiInvalidArgument,
+  extractGenerateContentDocumentSources,
+  extractGeminiDocumentSources,
+  extractOfficialDocumentApplicability,
+  extractOfficialDocumentLocators,
+  extractSafeGeminiApiErrorDiagnostics,
+  GeminiFileSearchError,
+} from '../cloudflare/worker/src/gemini-file-search.ts';
 import { normalizeAiDocumentCategory } from '../shared/ai-document-categories.ts';
 
 const USER = '11111111-1111-4111-8111-111111111111';
@@ -199,6 +210,48 @@ test('File Search deadline is bounded and classified without waiting indefinitel
     withFileSearchDeadline(new Promise<never>(() => undefined), 10, 'test-model'),
     (error: unknown) => error instanceof GeminiFileSearchError && error.reason === 'GEMINI_REQUEST_TIMEOUT',
   );
+});
+
+test('Gemini API error diagnostics retain only bounded structural INVALID_ARGUMENT evidence', () => {
+  const secretStore = 'fileSearchStores/private-production-store';
+  const secretDocumentId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const error = {
+    name: 'ApiError',
+    status: 400,
+    message: JSON.stringify({
+      error: {
+        code: 400,
+        status: 'INVALID_ARGUMENT',
+        message: `Invalid metadata_filter for ${secretStore}: document_id=${secretDocumentId}`,
+        details: [{ reason: 'INVALID_METADATA_FILTER', domain: 'generativelanguage.googleapis.com' }],
+      },
+    }),
+  };
+  const diagnostic = extractSafeGeminiApiErrorDiagnostics(error, [secretStore]);
+  assert.equal(diagnostic.status, 400);
+  assert.equal(diagnostic.apiErrorStatusText, 'INVALID_ARGUMENT');
+  assert.equal(diagnostic.apiErrorReason, 'INVALID_METADATA_FILTER@generativelanguage.googleapis.com');
+  assert.equal(diagnostic.google400Classification, 'INVALID_ARGUMENT_METADATA_FILTER');
+  assert.ok((diagnostic.apiErrorMessage || '').length <= 300);
+  assert.doesNotMatch(diagnostic.apiErrorMessage || '', /private-production-store/);
+  assert.doesNotMatch(diagnostic.apiErrorMessage || '', /aaaaaaaa-aaaa/);
+});
+
+test('Gemini INVALID_ARGUMENT classification requires field evidence and request shape is text-free', () => {
+  assert.equal(classifyGeminiInvalidArgument(400, 'INVALID_ARGUMENT', 'contents[1].role is invalid', undefined), 'INVALID_ARGUMENT_CONTENTS');
+  assert.equal(classifyGeminiInvalidArgument(400, 'INVALID_ARGUMENT', 'thinkingConfig.thinkingLevel is invalid', undefined), 'INVALID_ARGUMENT_THINKING_CONFIG');
+  assert.equal(classifyGeminiInvalidArgument(400, 'INVALID_ARGUMENT', 'Invalid request', undefined), 'INVALID_ARGUMENT_UNKNOWN');
+  assert.equal(classifyGeminiInvalidArgument(503, 'UNAVAILABLE', 'high demand', undefined), undefined);
+  assert.deepEqual(buildGeminiRequestShapeDiagnostic('system secret', 'user secret', 'visibility = "public"', 'minimal'), {
+    contentsKind: 'content_array',
+    contentsCount: 1,
+    systemChars: 13,
+    inputChars: 11,
+    maxOutputTokensPresent: true,
+    thinkingLevel: 'minimal',
+    toolCount: 1,
+    metadataFilterChars: 21,
+  });
 });
 
 const insertOfficialDocument = (fixture: ReturnType<typeof makeDatabase>, input: {

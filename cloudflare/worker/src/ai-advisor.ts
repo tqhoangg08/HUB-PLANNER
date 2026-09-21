@@ -1079,7 +1079,30 @@ const logFileSearchDiagnostic = (
   durationMs: number,
   citationCount: number,
   resolvedCitationCount: number,
-  extra: { errorName?: string; status?: number; model?: string; durationMs?: number; groundingChunkCount?: number; documentIdMetadataCount?: number; inputContentCount?: number } = {},
+  extra: {
+    errorName?: string;
+    status?: number;
+    model?: string;
+    durationMs?: number;
+    groundingChunkCount?: number;
+    documentIdMetadataCount?: number;
+    inputContentCount?: number;
+    apiErrorMessage?: string;
+    apiErrorStatusText?: string;
+    apiErrorReason?: string;
+    google400Classification?: string;
+    contentsKind?: 'string' | 'content_array';
+    contentsCount?: number;
+    systemChars?: number;
+    inputChars?: number;
+    maxOutputTokensPresent?: boolean;
+    thinkingLevel?: string;
+    toolCount?: number;
+    metadataFilterChars?: number;
+    keyFingerprint?: string;
+    storeFingerprint?: string;
+    metadataFilterFingerprint?: string;
+  } = {},
 ) => {
   // Deliberately omit the question, document ID/name, store, keys, raw SDK
   // response, and errors. This is enough to locate the failed stage safely.

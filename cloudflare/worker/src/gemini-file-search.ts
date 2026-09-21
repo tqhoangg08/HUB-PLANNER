@@ -48,13 +48,44 @@ export type GeminiFileSearchFailureReason =
   | 'D1_CITATION_CATEGORY_REJECTED'
   | 'SUCCESS';
 
+export type GeminiInvalidArgumentClassification =
+  | 'INVALID_ARGUMENT_CONTENTS'
+  | 'INVALID_ARGUMENT_TOOL'
+  | 'INVALID_ARGUMENT_METADATA_FILTER'
+  | 'INVALID_ARGUMENT_THINKING_CONFIG'
+  | 'INVALID_ARGUMENT_GENERATION_CONFIG'
+  | 'INVALID_ARGUMENT_MODEL'
+  | 'INVALID_ARGUMENT_UNKNOWN';
+
+export type GeminiFileSearchDiagnostics = {
+  model: string;
+  errorName?: string;
+  status?: number;
+  durationMs?: number;
+  apiErrorMessage?: string;
+  apiErrorStatusText?: string;
+  apiErrorReason?: string;
+  google400Classification?: GeminiInvalidArgumentClassification;
+  contentsKind?: 'string' | 'content_array';
+  contentsCount?: number;
+  systemChars?: number;
+  inputChars?: number;
+  maxOutputTokensPresent?: boolean;
+  thinkingLevel?: string;
+  toolCount?: number;
+  metadataFilterChars?: number;
+  keyFingerprint?: string;
+  storeFingerprint?: string;
+  metadataFilterFingerprint?: string;
+};
+
 export class GeminiFileSearchError extends Error {
   readonly reason: Extract<GeminiFileSearchFailureReason, 'GEMINI_REQUEST_FAILED' | 'GEMINI_REQUEST_TIMEOUT' | 'GEMINI_EMPTY_REPLY'>;
-  readonly diagnostics: { model: string; errorName?: string; status?: number; durationMs?: number };
+  readonly diagnostics: GeminiFileSearchDiagnostics;
 
   constructor(
     reason: Extract<GeminiFileSearchFailureReason, 'GEMINI_REQUEST_FAILED' | 'GEMINI_REQUEST_TIMEOUT' | 'GEMINI_EMPTY_REPLY'>,
-    diagnostics: { model: string; errorName?: string; status?: number; durationMs?: number },
+    diagnostics: GeminiFileSearchDiagnostics,
   ) {
     super(reason);
     this.name = 'GeminiFileSearchError';
@@ -78,6 +109,136 @@ const MAX_DOCUMENT_CANDIDATE_IDS = 12;
 
 const record = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+
+const MAX_SAFE_API_ERROR_MESSAGE_CHARS = 300;
+const UUID_LIKE_PATTERN = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/giu;
+const API_KEY_PATTERN = /\bAIza[0-9A-Za-z_-]{20,}\b/gu;
+const BEARER_PATTERN = /\bBearer\s+[0-9A-Za-z._~+\/-]+=*/giu;
+const STORE_PATTERN = /\bfileSearchStores\/[0-9A-Za-z_-]+\b/gu;
+const TOKENIZED_URL_PATTERN = /https?:\/\/[^\s"'<>?]+\?[^\s"'<>]*/giu;
+
+const parseJsonRecord = (value: unknown) => {
+  if (typeof value !== 'string' || !value.trim().startsWith('{')) return null;
+  try {
+    return record(JSON.parse(value));
+  } catch {
+    return null;
+  }
+};
+
+const boundedStructuralRecords = (error: unknown) => {
+  const root = record(error);
+  if (!root) return [];
+  const messageJson = parseJsonRecord(root.message);
+  const bodyJson = parseJsonRecord(root.body);
+  const response = record(root.response);
+  return [
+    root,
+    record(root.error),
+    messageJson,
+    record(messageJson?.error),
+    record(root.body),
+    bodyJson,
+    record(bodyJson?.error),
+    response,
+    record(response?.error),
+  ].filter((value): value is Record<string, unknown> => Boolean(value));
+};
+
+const structuralDetailValues = (records: Record<string, unknown>[]) => {
+  const reasons: string[] = [];
+  const domains: string[] = [];
+  for (const item of records) {
+    const details = Array.isArray(item.details) ? item.details.slice(0, 8) : [];
+    for (const detail of details) {
+      const entry = record(detail);
+      if (!entry) continue;
+      if (typeof entry.reason === 'string') reasons.push(entry.reason);
+      if (typeof entry.domain === 'string') domains.push(entry.domain);
+    }
+  }
+  return { reasons, domains };
+};
+
+const sanitizeApiErrorText = (value: unknown, sensitiveValues: readonly string[]) => {
+  let text = String(value || '').replace(/\s+/g, ' ').trim();
+  for (const sensitive of sensitiveValues) {
+    const candidate = String(sensitive || '').trim();
+    if (candidate.length >= 4) text = text.split(candidate).join('[REDACTED]');
+  }
+  return text
+    .replace(TOKENIZED_URL_PATTERN, '[URL_REDACTED]')
+    .replace(BEARER_PATTERN, 'Bearer [REDACTED]')
+    .replace(API_KEY_PATTERN, '[API_KEY_REDACTED]')
+    .replace(STORE_PATTERN, '[STORE_REDACTED]')
+    .replace(UUID_LIKE_PATTERN, '[DOCUMENT_ID_REDACTED]')
+    .slice(0, MAX_SAFE_API_ERROR_MESSAGE_CHARS);
+};
+
+export const classifyGeminiInvalidArgument = (
+  status: number | undefined,
+  statusText: string | undefined,
+  message: string | undefined,
+  reason: string | undefined,
+): GeminiInvalidArgumentClassification | undefined => {
+  const evidence = `${statusText || ''} ${message || ''} ${reason || ''}`.toLowerCase();
+  if (status !== 400 && !evidence.includes('invalid_argument') && !evidence.includes('invalid argument')) return undefined;
+  if (/metadata[_\s-]*filter|aip-?160/.test(evidence)) return 'INVALID_ARGUMENT_METADATA_FILTER';
+  if (/thinking[_\s-]*(config|level|budget)|thinkingconfig/.test(evidence)) return 'INVALID_ARGUMENT_THINKING_CONFIG';
+  if (/max[_\s-]*output[_\s-]*tokens|generation[_\s-]*config|generationconfig/.test(evidence)) return 'INVALID_ARGUMENT_GENERATION_CONFIG';
+  if (/\bmodel(s)?\b|model[_\s-]*name/.test(evidence)) return 'INVALID_ARGUMENT_MODEL';
+  if (/\bcontents?\b|\bparts?\b|\brole\b/.test(evidence)) return 'INVALID_ARGUMENT_CONTENTS';
+  if (/file[_\s-]*search|filesearch|\btools?\b|file[_\s-]*search[_\s-]*store/.test(evidence)) return 'INVALID_ARGUMENT_TOOL';
+  return 'INVALID_ARGUMENT_UNKNOWN';
+};
+
+export const extractSafeGeminiApiErrorDiagnostics = (
+  error: unknown,
+  sensitiveValues: readonly string[] = [],
+) => {
+  const records = boundedStructuralRecords(error);
+  const root = record(error);
+  const statusValue = records.map((item) => item.status ?? item.statusCode ?? item.code)
+    .find((value) => Number.isInteger(Number(value)));
+  const parsedStatus = Number(statusValue);
+  const status = Number.isInteger(parsedStatus) && parsedStatus >= 100 && parsedStatus <= 599 ? parsedStatus : undefined;
+  const statusTextRaw = records.map((item) => item.status).find((value) => typeof value === 'string');
+  const messages = records.map((item) => item.message).filter((value): value is string => typeof value === 'string');
+  const apiMessage = messages.find((value) => !value.trim().startsWith('{')) || messages[0] || '';
+  const { reasons, domains } = structuralDetailValues(records);
+  const statusText = sanitizeApiErrorText(statusTextRaw, sensitiveValues) || undefined;
+  const apiErrorMessage = sanitizeApiErrorText(apiMessage, sensitiveValues) || undefined;
+  const apiErrorReason = sanitizeApiErrorText([reasons[0], domains[0]].filter(Boolean).join('@'), sensitiveValues) || undefined;
+  return {
+    errorName: typeof root?.name === 'string' ? root.name.slice(0, 80) : undefined,
+    status,
+    apiErrorMessage,
+    apiErrorStatusText: statusText,
+    apiErrorReason,
+    google400Classification: classifyGeminiInvalidArgument(status, statusText, apiErrorMessage, apiErrorReason),
+  };
+};
+
+export const buildGeminiRequestShapeDiagnostic = (
+  system: string,
+  retrievalInput: string,
+  metadataFilter: string,
+  thinkingLevel: string,
+) => ({
+  contentsKind: 'content_array' as const,
+  contentsCount: 1,
+  systemChars: system.length,
+  inputChars: retrievalInput.length,
+  maxOutputTokensPresent: true,
+  thinkingLevel,
+  toolCount: 1,
+  metadataFilterChars: metadataFilter.length,
+});
+
+const sha256Fingerprint = async (value: string) => {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, 12);
+};
 
 export const geminiFileSearchConfigured = (env: GeminiFileSearchEnv) =>
   env.GEMINI_FILE_SEARCH_ENABLED === 'true'
@@ -437,6 +598,10 @@ export const answerWithGeminiFileSearch = async (
   const configuredThinking = String(env.GEMINI_THINKING_LEVEL || 'minimal').toLowerCase();
   const thinkingLevel = ['minimal', 'medium', 'high'].includes(configuredThinking) ? configuredThinking : 'minimal';
   const timeoutMs = Math.max(1_000, Math.min(Number(options.timeoutMs) || DEFAULT_FILE_SEARCH_TIMEOUT_MS, DEFAULT_FILE_SEARCH_TIMEOUT_MS));
+  const storeName = String(env.GEMINI_FILE_SEARCH_STORE);
+  const apiKey = String(env.GEMINI_FILE_SEARCH_API_KEY);
+  const metadataFilter = options.metadataFilter || publicDocumentMetadataFilter();
+  const requestShape = buildGeminiRequestShapeDiagnostic(system, retrievalInput, metadataFilter, thinkingLevel);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const startedAt = Date.now();
@@ -450,8 +615,8 @@ export const answerWithGeminiFileSearch = async (
         maxOutputTokens: FILE_SEARCH_MAX_OUTPUT_TOKENS,
         thinkingConfig: { thinkingLevel: thinkingLevel.toUpperCase() },
         tools: [{ fileSearch: {
-          fileSearchStoreNames: [String(env.GEMINI_FILE_SEARCH_STORE)],
-          metadataFilter: options.metadataFilter || publicDocumentMetadataFilter(),
+          fileSearchStoreNames: [storeName],
+          metadataFilter,
         } }],
         abortSignal: controller.signal,
         httpOptions: { timeout: timeoutMs },
@@ -459,17 +624,22 @@ export const answerWithGeminiFileSearch = async (
     } as never);
   } catch (error) {
     const durationMs = Math.max(0, Date.now() - startedAt);
-    const candidate = record(error);
-    const response = record(candidate?.response);
-    const statusValue = candidate?.status ?? candidate?.statusCode ?? response?.status;
-    const parsedStatus = Number(statusValue);
-    const status = Number.isInteger(parsedStatus) && parsedStatus >= 100 && parsedStatus <= 599
-      ? parsedStatus
-      : undefined;
-    const errorName = typeof candidate?.name === 'string' ? candidate.name.slice(0, 80) : undefined;
+    const safeApiError = extractSafeGeminiApiErrorDiagnostics(error, [apiKey, storeName, retrievalInput, system]);
+    const [keyFingerprint, storeFingerprint, metadataFilterFingerprint] = await Promise.all([
+      sha256Fingerprint(apiKey),
+      sha256Fingerprint(storeName),
+      sha256Fingerprint(metadataFilter),
+    ]);
+    const errorName = safeApiError.errorName;
     const timedOut = controller.signal.aborted || errorName === 'AbortError' || durationMs >= timeoutMs;
     throw new GeminiFileSearchError(timedOut ? 'GEMINI_REQUEST_TIMEOUT' : 'GEMINI_REQUEST_FAILED', {
-      model, errorName, status, durationMs,
+      model,
+      ...safeApiError,
+      ...requestShape,
+      keyFingerprint,
+      storeFingerprint,
+      metadataFilterFingerprint,
+      durationMs,
     });
   } finally {
     clearTimeout(timeout);
